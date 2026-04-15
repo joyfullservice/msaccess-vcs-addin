@@ -611,16 +611,22 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 4/14/2026
 ' Purpose   : Export a single named object by type and name.
-'           : Accepts string type names ("query", "form", "report", "module", "table",
-'           : "macro") and resolves to the AccessObject internally.
-'           : Returns JSON: {"success":true/false, "filePath":"...", "error":"..."}
+'           : Accepts any type string recognized by ResolveComponentType (singular,
+'           : plural, or alias forms). For core Access objects the name is required;
+'           : for single-file component types the name is ignored.
+'           : Returns JSON: {"success":true/false, "logPath":"...", "error":"..."}
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function ExportObject(strObjectType As String, strObjectName As String) As String
+Public Function ExportObject(strObjectType As String, Optional strObjectName As String) As String
 
+    Dim intComponentType As eDatabaseComponentType
     Dim objItem As AccessObject
-    Dim lngType As AcObjectType
+    Dim cComponent As IDbComponent
+    Dim cItem As IDbComponent
+    Dim dItems As Dictionary
+    Dim varKey As Variant
+    Dim blnFound As Boolean
     Dim dResult As Dictionary
 
     LogUnhandledErrors
@@ -628,56 +634,158 @@ Public Function ExportObject(strObjectType As String, strObjectName As String) A
 
     Set dResult = New Dictionary
 
-    ' Resolve type string to AcObjectType
-    Select Case LCase$(strObjectType)
-        Case "query":   lngType = acQuery
-        Case "form":    lngType = acForm
-        Case "report":  lngType = acReport
-        Case "module":  lngType = acModule
-        Case "table":   lngType = acTable
-        Case "macro":   lngType = acMacro
+    ' Resolve type string to eDatabaseComponentType via the shared helper
+    intComponentType = ResolveComponentType(strObjectType)
+    If intComponentType = -1 Then
+        dResult.Add "success", False
+        dResult.Add "error", "Unknown object type: " & strObjectType & _
+            ". See ResolveComponentType in modContainers for accepted values."
+        ExportObject = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Branch based on whether this is a core AccessObject type
+    Select Case intComponentType
+        Case edbQuery, edbForm, edbReport, edbModule, edbTableDef, edbMacro
+            ' --- Core AccessObject path (uses ExportSingleObject) ---
+            If Len(strObjectName) = 0 Then
+                dResult.Add "success", False
+                dResult.Add "error", "Object name is required for type: " & strObjectType
+                ExportObject = ConvertToJson(dResult)
+                Exit Function
+            End If
+
+            On Error Resume Next
+            Select Case intComponentType
+                Case edbQuery:      Set objItem = CurrentData.AllQueries(strObjectName)
+                Case edbForm:       Set objItem = CurrentProject.AllForms(strObjectName)
+                Case edbReport:     Set objItem = CurrentProject.AllReports(strObjectName)
+                Case edbModule:     Set objItem = CurrentProject.AllModules(strObjectName)
+                Case edbTableDef:   Set objItem = CurrentData.AllTables(strObjectName)
+                Case edbMacro:      Set objItem = CurrentProject.AllMacros(strObjectName)
+            End Select
+            On Error GoTo ErrHandler
+
+            If objItem Is Nothing Then
+                dResult.Add "success", False
+                dResult.Add "error", "Object not found: " & strObjectType & " '" & strObjectName & "'"
+                ExportObject = ConvertToJson(dResult)
+                Exit Function
+            End If
+
+            ' Begin operation and delegate to ExportSingleObject
+            If Not Operation.Begin(eotExport) Then
+                dResult.Add "success", False
+                dResult.Add "error", "Could not begin export operation (another operation may be running)"
+                ExportObject = ConvertToJson(dResult)
+                Exit Function
+            End If
+
+            modExport.ExportSingleObject objItem
+            Set objItem = Nothing
+
         Case Else
-            dResult.Add "success", False
-            dResult.Add "error", "Unknown object type: " & strObjectType & ". Use query, form, report, module, table, or macro."
-            ExportObject = ConvertToJson(dResult)
-            Exit Function
+            ' --- Non-core component type path ---
+            If Not Operation.Begin(eotExport) Then
+                dResult.Add "success", False
+                dResult.Add "error", "Could not begin export operation (another operation may be running)"
+                ExportObject = ConvertToJson(dResult)
+                Exit Function
+            End If
+
+            ' Set up options and logging (mirrors ExportSingleObject setup)
+            If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+            Set VCSIndex = Nothing
+            Set Options = Nothing
+            Options.LoadProjectOptions
+            Log.Clear
+            Log.SourcePath = Options.GetExportFolder
+            Log.Active = True
+            Perf.StartTiming
+
+            If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+            With Log
+                .Spacer
+                .Add T("Beginning Export of Component"), False
+                .Add CurrentProject.Name
+                .Add T("VCS Version {0}", var0:=GetVCSVersion)
+                .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
+                .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
+                If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
+                .Add Now
+                .Spacer
+            End With
+
+            Set cComponent = GetComponentClass(intComponentType)
+            If cComponent Is Nothing Then
+                dResult.Add "success", False
+                dResult.Add "error", "Could not create component class for type: " & strObjectType
+                GoTo ExportCleanUp
+            End If
+
+            If cComponent.SingleFile Then
+                ' Single-file type: export all items (name is irrelevant)
+                Log.Add T("Exporting {0}...", var0:=cComponent.Category)
+                Set dItems = cComponent.GetAllFromDB()
+                For Each varKey In dItems.Keys
+                    Set cItem = dItems(varKey)
+                    cItem.Export
+                Next varKey
+            Else
+                ' Multi-file type: find the named item
+                If Len(strObjectName) = 0 Then
+                    dResult.Add "success", False
+                    dResult.Add "error", "Object name is required for type: " & strObjectType
+                    GoTo ExportCleanUp
+                End If
+
+                Log.Add T("Exporting {0}: {1}...", var0:=cComponent.Category, var1:=strObjectName)
+                Set dItems = cComponent.GetAllFromDB()
+                blnFound = False
+                For Each varKey In dItems.Keys
+                    Set cItem = dItems(varKey)
+                    If StrComp(FSO.GetBaseName(CStr(varKey)), strObjectName, vbTextCompare) = 0 Then
+                        cItem.Export
+                        blnFound = True
+                        Exit For
+                    End If
+                Next varKey
+
+                If Not blnFound Then
+                    dResult.Add "success", False
+                    dResult.Add "error", "Object not found: " & strObjectType & " '" & strObjectName & "'"
+                    GoTo ExportCleanUp
+                End If
+            End If
+
+            ' Export AGENTS.md
+            modResource.ExtractResource "AGENTS.md", Options.GetExportFolder
+
+            Log.Spacer
+            Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
+
+ExportCleanUp:
+            Perf.EndTiming
+            With Log
+                .Add vbNewLine & Perf.GetReports, False
+                .SaveFile
+                .Active = False
+                .Flush
+            End With
+            VCSIndex.Save
+
     End Select
 
-    ' Get the AccessObject reference
-    On Error Resume Next
-    Select Case lngType
-        Case acQuery:   Set objItem = CurrentData.AllQueries(strObjectName)
-        Case acForm:    Set objItem = CurrentProject.AllForms(strObjectName)
-        Case acReport:  Set objItem = CurrentProject.AllReports(strObjectName)
-        Case acModule:  Set objItem = CurrentProject.AllModules(strObjectName)
-        Case acTable:   Set objItem = CurrentData.AllTables(strObjectName)
-        Case acMacro:   Set objItem = CurrentProject.AllMacros(strObjectName)
-    End Select
-    On Error GoTo ErrHandler
-
-    If objItem Is Nothing Then
-        dResult.Add "success", False
-        dResult.Add "error", "Object not found: " & strObjectType & " '" & strObjectName & "'"
-        ExportObject = ConvertToJson(dResult)
-        Exit Function
+    ' Build result if not already set by an error path above
+    If Not dResult.Exists("success") Then
+        dResult.Add "success", (Operation.ErrorLevel < eelError)
+        If Operation.ErrorLevel >= eelError Then
+            dResult.Add "error", "Export completed with errors. Check the log for details."
+        End If
+        dResult.Add "logPath", Log.LogFilePath
     End If
-
-    ' Begin operation and delegate to ExportSingleObject
-    If Not Operation.Begin(eotExport) Then
-        dResult.Add "success", False
-        dResult.Add "error", "Could not begin export operation (another operation may be running)"
-        ExportObject = ConvertToJson(dResult)
-        Exit Function
-    End If
-
-    modExport.ExportSingleObject objItem
-    Set objItem = Nothing
-
-    dResult.Add "success", (Operation.ErrorLevel < eelError)
-    If Operation.ErrorLevel >= eelError Then
-        dResult.Add "error", "Export completed with errors. Check the log for details."
-    End If
-    dResult.Add "logPath", Log.LogFilePath
 
     Operation.Finish
     ExportObject = ConvertToJson(dResult)
@@ -698,16 +806,22 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 4/14/2026
 ' Purpose   : Import (load) a single named object from source files.
-'           : Accepts string type names ("query", "form", "report", "module", "table",
-'           : "macro") and resolves to the IDbComponent internally.
+'           : Accepts any type string recognized by ResolveComponentType (singular,
+'           : plural, or alias forms). For single-file component types the name is
+'           : ignored and the entire category is imported.
 '           : Returns JSON: {"success":true/false, "error":"..."}
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function ImportObject(strObjectType As String, strObjectName As String) As String
+Public Function ImportObject(strObjectType As String, Optional strObjectName As String) As String
 
+    Dim intComponentType As eDatabaseComponentType
     Dim cComponent As IDbComponent
+    Dim cItem As IDbComponent
+    Dim dItems As Dictionary
+    Dim varKey As Variant
     Dim strSourceFile As String
+    Dim blnFound As Boolean
     Dim dResult As Dictionary
 
     LogUnhandledErrors
@@ -715,52 +829,93 @@ Public Function ImportObject(strObjectType As String, strObjectName As String) A
 
     Set dResult = New Dictionary
 
-    ' Create the appropriate component class
-    Select Case LCase$(strObjectType)
-        Case "query":   Set cComponent = New clsDbQuery
-        Case "form":    Set cComponent = New clsDbForm
-        Case "report":  Set cComponent = New clsDbReport
-        Case "module":  Set cComponent = New clsDbModule
-        Case "table":   Set cComponent = New clsDbTableDef
-        Case "macro":   Set cComponent = New clsDbMacro
-        Case Else
-            dResult.Add "success", False
-            dResult.Add "error", "Unknown object type: " & strObjectType & ". Use query, form, report, module, table, or macro."
-            ImportObject = ConvertToJson(dResult)
-            Exit Function
-    End Select
-
-    ' Try to resolve the object in the database to set up the component
-    Dim objItem As AccessObject
-    On Error Resume Next
-    Select Case LCase$(strObjectType)
-        Case "query":   Set objItem = CurrentData.AllQueries(strObjectName)
-        Case "form":    Set objItem = CurrentProject.AllForms(strObjectName)
-        Case "report":  Set objItem = CurrentProject.AllReports(strObjectName)
-        Case "module":  Set objItem = CurrentProject.AllModules(strObjectName)
-        Case "table":   Set objItem = CurrentData.AllTables(strObjectName)
-        Case "macro":   Set objItem = CurrentProject.AllMacros(strObjectName)
-    End Select
-    On Error GoTo ErrHandler
-
-    ' Set the database object reference (may be Nothing for new objects)
-    If Not objItem Is Nothing Then
-        Set cComponent.DbObject = objItem
-        strSourceFile = cComponent.SourceFile
-        Set objItem = Nothing
-    End If
-
-    ' If we couldn't get the source file from the component, try to find it
-    If Len(strSourceFile) = 0 Then
-        strSourceFile = FindSourceFile(cComponent, strObjectName)
-    End If
-
-    If Len(strSourceFile) = 0 Or Not FSO.FileExists(strSourceFile) Then
+    ' Resolve type string to eDatabaseComponentType via the shared helper
+    intComponentType = ResolveComponentType(strObjectType)
+    If intComponentType = -1 Then
         dResult.Add "success", False
-        dResult.Add "error", "Source file not found for " & strObjectType & " '" & strObjectName & "'"
-        If Len(strSourceFile) > 0 Then dResult.Add "expectedPath", strSourceFile
+        dResult.Add "error", "Unknown object type: " & strObjectType & _
+            ". See ResolveComponentType in modContainers for accepted values."
         ImportObject = ConvertToJson(dResult)
         Exit Function
+    End If
+
+    ' Create the component class
+    Set cComponent = GetComponentClass(intComponentType)
+    If cComponent Is Nothing Then
+        dResult.Add "success", False
+        dResult.Add "error", "Could not create component class for type: " & strObjectType
+        ImportObject = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Determine the source file path based on component type
+    If cComponent.SingleFile Then
+        ' Single-file type: use the component's fixed source file path
+        strSourceFile = cComponent.SourceFile
+        If Len(strSourceFile) = 0 Or Not FSO.FileExists(strSourceFile) Then
+            dResult.Add "success", False
+            dResult.Add "error", "Source file not found for " & strObjectType
+            If Len(strSourceFile) > 0 Then dResult.Add "expectedPath", strSourceFile
+            ImportObject = ConvertToJson(dResult)
+            Exit Function
+        End If
+        ' Use the category as the display name for single-file types
+        If Len(strObjectName) = 0 Then strObjectName = cComponent.Category
+    Else
+        ' Multi-file type: need the object name
+        If Len(strObjectName) = 0 Then
+            dResult.Add "success", False
+            dResult.Add "error", "Object name is required for type: " & strObjectType
+            ImportObject = ConvertToJson(dResult)
+            Exit Function
+        End If
+
+        ' For core AccessObject types, try to resolve the database object
+        Select Case intComponentType
+            Case edbQuery, edbForm, edbReport, edbModule, edbTableDef, edbMacro
+                Dim objItem As AccessObject
+                On Error Resume Next
+                Select Case intComponentType
+                    Case edbQuery:      Set objItem = CurrentData.AllQueries(strObjectName)
+                    Case edbForm:       Set objItem = CurrentProject.AllForms(strObjectName)
+                    Case edbReport:     Set objItem = CurrentProject.AllReports(strObjectName)
+                    Case edbModule:     Set objItem = CurrentProject.AllModules(strObjectName)
+                    Case edbTableDef:   Set objItem = CurrentData.AllTables(strObjectName)
+                    Case edbMacro:      Set objItem = CurrentProject.AllMacros(strObjectName)
+                End Select
+                On Error GoTo ErrHandler
+
+                If Not objItem Is Nothing Then
+                    Set cComponent.DbObject = objItem
+                    strSourceFile = cComponent.SourceFile
+                    Set objItem = Nothing
+                End If
+
+            Case Else
+                ' For non-core multi-file types, search GetAllFromDB by name
+                Set dItems = cComponent.GetAllFromDB()
+                For Each varKey In dItems.Keys
+                    Set cItem = dItems(varKey)
+                    If StrComp(FSO.GetBaseName(CStr(varKey)), strObjectName, vbTextCompare) = 0 Then
+                        strSourceFile = CStr(varKey)
+                        Set cComponent = cItem
+                        Exit For
+                    End If
+                Next varKey
+        End Select
+
+        ' If we couldn't get the source file, try searching by file name
+        If Len(strSourceFile) = 0 Then
+            strSourceFile = FindSourceFile(cComponent, strObjectName)
+        End If
+
+        If Len(strSourceFile) = 0 Or Not FSO.FileExists(strSourceFile) Then
+            dResult.Add "success", False
+            dResult.Add "error", "Source file not found for " & strObjectType & " '" & strObjectName & "'"
+            If Len(strSourceFile) > 0 Then dResult.Add "expectedPath", strSourceFile
+            ImportObject = ConvertToJson(dResult)
+            Exit Function
+        End If
     End If
 
     ' Begin operation and delegate to LoadSingleObject

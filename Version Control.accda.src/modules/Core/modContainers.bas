@@ -175,6 +175,50 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ResolveComponentType
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Map a user-supplied type string to an eDatabaseComponentType enum value.
+'           : Accepts singular, plural, and common alias forms so that callers
+'           : (MCP tools, direct API, etc.) don't need to know the canonical name.
+'           : Returns -1 if the type string is not recognized.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResolveComponentType(strType As String) As eDatabaseComponentType
+    ResolveComponentType = -1
+    Select Case LCase$(strType)
+        ' Core Access objects
+        Case "query", "queries":                                                ResolveComponentType = edbQuery
+        Case "form", "forms":                                                   ResolveComponentType = edbForm
+        Case "report", "reports":                                               ResolveComponentType = edbReport
+        Case "module", "modules":                                               ResolveComponentType = edbModule
+        Case "table", "tables":                                                 ResolveComponentType = edbTableDef
+        Case "macro", "macros":                                                 ResolveComponentType = edbMacro
+        ' Extended multi-file types
+        Case "table_data":                                                      ResolveComponentType = edbTableData
+        Case "table_data_macro", "table_data_macros":                           ResolveComponentType = edbTableDataMacro
+        Case "relation", "relations":                                           ResolveComponentType = edbRelation
+        Case "saved_spec", "saved_specs":                                       ResolveComponentType = edbSavedSpec
+        Case "imex_spec", "imex_specs", "import_spec", "import_specs":          ResolveComponentType = edbImexSpec
+        Case "theme", "themes":                                                 ResolveComponentType = edbTheme
+        Case "shared_image", "shared_images":                                   ResolveComponentType = edbSharedImage
+        Case "vbe_form", "vbe_forms", "userform", "userforms":                  ResolveComponentType = edbVbeForm
+        Case "command_bar", "command_bars", "commandbar", "commandbars":        ResolveComponentType = edbCommandBar
+        ' Single-file types (object_name ignored by callers)
+        Case "vbe_project", "vb_project":                                       ResolveComponentType = edbVbeProject
+        Case "vbe_reference", "vbe_references":                                 ResolveComponentType = edbVbeReference
+        Case "project":                                                         ResolveComponentType = edbProject
+        Case "connection", "connections":                                        ResolveComponentType = edbConnection
+        Case "db_property", "db_properties":                                    ResolveComponentType = edbDbsProperty
+        Case "project_property", "project_properties":                          ResolveComponentType = edbProjectProperty
+        Case "document", "documents":                                           ResolveComponentType = edbDocument
+        Case "hidden_attribute", "hidden_attributes":                           ResolveComponentType = edbHiddenAttribute
+        Case "nav_pane_group", "nav_pane_groups":                               ResolveComponentType = edbNavPaneGroup
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ContainerHasObject
 ' Author    : Adam Waller
 ' Date      : 6/2/2023
