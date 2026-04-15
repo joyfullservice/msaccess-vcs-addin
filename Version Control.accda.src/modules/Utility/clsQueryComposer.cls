@@ -1162,7 +1162,19 @@ Private Sub ParseSelectQuery(strSql As String)
     ' Find FROM keyword to split fields from source
     lngPos = FindTopLevelKeyword(strRemainder, "FROM ")
     If lngPos > 0 Then
-        ParseFieldList Left$(strRemainder, lngPos - 1)
+        Dim strFieldSection As String
+        strFieldSection = Left$(strRemainder, lngPos - 1)
+
+        ' Check for INTO clause (Make-Table query: SELECT ... INTO table FROM ...)
+        Dim lngInto As Long
+        lngInto = FindTopLevelKeyword(strFieldSection, " INTO ")
+        If lngInto > 0 Then
+            m_lngQueryType = 2
+            m_strTargetTable = UnBracket(Trim$(Mid$(strFieldSection, lngInto + 6)))
+            strFieldSection = Left$(strFieldSection, lngInto - 1)
+        End If
+
+        ParseFieldList strFieldSection
         strRemainder = Mid$(strRemainder, lngPos + 5)
         ParseFromAndClauses strRemainder
     End If
@@ -2136,7 +2148,7 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         For Each dJn In m_colJoins
             cOut.Add "    LeftTable =""" & CStr(dJn("leftTable")) & """", vbCrLf
             cOut.Add "    RightTable =""" & CStr(dJn("rightTable")) & """", vbCrLf
-            cOut.Add "    Expression =""" & CStr(dJn("expression")) & """", vbCrLf
+            EmitWrappedString cOut, "    Expression", CStr(dJn("expression"))
             cOut.Add "    Flag =" & CStr(dJn("flag")), vbCrLf
         Next dJn
         cOut.Add "End", vbCrLf
@@ -2147,7 +2159,7 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         cOut.Add "Begin OrderBy", vbCrLf
         Dim dOrd As Dictionary
         For Each dOrd In m_colOrderBy
-            cOut.Add "    Expression =""" & CStr(dOrd("expression")) & """", vbCrLf
+            EmitWrappedString cOut, "    Expression", CStr(dOrd("expression"))
             If dOrd("descending") Then
                 cOut.Add "    Flag =1", vbCrLf
             Else
@@ -2162,7 +2174,7 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         cOut.Add "Begin Groups", vbCrLf
         Dim dGrp As Dictionary
         For Each dGrp In m_colGroups
-            cOut.Add "    Expression =""" & CStr(dGrp("expression")) & """", vbCrLf
+            EmitWrappedString cOut, "    Expression", CompactSql(CStr(dGrp("expression")))
             cOut.Add "    GroupLevel =" & CStr(dGrp("groupLevel")), vbCrLf
         Next dGrp
         cOut.Add "End", vbCrLf
@@ -2319,7 +2331,8 @@ Private Sub EmitAllProperties(cOut As clsConcat, dProperties As Dictionary)
     EmitBoolProp cOut, "ReturnsRecords", GetPropOrDefault(dOverrides, "ReturnsRecords", "-1")
     cOut.Add "dbInteger ""ODBCTimeout"" =""" & GetPropOrDefault(dOverrides, "ODBCTimeout", "60") & """", vbCrLf
 
-    ' Action queries get UseTransaction + FailOnError instead of the datasheet properties
+    ' Action queries get UseTransaction + FailOnError instead of the datasheet properties.
+    ' Make-Table (type 2) is a hybrid: full datasheet set plus UseTransaction.
     If m_lngQueryType = 3 Or m_lngQueryType = 4 Or m_lngQueryType = 5 Then
         EmitBoolProp cOut, "UseTransaction", GetPropOrDefault(dOverrides, "UseTransaction", "-1")
         ' FailOnError only appears in native .qdef for UPDATE and DELETE, not INSERT
@@ -2343,7 +2356,7 @@ Private Sub EmitAllProperties(cOut As clsConcat, dProperties As Dictionary)
         GetPropOrDefault dOverrides, "RecordsetType", vbNullString
         GetPropOrDefault dOverrides, "TotalsRow", vbNullString
     Else
-        ' SELECT queries get the full datasheet property set
+        ' SELECT and Make-Table queries get the full datasheet property set
         cOut.Add "dbByte ""RecordsetType"" =""" & GetPropOrDefault(dOverrides, "RecordsetType", "0") & """", vbCrLf
         EmitBoolProp cOut, "OrderByOn", GetPropOrDefault(dOverrides, "OrderByOn", "0")
         cOut.Add "dbByte ""Orientation"" =""" & GetPropOrDefault(dOverrides, "Orientation", "0") & """", vbCrLf
@@ -2351,6 +2364,10 @@ Private Sub EmitAllProperties(cOut As clsConcat, dProperties As Dictionary)
         EmitBoolProp cOut, "FilterOnLoad", GetPropOrDefault(dOverrides, "FilterOnLoad", "0")
         EmitBoolProp cOut, "OrderByOnLoad", GetPropOrDefault(dOverrides, "OrderByOnLoad", "-1")
         EmitBoolProp cOut, "TotalsRow", GetPropOrDefault(dOverrides, "TotalsRow", "0")
+        ' Make-Table queries also get UseTransaction after the datasheet properties
+        If m_lngQueryType = 2 Then
+            EmitBoolProp cOut, "UseTransaction", GetPropOrDefault(dOverrides, "UseTransaction", "-1")
+        End If
         ' Consume action-query-only properties
         GetPropOrDefault dOverrides, "UseTransaction", vbNullString
         GetPropOrDefault dOverrides, "FailOnError", vbNullString
