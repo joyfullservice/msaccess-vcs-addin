@@ -734,8 +734,10 @@ CleanUp:
 
     If blnNoIndex Then
         VCSIndex.Disabled = False
-    Else
-        ' Save index file (don't change export date for single item export)
+    ElseIf Not VCSIndex.Conflicts.UserCanceled Then
+        ' Save index file (don't change export date for single item export).
+        ' Skipped if the user canceled a conflict dialog so the same conflicts
+        ' will reappear on the next run.
         VCSIndex.Save
     End If
     Operation.Finish intResult

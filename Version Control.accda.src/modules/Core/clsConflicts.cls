@@ -20,6 +20,11 @@ Option Explicit
 ' Status to approve and continue.
 Public ApproveResolutions As Boolean
 
+' Set to True when the user explicitly cancels the conflict dialog.
+' Used by callers to distinguish a user-initiated cancel from other early exits
+' (e.g. critical errors) so they can skip persisting index state on cancel.
+Public UserCanceled As Boolean
+
 Private m_intOperationType As eIndexOperationType
 Private m_dCategories As Dictionary
 Private m_dItems As Dictionary
@@ -46,7 +51,12 @@ Public Sub ShowDialog()
         .OpenForm "frmVCSConflict", , , , , acDialog
         UpdateResolutionsFromTable
         Perf.ResumeTiming
-        MCP.Log "User resolved conflicts, continuing operation..."
+        If Me.ApproveResolutions Then
+            MCP.Log "User resolved conflicts, continuing operation..."
+        Else
+            Me.UserCanceled = True
+            MCP.Log "User canceled conflict resolution."
+        End If
     End With
     ClearTable
 End Sub
@@ -261,4 +271,5 @@ Public Sub Initialize(ByRef dCategories As Dictionary, intOperationType As eInde
     Set m_dItems = New Dictionary
     m_intOperationType = intOperationType
     Me.ApproveResolutions = False
+    Me.UserCanceled = False
 End Sub

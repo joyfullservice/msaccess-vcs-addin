@@ -397,13 +397,17 @@ CleanUp:
     ' Restore original fast save option, and save options with project
     Options.SaveOptionsForProject
 
-    ' Save index file
-    With VCSIndex
-        .ExportDate = Now
-        If blnFullExport Then .FullExportDate = Now
-        Set .CategoryHashes = dCurrentHashes
-        .Save
-    End With
+    ' Save index file (skip if the user canceled a conflict dialog, so the
+    ' on-disk index state is unchanged and the same conflicts will reappear
+    ' on the next export run).
+    If Not VCSIndex.Conflicts.UserCanceled Then
+        With VCSIndex
+            .ExportDate = Now
+            If blnFullExport Then .FullExportDate = Now
+            Set .CategoryHashes = dCurrentHashes
+            .Save
+        End With
+    End If
 
 End Sub
 
@@ -575,8 +579,10 @@ CleanUp:
 
     If blnNoIndex Then
         VCSIndex.Disabled = False
-    Else
-        ' Save index file (don't change export date for single item export)
+    ElseIf Not VCSIndex.Conflicts.UserCanceled Then
+        ' Save index file (don't change export date for single item export).
+        ' Skipped if the user canceled a conflict dialog so the same conflicts
+        ' will reappear on the next run.
         VCSIndex.Save
     End If
 
@@ -787,8 +793,10 @@ CleanUp:
         .Flush
     End With
 
-    ' Save index file (don't change export date for multiple items export)
-    VCSIndex.Save
+    ' Save index file (don't change export date for multiple items export).
+    ' Skipped if the user canceled a conflict dialog so the same conflicts
+    ' will reappear on the next run.
+    If Not VCSIndex.Conflicts.UserCanceled Then VCSIndex.Save
 
 End Sub
 
