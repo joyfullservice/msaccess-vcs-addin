@@ -402,8 +402,12 @@ Public Function Item(cItem As IDbComponent, Optional strSourceFile As String, _
 
     Dim strFile As String
 
-    ' Exit if we have disabled the index functionality
-    If Me.Disabled Then Exit Function
+    ' Return an empty item when disabled so callers can safely
+    ' access properties (they will see blank/default values).
+    If Me.Disabled Then
+        Set Item = New clsVCSIndexItem
+        Exit Function
+    End If
 
     ' Get just the file name from the path.
     strFile = FSO.GetFileName(Nz2(strSourceFile, cItem.SourceFile))

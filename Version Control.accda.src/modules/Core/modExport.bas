@@ -413,9 +413,14 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 2/22/2023
 ' Purpose   : Export a single object (such as a selected item)
+'           : When blnNoIndex is True, the VCS index is disabled for the duration
+'           : of the call, skipping the expensive full-file parse/serialize cycle
+'           : and conflict detection. Used by MCP/API callers that treat the export
+'           : as a deliberate action (like a user saving directly in the designer).
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_frmVCSMain)
+Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_frmVCSMain, _
+    Optional blnNoIndex As Boolean = False)
 
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
@@ -439,17 +444,27 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
         End Select
     End With
 
-    ' Reload the project options and reset the logs
-    Set VCSIndex = Nothing
-    Set Options = Nothing
-    Options.LoadProjectOptions
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-        Options.LoadOptionOverrides
+    If blnNoIndex Then
+        ' Skip the expensive index load and options reload. The caller has already
+        ' set up Options and is treating this as a direct edit (agent-as-user).
+        VCSIndex.Disabled = True
+        Log.Clear
+        Log.SourcePath = Options.GetExportFolder
+        Log.Active = True
+        Perf.StartTiming
+    Else
+        ' Reload the project options and reset the logs
+        Set VCSIndex = Nothing
+        Set Options = Nothing
+        Options.LoadProjectOptions
+        If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+            Options.LoadOptionOverrides
+        End If
+        Log.Clear
+        Log.SourcePath = Options.GetExportFolder
+        Log.Active = True
+        Perf.StartTiming
     End If
-    Log.Clear
-    Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
-    Perf.StartTiming
 
     ' Check error handling mode after loading project options
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -478,40 +493,45 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     ' Get a database component class from the item
     Set cDbObject = GetClassFromObject(objItem)
 
-    ' Check for conflicts
-    Set dObjects = New Dictionary
-    Set dCategory = New Dictionary
-    Set dCategories = New Dictionary
-    dObjects.Add cDbObject.SourceFile, cDbObject
-    dCategory.Add "Class", cDbObject
-    dCategory.Add "Objects", dObjects
-    dCategories.Add cDbObject.Category, dCategory
-    VCSIndex.Conflicts.Initialize dCategories, eatExport
-    VCSIndex.CheckExportConflicts dObjects
+    If Not blnNoIndex Then
+        ' Check for conflicts
+        Set dObjects = New Dictionary
+        Set dCategory = New Dictionary
+        Set dCategories = New Dictionary
+        dObjects.Add cDbObject.SourceFile, cDbObject
+        dCategory.Add "Class", cDbObject
+        dCategory.Add "Objects", dObjects
+        dCategories.Add cDbObject.Category, dCategory
+        VCSIndex.Conflicts.Initialize dCategories, eatExport
+        VCSIndex.CheckExportConflicts dObjects
 
-    ' Resolve any outstanding conflict, or allow user to cancel.
-    With VCSIndex.Conflicts
-        If .Count > 0 Then
-            ' Resolve conflicts (auto-resolve for agent/API, prompt for user)
-            .ResolveOrPrompt
-            If .ApproveResolutions Then
-                Log.Add T("Resolving source conflicts"), False
-                .Resolve
-            Else
-                ' Cancel export
-                Log.Spacer
-                Log.Add T("Export Canceled"), , , "Red", True
-                Operation.ErrorLevel = eelCritical
-                GoTo CleanUp
+        ' Resolve any outstanding conflict, or allow user to cancel.
+        With VCSIndex.Conflicts
+            If .Count > 0 Then
+                ' Resolve conflicts (auto-resolve for agent/API, prompt for user)
+                .ResolveOrPrompt
+                If .ApproveResolutions Then
+                    Log.Add T("Resolving source conflicts"), False
+                    .Resolve
+                Else
+                    ' Cancel export
+                    Log.Spacer
+                    Log.Add T("Export Canceled"), , , "Red", True
+                    Operation.ErrorLevel = eelCritical
+                    GoTo CleanUp
+                End If
             End If
-        End If
-    End With
+        End With
 
-    ' Check to see if we still have an item to export.
-    If dCategories.Count = 0 Then
-        Log.Add T("Skipped after conflict resolution."), , , "blue", True
-    Else
-        ' If we have already exported this object while scanning for changes, use that copy.
+        ' Check to see if we still have an item to export.
+        If dCategories.Count = 0 Then
+            Log.Add T("Skipped after conflict resolution."), , , "blue", True
+            GoTo PostExport
+        End If
+    End If
+
+    ' If we have already exported this object while scanning for changes, use that copy.
+    If Not blnNoIndex Then
         strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
         If FSO.FileExists(strTempFile) Then
             ' Move the temp file(s) over to the source export folder.
@@ -520,14 +540,18 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
             ' Update the index with the values from the alternate export
             VCSIndex.UpdateFromAltExport cDbObject
         Else
-            ' Export a fresh copy
             cDbObject.Export
         End If
-        ExportDependentObjects cDbObject
+    Else
+        ' Export a fresh copy
+        cDbObject.Export
     End If
+    ExportDependentObjects cDbObject
 
     ' Export AGENTS.md file for AI agent assistance
     modResource.ExtractResource "AGENTS.md", Options.GetExportFolder
+
+PostExport:
 
     ' Show final output and save log
     Log.Spacer
@@ -538,7 +562,7 @@ CleanUp:
     ' Run any cleanup routines
     CloseBackEndConnections
     ClearEnvCache
-    VCSIndex.ClearTempExportFolder
+    If Not blnNoIndex Then VCSIndex.ClearTempExportFolder
 
     ' Add performance data to log file and save file
     Perf.EndTiming
@@ -549,8 +573,12 @@ CleanUp:
         .Flush
     End With
 
-    ' Save index file (don't change export date for single item export)
-    VCSIndex.Save
+    If blnNoIndex Then
+        VCSIndex.Disabled = False
+    Else
+        ' Save index file (don't change export date for single item export)
+        VCSIndex.Save
+    End If
 
 End Sub
 

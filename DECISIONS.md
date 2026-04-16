@@ -90,13 +90,14 @@ contradictory guidance.
 - **Lazy category-level parsing**: Parse only the index categories actually accessed during an operation (e.g., only "Queries" for a query import). Would benefit all operations. Rejected because the operations that use the full index (merge builds, full exports) must scan every category to determine what changed — lazy parsing provides no benefit. The only operation that touches a single entry is single-object import, which is better served by skipping the index entirely.
 - **Disable index for MCP single-object imports (chosen)**: Treat the agent as a user making a direct edit. When a user modifies a query in the Access designer, there is no confirmation dialog — they save and that's the new state. The agent writing a source file and calling `ImportObject` is the same kind of deliberate action.
 
-**Decision**: Added `Optional blnNoIndex As Boolean = False` parameter to `LoadSingleObject`. When `True`, the VCS index is disabled (`VCSIndex.Disabled = True`) for the duration of the call — all index operations (`Update`, `Save`, `Item`, `CheckMergeConflicts`) become no-ops via existing guard clauses. Also skips the `Set VCSIndex = Nothing` / `Set Options = Nothing` reset and conflict detection block. `ImportObject` passes `blnNoIndex:=True` when `Operation.Source` is `eosMCPTool` or `eosExternalAPI`. Expected time drops from 10-12s (actual wall clock) to ~0.5s.
+**Decision**: Added `Optional blnNoIndex As Boolean = False` parameter to both `LoadSingleObject` (imports) and `ExportSingleObject` (exports). When `True`, the VCS index is disabled (`VCSIndex.Disabled = True`) for the duration of the call — all index operations (`Update`, `Save`, `Item`, `CheckMergeConflicts`) become no-ops via existing guard clauses. Also skips the `Set VCSIndex = Nothing` / `Set Options = Nothing` reset and conflict detection block. `ImportObject` and `ExportObject` pass `blnNoIndex:=True` when `Operation.Source` is `eosMCPTool` or `eosExternalAPI`. Expected time drops from 7-12s (actual wall clock) to ~0.5s.
 
 **What this rules out**: The index won't reflect MCP-imported objects until the next full export or merge build, which rebuilds index entries for all processed objects. A subsequent manual merge may see the imported object as "potentially modified" (stale/missing index data), but the content comparison during conflict detection will show source matches database, resolving without data loss. If index consistency for MCP operations becomes important, the text-level patching approach remains available as a future enhancement.
 
 **Relevant files**:
 - `Version Control.accda.src/modules/Core/modBuild.bas` — `LoadSingleObject`: new `blnNoIndex` parameter with conditional index/options/conflict skip
-- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `ImportObject`: passes `blnNoIndex:=True` for MCP/API callers
+- `Version Control.accda.src/modules/Core/modExport.bas` — `ExportSingleObject`: same `blnNoIndex` pattern for single-object exports
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `ImportObject` and `ExportObject`: pass `blnNoIndex:=True` for MCP/API callers
 
 ---
 

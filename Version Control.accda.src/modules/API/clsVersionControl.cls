@@ -681,7 +681,8 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
                 Exit Function
             End If
 
-            modExport.ExportSingleObject objItem
+            modExport.ExportSingleObject objItem, , _
+                blnNoIndex:=(Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI)
             Set objItem = Nothing
 
         Case Else
@@ -696,11 +697,15 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
             ' Set up options and logging (mirrors ExportSingleObject setup)
             If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-            Set VCSIndex = Nothing
-            Set Options = Nothing
-            Options.LoadProjectOptions
-            If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-                Options.LoadOptionOverrides
+            Dim blnNoIndex As Boolean
+            blnNoIndex = (Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI)
+
+            If blnNoIndex Then
+                VCSIndex.Disabled = True
+            Else
+                Set VCSIndex = Nothing
+                Set Options = Nothing
+                Options.LoadProjectOptions
             End If
             Log.Clear
             Log.SourcePath = Options.GetExportFolder
@@ -777,7 +782,11 @@ ExportCleanUp:
                 .Active = False
                 .Flush
             End With
-            VCSIndex.Save
+            If blnNoIndex Then
+                VCSIndex.Disabled = False
+            Else
+                VCSIndex.Save
+            End If
 
     End Select
 
