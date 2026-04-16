@@ -603,6 +603,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
     Dim dObjects As Dictionary
+    Dim dCurrentCheck As Dictionary
     Dim cDbObject As IDbComponent
     Dim objItem As Access.AccessObject
     Dim strTempFile As String
@@ -692,6 +693,13 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
 
     Set dCategories = New Dictionary
 
+    ' Initialize the conflict list once for the whole batch. (Initialize stores
+    ' a reference to dCategories, so categories added inside the loop remain
+    ' visible.) Previously this was called inside the loop, which cleared the
+    ' conflict list on every iteration and left only the last object's
+    ' conflicts for the resolution prompt.
+    VCSIndex.Conflicts.Initialize dCategories, eatExport
+
     For Each varKey In objItems.Keys
         Set objItem = objItems.Item(varKey)
         Log.Add T("Exporting {0}...", var0:=objItem.Name)
@@ -710,7 +718,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
             Set cDbObject = GetClassFromObject(objItem)
         End If
 
-        ' Check for conflicts
+        ' Build up the categories/objects structure for this item
         If Not dCategories.Exists(cDbObject.Category) Then
             Set dObjects = New Dictionary
             Set dCategory = New Dictionary
@@ -723,8 +731,13 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
             dCategories.Item(cDbObject.Category).Item("Objects").Add cDbObject.SourceFile, cDbObject
         End If
 
-        VCSIndex.Conflicts.Initialize dCategories, eatExport
-        VCSIndex.CheckExportConflicts dObjects
+        ' Check just this object for conflicts (use a single-item dictionary so
+        ' we don't re-check previously scanned objects, which would cause a
+        ' duplicate-key error when Conflicts.Add attempts to add the same file
+        ' a second time).
+        Set dCurrentCheck = New Dictionary
+        dCurrentCheck.Add cDbObject.SourceFile, cDbObject
+        VCSIndex.CheckExportConflicts dCurrentCheck
     Next
 
     ' Resolve any outstanding conflict, or allow user to cancel.
