@@ -143,7 +143,13 @@ Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Dat
         .ActionType = intActionType
         .Suggestion = intSuggestedResolution
         Set .CategoryList = m_dCategories
-        m_dItems.Add .FileName, cItem
+        ' Key by ItemKey so UpdateResolutionsFromTable can find the item after
+        ' the user closes the dialog. (The tblConflicts round-trip stores
+        ' ItemKey, not FileName, so using FileName here would silently drop
+        ' resolutions whenever ItemKey and FileName differ -- e.g. for
+        ' connection components whose GetAllFromDB keys are connection names
+        ' rather than source file paths.)
+        m_dItems.Add .ItemKey, cItem
     End With
 
 End Sub
