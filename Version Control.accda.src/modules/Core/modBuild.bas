@@ -325,8 +325,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Check for any conflicts
     With VCSIndex.Conflicts
         If .Count > 0 Then
-            ' Show the conflicts resolution dialog
-            .ShowDialog
+            ' Resolve conflicts (auto-resolve for agent/API, prompt for user)
+            .ResolveOrPrompt
             If .ApproveResolutions Then
                 Log.Add T("Resolving source conflicts"), False
                 .Resolve
@@ -596,9 +596,14 @@ End Sub
 ' Purpose   : Reload a single object from source files.
 '           : NOTE: Be very careful to release all references to the object you
 '           : are attempting to import.
+'           : When blnNoIndex is True, the VCS index is disabled for the duration
+'           : of the call, skipping the expensive full-file parse/serialize cycle
+'           : and conflict detection. Used by MCP/API callers that treat the import
+'           : as a deliberate action (like a user saving directly in the designer).
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, strSourceFilePath As String)
+Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, _
+    strSourceFilePath As String, Optional blnNoIndex As Boolean = False)
 
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
@@ -623,17 +628,27 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
         End Select
     End With
 
-    ' Reload the project options and reset the logs
-    Set VCSIndex = Nothing
-    Set Options = Nothing
-    Options.LoadProjectOptions
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-        Options.LoadOptionOverrides
+    If blnNoIndex Then
+        ' Skip the expensive index load and options reload. The caller has already
+        ' set up Options and is treating this as a direct edit (agent-as-user).
+        VCSIndex.Disabled = True
+        Log.Clear
+        Log.SourcePath = Options.GetExportFolder
+        Log.Active = True
+        Perf.StartTiming
+    Else
+        ' Reload the project options and reset the logs
+        Set VCSIndex = Nothing
+        Set Options = Nothing
+        Options.LoadProjectOptions
+        If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+            Options.LoadOptionOverrides
+        End If
+        Log.Clear
+        Log.SourcePath = Options.GetExportFolder
+        Log.Active = True
+        Perf.StartTiming
     End If
-    Log.Clear
-    Log.SourcePath = Options.GetExportFolder
-    Log.Active = True
-    Perf.StartTiming
 
     ' Check error handling mode after loading project options
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -654,47 +669,49 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
         .Flush
     End With
 
-    ' Check for conflicts
-    Set dSourceFiles = New Dictionary
-    Set dCategory = New Dictionary
-    Set dCategories = New Dictionary
-    dSourceFiles.Add strSourceFilePath, vbNullString
-    dCategory.Add "Class", cComponentClass
-    dCategory.Add "Files", dSourceFiles
-    dCategories.Add cComponentClass, dCategory
-    VCSIndex.Conflicts.Initialize dCategories, eatImport
-    VCSIndex.CheckMergeConflicts cComponentClass, dSourceFiles
+    If Not blnNoIndex Then
+        ' Check for conflicts
+        Set dSourceFiles = New Dictionary
+        Set dCategory = New Dictionary
+        Set dCategories = New Dictionary
+        dSourceFiles.Add strSourceFilePath, vbNullString
+        dCategory.Add "Class", cComponentClass
+        dCategory.Add "Files", dSourceFiles
+        dCategories.Add cComponentClass, dCategory
+        VCSIndex.Conflicts.Initialize dCategories, eatImport
+        VCSIndex.CheckMergeConflicts cComponentClass, dSourceFiles
 
-    ' Resolve any outstanding conflict, or allow user to cancel.
-    With VCSIndex.Conflicts
-        If .Count > 0 Then
-            ' Show the conflicts resolution dialog
-            .ShowDialog
-            If .ApproveResolutions Then
-                Log.Add T("Resolving source conflicts"), False
-                .Resolve
-            Else
-                ' Cancel export
-                Log.Spacer
-                Log.Add T("Import Canceled"), , , "Red", True
-                Operation.ErrorLevel = eelCritical
-                intResult = eorCanceled
-                GoTo CleanUp
+        ' Resolve any outstanding conflict, or allow user to cancel.
+        With VCSIndex.Conflicts
+            If .Count > 0 Then
+                ' Resolve conflicts (auto-resolve for agent/API, prompt for user)
+                .ResolveOrPrompt
+                If .ApproveResolutions Then
+                    Log.Add T("Resolving source conflicts"), False
+                    .Resolve
+                Else
+                    ' Cancel export
+                    Log.Spacer
+                    Log.Add T("Import Canceled"), , , "Red", True
+                    Operation.ErrorLevel = eelCritical
+                    intResult = eorCanceled
+                    GoTo CleanUp
+                End If
             End If
+        End With
+
+        ' Check to see if we still have an item to import.
+        If dCategories.Count = 0 Then
+            Log.Add T("Skipped after conflict resolution."), , , "blue", True
+            GoTo PostMerge
         End If
-    End With
-
-    ' Check to see if we still have an item to import.
-    If dCategories.Count = 0 Then
-        Log.Add T("Skipped after conflict resolution."), , , "blue", True
-    Else
-        ' TODO: Maybe copy the existing object to the recycle bin, just in case
-        ' the user makes a mistake. (Similar to how GitHub Desktop works)
-
-        ' Replace the existing object with the source file
-        cComponentClass.Merge strSourceFilePath
-        MergeDependentObjects cComponentClass, strName
     End If
+
+    ' Replace the existing object with the source file
+    cComponentClass.Merge strSourceFilePath
+    MergeDependentObjects cComponentClass, strName
+
+PostMerge:
 
     ' Show final output and save log
     Log.Spacer
@@ -704,7 +721,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
 CleanUp:
 
     ' Run any cleanup routines
-    VCSIndex.ClearTempExportFolder
+    If Not blnNoIndex Then VCSIndex.ClearTempExportFolder
 
     ' Add performance data to log file and save file
     Perf.EndTiming
@@ -715,8 +732,12 @@ CleanUp:
         .Flush
     End With
 
-    ' Save index file (don't change export date for single item export)
-    VCSIndex.Save
+    If blnNoIndex Then
+        VCSIndex.Disabled = False
+    Else
+        ' Save index file (don't change export date for single item export)
+        VCSIndex.Save
+    End If
     Operation.Finish intResult
 
 End Sub

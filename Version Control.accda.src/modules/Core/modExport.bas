@@ -260,8 +260,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Check for any conflicts
     With VCSIndex.Conflicts
         If .Count > 0 Then
-            ' Show the conflicts resolution dialog
-            .ShowDialog
+            ' Resolve conflicts (auto-resolve for agent/API, prompt for user)
+            .ResolveOrPrompt
             If .ApproveResolutions Then
                 Log.Add T("Resolving source conflicts"), False
                 .Resolve
@@ -492,8 +492,8 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     ' Resolve any outstanding conflict, or allow user to cancel.
     With VCSIndex.Conflicts
         If .Count > 0 Then
-            ' Show the conflicts resolution dialog
-            .ShowDialog
+            ' Resolve conflicts (auto-resolve for agent/API, prompt for user)
+            .ResolveOrPrompt
             If .ApproveResolutions Then
                 Log.Add T("Resolving source conflicts"), False
                 .Resolve
@@ -696,8 +696,8 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     ' Resolve any outstanding conflict, or allow user to cancel.
     With VCSIndex.Conflicts
         If .Count > 0 Then
-            ' Show the conflicts resolution dialog
-            .ShowDialog
+            ' Resolve conflicts (auto-resolve for agent/API, prompt for user)
+            .ResolveOrPrompt
             If .ApproveResolutions Then
                 Log.Add T("Resolving source conflicts"), False
                 .Resolve

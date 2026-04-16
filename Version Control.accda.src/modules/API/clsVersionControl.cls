@@ -929,7 +929,8 @@ Public Function ImportObject(ByVal strObjectType As String, Optional ByVal strOb
         Exit Function
     End If
 
-    LoadSingleObject cComponent, strObjectName, strSourceFile
+    LoadSingleObject cComponent, strObjectName, strSourceFile, _
+        blnNoIndex:=(Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI)
 
     dResult.Add "success", (Operation.ErrorLevel < eelError)
     If Operation.ErrorLevel >= eelError Then

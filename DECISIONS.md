@@ -81,6 +81,45 @@ contradictory guidance.
 
 ---
 
+## 2026-04-15 — Skip VCS index for MCP/API single-object imports (agent-as-user)
+
+**Trigger**: Importing one query via `ImportObject` (MCP) in a large database with thousands of objects takes 7+ seconds, of which only 0.33s is the actual `LoadFromText`. The rest is JSON overhead: 5.19s parsing three JSON files (dominated by the 3.7 MB `vcs-index.json` with 21,747 ISO date entries), plus ~3-5s of hidden time re-serializing and saving the full index after `Perf.EndTiming`. The index exists for conflict detection — comparing source file state against database state across sessions — but for an MCP agent that just wrote the source file and is deliberately importing it, this check is meaningless.
+
+**Options explored**:
+- **Text-level parse-and-patch**: Read the index file as raw text, use `InStr` + brace-matching to locate the single relevant entry, parse/update only that ~200-byte snippet, splice it back. Would preserve full index consistency and conflict detection. Rejected as brittle — edge cases multiply (missing category sections, object deletions, new objects, comma handling, braces in strings). ~150 lines of new utility code for a narrow use case.
+- **Lazy category-level parsing**: Parse only the index categories actually accessed during an operation (e.g., only "Queries" for a query import). Would benefit all operations. Rejected because the operations that use the full index (merge builds, full exports) must scan every category to determine what changed — lazy parsing provides no benefit. The only operation that touches a single entry is single-object import, which is better served by skipping the index entirely.
+- **Disable index for MCP single-object imports (chosen)**: Treat the agent as a user making a direct edit. When a user modifies a query in the Access designer, there is no confirmation dialog — they save and that's the new state. The agent writing a source file and calling `ImportObject` is the same kind of deliberate action.
+
+**Decision**: Added `Optional blnNoIndex As Boolean = False` parameter to `LoadSingleObject`. When `True`, the VCS index is disabled (`VCSIndex.Disabled = True`) for the duration of the call — all index operations (`Update`, `Save`, `Item`, `CheckMergeConflicts`) become no-ops via existing guard clauses. Also skips the `Set VCSIndex = Nothing` / `Set Options = Nothing` reset and conflict detection block. `ImportObject` passes `blnNoIndex:=True` when `Operation.Source` is `eosMCPTool` or `eosExternalAPI`. Expected time drops from 10-12s (actual wall clock) to ~0.5s.
+
+**What this rules out**: The index won't reflect MCP-imported objects until the next full export or merge build, which rebuilds index entries for all processed objects. A subsequent manual merge may see the imported object as "potentially modified" (stale/missing index data), but the content comparison during conflict detection will show source matches database, resolving without data loss. If index consistency for MCP operations becomes important, the text-level patching approach remains available as a future enhancement.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Core/modBuild.bas` — `LoadSingleObject`: new `blnNoIndex` parameter with conditional index/options/conflict skip
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `ImportObject`: passes `blnNoIndex:=True` for MCP/API callers
+
+---
+
+## 2026-04-15 — Auto-resolve conflicts for agent/API operations
+
+**Trigger**: When an MCP or API caller triggers a merge build or export that encounters conflicts (source file and database object both changed since last sync), the add-in opens the modal `frmVCSConflict` dialog and blocks indefinitely. Agents have no programmatic way to dismiss or respond to this dialog, causing the operation to hang.
+
+**Options explored**:
+- **Add a `McpConflictMode` option with three modes (fail, overwrite, prompt)**: Gives users fine-grained control. Initially planned but rejected as over-engineered — agents are automated callers by definition, and source files are already in Git, which provides the safety net for reviewing and reverting changes.
+- **Return an error to the agent with conflict details**: Considered as the safest default. Rejected because it forces agents to handle a failure case that has no good resolution path — the agent would need to tell the user to open Access and resolve manually, defeating the purpose of automation.
+- **Auto-resolve all conflicts (chosen)**: Treat agent operations the same way full builds are treated — just proceed. For imports, source is truth (overwrite DB objects). For exports, database is truth (overwrite source files). For deletes, proceed with the delete. The `ActionType` already set by `IsMergeConflict`/`IsExportConflict` carries the correct resolution.
+
+**Decision**: Added `ResolveOrPrompt` method to `clsConflicts` that checks `Operation.Source`. For `eosMCPTool` or `eosExternalAPI`, it auto-resolves all conflicts using each item's `ActionType` (equivalent to clicking "Overwrite All" in the dialog). For user-initiated operations, it delegates to `ShowDialog` unchanged. All five call sites in `modBuild.bas` and `modExport.bas` now call `ResolveOrPrompt` instead of `ShowDialog` directly.
+
+**What this rules out**: Agents cannot selectively skip individual conflicts — it's all-or-nothing overwrite. If a workflow emerges where agents need per-object conflict control, the `ResolveOrPrompt` method is the natural extension point. The three-mode option approach could be revisited if users report unwanted overwrites in practice.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Core/clsConflicts.cls` — new `ResolveOrPrompt` method
+- `Version Control.accda.src/modules/Core/modBuild.bas` — 2 call sites updated
+- `Version Control.accda.src/modules/Core/modExport.bas` — 3 call sites updated
+
+---
+
 ## 2026-04-15 — Skip/auto-close UI for API and MCP-initiated operations
 
 **Trigger**: When the MCP server calls `ImportObject` to merge a single component from source, `frmVCSMain` opens, becomes visible, and stays open — adding unnecessary overhead and requiring manual dismissal. Full builds and exports initiated by an agent also leave the form open after completion. The build confirmation dialog (`vbDefaultButton3` = Cancel) could block API callers entirely.

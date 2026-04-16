@@ -53,6 +53,40 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ResolveOrPrompt
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : For agent/API operations, auto-resolve all conflicts (source is truth for
+'           : imports, database is truth for exports). For user-initiated operations,
+'           : show the interactive conflict dialog as usual.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ResolveOrPrompt()
+
+    Dim varKey As Variant
+    Dim cItem As clsConflictItem
+
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        For Each varKey In m_dItems.Keys
+            Set cItem = m_dItems(varKey)
+            If cItem.ActionType <> ercNone Then
+                cItem.Resolution = cItem.ActionType
+            Else
+                cItem.Resolution = ercOverwrite
+            End If
+        Next varKey
+        Log.Add T("Auto-resolved {0} conflict(s) for agent operation.", _
+            var0:=Me.Count), False
+        MCP.Log "Auto-resolved " & Me.Count & " conflict(s)."
+        Me.ApproveResolutions = True
+    Else
+        ShowDialog
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Resolve
 ' Author    : Adam Waller
 ' Date      : 5/27/2021
