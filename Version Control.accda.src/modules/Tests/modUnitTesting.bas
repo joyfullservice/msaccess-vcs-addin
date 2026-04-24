@@ -5,42 +5,12 @@ Option Private Module
 
 Private Const ModuleName As String = "modUnitTesting"
 
-'@TestModule
 '@Folder("Tests")
 
-Private Assert As Object
-Private Fakes As Object
-
-'@ModuleInitialize
-Private Sub ModuleInitialize()
-    'this method runs once per module.
-    Set Assert = CreateObject("Rubberduck.AssertClass")
-    Set Fakes = CreateObject("Rubberduck.FakesProvider")
-End Sub
-
-'@ModuleCleanup
-Private Sub ModuleCleanup()
-    'this method runs once per module.
-    Set Assert = Nothing
-    Set Fakes = Nothing
-End Sub
-
-'@TestInitialize
-Private Sub TestInitialize()
-    'this method runs before every test in the module.
-End Sub
-
-'@TestCleanup
-Private Sub TestCleanup()
-    'this method runs after every test in the module.
-End Sub
 
 ' Test shows that UCS-2 files exported by Access make round trip through our conversions.
-'@TestMethod("TextConversions")
 Public Sub TestUCS2toUTF8RoundTrip()
-    On Error GoTo TestFail
 
-    'Arrange:
     Dim queryName As String
     queryName = "Temp_Test_Query_Delete_Me_Æ_ø_Å"
     Dim tempFileName As String
@@ -67,7 +37,6 @@ Public Sub TestUCS2toUTF8RoundTrip()
         .Close
     End With
 
-    'Act:
     ConvertUtf8Ucs2 tempFileName, UCStoUCS
     ConvertUcs2Utf8 UCStoUCS, UCStoUTF
     ConvertUcs2Utf8 UCStoUTF, UTFtoUTF
@@ -80,27 +49,13 @@ Public Sub TestUCS2toUTF8RoundTrip()
         .Close
     End With
 
-    ' Cleanup temp files
-    'deletefile tempFileName
-    'deletefile UTFtoUCS
-
-    'Assert:
-    Assert.AreEqual originalExport, finalFile
-
-    GoTo TestExit
-
-TestFail:
-    Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
-
-TestExit:
+    Debug.Assert originalExport = finalFile
 
 End Sub
 
-'@TestMethod("TextConversion")
-Private Sub TestParseSpecialCharsInJson()
-    On Error GoTo TestFail
 
-    'Arrange:
+Public Sub TestParseSpecialCharsInJson()
+
     Dim strPath As String
     Dim dict As Dictionary
     Dim FSO As Object
@@ -115,30 +70,16 @@ Private Sub TestParseSpecialCharsInJson()
 
     Debug.Print strPath
 
-    'Act:
     Set dict = modFileAccess.ReadJsonFile(strPath)
 
-    'Assert:
-    If dict Is Nothing Then
-        Assert.Fail "Empty dictionary returned"
-    Else
-        Debug.Print dict("Test")
-        Assert.Succeed
-    End If
+    Debug.Assert Not dict Is Nothing
+    Debug.Print dict("Test")
 
-
-TestExit:
-    Exit Sub
-TestFail:
-    Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
 End Sub
 
 
-'@TestMethod("Sorting")
-Private Sub TestSortDictionaryByKeys()
-    On Error GoTo TestFail
+Public Sub TestSortDictionaryByKeys()
 
-    'Arrange:
     Dim dItems As Dictionary
 
     Set dItems = New Dictionary
@@ -146,22 +87,15 @@ Private Sub TestSortDictionaryByKeys()
     dItems.Add "A", "A"
     dItems.Add "B", "B"
 
-    'Act:
     Set dItems = SortDictionaryByKeys(dItems)
 
-    'Assert:
-    Assert.AreEqual dItems.Items(0), "A"
-    Assert.AreEqual dItems.Items(1), "B"
-    Assert.AreEqual dItems.Items(2), "C"
+    Debug.Assert dItems.Items(0) = "A"
+    Debug.Assert dItems.Items(1) = "B"
+    Debug.Assert dItems.Items(2) = "C"
 
-TestExit:
-    Exit Sub
-TestFail:
-    Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
 End Sub
 
 
-'@TestMethod("QuickSort")
 Private Sub TestQuickSort()
 
     Dim astr() As String
@@ -176,7 +110,6 @@ Private Sub TestQuickSort()
 End Sub
 
 
-'@TestMethod("Concat")
 Private Sub TestConcat()
 
     With New clsConcat
@@ -186,7 +119,6 @@ Private Sub TestConcat()
 End Sub
 
 
-'@TestMethod("SanitizeConnectionString")
 Private Sub TestSanitizeConnectionString()
 
     ' Verify semicolon placement matches original
@@ -201,7 +133,6 @@ Private Sub TestSanitizeConnectionString()
 End Sub
 
 
-'@TestMethod("CloneDictionary")
 Private Sub TestCloneDictionary()
 
     Dim dFruit As Dictionary
@@ -248,7 +179,6 @@ Private Sub TestCloneDictionary()
 End Sub
 
 
-'@TestMethod("IDbComponent Interface")
 Private Sub TestComponentPropertyAccess()
 
     Dim cnt As IDbComponent
@@ -266,7 +196,6 @@ Private Sub TestComponentPropertyAccess()
 End Sub
 
 
-'@TestMethod("IDbComponent Interface")
 Private Sub TestUniqueComponentCategory()
 
     Dim dList As Dictionary
@@ -281,7 +210,6 @@ Private Sub TestUniqueComponentCategory()
 End Sub
 
 
-'@TestMethod("IDbComponent Interface")
 Private Sub TestUniqueComponentType()
 
     Dim dList As Dictionary
@@ -296,7 +224,6 @@ Private Sub TestUniqueComponentType()
 End Sub
 
 
-'@TestMethod("IDbComponent Interface")
 Private Sub TestUniqueBaseSubfolder()
 
     Dim dList As Dictionary
@@ -332,7 +259,6 @@ Public Sub TestMeterProgressBar()
 End Sub
 
 
-'@TestMethod("clsGitIntegration.GetRepositoryRoot")
 Public Sub TestGitRepositoryRoot()
 
     With New clsGitIntegration
@@ -362,7 +288,6 @@ Public Sub TestGitRepositoryRoot()
 End Sub
 
 
-'@TestMethod("InArray")
 Public Sub TestInArray()
     Dim varArray As Variant
     varArray = Array("a", "b", "c", 1, 2, 3, #1/1/2000#)
@@ -377,7 +302,6 @@ Public Sub TestInArray()
 End Sub
 
 
-'@TestMethod("GetFileHash")
 Public Sub TestStringFileHash()
 
     Const cstrText As String = "This is my text content."
@@ -402,7 +326,6 @@ Public Sub TestStringFileHash()
 End Sub
 
 
-'@TestMethod("GetComponentClass")
 Public Sub TestGetClassFromComponentType()
 
     Dim intType As eDatabaseComponentType
