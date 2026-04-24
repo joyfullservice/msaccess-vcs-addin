@@ -350,6 +350,49 @@ Import logic does **not** need gating — it must remain backwards compatible wi
 
 ---
 
+## Debugging RunVBA Failures
+
+`clsVersionControl.RunVBA` (exposed to agents via the `vcs_run_vba` MCP tool) wraps caller-supplied VBA code in a temporary module, compiles it, runs it, and returns a JSON result. Two debugging affordances make iteration on agent-authored snippets much faster:
+
+### 1. Auto-injected line numbers and `errorLine`
+
+Before the wrapper is built, `RunVBA` runs the submitted code through the private helper `AddVbaLineNumbers` (in the same class). That helper prepends sequential 1-based VBA line numbers to every executable statement. The number value equals the 1-based ordinal of the line within the original `code` string (the counter advances on every physical input line, blanks/comments/continuations included), so when a runtime error fires, the JSON result contains an `errorLine` field that maps directly back to the caller's source.
+
+```json
+{
+  "success": false,
+  "error": "Type mismatch",
+  "errorNumber": 13,
+  "errorLine": 7
+}
+```
+
+`errorLine: 7` literally means "line 7 of what I submitted" — no offset math required. The field is omitted when no `Erl` value is available (e.g., the wrapper itself failed to compile, or the error fired before any numbered line ran).
+
+Lines that cannot legally carry a VBA line number — blank lines, pure comments, continuations of a prior `_`-terminated line, and lines the caller already pre-numbered — are passed through unchanged. The counter still advances over them so the line numbers remain in sync with the original text.
+
+### 2. Concise multi-error test procedures
+
+The default wrapper uses `On Error Resume Next` and reports the **last** runtime error. When you want a test to keep going past the first failure and report every problem in a single round-trip, write your own handler that exploits the auto-injected line numbers:
+
+```vba
+Dim col As New Collection
+On Error GoTo H
+CurrentDb.Execute "DELETE * FROM tblA"
+CurrentDb.Execute "INSERT INTO tblB SELECT * FROM nope"
+CurrentDb.Execute "UPDATE tblC SET x = 1"
+MCP_TempFunction = "errors=" & col.Count & " | " & Join(CollectionToArray(col), "; ")
+Exit Function
+H: col.Add Erl & ": " & Err.Number & " " & Err.Description
+Resume Next
+```
+
+Each `Erl` value collected inside the `H:` label is meaningful because the wrapper auto-numbered every line for you. You don't need to write `10`, `20`, `30` yourself — the line numbers are already there by the time your code runs.
+
+The decision between the default single-error capture and an explicit multi-error handler is per-test: pick whichever shape best matches what the test is trying to verify.
+
+---
+
 ## COM Ribbon Add-in (Ribbon/)
 
 The ribbon toolbar is implemented as a COM add-in using **twinBASIC**, enabling 64-bit compatibility.

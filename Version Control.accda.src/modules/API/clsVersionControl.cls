@@ -1025,7 +1025,7 @@ Public Function RunVBA(ByVal strCode As String) As String
     On Error GoTo ErrHandler
 
     Set dResult = New Dictionary
-    strModuleName = "_MCP_Temp_" & Format$(Timer * 100, "0")
+    strModuleName = "MCP_Temp_" & Format$(Timer * 100, "0")
 
     ' Check permission
     If Not Options.McpAllowRunVBA Then
@@ -1035,52 +1035,125 @@ Public Function RunVBA(ByVal strCode As String) As String
         Exit Function
     End If
 
-    ' Build the wrapper function with error number/description stored in module-level vars
+    ' Build the wrapper function with error number/description stored in
+    ' module-level vars. Function names must NOT start with an underscore --
+    Dim strNumberedCode As String
+    ' Inject sequential 1-based line numbers into the agent's code so Err.Erl
+    ' can pinpoint the line that raised the runtime error. The number written
+    ' on each line equals the 1-based ordinal of that line within strCode,
+    ' which means an "errorLine" value of 7 maps directly to line 7 of what
+    ' the caller submitted (the counter advances on every physical input
+    ' line, including blanks/comments/continuations, even though only
+    ' executable lines actually carry a number).
+    strNumberedCode = AddVbaLineNumbers(strCode, "    ")
+    ' Wrapper structure: capture user code's runtime error into module-level
+    ' state, then Err.Clear before returning. Without the Err.Clear the
+    ' raised error leaks out through Application.Run to the caller, which
+    ' makes error 2517 (procedure not found) indistinguishable from a real
+    ' user-raised runtime error in the diagnostics.
     strWrapper = "Private m_ErrNum As Long" & vbCrLf & _
-                 "Private m_ErrDesc As String" & vbCrLf & vbCrLf & _
-                 "Public Function _MCP_TempFunction() As Variant" & vbCrLf & _
+                 "Private m_ErrDesc As String" & vbCrLf & _
+                 "Private m_ErrLine As Long" & vbCrLf & vbCrLf & _
+                 "Public Function MCP_TempFunction() As Variant" & vbCrLf & _
                  "    On Error Resume Next" & vbCrLf & _
-                 "    " & Replace(strCode, vbLf, vbCrLf & "    ") & vbCrLf & _
+                 strNumberedCode & vbCrLf & _
                  "    m_ErrNum = Err.Number" & vbCrLf & _
                  "    m_ErrDesc = Err.Description" & vbCrLf & _
+                 "    m_ErrLine = Erl" & vbCrLf & _
+                 "    Err.Clear" & vbCrLf & _
                  "End Function" & vbCrLf & vbCrLf & _
-                 "Public Function _MCP_GetErrNum() As Long" & vbCrLf & _
-                 "    _MCP_GetErrNum = m_ErrNum" & vbCrLf & _
+                 "Public Function MCP_GetErrNum() As Long" & vbCrLf & _
+                 "    MCP_GetErrNum = m_ErrNum" & vbCrLf & _
                  "End Function" & vbCrLf & vbCrLf & _
-                 "Public Function _MCP_GetErrDesc() As String" & vbCrLf & _
-                 "    _MCP_GetErrDesc = m_ErrDesc" & vbCrLf & _
+                 "Public Function MCP_GetErrDesc() As String" & vbCrLf & _
+                 "    MCP_GetErrDesc = m_ErrDesc" & vbCrLf & _
+                 "End Function" & vbCrLf & vbCrLf & _
+                 "Public Function MCP_GetErrLine() As Long" & vbCrLf & _
+                 "    MCP_GetErrLine = m_ErrLine" & vbCrLf & _
                  "End Function"
 
-    ' Create temp module in the current database
+    ' Create temp module in the current database. New modules in Access are
+    ' usually pre-populated with "Option Compare Database" (and sometimes
+    ' "Option Explicit" depending on VBE settings). InsertLines 1 prepends,
+    ' which would leave duplicate Option statements at the bottom and trigger
+    ' "Multiple Option Compare statements are not allowed". Clear the module
+    ' first so our wrapper is the entire content.
     Set cmp = CurrentVBProject.VBComponents.Add(vbext_ct_StdModule)
     cmp.Name = strModuleName
     blnModuleCreated = True
+    If cmp.CodeModule.CountOfLines > 0 Then
+        cmp.CodeModule.DeleteLines 1, cmp.CodeModule.CountOfLines
+    End If
     cmp.CodeModule.InsertLines 1, "Option Compare Database" & vbCrLf & "Option Explicit" & vbCrLf & vbCrLf & strWrapper
 
-    ' Compile the project to validate the code
+    ' Compile the project to validate the code. We must explicitly activate
+    ' the host CurrentVBProject in the VBE first -- otherwise acCmdCompileAllModules
+    ' compiles whichever project is currently active in the VBE (typically the
+    ' add-in itself, which already compiles), leaving our just-inserted temp
+    ' module uncompiled. Application.IsCompiled would then return False because
+    ' the host has an uncompiled module, and we'd report a misleading
+    ' "compile failed" with no details. Same pattern as CompileVBA below.
     On Error Resume Next
+    Set VBE.ActiveVBProject = CurrentVBProject
     DoCmd.RunCommand acCmdCompileAllModules
     DoEvents
 
     If Not Application.IsCompiled Then
+        ' Distinguish between pre-existing host compile issues and a wrapper
+        ' that itself failed to compile by removing the temp module and
+        ' re-checking the host's compile state.
+        Dim strHostState As String
+        strHostState = "unknown"
+        If blnModuleCreated Then
+            CurrentVBProject.VBComponents.Remove cmp
+            blnModuleCreated = False
+            DoCmd.RunCommand acCmdCompileAllModules
+            DoEvents
+            If Application.IsCompiled Then
+                strHostState = "host compiles cleanly without the wrapper -- the failure is in the agent code"
+            Else
+                strHostState = "host project does not compile on its own -- fix host compile errors before retrying RunVBA"
+            End If
+        End If
         dResult.Add "success", False
-        dResult.Add "compileError", "VBA compilation failed. The agent code contains syntax or reference errors."
+        dResult.Add "compileError", "VBA compilation failed. " & strHostState & "."
+        dResult.Add "generatedSource", "Option Compare Database" & vbCrLf & _
+            "Option Explicit" & vbCrLf & vbCrLf & strWrapper
         GoTo CleanUp
     End If
     On Error GoTo ErrHandler
 
-    ' Execute the wrapper function
-    varReturn = Application.Run(strModuleName & "._MCP_TempFunction")
+    ' Execute the wrapper function. Application.Run's qualified syntax is
+    ' "[ProjectName].[FunctionName]" -- module name is NOT supported. From
+    ' add-in code calling back into the host, an unqualified call resolves
+    ' against the add-in's own project, so we must qualify with the host's
+    ' VBProject name. CurrentVBProject points at the host (not the add-in)
+    ' here. The empirically verified path-without-extension qualifier used
+    ' in the reverse direction (modAPI.GetRunCmdAddInFullLibName) does NOT
+    ' work for the host project, only for loaded library references.
+    Dim strProjPrefix As String
+    strProjPrefix = CurrentVBProject.Name & "."
+    varReturn = Application.Run(strProjPrefix & "MCP_TempFunction")
 
-    ' Check for runtime errors captured by the wrapper
+    ' Check for runtime errors captured by the wrapper (Err is cleared
+    ' inside MCP_TempFunction before returning, so any error here is from
+    ' Application.Run itself, not the user code).
     Dim lngErrNum As Long
     Dim strErrDesc As String
-    lngErrNum = Application.Run(strModuleName & "._MCP_GetErrNum")
+    Dim lngErrLine As Long
+    lngErrNum = Application.Run(strProjPrefix & "MCP_GetErrNum")
     If lngErrNum <> 0 Then
-        strErrDesc = Application.Run(strModuleName & "._MCP_GetErrDesc")
+        strErrDesc = Application.Run(strProjPrefix & "MCP_GetErrDesc")
+        lngErrLine = Application.Run(strProjPrefix & "MCP_GetErrLine")
         dResult.Add "success", False
         dResult.Add "error", strErrDesc
         dResult.Add "errorNumber", lngErrNum
+        ' Erl resolves to the most recent labeled line at the time the error
+        ' was raised. Because every executable user line is auto-numbered
+        ' above, this is normally the exact failing line. Omit when 0 (means
+        ' the error fired before any numbered line ran, e.g. a setup-only
+        ' script with no numbered statements).
+        If lngErrLine > 0 Then dResult.Add "errorLine", lngErrLine
     Else
         dResult.Add "success", True
         If Not IsEmpty(varReturn) And Not IsNull(varReturn) Then
@@ -1107,6 +1180,87 @@ ErrHandler:
     dResult.Add "error", Err.Description
     dResult.Add "errorNumber", CLng(Err.Number)
     GoTo CleanUp
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddVbaLineNumbers
+' Author    : Adam Waller
+' Date      : 4/20/2026
+' Purpose   : Prepend sequential 1-based line numbers to each executable VBA
+'           : statement in strCode so Err.Erl can identify the failing line
+'           : when the code is executed inside the RunVBA wrapper.
+'           : The number written on each line equals the 1-based ordinal of
+'           : that line within strCode (the counter advances on every input
+'           : line, blanks/comments/continuations included), so an Erl value
+'           : of N maps directly to "line N of the original submission".
+'           : Lines that cannot legally carry a line number are passed
+'           : through untouched:
+'           :   - blank lines
+'           :   - pure-comment lines (first non-whitespace char is ')
+'           :   - continuations of the prior physical line (previous line
+'           :     ended with " _" or vbTab & "_")
+'           :   - lines whose first non-whitespace char is already a digit
+'           :     (caller already supplied a number; theirs wins)
+'           : Input is split on vbLf (handles both LF and CRLF input);
+'           : output uses vbCrLf and prefixes each line with strIndent so the
+'           : result can be embedded directly inside an indented wrapper.
+'---------------------------------------------------------------------------------------
+'
+Private Function AddVbaLineNumbers(ByVal strCode As String, Optional ByVal strIndent As String = "    ") As String
+
+    Dim aLines() As String
+    Dim lngIdx As Long
+    Dim strLine As String
+    Dim strTrimmed As String
+    Dim strFirstChar As String
+    Dim strCharBefore As String
+    Dim blnPrevContinuation As Boolean
+    Dim blnEndsWithContinuation As Boolean
+    Dim strResult As String
+
+    aLines = Split(strCode, vbLf)
+
+    For lngIdx = LBound(aLines) To UBound(aLines)
+        ' Strip a trailing CR if present so we cleanly handle CRLF input.
+        strLine = aLines(lngIdx)
+        If Len(strLine) > 0 Then
+            If Right$(strLine, 1) = vbCr Then strLine = Left$(strLine, Len(strLine) - 1)
+        End If
+        strTrimmed = Trim$(strLine)
+
+        ' Decide whether this physical line can carry a line number.
+        If Len(strTrimmed) > 0 And Not blnPrevContinuation Then
+            strFirstChar = Left$(strTrimmed, 1)
+            If strFirstChar <> "'" And Not (strFirstChar Like "[0-9]") Then
+                ' Inject the 1-based ordinal between the leading whitespace
+                ' (added below via strIndent) and the trimmed code body.
+                strLine = (lngIdx + 1) & " " & LTrim$(strLine)
+            End If
+        End If
+
+        ' Determine whether THIS (trimmed) line ends with a continuation
+        ' marker so the NEXT physical line is treated as a continuation.
+        ' VBA's continuation marker is " _" (or tab + "_") at end of line;
+        ' a bare trailing "_" without preceding whitespace is just an
+        ' identifier character, not a line continuation.
+        blnEndsWithContinuation = False
+        If Len(strTrimmed) >= 2 Then
+            If Right$(strTrimmed, 1) = "_" Then
+                strCharBefore = Mid$(strTrimmed, Len(strTrimmed) - 1, 1)
+                If strCharBefore = " " Or strCharBefore = vbTab Then
+                    blnEndsWithContinuation = True
+                End If
+            End If
+        End If
+        blnPrevContinuation = blnEndsWithContinuation
+
+        If lngIdx > LBound(aLines) Then strResult = strResult & vbCrLf
+        strResult = strResult & strIndent & strLine
+    Next lngIdx
+
+    AddVbaLineNumbers = strResult
 
 End Function
 

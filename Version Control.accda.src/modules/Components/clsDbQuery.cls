@@ -46,6 +46,8 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strBasePath As String
     Dim strSqlFile As String
     Dim strJsonFile As String
@@ -79,6 +81,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         End If
     End If
 
+    CatchAny eelError, "Error exporting query '" & m_Query.Name & "'", _
+        ModuleName(Me) & ".IDbComponent_Export"
+
 End Sub
 
 
@@ -90,6 +95,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
@@ -127,10 +134,11 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
         dbOpenSnapshot)
     If rst.EOF Then
         rst.Close
+        Set rst = Nothing
         Perf.OperationEnd
         Log.Error eelWarning, "Query '" & strQueryName & "' not found in MSysObjects.", _
             "clsDbQuery.ExportNewFormat"
-        Exit Sub
+        GoTo CleanUp
     End If
 
     lngObjectId = rst!ID
@@ -333,6 +341,26 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     ' Clean up any legacy .qdef or .bas files
     CleanupLegacyFiles strSqlFile
 
+CleanUp:
+    ' Cache the real error before any cleanup-induced errors clobber it.
+    ' (DAO has no Recordset.State -- calling Close on an already-closed rst
+    '  raises 3420, which would otherwise mask the real error or be logged
+    '  as a phantom failure when the body actually succeeded.)
+    Dim lngOrigErr As Long
+    Dim strOrigDesc As String
+    lngOrigErr = Err.Number
+    strOrigDesc = Err.Description
+
+    On Error Resume Next
+    If Not rst Is Nothing Then rst.Close
+    Set rst = Nothing
+    Err.Clear
+
+    ' Re-raise the original error (if any) so CatchAny logs the real cause
+    If lngOrigErr <> 0 Then Err.Raise lngOrigErr, , strOrigDesc
+    CatchAny eelError, "Error exporting query '" & m_Query.Name & "'", _
+        ModuleName(Me) & ".ExportNewFormat", True, True, True
+
 End Sub
 
 
@@ -408,6 +436,8 @@ End Sub
 '
 Private Sub ExportLegacy(strFile As String, Optional blnAlternate As Boolean = False)
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strHash As String
     Dim strSql As String
     Dim strSqlFile As String
@@ -435,7 +465,9 @@ Private Sub ExportLegacy(strFile As String, Optional blnAlternate As Boolean = F
                     m_Query.Name & "'. Error " & Err.Number & ": " & Err.Description, _
                     ModuleName(Me) & ".Export"
             End If
-            On Error GoTo 0
+            ' Restore outer error mode (was set at top of sub) instead of forcing GoTo 0,
+            ' which would defeat the wrap in release mode.
+            If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
             If strSql <> vbNullString Then
                 Select Case dbs.QueryDefs(m_Query.Name).Type
                     Case dbQSQLPassThrough, dbQSPTBulk
@@ -455,6 +487,9 @@ Private Sub ExportLegacy(strFile As String, Optional blnAlternate As Boolean = F
             strMetaHash:=GetMetadataHash("Tables", m_Query.Name, acQuery)
     End If
 
+    CatchAny eelError, "Error exporting query (legacy) '" & m_Query.Name & "'", _
+        ModuleName(Me) & ".ExportLegacy"
+
 End Sub
 
 
@@ -470,14 +505,17 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     ' Route to appropriate import method based on file extension
     If strFile Like "*.sql" Then
         ImportNewFormat strFile
     ElseIf strFile Like "*.qdef" Or strFile Like "*.bas" Then
         ImportLegacyFormat strFile
-    Else
-        Exit Sub
     End If
+
+    CatchAny eelError, "Error importing query from '" & strFile & "'", _
+        ModuleName(Me) & ".IDbComponent_Import"
 
 End Sub
 
@@ -491,6 +529,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub ImportNewFormat(strSqlFile As String)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     Dim strQueryName As String
     Dim strSql As String
@@ -515,7 +555,7 @@ Private Sub ImportNewFormat(strSqlFile As String)
     If Len(strSql) = 0 Then
         Log.Error eelError, "Empty SQL file for query '" & strQueryName & "'.", _
             "clsDbQuery.ImportNewFormat"
-        Exit Sub
+        GoTo CleanUp
     End If
 
     ' Read .json file
@@ -618,16 +658,25 @@ Private Sub ImportNewFormat(strSqlFile As String)
         strMetaHash:=GetMetadataHash("Tables", strQueryName, acQuery)
 
 CleanUp:
-    If FSO.FileExists(strTempFile) Then
-        ' When ShowDebug is on, preserve the generated .qdef as .tmp for inspection
-        If Options.ShowDebug Then
-            Dim strDebugFile As String
-            strDebugFile = IDbComponent_BaseFolder & GetSafeFileName(strQueryName) & ".tmp"
-            If FSO.FileExists(strDebugFile) Then DeleteFile strDebugFile
-            FSO.CopyFile strTempFile, strDebugFile
+    ' Log any unexpected error first (before file ops below can clobber Err)
+    CatchAny eelError, "Error importing query '" & strQueryName & "'", _
+        ModuleName(Me) & ".ImportNewFormat", True, True, True
+
+    On Error Resume Next
+    If Len(strTempFile) > 0 Then
+        If FSO.FileExists(strTempFile) Then
+            ' When ShowDebug is on, preserve the generated .qdef as .tmp for inspection
+            If Options.ShowDebug Then
+                Dim strDebugFile As String
+                strDebugFile = IDbComponent_BaseFolder & GetSafeFileName(strQueryName) & ".tmp"
+                If FSO.FileExists(strDebugFile) Then DeleteFile strDebugFile
+                FSO.CopyFile strTempFile, strDebugFile
+            End If
+            DeleteFile strTempFile
         End If
-        DeleteFile strTempFile
     End If
+    ' Don't leak cleanup-induced errors to the caller
+    Err.Clear
 
 End Sub
 

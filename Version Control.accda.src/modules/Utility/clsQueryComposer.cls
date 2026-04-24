@@ -66,6 +66,8 @@ Private m_blnIsDDL As Boolean
 '
 Public Function ReconstructSQL(colRows As Collection) As String
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim dRow As Dictionary
     Dim dTbl As Dictionary
     Dim dFld As Dictionary
@@ -94,6 +96,9 @@ Public Function ReconstructSQL(colRows As Collection) As String
     Dim blnHasAttr1 As Boolean
     Dim strParams As String
     Dim blnDistinct As Boolean
+    Dim blnDistinctRow As Boolean
+    Dim lngTopN As Long
+    Dim blnTopPercent As Boolean
 
     ' Initialize collections for each section
     Set colFields = New Collection
@@ -138,8 +143,14 @@ Public Function ReconstructSQL(colRows As Collection) As String
 
             Case 3
                 ' Options bitmask: 2=DISTINCT, 8=DISTINCTROW, 16=TOP, 32=PERCENT
+                ' When TOP is set, Name1 holds the TOP n value.
                 lngOption = lngFlag
                 blnDistinct = (lngFlag And 2) <> 0
+                blnDistinctRow = (lngFlag And 8) <> 0
+                If (lngFlag And 16) <> 0 And Len(strN1) > 0 Then
+                    lngTopN = CLng(strN1)
+                    blnTopPercent = (lngFlag And 32) <> 0
+                End If
 
             Case 4
                 ' Connect string (pass-through)
@@ -202,7 +213,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
     ' If raw SQL was found (SQL View or DDL/pass-through), return it directly
     If blnHasRawSql Then
         ReconstructSQL = strRawSql
-        Exit Function
+        GoTo CleanUp
     End If
 
     ' Default to SELECT when no Attribute 1 present (SQL View SELECT queries
@@ -239,11 +250,24 @@ Public Function ReconstructSQL(colRows As Collection) As String
         End If
     End If
 
+    ' Build the SELECT keyword + DISTINCT/DISTINCTROW + TOP n [PERCENT] modifiers
+    ' shared by SELECT, crosstab, Make-Table, and INSERT INTO ... SELECT.
+    Dim strSelectModifiers As String
+    strSelectModifiers = vbNullString
+    If blnDistinctRow Then
+        strSelectModifiers = strSelectModifiers & "DISTINCTROW "
+    ElseIf blnDistinct Then
+        strSelectModifiers = strSelectModifiers & "DISTINCT "
+    End If
+    If lngTopN > 0 Then
+        strSelectModifiers = strSelectModifiers & "TOP " & CStr(lngTopN) & " "
+        If blnTopPercent Then strSelectModifiers = strSelectModifiers & "PERCENT "
+    End If
+
     ' Main query body based on operation type
     Select Case lngOperation
         Case 1, 6  ' SELECT / Crosstab row headings
-            cSql.Add "SELECT "
-            If blnDistinct Then cSql.Add "DISTINCT "
+            cSql.Add "SELECT " & strSelectModifiers
             ' For crosstab, only include row heading fields (Flag=2)
             If blnIsCrosstab Then
                 Dim colRowFields As New Collection
@@ -256,8 +280,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
             End If
 
         Case 2  ' Make-Table (SELECT...INTO)
-            cSql.Add "SELECT "
-            If blnDistinct Then cSql.Add "DISTINCT "
+            cSql.Add "SELECT " & strSelectModifiers
             BuildFieldList cSql, colFields
             cSql.Add vbCrLf & "INTO " & BracketIfNeeded(strTarget)
 
@@ -281,8 +304,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 cSql.Add ")"
             End If
             cSql.Add vbCrLf
-            cSql.Add "SELECT "
-            If blnDistinct Then cSql.Add "DISTINCT "
+            cSql.Add "SELECT " & strSelectModifiers
             BuildFieldList cSql, colFields
 
         Case 4  ' UPDATE
@@ -373,6 +395,10 @@ Public Function ReconstructSQL(colRows As Collection) As String
 
     ReconstructSQL = cSql.GetStr
 
+CleanUp:
+    CatchAny eelError, "Error reconstructing SQL (" & colRows.Count & " rows)", _
+        ModuleName(Me) & ".ReconstructSQL"
+
 End Function
 
 
@@ -391,6 +417,8 @@ End Function
 '
 Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean = False)
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strNorm As String
     Dim strUpper As String
 
@@ -403,7 +431,7 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
     ' Pass-through queries are never designer-compatible
     If blnIsPassThrough Then
         m_blnDesignerCompatible = False
-        Exit Sub
+        GoTo CleanUp
     End If
 
     ' Normalize whitespace for parsing
@@ -413,14 +441,14 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
     ' Check for query types that cannot be represented in Design View
     If IsUnionQuery(strUpper) Then
         m_blnDesignerCompatible = False
-        Exit Sub
+        GoTo CleanUp
     End If
 
     ' DDL statements
     If IsDDLQuery(strUpper) Then
         m_blnIsDDL = True
         m_blnDesignerCompatible = False
-        Exit Sub
+        GoTo CleanUp
     End If
 
     ' Strip trailing semicolon and whitespace
@@ -469,7 +497,7 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
     Else
         ' Unknown query type -- treat as raw SQL
         m_blnDesignerCompatible = False
-        Exit Sub
+        GoTo CleanUp
     End If
 
     ' Check for subqueries in the FROM clause which make Design View impossible
@@ -478,6 +506,10 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
     Else
         m_blnDesignerCompatible = True
     End If
+
+CleanUp:
+    CatchAny eelError, "Error decomposing SQL. " & SqlSnippet(), _
+        ModuleName(Me) & ".DecomposeSQL"
 
 End Sub
 
@@ -491,7 +523,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function IsDesignerCompatible() As Boolean
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     IsDesignerCompatible = m_blnDesignerCompatible
+    CatchAny eelError, "Error reading IsDesignerCompatible", _
+        ModuleName(Me) & ".IsDesignerCompatible"
 End Function
 
 
@@ -517,10 +552,28 @@ Public Function GenerateQdef(blnDesignView As Boolean, _
                              Optional dLayout As Dictionary = Nothing, _
                              Optional lngOptionFlag As Long = -1) As String
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim cOut As New clsConcat
 
-    ' Merge JSON OptionFlag with SQL-derived flags
-    If lngOptionFlag > 0 Then m_lngOption = m_lngOption Or lngOptionFlag
+    ' Merge JSON OptionFlag with SQL-derived flags. The SQL is the source of
+    ' truth -- if the JSON OptionFlag claims TOP/PERCENT but the parsed SQL did
+    ' not produce a TOP n value, drop those bits to avoid generating an Option
+    ' line that points to a non-existent TopN. Otherwise Access fails the import
+    ' with "Resource failure".
+    If lngOptionFlag > 0 Then
+        Dim lngMerged As Long
+        lngMerged = lngOptionFlag
+        If m_lngTopN = 0 And m_lngTopPercent = 0 Then
+            ' Clear TOP (16) and PERCENT (32) bits when no TOP value is present
+            lngMerged = lngMerged And Not 16
+            lngMerged = lngMerged And Not 32
+            If lngMerged <> lngOptionFlag Then
+                Log.Add "    Dropping TOP/PERCENT bits from OptionFlag (no TOP n in SQL)", Options.ShowDebug
+            End If
+        End If
+        m_lngOption = m_lngOption Or lngMerged
+    End If
 
     If blnDesignView And m_blnDesignerCompatible Then
         EmitDesignViewQdef cOut, dProperties, dColumns, dLayout
@@ -529,6 +582,10 @@ Public Function GenerateQdef(blnDesignView As Boolean, _
     End If
 
     GenerateQdef = cOut.GetStr
+
+CleanUp:
+    CatchAny eelError, "Error generating qdef (DesignView=" & blnDesignView & "). " & SqlSnippet(), _
+        ModuleName(Me) & ".GenerateQdef"
 
 End Function
 
@@ -564,6 +621,9 @@ End Sub
 
 
 Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins As Collection)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim lngJ As Long
     Dim dJn As Dictionary
     Dim strJoinType As String
@@ -692,10 +752,16 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
 
         cSql.Add strAccum
     End If
+
+    CatchAny eelError, "Error building FROM clause. " & SqlSnippet(), _
+        ModuleName(Me) & ".BuildFromClause"
 End Sub
 
 
 Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     ' Access stores each ON condition as a separate Attribute 7 row.
     ' Two issues can create invalid join graphs:
     '
@@ -818,6 +884,9 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
     Next dItem
 
     Set ConsolidateJoins = colPrimary
+
+    CatchAny eelError, "Error consolidating joins. " & SqlSnippet(), _
+        ModuleName(Me) & ".ConsolidateJoins"
 End Function
 
 
@@ -843,6 +912,9 @@ Private Function BuildJoinChain(colJoins As Collection) As Collection
     ' matching Access's native join ordering.
     ' For star joins (multiple joins from the same leftTable), sorts
     ' by flag first (INNER before LEFT/RIGHT) then by rightTable name.
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim dJn As Dictionary
     Dim strLeft As String
     Dim strRight As String
@@ -889,6 +961,9 @@ Private Function BuildJoinChain(colJoins As Collection) As Collection
     DFSTraverse strRoot, dJoinsByLeft, dVisited, colResult
 
     Set BuildJoinChain = colResult
+
+    CatchAny eelError, "Error building join chain. " & SqlSnippet(), _
+        ModuleName(Me) & ".BuildJoinChain"
 End Function
 
 
@@ -945,6 +1020,27 @@ Private Function BuildConditionClause(colConditions As Collection) As String
         strResult = strResult & CStr(colConditions(lngC))
     Next lngC
     BuildConditionClause = strResult
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SqlSnippet
+' Author    : Adam Waller
+' Date      : 4/20/2026
+' Purpose   : Returns a truncated snippet of m_strRawSql for use in error messages.
+'           : Avoids logging multi-thousand-character SQL strings while still giving
+'           : enough context to identify which query failed.
+'---------------------------------------------------------------------------------------
+'
+Private Function SqlSnippet() As String
+    Const MAX_LEN As Long = 200
+    If Len(m_strRawSql) = 0 Then
+        SqlSnippet = "(no SQL captured)"
+    ElseIf Len(m_strRawSql) > MAX_LEN Then
+        SqlSnippet = "SQL: " & Left$(m_strRawSql, MAX_LEN) & "..."
+    Else
+        SqlSnippet = "SQL: " & m_strRawSql
+    End If
 End Function
 
 
@@ -1133,6 +1229,9 @@ End Sub
 
 
 Private Sub ParseSelectQuery(strSql As String)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strRemainder As String
     Dim strUpper As String
     Dim lngPos As Long
@@ -1183,10 +1282,16 @@ Private Sub ParseSelectQuery(strSql As String)
     If Len(m_strTransformAgg) > 0 Then
         ParsePivotFromOrderBy
     End If
+
+    CatchAny eelError, "Error parsing SELECT query. " & SqlSnippet(), _
+        ModuleName(Me) & ".ParseSelectQuery"
 End Sub
 
 
 Private Sub ParseInsertQuery(strSql As String)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strRemainder As String
     Dim strUpper As String
     Dim lngSelectPos As Long
@@ -1218,7 +1323,7 @@ Private Sub ParseInsertQuery(strSql As String)
             strRemainder = Mid$(strRemainder, lngSelectPos)
         Else
             m_strTargetTable = Trim$(strRemainder)
-            Exit Sub
+            GoTo CleanUp
         End If
     End If
 
@@ -1255,10 +1360,17 @@ Private Sub ParseInsertQuery(strSql As String)
             End If
         Next lngCol
     End If
+
+CleanUp:
+    CatchAny eelError, "Error parsing INSERT query. " & SqlSnippet(), _
+        ModuleName(Me) & ".ParseInsertQuery"
 End Sub
 
 
 Private Sub ParseUpdateQuery(strSql As String)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strRemainder As String
     Dim lngSet As Long
 
@@ -1281,10 +1393,16 @@ Private Sub ParseUpdateQuery(strSql As String)
             ParseUpdateSetFields strRemainder
         End If
     End If
+
+    CatchAny eelError, "Error parsing UPDATE query. " & SqlSnippet(), _
+        ModuleName(Me) & ".ParseUpdateQuery"
 End Sub
 
 
 Private Sub ParseDeleteQuery(strSql As String)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strRemainder As String
     Dim lngFrom As Long
 
@@ -1297,6 +1415,9 @@ Private Sub ParseDeleteQuery(strSql As String)
         strRemainder = Mid$(strRemainder, lngFrom + 5)
         ParseFromAndClauses strRemainder
     End If
+
+    CatchAny eelError, "Error parsing DELETE query. " & SqlSnippet(), _
+        ModuleName(Me) & ".ParseDeleteQuery"
 End Sub
 
 
@@ -1377,6 +1498,9 @@ End Sub
 
 
 Private Sub ParseFromAndClauses(strAfterFrom As String)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strUpper As String
     Dim lngWhere As Long
     Dim lngGroup As Long
@@ -1449,6 +1573,9 @@ Private Sub ParseFromAndClauses(strAfterFrom As String)
     If lngPivot > 0 Then
         m_strPivotField = Trim$(Mid$(strAfterFrom, lngPivot + 6))
     End If
+
+    CatchAny eelError, "Error parsing FROM/WHERE/GROUP/HAVING/ORDER/PIVOT clauses. " & SqlSnippet(), _
+        ModuleName(Me) & ".ParseFromAndClauses"
 End Sub
 
 
@@ -1456,6 +1583,9 @@ Private Sub ParseFromExpression(strFrom As String)
     ' Parse the FROM expression into tables and joins
     ' Handle Access-style nested parenthesized JOINs:
     '   FROM ((A INNER JOIN B ON ...) LEFT JOIN C ON ...)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strWork As String
     Dim strUpper As String
     Dim lngJoinPos As Long
@@ -1495,11 +1625,17 @@ Private Sub ParseFromExpression(strFrom As String)
         ' Has joins -- parse recursively
         ParseJoinExpression strWork
     End If
+
+    CatchAny eelError, "Error parsing FROM expression. " & SqlSnippet(), _
+        ModuleName(Me) & ".ParseFromExpression"
 End Sub
 
 
 Private Sub ParseJoinExpression(strExpr As String)
     ' Recursively parse join expressions
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strWork As String
     Dim strLeft As String
     Dim strRight As String
@@ -1527,7 +1663,7 @@ Private Sub ParseJoinExpression(strExpr As String)
     If lngJoinPos = 0 Then
         ' Base case: single table
         AddInputTable strWork
-        Exit Sub
+        GoTo CleanUp
     End If
 
     ' Split at this join
@@ -1563,6 +1699,10 @@ Private Sub ParseJoinExpression(strExpr As String)
     dJoin.Add "expression", strOnExpr
     dJoin.Add "flag", lngFlag
     m_colJoins.Add dJoin
+
+CleanUp:
+    CatchAny eelError, "Error parsing JOIN expression. " & SqlSnippet(), _
+        ModuleName(Me) & ".ParseJoinExpression"
 End Sub
 
 
@@ -2094,6 +2234,8 @@ End Sub
 Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
                                dColumns As Dictionary, dLayout As Dictionary)
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     ' Operation line
     cOut.Add "Operation =" & CStr(m_lngQueryType), vbCrLf
 
@@ -2116,11 +2258,21 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     End If
 
     ' Input Tables (order preserved from SQL, which reflects MSysQueries.[Order])
+    ' Each table emits a Name = line, optionally followed by an Alias = line
+    ' when the SQL aliased it (e.g. "tbl AS tbl_1" in a self-join). Without
+    ' the Alias line, Access stores both Attribute 5 rows with null Name2 and
+    ' the Attribute 7 join rows collapse to leftTable == rightTable, which on
+    ' the next export crashes BuildJoinChain (no graph root). This bit
+    ' affected ~723 queries in db-sec alone, including qryBucketCombineRandUCos
+    ' and qdelTempInvByQtrSubMergerAcquisition3.
     If m_colInputTables.Count > 0 Then
         cOut.Add "Begin InputTables", vbCrLf
         Dim dTbl As Dictionary
         For Each dTbl In m_colInputTables
             cOut.Add "    Name =""" & CStr(dTbl("name")) & """", vbCrLf
+            If Len(Nz(dTbl("alias"), vbNullString)) > 0 Then
+                cOut.Add "    Alias =""" & CStr(dTbl("alias")) & """", vbCrLf
+            End If
         Next dTbl
         cOut.Add "End", vbCrLf
     End If
@@ -2193,11 +2345,16 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         EmitDesignLayout cOut, dLayout
     End If
 
+    CatchAny eelError, "Error emitting Design View qdef. " & SqlSnippet(), _
+        ModuleName(Me) & ".EmitDesignViewQdef"
+
 End Sub
 
 
 Private Sub EmitSqlViewQdef(cOut As clsConcat, dProperties As Dictionary, _
                             dColumns As Dictionary)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' dbMemo "SQL" = "..." with line wrapping
     EmitDbMemoSql cOut, m_strRawSql
@@ -2211,10 +2368,16 @@ Private Sub EmitSqlViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     ' Column metadata
     EmitColumnMetadata cOut, dColumns
 
+    CatchAny eelError, "Error emitting SQL View qdef. " & SqlSnippet(), _
+        ModuleName(Me) & ".EmitSqlViewQdef"
+
 End Sub
 
 
 Private Sub EmitDbMemoSql(cOut As clsConcat, strSql As String)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Dim strEscaped As String
     Dim lngPos As Long
     Dim lngLineLen As Long
@@ -2222,10 +2385,10 @@ Private Sub EmitDbMemoSql(cOut As clsConcat, strSql As String)
     Dim blnFirst As Boolean
 
     ' Escape the SQL for .qdef format:
-    ' - Escape embedded double quotes as \"
-    ' - Replace CR+LF with \015\012
+    ' - Escape backslashes as \\ and double quotes as \" (in that order)
+    ' - Replace CR+LF with \015\012 (added after escaping so the leading \ is literal)
     ' - Wrap in dbMemo "SQL" ="..." with continuation lines
-    strEscaped = Replace(strSql, """", "\""")
+    strEscaped = EscapeQdefString(strSql)
     strEscaped = Replace(strEscaped, vbCrLf, "\015\012")
     strEscaped = Replace(strEscaped, vbCr, "\015")
     strEscaped = Replace(strEscaped, vbLf, "\012")
@@ -2259,6 +2422,9 @@ Private Sub EmitDbMemoSql(cOut As clsConcat, strSql As String)
         End If
         lngPos = lngPos + lngLineLen
     Loop
+
+    CatchAny eelError, "Error emitting dbMemo SQL block. " & SqlSnippet(), _
+        ModuleName(Me) & ".EmitDbMemoSql"
 End Sub
 
 
@@ -2267,8 +2433,9 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 4/10/2026
 ' Purpose   : Returns a safe line length that does not split an escape sequence
-'           : (\015, \012, \") across a line boundary. Access LoadFromText will
-'           : misparse the file if a backslash escape spans two quoted segments.
+'           : (\\, \015, \012, \") across a line boundary. Access LoadFromText
+'           : will misparse the file if a backslash escape spans two quoted
+'           : segments.
 '---------------------------------------------------------------------------------------
 '
 Private Function SafeBreak(strText As String, lngStart As Long, lngMaxLen As Long) As Long
@@ -2285,7 +2452,7 @@ Private Function SafeBreak(strText As String, lngStart As Long, lngMaxLen As Lon
 
     ' Scan backward from the break point looking for a backslash within
     ' the last 3 characters that could start an escape extending past
-    ' the break. Escapes: \" (2 chars), \015 (4 chars), \012 (4 chars).
+    ' the break. Escapes: \\ (2 chars), \" (2 chars), \015 (4 chars), \012 (4 chars).
     For lngI = 0 To 3
         lngCheckPos = lngEnd - lngI
         If lngCheckPos < lngStart Then Exit For
@@ -2293,7 +2460,9 @@ Private Function SafeBreak(strText As String, lngStart As Long, lngMaxLen As Lon
         If Mid$(strText, lngCheckPos, 1) = "\" Then
             lngEscLen = 1
             If lngCheckPos + 1 <= Len(strText) Then
-                If Mid$(strText, lngCheckPos + 1, 1) = """" Then
+                Dim strNext As String
+                strNext = Mid$(strText, lngCheckPos + 1, 1)
+                If strNext = """" Or strNext = "\" Then
                     lngEscLen = 2
                 ElseIf lngCheckPos + 3 <= Len(strText) Then
                     Dim strSeq As String
@@ -2323,6 +2492,8 @@ Private Sub EmitAllProperties(cOut As clsConcat, dProperties As Dictionary)
     ' Emit the complete set of known query properties in native order.
     ' JSON values override defaults. Any extra JSON keys not in the
     ' known set are emitted afterward for future-proofing.
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     Dim dOverrides As Dictionary
     Set dOverrides = ResolvePropertyOverrides(dProperties)
@@ -2388,10 +2559,33 @@ Private Sub EmitAllProperties(cOut As clsConcat, dProperties As Dictionary)
             Case "RowHeight"
                 cOut.Add "dbLong ""RowHeight"" =""" & dOverrides(varKey) & """", vbCrLf
             Case Else
-                cOut.Add "dbText """ & CStr(varKey) & """ =""" & CStr(dOverrides(varKey)) & """", vbCrLf
+                cOut.Add "dbText """ & CStr(varKey) & """ =""" & _
+                    EscapeQdefString(CStr(dOverrides(varKey))) & """", vbCrLf
         End Select
     Next varKey
+
+    CatchAny eelError, "Error emitting query properties. " & SqlSnippet(), _
+        ModuleName(Me) & ".EmitAllProperties"
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EscapeQdefString
+' Author    : Adam Waller
+' Date      : 4/20/2026
+' Purpose   : Escape a string value for inclusion inside a "..." segment of a
+'           : .qdef text file. Doubles backslashes first (so `\` becomes `\\`),
+'           : then escapes embedded double quotes (so `"` becomes `\"`).
+'           : The order matters -- escaping quotes first would re-double the
+'           : backslash that was just inserted as part of `\"`.
+'---------------------------------------------------------------------------------------
+'
+Private Function EscapeQdefString(strValue As String) As String
+    Dim s As String
+    s = Replace(strValue, "\", "\\")
+    s = Replace(s, """", "\""")
+    EscapeQdefString = s
+End Function
 
 
 Private Function ResolvePropertyOverrides(dProperties As Dictionary) As Dictionary
@@ -2470,16 +2664,18 @@ Private Sub EmitColumnMetadata(cOut As clsConcat, dColumns As Dictionary, _
     ' those. Otherwise, synthesize from the decomposed SQL structure when
     ' blnSynthesize is True (Design View only).
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     ' When we have JSON column data, use it as-is
     If Not dColumns Is Nothing Then
         If dColumns.Count > 0 Then
             EmitColumnBlock cOut, dColumns
-            Exit Sub
+            GoTo CleanUp
         End If
     End If
 
     ' For SQL View, only emit if we have JSON data (already handled above)
-    If Not blnSynthesize Then Exit Sub
+    If Not blnSynthesize Then GoTo CleanUp
 
     ' Synthesize column metadata from SQL structure (Design View)
     Dim dSynthesized As New Dictionary
@@ -2524,6 +2720,10 @@ Private Sub EmitColumnMetadata(cOut As clsConcat, dColumns As Dictionary, _
 
     ' Always emit the block (even if empty, it acts as a structural delimiter)
     EmitColumnBlock cOut, dSynthesized
+
+CleanUp:
+    CatchAny eelError, "Error emitting column metadata. " & SqlSnippet(), _
+        ModuleName(Me) & ".EmitColumnMetadata"
 End Sub
 
 
@@ -2671,7 +2871,10 @@ End Function
 
 Private Sub EmitDesignLayout(cOut As clsConcat, dLayout As Dictionary)
     ' Design View layout block
-    If dLayout Is Nothing Then Exit Sub
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    If dLayout Is Nothing Then GoTo CleanUp
 
     cOut.Add "Begin", vbCrLf
 
@@ -2732,19 +2935,25 @@ Private Sub EmitDesignLayout(cOut As clsConcat, dLayout As Dictionary)
     End If
 
     cOut.Add "End", vbCrLf
+
+CleanUp:
+    CatchAny eelError, "Error emitting design layout. " & SqlSnippet(), _
+        ModuleName(Me) & ".EmitDesignLayout"
 End Sub
 
 
 Private Sub EmitWrappedString(cOut As clsConcat, strTag As String, strValue As String)
     ' Emit a potentially long string value with .qdef line wrapping.
-    ' Embedded double quotes are escaped as \" in the .qdef format.
+    ' Embedded backslashes are escaped as \\ and double quotes as \" so that
+    ' Access LoadFromText reads back the original string. Backslashes must be
+    ' escaped before quotes (otherwise the backslash from \" would be re-doubled).
     Const MAX_LINE As Long = 70
     Dim lngPos As Long
     Dim lngLineLen As Long
     Dim strLine As String
     Dim strEscaped As String
 
-    strEscaped = Replace(strValue, """", "\""")
+    strEscaped = EscapeQdefString(strValue)
 
     If Len(strEscaped) <= MAX_LINE Then
         cOut.Add strTag & " =""" & strEscaped & """", vbCrLf
