@@ -21,6 +21,11 @@ Public Active As Boolean
 
 Private Const cstrSpacer As String = "-------------------------------------"
 
+' Throttle interval for Log.Increment. The visible bar work and DoEvents are
+' throttled separately by clsLblProg, so 10 updates/sec here is plenty while
+' eliminating the Perf wrap cost on the rest of the calls.
+Private Const INCREMENT_THROTTLE_SEC As Single = 0.1
+
 Private m_Log As clsConcat      ' Log file output
 Private m_Console As clsConcat  ' Console output
 Private m_RichText As TextBox   ' Text box to display HTML
@@ -28,6 +33,8 @@ Private m_Prog As clsLblProg    ' Progress bar
 Private m_blnProgressActive As Boolean
 Private m_sngLastUpdate As Single
 Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
+Private m_dblPendingIncrements As Double  ' Accumulated increments awaiting throttled flush
+Private m_sngLastIncrement As Single    ' Timer value of the last applied Increment
 Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
 Private m_lngErrCount(eelNoError To eelCritical) As Long
 
@@ -175,6 +182,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Flush()
+
+    ' Apply any throttled-but-not-yet-shown increments before refreshing the UI.
+    ApplyPendingIncrements
 
     ' See if the GUI form is loaded.
     Perf.OperationStart "Console Updates"
@@ -399,6 +409,8 @@ Private Sub Class_Initialize()
     Set m_Log = New clsConcat
     m_blnProgressActive = False
     m_sngLastUpdate = 0
+    m_dblPendingIncrements = 0
+    m_sngLastIncrement = 0
     Erase m_lngErrCount
     Me.PadLength = 30
     Me.Active = False
@@ -428,14 +440,44 @@ End Sub
 ' Procedure : Increment
 ' Author    : Adam Waller
 ' Date      : 4/28/2020
-' Purpose   : Increment the progress bar/output display
+' Purpose   : Increment the progress bar/output display.
+'           : Calls are accumulated and only applied to the bar at most every
+'           : INCREMENT_THROTTLE_SEC, so tight inner loops skip both the Perf
+'           : wrap and the underlying ProgressBar.Increment cost on most calls.
+'           : Any remaining pending increments are flushed by Log.Flush.
 '---------------------------------------------------------------------------------------
 '
 Public Sub Increment()
 
     ' Ignore if we are not using the form
     If m_Prog Is Nothing Then Exit Sub
-    ' Check the current status.
+
+    ' Accumulate so we can apply the batched count when the throttle fires.
+    m_dblPendingIncrements = m_dblPendingIncrements + 1
+
+    ' Skip everything (including Perf wrapping) until enough time has passed.
+    If Timer - m_sngLastIncrement < INCREMENT_THROTTLE_SEC Then Exit Sub
+
+    ApplyPendingIncrements
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyPendingIncrements
+' Author    : Adam Waller
+' Date      : 4/24/2026
+' Purpose   : Apply any accumulated increments to the progress bar in a single batched
+'           : update. Called by the throttled Increment path and by Flush, so the bar
+'           : still reaches 100% even when the final increments fall inside the
+'           : throttle window.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ApplyPendingIncrements()
+
+    If m_Prog Is Nothing Then Exit Sub
+    If m_dblPendingIncrements = 0 Then Exit Sub
+
     Perf.OperationStart "Increment Progress"
     If Not m_blnProgressActive Then
         ' Flush any pending output
@@ -449,7 +491,11 @@ Public Sub Increment()
             Echo True
         End With
     End If
-    Me.ProgressBar.Increment
+    Me.ProgressBar.Increment m_dblPendingIncrements
+
+    ' Reset throttle state
+    m_dblPendingIncrements = 0
+    m_sngLastIncrement = Timer
 
     ' Status is now active
     m_blnProgressActive = True

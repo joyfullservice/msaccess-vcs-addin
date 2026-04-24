@@ -167,6 +167,12 @@ Private Type json_Options
 End Type
 Public JsonOptions As json_Options
 
+' Per-parse cache of ParseIso results, keyed by the raw ISO date string.
+' Initialized at the top of ParseJson and released when the parse completes,
+' so duplicate dates in a single document (e.g. shared ExportDate values
+' across thousands of index entries) only convert once.
+Private json_DateCache As Dictionary
+
 ' ============================================= '
 ' Public Methods
 ' ============================================= '
@@ -185,6 +191,10 @@ Public Function ParseJson(ByVal JsonString As String) As Object
 
     Perf.OperationStart "Parse JSON"
 
+    ' Initialize per-parse ISO date cache so json_ParseString can dedupe
+    ' repeated date strings (released in the cleanup branch below).
+    Set json_DateCache = New Dictionary
+
     ' Remove vbCr, vbLf, and vbTab from json_String
     JsonString = VBA.Replace(VBA.Replace(VBA.Replace(JsonString, VBA.vbCr, vbNullString), VBA.vbLf, vbNullString), VBA.vbTab, vbNullString)
 
@@ -195,10 +205,14 @@ Public Function ParseJson(ByVal JsonString As String) As Object
     Case "["
         Set ParseJson = json_ParseArray(JsonString, json_Index)
     Case Else
+        ' Release cache before raising so we don't leak it on the error path.
+        Set json_DateCache = Nothing
+        Perf.OperationEnd
         ' Error: Invalid JSON string
         Err.Raise 10001, "JSONConverter", json_ParseErrorMessage(JsonString, json_Index, "Expecting '{' or '['")
     End Select
 
+    Set json_DateCache = Nothing
     Perf.OperationEnd
 
 End Function
@@ -577,6 +591,7 @@ Private Function json_ParseString(ByRef json_String As String _
     Dim json_Buffer As String
     Dim json_BufferPosition As Long
     Dim json_BufferLength As Long
+    Dim json_DateKey As String
 
     json_SkipSpaces json_String, json_Index
 
@@ -625,9 +640,24 @@ Private Function json_ParseString(ByRef json_String As String _
             json_ParseString = json_BufferToString(json_Buffer, json_BufferPosition)
             If JsonOptions.ConvertDateToIso Then ' Only convert and test for condition if needed for speed boost.
                 If (json_ParseString Like "####-##-##T##:##:##*") Then
-                    Perf.OperationStart "Parse JSON ISO Date"
-                    json_ParseString = ParseIso(VBA.CStr$(json_ParseString)) ' Return as a date
-                    Perf.OperationEnd
+                    ' Reuse cached parse result when the same ISO string appears
+                    ' multiple times in this document. The Perf wrap stays on the
+                    ' miss path so the operation count reflects unique dates.
+                    If Not json_DateCache Is Nothing Then
+                        If json_DateCache.Exists(json_ParseString) Then
+                            json_ParseString = json_DateCache(json_ParseString)
+                        Else
+                            json_DateKey = VBA.CStr$(json_ParseString)
+                            Perf.OperationStart "Parse JSON ISO Date"
+                            json_ParseString = ParseIso(json_DateKey)
+                            Perf.OperationEnd
+                            json_DateCache.Add json_DateKey, json_ParseString
+                        End If
+                    Else
+                        Perf.OperationStart "Parse JSON ISO Date"
+                        json_ParseString = ParseIso(VBA.CStr$(json_ParseString)) ' Return as a date
+                        Perf.OperationEnd
+                    End If
                 End If
             End If
             json_Index = json_Index + 1
