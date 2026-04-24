@@ -686,10 +686,49 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
             End If
         Next dTbl
 
+        ' Defensive guard: if BuildJoinChain returned Nothing (its own
+        ' cleanup errored in release mode) or an empty collection (cyclic
+        ' graph plus a failed cleanup), fall back to a comma-separated
+        ' table list so the FROM clause is at least syntactically valid.
+        ' The original join conditions are lost in this branch -- callers
+        ' must check the log.
+        If colOrdered Is Nothing Then
+            Log.Error eelWarning, "BuildJoinChain returned Nothing; falling " & _
+                "back to cartesian table list. " & SqlSnippet(), _
+                ModuleName(Me) & ".BuildFromClause"
+            Set colOrdered = New Collection
+        End If
+        If colOrdered.Count = 0 Then
+            Log.Error eelWarning, "Empty ordered join chain; falling back " & _
+                "to cartesian table list. " & SqlSnippet(), _
+                ModuleName(Me) & ".BuildFromClause"
+            Dim lngTF As Long
+            For lngTF = 1 To colTables.Count
+                If lngTF > 1 Then cSql.Add ", "
+                Set dTbl = colTables(lngTF)
+                cSql.Add BracketIfNeeded(CStr(dTbl("name")))
+                If Len(dTbl("alias")) > 0 Then
+                    cSql.Add " AS " & BracketIfNeeded(CStr(dTbl("alias")))
+                End If
+            Next lngTF
+            GoTo CleanUp
+        End If
+
         ' Sequential accumulation: process the ordered joins one at a time,
         ' building the FROM clause string. Left-nests all join types.
         ' For wasRight joins, restores RIGHT JOIN syntax by placing the new
         ' table on the left and the accumulated subtree as the right operand.
+        '
+        ' Track which tables are already in strAccum (dInAccum). When a join's
+        ' leftTable is new but rightTable is already in the accum (e.g. a join
+        ' from a separate subtree that connects via a shared table), invert the
+        ' join: put the new table on the left of the JOIN and the accum on the
+        ' right. Without inversion the FROM clause would reference an undefined
+        ' table on the ON side.
+        '
+        ' Use a multi-pass loop so colOrdered ordering doesn't matter -- joins
+        ' that can't attach this pass (neither table in accum) get deferred to
+        ' the next pass. Loop terminates when no more joins can attach.
         Dim strAccum As String
         Dim strRootRef As String
         strRootRef = CStr(colOrdered(1)("leftTable"))
@@ -699,60 +738,182 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
             strAccum = BracketIfNeeded(strRootRef)
         End If
 
+        Dim dInAccum As Dictionary
+        Set dInAccum = New Dictionary
+        dInAccum.Add strRootRef, True
+
+        Dim colPending As Collection
+        Set colPending = New Collection
+        For lngJ = 1 To colOrdered.Count
+            colPending.Add colOrdered(lngJ)
+        Next lngJ
+
         Dim blnHasJoins As Boolean
         blnHasJoins = False
 
-        For lngJ = 1 To colOrdered.Count
-            Set dJn = colOrdered(lngJ)
+        Dim blnProgress As Boolean
+        Do
+            blnProgress = False
 
-            Dim strRightRef As String
-            Dim strTableName As String
+            Dim colNextPending As Collection
+            Set colNextPending = New Collection
 
-            If dJn.Exists("wasRight") Then
-                ' Restore RIGHT JOIN syntax: the rightTable (after flip) is the
-                ' original leftTable, which becomes the left operand of RIGHT JOIN.
+            Dim lngP As Long
+            For lngP = 1 To colPending.Count
+                Set dJn = colPending(lngP)
+
+                Dim strLeftRef As String
+                Dim strRightRef As String
+                Dim strTableName As String
+                Dim blnLeftIn As Boolean
+                Dim blnRightIn As Boolean
+
+                strLeftRef = CStr(dJn("leftTable"))
                 strRightRef = CStr(dJn("rightTable"))
-                If dTableLookup.Exists(strRightRef) Then
-                    strTableName = CStr(dTableLookup(strRightRef))
-                Else
-                    strTableName = BracketIfNeeded(strRightRef)
-                End If
-                If blnHasJoins Then
-                    strAccum = strTableName & " RIGHT JOIN (" & strAccum & _
-                        ") ON " & CStr(dJn("expression"))
-                Else
-                    strAccum = strTableName & " RIGHT JOIN " & strAccum & _
-                        " ON " & CStr(dJn("expression"))
-                End If
-            Else
-                ' LEFT/INNER JOIN: accumulated on left, new table on right
-                Select Case CLng(dJn("flag"))
-                    Case 1: strJoinType = " INNER JOIN "
-                    Case 2: strJoinType = " LEFT JOIN "
-                    Case Else: strJoinType = " INNER JOIN "
-                End Select
+                blnLeftIn = dInAccum.Exists(strLeftRef)
+                blnRightIn = dInAccum.Exists(strRightRef)
 
-                strRightRef = CStr(dJn("rightTable"))
-                If dTableLookup.Exists(strRightRef) Then
-                    strTableName = CStr(dTableLookup(strRightRef))
+                If dJn.Exists("wasRight") Then
+                    ' Restore RIGHT JOIN syntax: the rightTable (after flip) is
+                    ' the original leftTable, which becomes the left operand of
+                    ' RIGHT JOIN. Treat this like an inverted INNER/LEFT for
+                    ' attachment purposes -- requires the (post-flip) leftTable
+                    ' (the inner subtree's connecting table) to already be in
+                    ' the accum.
+                    If Not blnLeftIn And Not blnRightIn Then
+                        colNextPending.Add dJn
+                    Else
+                        If dTableLookup.Exists(strRightRef) Then
+                            strTableName = CStr(dTableLookup(strRightRef))
+                        Else
+                            strTableName = BracketIfNeeded(strRightRef)
+                        End If
+                        If blnHasJoins Then
+                            strAccum = strTableName & " RIGHT JOIN (" & strAccum & _
+                                ") ON " & CStr(dJn("expression"))
+                        Else
+                            strAccum = strTableName & " RIGHT JOIN " & strAccum & _
+                                " ON " & CStr(dJn("expression"))
+                        End If
+                        If Not dInAccum.Exists(strRightRef) Then dInAccum.Add strRightRef, True
+                        If Not dInAccum.Exists(strLeftRef) Then dInAccum.Add strLeftRef, True
+                        blnHasJoins = True
+                        blnProgress = True
+                    End If
+                ElseIf blnLeftIn And blnRightIn Then
+                    ' Both tables already in accum: redundant join condition that
+                    ' wasn't consolidated (e.g. a secondary ON condition spanning
+                    ' three tables). Drop with a warning rather than corrupting
+                    ' the FROM clause -- ConsolidateJoins should normally catch
+                    ' these, so logging helps diagnose missed cases.
+                    Log.Error eelWarning, "Both join tables already in FROM " & _
+                        "clause; skipping. left=" & strLeftRef & " right=" & _
+                        strRightRef & ". " & SqlSnippet(), _
+                        ModuleName(Me) & ".BuildFromClause"
+                    blnProgress = True
+                ElseIf blnLeftIn Then
+                    ' Forward join: accum on left, new (right) table on right.
+                    Select Case CLng(dJn("flag"))
+                        Case 1: strJoinType = " INNER JOIN "
+                        Case 2: strJoinType = " LEFT JOIN "
+                        Case Else: strJoinType = " INNER JOIN "
+                    End Select
+                    If dTableLookup.Exists(strRightRef) Then
+                        strTableName = CStr(dTableLookup(strRightRef))
+                    Else
+                        strTableName = BracketIfNeeded(strRightRef)
+                    End If
+                    If blnHasJoins Then
+                        strAccum = "(" & strAccum & ")" & strJoinType & strTableName & _
+                            " ON " & CStr(dJn("expression"))
+                    Else
+                        strAccum = strAccum & strJoinType & strTableName & _
+                            " ON " & CStr(dJn("expression"))
+                    End If
+                    dInAccum.Add strRightRef, True
+                    blnHasJoins = True
+                    blnProgress = True
+                ElseIf blnRightIn Then
+                    ' Inverted join: new (left) table on left, accum on right.
+                    ' This handles connecting joins from the disconnected-
+                    ' component fallback in BuildJoinChain. The join type stays
+                    ' the same -- the accum just expands the rightTable into a
+                    ' larger subtree on the right side of the JOIN. LEFT JOIN
+                    ' outer-side semantics are preserved: the original left
+                    ' table is still on the left.
+                    Select Case CLng(dJn("flag"))
+                        Case 1: strJoinType = " INNER JOIN "
+                        Case 2: strJoinType = " LEFT JOIN "
+                        Case Else: strJoinType = " INNER JOIN "
+                    End Select
+                    If dTableLookup.Exists(strLeftRef) Then
+                        strTableName = CStr(dTableLookup(strLeftRef))
+                    Else
+                        strTableName = BracketIfNeeded(strLeftRef)
+                    End If
+                    If blnHasJoins Then
+                        strAccum = strTableName & strJoinType & "(" & strAccum & _
+                            ") ON " & CStr(dJn("expression"))
+                    Else
+                        strAccum = strTableName & strJoinType & strAccum & _
+                            " ON " & CStr(dJn("expression"))
+                    End If
+                    dInAccum.Add strLeftRef, True
+                    blnHasJoins = True
+                    blnProgress = True
                 Else
-                    strTableName = BracketIfNeeded(strRightRef)
+                    ' Neither in accum -- defer to next pass; another join may
+                    ' bring one of these tables into the accum first.
+                    colNextPending.Add dJn
                 End If
-                If blnHasJoins Then
-                    strAccum = "(" & strAccum & ")" & strJoinType & strTableName & _
-                        " ON " & CStr(dJn("expression"))
-                Else
-                    strAccum = strAccum & strJoinType & strTableName & _
-                        " ON " & CStr(dJn("expression"))
-                End If
-            End If
+            Next lngP
 
-            blnHasJoins = True
-        Next lngJ
+            Set colPending = colNextPending
+        Loop While blnProgress And colPending.Count > 0
+
+        ' Stranded joins: remaining pending joins represent a fully separate
+        ' component (no shared table with the main tree). Append the missing
+        ' tables comma-separated so the FROM clause stays syntactically valid
+        ' (cartesian product). The ON conditions for stranded joins are LOST
+        ' here -- callers must check the warning log. Rare in practice and
+        ' indicates a structurally odd query that the multi-pass attachment
+        ' loop couldn't merge.
+        If colPending.Count > 0 Then
+            Dim dStrandedTables As Dictionary
+            Set dStrandedTables = New Dictionary
+            Dim dStranded As Dictionary
+            For Each dStranded In colPending
+                Dim strSL As String
+                Dim strSR As String
+                strSL = CStr(dStranded("leftTable"))
+                strSR = CStr(dStranded("rightTable"))
+                If Not dInAccum.Exists(strSL) And Not dStrandedTables.Exists(strSL) Then
+                    dStrandedTables.Add strSL, True
+                End If
+                If Not dInAccum.Exists(strSR) And Not dStrandedTables.Exists(strSR) Then
+                    dStrandedTables.Add strSR, True
+                End If
+            Next dStranded
+
+            Dim varST As Variant
+            For Each varST In dStrandedTables.Keys
+                If dTableLookup.Exists(CStr(varST)) Then
+                    strAccum = strAccum & ", " & CStr(dTableLookup(CStr(varST)))
+                Else
+                    strAccum = strAccum & ", " & BracketIfNeeded(CStr(varST))
+                End If
+            Next varST
+
+            Log.Error eelWarning, colPending.Count & " disconnected join(s) " & _
+                "could not be attached; appended " & dStrandedTables.Count & _
+                " stranded table(s) cartesian-style. " & SqlSnippet(), _
+                ModuleName(Me) & ".BuildFromClause"
+        End If
 
         cSql.Add strAccum
     End If
 
+CleanUp:
     CatchAny eelError, "Error building FROM clause. " & SqlSnippet(), _
         ModuleName(Me) & ".BuildFromClause"
 End Sub
@@ -931,10 +1092,13 @@ Private Function BuildJoinChain(colJoins As Collection) As Collection
 
     ' Find root: a leftTable that never appears as a rightTable
     Dim strRoot As String
+    Dim blnRootFound As Boolean
+    blnRootFound = False
     For Each dJn In colJoins
         strLeft = CStr(dJn("leftTable"))
         If Not dRightTables.Exists(strLeft) Then
             strRoot = strLeft
+            blnRootFound = True
             Exit For
         End If
     Next dJn
@@ -951,6 +1115,19 @@ Private Function BuildJoinChain(colJoins As Collection) As Collection
         InsertJoinSorted dJoinsByLeft(strLeft), dJn
     Next dJn
 
+    ' Cycle fallback: if no leftTable is graph-pure (every table appears as
+    ' both left and right), the join graph is cyclic. Without a root the DFS
+    ' would return an empty chain and BuildFromClause would crash on
+    ' colOrdered(1). Pick the first join's leftTable as a fallback root so
+    ' DFS can still walk the reachable subgraph; BuildFromClause will catch
+    ' any joins that get stranded by the cycle.
+    If Not blnRootFound Then
+        strRoot = CStr(colJoins(1)("leftTable"))
+        Log.Error eelWarning, "Cyclic join graph; using '" & strRoot & _
+            "' as fallback root. " & SqlSnippet(), _
+            ModuleName(Me) & ".BuildJoinChain"
+    End If
+
     ' DFS from root to build ordered chain
     Dim colResult As Collection
     Set colResult = New Collection
@@ -960,8 +1137,48 @@ Private Function BuildJoinChain(colJoins As Collection) As Collection
 
     DFSTraverse strRoot, dJoinsByLeft, dVisited, colResult
 
+    ' Disconnected-component fallback: if DFS missed any joins (multiple
+    ' graph roots, or a cycle stranded part of the graph), append the
+    ' missing joins so the FROM clause stays self-consistent. This is rare
+    ' and indicates a structurally odd query, but losing joins silently
+    ' would produce SQL that quietly returns the wrong rows.
+    '
+    ' Use object identity (Is) instead of ObjPtr keys: ObjPtr on a Variant
+    ' coerced from a Collection item can raise error 5 in some hosts, and
+    ' Dictionary.Add with a duplicated key would raise 457. Identity scan is
+    ' O(n*m) but join counts are small (typically <50) so cost is negligible.
+    ' Wrap in Resume Next so a malformed join collection can never crash the
+    ' surrounding export -- losing the cleanup is preferable to break mode.
+    If colResult.Count < colJoins.Count Then
+        Dim lngBefore As Long
+        lngBefore = colResult.Count
+
+        Dim lngI As Long
+        Dim lngK As Long
+        Dim blnAlreadyAdded As Boolean
+
+        On Error Resume Next
+        For lngI = 1 To colJoins.Count
+            blnAlreadyAdded = False
+            For lngK = 1 To colResult.Count
+                If colResult(lngK) Is colJoins(lngI) Then
+                    blnAlreadyAdded = True
+                    Exit For
+                End If
+            Next lngK
+            If Not blnAlreadyAdded Then colResult.Add colJoins(lngI)
+        Next lngI
+        Err.Clear
+        If DebugMode(False) Then On Error GoTo 0
+
+        Log.Error eelWarning, (colResult.Count - lngBefore) & _
+            " join(s) appended out of order (disconnected or cyclic graph). " & _
+            SqlSnippet(), ModuleName(Me) & ".BuildJoinChain"
+    End If
+
     Set BuildJoinChain = colResult
 
+CleanUp:
     CatchAny eelError, "Error building join chain. " & SqlSnippet(), _
         ModuleName(Me) & ".BuildJoinChain"
 End Function
@@ -1689,9 +1906,43 @@ Private Sub ParseJoinExpression(strExpr As String)
     Dim strLeftTable As String
     Dim strRightTable As String
 
-    ' Extract table names from the ON expression
-    strLeftTable = ExtractJoinLeftTable(strOnExpr)
-    strRightTable = ExtractJoinRightTable(strOnExpr, strRight, strLeftTable)
+    ' Try simple extraction from each side first. Whichever side is a plain
+    ' table reference (no nested JOIN) is the authoritative source for that
+    ' table name; the other (nested) side is then disambiguated from the ON
+    ' clause by excluding the simple-extracted table. This handles all four
+    ' combinations of simple/nested operands:
+    '
+    '   - Both simple: trivial -- use both directly.
+    '   - Left simple, right nested: extract left from operand, use it to
+    '     pick the OTHER ON-clause table as right (handles deep right-nested
+    '     subtrees from cross-component connecting joins).
+    '   - Left nested, right simple: extract right from operand, use it to
+    '     pick the OTHER ON-clause table as left (handles standard left-
+    '     nested chains thanks to FindLastJoinKeyword preferring rightmost).
+    '   - Both nested: best-effort fallback to raw ON-clause ordering. Rare.
+    '
+    ' Multi-condition ON like "(B.x=A.y) AND (...)" is handled correctly here:
+    ' the simple-side extraction is unaffected by ON-clause column order, and
+    ' the disambiguation by exclusion yields the right table even if the
+    ' first "=" sits on the wrong side.
+    Dim strLeftSimple As String
+    Dim strRightSimple As String
+    strLeftSimple = TryExtractSimpleTable(strLeft)
+    strRightSimple = TryExtractSimpleTable(strRight)
+
+    If Len(strLeftSimple) > 0 And Len(strRightSimple) > 0 Then
+        strLeftTable = strLeftSimple
+        strRightTable = strRightSimple
+    ElseIf Len(strLeftSimple) > 0 Then
+        strLeftTable = strLeftSimple
+        strRightTable = OnClauseTableExcluding(strOnExpr, strLeftTable)
+    ElseIf Len(strRightSimple) > 0 Then
+        strRightTable = strRightSimple
+        strLeftTable = OnClauseTableExcluding(strOnExpr, strRightTable)
+    Else
+        strLeftTable = ExtractTableFromOnSide(strOnExpr, True)
+        strRightTable = ExtractTableFromOnSide(strOnExpr, False)
+    End If
 
     Set dJoin = New Dictionary
     dJoin.Add "leftTable", strLeftTable
@@ -2037,37 +2288,14 @@ Private Function UnBracket(strName As String) As String
 End Function
 
 
-Private Function ExtractJoinLeftTable(strOnExpr As String) As String
-    ' Extract the left table name from an ON expression like "A.col = B.col"
-    Dim lngDot As Long
-    Dim strLeft As String
-    strLeft = Trim$(strOnExpr)
-
-    ' Remove outer parens (and any whitespace exposed after them)
-    Do While Left$(strLeft, 1) = "("
-        strLeft = Mid$(strLeft, 2)
-    Loop
-    strLeft = Trim$(strLeft)
-
-    lngDot = InStr(1, strLeft, ".")
-    If lngDot > 0 Then
-        ExtractJoinLeftTable = UnBracket(Left$(strLeft, lngDot - 1))
-    Else
-        ExtractJoinLeftTable = strLeft
-    End If
-End Function
-
-
-Private Function ExtractJoinRightTable(strOnExpr As String, strTableExpr As String, _
-                                       strLeftTable As String) As String
-    ' Extract the right table name from the join context.
-    ' For simple table references, extract the name directly from strTableExpr.
-    ' For nested join expressions, extract both table refs from the ON clause
-    ' and return whichever is NOT the left table.
+Private Function TryExtractSimpleTable(strTableExpr As String) As String
+    ' Returns the table name if strTableExpr is a simple table reference
+    ' (optionally with an alias), or vbNullString if it contains a nested
+    ' JOIN expression. Used by ParseJoinExpression to decide which side of
+    ' a JOIN can be authoritatively named without ON-clause inspection.
     Dim strClean As String
     strClean = Trim$(strTableExpr)
 
-    ' Strip leading/trailing parens that wrap the entire expression
     Do While Left$(strClean, 1) = "(" And Right$(strClean, 1) = ")"
         If FindMatchingParen(strClean, 1) = Len(strClean) Then
             strClean = Trim$(Mid$(strClean, 2, Len(strClean) - 2))
@@ -2078,30 +2306,37 @@ Private Function ExtractJoinRightTable(strOnExpr As String, strTableExpr As Stri
 
     strClean = UnBracket(strClean)
 
-    If InStr(1, strClean, " JOIN ", vbTextCompare) = 0 Then
-        ' Simple table reference (possibly with alias)
-        Dim lngSpace As Long
-        lngSpace = InStr(1, strClean, " ", vbTextCompare)
-        If lngSpace > 0 Then
-            ExtractJoinRightTable = Trim$(Left$(strClean, lngSpace - 1))
-        Else
-            ExtractJoinRightTable = strClean
-        End If
+    If InStr(1, strClean, " JOIN ", vbTextCompare) > 0 Then
+        TryExtractSimpleTable = vbNullString
         Exit Function
     End If
 
-    ' Nested join expression: the right table is one of the two tables
-    ' referenced in the ON clause. Extract both and return the one that
-    ' is NOT the left table.
+    Dim lngSpace As Long
+    lngSpace = InStr(1, strClean, " ", vbTextCompare)
+    If lngSpace > 0 Then
+        TryExtractSimpleTable = Trim$(Left$(strClean, lngSpace - 1))
+    Else
+        TryExtractSimpleTable = strClean
+    End If
+End Function
+
+
+Private Function OnClauseTableExcluding(strOnExpr As String, _
+                                        strExcludeTable As String) As String
+    ' Extract both table names from the first '=' in an ON expression and
+    ' return whichever is NOT strExcludeTable. Caller has already established
+    ' the excluded side authoritatively (via TryExtractSimpleTable on the
+    ' opposite operand) so this disambiguation is reliable even for multi-
+    ' condition ON clauses where the first "=" sits on the "wrong" side.
     Dim strTblA As String
     Dim strTblB As String
     strTblA = ExtractTableFromOnSide(strOnExpr, True)
     strTblB = ExtractTableFromOnSide(strOnExpr, False)
 
-    If StrComp(strTblA, strLeftTable, vbTextCompare) = 0 Then
-        ExtractJoinRightTable = strTblB
+    If StrComp(strTblA, strExcludeTable, vbTextCompare) = 0 Then
+        OnClauseTableExcluding = strTblB
     Else
-        ExtractJoinRightTable = strTblA
+        OnClauseTableExcluding = strTblA
     End If
 End Function
 
