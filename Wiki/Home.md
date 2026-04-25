@@ -16,5 +16,8 @@ Here you can find an extensive list of what is and isn't supported by this syste
 ## [Editing and Contributing](wiki/Editing-and-Contributing)
 If you enjoy using this add-in, you are welcome to contribute to the ongoing development of this project. Here are some guidelines for doing so, and suggested practices.
 
+### [Regression Testing](wiki/Regression-Testing)
+How to run the round-trip regression harness, contribute new fixtures, and turn an edge-case bug into a permanent regression test.
+
 ## [Project Scope](wiki/Project-Scope)
 Describes what this add-in is designed to do, and what is outside the scope of this project.

@@ -32,6 +32,15 @@ Public ErrorLevel As eErrorLevel
 Public Result As eOperationResult
 Public Source As eOperationSource     ' Default: eosUserInterface (0)
 
+' Controls UI prompts during the operation. eimNormal (0) shows MsgBox2
+' dialogs; eimSilent (1) routes them to the log and returns the supplied
+' default. Set BEFORE calling Begin (or any time during the operation)
+' for unattended / automated callers (e.g. the regression test harness).
+' Sticky across operations -- like Source, callers that need a non-default
+' value are responsible for setting it; callers that need to restore the
+' prior value are responsible for caching and restoring it themselves.
+Public InteractionMode As eInteractionMode
+
 
 ' Use a private type to manage local variables
 Private Type udtThis
@@ -71,6 +80,11 @@ End Function
 ' Purpose   : Begin an operation (I.e. Export, Merge, Import, custom action, etc...)
 '           : Returns true if we are safe to begin a new operation. (No forms open,
 '           : no operations currently in progress.)
+'           :
+'           : To run an operation unattended, set Me.InteractionMode = eimSilent
+'           : on the singleton before (or any time during) Begin. Like Source,
+'           : it is sticky -- callers that need to restore the prior value are
+'           : responsible for caching and restoring it themselves.
 '---------------------------------------------------------------------------------------
 '
 Public Function Begin(intType As eOperationType) As Boolean

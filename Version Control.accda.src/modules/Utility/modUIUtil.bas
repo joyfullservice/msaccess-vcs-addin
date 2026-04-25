@@ -6,7 +6,7 @@
 ' Purpose   : UI and dialog helpers: enhanced message box, IDE display, resizable
 '           : dialogs, and datasheet column scaling.
 ' Layer     : Utility
-' Depends on: modObjects, modVCSUtility (InteractionMode)
+' Depends on: modObjects, clsOperation (InteractionMode)
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -66,8 +66,8 @@ Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional
     varLines(2) = Replace(strLine2, "'", "''")
     varLines(3) = Replace(strTitle, "'", "''")
 
-    ' Check interaction mode
-    If InteractionMode = eimNormal Then
+    ' Check interaction mode (lives on the Operation singleton)
+    If Operation.InteractionMode = eimNormal Then
         ' Normal user interaction with MsgBox
         If varLines(3) = vbNullString Then varLines(3) = T("Version Control Add-in")
         strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "','',0)"

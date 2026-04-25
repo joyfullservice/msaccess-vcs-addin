@@ -393,6 +393,84 @@ The decision between the default single-error capture and an explicit multi-erro
 
 ---
 
+## Testing Strategy
+
+The add-in benefits from three distinct testing layers, each catching a different bug class. Keeping them as separate layers (rather than one giant test database) is deliberate — each layer trades scope for fidelity.
+
+| Layer | What it tests | Lives in |
+|---|---|---|
+| **1. VBA logic tests** | "Given inputs, does this function return the right output?" | `modTestSuite.bas` (formerly `modUnitTesting.bas`) |
+| **2. Object round-trip tests** | "Does this database object survive a serialize/deserialize cycle unchanged?" | `modTestRoundtrip.bas` + `Testing/Fixtures/` |
+| **3. Whole-database integration** | "Does building an entire database from source produce a working database?" | `Testing/Testing.accdb.src` |
+
+### `modTest*` naming convention
+
+All test-infrastructure modules use the `modTest*` family prefix. This matches the existing family-grouping conventions already used in the codebase (`clsDb*` for component classes, `clsLv*` for ListView property parsers) and gives "Test" maximum prominence for developer and agent discoverability.
+
+- `modTestSuite` — heterogeneous unit tests (encoding, JSON, sanitization, formatter, hashing, IDbComponent invariants).
+- `modTestRoundtrip` — generalized object round-trip regression harness.
+- Future siblings (e.g., `modTestPerf`, `modTestFixtures`, `modTestEncoding`) should adopt the same prefix automatically.
+
+### Object round-trip harness (`modTestRoundtrip`)
+
+The Layer 2 harness is generic over `IDbComponent`. v1 ships query support; forms, reports, modules, and table data follow the same pattern by adding a per-type helper.
+
+For each fixture under `Testing/Fixtures/`, the harness:
+
+1. Imports the fixture into the running database under a sandboxed name (`vcs_test_<basename>_<hash>`).
+2. Exports it twice (Pass 1 and Pass 2), into a per-run scratch folder.
+3. Asserts Pass 2 == Pass 1 (idempotency, hard requirement).
+4. Asserts Pass 1 == fixture (drift check, soft requirement).
+5. Drops the sandboxed object and moves on.
+
+Output goes to three coordinated channels:
+
+- **`frmVCSMain` console** — live progress (one line per fixture).
+- **Per-session log file** — `Testing/Fixtures/logs/ObjectRoundtrip_<opId>.log`, with full unified diffs for any failures.
+- **JSON return value** — machine-parseable summary suitable for `vcs_run_vba` callers and CI.
+
+All external invocations go through the public API method `VCS.RunRoundtripTests`. The implementation in `modTestRoundtrip.bas` uses `Option Private Module` so test internals stay hidden from cross-project `Application.Run` lookups, matching the rest of the add-in.
+
+Run it from the VBA Immediate Window:
+
+```vba
+?VCS.RunRoundtripTests
+```
+
+Or via MCP (requires `McpAllowRunVBA` to be enabled, same as any other agent-driven code execution):
+
+```
+vcs_run_vba(<addin-path>, "MCP_TempFunction = VCS.RunRoundtripTests()")
+```
+
+End users can point the same harness at their own fixture corpus:
+
+```vba
+?VCS.RunRoundtripTests("C:\path\to\my-fixtures\")
+```
+
+Pass `True` as the second argument to rebaseline mismatched fixtures (review the resulting git diff before committing). When working inside the add-in's own VBE — e.g., debugging the harness itself — the in-project entry point `?modTestRoundtrip.RunObjectRoundtripTests()` is also available, since `Option Private Module` only blocks cross-project callers, not in-project ones.
+
+### Bug-as-fixture: the contribution workflow
+
+The harness was designed to support a specific contribution workflow that is uniquely enabled by the add-in's text-source format. When a user hits an edge case where an object fails to round-trip:
+
+1. They reproduce the bug in their own database.
+2. They sanitize the failing object's `.sql` + `.json` pair (strip business-sensitive names, replace `Connect` strings with `env:` references, remove embedded data).
+3. They drop the pair into `Testing/Fixtures/queries/regression/` (or the appropriate category) on a branch.
+4. They optionally add a sibling `<name>.notes.md` describing what the bug was and linking to the issue.
+5. They open a PR against the add-in.
+
+The fixture becomes a permanent regression test against every future change. The user's bug report and the regression test are literally the same artifact.
+
+See `Testing/Fixtures/README.md` for the full workflow, the `_scaffold/` convention (for fixtures with shared dependencies), and a sanitization checklist.
+
+### Adding new test modules
+
+When adding a new test module, follow the `modTest*` prefix convention and place it under `Version Control.accda.src/modules/Tests/`. If the module wraps an existing concept (encoding, hashing, sanitization), prefer extracting it from `modTestSuite` into a focused `modTest<Topic>` module rather than letting `modTestSuite` grow indefinitely.
+
+---
+
 ## COM Ribbon Add-in (Ribbon/)
 
 The ribbon toolbar is implemented as a COM add-in using **twinBASIC**, enabling 64-bit compatibility.

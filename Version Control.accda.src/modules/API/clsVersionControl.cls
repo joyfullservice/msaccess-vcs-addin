@@ -1771,6 +1771,56 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RunRoundtripTests
+' Author    : VCS contributors
+' Date      : 4/24/2026
+' Purpose   : Run the object round-trip regression harness against a fixture
+'           : folder. Each fixture is imported into a sandbox object, exported,
+'           : re-imported, and re-exported, with comparisons at every step.
+'           :
+'           : strFixtureFolder
+'           :   - When empty (default), uses the corpus shipped with the add-in
+'           :     at <addin>.src/../Testing/Fixtures/.
+'           :   - Otherwise, the absolute path of a folder containing fixture
+'           :     subfolders by component type (e.g. queries/select/, queries/
+'           :     regression/) following the layout documented in
+'           :     Wiki/Regression-Testing.md.
+'           :
+'           : blnRebaseline
+'           :   - False (default): comparisons that mismatch are reported as
+'           :     failures.
+'           :   - True: mismatched fixture files are overwritten by the actual
+'           :     export output (with name-bearing fields normalized back to
+'           :     the canonical name). Use sparingly and review the diff in
+'           :     git before committing.
+'           :
+'           : Returns a JSON string with this shape:
+'           :   { "success": Boolean,
+'           :     "fixtureFolder": String,
+'           :     "scratchFolder": String,
+'           :     "rebaseline": Boolean,
+'           :     "logPath": String,
+'           :     "stats": { "total","passed","failed","skipped","errors","elapsedSeconds" },
+'           :     "results": [ { "fixture", "name", "type", "status", "checks":[...] }, ... ] }
+'           :
+'           : Live progress is also emitted through the standard Log singleton
+'           : (visible in the main console form) and the per-session log file
+'           : at <fixtureFolder>/logs/ObjectRoundtrip_<opId>.log.
+'           :
+'           : This is a developer/CI tool, not a user feature. It will refuse
+'           : to run while another VCS operation (export/build/merge) is in
+'           : progress, and it disables the change-tracking index for the
+'           : duration of the run so test imports/exports do not pollute
+'           : vcs-index.json.
+'---------------------------------------------------------------------------------------
+'
+Public Function RunRoundtripTests(Optional ByVal strFixtureFolder As String = vbNullString, _
+    Optional ByVal blnRebaseline As Boolean = False) As String
+    RunRoundtripTests = modTestRoundtrip.RunObjectRoundtripTests(strFixtureFolder, blnRebaseline)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GoToLink...
 ' Author    : Adam Waller
 ' Date      : 3/4/2022

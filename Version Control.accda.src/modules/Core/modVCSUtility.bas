@@ -14,8 +14,8 @@ Option Private Module
 Option Explicit
 '@Folder("Core")
 
-' Control the interaction mode for the add-in
-Public InteractionMode As eInteractionMode
+' (InteractionMode now lives on the Operation singleton --
+' see clsOperation.InteractionMode and modAPI.SetInteractionMode.)
 
 Private Declare PtrSafe Function SetFocus Lib "user32" (ByVal hwnd As LongPtr) As LongPtr
 Private Declare PtrSafe Function SetKeyboardState Lib "user32" (lppbKeyState As Any) As Long

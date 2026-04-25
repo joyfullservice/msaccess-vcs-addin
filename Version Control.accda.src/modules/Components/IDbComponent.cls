@@ -65,6 +65,18 @@ End Property
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Export the individual database component (table, form, query, etc...)
+'           :
+' Precondition: The caller MUST Set DbObject before invoking Export. Normal
+'           : export flows satisfy this in IDbComponent_GetAllFromDB, which
+'           : enumerates the underlying container (CurrentData.AllQueries,
+'           : CurrentProject.AllForms, etc.) and Set's DbObject on each new
+'           : component instance. Test harnesses and other ad-hoc callers
+'           : that Import an object first must explicitly bind DbObject
+'           : afterward (see modTestRoundtrip.BindComponentAfterImport for
+'           : the canonical helper). Implementations are expected to guard
+'           : their public Export entry point and log a clear error when
+'           : this precondition is violated, rather than dereferencing the
+'           : underlying object reference and crashing with VBA error 91.
 '---------------------------------------------------------------------------------------
 '
 Public Sub Export(Optional strAlternatePath As String)

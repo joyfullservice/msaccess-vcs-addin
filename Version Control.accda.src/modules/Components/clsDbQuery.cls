@@ -53,6 +53,19 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strJsonFile As String
     Dim blnAlternate As Boolean
 
+    ' Contract: caller must Set DbObject before calling Export. Normal flows
+    ' satisfy this in IDbComponent_GetAllFromDB; ad-hoc callers (test
+    ' harnesses, etc.) must bind explicitly after Import. See IDbComponent
+    ' .cls (Export procedure header) for the full contract.
+    If m_Query Is Nothing Then
+        Log.Error eelError, _
+            "Cannot export query: DbObject is not set. The caller must " & _
+            "Set IDbComponent.DbObject before invoking Export. See " & _
+            "IDbComponent.cls for the contract.", _
+            ModuleName(Me) & ".IDbComponent_Export"
+        Exit Sub
+    End If
+
     blnAlternate = (strAlternatePath <> vbNullString)
 
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
@@ -356,9 +369,13 @@ CleanUp:
     Set rst = Nothing
     Err.Clear
 
-    ' Re-raise the original error (if any) so CatchAny logs the real cause
+    ' Re-raise the original error (if any) so CatchAny logs the real cause.
+    ' Reference the local strQueryName (not m_Query.Name) so this cleanup
+    ' path cannot itself crash with VBA error 91 if m_Query was never set
+    ' (e.g. an internal helper was invoked directly without going through
+    ' the IDbComponent_Export guard).
     If lngOrigErr <> 0 Then Err.Raise lngOrigErr, , strOrigDesc
-    CatchAny eelError, "Error exporting query '" & m_Query.Name & "'", _
+    CatchAny eelError, "Error exporting query '" & strQueryName & "'", _
         ModuleName(Me) & ".ExportNewFormat", True, True, True
 
 End Sub
@@ -442,6 +459,13 @@ Private Sub ExportLegacy(strFile As String, Optional blnAlternate As Boolean = F
     Dim strSql As String
     Dim strSqlFile As String
     Dim dbs As DAO.Database
+    Dim strQueryName As String
+
+    ' Cache the query name into a local so the trailing CatchAny cannot
+    ' itself crash with VBA error 91 if m_Query is somehow Nothing on the
+    ' error path. Body references below still use m_Query.Name directly --
+    ' those are guarded by IDbComponent_Export, the only public caller.
+    If Not m_Query Is Nothing Then strQueryName = m_Query.Name
 
     strHash = SaveComponentAsText(acQuery, m_Query.Name, strFile)
 
@@ -487,7 +511,7 @@ Private Sub ExportLegacy(strFile As String, Optional blnAlternate As Boolean = F
             strMetaHash:=GetMetadataHash("Tables", m_Query.Name, acQuery)
     End If
 
-    CatchAny eelError, "Error exporting query (legacy) '" & m_Query.Name & "'", _
+    CatchAny eelError, "Error exporting query (legacy) '" & strQueryName & "'", _
         ModuleName(Me) & ".ExportLegacy"
 
 End Sub

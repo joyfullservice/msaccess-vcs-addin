@@ -1,9 +1,9 @@
-﻿Attribute VB_Name = "modUnitTesting"
+﻿Attribute VB_Name = "modTestSuite"
 Option Compare Database
 Option Explicit
 Option Private Module
 
-Private Const ModuleName As String = "modUnitTesting"
+Private Const ModuleName As String = "modTestSuite"
 
 '@Folder("Tests")
 

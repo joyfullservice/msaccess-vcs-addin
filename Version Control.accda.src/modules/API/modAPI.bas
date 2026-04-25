@@ -163,7 +163,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub SetInteractionMode(intMode As eInteractionMode)
-    modVCSUtility.InteractionMode = intMode
+    Operation.InteractionMode = intMode
 End Sub
 
 

@@ -217,7 +217,7 @@ Public Sub FinishBuild(blnFullBuild As Boolean _
     Me.strLastLogFilePath = Log.LogFilePath
 
     ' Close form if running in silent mode or when initiated by API/MCP
-    If InteractionMode = eimSilent _
+    If Operation.InteractionMode = eimSilent _
         Or Operation.Source = eosExternalAPI _
         Or Operation.Source = eosMCPTool Then
         AutoClose 0

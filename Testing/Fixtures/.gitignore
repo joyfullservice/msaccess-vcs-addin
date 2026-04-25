@@ -1,0 +1,4 @@
+# Per-run output produced by modTestRoundtrip. The fixtures themselves are
+# version-controlled; their derivatives are not.
+scratch/
+logs/
