@@ -1,0 +1,9 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryUnionMakers"
+  },
+  "Items": {
+    "QueryType": 128
+  }
+}

@@ -1,0 +1,9 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionMixedOuterJoin"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

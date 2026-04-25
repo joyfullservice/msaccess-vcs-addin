@@ -1,0 +1,9 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionDisconnectedComponents"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

@@ -1,0 +1,21 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionQuotes"
+  },
+  "Items": {
+    "QueryType": 0,
+    "QueryProperties": {
+      "Description": {
+        "Type": 10,
+        "Value": "Regression: tests \"quoted\" text plus a path like C:\\temp\\foo.txt"
+      }
+    },
+    "Properties": {
+      "Description": {
+        "Type": 10,
+        "Value": "Regression: tests \"quoted\" text plus a path like C:\\temp\\foo.txt"
+      }
+    }
+  }
+}

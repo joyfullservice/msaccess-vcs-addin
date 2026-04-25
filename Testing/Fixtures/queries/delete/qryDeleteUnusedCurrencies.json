@@ -1,0 +1,21 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryDeleteUnusedCurrencies"
+  },
+  "Items": {
+    "QueryType": 32,
+    "QueryProperties": {
+      "FailOnError": {
+        "Type": 1,
+        "Value": false
+      }
+    },
+    "Columns": {
+      "tblCurrencies.Currency": {
+        "ColumnWidth": 2445,
+        "AggregateType": -1
+      }
+    }
+  }
+}

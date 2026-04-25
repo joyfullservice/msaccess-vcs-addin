@@ -1,0 +1,9 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryCreateTempTable"
+  },
+  "Items": {
+    "QueryType": 96
+  }
+}
