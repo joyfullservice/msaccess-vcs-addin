@@ -37,8 +37,10 @@ Function StandardizeLetterCasing() As Long
     Dim i As Long
     Dim lngCorrections As Long
     For i = 1 To cm.CountOfLines
+        Dim OrigLine As String
         Dim LineOfCode As String
-        LineOfCode = Trim$(cm.Lines(i, 1))
+        OrigLine = cm.Lines(i, 1)
+        LineOfCode = Trim$(OrigLine)
         Dim CurrentCasing As String, CanonicalCasing As String
         Dim NamesMatch As String, CasingDiffers As Boolean
         If Left(LineOfCode, 3) = "Dim" Then
@@ -50,8 +52,17 @@ Function StandardizeLetterCasing() As Long
                 CasingDiffers = (InStr(1, CurrentCasing, CanonicalCasing, vbBinaryCompare) = 0)
 
                 If CasingDiffers Then
-                    cm.ReplaceLine i, "Dim " & CanonicalCasing & " '" & CanonicalCasing
-                    lngCorrections = lngCorrections + 1
+                    ' Patch the identifier in place so the user's indentation and any
+                    ' custom whitespace between the Dim declaration and the trailing
+                    ' comment are preserved. UCase equality above guarantees both
+                    ' strings are the same length, so Mid$ left-side assignment is safe.
+                    Dim posIdent As Long
+                    posIdent = InStr(4, OrigLine, CurrentCasing, vbBinaryCompare)
+                    If posIdent > 0 Then
+                        Mid$(OrigLine, posIdent, Len(CurrentCasing)) = CanonicalCasing
+                        cm.ReplaceLine i, OrigLine
+                        lngCorrections = lngCorrections + 1
+                    End If
                 End If
             Else
                 Debug.Print "Identifier mismatch on line " & i & " of " & _
