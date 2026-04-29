@@ -31,6 +31,7 @@ Private m_Console As clsConcat  ' Console output
 Private m_RichText As TextBox   ' Text box to display HTML
 Private m_Prog As clsLblProg    ' Progress bar
 Private m_blnProgressActive As Boolean
+Private m_blnConsoleDirty As Boolean  ' True when m_Console has new content not yet assigned to txtLog
 Private m_sngLastUpdate As Single
 Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
 Private m_dblPendingIncrements As Double  ' Accumulated increments awaiting throttled flush
@@ -144,6 +145,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             ' Add line break for HTML
             If blnNextOutputOnNewLine Then m_Console.Add "<br>"
         End With
+        m_blnConsoleDirty = True
 
         ' Run debug output
         If m_RichText Is Nothing Then
@@ -189,20 +191,21 @@ Public Sub Flush()
     ' See if the GUI form is loaded.
     Perf.OperationStart "Console Updates"
     If Not m_RichText Is Nothing Then
-        With m_RichText
-            m_blnProgressActive = False
-            If Not m_Prog Is Nothing Then m_Prog.Hide
-            ' Set value, not text to avoid errors with large text strings.
-            Echo False
-            '.SelStart = Len(.Text & vbNullString)
-            ' Show the last 20K characters so
-            ' we don't hit the Integer limit
-            ' on the SelStart property.
-            .Value = m_Console.RightStr(20000)
-            If VerifyFocus(m_RichText) Then .SelStart = 20000
-            Echo True
-            'Form_frmVCSMain.Repaint
-        End With
+        m_blnProgressActive = False
+        If Not m_Prog Is Nothing Then m_Prog.Hide
+        If m_blnConsoleDirty Then
+            With m_RichText
+                ' Set value, not text to avoid errors with large text strings.
+                Echo False
+                ' Show the last 20K characters so
+                ' we don't hit the Integer limit
+                ' on the SelStart property.
+                .Value = m_Console.RightStr(20000)
+                If VerifyFocus(m_RichText) Then .SelStart = 20000
+                Echo True
+            End With
+            m_blnConsoleDirty = False
+        End If
     Else
         ' Update display in immediate window if not using console
         DoEvents
@@ -292,6 +295,7 @@ Public Sub SetConsole(txtRichText As TextBox, cProg As clsLblProg)
     Set m_RichText = txtRichText
     If Not m_RichText Is Nothing Then
         m_RichText.AllowAutoCorrect = False
+        m_blnConsoleDirty = (m_Console.Length > 0)
     End If
 End Sub
 
@@ -479,7 +483,7 @@ Private Sub ApplyPendingIncrements()
     If m_dblPendingIncrements = 0 Then Exit Sub
 
     Perf.OperationStart "Increment Progress"
-    If Not m_blnProgressActive Then
+    If Not m_blnProgressActive And m_blnConsoleDirty Then
         ' Flush any pending output
         With m_RichText
             Echo False
@@ -490,6 +494,7 @@ Private Sub ApplyPendingIncrements()
             If VerifyFocus(m_RichText) Then .SelStart = 20000
             Echo True
         End With
+        m_blnConsoleDirty = False
     End If
     Me.ProgressBar.Increment m_dblPendingIncrements
 
