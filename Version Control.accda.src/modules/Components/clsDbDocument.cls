@@ -231,17 +231,16 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
             For Each prp In doc.Properties
                 blnSave = False
                 Select Case doc.Name
-                    Case "SummaryInfo", "UserDefined"
-                        Select Case prp.Name
-                            Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
-                                "Name", "Owner", "GUID", "Permissions", "UserName"
-                            Case Else
-                                blnSave = True
-                        End Select
                     Case "MSysDB"
                         ' Skip database properties handled by another class.
                     Case Else
-                        blnSave = True
+                        Select Case prp.Name
+                            Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
+                                "Name", "Owner", "GUID", "Permissions", "UserName", _
+                                "KeepLocal", "Replicable"
+                            Case Else
+                                blnSave = True
+                        End Select
                 End Select
                 If Left(doc.Name, 1) = "~" Then blnSave = False
                 If blnSave Then
@@ -267,16 +266,15 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
                     For Each prp In doc.Properties
                         blnSave = False
                         Select Case doc.Name
-                            Case "SummaryInfo", "UserDefined"
+                            Case "MSysDB"
+                            Case Else
                                 Select Case prp.Name
                                     Case "AllPermissions", "Container", "DateCreated", "LastUpdated", _
-                                        "Name", "Owner", "GUID", "Permissions", "UserName"
+                                        "Name", "Owner", "GUID", "Permissions", "UserName", _
+                                        "KeepLocal", "Replicable"
                                     Case Else
                                         blnSave = True
                                 End Select
-                            Case "MSysDB"
-                            Case Else
-                                blnSave = True
                         End Select
                         If Left(doc.Name, 1) = "~" Then blnSave = False
                         If blnSave Then
