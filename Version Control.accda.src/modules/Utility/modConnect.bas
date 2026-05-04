@@ -1090,31 +1090,3 @@ Public Sub LogUnusedEnvEntries()
 End Sub
 
 
-'---------------------------------------------------------------------------------------
-' Procedure : CheckGitignoreForEnv
-' Author    : Adam Waller
-' Date      : 03/17/2026
-' Purpose   : Check if .env appears in the .gitignore file. Warns the user if the
-'           : project appears to be in a git repo but .env is not excluded.
-'---------------------------------------------------------------------------------------
-'
-Public Sub CheckGitignoreForEnv()
-
-    Dim strPath As String
-    Dim strContent As String
-
-    ' Only check when a .env file exists
-    If Not FSO.FileExists(GetEnvFilePath) Then Exit Sub
-
-    strPath = BuildPath2(FSO.GetParentFolderName(StripSlash(Options.GetExportFolder)), ".gitignore")
-    If FSO.FileExists(strPath) Then
-        strContent = ReadFile(strPath)
-        If Len(strContent) Then
-            If InStr(1, strContent, ".env", vbTextCompare) = 0 Then
-                Log.Add T("WARNING: .env files should be excluded from version control. " & _
-                    "Please add .env to your .gitignore file."), False
-            End If
-        End If
-    End If
-
-End Sub

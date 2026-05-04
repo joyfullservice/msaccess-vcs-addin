@@ -249,6 +249,15 @@ Public Sub CheckGitFiles()
         Name strFile & ".default" As strFile
         Log.Add "Added default .gitignore file", , , "blue"
         blnAdded = True
+    Else
+        UpgradeGitignoreIndexEntry strFile
+    End If
+
+    ' Ensure *.env is excluded (protects credentials saved to .env files)
+    If FSO.FileExists(strFile) Then
+        If EnsureGitignoreLine(strFile, "*.env", vbNullString) Then
+            Log.Add T("Added *.env to .gitignore"), , , "blue"
+        End If
     End If
 
     ' gitattributes file
@@ -267,6 +276,164 @@ Public Sub CheckGitFiles()
         "allowing you to track changes at the source file level." & vbCrLf & vbCrLf & _
         "You may wish to customize these further for your environment.", vbInformation
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReplaceGitignoreLine
+' Author    : Adam Waller
+' Date      : 5/4/2026
+' Purpose   : Finds a whole line matching strOldPattern in the .gitignore file and
+'           : replaces it with strNewPattern. Skips the replacement if strNewPattern
+'           : already exists (prevents duplicates). Returns True if the file was
+'           : modified. Matching is trimmed and case-insensitive.
+'---------------------------------------------------------------------------------------
+'
+Private Function ReplaceGitignoreLine(strFile As String, strOldPattern As String, strNewPattern As String) As Boolean
+
+    Dim strContent As String
+    Dim varLines As Variant
+    Dim lngLine As Long
+    Dim blnFoundOld As Boolean
+    Dim blnFoundNew As Boolean
+
+    strContent = ReadFile(strFile)
+    If Len(strContent) = 0 Then Exit Function
+
+    varLines = Split(strContent, vbCrLf)
+
+    For lngLine = LBound(varLines) To UBound(varLines)
+        If StrComp(Trim$(varLines(lngLine)), strNewPattern, vbTextCompare) = 0 Then
+            blnFoundNew = True
+            Exit For
+        End If
+        If StrComp(Trim$(varLines(lngLine)), strOldPattern, vbTextCompare) = 0 Then
+            blnFoundOld = True
+        End If
+    Next lngLine
+
+    ' New pattern already present — nothing to do
+    If blnFoundNew Then Exit Function
+
+    ' Old pattern not found — nothing to replace
+    If Not blnFoundOld Then Exit Function
+
+    ' Replace old with new (re-scan to preserve original whitespace context)
+    For lngLine = LBound(varLines) To UBound(varLines)
+        If StrComp(Trim$(varLines(lngLine)), strOldPattern, vbTextCompare) = 0 Then
+            varLines(lngLine) = strNewPattern
+            Exit For
+        End If
+    Next lngLine
+
+    WriteFile Join(varLines, vbCrLf), strFile
+    ReplaceGitignoreLine = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EnsureGitignoreLine
+' Author    : Adam Waller
+' Date      : 5/4/2026
+' Purpose   : Ensures strNewPattern exists as a line in the .gitignore file. If
+'           : missing, inserts it after the first line matching strAfterPattern
+'           : (or appends to the end if strAfterPattern is empty or not found).
+'           : Returns True if the file was modified. Matching is trimmed and
+'           : case-insensitive.
+'---------------------------------------------------------------------------------------
+'
+Private Function EnsureGitignoreLine(strFile As String, strNewPattern As String, strAfterPattern As String) As Boolean
+
+    Dim strContent As String
+    Dim varLines As Variant
+    Dim lngLine As Long
+    Dim lngInsertAfter As Long
+    Dim strResult As String
+
+    strContent = ReadFile(strFile)
+    If Len(strContent) = 0 Then Exit Function
+
+    varLines = Split(strContent, vbCrLf)
+
+    ' Check if the pattern already exists
+    For lngLine = LBound(varLines) To UBound(varLines)
+        If StrComp(Trim$(varLines(lngLine)), strNewPattern, vbTextCompare) = 0 Then
+            Exit Function
+        End If
+    Next lngLine
+
+    ' Find insertion point
+    lngInsertAfter = -1
+    If Len(strAfterPattern) > 0 Then
+        For lngLine = LBound(varLines) To UBound(varLines)
+            If StrComp(Trim$(varLines(lngLine)), strAfterPattern, vbTextCompare) = 0 Then
+                lngInsertAfter = lngLine
+                Exit For
+            End If
+        Next lngLine
+    End If
+
+    If lngInsertAfter >= 0 Then
+        ' Insert after the matched line
+        strResult = Join(ArraySlice(varLines, LBound(varLines), lngInsertAfter), vbCrLf) & _
+            vbCrLf & strNewPattern
+        If lngInsertAfter < UBound(varLines) Then
+            strResult = strResult & vbCrLf & _
+                Join(ArraySlice(varLines, lngInsertAfter + 1, UBound(varLines)), vbCrLf)
+        End If
+    Else
+        ' Append to end
+        strResult = strContent
+        If Right$(strResult, 2) <> vbCrLf Then strResult = strResult & vbCrLf
+        strResult = strResult & strNewPattern
+    End If
+
+    WriteFile strResult, strFile
+    EnsureGitignoreLine = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ArraySlice
+' Author    : Adam Waller
+' Date      : 5/4/2026
+' Purpose   : Returns a portion of a Variant array from lngStart to lngEnd (inclusive).
+'---------------------------------------------------------------------------------------
+'
+Private Function ArraySlice(varArr As Variant, lngStart As Long, lngEnd As Long) As Variant
+
+    Dim varResult() As Variant
+    Dim lngIdx As Long
+
+    If lngStart > lngEnd Then
+        ArraySlice = Array()
+        Exit Function
+    End If
+
+    ReDim varResult(0 To lngEnd - lngStart)
+    For lngIdx = lngStart To lngEnd
+        varResult(lngIdx - lngStart) = varArr(lngIdx)
+    Next lngIdx
+    ArraySlice = varResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpgradeGitignoreIndexEntry
+' Author    : Adam Waller
+' Date      : 5/4/2026
+' Purpose   : Existing repos set up from older templates may have only vcs-index.json
+'           : in their .gitignore. This upgrades the entry to the wildcard pattern
+'           : vcs-index.* so the new binary .idx format is also excluded.
+'---------------------------------------------------------------------------------------
+'
+Private Sub UpgradeGitignoreIndexEntry(strFile As String)
+    If ReplaceGitignoreLine(strFile, "vcs-index.json", "vcs-index.*") Then
+        Log.Add T("Updated .gitignore: vcs-index.json -> vcs-index.*"), , , "blue"
+    End If
 End Sub
 
 

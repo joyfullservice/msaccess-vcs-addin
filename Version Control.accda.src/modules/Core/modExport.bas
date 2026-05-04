@@ -368,7 +368,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     ' Log any unused .env connection entries (full export only)
     If blnFullExport Then LogUnusedEnvEntries
-    CheckGitignoreForEnv
 
     ' Show final output and save log
     Log.Spacer
