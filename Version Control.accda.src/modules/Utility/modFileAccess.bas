@@ -396,8 +396,8 @@ Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
             If StrComp(FSO.GetExtensionName(oFile.Name), strExt, vbTextCompare) = 0 Then
                 ' Found at least one matching file. Use the wildcard delete.
                 DeleteFile FSO.BuildPath(strFolderNoSlash, "*." & strExt)
-                Exit Sub
-            End If
+        Exit Sub
+    End If
         Next
     End If
     Perf.OperationEnd
@@ -454,6 +454,17 @@ Public Function VerifyPath(PathToCheck As String, Optional EnableLongPath As Boo
     ' Because enabling long paths disables automatic folder expansion (i.e. "\..\") we don't want to use this
     ' unless we are actually dealing with a path that exceeds the normal MAX_PATH limit. See issue #612
     If EnableLongPath And Len(strFolder) > 260 And Not StartsWith(strFolder, ".") Then  ' Can't use relative paths for LongPaths.
+        If Not LongPathsEnabled() Then
+            ' The "\\?\" prefix only works when Windows long-path support is turned on
+            ' at the OS level. Without it, SHCreateDirectoryEx returns
+            ' ERROR_FILENAME_EXCED_RANGE regardless of how the path is formatted. Bail
+            ' out with an actionable error instead of issuing a doomed API call.
+            Log.Error eelError, _
+                "Path exceeds MAX_PATH (260) but long-path support is not enabled. " & _
+                "Set HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled " & _
+                "= 1 (DWORD) and sign out to apply. Path: " & PathToCheck, FunctionName
+            GoTo Exit_Here
+        End If
         If StartsWith(strFolder, "\\") Then
             ' Use UNC style long path prefix
             lngReturnCode = SHCreateDirectoryEx(ByVal 0&, StrPtr(LONG_PATH_UNC_PREFIX & Mid(strFolder, 3)), ByVal 0&)
@@ -613,6 +624,40 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : LongPathsEnabled
+' Author    : Adam Waller
+' Date      : 5/4/2026
+' Purpose   : Returns True when the OS-level long-path support switch is set, i.e.
+'           : HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled = 1.
+'           : This is the user-controlled toggle (Group Policy or registry edit) that
+'           : permits Win32 APIs and shell APIs to accept paths longer than MAX_PATH.
+'           : When False, attempts to create or address paths > 260 chars typically
+'           : fail with ERROR_FILENAME_EXCED_RANGE (206) -- regardless of any "\\?\"
+'           : prefix the caller adds. Test code and any future opt-in long-path
+'           : behaviour should gate on this. Note: the calling process also needs a
+'           : long-path-aware application manifest for some APIs to honour this flag;
+'           : recent Office (16.0+) ships such a manifest, so for our purposes the
+'           : registry value is the practical gate.
+'           :
+'           : The result is cached for the life of the VBA project: changes to this
+'           : registry value require a logoff (and Access restart) to take effect, so
+'           : re-reading it on every VerifyPath call would just be wasted work.
+'---------------------------------------------------------------------------------------
+'
+Public Function LongPathsEnabled() As Boolean
+    Const REG_LONG_PATHS As String = _
+        "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled"
+    Static blnLoaded As Boolean
+    Static blnEnabled As Boolean
+    If Not blnLoaded Then
+        blnEnabled = (RegRead(REG_LONG_PATHS) = "1")
+        blnLoaded = True
+    End If
+    LongPathsEnabled = blnEnabled
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ReadJsonFile
 ' Author    : Adam Waller
 ' Date      : 5/5/2020
@@ -642,13 +687,18 @@ End Function
 Public Function BuildPath2(ParamArray Segments())
     Dim lngPart As Long
     Dim strSegment As String
+    Dim blnPreserveUnc As Boolean
 
     With New clsConcat
         For lngPart = LBound(Segments) To UBound(Segments)
             strSegment = Segments(lngPart)
+            ' Preserve a leading "\\" UNC prefix on the first segment so a network
+            ' path like "\\server\share\..." is not collapsed to "server\share\...".
+            blnPreserveUnc = (lngPart = LBound(Segments)) _
+                And (Left$(strSegment, 2) = PathSep & PathSep)
             Do
                 ' Remove leading & trailing slashes that may be included in the segment
-                If Left$(strSegment, 1) = PathSep Then
+                If Not blnPreserveUnc And Left$(strSegment, 1) = PathSep Then
                     If Right$(strSegment, 1) = PathSep Then
                         strSegment = Mid$(strSegment, 2, Len(strSegment) - 2)
                     Else

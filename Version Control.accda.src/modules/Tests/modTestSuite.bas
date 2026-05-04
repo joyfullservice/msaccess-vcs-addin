@@ -434,7 +434,12 @@ Public Sub TestPathFunctions()
     Debug.Assert FSO.FolderExists(FSO.GetParentFolderName(strPath))
 
     ' Test relative path
-    strBase = ExpandEnvironmentVariables("%TEMP%\")
+    ' NOTE: strBase intentionally has NO trailing separator so callers below can
+    ' concatenate "\sub..." segments without producing an empty path component
+    ' (i.e. "Temp\\sub..."). Short paths get auto-normalized by SHCreateDirectoryEx,
+    ' but the long-path branch uses the "\\?\" prefix which disables normalization
+    ' and would reject "\\" with ERROR_INVALID_NAME.
+    strBase = ExpandEnvironmentVariables("%TEMP%")
     strTempPath = strBase & "\subfolder\level2\"
     If FSO.FolderExists(strTempPath) Then FSO.DeleteFolder StripSlash(strTempPath)
     Debug.Assert Not FSO.FolderExists(strTempPath)
@@ -455,9 +460,28 @@ Public Sub TestPathFunctions()
     Debug.Assert FSO.FolderExists(FSO.GetParentFolderName(strTempPath))
     FSO.DeleteFolder strBase & "\subfolder"
 
+    ' BuildPath2 must preserve the leading "\\" UNC prefix on the first segment.
+    ' Regression: a previous slash-stripping change collapsed "\\server\share\..."
+    ' to "server\share\..." which made VerifyPath / SHCreateDirectoryEx report the
+    ' path as relative (#issue: command bar image export against UNC export folder).
+    Debug.Assert BuildPath2("\\server\share\root\", "menus", "name_Images") = _
+        "\\server\share\root\menus\name_Images"
+    Debug.Assert BuildPath2("\\server\share\root", "sub\") = _
+        "\\server\share\root\sub"
+
+    ' Non-UNC behaviour must remain unchanged: redundant separators between
+    ' segments are still trimmed and a leading slash on a non-first segment is
+    ' still stripped (e.g. BuildPath2(CurrentProject.Path, "\Template\..."))
+    Debug.Assert BuildPath2("C:\foo\", "\bar\", "baz") = "C:\foo\bar\baz"
+    Debug.Assert BuildPath2("C:\foo", "\Template\CommandBars.bin") = _
+        "C:\foo\Template\CommandBars.bin"
+
     ' LONG PATHS (> 260) (Requires OS support and newer version of Access)
     'https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation?tabs=registry
-    If Application.Version >= 16 Then
+    ' Gated on the OS-level LongPathsEnabled flag. Without it, Win32/shell APIs
+    ' return ERROR_FILENAME_EXCED_RANGE (206) for any path > MAX_PATH regardless of
+    ' a "\\?\" prefix, which would surface here as a false test failure.
+    If Application.Version >= 16 And LongPathsEnabled() Then
 
         ' Test long path (On newer versions of Access)
         strTempPath = strBase & "\" & Repeat("subfolder\", 26)
@@ -470,6 +494,9 @@ Public Sub TestPathFunctions()
         Debug.Assert VerifyPath(strTempPath)
         strPath = strBase & "\subfolder"
         If FSO.FolderExists(strPath) Then FSO.DeleteFolder strPath
+    ElseIf Application.Version >= 16 Then
+        Debug.Print "TestPathFunctions: skipping long-path checks " & _
+            "(HKLM\SYSTEM\CurrentControlSet\Control\FileSystem\LongPathsEnabled is not set)."
     End If
 
 End Sub
