@@ -112,9 +112,9 @@ Begin Form
                     OverlapFlags =85
                     TextAlign =1
                     IMESentenceMode =3
-                    Left =1710
-                    Top =910
-                    Width =2630
+                    Left =1695
+                    Top =900
+                    Width =2625
                     Height =360
                     ColumnWidth =8220
                     ColumnOrder =1
@@ -129,10 +129,10 @@ Begin Form
                     BottomPadding =150
                     HorizontalAnchor =2
 
-                    LayoutCachedLeft =1710
-                    LayoutCachedTop =910
-                    LayoutCachedWidth =4340
-                    LayoutCachedHeight =1270
+                    LayoutCachedLeft =1695
+                    LayoutCachedTop =900
+                    LayoutCachedWidth =4320
+                    LayoutCachedHeight =1260
                     RowStart =1
                     RowEnd =1
                     ColumnStart =1
@@ -144,7 +144,7 @@ Begin Form
                             OverlapFlags =85
                             TextAlign =1
                             Left =360
-                            Top =910
+                            Top =900
                             Width =1275
                             Height =360
                             LeftMargin =44
@@ -156,9 +156,9 @@ Begin Form
                             GroupTable =1
                             BottomPadding =150
                             LayoutCachedLeft =360
-                            LayoutCachedTop =910
+                            LayoutCachedTop =900
                             LayoutCachedWidth =1635
-                            LayoutCachedHeight =1270
+                            LayoutCachedHeight =1260
                             RowStart =1
                             RowEnd =1
                             LayoutGroup =1
@@ -173,9 +173,9 @@ Begin Form
                     IMESentenceMode =3
                     ColumnCount =2
                     ListWidth =2160
-                    Left =1710
-                    Top =1460
-                    Width =2630
+                    Left =1695
+                    Top =1440
+                    Width =2625
                     Height =360
                     ColumnWidth =1815
                     ColumnOrder =2
@@ -193,10 +193,10 @@ Begin Form
                     RightMargin =44
                     BottomMargin =22
 
-                    LayoutCachedLeft =1710
-                    LayoutCachedTop =1460
-                    LayoutCachedWidth =4340
-                    LayoutCachedHeight =1820
+                    LayoutCachedLeft =1695
+                    LayoutCachedTop =1440
+                    LayoutCachedWidth =4320
+                    LayoutCachedHeight =1800
                     RowStart =2
                     RowEnd =2
                     ColumnStart =1
@@ -211,7 +211,7 @@ Begin Form
                             OverlapFlags =85
                             TextAlign =1
                             Left =360
-                            Top =1460
+                            Top =1440
                             Width =1275
                             Height =360
                             LeftMargin =44
@@ -223,9 +223,9 @@ Begin Form
                             GroupTable =1
                             BottomPadding =150
                             LayoutCachedLeft =360
-                            LayoutCachedTop =1460
+                            LayoutCachedTop =1440
                             LayoutCachedWidth =1635
-                            LayoutCachedHeight =1820
+                            LayoutCachedHeight =1800
                             RowStart =2
                             RowEnd =2
                             LayoutGroup =1
@@ -238,9 +238,9 @@ Begin Form
                     OverlapFlags =85
                     TextAlign =1
                     IMESentenceMode =3
-                    Left =1710
+                    Left =1695
                     Top =360
-                    Width =2630
+                    Width =2625
                     Height =360
                     ColumnWidth =-2
                     ColumnOrder =0
@@ -254,9 +254,9 @@ Begin Form
                     BottomPadding =150
                     HorizontalAnchor =2
 
-                    LayoutCachedLeft =1710
+                    LayoutCachedLeft =1695
                     LayoutCachedTop =360
-                    LayoutCachedWidth =4340
+                    LayoutCachedWidth =4320
                     LayoutCachedHeight =720
                     ColumnStart =1
                     ColumnEnd =1

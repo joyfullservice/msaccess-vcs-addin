@@ -263,6 +263,10 @@ RetryImport:
     End If
 
 CleanUp:
+    If Perf.CurrentOperationName = "modLoadFromText.LoadFromText" Then
+        Perf.OperationEnd
+    End If
+
     ' Clean up any additional temp file used in the building process
     If strFile <> strSourceFile Then
         If FSO.FileExists(strSourceFile) Then DeleteFile strSourceFile

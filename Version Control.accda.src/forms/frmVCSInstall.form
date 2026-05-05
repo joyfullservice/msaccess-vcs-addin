@@ -814,16 +814,16 @@ Begin Form
                     Begin
                         Begin Page
                             OverlapFlags =87
-                            Left =280
-                            Top =1530
-                            Width =6650
-                            Height =3100
+                            Left =300
+                            Top =1590
+                            Width =6600
+                            Height =3015
                             Name ="Page40"
                             Caption ="Basic Install"
-                            LayoutCachedLeft =280
-                            LayoutCachedTop =1530
-                            LayoutCachedWidth =6930
-                            LayoutCachedHeight =4630
+                            LayoutCachedLeft =300
+                            LayoutCachedTop =1590
+                            LayoutCachedWidth =6900
+                            LayoutCachedHeight =4605
                             Begin
                                 Begin Label
                                     OverlapFlags =215
@@ -906,16 +906,16 @@ Begin Form
                         End
                         Begin Page
                             OverlapFlags =215
-                            Left =280
-                            Top =1530
-                            Width =6650
-                            Height =3100
+                            Left =300
+                            Top =1590
+                            Width =6600
+                            Height =3015
                             Name ="Page41"
                             Caption ="Advanced Install"
-                            LayoutCachedLeft =280
-                            LayoutCachedTop =1530
-                            LayoutCachedWidth =6930
-                            LayoutCachedHeight =4630
+                            LayoutCachedLeft =300
+                            LayoutCachedTop =1590
+                            LayoutCachedWidth =6900
+                            LayoutCachedHeight =4605
                             Begin
                                 Begin CheckBox
                                     TabStop = NotDefault

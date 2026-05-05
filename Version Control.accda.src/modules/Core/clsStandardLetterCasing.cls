@@ -20,5 +20,6 @@ Option Explicit
 
 
 ' Set letter-casing for all other identifiers here:
-Dim i 'i
-Dim strSql 'strSql
+Dim i           'i
+Dim strSql      'strSql
+Dim lngAs       'lngAs

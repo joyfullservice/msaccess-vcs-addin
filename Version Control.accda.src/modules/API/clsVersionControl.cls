@@ -1131,16 +1131,23 @@ Public Function RunVBA(ByVal strCode As String) As String
     End If
     On Error GoTo ErrHandler
 
-    ' Execute the wrapper function. Application.Run's qualified syntax is
-    ' "[ProjectName].[FunctionName]" -- module name is NOT supported. From
-    ' add-in code calling back into the host, an unqualified call resolves
-    ' against the add-in's own project, so we must qualify with the host's
-    ' VBProject name. CurrentVBProject points at the host (not the add-in)
-    ' here. The empirically verified path-without-extension qualifier used
-    ' in the reverse direction (modAPI.GetRunCmdAddInFullLibName) does NOT
-    ' work for the host project, only for loaded library references.
+    ' Execute the wrapper function. File-path qualifiers in Application.Run
+    ' only work for referenced library projects (.accda add-ins), NOT for
+    ' the current database's own project. When the temp module lives in the
+    ' current database (the normal agent-calling-database case), we must use
+    ' an unqualified call. When developing the add-in itself (the add-in IS
+    ' the current database), the module is also in the current database, so
+    ' unqualified still works. The file-path prefix is only needed when
+    ' CurrentVBProject is a library reference (not the current database).
     Dim strProjPrefix As String
-    strProjPrefix = CurrentVBProject.Name & "."
+    Dim strCurrentDbPath As String
+    strCurrentDbPath = GetUncPath(CurrentProject.FullName)
+    If StrComp(CurrentVBProject.FileName, strCurrentDbPath, vbTextCompare) = 0 Then
+        strProjPrefix = vbNullString
+    Else
+        strProjPrefix = FSO.GetParentFolderName(CurrentVBProject.FileName) & "\" & _
+            FSO.GetBaseName(CurrentVBProject.FileName) & "."
+    End If
     varReturn = Application.Run(strProjPrefix & "MCP_TempFunction")
 
     ' Check for runtime errors captured by the wrapper (Err is cleared
@@ -1172,13 +1179,16 @@ Public Function RunVBA(ByVal strCode As String) As String
     End If
 
 CleanUp:
-    ' Always remove the temp module
     If blnModuleCreated Then
         On Error Resume Next
-        CurrentVBProject.VBComponents.Remove cmp
+        ' Release our stored reference BEFORE removing the component.
+        ' Holding a stored COM reference through Remove leaves a dangling
+        ' pointer when the underlying VBComponent is destroyed; the
+        ' implicit Release at function exit then dereferences freed memory.
+        Set cmp = Nothing
+        CurrentVBProject.VBComponents.Remove CurrentVBProject.VBComponents(strModuleName)
         On Error GoTo 0
     End If
-
     RunVBA = ConvertToJson(dResult)
     Exit Function
 
@@ -1831,6 +1841,46 @@ End Function
 '---------------------------------------------------------------------------------------
 ' Procedure : ValidateQuerySqlBuilder
 ' Author    : VCS contributors
+' Date      : 4/29/2026
+' Purpose   : Run the query SQL builder validation tool against the current database.
+'           : The validator compares fast MSysQueries-based SQL reconstruction against
+'           : Access's QueryDefs.SQL text and writes diagnostic artifacts for review.
+'           : Pass no arguments to validate all queries, or one/more query names to
+'           : validate a targeted batch in a single log/artifact folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function ValidateQuerySqlBuilder(ParamArray varQueryNames() As Variant) As String
+    ValidateQuerySqlBuilder = modTestQuerySqlBuilder.RunQuerySqlBuilderValidation(varQueryNames)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InspectQuerySqlStorage
+' Author    : VCS contributors
+' Date      : 4/30/2026
+' Purpose   : Developer diagnostic helper. Creates a temporary sandbox query from
+'           : SQL, optionally asks Access to save it from Design View, reads the
+'           : resulting MSysQueries rows, and deletes the sandbox query.
+'---------------------------------------------------------------------------------------
+'
+Public Function InspectQuerySqlStorage(ByVal strSql As String, _
+    Optional ByVal blnForceDesignView As Boolean = False) As String
+    InspectQuerySqlStorage = modTestQuerySqlBuilder.InspectQuerySqlStorage(strSql, blnForceDesignView)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CompareSqlBuilderArtifacts
+' Author    : VCS contributors
+' Date      : 4/30/2026
+' Purpose   : Developer diagnostic helper. Compares validation artifact
+'           : access.sql/generated.sql pairs through DAO row counts and schemas,
+'           : writing a ledger beside the artifact folders.
+'---------------------------------------------------------------------------------------
+'
+Public Function CompareSqlBuilderArtifacts(ByVal strArtifactRoot As String) As String
+    CompareSqlBuilderArtifacts = modTestQuerySqlBuilder.CompareSqlBuilderArtifacts(strArtifactRoot)
+End Function
 
 
 '---------------------------------------------------------------------------------------
