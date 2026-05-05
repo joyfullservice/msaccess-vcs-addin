@@ -471,18 +471,26 @@ Private Function ShouldSkipTableProperty(strName As String, bteType As Byte, var
         Case "PublishToWeb":    ShouldSkipTableProperty = (varValue = 1)
         Case "Description"
             ShouldSkipTableProperty = (Len(Nz(varValue)) = 0)
-        Case "BackTint", "BackShade", "AlternateBackTint", "AlternateBackShade"
+        Case "BackTint", "BackShade", "AlternateBackTint", "AlternateBackShade", _
+             "BorderTint", "BorderShade", "ForeTint", "ForeShade"
             ShouldSkipTableProperty = (IsNumeric(varValue) And Abs(CSng(varValue) - 100!) < 0.01)
         Case "ThemeFontIndex", "AlternateBackThemeColorIndex", _
-             "DatasheetGridlinesThemeColorIndex", "DatasheetForeThemeColorIndex"
+             "DatasheetGridlinesThemeColorIndex", "DatasheetForeThemeColorIndex", _
+             "BackThemeColorIndex", "BorderThemeColorIndex", "ForeThemeColorIndex"
             ShouldSkipTableProperty = (varValue = -1)
+        Case "DatasheetBackColor"
+            ShouldSkipTableProperty = (varValue = 16777215)
+        Case "DatasheetBackColor12"
+            ShouldSkipTableProperty = (varValue = -2147483643)
+        Case "DatasheetAlternateBackColor"
+            ShouldSkipTableProperty = (varValue = 15523798)
         ' Query-specific defaults
         Case "ODBCTimeout":     ShouldSkipTableProperty = (varValue = 60)
         Case "MaxRecords":      ShouldSkipTableProperty = (varValue = 0)
         Case "RecordsetType":   ShouldSkipTableProperty = (varValue = 0)
         Case "UseTransaction":  ShouldSkipTableProperty = IsDefaultBool(varValue, True)
         Case "RecordLocks":     ShouldSkipTableProperty = (varValue = 0)
-        Case "RowHeight":       ShouldSkipTableProperty = (varValue = 65535)
+        Case "RowHeight":       ShouldSkipTableProperty = (varValue = 65535 Or varValue = -1)
     End Select
 
 End Function

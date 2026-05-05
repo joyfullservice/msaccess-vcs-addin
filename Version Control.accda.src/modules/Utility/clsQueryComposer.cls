@@ -32,6 +32,7 @@ Option Explicit
 Private m_lngQueryType As Long          ' 1=SELECT, 3=INSERT, 4=UPDATE, 5=DELETE
 Private m_lngOption As Long             ' Bitmask: 1=AllFields, 2=DISTINCT, 4=OWNERACCESS, 8=DISTINCTROW, 16=TOP, 48=TOP PERCENT
 Private m_strTargetTable As String      ' For action queries
+Private m_strTargetDatabase As String   ' External database target for append/make-table queries
 Private m_strWhere As String            ' WHERE clause (Access double-paren format)
 Private m_strHaving As String           ' HAVING clause
 Private m_colInputTables As Collection  ' Of Dictionary: name, alias
@@ -50,6 +51,8 @@ Private m_strRawSql As String           ' Raw SQL (for pass-through/DDL/UNION)
 Private m_blnDesignerCompatible As Boolean
 Private m_blnIsPassThrough As Boolean
 Private m_blnIsDDL As Boolean
+Private m_blnRequiresDesignView As Boolean   ' True when SQL has shapes (e.g. multi-condition ON) that dbMemo "SQL" cannot represent
+Private m_colWarnings As Collection     ' Builder warnings captured for diagnostics
 
 
 '---------------------------------------------------------------------------------------
@@ -67,6 +70,8 @@ Private m_blnIsDDL As Boolean
 Public Function ReconstructSQL(colRows As Collection) As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Set m_colWarnings = New Collection
 
     Dim dRow As Dictionary
     Dim dTbl As Dictionary
@@ -99,6 +104,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
     Dim blnDistinctRow As Boolean
     Dim lngTopN As Long
     Dim blnTopPercent As Boolean
+    Dim strTargetDatabase As String
 
     ' Initialize collections for each section
     Set colFields = New Collection
@@ -130,6 +136,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 ' Operation type
                 lngOperation = lngFlag
                 strTarget = strN1
+                strTargetDatabase = strN2
                 blnHasAttr1 = True
                 ' DDL (Flag=7) and Pass-through (Flag=8) store raw SQL in Expression
                 If lngFlag = 7 Or lngFlag = 8 Then
@@ -139,7 +146,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
 
             Case 2
                 ' PARAMETERS
-                strParams = strExpr
+                AppendParameterDeclaration strParams, strExpr, strN1, lngFlag
 
             Case 3
                 ' Options bitmask: 2=DISTINCT, 8=DISTINCTROW, 16=TOP, 32=PERCENT
@@ -264,7 +271,12 @@ Public Function ReconstructSQL(colRows As Collection) As String
         If blnTopPercent Then strSelectModifiers = strSelectModifiers & "PERCENT "
     End If
 
-    ' Main query body based on operation type
+    ' Main query body based on operation type.
+    ' blnHasFromSource: at least one input table or join exists. When
+    ' true and the field list is empty, the SELECT-shaped operations
+    ' emit `*` to match Access's canonical SELECT * / DELETE * shape.
+    Dim blnHasFromSource As Boolean
+    blnHasFromSource = (colTables.Count > 0) Or (colJoinParts.Count > 0)
     Select Case lngOperation
         Case 1, 6  ' SELECT / Crosstab row headings
             cSql.Add "SELECT " & strSelectModifiers
@@ -274,18 +286,21 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 For Each dFld In colFields
                     If CLng(dFld("flag")) = 2 Then colRowFields.Add dFld
                 Next dFld
-                BuildFieldList cSql, colRowFields
+                BuildFieldList cSql, colRowFields, blnHasFromSource
             Else
-                BuildFieldList cSql, colFields
+                BuildFieldList cSql, colFields, blnHasFromSource
+                If colFields.Count > 0 And (lngOption And 1) <> 0 Then cSql.Add ", *"
             End If
 
         Case 2  ' Make-Table (SELECT...INTO)
             cSql.Add "SELECT " & strSelectModifiers
-            BuildFieldList cSql, colFields
+            BuildFieldList cSql, colFields, blnHasFromSource
             cSql.Add vbCrLf & "INTO " & BracketIfNeeded(strTarget)
+            AppendExternalDatabaseTarget cSql, strTargetDatabase
 
         Case 3  ' INSERT INTO
             cSql.Add "INSERT INTO " & BracketIfNeeded(strTarget)
+            AppendExternalDatabaseTarget cSql, strTargetDatabase
             ' Check if there are target field names
             Dim colTargetFields As New Collection
             Dim dF As Dictionary
@@ -305,17 +320,19 @@ Public Function ReconstructSQL(colRows As Collection) As String
             End If
             cSql.Add vbCrLf
             cSql.Add "SELECT " & strSelectModifiers
-            BuildFieldList cSql, colFields
+            BuildFieldList cSql, colFields, blnHasFromSource
 
         Case 4  ' UPDATE
             cSql.Add "UPDATE "
+            If blnDistinctRow Then cSql.Add "DISTINCTROW "
             BuildFromClause cSql, colTables, colJoinParts
             cSql.Add vbCrLf & "SET "
             BuildUpdateSetClause cSql, colFields
 
         Case 5  ' DELETE
             cSql.Add "DELETE "
-            BuildFieldList cSql, colFields
+            If blnDistinctRow Then cSql.Add "DISTINCTROW "
+            BuildFieldList cSql, colFields, blnHasFromSource
 
         Case 9  ' UNION / UNION ALL
             Dim blnUnionAll As Boolean
@@ -331,15 +348,22 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 End If
                 cSql.Add RTrim$(CStr(colTables(lngSeg)("expression")))
             Next lngSeg
+            AppendOrderByClause cSql, colOrder
             cSql.Add ";" & vbCrLf
             ReconstructSQL = cSql.GetStr
             Exit Function
     End Select
 
-    ' FROM clause (for SELECT, INSERT, DELETE, Make-Table -- UPDATE already has it)
-    If lngOperation <> 4 Then
+    ' FROM clause (for SELECT, INSERT, DELETE, Make-Table -- UPDATE already has it).
+    ' Table-less INSERT INTO ... SELECT literal values and empty SELECT queries use
+    ' Access's native "FROM ;" syntax. Scalar no-table SELECTs omit FROM entirely.
+    If lngOperation <> 4 And _
+       (blnHasFromSource Or colFields.Count = 0 Or _
+        (lngOperation = 3 And HasAppendValuesFields(colFields))) Then
         cSql.Add vbCrLf & "FROM "
-        BuildFromClause cSql, colTables, colJoinParts
+        If colTables.Count > 0 Or colJoinParts.Count > 0 Then
+            BuildFromClause cSql, colTables, colJoinParts
+        End If
     End If
 
     ' WHERE
@@ -370,15 +394,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
     End If
 
     ' ORDER BY
-    If colOrder.Count > 0 Then
-        cSql.Add vbCrLf & "ORDER BY "
-        Dim lngO As Long
-        For lngO = 1 To colOrder.Count
-            If lngO > 1 Then cSql.Add ", "
-            cSql.Add CStr(colOrder(lngO)("expression"))
-            If colOrder(lngO)("descending") Then cSql.Add " DESC"
-        Next lngO
-    End If
+    AppendOrderByClause cSql, colOrder
 
     ' PIVOT (crosstab) -- column heading field is Attribute 6 Flag=1
     If blnIsCrosstab Then
@@ -388,6 +404,10 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 Exit For
             End If
         Next dFld
+    End If
+
+    If (lngOption And 4) <> 0 Then
+        cSql.Add vbCrLf & "WITH OWNERACCESS OPTION"
     End If
 
     ' Terminate with semicolon and newline
@@ -475,15 +495,17 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
     End If
 
     ' Parse TRANSFORM/PIVOT (crosstab)
+    Dim blnIsCrosstab As Boolean
     If Left$(strUpper, 10) = "TRANSFORM " Then
         ParseTransformClause strNorm
         strNorm = TrimLeadingWhitespace(strNorm)
         strUpper = UCase$(strNorm)
+        blnIsCrosstab = True
     End If
 
     ' Determine query type and parse accordingly
     If Left$(strUpper, 7) = "SELECT " Then
-        m_lngQueryType = 1
+        m_lngQueryType = IIf(blnIsCrosstab, 6, 1)
         ParseSelectQuery strNorm
     ElseIf Left$(strUpper, 12) = "INSERT INTO " Then
         m_lngQueryType = 3
@@ -500,8 +522,16 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
         GoTo CleanUp
     End If
 
-    ' Check for subqueries in the FROM clause which make Design View impossible
-    If HasSubqueries() Then
+    ' Crosstab (TRANSFORM/PIVOT) queries use SQL View because the Design
+    ' View qdef generator does not emit the Attribute 6 aggregate/pivot
+    ' fields that Access requires for Operation=6.
+    If blnIsCrosstab Then
+        m_blnDesignerCompatible = False
+    ElseIf Len(m_strTargetDatabase) > 0 Then
+        ' External target databases are preserved most faithfully in SQL View;
+        ' the Design View qdef grammar for Attribute 1 Name2 is not documented.
+        m_blnDesignerCompatible = False
+    ElseIf HasSubqueries() Then
         m_blnDesignerCompatible = False
     Else
         m_blnDesignerCompatible = True
@@ -528,6 +558,57 @@ Public Function IsDesignerCompatible() As Boolean
     CatchAny eelError, "Error reading IsDesignerCompatible", _
         ModuleName(Me) & ".IsDesignerCompatible"
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RequiresDesignView
+' Author    : Adam Waller
+' Date      : 4/27/2026
+' Purpose   : Returns True when the parsed SQL contains a shape that Access's
+'           : dbMemo "SQL" field (SQL View qdef format) cannot represent and that
+'           : therefore must be imported via a Design View qdef. Currently the only
+'           : known case is multi-condition ON clauses (e.g. ON (a=b) AND (c=d)) --
+'           : Access's LoadFromText rejects them inside dbMemo "SQL" but accepts
+'           : them as separate Joins/Where rows in Design View format.
+'           :
+'           : Callers should use this in addition to a check for explicit
+'           : DesignLayout metadata when deciding which view to emit:
+'           :     blnDesignView = (Not dLayout Is Nothing) Or RequiresDesignView
+'           : Together those preserve the original last-saved view (per
+'           : MSysObjects.LvExtra) while still forcing Design View for the
+'           : shapes that genuinely require it.
+'---------------------------------------------------------------------------------------
+'
+Public Function RequiresDesignView() As Boolean
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    RequiresDesignView = m_blnRequiresDesignView
+    CatchAny eelError, "Error reading RequiresDesignView", _
+        ModuleName(Me) & ".RequiresDesignView"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Warnings
+' Author    : VCS contributors
+' Date      : 4/29/2026
+' Purpose   : Return warnings captured during the most recent compose/reconstruct run.
+'           : The standard Log still receives these warnings; this collection lets
+'           : diagnostics classify individual query results without scraping log text.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Warnings() As Collection
+    If m_colWarnings Is Nothing Then Set m_colWarnings = New Collection
+    Set Warnings = m_colWarnings
+End Property
+
+
+Public Property Get WarningCount() As Long
+    If m_colWarnings Is Nothing Then
+        WarningCount = 0
+    Else
+        WarningCount = m_colWarnings.Count
+    End If
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -594,7 +675,20 @@ End Function
 ' PRIVATE: SQL Reconstruction helpers
 '=======================================================================================
 
-Private Sub BuildFieldList(cSql As clsConcat, colFields As Collection)
+Private Sub BuildFieldList(cSql As clsConcat, colFields As Collection, _
+    Optional ByVal blnDefaultStarWhenEmpty As Boolean = False)
+    ' Access stores `SELECT * FROM ...` (and `DELETE FROM ...`) queries with
+    ' zero Attribute=6 rows in MSysQueries. When no output columns are
+    ' provided AND the query has a FROM source, emit `*` to match Access's
+    ' canonical SELECT * / DELETE * rendering. Callers pass
+    ' blnDefaultStarWhenEmpty=True only when there is at least one input
+    ' table or join -- pure no-table queries (e.g. `SELECT FROM ;`) keep
+    ' the empty field list.
+    If colFields.Count = 0 Then
+        If blnDefaultStarWhenEmpty Then cSql.Add "*"
+        Exit Sub
+    End If
+
     Dim lngF As Long
     Dim dFld As Dictionary
     For lngF = 1 To colFields.Count
@@ -608,6 +702,17 @@ Private Sub BuildFieldList(cSql As clsConcat, colFields As Collection)
 End Sub
 
 
+Private Function HasAppendValuesFields(colFields As Collection) As Boolean
+    Dim dFld As Dictionary
+    For Each dFld In colFields
+        If CLng(dFld("flag")) = -32768 Then
+            HasAppendValuesFields = True
+            Exit Function
+        End If
+    Next dFld
+End Function
+
+
 Private Sub BuildUpdateSetClause(cSql As clsConcat, colFields As Collection)
     Dim lngF As Long
     Dim dFld As Dictionary
@@ -618,6 +723,65 @@ Private Sub BuildUpdateSetClause(cSql As clsConcat, colFields As Collection)
         cSql.Add " = " & CStr(dFld("expression"))
     Next lngF
 End Sub
+
+
+Private Sub AppendOrderByClause(cSql As clsConcat, colOrder As Collection)
+    If colOrder.Count = 0 Then Exit Sub
+
+    cSql.Add vbCrLf & "ORDER BY "
+    Dim lngO As Long
+    For lngO = 1 To colOrder.Count
+        If lngO > 1 Then cSql.Add ", "
+        cSql.Add CStr(colOrder(lngO)("expression"))
+        If colOrder(lngO)("descending") Then cSql.Add " DESC"
+    Next lngO
+End Sub
+
+
+Private Sub AppendExternalDatabaseTarget(cSql As clsConcat, ByVal strDatabase As String)
+    If Len(strDatabase) = 0 Then Exit Sub
+    cSql.Add " IN '" & Replace$(strDatabase, "'", "''") & "'"
+End Sub
+
+
+Private Sub AppendParameterDeclaration(ByRef strParams As String, ByVal strExpression As String, _
+    ByVal strName As String, ByVal lngFlag As Long)
+
+    Dim strParam As String
+    Dim strType As String
+
+    If Len(strExpression) > 0 Then
+        strParam = strExpression
+    ElseIf Len(strName) > 0 Then
+        strParam = BracketIfNeeded(strName)
+        strType = ParameterTypeSql(lngFlag)
+        If Len(strType) > 0 Then strParam = strParam & " " & strType
+    End If
+
+    If Len(strParam) = 0 Then Exit Sub
+    If Len(strParams) > 0 Then strParams = strParams & ", "
+    strParams = strParams & strParam
+End Sub
+
+
+Private Function ParameterTypeSql(ByVal lngFlag As Long) As String
+    Select Case lngFlag
+        Case 0:     ParameterTypeSql = "Value"
+        Case 1:     ParameterTypeSql = "Boolean"
+        Case 2:     ParameterTypeSql = "Byte"
+        Case 3:     ParameterTypeSql = "Short"
+        Case 4:     ParameterTypeSql = "Long"
+        Case 5:     ParameterTypeSql = "Currency"
+        Case 6:     ParameterTypeSql = "Single"
+        Case 7:     ParameterTypeSql = "Double"
+        Case 8:     ParameterTypeSql = "DateTime"
+        Case 10:    ParameterTypeSql = "Text ( 255 )"
+        Case 11:    ParameterTypeSql = "OLEObject"
+        Case 12:    ParameterTypeSql = "Memo"
+        Case 15:    ParameterTypeSql = "GUID"
+        Case 16:    ParameterTypeSql = "BigInt"
+    End Select
+End Function
 
 
 Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins As Collection)
@@ -635,7 +799,7 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
         For lngT = 1 To colTables.Count
             If lngT > 1 Then cSql.Add ", "
             Set dTbl = colTables(lngT)
-            cSql.Add BracketIfNeeded(CStr(dTbl("name")))
+            cSql.Add FormatInputTableName(dTbl)
             If Len(dTbl("alias")) > 0 Then
                 cSql.Add " AS " & BracketIfNeeded(CStr(dTbl("alias")))
             End If
@@ -646,27 +810,11 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
         Dim colConsolidated As Collection
         Set colConsolidated = ConsolidateJoins(colJoins)
 
-        ' Normalize RIGHT JOINs to LEFT JOINs so the hub table becomes the
-        ' graph root in BuildJoinChain. A RIGHT JOIN B ON expr is semantically
-        ' identical to B LEFT JOIN A ON expr. We flip the direction and mark
-        ' the join with wasRight so the emission step restores RIGHT JOIN syntax.
-        For lngJ = 1 To colConsolidated.Count
-            Set dJn = colConsolidated(lngJ)
-            If CLng(dJn("flag")) = 3 Then
-                Dim strOrigLeft As String
-                strOrigLeft = CStr(dJn("leftTable"))
-                dJn("leftTable") = CStr(dJn("rightTable"))
-                dJn("rightTable") = strOrigLeft
-                dJn("flag") = CLng(2)
-                dJn.Add "wasRight", True
-            End If
-        Next lngJ
-
-        ' Build the join chain by following the leftTable->rightTable graph.
-        ' DFS with deterministic sorting (flag-first, then alphabetical by
-        ' rightTable) ensures stable output regardless of MSysQueries row order.
+        ' Legacy fallback: retained for diagnostics/fallback only. The primary
+        ' path below builds a component-preserving join forest from the ordered
+        ' Attribute 7 rows.
         Dim colOrdered As Collection
-        Set colOrdered = BuildJoinChain(colConsolidated)
+        Set colOrdered = Nothing
 
         ' Build table alias lookup for proper FROM clause formatting
         Dim dTableLookup As Dictionary
@@ -676,15 +824,22 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
             If Len(dTbl("alias")) > 0 Then
                 strRef = CStr(dTbl("alias"))
                 If Not dTableLookup.Exists(strRef) Then
-                    dTableLookup.Add strRef, CStr(dTbl("name")) & " AS " & BracketIfNeeded(strRef)
+                    dTableLookup.Add strRef, FormatInputTableName(dTbl) & " AS " & BracketIfNeeded(strRef)
                 End If
             Else
                 strRef = CStr(dTbl("name"))
                 If Not dTableLookup.Exists(strRef) Then
-                    dTableLookup.Add strRef, BracketIfNeeded(strRef)
+                    dTableLookup.Add strRef, FormatInputTableName(dTbl)
                 End If
             End If
         Next dTbl
+
+        Dim strJoinForest As String
+        strJoinForest = BuildJoinForestSql(colConsolidated, colTables, dTableLookup)
+        If Len(strJoinForest) > 0 Then
+            cSql.Add strJoinForest
+            GoTo CleanUp
+        End If
 
         ' Defensive guard: if BuildJoinChain returned Nothing (its own
         ' cleanup errored in release mode) or an empty collection (cyclic
@@ -693,20 +848,20 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
         ' The original join conditions are lost in this branch -- callers
         ' must check the log.
         If colOrdered Is Nothing Then
-            Log.Error eelWarning, "BuildJoinChain returned Nothing; falling " & _
+            AddBuilderWarning "BuildJoinChain returned Nothing; falling " & _
                 "back to cartesian table list. " & SqlSnippet(), _
                 ModuleName(Me) & ".BuildFromClause"
             Set colOrdered = New Collection
         End If
         If colOrdered.Count = 0 Then
-            Log.Error eelWarning, "Empty ordered join chain; falling back " & _
+            AddBuilderWarning "Empty ordered join chain; falling back " & _
                 "to cartesian table list. " & SqlSnippet(), _
                 ModuleName(Me) & ".BuildFromClause"
             Dim lngTF As Long
             For lngTF = 1 To colTables.Count
                 If lngTF > 1 Then cSql.Add ", "
                 Set dTbl = colTables(lngTF)
-                cSql.Add BracketIfNeeded(CStr(dTbl("name")))
+                cSql.Add FormatInputTableName(dTbl)
                 If Len(dTbl("alias")) > 0 Then
                     cSql.Add " AS " & BracketIfNeeded(CStr(dTbl("alias")))
                 End If
@@ -773,42 +928,15 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
                 blnLeftIn = dInAccum.Exists(strLeftRef)
                 blnRightIn = dInAccum.Exists(strRightRef)
 
-                If dJn.Exists("wasRight") Then
-                    ' Restore RIGHT JOIN syntax: the rightTable (after flip) is
-                    ' the original leftTable, which becomes the left operand of
-                    ' RIGHT JOIN. Treat this like an inverted INNER/LEFT for
-                    ' attachment purposes -- requires the (post-flip) leftTable
-                    ' (the inner subtree's connecting table) to already be in
-                    ' the accum.
-                    If Not blnLeftIn And Not blnRightIn Then
-                        colNextPending.Add dJn
-                    Else
-                        If dTableLookup.Exists(strRightRef) Then
-                            strTableName = CStr(dTableLookup(strRightRef))
-                        Else
-                            strTableName = BracketIfNeeded(strRightRef)
-                        End If
-                        If blnHasJoins Then
-                            strAccum = strTableName & " RIGHT JOIN (" & strAccum & _
-                                ") ON " & CStr(dJn("expression"))
-                        Else
-                            strAccum = strTableName & " RIGHT JOIN " & strAccum & _
-                                " ON " & CStr(dJn("expression"))
-                        End If
-                        If Not dInAccum.Exists(strRightRef) Then dInAccum.Add strRightRef, True
-                        If Not dInAccum.Exists(strLeftRef) Then dInAccum.Add strLeftRef, True
-                        blnHasJoins = True
-                        blnProgress = True
-                    End If
-                ElseIf blnLeftIn And blnRightIn Then
-                    ' Both tables already in accum: redundant join condition that
-                    ' wasn't consolidated (e.g. a secondary ON condition spanning
-                    ' three tables). Drop with a warning rather than corrupting
-                    ' the FROM clause -- ConsolidateJoins should normally catch
-                    ' these, so logging helps diagnose missed cases.
-                    Log.Error eelWarning, "Both join tables already in FROM " & _
-                        "clause; skipping. left=" & strLeftRef & " right=" & _
-                        strRightRef & ". " & SqlSnippet(), _
+                If blnLeftIn And blnRightIn Then
+                    ' Both tables already in accum: secondary ON condition that
+                    ' ConsolidateJoins didn't merge. This should be rare after
+                    ' Phase 2 expansion. Log a warning so we can investigate
+                    ' any remaining cases.
+                    AddBuilderWarning "Both join tables already in FROM " & _
+                        "clause; condition not merged. left=" & strLeftRef & _
+                        " right=" & strRightRef & " expr=" & _
+                        CStr(dJn("expression")) & ". " & SqlSnippet(), _
                         ModuleName(Me) & ".BuildFromClause"
                     blnProgress = True
                 ElseIf blnLeftIn Then
@@ -816,6 +944,7 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
                     Select Case CLng(dJn("flag"))
                         Case 1: strJoinType = " INNER JOIN "
                         Case 2: strJoinType = " LEFT JOIN "
+                        Case 3: strJoinType = " RIGHT JOIN "
                         Case Else: strJoinType = " INNER JOIN "
                     End Select
                     If dTableLookup.Exists(strRightRef) Then
@@ -838,12 +967,11 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
                     ' This handles connecting joins from the disconnected-
                     ' component fallback in BuildJoinChain. The join type stays
                     ' the same -- the accum just expands the rightTable into a
-                    ' larger subtree on the right side of the JOIN. LEFT JOIN
-                    ' outer-side semantics are preserved: the original left
-                    ' table is still on the left.
+                    ' larger subtree on the right side of the JOIN.
                     Select Case CLng(dJn("flag"))
                         Case 1: strJoinType = " INNER JOIN "
                         Case 2: strJoinType = " LEFT JOIN "
+                        Case 3: strJoinType = " RIGHT JOIN "
                         Case Else: strJoinType = " INNER JOIN "
                     End Select
                     If dTableLookup.Exists(strLeftRef) Then
@@ -904,19 +1032,238 @@ Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins
                 End If
             Next varST
 
-            Log.Error eelWarning, colPending.Count & " disconnected join(s) " & _
+            AddBuilderWarning colPending.Count & " disconnected join(s) " & _
                 "could not be attached; appended " & dStrandedTables.Count & _
                 " stranded table(s) cartesian-style. " & SqlSnippet(), _
                 ModuleName(Me) & ".BuildFromClause"
         End If
 
-        cSql.Add strAccum
+        ' Disconnected tables: tables in the FROM clause that don't
+        ' participate in any join (cartesian product with the joined group).
+        ' These appear as entries in colTables whose name/alias is not in
+        ' dInAccum. Wrap the join tree in parens and append them comma-
+        ' separated to produce valid Access SQL: (A JOIN B ON ...), C
+        Dim lngDT As Long
+        Dim strDTRef As String
+        Dim blnHasDisconnected As Boolean
+        blnHasDisconnected = False
+        For lngDT = 1 To colTables.Count
+            Set dTbl = colTables(lngDT)
+            If Len(dTbl("alias")) > 0 Then
+                strDTRef = CStr(dTbl("alias"))
+            Else
+                strDTRef = CStr(dTbl("name"))
+            End If
+            If Not dInAccum.Exists(strDTRef) Then
+                If Not blnHasDisconnected Then
+                    ' First disconnected table: wrap the existing join tree
+                    cSql.Add "(" & strAccum & "), "
+                    blnHasDisconnected = True
+                Else
+                    cSql.Add ", "
+                End If
+                If dTableLookup.Exists(strDTRef) Then
+                    cSql.Add CStr(dTableLookup(strDTRef))
+                Else
+                    cSql.Add BracketIfNeeded(strDTRef)
+                End If
+            End If
+        Next lngDT
+        If blnHasDisconnected Then
+            ' Already emitted via cSql.Add above
+        Else
+            cSql.Add strAccum
+        End If
     End If
 
 CleanUp:
     CatchAny eelError, "Error building FROM clause. " & SqlSnippet(), _
         ModuleName(Me) & ".BuildFromClause"
 End Sub
+
+
+Private Function BuildJoinForestSql(colJoins As Collection, colTables As Collection, _
+    dTableLookup As Dictionary) As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Dim colComponents As Collection
+    Set colComponents = New Collection
+
+    Dim dRefToComponent As Dictionary
+    Set dRefToComponent = New Dictionary
+
+    Dim dJn As Dictionary
+    Dim strLeftRef As String
+    Dim strRightRef As String
+    Dim dLeftComp As Dictionary
+    Dim dRightComp As Dictionary
+
+    For Each dJn In colJoins
+        strLeftRef = CStr(dJn("leftTable"))
+        strRightRef = CStr(dJn("rightTable"))
+
+        Set dLeftComp = ComponentForRef(dRefToComponent, strLeftRef)
+        Set dRightComp = ComponentForRef(dRefToComponent, strRightRef)
+
+        If dLeftComp Is Nothing And dRightComp Is Nothing Then
+            Set dLeftComp = NewJoinComponent(strLeftRef, dTableLookup)
+            colComponents.Add dLeftComp
+            dRefToComponent.Add strLeftRef, dLeftComp
+            AttachNewRightTable dLeftComp, strRightRef, dJn, dTableLookup, dRefToComponent
+        ElseIf dLeftComp Is Nothing Then
+            AttachNewLeftTable dRightComp, strLeftRef, dJn, dTableLookup, dRefToComponent
+        ElseIf dRightComp Is Nothing Then
+            AttachNewRightTable dLeftComp, strRightRef, dJn, dTableLookup, dRefToComponent
+        ElseIf dLeftComp Is dRightComp Then
+            AddBuilderWarning "Both join tables already in FROM clause; " & _
+                "condition not merged. left=" & strLeftRef & _
+                " right=" & strRightRef & " expr=" & CStr(dJn("expression")) & _
+                ". " & SqlSnippet(), ModuleName(Me) & ".BuildJoinForestSql"
+        Else
+            MergeJoinComponents dLeftComp, dRightComp, dJn, dRefToComponent
+        End If
+    Next dJn
+
+    Dim strResult As String
+    Dim dComp As Dictionary
+    For Each dComp In colComponents
+        If CBool(dComp("active")) Then
+            If Len(strResult) > 0 Then strResult = strResult & ", "
+            strResult = strResult & CStr(dComp("sql"))
+        End If
+    Next dComp
+
+    Dim dTbl As Dictionary
+    Dim strRef As String
+    Dim blnWrappedForDisconnected As Boolean
+    For Each dTbl In colTables
+        If Len(dTbl("alias")) > 0 Then
+            strRef = CStr(dTbl("alias"))
+        Else
+            strRef = CStr(dTbl("name"))
+        End If
+        If Not dRefToComponent.Exists(strRef) Then
+            If Len(strResult) > 0 Then
+                If Not blnWrappedForDisconnected Then
+                    strResult = "(" & strResult & ")"
+                    blnWrappedForDisconnected = True
+                End If
+                strResult = strResult & ", "
+            End If
+            strResult = strResult & InputTableSql(strRef, dTableLookup)
+        End If
+    Next dTbl
+
+    BuildJoinForestSql = strResult
+
+    CatchAny eelError, "Error building join forest. " & SqlSnippet(), _
+        ModuleName(Me) & ".BuildJoinForestSql"
+End Function
+
+
+Private Function ComponentForRef(dRefToComponent As Dictionary, ByVal strRef As String) As Dictionary
+    If dRefToComponent.Exists(strRef) Then
+        Set ComponentForRef = dRefToComponent(strRef)
+    End If
+End Function
+
+
+Private Function NewJoinComponent(ByVal strRef As String, dTableLookup As Dictionary) As Dictionary
+    Dim dComp As Dictionary
+    Set dComp = New Dictionary
+    dComp.Add "sql", InputTableSql(strRef, dTableLookup)
+    dComp.Add "hasJoin", False
+    dComp.Add "active", True
+
+    Dim dRefs As Dictionary
+    Set dRefs = New Dictionary
+    dRefs.Add strRef, True
+    dComp.Add "refs", dRefs
+
+    Set NewJoinComponent = dComp
+End Function
+
+
+Private Sub AttachNewRightTable(dComp As Dictionary, ByVal strRightRef As String, _
+    dJoin As Dictionary, dTableLookup As Dictionary, dRefToComponent As Dictionary)
+
+    dComp("sql") = JoinedSql(CStr(dComp("sql")), CBool(dComp("hasJoin")), _
+        InputTableSql(strRightRef, dTableLookup), False, CLng(dJoin("flag")), _
+        CStr(dJoin("expression")))
+    dComp("hasJoin") = True
+    dComp("refs").Add strRightRef, True
+    dRefToComponent.Add strRightRef, dComp
+End Sub
+
+
+Private Sub AttachNewLeftTable(dComp As Dictionary, ByVal strLeftRef As String, _
+    dJoin As Dictionary, dTableLookup As Dictionary, dRefToComponent As Dictionary)
+
+    dComp("sql") = JoinedSql(InputTableSql(strLeftRef, dTableLookup), False, _
+        CStr(dComp("sql")), CBool(dComp("hasJoin")), CLng(dJoin("flag")), _
+        CStr(dJoin("expression")))
+    dComp("hasJoin") = True
+    dComp("refs").Add strLeftRef, True
+    dRefToComponent.Add strLeftRef, dComp
+End Sub
+
+
+Private Sub MergeJoinComponents(dLeftComp As Dictionary, dRightComp As Dictionary, _
+    dJoin As Dictionary, dRefToComponent As Dictionary)
+
+    dLeftComp("sql") = JoinedSql(CStr(dLeftComp("sql")), CBool(dLeftComp("hasJoin")), _
+        CStr(dRightComp("sql")), CBool(dRightComp("hasJoin")), _
+        CLng(dJoin("flag")), CStr(dJoin("expression")))
+    dLeftComp("hasJoin") = True
+
+    Dim varRef As Variant
+    For Each varRef In dRightComp("refs").Keys
+        If Not dLeftComp("refs").Exists(CStr(varRef)) Then
+            dLeftComp("refs").Add CStr(varRef), True
+        End If
+        If dRefToComponent.Exists(CStr(varRef)) Then dRefToComponent.Remove CStr(varRef)
+        dRefToComponent.Add CStr(varRef), dLeftComp
+    Next varRef
+    dRightComp("active") = False
+End Sub
+
+
+Private Function JoinedSql(ByVal strLeftSql As String, ByVal blnLeftHasJoin As Boolean, _
+    ByVal strRightSql As String, ByVal blnRightHasJoin As Boolean, _
+    ByVal lngFlag As Long, ByVal strExpression As String) As String
+
+    JoinedSql = JoinOperandSql(strLeftSql, blnLeftHasJoin) & JoinKeyword(lngFlag) & _
+        JoinOperandSql(strRightSql, blnRightHasJoin) & " ON " & strExpression
+End Function
+
+
+Private Function JoinOperandSql(ByVal strSql As String, ByVal blnHasJoin As Boolean) As String
+    If blnHasJoin Then
+        JoinOperandSql = "(" & strSql & ")"
+    Else
+        JoinOperandSql = strSql
+    End If
+End Function
+
+
+Private Function JoinKeyword(ByVal lngFlag As Long) As String
+    Select Case lngFlag
+        Case 1: JoinKeyword = " INNER JOIN "
+        Case 2: JoinKeyword = " LEFT JOIN "
+        Case 3: JoinKeyword = " RIGHT JOIN "
+        Case Else: JoinKeyword = " INNER JOIN "
+    End Select
+End Function
+
+
+Private Function InputTableSql(ByVal strRef As String, dTableLookup As Dictionary) As String
+    If dTableLookup.Exists(strRef) Then
+        InputTableSql = CStr(dTableLookup(strRef))
+    Else
+        InputTableSql = BracketIfNeeded(strRef)
+    End If
+End Function
 
 
 Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
@@ -984,17 +1331,30 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
 
     ' --- Phase 2: Detect secondary conditions via Union-Find ---
     ' An edge where both endpoints are already connected is a secondary
-    ' ON condition (it would create a cycle). Merge it into the primary
-    ' join that introduced one of its tables.
+    ' ON condition (it would create a cycle). Merge it immediately into
+    ' the deepest primary join seen so far that shares one of its tables.
+    '
+    ' INVARIANT: Do this during the ordered walk, not after collecting all
+    ' primary joins. SEC showed that deferring secondaries lets a later join
+    ' steal a cross-subtree predicate simply because it shares the root table:
+    ' (A JOIN (B JOIN C) ON A.x=B.x AND A.y=C.y) JOIN D ON A.z=D.z
+    ' must attach A.x=B.x to the join with the B/C subtree, not to the later
+    ' D join.
     Dim colPrimary As Collection
     Set colPrimary = New Collection
-    Dim colSecondary As Collection
-    Set colSecondary = New Collection
     Dim dUFParent As Dictionary
     Set dUFParent = New Dictionary
+    Dim dSeenRef As Dictionary
+    Set dSeenRef = New Dictionary
+    Dim dIntroJoin As Dictionary
+    Set dIntroJoin = New Dictionary
+    Dim dIntroOrder As Dictionary
+    Set dIntroOrder = New Dictionary
 
     Dim dItem As Dictionary
+    Dim lngJoinOrder As Long
     For Each dItem In colGrouped
+        lngJoinOrder = lngJoinOrder + 1
         strLeft = CStr(dItem("leftTable"))
         strRight = CStr(dItem("rightTable"))
 
@@ -1004,36 +1364,13 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
         strRootR = UFFind(dUFParent, strRight)
 
         If strRootL = strRootR Then
-            colSecondary.Add dItem
+            MergeSecondaryJoinNow colPrimary, dItem, dIntroJoin, dIntroOrder
         Else
             dUFParent(strRootL) = strRootR
             colPrimary.Add dItem
+            TrackIntroducedJoin dSeenRef, dIntroJoin, dIntroOrder, dItem, lngJoinOrder
         End If
     Next dItem
-
-    ' Merge each secondary condition into the deepest primary join
-    ' that introduced one of the secondary's tables (match on rightTable).
-    Dim dSec As Dictionary
-    For Each dSec In colSecondary
-        Dim lngP As Long
-        Dim blnMerged As Boolean
-        blnMerged = False
-        For lngP = colPrimary.Count To 1 Step -1
-            Dim dPri As Dictionary
-            Set dPri = colPrimary(lngP)
-            If StrComp(CStr(dPri("rightTable")), CStr(dSec("leftTable")), vbTextCompare) = 0 Or _
-               StrComp(CStr(dPri("rightTable")), CStr(dSec("rightTable")), vbTextCompare) = 0 Then
-                dPri("expression") = CStr(dPri("expression")) & _
-                    ") AND (" & CStr(dSec("expression"))
-                dPri("merged") = True
-                blnMerged = True
-                Exit For
-            End If
-        Next lngP
-        If Not blnMerged Then
-            colPrimary.Add dSec
-        End If
-    Next dSec
 
     ' Wrap expressions that were assembled by merging multiple rows.
     ' Expressions that arrived already compound (single MSysQueries row)
@@ -1048,6 +1385,107 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
 
     CatchAny eelError, "Error consolidating joins. " & SqlSnippet(), _
         ModuleName(Me) & ".ConsolidateJoins"
+End Function
+
+
+Private Sub TrackIntroducedJoin(dSeenRef As Dictionary, dIntroJoin As Dictionary, _
+    dIntroOrder As Dictionary, dJoin As Dictionary, ByVal lngJoinOrder As Long)
+
+    Dim strLeft As String
+    Dim strRight As String
+    Dim blnLeftSeen As Boolean
+    Dim blnRightSeen As Boolean
+
+    strLeft = CStr(dJoin("leftTable"))
+    strRight = CStr(dJoin("rightTable"))
+    blnLeftSeen = dSeenRef.Exists(strLeft)
+    blnRightSeen = dSeenRef.Exists(strRight)
+
+    If Not blnLeftSeen Then dSeenRef.Add strLeft, True
+    If Not blnRightSeen Then dSeenRef.Add strRight, True
+
+    If blnLeftSeen And Not blnRightSeen Then
+        RememberIntroducedRef dIntroJoin, dIntroOrder, strRight, dJoin, lngJoinOrder
+    ElseIf blnRightSeen And Not blnLeftSeen Then
+        RememberIntroducedRef dIntroJoin, dIntroOrder, strLeft, dJoin, lngJoinOrder
+    ElseIf Not blnLeftSeen And Not blnRightSeen Then
+        ' Treat leftTable as the component root and rightTable as introduced.
+        RememberIntroducedRef dIntroJoin, dIntroOrder, strRight, dJoin, lngJoinOrder
+    End If
+End Sub
+
+
+Private Sub RememberIntroducedRef(dIntroJoin As Dictionary, dIntroOrder As Dictionary, _
+    ByVal strRef As String, dJoin As Dictionary, ByVal lngJoinOrder As Long)
+
+    If dIntroJoin.Exists(strRef) Then dIntroJoin.Remove strRef
+    If dIntroOrder.Exists(strRef) Then dIntroOrder.Remove strRef
+    dIntroJoin.Add strRef, dJoin
+    dIntroOrder.Add strRef, lngJoinOrder
+End Sub
+
+
+Private Sub MergeSecondaryJoinNow(colPrimary As Collection, dSec As Dictionary, _
+    dIntroJoin As Dictionary, dIntroOrder As Dictionary)
+    Dim lngP As Long
+    Dim strSecLeft As String
+    Dim strSecRight As String
+
+    strSecLeft = CStr(dSec("leftTable"))
+    strSecRight = CStr(dSec("rightTable"))
+
+    Dim dOwner As Dictionary
+    Set dOwner = SecondaryOwnerByIntroducedRef(strSecLeft, strSecRight, dIntroJoin, dIntroOrder)
+    If Not dOwner Is Nothing Then
+        dOwner("expression") = CStr(dOwner("expression")) & _
+            ") AND (" & CStr(dSec("expression"))
+        dOwner("merged") = True
+        Exit Sub
+    End If
+
+    For lngP = colPrimary.Count To 1 Step -1
+        Dim dPri As Dictionary
+        Set dPri = colPrimary(lngP)
+        If JoinSharesTable(dPri, strSecLeft, strSecRight) Then
+            dPri("expression") = CStr(dPri("expression")) & _
+                ") AND (" & CStr(dSec("expression"))
+            dPri("merged") = True
+            Exit Sub
+        End If
+    Next lngP
+
+    ' Defensive fallback for malformed input: preserve the predicate rather
+    ' than dropping it, even though it may force a later warning.
+    colPrimary.Add dSec
+End Sub
+
+
+Private Function SecondaryOwnerByIntroducedRef(ByVal strLeft As String, ByVal strRight As String, _
+    dIntroJoin As Dictionary, dIntroOrder As Dictionary) As Dictionary
+
+    Dim lngLeftOrder As Long
+    Dim lngRightOrder As Long
+
+    If dIntroOrder.Exists(strLeft) Then lngLeftOrder = CLng(dIntroOrder(strLeft))
+    If dIntroOrder.Exists(strRight) Then lngRightOrder = CLng(dIntroOrder(strRight))
+
+    If lngLeftOrder = 0 And lngRightOrder = 0 Then Exit Function
+    If lngRightOrder >= lngLeftOrder Then
+        Set SecondaryOwnerByIntroducedRef = dIntroJoin(strRight)
+    Else
+        Set SecondaryOwnerByIntroducedRef = dIntroJoin(strLeft)
+    End If
+End Function
+
+
+Private Function JoinSharesTable(dJoin As Dictionary, ByVal strLeft As String, _
+    ByVal strRight As String) As Boolean
+
+    JoinSharesTable = _
+        StrComp(CStr(dJoin("leftTable")), strLeft, vbTextCompare) = 0 Or _
+        StrComp(CStr(dJoin("leftTable")), strRight, vbTextCompare) = 0 Or _
+        StrComp(CStr(dJoin("rightTable")), strLeft, vbTextCompare) = 0 Or _
+        StrComp(CStr(dJoin("rightTable")), strRight, vbTextCompare) = 0
 End Function
 
 
@@ -1071,8 +1509,8 @@ Private Function BuildJoinChain(colJoins As Collection) As Collection
     ' Uses DFS so that child joins (e.g. tblListAction from
     ' qrySecFirstAction) are emitted immediately after their parent,
     ' matching Access's native join ordering.
-    ' For star joins (multiple joins from the same leftTable), sorts
-    ' by flag first (INNER before LEFT/RIGHT) then by rightTable name.
+    ' For star joins (multiple joins from the same leftTable),
+    ' preserves the input order from MSysQueries (Attribute/[Order]).
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -1104,7 +1542,7 @@ Private Function BuildJoinChain(colJoins As Collection) As Collection
     Next dJn
 
     ' Build multimap: leftTable -> Collection of joins from that table
-    ' Sort each group by flag first, then rightTable name
+    ' while preserving input order within each left-table group.
     Dim dJoinsByLeft As Dictionary
     Set dJoinsByLeft = New Dictionary
     For Each dJn In colJoins
@@ -1123,7 +1561,7 @@ Private Function BuildJoinChain(colJoins As Collection) As Collection
     ' any joins that get stranded by the cycle.
     If Not blnRootFound Then
         strRoot = CStr(colJoins(1)("leftTable"))
-        Log.Error eelWarning, "Cyclic join graph; using '" & strRoot & _
+        AddBuilderWarning "Cyclic join graph; using '" & strRoot & _
             "' as fallback root. " & SqlSnippet(), _
             ModuleName(Me) & ".BuildJoinChain"
     End If
@@ -1171,7 +1609,7 @@ Private Function BuildJoinChain(colJoins As Collection) As Collection
         Err.Clear
         If DebugMode(False) Then On Error GoTo 0
 
-        Log.Error eelWarning, (colResult.Count - lngBefore) & _
+        AddBuilderWarning (colResult.Count - lngBefore) & _
             " join(s) appended out of order (disconnected or cyclic graph). " & _
             SqlSnippet(), ModuleName(Me) & ".BuildJoinChain"
     End If
@@ -1203,28 +1641,10 @@ End Sub
 
 
 Private Sub InsertJoinSorted(colTarget As Collection, dJoin As Dictionary)
-    ' Insert a join dictionary sorted by: flag first (INNER=1 before LEFT=2
-    ' before RIGHT=3), then by rightTable name within the same flag.
-    ' Flag-first ensures INNER JOINs are processed before LEFT/RIGHT JOINs
-    ' in star-join scenarios, matching Access's nesting convention.
-    Dim lngNewFlag As Long
-    Dim strNewRight As String
-    Dim lngI As Long
-    lngNewFlag = CLng(dJoin("flag"))
-    strNewRight = CStr(dJoin("rightTable"))
-    For lngI = 1 To colTarget.Count
-        Dim lngExistFlag As Long
-        lngExistFlag = CLng(colTarget(lngI)("flag"))
-        If lngNewFlag < lngExistFlag Then
-            colTarget.Add dJoin, Before:=lngI
-            Exit Sub
-        ElseIf lngNewFlag = lngExistFlag Then
-            If StrComp(strNewRight, CStr(colTarget(lngI)("rightTable")), vbTextCompare) < 0 Then
-                colTarget.Add dJoin, Before:=lngI
-                Exit Sub
-            End If
-        End If
-    Next lngI
+    ' Preserve input order: joins arrive from DecomposeSQL (parse order)
+    ' or from MSysQueries (Attribute/[Order] order). Both orderings match
+    ' the original SQL nesting, so re-sorting would swap join types
+    ' (LEFT/RIGHT) or inner join order, producing structurally different SQL.
     colTarget.Add dJoin
 End Sub
 
@@ -1261,13 +1681,43 @@ Private Function SqlSnippet() As String
 End Function
 
 
+Private Sub AddBuilderWarning(ByVal strDescription As String, ByVal strSource As String)
+    If m_colWarnings Is Nothing Then Set m_colWarnings = New Collection
+    m_colWarnings.Add strDescription
+    Log.Error eelWarning, strDescription, strSource
+End Sub
+
+
+' INVARIANT: An InputTable row whose Name1 is empty but whose Expression
+' carries a SELECT statement is a derived table (subquery in FROM) -- Access
+' uses Name2 for the synthetic alias (typically %$##@_Alias when generated
+' by the query designer, but a user-named alias is also legal here). The
+' FROM emitter must wrap the Expression in parens so the result is
+' '(SELECT ...) AS [alias]'. Without this, the FROM clause emits an empty
+' table reference and the alias alone, producing un-importable SQL.
+' See: docs/access-query-storage.md, regression/qryRegressionFromSubquery
+Private Function FormatInputTableName(dTbl As Dictionary) As String
+    Dim strName As String
+    Dim strExpr As String
+    strName = CStr(dTbl("name"))
+    If dTbl.Exists("expression") Then strExpr = CStr(dTbl("expression"))
+    If Len(strName) = 0 And Len(strExpr) > 0 Then
+        FormatInputTableName = "(" & strExpr & ")"
+    Else
+        FormatInputTableName = BracketIfNeeded(strName)
+    End If
+End Function
+
+
 Private Function BracketIfNeeded(strName As String) As String
-    ' Return name as-is if already bracketed or contains a dot (qualified)
-    If Left$(strName, 1) = "[" Then
+    ' Return name as-is if already bracketed, parenthesized (derived table
+    ' subquery), or contains a dot (qualified -- caller is responsible for
+    ' bracketing each segment, e.g. "[a].[b]").
+    If Left$(strName, 1) = "[" Or Left$(strName, 1) = "(" Then
         BracketIfNeeded = strName
     ElseIf InStr(1, strName, ".") > 0 Then
         BracketIfNeeded = strName
-    ElseIf InStr(1, strName, " ") > 0 Or IsAccessReservedWord(strName) Then
+    ElseIf HasNonIdentChars(strName) Or IsAccessReservedWord(strName) Then
         BracketIfNeeded = "[" & strName & "]"
     Else
         BracketIfNeeded = strName
@@ -1275,18 +1725,41 @@ Private Function BracketIfNeeded(strName As String) As String
 End Function
 
 
+' EDGE CASE: Access aliases like the auto-generated %$##@_Alias placeholder
+' (used for unnamed derived tables in the FROM clause) contain '%', '$', '#',
+' '@' which are SQL operators / format specifiers. Emitted unbracketed they
+' are tokenized into separate symbols by clsSqlFormatter -- e.g.
+' '%$##@_Alias' becomes '% $ ##@_Alias' -- producing un-importable SQL.
+' Bracketing any identifier with non-regular chars prevents that.
+' See: docs/access-query-storage.md, regression/qryRegressionFromSubquery
+Private Function HasNonIdentChars(strName As String) As Boolean
+    Dim i As Long
+    Dim ch As String
+    For i = 1 To Len(strName)
+        ch = Mid$(strName, i, 1)
+        Select Case ch
+            Case "A" To "Z", "a" To "z", "0" To "9", "_"
+            Case Else
+                HasNonIdentChars = True
+                Exit Function
+        End Select
+    Next i
+End Function
+
+
 Private Function IsAccessReservedWord(strWord As String) As Boolean
     Select Case UCase$(strWord)
-        Case "SELECT", "FROM", "WHERE", "ORDER", "BY", "GROUP", "HAVING", _
-             "INSERT", "INTO", "UPDATE", "DELETE", "SET", "VALUES", _
+        Case "ACTION", "SELECT", "FROM", "WHERE", "ORDER", "BY", "GROUP", "HAVING", _
+             "INSERT", "INTO", "UPDATE", "DELETE", "SET", "VALUE", "VALUES", _
              "JOIN", "INNER", "LEFT", "RIGHT", "OUTER", "ON", "AS", _
              "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "IS", "NULL", _
              "EXISTS", "ALL", "ANY", "SOME", "UNION", "EXCEPT", "INTERSECT", _
              "DISTINCT", "TOP", "TRANSFORM", "PIVOT", "TABLE", "CREATE", _
              "ALTER", "DROP", "INDEX", "VIEW", "PROCEDURE", "PARAMETER", _
-             "PARAMETERS", "TRUE", "FALSE", "YES", "NO", "DATE", "TIME", _
+             "PARAMETERS", "TRUE", "FALSE", "YES", "NO", "DATE", "TIME", "YEAR", _
              "TEXT", "MEMO", "LONG", "SHORT", "SINGLE", "DOUBLE", "CURRENCY", _
-             "COUNTER", "YESNO", "BINARY", "OLEOBJECT", "GUID"
+             "COUNTER", "YESNO", "BINARY", "OLEOBJECT", "GUID", "KEY", "NAMES", "NUMBER", _
+             "PRIMARY", "FOREIGN", "CONSTRAINT", "REFERENCES", "UNIQUE"
             IsAccessReservedWord = True
     End Select
 End Function
@@ -1300,6 +1773,7 @@ Private Sub ResetState()
     m_lngQueryType = 0
     m_lngOption = 0
     m_strTargetTable = vbNullString
+    m_strTargetDatabase = vbNullString
     m_strWhere = vbNullString
     m_strHaving = vbNullString
     Set m_colInputTables = New Collection
@@ -1318,6 +1792,8 @@ Private Sub ResetState()
     m_blnDesignerCompatible = False
     m_blnIsPassThrough = False
     m_blnIsDDL = False
+    m_blnRequiresDesignView = False
+    Set m_colWarnings = New Collection
 End Sub
 
 
@@ -1433,6 +1909,19 @@ Private Sub ParseParametersClause(ByRef strSql As String)
 End Sub
 
 
+Private Sub ParseTargetDatabaseClause(ByRef strTarget As String)
+    Dim lngIn As Long
+    Dim strDatabase As String
+
+    lngIn = FindTopLevelKeyword(strTarget, " IN ")
+    If lngIn = 0 Then Exit Sub
+
+    strDatabase = Trim$(Mid$(strTarget, lngIn + 4))
+    strTarget = Trim$(Left$(strTarget, lngIn - 1))
+    m_strTargetDatabase = UnquoteSqlString(strDatabase)
+End Sub
+
+
 Private Sub ParseTransformClause(ByRef strSql As String)
     Dim strUpper As String
     Dim lngSelectPos As Long
@@ -1483,16 +1972,23 @@ Private Sub ParseSelectQuery(strSql As String)
 
         ' Check for INTO clause (Make-Table query: SELECT ... INTO table FROM ...)
         Dim lngInto As Long
+        Dim strTargetSpec As String
         lngInto = FindTopLevelKeyword(strFieldSection, " INTO ")
         If lngInto > 0 Then
             m_lngQueryType = 2
-            m_strTargetTable = UnBracket(Trim$(Mid$(strFieldSection, lngInto + 6)))
+            strTargetSpec = Trim$(Mid$(strFieldSection, lngInto + 6))
+            ParseTargetDatabaseClause strTargetSpec
+            m_strTargetTable = UnBracket(strTargetSpec)
             strFieldSection = Left$(strFieldSection, lngInto - 1)
         End If
 
         ParseFieldList strFieldSection
         strRemainder = Mid$(strRemainder, lngPos + 5)
         ParseFromAndClauses strRemainder
+    ElseIf Right$(UCase$(RTrim$(strRemainder)), 5) = " FROM" Then
+        ' Bare FROM at end of string (table-less query). The trailing semicolon
+        ' was already stripped, so "FROM ;" becomes just "FROM".
+        ParseFieldList Left$(RTrim$(strRemainder), Len(RTrim$(strRemainder)) - 5)
     End If
 
     ' Parse PIVOT if present (for crosstab queries already stripped of TRANSFORM)
@@ -1516,6 +2012,7 @@ Private Sub ParseInsertQuery(strSql As String)
     Dim lngParenClose As Long
     Dim asTargetFields() As String
     Dim blnHasTargetFields As Boolean
+    Dim strTargetSpec As String
 
     strRemainder = Mid$(strSql, 13) ' Skip "INSERT INTO "
 
@@ -1526,7 +2023,9 @@ Private Sub ParseInsertQuery(strSql As String)
 
     ' Check if there are explicit target field names before SELECT
     If lngParenOpen > 0 And (lngSelectPos = 0 Or lngParenOpen < lngSelectPos) Then
-        m_strTargetTable = Trim$(Left$(strRemainder, lngParenOpen - 1))
+        strTargetSpec = Trim$(Left$(strRemainder, lngParenOpen - 1))
+        ParseTargetDatabaseClause strTargetSpec
+        m_strTargetTable = UnBracket(strTargetSpec)
         lngParenClose = FindMatchingParen(strRemainder, lngParenOpen)
         ' Extract the target field names between the parens
         Dim strTargetFieldList As String
@@ -1536,10 +2035,14 @@ Private Sub ParseInsertQuery(strSql As String)
         strRemainder = Trim$(Mid$(strRemainder, lngParenClose + 1))
     Else
         If lngSelectPos > 0 Then
-            m_strTargetTable = Trim$(Left$(strRemainder, lngSelectPos - 1))
+            strTargetSpec = Trim$(Left$(strRemainder, lngSelectPos - 1))
+            ParseTargetDatabaseClause strTargetSpec
+            m_strTargetTable = UnBracket(strTargetSpec)
             strRemainder = Mid$(strRemainder, lngSelectPos)
         Else
-            m_strTargetTable = Trim$(strRemainder)
+            strTargetSpec = Trim$(strRemainder)
+            ParseTargetDatabaseClause strTargetSpec
+            m_strTargetTable = UnBracket(strTargetSpec)
             GoTo CleanUp
         End If
     End If
@@ -1565,6 +2068,14 @@ Private Sub ParseInsertQuery(strSql As String)
             ParseFieldList Left$(strRemainder, lngFrom - 1)
             strRemainder = Mid$(strRemainder, lngFrom + 5)
             ParseFromAndClauses strRemainder
+        ElseIf Right$(UCase$(RTrim$(strRemainder)), 5) = " FROM" Then
+            ' Bare FROM at end of string (VALUES-style query with no source
+            ' tables). The trailing semicolon was already stripped, so "FROM ;"
+            ' becomes just "FROM".
+            ParseFieldList Left$(RTrim$(strRemainder), Len(RTrim$(strRemainder)) - 5)
+        Else
+            ' No FROM clause at all -- entire remainder is the field list
+            ParseFieldList strRemainder
         End If
     End If
 
@@ -1592,6 +2103,10 @@ Private Sub ParseUpdateQuery(strSql As String)
     Dim lngSet As Long
 
     strRemainder = Mid$(strSql, 8) ' Skip "UPDATE "
+    If Left$(UCase$(strRemainder), 12) = "DISTINCTROW " Then
+        m_lngOption = m_lngOption Or 8
+        strRemainder = Mid$(strRemainder, 13)
+    End If
 
     ' Find SET keyword
     lngSet = FindTopLevelKeyword(strRemainder, "SET ")
@@ -1624,6 +2139,10 @@ Private Sub ParseDeleteQuery(strSql As String)
     Dim lngFrom As Long
 
     strRemainder = Mid$(strSql, 8) ' Skip "DELETE "
+    If Left$(UCase$(strRemainder), 12) = "DISTINCTROW " Then
+        m_lngOption = m_lngOption Or 8
+        strRemainder = Mid$(strRemainder, 13)
+    End If
 
     lngFrom = FindTopLevelKeyword(strRemainder, "FROM ")
     If lngFrom > 0 Then
@@ -1646,10 +2165,22 @@ Private Sub ParseFieldList(strFields As String)
     Dim lngAs As Long
     Dim dCol As Dictionary
 
+    If Trim$(strFields) = "*" Then
+        m_lngOption = m_lngOption Or 1
+        Exit Sub
+    End If
+
     asParts = SplitTopLevel(Trim$(strFields), ",")
     For lngF = 0 To UBound(asParts)
         strField = Trim$(asParts(lngF))
         If Len(strField) = 0 Then GoTo NextField
+
+        ' A bare `*` in a multi-field list (e.g. `table.*, *`) maps to
+        ' Option bit 1 (Output All Fields), not an OutputColumn row.
+        If strField = "*" Then
+            m_lngOption = m_lngOption Or 1
+            GoTo NextField
+        End If
 
         Set dCol = New Dictionary
 
@@ -1811,6 +2342,14 @@ Private Sub ParseFromExpression(strFrom As String)
 
     strWork = Trim$(strFrom)
 
+    ' Strip trailing semicolons (Access emits "FROM ;" for table-less queries)
+    Do While Right$(strWork, 1) = ";"
+        strWork = RTrim$(Left$(strWork, Len(strWork) - 1))
+    Loop
+
+    ' Empty FROM clause means no source tables
+    If Len(strWork) = 0 Then GoTo CleanUp
+
     ' Strip outer parentheses (Access wraps joins in multiple layers)
     Do While Left$(strWork, 1) = "(" And Right$(strWork, 1) = ")"
         If FindMatchingParen(strWork, 1) = Len(strWork) Then
@@ -1843,6 +2382,7 @@ Private Sub ParseFromExpression(strFrom As String)
         ParseJoinExpression strWork
     End If
 
+CleanUp:
     CatchAny eelError, "Error parsing FROM expression. " & SqlSnippet(), _
         ModuleName(Me) & ".ParseFromExpression"
 End Sub
@@ -1892,6 +2432,13 @@ Private Sub ParseJoinExpression(strExpr As String)
     If lngOnPos > 0 Then
         strOnExpr = Trim$(Mid$(strRight, lngOnPos + 4))
         strRight = Trim$(Left$(strRight, lngOnPos - 1))
+
+        ' Detect multi-condition ON clauses (top-level AND/OR after stripping
+        ' any single layer of outer parens). Access's dbMemo "SQL" field --
+        ' the SQL View qdef -- cannot represent these; LoadFromText rejects
+        ' them. We mark the composer so callers can force Design View for
+        ' just this shape, even when no DesignLayout metadata is present.
+        If HasTopLevelBoolean(strOnExpr) Then m_blnRequiresDesignView = True
     End If
 
     ' Recursively parse the left side (may have nested joins)
@@ -2230,33 +2777,90 @@ Private Function FindMatchingParen(strExpr As String, lngStart As Long) As Long
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : HasTopLevelBoolean
+' Author    : Adam Waller
+' Date      : 4/27/2026
+' Purpose   : Returns True when the given expression contains a top-level AND or OR
+'           : operator after a single layer of outer parens has been stripped.
+'           : Used to detect multi-condition ON clauses such as:
+'           :     ON (tblA.x = tblB.x) AND (tblA.y = tblB.y)
+'           :     ON tblA.x = tblB.x AND tblA.y = tblB.y
+'           :     ON ((tblA.x = tblB.x) AND (tblA.y = tblB.y))
+'           : All three forms come back as True. A single-condition ON clause such
+'           : as ON tblA.x = tblB.x or ON (tblA.x = tblB.x) returns False.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasTopLevelBoolean(strExpr As String) As Boolean
+    Dim strWork As String
+
+    strWork = Trim$(strExpr)
+    If Len(strWork) = 0 Then Exit Function
+
+    ' Strip any number of full-wrapping outer paren layers so that
+    ' "((a=b) AND (c=d))" reduces to "(a=b) AND (c=d)" -- which still
+    ' has a top-level AND -- but a single-condition wrap like
+    ' "(a=b)" reduces to "a=b" with no top-level boolean.
+    Do While Left$(strWork, 1) = "(" And Right$(strWork, 1) = ")"
+        If FindMatchingParen(strWork, 1) = Len(strWork) Then
+            strWork = Trim$(Mid$(strWork, 2, Len(strWork) - 2))
+        Else
+            Exit Do
+        End If
+    Loop
+
+    HasTopLevelBoolean = (FindTopLevelKeyword(strWork, " AND ") > 0) Or _
+                         (FindTopLevelKeyword(strWork, " OR ") > 0)
+End Function
+
+
+Private Function StripOuterParens(strExpr As String) As String
+    Dim strWork As String
+    strWork = Trim$(strExpr)
+    Do While Left$(strWork, 1) = "(" And Right$(strWork, 1) = ")"
+        If FindMatchingParen(strWork, 1) = Len(strWork) Then
+            strWork = Trim$(Mid$(strWork, 2, Len(strWork) - 2))
+        Else
+            Exit Do
+        End If
+    Loop
+    StripOuterParens = strWork
+End Function
+
+
 Private Function SplitTopLevel(strExpr As String, strDelim As String) As String()
-    ' Split a string by delimiter, but only at the top level
-    ' (not inside parentheses, double-quoted strings, or bracketed identifiers)
+    ' Split a string by delimiter, but only at the top level (not inside
+    ' parentheses, double-quoted strings, single-quoted strings, or
+    ' bracketed identifiers).
     Dim colParts As New Collection
     Dim lngStart As Long
     Dim lngPos As Long
     Dim lngDepth As Long
-    Dim blnInString As Boolean
+    Dim blnInDblQuote As Boolean
+    Dim blnInSglQuote As Boolean
     Dim blnInBracket As Boolean
     Dim asParts() As String
+    Dim blnInAnyString As Boolean
 
     lngStart = 1
     For lngPos = 1 To Len(strExpr)
+        blnInAnyString = blnInDblQuote Or blnInSglQuote
         Select Case Mid$(strExpr, lngPos, 1)
             Case """"
-                If Not blnInBracket Then blnInString = Not blnInString
+                If Not blnInBracket And Not blnInSglQuote Then blnInDblQuote = Not blnInDblQuote
+            Case "'"
+                If Not blnInBracket And Not blnInDblQuote Then blnInSglQuote = Not blnInSglQuote
             Case "["
-                If Not blnInString Then blnInBracket = True
+                If Not blnInAnyString Then blnInBracket = True
             Case "]"
-                If Not blnInString Then blnInBracket = False
+                If Not blnInAnyString Then blnInBracket = False
             Case "("
-                If Not blnInString And Not blnInBracket Then lngDepth = lngDepth + 1
+                If Not blnInAnyString And Not blnInBracket Then lngDepth = lngDepth + 1
             Case ")"
-                If Not blnInString And Not blnInBracket Then lngDepth = lngDepth - 1
+                If Not blnInAnyString And Not blnInBracket Then lngDepth = lngDepth - 1
             Case Else
                 If Mid$(strExpr, lngPos, Len(strDelim)) = strDelim Then
-                    If Not blnInString And Not blnInBracket And lngDepth = 0 Then
+                    If Not blnInAnyString And Not blnInBracket And lngDepth = 0 Then
                         colParts.Add Mid$(strExpr, lngStart, lngPos - lngStart)
                         lngStart = lngPos + Len(strDelim)
                     End If
@@ -2288,6 +2892,18 @@ Private Function UnBracket(strName As String) As String
 End Function
 
 
+Private Function UnquoteSqlString(strValue As String) As String
+    strValue = Trim$(strValue)
+    If Len(strValue) >= 2 Then
+        If (Left$(strValue, 1) = "'" And Right$(strValue, 1) = "'") Or _
+           (Left$(strValue, 1) = """" And Right$(strValue, 1) = """") Then
+            strValue = Mid$(strValue, 2, Len(strValue) - 2)
+        End If
+    End If
+    UnquoteSqlString = Replace$(strValue, "''", "'")
+End Function
+
+
 Private Function TryExtractSimpleTable(strTableExpr As String) As String
     ' Returns the table name if strTableExpr is a simple table reference
     ' (optionally with an alias), or vbNullString if it contains a nested
@@ -2308,6 +2924,17 @@ Private Function TryExtractSimpleTable(strTableExpr As String) As String
 
     If InStr(1, strClean, " JOIN ", vbTextCompare) > 0 Then
         TryExtractSimpleTable = vbNullString
+        Exit Function
+    End If
+
+    ' Check for AS alias. For self-joins (same table with different aliases)
+    ' the alias is the disambiguating identifier in the join graph, so
+    ' returning it instead of the raw table name prevents the graph from
+    ' collapsing both sides into one node.
+    Dim lngAs As Long
+    lngAs = InStr(1, strClean, " AS ", vbTextCompare)
+    If lngAs > 0 Then
+        TryExtractSimpleTable = Trim$(Mid$(strClean, lngAs + 4))
         Exit Function
     End If
 
@@ -2482,6 +3109,13 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     ' Option
     cOut.Add "Option =" & CStr(m_lngOption), vbCrLf
 
+    ' TOP N / TOP N PERCENT row count (Attribute 3 Name1 in MSysQueries)
+    If m_lngTopN > 0 Then
+        cOut.Add "RowCount =""" & CStr(m_lngTopN) & """", vbCrLf
+    ElseIf m_lngTopPercent > 0 Then
+        cOut.Add "RowCount =""" & CStr(m_lngTopPercent) & """", vbCrLf
+    End If
+
     ' WHERE
     If Len(m_strWhere) > 0 Then
         EmitWrappedString cOut, "Where", m_strWhere
@@ -2528,15 +3162,33 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         cOut.Add "End", vbCrLf
     End If
 
-    ' Joins
+    ' Joins — multi-condition ON clauses must be decomposed into separate
+    ' rows because Access's Design View .qdef stores each condition as its
+    ' own entry (separate Attribute 7 rows in MSysQueries).
     If m_colJoins.Count > 0 Then
         cOut.Add "Begin Joins", vbCrLf
         Dim dJn As Dictionary
+        Dim asConditions() As String
+        Dim lngC As Long
+        Dim strCondition As String
         For Each dJn In m_colJoins
-            cOut.Add "    LeftTable =""" & CStr(dJn("leftTable")) & """", vbCrLf
-            cOut.Add "    RightTable =""" & CStr(dJn("rightTable")) & """", vbCrLf
-            EmitWrappedString cOut, "    Expression", CStr(dJn("expression"))
-            cOut.Add "    Flag =" & CStr(dJn("flag")), vbCrLf
+            If HasTopLevelBoolean(CStr(dJn("expression"))) Then
+                asConditions = SplitTopLevel(StripOuterParens(CStr(dJn("expression"))), " AND ")
+                For lngC = LBound(asConditions) To UBound(asConditions)
+                    strCondition = StripOuterParens(Trim$(asConditions(lngC)))
+                    If Len(strCondition) > 0 Then
+                        cOut.Add "    LeftTable =""" & CStr(dJn("leftTable")) & """", vbCrLf
+                        cOut.Add "    RightTable =""" & CStr(dJn("rightTable")) & """", vbCrLf
+                        EmitWrappedString cOut, "    Expression", strCondition
+                        cOut.Add "    Flag =" & CStr(dJn("flag")), vbCrLf
+                    End If
+                Next lngC
+            Else
+                cOut.Add "    LeftTable =""" & CStr(dJn("leftTable")) & """", vbCrLf
+                cOut.Add "    RightTable =""" & CStr(dJn("rightTable")) & """", vbCrLf
+                EmitWrappedString cOut, "    Expression", CStr(dJn("expression"))
+                cOut.Add "    Flag =" & CStr(dJn("flag")), vbCrLf
+            End If
         Next dJn
         cOut.Add "End", vbCrLf
     End If
@@ -2595,7 +3247,7 @@ Private Sub EmitSqlViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     EmitDbMemoSql cOut, m_strRawSql
 
     ' Connect string (always present in SQL View, even if empty)
-    cOut.Add "dbMemo ""Connect"" =""""", vbCrLf
+    cOut.Add "dbMemo ""Connect"" =""" & EscapeQdefString(m_strConnectString) & """", vbCrLf
 
     ' Properties
     EmitAllProperties cOut, dProperties
@@ -2792,10 +3444,13 @@ Private Sub EmitAllProperties(cOut As clsConcat, dProperties As Dictionary)
             Case "RecordLocks"
                 ' LvProp-only property; not part of the .qdef text format
             Case "RowHeight"
-                cOut.Add "dbLong ""RowHeight"" =""" & dOverrides(varKey) & """", vbCrLf
+                cOut.Add "dbInteger ""RowHeight"" =""" & dOverrides(varKey) & """", vbCrLf
             Case Else
-                cOut.Add "dbText """ & CStr(varKey) & """ =""" & _
-                    EscapeQdefString(CStr(dOverrides(varKey))) & """", vbCrLf
+                ' Unrecognized properties are typically LvProp-only datasheet
+                ' styling (colors, themes, tints) that LoadFromText cannot
+                ' reconstruct with correct types. Skip them to avoid type
+                ' corruption on round-trip. Non-default values are preserved
+                ' in the JSON for reference.
         End Select
     Next varKey
 

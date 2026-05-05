@@ -38,7 +38,7 @@ Implements IDbComponent
 '           :
 '           : v5.0+: Reads MSysQueries rows and MSysObjects blobs directly.
 '           :   1. Reconstruct SQL from MSysQueries via clsQueryComposer
-'           :   2. Format SQL with clsSqlFormatter
+'           :   2. Format Access SQL with clsSqlFormatter
 '           :   3. Parse LvProp for properties and column metadata
 '           :   4. Parse LvExtra for design layout (if present)
 '           :   5. Write .sql and .json files
@@ -68,7 +68,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     blnAlternate = (strAlternatePath <> vbNullString)
 
-    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+    If Options.ExportFormatVersion >= EFV_5_0_0 And Options.UseDeterministicQueryExport Then
         If blnAlternate Then
             strBasePath = Left$(strAlternatePath, Len(strAlternatePath) - 4)
         Else
@@ -135,6 +135,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     Dim strConnect As String
     Dim strEnvKey As String
     Dim lngQueryType As Long
+    Dim blnIsPassThrough As Boolean
 
     strQueryName = m_Query.Name
     Set dbs = SharedDb
@@ -156,6 +157,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
 
     lngObjectId = rst!ID
     lngQueryType = Nz(rst!Flags, 0)
+    blnIsPassThrough = IsPassThroughQueryType(lngQueryType)
     If Not IsNull(rst!LvProp) Then bteLvProp = rst!LvProp
     blnHasLvExtra = Not IsNull(rst!LvExtra)
     If blnHasLvExtra Then bteLvExtra = rst!LvExtra
@@ -195,12 +197,21 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     For Each dR In colRows
         If CLng(dR("Attribute")) = 4 Then
             strConnect = CStr(dR("Expression"))
+            If Len(strConnect) > 0 Then blnIsPassThrough = True
             Exit For
         End If
     Next dR
+    If blnIsPassThrough And Len(strConnect) = 0 Then
+        LogUnhandledErrors
+        On Error Resume Next
+        strConnect = Nz(dbs.QueryDefs(strQueryName).Connect, vbNullString)
+        Err.Clear
+        If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
+        If Len(strConnect) = 0 Then strConnect = "ODBC;"
+    End If
 
     ' Step 5: Format SQL (skip formatting for pass-through queries)
-    If Len(strConnect) = 0 Then
+    If Not blnIsPassThrough Then
         Perf.OperationStart "Format SQL"
         With New clsSqlFormatter
             strSql = .FormatSQL(strSql, esdAccess)
@@ -282,7 +293,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
             Exit For
         End If
     Next dR
-    If lngOptionFlag <> 0 Then
+    If lngOptionFlag <> 0 And Not IsImplicitSelectStarOption(colRows, lngOptionFlag) Then
         dItems.Add "OptionFlag", lngOptionFlag
     End If
 
@@ -342,7 +353,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
         strComSql = dbs.QueryDefs(strQueryName).SQL
         On Error GoTo 0
         If Len(strComSql) > 0 Then
-            If Len(strConnect) = 0 Then
+            If Not blnIsPassThrough Then
                 With New clsSqlFormatter
                     strComSql = .FormatSQL(strComSql, esdAccess)
                 End With
@@ -353,6 +364,11 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
 
     ' Clean up any legacy .qdef or .bas files
     CleanupLegacyFiles strSqlFile
+
+    ' Clean up any debug artifacts left behind from a previous export/import
+    ' that ran with "Show Detailed Output" (ShowDebug) enabled. Those files
+    ' should not linger in source control once the option is turned back off.
+    If Not Options.ShowDebug Then CleanupDebugFiles strSqlFile
 
 CleanUp:
     ' Cache the real error before any cleanup-induced errors clobber it.
@@ -379,6 +395,35 @@ CleanUp:
         ModuleName(Me) & ".ExportNewFormat", True, True, True
 
 End Sub
+
+
+Private Function IsImplicitSelectStarOption(ByVal colRows As Collection, ByVal lngOptionFlag As Long) As Boolean
+    Dim dRow As Dictionary
+    Dim blnHasSource As Boolean
+    Dim blnHasOutputColumns As Boolean
+    Dim blnIsSelect As Boolean
+
+    If lngOptionFlag <> 1 Then Exit Function
+    blnIsSelect = True
+
+    For Each dRow In colRows
+        Select Case CLng(dRow("Attribute"))
+            Case 1
+                blnIsSelect = (CLng(dRow("Flag")) = 1)
+            Case 5, 7
+                blnHasSource = True
+            Case 6
+                blnHasOutputColumns = True
+        End Select
+    Next dRow
+
+    IsImplicitSelectStarOption = (blnIsSelect And blnHasSource And Not blnHasOutputColumns)
+End Function
+
+
+Private Function IsPassThroughQueryType(ByVal lngQueryType As Long) As Boolean
+    IsPassThroughQueryType = (lngQueryType = dbQSQLPassThrough Or lngQueryType = dbQSPTBulk)
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -441,6 +486,26 @@ Private Sub CleanupLegacyFiles(strSqlFile As String)
     strBase = Left$(strSqlFile, Len(strSqlFile) - 4)
     If FSO.FileExists(strBase & ".qdef") Then DeleteFile strBase & ".qdef"
     If FSO.FileExists(strBase & ".bas") Then DeleteFile strBase & ".bas"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CleanupDebugFiles
+' Author    : Adam Waller
+' Date      : 4/28/2026
+' Purpose   : Remove debug artifact files (.qdf, .com.sql, .tmp, .failed.tmp) that
+'           : are only generated when ShowDebug ("Show Detailed Output") is enabled.
+'           : Called during export when ShowDebug is off so that turning the option
+'           : back off cleans up any leftover artifacts from a previous run.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CleanupDebugFiles(strSqlFile As String)
+    Dim strBase As String
+    strBase = Left$(strSqlFile, Len(strSqlFile) - 4)
+    If FSO.FileExists(strBase & ".qdf") Then DeleteFile strBase & ".qdf"
+    If FSO.FileExists(strBase & ".com.sql") Then DeleteFile strBase & ".com.sql"
+    If FSO.FileExists(strBase & ".tmp") Then DeleteFile strBase & ".tmp"
+    If FSO.FileExists(strBase & ".failed.tmp") Then DeleteFile strBase & ".failed.tmp"
 End Sub
 
 
@@ -570,6 +635,7 @@ Private Sub ImportNewFormat(strSqlFile As String)
     Dim blnDesignView As Boolean
     Dim blnIsPassThrough As Boolean
     Dim strConnect As String
+    Dim lngQueryType As Long
     Dim lngOptionFlag As Long
 
     strQueryName = GetObjectNameFromFileName(strSqlFile)
@@ -594,6 +660,12 @@ Private Sub ImportNewFormat(strSqlFile As String)
             If dFile.Exists("Items") Then
                 Set dItems = dFile("Items")
 
+                ' Query type from MSysObjects.Flags
+                If dItems.Exists("QueryType") Then
+                    lngQueryType = CLng(dItems("QueryType"))
+                    blnIsPassThrough = IsPassThroughQueryType(lngQueryType)
+                End If
+
                 ' Option flag bitmask (DISTINCT, TOP, etc.)
                 If dItems.Exists("OptionFlag") Then
                     lngOptionFlag = CLng(dItems("OptionFlag"))
@@ -608,6 +680,7 @@ Private Sub ImportNewFormat(strSqlFile As String)
                     End If
                     blnIsPassThrough = True
                 End If
+                If blnIsPassThrough And Len(strConnect) = 0 Then strConnect = "ODBC;"
 
                 ' Query properties (from LvProp)
                 If dItems.Exists("QueryProperties") Then
@@ -633,8 +706,19 @@ Private Sub ImportNewFormat(strSqlFile As String)
     cComposer.RawSQL = strSql
     If blnIsPassThrough Then cComposer.ConnectString = strConnect
 
-    ' Determine view mode
-    blnDesignView = cComposer.IsDesignerCompatible And Not dLayout Is Nothing
+    ' Determine view mode. Mirror Access's own behavior: a query is Design
+    ' View iff MSysObjects.LvExtra is populated, which we serialize as
+    ' DesignLayout in the .json. Importing without that metadata as Design
+    ' View can produce invalid qdef shapes that LoadFromText rejects with
+    ' "Resource failure" (e.g. TOP n PERCENT queries that Access itself
+    ' stores as SQL View).
+    '
+    ' Exception: Access's dbMemo "SQL" field cannot represent multi-condition
+    ' ON clauses (JOIN ... ON (...) AND (...)); LoadFromText rejects them.
+    ' For just that shape we force Design View even without DesignLayout, so
+    ' each ON condition can be emitted as its own join row.
+    blnDesignView = cComposer.IsDesignerCompatible And _
+        ((Not dLayout Is Nothing) Or cComposer.RequiresDesignView)
 
     ' Generate .qdef content
     strQdefContent = cComposer.GenerateQdef(blnDesignView, dProperties, dColumns, dLayout, lngOptionFlag)
@@ -1019,7 +1103,7 @@ End Property
 '
 Private Property Get IDbComponent_SourceFile() As String
     If m_Query Is Nothing Then Exit Property
-    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+    If Options.ExportFormatVersion >= EFV_5_0_0 And Options.UseDeterministicQueryExport Then
         IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
     Else
         IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
