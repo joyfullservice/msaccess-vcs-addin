@@ -385,21 +385,19 @@ End Sub
 '
 Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
 
-    Dim oFile As Scripting.File
     Dim strFolderNoSlash As String
 
-    ' While the Dir() function would be simpler, it does not support Unicode.
     Perf.OperationStart "Clear Files by Ext"
     strFolderNoSlash = StripSlash(strFolder)
-    If FSO.FolderExists(strFolderNoSlash) Then
-        For Each oFile In FSO.GetFolder(strFolderNoSlash).Files
-            If StrComp(FSO.GetExtensionName(oFile.Name), strExt, vbTextCompare) = 0 Then
-                ' Found at least one matching file. Use the wildcard delete.
-                DeleteFile FSO.BuildPath(strFolderNoSlash, "*." & strExt)
+
+    ' Quick API-level check to avoid expensive FSO scan when no files match
+    If Not FilePatternExists(strFolderNoSlash, "*." & strExt) Then
+        Perf.OperationEnd
         Exit Sub
     End If
-        Next
-    End If
+
+    ' At least one matching file exists. Use the wildcard delete.
+    DeleteFile FSO.BuildPath(strFolderNoSlash, "*." & strExt)
     Perf.OperationEnd
 
 End Sub

@@ -228,6 +228,85 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : FilePatternExists
+' Author    : Adam Waller
+' Date      : 4/28/2026
+' Purpose   : Uses FindFirstFileW to check whether any files match a wildcard pattern
+'           : in the specified folder. Returns immediately on the first match, making
+'           : this O(1) for the common "no matches" case. Use this instead of iterating
+'           : an entire folder via FSO just to check if a file type exists.
+'---------------------------------------------------------------------------------------
+'
+Public Function FilePatternExists(strFolder As String, strPattern As String) As Boolean
+
+    Dim pFileHandle As LongPtr
+    Dim tFileData As WIN32_FIND_DATA
+    Dim strSearchPath As String
+    Dim strName As String
+
+    Perf.OperationStart "File Pattern Exists (API)"
+    strSearchPath = AddSlash(strFolder) & strPattern
+    pFileHandle = FindFirstFileW(StrPtr(strSearchPath), VarPtr(tFileData))
+    If pFileHandle <> INVALID_HANDLE_VALUE Then
+        Do
+            strName = Left$(tFileData.cFileName, InStr(tFileData.cFileName, vbNullChar) - 1)
+            If strName <> "." And strName <> ".." Then
+                If (tFileData.dwFileAttributes And FILE_ATTRIBUTE_DIRECTORY) = 0 Then
+                    FilePatternExists = True
+                    Exit Do
+                End If
+            End If
+        Loop While FindNextFileW(pFileHandle, VarPtr(tFileData))
+        FindClose pFileHandle
+    End If
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScanFolderContents
+' Author    : Adam Waller
+' Date      : 4/28/2026
+' Purpose   : Performs a single-pass FindFirstFileW/FindNextFileW scan of a folder,
+'           : populating two output collections: full file paths and full subfolder
+'           : paths. This replaces two separate FSO iterations (oFolder.Files +
+'           : oFolder.SubFolders) with one kernel-level pass and no COM overhead.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ScanFolderContents(strFolder As String, colFiles As Collection, colSubFolders As Collection)
+
+    Dim pFileHandle As LongPtr
+    Dim tFileData As WIN32_FIND_DATA
+    Dim strSearchPath As String
+    Dim strName As String
+    Dim strBase As String
+
+    Perf.OperationStart "Scan Folder Contents (API)"
+    strBase = AddSlash(strFolder)
+    strSearchPath = strBase & "*"
+    pFileHandle = FindFirstFileW(StrPtr(strSearchPath), VarPtr(tFileData))
+    If pFileHandle = INVALID_HANDLE_VALUE Then
+        Perf.OperationEnd
+        Exit Sub
+    End If
+    Do
+        strName = Left$(tFileData.cFileName, InStr(tFileData.cFileName, vbNullChar) - 1)
+        If strName = "." Or strName = ".." Then
+            ' Skip meta entries
+        ElseIf tFileData.dwFileAttributes And FILE_ATTRIBUTE_DIRECTORY Then
+            colSubFolders.Add strBase & strName
+        Else
+            colFiles.Add strBase & strName
+        End If
+    Loop While FindNextFileW(pFileHandle, VarPtr(tFileData))
+    FindClose pFileHandle
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SetFileDate
 ' Author    : Adam Waller
 ' Date      : 7/28/2023

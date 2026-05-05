@@ -134,6 +134,9 @@ Private Function RenameFilesInFolder(strFolder As String, strOldExt As String, s
     Dim varKey As Variant
     Dim strNewPath As String
 
+    ' Quick API-level check to avoid expensive FSO scan when no files match
+    If Not FilePatternExists(strFolder, "*." & strOldExt) Then Exit Function
+
     Set dFiles = GetFilePathsInFolder(strFolder, "*." & strOldExt)
     For Each varKey In dFiles.Keys
         strNewPath = SwapExtension(CStr(varKey), strNewExt)

@@ -26,14 +26,11 @@ Private Const ModuleName = "modOrphaned"
 '
 Public Sub ClearOrphanedSourceFiles(cType As IDbComponent)
 
-    Dim oFolder As Scripting.Folder
-    Dim oFile As Scripting.File
     Dim dBaseNames As Dictionary
     Dim dExtensions As Dictionary
     Dim dItems As Dictionary
     Dim varKey As Variant
     Dim varExt As Variant
-    Dim cItem As IDbComponent
 
     ' No orphaned files if the folder doesn't exist.
     If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
@@ -69,11 +66,13 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent)
         End If
     Else
         ' Loop through files in folder (and subfolders for @Folder support)
-        Set oFolder = FSO.GetFolder(cType.BaseFolder)
-        ScanFolderForOrphans cType, oFolder, dExtensions, dBaseNames
+        ScanFolderForOrphans cType, StripSlash(cType.BaseFolder), dExtensions, dBaseNames
 
         ' Remove base folder if we don't have any files in it
-        If oFolder.Files.Count = 0 And oFolder.SubFolders.Count = 0 Then oFolder.Delete True
+        If FSO.GetFolder(cType.BaseFolder).Files.Count = 0 _
+            And FSO.GetFolder(cType.BaseFolder).SubFolders.Count = 0 Then
+            FSO.DeleteFolder cType.BaseFolder, True
+        End If
     End If
 
     Perf.OperationEnd
@@ -86,35 +85,33 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 3/10/2026
 ' Purpose   : Recursively scan a folder and its subfolders for orphaned source files.
-'           : Removes empty subfolders after processing.
+'           : Removes empty subfolders after processing. Uses Win32 API via
+'           : ScanFolderContents for fast enumeration without FSO COM overhead.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ScanFolderForOrphans(cType As IDbComponent, oFolder As Scripting.Folder, _
+Private Sub ScanFolderForOrphans(cType As IDbComponent, strFolder As String, _
     dExtensions As Dictionary, dBaseNames As Dictionary)
 
-    Dim oFile As Scripting.File
-    Dim oSubFolder As Scripting.Folder
+    Dim colFiles As New Collection
     Dim colSubFolders As New Collection
     Dim varItem As Variant
 
-    ' Process files in this folder
-    For Each oFile In oFolder.Files
-        CompareToIndex cType, oFile.Path, dExtensions, dBaseNames
-        Log.Increment
-    Next oFile
+    ' Single-pass Win32 API scan for files and subfolders
+    ScanFolderContents strFolder, colFiles, colSubFolders
 
-    ' Collect subfolders first (avoid modifying collection during iteration)
-    For Each oSubFolder In oFolder.SubFolders
-        colSubFolders.Add oSubFolder
-    Next oSubFolder
+    ' Process files in this folder
+    For Each varItem In colFiles
+        CompareToIndex cType, CStr(varItem), dExtensions, dBaseNames
+        Log.Increment
+    Next varItem
 
     ' Recurse into subfolders
     For Each varItem In colSubFolders
-        Set oSubFolder = varItem
-        ScanFolderForOrphans cType, oSubFolder, dExtensions, dBaseNames
+        ScanFolderForOrphans cType, CStr(varItem), dExtensions, dBaseNames
         ' Remove subfolder if empty after cleanup
-        If oSubFolder.Files.Count = 0 And oSubFolder.SubFolders.Count = 0 Then
-            oSubFolder.Delete True
+        If FSO.GetFolder(CStr(varItem)).Files.Count = 0 _
+            And FSO.GetFolder(CStr(varItem)).SubFolders.Count = 0 Then
+            FSO.DeleteFolder CStr(varItem), True
         End If
     Next varItem
 
