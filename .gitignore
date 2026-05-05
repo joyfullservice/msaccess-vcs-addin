@@ -1,4 +1,4 @@
-# Version Control Add-in Binaries
+﻿# Version Control Add-in Binaries
 # (This should be built from source and not committed to version control)
 *.mdb
 *.accda
