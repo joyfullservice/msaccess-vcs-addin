@@ -1,13 +1,14 @@
 ﻿{
   "Info": {
-    "AddinVersion": "4.1.2",
-    "AccessVersion": "14.0 32-bit"
+    "AddinVersion": "5.0.0",
+    "AccessVersion": "16.0 64-bit"
   },
   "Options": {
     "ExportFolder": "",
     "ShowDebug": false,
     "UseFastSave": false,
     "UseMergeBuild": false,
+    "ExportAfterMerge": false,
     "UseGitIntegration": false,
     "SavePrintVars": true,
     "ExportPrintSettings": {
@@ -36,6 +37,7 @@
     "FormatSQL": true,
     "ForceImportOriginalQuerySQL": false,
     "SaveTableSQL": true,
+    "SaveLinkedTableDef": false,
     "SplitLayoutFromVBA": true,
     "StripPublishOption": true,
     "SanitizeColors": 1,
@@ -70,6 +72,17 @@
     "HashAlgorithm": "SHA256",
     "UseShortHash": true,
     "BreakOnError": true,
-    "PreserveRubberDuckID": false
+    "PreserveRubberDuckID": false,
+    "MaxLogFiles": 20,
+    "SaveAllDocumentProperties": false,
+    "UseEnvForConnections": 0,
+    "ExportFormatVersion": "5.0.0",
+    "ExportLayoutSvg": false,
+    "LayoutSvgImageEmbed": "Small",
+    "LayoutSvgScaleMode": "Universal",
+    "McpAllowRunVBA": false,
+    "McpAllowExecuteSQL": true,
+    "McpAllowCallVBA": true,
+    "McpAllowImport": true
   }
 }

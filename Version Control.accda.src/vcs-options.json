@@ -36,6 +36,7 @@
     "SaveQuerySQL": true,
     "FormatSQL": true,
     "ForceImportOriginalQuerySQL": false,
+    "UseDeterministicQueryExport": true,
     "SaveTableSQL": true,
     "SaveLinkedTableDef": false,
     "SplitLayoutFromVBA": true,
@@ -71,7 +72,7 @@
     "ExportLayoutSvg": false,
     "LayoutSvgImageEmbed": "Small",
     "LayoutSvgScaleMode": "Universal",
-    "McpAllowRunVBA": false,
+    "McpAllowRunVBA": true,
     "McpAllowExecuteSQL": true,
     "McpAllowCallVBA": true,
     "McpAllowImport": true

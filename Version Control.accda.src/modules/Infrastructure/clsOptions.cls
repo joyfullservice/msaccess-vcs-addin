@@ -36,6 +36,7 @@ Public ExportPrintSettings As Dictionary
 Public SaveQuerySQL As Boolean
 Public FormatSQL As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
+Public UseDeterministicQueryExport As Boolean
 Public SaveTableSQL As Boolean
 Public SaveLinkedTableDef As Boolean
 Public SplitLayoutFromVBA As Boolean
@@ -109,6 +110,7 @@ Public Sub LoadDefaults()
         .SaveLinkedTableDef = False
         .FormatSQL = True
         .ForceImportOriginalQuerySQL = False
+        .UseDeterministicQueryExport = True
         .SaveTableSQL = True
         .SplitLayoutFromVBA = True
         .StripPublishOption = True
@@ -745,7 +747,7 @@ Public Function GetCategoryHashes() As Dictionary
                 AddToCat dCats, "Reports", varKey, dOptions("Options")
 
             ' --- Queries ---
-            Case "SaveQuerySQL", "FormatSQL"
+            Case "SaveQuerySQL", "FormatSQL", "UseDeterministicQueryExport"
                 AddToCat dCats, "Queries", varKey, dOptions("Options")
 
             ' --- Table Definitions ---
@@ -958,6 +960,7 @@ Private Sub Class_Initialize()
         .Add "SaveQuerySQL"
         .Add "FormatSQL"
         .Add "ForceImportOriginalQuerySQL"
+        .Add "UseDeterministicQueryExport"
         .Add "SaveTableSQL"
         .Add "SaveLinkedTableDef"
         .Add "SplitLayoutFromVBA"

@@ -672,6 +672,36 @@ Begin Form
                         End
                     End
                 End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =9895
+                    TabIndex =12
+                    Name ="chkUseDeterministicQueryExport"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =9895
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =10135
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =9840
+                            Width =3540
+                            Height =315
+                            ForeColor =5324600
+                            Name ="lblUseDeterministicQueryExport"
+                            Caption ="Use Deterministic Query Export"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =9840
+                            LayoutCachedWidth =4260
+                            LayoutCachedHeight =10155
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
                 Begin ComboBox
                     LimitToList = NotDefault
                     RowSourceTypeInt =1

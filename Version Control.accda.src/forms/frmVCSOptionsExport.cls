@@ -115,6 +115,7 @@ Private Sub LoadOptions()
         ' Content
         Me.chkSaveQuerySQL = .SaveQuerySQL
         Me.chkFormatSQL = .FormatSQL
+        Me.chkUseDeterministicQueryExport = .UseDeterministicQueryExport
         Me.chkSaveTableSQL = .SaveTableSQL
         Me.chkSavePrintVars = .SavePrintVars
         Me.chkExtractThemeFiles = .ExtractThemeFiles
@@ -161,6 +162,7 @@ Private Sub SaveOptions()
         ' Content
         .SaveQuerySQL = Nz(Me.chkSaveQuerySQL)
         .FormatSQL = Nz(Me.chkFormatSQL)
+        .UseDeterministicQueryExport = Nz(Me.chkUseDeterministicQueryExport)
         .SaveTableSQL = Nz(Me.chkSaveTableSQL)
         .SavePrintVars = Nz(Me.chkSavePrintVars)
         .ExtractThemeFiles = Nz(Me.chkExtractThemeFiles)
