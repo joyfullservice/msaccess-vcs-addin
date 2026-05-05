@@ -71,7 +71,10 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent)
         ' Remove base folder if we don't have any files in it
         If FSO.GetFolder(cType.BaseFolder).Files.Count = 0 _
             And FSO.GetFolder(cType.BaseFolder).SubFolders.Count = 0 Then
-            FSO.DeleteFolder cType.BaseFolder, True
+            LogUnhandledErrors
+            On Error Resume Next
+            FSO.DeleteFolder StripSlash(cType.BaseFolder), True
+            CatchAny eelWarning, "Unable to delete empty folder: " & cType.BaseFolder, ModuleName & ".ClearOrphanedSourceFiles"
         End If
     End If
 
@@ -111,7 +114,10 @@ Private Sub ScanFolderForOrphans(cType As IDbComponent, strFolder As String, _
         ' Remove subfolder if empty after cleanup
         If FSO.GetFolder(CStr(varItem)).Files.Count = 0 _
             And FSO.GetFolder(CStr(varItem)).SubFolders.Count = 0 Then
+            LogUnhandledErrors
+            On Error Resume Next
             FSO.DeleteFolder CStr(varItem), True
+            CatchAny eelWarning, "Unable to delete empty folder: " & CStr(varItem), ModuleName & ".ScanFolderForOrphans"
         End If
     Next varItem
 
