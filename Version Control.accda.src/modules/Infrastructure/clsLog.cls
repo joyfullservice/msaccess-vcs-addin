@@ -31,6 +31,7 @@ Private m_Console As clsConcat  ' Console output
 Private m_RichText As TextBox   ' Text box to display HTML
 Private m_Prog As clsLblProg    ' Progress bar
 Private m_blnProgressActive As Boolean
+Private m_blnKeepProgressVisible As Boolean
 Private m_blnConsoleDirty As Boolean  ' True when m_Console has new content not yet assigned to txtLog
 Private m_sngLastUpdate As Single
 Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
@@ -119,7 +120,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
     ' See if we want to print the output of this message.
     If blnPrint Then
         ' Remove existing progress indicator if in use.
-        If m_blnProgressActive Then
+        If m_blnProgressActive And Not m_blnKeepProgressVisible Then
             m_blnProgressActive = False
             m_Prog.Hide
         End If
@@ -191,8 +192,10 @@ Public Sub Flush()
     ' See if the GUI form is loaded.
     Perf.OperationStart "Console Updates"
     If Not m_RichText Is Nothing Then
-        m_blnProgressActive = False
-        If Not m_Prog Is Nothing Then m_Prog.Hide
+        If Not m_blnKeepProgressVisible Then
+            m_blnProgressActive = False
+            If Not m_Prog Is Nothing Then m_Prog.Hide
+        End If
         If m_blnConsoleDirty Then
             With m_RichText
                 ' Set value, not text to avoid errors with large text strings.
@@ -330,6 +333,22 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : KeepProgressVisible
+' Author    : VCS contributors
+' Date      : 4/29/2026
+' Purpose   : Keep the form progress bar visible while console output is refreshed.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let KeepProgressVisible(ByVal blnKeepVisible As Boolean)
+    m_blnKeepProgressVisible = blnKeepVisible
+End Property
+
+Public Property Get KeepProgressVisible() As Boolean
+    KeepProgressVisible = m_blnKeepProgressVisible
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ProgMax
 ' Author    : Adam Waller
 ' Date      : 11/6/2020
@@ -412,6 +431,7 @@ Private Sub Class_Initialize()
     Set m_Console = New clsConcat
     Set m_Log = New clsConcat
     m_blnProgressActive = False
+    m_blnKeepProgressVisible = False
     m_sngLastUpdate = 0
     m_dblPendingIncrements = 0
     m_sngLastIncrement = 0
@@ -523,6 +543,8 @@ Public Sub Progress(lngCurrent As Long, lngTotal As Long, _
     If Not m_Prog Is Nothing Then
         m_Prog.Max = lngTotal
         m_Prog.Value = lngCurrent
+        If m_blnKeepProgressVisible Or Not m_blnProgressActive Then m_Prog.UpdateDisplay True
+        m_blnProgressActive = True
     End If
 
     ' Send to MCP with throttling (max every 250ms)
