@@ -12,7 +12,7 @@ Note that in your export folder you will only see the folders and files for the 
     ├── Database.accdb                  # Main database file
     └── Database.accdb.src              # Folder for source file export (default path)
         ├── forms                       # Access forms
-        │   ├── MyForm.bas              # Object definition
+        │   ├── MyForm.form             # Object definition (legacy: .bas)
         │   └── MyForm.json             # Custom print settings (if used)
         ├── images                      # Linked images
         │   ├── MyPicture.png           # Image file
@@ -20,17 +20,17 @@ Note that in your export folder you will only see the folders and files for the 
         ├── imexspecs                   # Legacy table-based import/export specifications
         │   └── LinkedTableSpec.json    # Json representation of specification
         ├── macros                      # Macros
-        │   └── AutoExec.bas            # Object definition
+        │   └── AutoExec.macro          # Object definition (legacy: .bas)
         ├── modules                     # VBA modules (standard and class)
         │   ├── MyModule.bas            # Standard module
         │   └── MyClass.cls             # Class module
         ├── queries                     # Queries
-        │   ├── MyQuery.bas             # Object definition
-        │   └── MyQuery.sql             # Raw SQL definition (easier to see changes)
+        │   ├── MyQuery.sql             # SQL statement (source of truth)
+        │   └── MyQuery.json            # Query metadata and design layout
         ├── relations                   # Database relationships
         │   └── Table1Table2.json       # Json representation of a single relationship
         ├── reports                     # Reports
-        │   ├── MyReport.bas            # Object definition
+        │   ├── MyReport.report         # Object definition (legacy: .bas)
         │   └── MyReport.json           # Print settings
         ├── savedspecs                  # XML-based import/export specifications
         │   └── MyExport.json           # Metadata with embedded XML
@@ -86,11 +86,11 @@ The below are the default folders for export/import. There may be future work to
 
 
 ### [YourSource.extension].src\forms
-Forms are exported into the `forms` folder by default. Each form will be exported as `[FormName].bas`.
+Forms are exported into the `forms` folder by default. Each form will be exported as `[FormName].form`.
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
-|`*.bas`|Form Export |Exported for each form present in the database.
+|`*.form`|Form Export |Object definition for each form present in the database. (Legacy projects may use `*.bas` instead; both are accepted on import.)
 |`*.cls`|Code Behind Form Export |Exported for each form present in the database. **Only exported when [Options/Export/ "Split Layout from VBA"](Options#export-tab) is _ON_.**
 |`*.json`|Form Print settings |Only exported if the form has print settings (rare). Contains printer formatting and page settings.
 
@@ -109,25 +109,27 @@ Macros are exported into the `macros` folder by default.
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
-|`*.bas`|Macro Export |Exported for each macro present in the database. Contains macro source code and other build information.
+|`*.macro`|Macro Export |Object definition for each macro present in the database. (Legacy projects may use `*.bas` instead; both are accepted on import.)
 
 
-### [YourSource.extension].src\macros
-Macros are exported into the `macros` folder by default.
+### [YourSource.extension].src\modules
+VBA modules are exported into the `modules` folder by default.
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
-|`*.bas`|Code Module Export |Exported for each module (non-class) present in the database. Contains source code and other attributes.
+|`*.bas`|Code Module Export |Exported for each standard module present in the database. Contains source code and other attributes.
 |`*.cls`|Code Class Module Export |Exported for each class module present in the database. Contains source code and other attributes such as default member, internal VBA name, etc.
 
 
 ### [YourSource.extension].src\queries
-Queries are exported into the `queries` folder by default.
+Queries are exported into the `queries` folder by default. Each query is exported as a pair of files: a `.sql` file containing the SQL statement and a `.json` file containing metadata.
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
-|`*.bas`|Each Query |Exported for each query present in the database. Contains source code, link data, and other attributes. Note that if you last used the query designer to create the query, it will generate a different source file than if you edit the query through the SQL editor.
-|`SQL` |Each Query|If you were to generate a table via SQL, this would be the SQL you'd use. Because Access SQL (SQL Jet) doesn't care about formatting/display width/display height, if you use this, the query won't "look" (visually: it'll still contain the same information) the same when you open it in Access.
+|`*.sql`|Each Query |The SQL statement, formatted for readability. This is the **source of truth** for the query's SQL text. Edit this file directly to change query logic.
+|`*.json`|Each Query |Companion metadata that cannot be expressed in SQL: query type, query properties, column metadata, and Design View layout (table positions, window dimensions). If the SQL is designer-compatible and layout data is present, the query is imported in Design View format, preserving table positions. Otherwise it uses SQL View format.
+
+Legacy `*.qdef` and `*.bas` query files from older export formats are still accepted on import. On the next export they are automatically replaced with the `.sql` + `.json` pair.
 
 
 ### [YourSource.extension].src\reports
@@ -135,7 +137,7 @@ Reports are exported into the `reports` folder by default.
 
 |File or Type|Present When |Details & Description
 |:-|:-:|:-
-|`*.bas`|Reports Export |Exported for each Report present in the database.
+|`*.report`|Reports Export |Object definition for each report present in the database. (Legacy projects may use `*.bas` instead; both are accepted on import.)
 |`*.cls`|Code Behind Report Export |Exported for each report present in the database. **Only exported when [Options / Export: "Split Layout from VBA"](Options#export-tab) is _ON_.**
 |`*.json`|Report Print settings |Only exported if the report has print settings (nearly always for reports). Contains printer formatting and page settings.
 
