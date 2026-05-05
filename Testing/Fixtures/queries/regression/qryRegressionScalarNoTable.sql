@@ -1,0 +1,2 @@
+﻿SELECT
+  Date() AS Today;

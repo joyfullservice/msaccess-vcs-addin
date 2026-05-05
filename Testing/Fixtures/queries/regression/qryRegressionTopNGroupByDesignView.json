@@ -1,0 +1,48 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionTopNGroupByDesignView"
+  },
+  "Items": {
+    "QueryType": 0,
+    "OptionFlag": 16,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 700
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 980,
+        "bottom": 350
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 543,
+      "Tables": [
+        {
+          "Name": "tblCars",
+          "Alias": "",
+          "Left": 60,
+          "Top": 15,
+          "Right": 240,
+          "Bottom": 195,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblCarsModel",
+          "Alias": "",
+          "Left": 300,
+          "Top": 15,
+          "Right": 480,
+          "Bottom": 195,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

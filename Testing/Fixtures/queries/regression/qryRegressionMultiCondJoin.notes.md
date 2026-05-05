@@ -16,5 +16,4 @@ one, producing MSysQueries Attribute 7 rows where `Name1` and `Name2`
 did not match the actual join inputs. The current
 `TryExtractSimpleTable` + `OnClauseTableExcluding` strategy must
 continue to handle this shape correctly; a regression here would
-re-introduce the corruption that caused the original
-`qdelTempInvByQtrSubMergerAcquisition3`-class failure mode.
+re-introduce the original multi-condition join corruption.

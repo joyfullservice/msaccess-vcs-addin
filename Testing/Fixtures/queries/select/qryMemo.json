@@ -1,0 +1,38 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryMemo"
+  },
+  "Items": {
+    "QueryType": 0,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 44,
+        "top": 211,
+        "right": 1479,
+        "bottom": 609
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1411,
+        "bottom": 172
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "tblMemo",
+          "Alias": "",
+          "Left": 309,
+          "Top": 25,
+          "Right": 453,
+          "Bottom": 169,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

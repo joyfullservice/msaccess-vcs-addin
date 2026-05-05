@@ -1,0 +1,29 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionAppendValues"
+  },
+  "Items": {
+    "QueryType": 64,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 40,
+        "right": 1380,
+        "bottom": 906
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1356,
+        "bottom": 552
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 2699,
+      "Tables": [
+      ]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryPassThroughNoConnect"
+  },
+  "Items": {
+    "QueryType": 112,
+    "Connect": "ODBC;"
+  }
+}

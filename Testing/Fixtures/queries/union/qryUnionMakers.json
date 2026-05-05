@@ -4,6 +4,7 @@
     "Description": "qryUnionMakers"
   },
   "Items": {
-    "QueryType": 128
+    "QueryType": 128,
+    "OptionFlag": 1
   }
 }

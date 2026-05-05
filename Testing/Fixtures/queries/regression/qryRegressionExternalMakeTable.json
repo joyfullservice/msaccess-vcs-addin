@@ -1,0 +1,9 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionExternalMakeTable"
+  },
+  "Items": {
+    "QueryType": 80
+  }
+}

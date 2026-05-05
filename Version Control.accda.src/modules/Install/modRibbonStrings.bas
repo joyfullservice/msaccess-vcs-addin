@@ -96,6 +96,9 @@ Public Function GetRibbonStrings() As Dictionary
             AddCtl "btnStandardizeLetterCasing", "Standardize Letter Casing", _
                 strDescription:="Apply standard letter casing rules to VBA identifiers in the current database"
 
+            AddCtl "btnValidateQuerySqlBuilder", "Validate Query SQL Builder", _
+                strDescription:="Compare the fast MSysQueries SQL builder against Access SQL for every query in the current database"
+
             AddCtl "btnReloadRibbon", "Reload Ribbon", _
                 strDescription:="Refresh the add-in ribbon menu to reflect changes in XML source"
 

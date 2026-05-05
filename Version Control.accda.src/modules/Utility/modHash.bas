@@ -400,3 +400,18 @@ Public Function GetSimpleHash(strText As String) As String
     If Err Then Err.Clear
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ShortHash
+' Author    : VCS contributors
+' Date      : 4/24/2026
+' Purpose   : 8-character hex hash of an arbitrary string. Used to make
+'           : sandbox object names unique across concurrent / repeated runs.
+'---------------------------------------------------------------------------------------
+'
+Public Function ShortHash(ByVal s As String) As String
+    Dim strFull As String
+    strFull = GetStringHash(s & ":" & CStr(Perf.MicroTimer))
+    ShortHash = LCase$(Left$(strFull, 8))
+End Function

@@ -133,7 +133,7 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
     Operation.InteractionMode = eimSilent
 
     ' Disable the index for the duration of the run so test imports/exports
-    ' do not pollute vcs-index.json. Restore the prior value at the end.
+    ' do not pollute vcs-index.idx. Restore the prior value at the end.
     blnIndexWasDisabled = VCSIndex.Disabled
     VCSIndex.Disabled = True
 
@@ -343,6 +343,7 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
     Dim colChecks As Collection
     Dim blnSandboxImported As Boolean
     Dim lngErrCountBefore As Long
+    Dim eelPriorErrorLevel As eErrorLevel
 
     Set dResult = New Dictionary
     Set colChecks = New Collection
@@ -358,6 +359,19 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
 
     LogUnhandledErrors
     On Error GoTo FixtureErrHandler
+
+    ' --- Per-fixture isolation ----------------------------------------------
+    ' modLoadSaveText.LoadComponentFromText returns False whenever
+    ' Operation.ErrorLevel = eelCritical, and Operation.ErrorLevel only resets
+    ' inside Operation.Begin -- which the harness calls once per *run*, not
+    ' once per fixture. Without resetting it here, the first fixture that
+    ' tickles a CRITICAL log entry (typically an outright import failure)
+    ' poisons every subsequent LoadComponentFromText for the rest of the
+    ' run, producing a cascade of false "Import logged 1 error(s)" failures.
+    ' Cache the prior level so the run-level result still reflects whether
+    ' anything went critical during the session.
+    eelPriorErrorLevel = Operation.ErrorLevel
+    Operation.ErrorLevel = eelNoError
 
     ' Sanity: the .json companion is required.
     If Not FSO.FileExists(strFixtureJson) Then
@@ -459,6 +473,13 @@ FixtureCleanUp:
     End If
     Set cComponent = Nothing
     Set cQuery = Nothing
+
+    ' Restore the prior error level if this fixture didn't itself escalate
+    ' it. Preserves CRITICAL across the run if some fixture went critical
+    ' before us, while still letting this fixture's own escalation propagate.
+    If Operation.ErrorLevel < eelPriorErrorLevel Then
+        Operation.ErrorLevel = eelPriorErrorLevel
+    End If
 
     Set RunQueryRoundtrip = dResult
     Exit Function
@@ -1182,21 +1203,6 @@ Private Function CollectionToJsonArray(ByVal col As Collection) As Collection
     ' returning the collection as-is is sufficient. Kept as a named helper to
     ' make intent obvious at the call site.
     Set CollectionToJsonArray = col
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ShortHash
-' Author    : VCS contributors
-' Date      : 4/24/2026
-' Purpose   : 8-character hex hash of an arbitrary string. Used to make
-'           : sandbox object names unique across concurrent / repeated runs.
-'---------------------------------------------------------------------------------------
-'
-Private Function ShortHash(ByVal s As String) As String
-    Dim strFull As String
-    strFull = GetStringHash(s & ":" & CStr(Perf.MicroTimer))
-    ShortHash = LCase$(Left$(strFull, 8))
 End Function
 
 

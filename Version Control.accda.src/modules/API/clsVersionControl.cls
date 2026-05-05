@@ -1819,13 +1819,18 @@ End Function
 '           : to run while another VCS operation (export/build/merge) is in
 '           : progress, and it disables the change-tracking index for the
 '           : duration of the run so test imports/exports do not pollute
-'           : vcs-index.json.
+'           : vcs-index.idx.
 '---------------------------------------------------------------------------------------
 '
 Public Function RunRoundtripTests(Optional ByVal strFixtureFolder As String = vbNullString, _
     Optional ByVal blnRebaseline As Boolean = False) As String
     RunRoundtripTests = modTestRoundtrip.RunObjectRoundtripTests(strFixtureFolder, blnRebaseline)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ValidateQuerySqlBuilder
+' Author    : VCS contributors
 
 
 '---------------------------------------------------------------------------------------

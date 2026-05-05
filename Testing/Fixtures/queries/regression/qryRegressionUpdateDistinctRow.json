@@ -1,0 +1,16 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionUpdateDistinctRow"
+  },
+  "Items": {
+    "QueryType": 48,
+    "OptionFlag": 8,
+    "QueryProperties": {
+      "FailOnError": {
+        "Type": 1,
+        "Value": false
+      }
+    }
+  }
+}

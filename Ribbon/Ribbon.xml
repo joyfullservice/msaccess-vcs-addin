@@ -251,6 +251,16 @@
 				getSupertip="GetSupertip"
 			  />
 			  <button
+				id="btnValidateQuerySqlBuilder"
+				imageMso="QuerySelectQueryType"
+				onAction="OnActionButton"
+				getVisible="GetVisible"
+				getEnabled="GetEnabled"
+				getLabel="GetLabel"
+				getDescription="GetDescription"
+				getSupertip="GetSupertip"
+			  />
+			  <button
 				id="btnReloadRibbon"
 				imageMso="DataRefreshAll"
 				onAction="OnActionButton"
