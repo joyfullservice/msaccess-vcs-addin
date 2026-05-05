@@ -1088,5 +1088,3 @@ Public Sub LogUnusedEnvEntries()
     Next varKey
 
 End Sub
-
-
