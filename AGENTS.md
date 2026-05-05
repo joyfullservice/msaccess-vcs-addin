@@ -345,6 +345,19 @@ How to gate a new export behavior change:
 
 Import logic does **not** need gating — it must remain backwards compatible with all prior export formats.
 
+### Modifying the Query Parser
+
+The query parser (`clsQueryComposer.cls` + `clsDbQuery.cls`) carries hard-won decisions in places that are not always obvious from a casual read. Before modifying either class, read these in order:
+
+Do not look in `Testing.accdb.src` for query regression fixtures; the shipped round-trip corpus is `Testing/Fixtures/queries/`.
+
+- **[docs/access-query-storage.md](docs/access-query-storage.md)** — in-repo reference for how Access stores queries, what shapes our parser handles (with the canonical fixture for each), known gaps where behaviour is unverified, and findings unique to our pipeline (`Application.LoadFromText` / `Application.SaveAsText` asymmetries).
+- **[DECISIONS.md](DECISIONS.md)** — search for entries mentioning `clsQueryComposer` or `clsDbQuery` (e.g. `rg "clsQueryComposer" DECISIONS.md -A 30`). Captures the rationale and rejected alternatives behind each choice.
+- **`Testing/Fixtures/queries/regression/*.notes.md`** — each one pins a specific SQL shape and explains what would re-break if a careful decision were reverted.
+- **Procedure-header comments** on the functions you're modifying — `RequiresDesignView`, `IsDesignerCompatible`, `HasTopLevelBoolean`, `ParseJoinExpression`, `SafeBreak`, `EmitDbMemoSql` carry constraints in their headers that the body alone does not convey.
+
+When you discover a new invariant or edge case worth preserving, follow the four-layer documentation pattern at [Testing/Fixtures/README.md § Documenting parser invariants and edge cases](Testing/Fixtures/README.md).
+
 ### Adding Options
 
 1. Add public property to `clsOptions`

@@ -58,6 +58,8 @@ End Sub
 
 **Note:** `Option` statements are not required - some codebases omit them entirely.
 
+**`@Folder` annotations:** Starting with export format 5.0.0, the add-in reads Rubberduck-style `'@Folder("Category")` annotations and exports modules into matching subdirectories under `modules/` (e.g., `'@Folder("Core")` exports to `modules/Core/`). Dots become path separators (`'@Folder("Components.ADP")` exports to `modules/Components/ADP/`). During import, subdirectories are scanned recursively. Modules without an `@Folder` annotation remain directly in `modules/`.
+
 ### Class Modules (`.cls` files in `modules/`)
 
 ```
@@ -232,10 +234,11 @@ Contains metadata that cannot be expressed in SQL:
 
 - **`QueryType`**: Integer (0=Select, 16=Crosstab, 32=Delete, 48=Update, 64=Append)
 - **`Connect`**: Connection string for pass-through queries (may use `env:` reference)
-- **`Properties`**: Query properties from the LvProp binary blob (only non-default values)
+- **`QueryProperties`**: Query properties from the LvProp binary blob (only non-default values)
 - **`Columns`**: Column metadata sorted alphabetically for deterministic output
 - **`DesignLayout`**: Design View layout (table positions, window dimensions). Only present for queries last saved in Design View.
-- **`Properties`** / **`Hidden`**: Document metadata (Description, Hidden attribute)
+- **`Description`**: Object description (from DAO document properties)
+- **`Hidden`**: Boolean, true if the query is marked as hidden in the Navigation Pane
 
 ### Legacy Format (Backward Compatible)
 
@@ -246,40 +249,6 @@ Legacy `.qdef` and `.bas` files are still supported for import. On the next expo
 Edit the `.sql` file directly. The companion `.json` preserves design layout and properties automatically. On import, the add-in generates the correct `.qdef` and calls `LoadFromText`.
 
 If the SQL becomes incompatible with Design View (e.g., UNION, subqueries), the layout data from `.json` is ignored and the query is imported as SQL View with a log warning.
-
-### Before changing the query parser
-
-The query parser (`clsQueryComposer.cls` + `clsDbQuery.cls`) carries hard-won decisions in places that are not always obvious from a casual read. Before modifying either class, read these in order:
-
-Do not look in `Testing.accdb.src` for query regression fixtures; the shipped
-round-trip corpus is `../Testing/Fixtures/queries/`.
-
-- **[../docs/access-query-storage.md](../docs/access-query-storage.md)** — in-repo reference for how Access stores queries, what shapes our parser handles (with the canonical fixture for each), known gaps where behaviour is unverified, and findings unique to our pipeline (`Application.LoadFromText` / `Application.SaveAsText` asymmetries).
-- **[../DECISIONS.md](../DECISIONS.md)** — search for entries mentioning `clsQueryComposer` or `clsDbQuery` (e.g. `rg "clsQueryComposer" DECISIONS.md -A 30`). Captures the rationale and rejected alternatives behind each choice.
-- **`../Testing/Fixtures/queries/regression/*.notes.md`** — each one pins a specific SQL shape and explains what would re-break if a careful decision were reverted.
-- **Procedure-header comments** on the functions you're modifying — `RequiresDesignView`, `IsDesignerCompatible`, `HasTopLevelBoolean`, `ParseJoinExpression`, `SafeBreak`, `EmitDbMemoSql` carry constraints in their headers that the body alone does not convey.
-
-When you discover a new invariant or edge case worth preserving, follow the four-layer documentation pattern at [../Testing/Fixtures/README.md § Documenting parser invariants and edge cases](../Testing/Fixtures/README.md).
-
-### VBA error-handler cleanup
-
-Inside an active `On Error GoTo Handler` block, `Err.Clear` clears the error
-object but does not reset the active handler state. If cleanup code in that
-handler may raise expected errors, call `On Error GoTo -1` before switching to
-`On Error Resume Next`, and use `GoTo` rather than `Resume` afterward:
-
-```vba
-Handler:
-    Err.Clear
-    On Error GoTo -1
-    On Error Resume Next
-    CurrentDb.QueryDefs.Delete "__temp_query__"
-    Err.Clear
-    On Error GoTo 0
-    GoTo ContinueAfterHandler
-```
-
-Prefer checking for object existence before deletion when practical.
 
 ---
 
@@ -313,45 +282,10 @@ Prefer checking for object existence before deletion when practical.
 
 ## Common Tasks
 
-### Adding a Function to a Module
-
-1. Open the `.bas` file in `modules/`
-2. Add your function after existing code:
-```vba
-Public Function CalculateTotal(dblPrice As Double, intQty As Integer) As Double
-    CalculateTotal = dblPrice * intQty
-End Function
-```
-
-### Modifying a SQL Query
-
-Edit the `.sql` file directly in `queries/`:
-
-```sql
-SELECT CustomerID, CustomerName, Email, Phone
-FROM tblCustomers
-WHERE Active = True
-ORDER BY CustomerName;
-```
-
-The companion `.json` preserves design layout and properties. On import, the add-in generates the appropriate `.qdef` format automatically. Design View layout is preserved when the SQL remains designer-compatible.
-
-### Fixing a Bug in Form Code
-
-If "Split Layout from VBA" is enabled:
-1. Open `forms/FormName.cls`
-2. Find and modify the relevant procedure
-
-If code is embedded in the layout file (`.form` or legacy `.bas`):
-1. Open `forms/FormName.form` (or `FormName.bas` in older projects)
-2. Find the `CodeBehindForm` section near the end
-3. Modify code in that section
-
-### Bulk Find and Replace
-
-When making changes across multiple files:
-1. Search within the appropriate folder (`modules/`, `forms/`, etc.)
-2. Test by having the user perform a merge build in Access
+- **Editing VBA code:** Modify `.bas` or `.cls` files in `modules/` (or subdirectories). Add functions after existing code, preserving all `Attribute` and `Option` lines.
+- **Editing queries:** Edit the `.sql` file directly in `queries/`. The companion `.json` preserves design layout and properties automatically on import.
+- **Editing form/report code:** If "Split Layout from VBA" is enabled, edit `forms/FormName.cls`. Otherwise, find the `CodeBehindForm` section in the `.form` / `.report` file.
+- **Testing changes:** Have the user perform a merge build in Access to import and verify changes.
 
 ---
 
@@ -390,6 +324,8 @@ When the source file and database object have both changed:
 | `vcs-options.json` | Export/import configuration for this project |
 | `vcs-index.idx` | Change tracking, binary format (do not edit) |
 | `dbs-properties.json` | DAO database properties |
+| `documents.json` | DAO database document properties (Description, Hidden for containers) |
+| `nav-pane-groups.json` | Navigation Pane custom groups |
 | `project.json` | File format version |
 | `vbe-project.json` | VBA project properties |
 | `vbe-references.json` | VBA library references |
@@ -478,4 +414,4 @@ Operation logs are stored in the `logs/` subfolder with timestamped filenames:
 
 ---
 
-*This file is automatically generated by MSAccess VCS Add-in and placed in exported source folders to assist AI agents working with Access database source files.*
+*This file is provided by the MSAccess VCS Add-in and placed in exported source folders to assist AI agents working with Access database source files.*
