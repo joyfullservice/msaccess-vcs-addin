@@ -19,7 +19,7 @@ Option Explicit
 '@Folder("Infrastructure")
 
 ' File name for index
-Private Const cstrFileName As String = "vcs-index.json"
+Private Const cstrFileName As String = "vcs-index.idx"
 
 ' General properties
 Public MergeBuildDate As Date
@@ -46,6 +46,30 @@ Private m_Git As clsGitIntegration
 Private m_Conflicts As clsConflicts
 Private m_strTempExportFolderPath As String
 
+' Binary index format
+Private Const cstrIdxMagic As String = "VCSI"
+Private Const cintIdxFormatVersion As Integer = 1
+Private Const cstrLegacyFileName As String = "vcs-index.json"
+
+' Optional field flags for component entries
+Private Const cbytFlagFileHash As Byte = 1
+Private Const cbytFlagOtherHash As Byte = 2
+Private Const cbytFlagMetaHash As Byte = 4
+Private Const cbytFlagFilePropertiesHash As Byte = 8
+
+' UDTs for LSet Double <-> Byte() punning
+Private Type tDoubleBytes
+    b(0 To 7) As Byte
+End Type
+Private Type tDoubleVal
+    Value As Double
+End Type
+
+' Write buffer state (used during Save)
+Private m_bBuffer() As Byte
+Private m_lngBufPos As Long
+Private m_lngBufSize As Long
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadFromFile
@@ -56,10 +80,22 @@ Private m_strTempExportFolderPath As String
 '
 Public Sub LoadFromFile(Optional strFile As String)
 
-    Dim dFile As Dictionary
-    Dim dItem As Dictionary
-    Dim varKey As Variant
-    Dim blnSavedValue As Boolean
+    Dim bData() As Byte
+    Dim lngPos As Long
+    Dim lngCatCount As Long
+    Dim lngItemCount As Long
+    Dim lngHashCount As Long
+    Dim lngCat As Long
+    Dim lngItem As Long
+    Dim lngHash As Long
+    Dim strCat As String
+    Dim strFileName As String
+    Dim strLegacyPath As String
+    Dim bFlags As Byte
+    Dim cEntry As clsVCSIndexItem
+    Dim lngVersion As Long
+    Dim intCnt As Integer
+    Dim dCategory As Dictionary
 
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Sub
@@ -67,34 +103,105 @@ Public Sub LoadFromFile(Optional strFile As String)
     ' Reset class to blank values
     Call Class_Initialize
 
-    ' Load properties
+    ' Determine file path
     m_strFile = strFile
     If m_strFile = vbNullString Then m_strFile = DefaultFilePath
-    If FSO.FileExists(m_strFile) Then
-        ' Convert dates back to local time for processing
-        blnSavedValue = JsonOptions.ConvertDateToIso
-        JsonOptions.ConvertDateToIso = True
-        Set dFile = ReadJsonFile(m_strFile)
-        JsonOptions.ConvertDateToIso = blnSavedValue
-        If Not dFile Is Nothing Then
-            If dFile.Exists("Items") Then
-                ' Load properties from class
-                For Each varKey In dFile("Items").Keys
-                    If m_dIndex.Exists(varKey) Then
-                        Select Case varKey
-                            Case "Components", "AlternateExport", "CategoryHashes"
-                                ' Load as dictionary
-                                Set dItem = dFile("Items")(varKey)
-                                Set m_dIndex(varKey) = dItem
-                            Case Else
-                                ' Set property by name
-                                CallByName Me, CStr(varKey), VbLet, Nz(dFile("Items")(varKey), 0)
-                        End Select
-                    End If
-                Next varKey
-            End If
+    If m_strFile = vbNullString Then Exit Sub
+
+    ' Check for legacy JSON index and clean up
+    If Not FSO.FileExists(m_strFile) Then
+        strLegacyPath = Replace(m_strFile, cstrFileName, cstrLegacyFileName)
+        If FSO.FileExists(strLegacyPath) Then
+            LogUnhandledErrors
+            On Error Resume Next
+            FSO.DeleteFile strLegacyPath, True
+            CatchAny eelWarning, "Removed legacy index: " & cstrLegacyFileName, _
+                ModuleName(Me) & ".LoadFromFile"
         End If
+        Exit Sub
     End If
+
+    Perf.OperationStart "Load Index"
+
+    ' Any read error (truncated file, bad data) is treated as corruption.
+    On Error GoTo CorruptIndex
+
+    ' Read entire file as byte array
+    bData = GetFileBytes(m_strFile)
+    lngPos = 0
+
+    ' Validate magic bytes
+    If UBound(bData) < Len(cstrIdxMagic) + 1 Then
+        GoTo CorruptIndex
+    End If
+    For intCnt = 1 To Len(cstrIdxMagic)
+        If bData(intCnt - 1) <> CByte(Asc(Mid$(cstrIdxMagic, intCnt, 1))) Then
+            GoTo CorruptIndex
+        End If
+    Next intCnt
+    lngPos = Len(cstrIdxMagic)
+
+    ' Read and validate format version
+    lngVersion = ReadUInt16(bData, lngPos)
+    If lngVersion <> cintIdxFormatVersion Then GoTo CorruptIndex
+
+    ' Read global properties (UTC dates converted to local)
+    Me.MergeBuildDate = ReadUtcDate(bData, lngPos)
+    Me.FullBuildDate = ReadUtcDate(bData, lngPos)
+    Me.ExportDate = ReadUtcDate(bData, lngPos)
+    Me.FullExportDate = ReadUtcDate(bData, lngPos)
+    Me.LastMergedCommit = ReadLPS(bData, lngPos)
+
+    ' Read category hashes
+    lngHashCount = ReadUInt32(bData, lngPos)
+    For lngHash = 1 To lngHashCount
+        strCat = ReadLPS(bData, lngPos)
+        m_dIndex("CategoryHashes").Add strCat, ReadLPS(bData, lngPos)
+    Next lngHash
+
+    ' Read components
+    lngCatCount = ReadUInt32(bData, lngPos)
+    For lngCat = 1 To lngCatCount
+        strCat = ReadLPS(bData, lngPos)
+        lngItemCount = ReadUInt32(bData, lngPos)
+
+        ' Create category dictionary
+        Set dCategory = New Dictionary
+        m_dIndex("Components").Add strCat, dCategory
+
+        For lngItem = 1 To lngItemCount
+            strFileName = ReadLPS(bData, lngPos)
+            bFlags = ReadByte(bData, lngPos)
+
+            Set cEntry = New clsVCSIndexItem
+            cEntry.ExportDate = ReadUtcDate(bData, lngPos)
+            cEntry.ImportDate = ReadUtcDate(bData, lngPos)
+            cEntry.SourceModified = ReadUtcDate(bData, lngPos)
+            cEntry.ObjectDate = ReadUtcDate(bData, lngPos)
+
+            If (bFlags And cbytFlagFileHash) Then cEntry.FileHash = ReadLPS(bData, lngPos)
+            If (bFlags And cbytFlagOtherHash) Then cEntry.OtherHash = ReadLPS(bData, lngPos)
+            If (bFlags And cbytFlagMetaHash) Then cEntry.MetaHash = ReadLPS(bData, lngPos)
+            If (bFlags And cbytFlagFilePropertiesHash) Then cEntry.FilePropertiesHash = ReadLPS(bData, lngPos)
+
+            dCategory.Add strFileName, cEntry
+        Next lngItem
+    Next lngCat
+
+    Perf.OperationEnd
+    Exit Sub
+
+CorruptIndex:
+    ' Reset to empty state and remove the corrupt file
+    Call Class_Initialize
+    m_strFile = strFile
+    If m_strFile = vbNullString Then m_strFile = DefaultFilePath
+    LogUnhandledErrors
+    On Error Resume Next
+    If FSO.FileExists(m_strFile) Then FSO.DeleteFile m_strFile, True
+    CatchAny eelWarning, "Removed corrupt index file. A full export will regenerate it.", _
+        ModuleName(Me) & ".LoadFromFile"
+    Perf.OperationEnd
 
 End Sub
 
@@ -108,30 +215,21 @@ End Sub
 '
 Public Sub Save(Optional strInFolder As String)
 
-    Dim varKey As Variant
-    Dim varValue As Variant
     Dim strFile As String
-    Dim blnSavedValue As Boolean
+    Dim varCat As Variant
+    Dim varFile As Variant
+    Dim dComponents As Dictionary
+    Dim dCategory As Dictionary
+    Dim dCatHashes As Dictionary
+    Dim cEntry As clsVCSIndexItem
+    Dim bFlags As Byte
 
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Sub
 
-    ' Load dictionary from properties
-    For Each varKey In m_dIndex.Keys
-        Select Case varKey
-            Case "Components", "AlternateExport", "CategoryHashes"
-            Case Else
-                varValue = CallByName(Me, CStr(varKey), VbGet)
-                ' Save blank dates as null
-                If Right(varKey, 4) = "Date" Then
-                    m_dIndex(varKey) = ZNDate(varValue)
-                Else
-                    m_dIndex(varKey) = CStr(varValue)
-                End If
-        End Select
-    Next varKey
+    Perf.OperationStart "Save Index"
 
-    ' Sort files and components
+    ' Sort files and components for deterministic output
     SortComponentSection m_dIndex, "Components"
 
     ' Remove the AlternateExport section, since this is not
@@ -145,17 +243,70 @@ Public Sub Save(Optional strInFolder As String)
         strFile = StripSlash(strInFolder) & PathSep & cstrFileName
     End If
 
-    ' Turn on ISO date conversion to save index dates in UTC
-    blnSavedValue = JsonOptions.ConvertDateToIso
-    JsonOptions.ConvertDateToIso = True
-
-    ' Save index to file
-    If m_strFile <> vbNullString Then
-        WriteFile BuildJsonFile(TypeName(Me), m_dIndex, "Version Control System Index"), strFile
+    If strFile = vbNullString Then
+        Perf.OperationEnd
+        Exit Sub
     End If
 
-    ' Restore previous setting
-    JsonOptions.ConvertDateToIso = blnSavedValue
+    ' Initialize the write buffer
+    InitWriteBuffer
+
+    ' Header: magic + format version (UInt16 LE)
+    WriteMagic cstrIdxMagic
+    WriteUInt16 CLng(cintIdxFormatVersion)
+
+    ' Global properties (dates stored as UTC)
+    WriteUtcDate Me.MergeBuildDate
+    WriteUtcDate Me.FullBuildDate
+    WriteUtcDate Me.ExportDate
+    WriteUtcDate Me.FullExportDate
+    WriteLPS Me.LastMergedCommit
+
+    ' Category hashes
+    Set dCatHashes = m_dIndex("CategoryHashes")
+    WriteUInt32 dCatHashes.Count
+    For Each varCat In dCatHashes.Keys
+        WriteLPS CStr(varCat)
+        WriteLPS CStr(dCatHashes(varCat))
+    Next varCat
+
+    ' Components
+    Set dComponents = m_dIndex("Components")
+    WriteUInt32 dComponents.Count
+    For Each varCat In dComponents.Keys
+        WriteLPS CStr(varCat)
+        Set dCategory = dComponents(varCat)
+        WriteUInt32 dCategory.Count
+        For Each varFile In dCategory.Keys
+            Set cEntry = dCategory(varFile)
+            WriteLPS CStr(varFile)
+
+            ' Build flags byte for optional hash fields
+            bFlags = 0
+            If Len(cEntry.FileHash) > 0 Then bFlags = bFlags Or cbytFlagFileHash
+            If Len(cEntry.OtherHash) > 0 Then bFlags = bFlags Or cbytFlagOtherHash
+            If Len(cEntry.MetaHash) > 0 Then bFlags = bFlags Or cbytFlagMetaHash
+            If Len(cEntry.FilePropertiesHash) > 0 Then bFlags = bFlags Or cbytFlagFilePropertiesHash
+            WriteByte bFlags
+
+            ' Fixed date fields (UTC)
+            WriteUtcDate cEntry.ExportDate
+            WriteUtcDate cEntry.ImportDate
+            WriteUtcDate cEntry.SourceModified
+            WriteUtcDate cEntry.ObjectDate
+
+            ' Conditional hash fields
+            If (bFlags And cbytFlagFileHash) Then WriteLPS cEntry.FileHash
+            If (bFlags And cbytFlagOtherHash) Then WriteLPS cEntry.OtherHash
+            If (bFlags And cbytFlagMetaHash) Then WriteLPS cEntry.MetaHash
+            If (bFlags And cbytFlagFilePropertiesHash) Then WriteLPS cEntry.FilePropertiesHash
+        Next varFile
+    Next varCat
+
+    ' Write the buffer to file
+    WriteBinaryFile strFile, GetWriteBuffer()
+
+    Perf.OperationEnd
 
 End Sub
 
@@ -195,9 +346,9 @@ End Sub
 '
 Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, _
     strFileHash As String, Optional strOtherHash As String, _
-    Optional dteDateTime As Date, Optional strMetaHash As String) As Dictionary
+    Optional dteDateTime As Date, Optional strMetaHash As String) As clsVCSIndexItem
 
-    Dim dItem As Dictionary
+    Dim cEntry As clsVCSIndexItem
     Dim strSection As String
 
     ' Exit if we have disabled the index functionality
@@ -210,52 +361,27 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         strSection = "Components"
     End If
 
-    ' Look up dictionary item, creating if needed.
-    Set dItem = Me.Item(cItem, , strSection).dParent
+    ' Look up item, creating if needed.
+    Set cEntry = Me.Item(cItem, , strSection)
 
-    ' Update dictionary values
-    With dItem
-
-        ' Update hash
-        If strFileHash = vbNullString Then
-            ' Remove hash if not used.
-            If .Exists("FileHash") Then .Remove "FileHash"
-        Else
-            .Item("FileHash") = strFileHash
-        End If
-
-        ' Code module hash (Detects changes to VBA code that are not reflected in modified date)
-        If strOtherHash = vbNullString Then
-            ' Remove hash if not used.
-            If .Exists("OtherHash") Then .Remove "OtherHash"
-        Else
-            .Item("OtherHash") = strOtherHash
-        End If
-
-        ' Metadata hash (Detects changes to Description/Hidden that don't update DateModified)
-        If strMetaHash = vbNullString Then
-            If .Exists("MetaHash") Then .Remove "MetaHash"
-        Else
-            .Item("MetaHash") = strMetaHash
-        End If
+    With cEntry
+        .FileHash = strFileHash
+        .OtherHash = strOtherHash
+        .MetaHash = strMetaHash
 
         ' Add timestamp, defaulting to now
         If dteDateTime = 0 Then dteDateTime = Now
         Select Case intAction
             Case eatExport, eatAltExport
-                .Item("ExportDate") = dteDateTime
+                .ExportDate = dteDateTime
             Case eatImport
-                .Item("ImportDate") = dteDateTime
+                .ImportDate = dteDateTime
         End Select
 
         ' Save the object's DateModified for accurate change detection.
         ' Truncate to seconds since serialization cannot preserve sub-second
         ' precision, and Access DateModified may carry fractional seconds.
-        Dim dteObjectDate As Date
-        dteObjectDate = DateTruncToSeconds(cItem.DateModified)
-        If dteObjectDate <> 0 Then
-            .Item("ObjectDate") = dteObjectDate
-        End If
+        .ObjectDate = DateTruncToSeconds(cItem.DateModified)
 
         ' Save timestamp and property hash of exported source file.
         ' (Skip for alternate exports -- the canonical source file may not
@@ -263,15 +389,12 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         '  is promoted via UpdateFromAltExport.)
         If intAction <> eatAltExport Then
             dteDateTime = GetSourceModifiedDate(cItem, cItem.SourceFile)
-            .Item("SourceModified") = ZNDate(dteDateTime)
-            .Item("FilePropertiesHash") = GetSourceFilesPropertyHash(cItem)
+            .SourceModified = dteDateTime
+            .FilePropertiesHash = GetSourceFilesPropertyHash(cItem)
         End If
-
     End With
 
-    ' Return dictionary object in case the caller wants to
-    ' manipulate additional values.
-    Set Update = dItem
+    Set Update = cEntry
 
 End Function
 
@@ -289,8 +412,8 @@ End Function
 Public Sub UpdateFromAltExport(cItem As IDbComponent)
 
     Dim strFile As String
-    Dim dAltItem As Dictionary
-    Dim varKey As Variant
+    Dim cAltItem As clsVCSIndexItem
+    Dim cTarget As clsVCSIndexItem
 
     ' Exit if we have disabled the index functionality
     If Me.Disabled Then Exit Sub
@@ -302,19 +425,24 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
     With m_dIndex("AlternateExport")
         If .Exists(cItem.Category) Then
             If .Item(cItem.Category).Exists(strFile) Then
-                ' Get reference to alternate export entry
-                Set dAltItem = .Item(cItem.Category).Item(strFile)
+                Set cAltItem = .Item(cItem.Category).Item(strFile)
             End If
         End If
     End With
 
-    ' Update entry in main component section with values
-    ' from the alternate export section.
-    If Not dAltItem Is Nothing Then
-        With LoadItem(cItem, strFile, "Components").dParent
-            For Each varKey In dAltItem.Keys
-                .Item(varKey) = dAltItem(varKey)
-            Next varKey
+    ' Copy all properties from the alternate export entry
+    ' to the main component entry.
+    If Not cAltItem Is Nothing Then
+        Set cTarget = LoadItem(cItem, strFile, "Components")
+        With cTarget
+            .FileHash = cAltItem.FileHash
+            .OtherHash = cAltItem.OtherHash
+            .MetaHash = cAltItem.MetaHash
+            .FilePropertiesHash = cAltItem.FilePropertiesHash
+            .ExportDate = cAltItem.ExportDate
+            .ImportDate = cAltItem.ImportDate
+            .SourceModified = cAltItem.SourceModified
+            .ObjectDate = cAltItem.ObjectDate
         End With
     End If
 
@@ -425,26 +553,13 @@ End Function
 '
 Private Function LoadItem(cItem As IDbComponent, strSourceFile As String, strSection As String) As clsVCSIndexItem
 
-    Dim dItem As Dictionary
-
-    ' Get or create dictionary objects.
+    ' Get or create category dictionary, then get or create the item.
     With m_dIndex(strSection)
         If Not .Exists(cItem.Category) Then Set .Item(cItem.Category) = New Dictionary
-        If Not .Item(cItem.Category).Exists(strSourceFile) Then Set .Item(cItem.Category)(strSourceFile) = New Dictionary
-        Set dItem = .Item(cItem.Category)(strSourceFile)
-        Set LoadItem = New clsVCSIndexItem
-        With LoadItem
-            ' Load properties to class
-            Set .dParent = dItem
-            .ExportDate = Nz2(dNZ(dItem, "ExportDate"), 0)
-            .ImportDate = Nz2(dNZ(dItem, "ImportDate"), 0)
-            .SourceModified = Nz2(dNZ(dItem, "SourceModified"), 0)
-            .FilePropertiesHash = dNZ(dItem, "FilePropertiesHash")
-            .FileHash = dNZ(dItem, "FileHash")
-            .OtherHash = dNZ(dItem, "OtherHash")
-            .MetaHash = dNZ(dItem, "MetaHash")
-            If dItem.Exists("ObjectDate") Then .ObjectDate = dItem("ObjectDate")
-        End With
+        If Not .Item(cItem.Category).Exists(strSourceFile) Then
+            Set .Item(cItem.Category)(strSourceFile) = New clsVCSIndexItem
+        End If
+        Set LoadItem = .Item(cItem.Category)(strSourceFile)
     End With
 
 End Function
@@ -524,7 +639,6 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
     Dim cItem As IDbComponent
     Dim strHash As String
     Dim strFile As String
-    Dim strPath As String
     Dim blnModified As Boolean
     Dim blnMissing As Boolean
 
@@ -553,10 +667,8 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
             If (Not blnMissing) And Me.Exists(cCategory, strFile) Then
                 ' Get hash of current source files.
                 strHash = GetSourceFilesPropertyHash(cCategory, strFile)
-                ' Build the path to find the item in the index.
-                strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "FilePropertiesHash"), "\")
-                ' File is considered not modified if the index date matches the file modification date.
-                blnModified = Not (dNZ(m_dIndex, strPath) = strHash)
+                ' File is considered not modified if the index hash matches the current hash.
+                blnModified = Not (Me.Item(cCategory, strFile).FilePropertiesHash = strHash)
             End If
 
             ' Add modified files to collection
@@ -933,6 +1045,75 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : DumpToJson
+' Author    : Adam Waller
+' Date      : 4/28/2026
+' Purpose   : Writes the in-memory index to a human-readable JSON file for
+'           : troubleshooting. Since per-entry storage uses clsVCSIndexItem
+'           : (not Dictionary), this builds a temporary Dictionary tree and
+'           : feeds it through the existing JSON serializer.
+'---------------------------------------------------------------------------------------
+'
+Public Sub DumpToJson(Optional strPath As String)
+
+    Dim dDump As Dictionary
+    Dim dComponents As Dictionary
+    Dim dCatOut As Dictionary
+    Dim dEntryOut As Dictionary
+    Dim varCat As Variant
+    Dim varFile As Variant
+    Dim cEntry As clsVCSIndexItem
+    Dim blnSavedValue As Boolean
+
+    ' Default output path alongside the .idx file
+    If strPath = vbNullString Then
+        If m_strFile = vbNullString Then m_strFile = DefaultFilePath
+        If m_strFile = vbNullString Then Exit Sub
+        strPath = Replace(m_strFile, cstrFileName, "vcs-index-debug.json")
+    End If
+
+    ' Build a Dictionary tree that mirrors the old JSON structure
+    Set dDump = New Dictionary
+    dDump.Add "MergeBuildDate", ZNDate(Me.MergeBuildDate)
+    dDump.Add "FullBuildDate", ZNDate(Me.FullBuildDate)
+    dDump.Add "ExportDate", ZNDate(Me.ExportDate)
+    dDump.Add "FullExportDate", ZNDate(Me.FullExportDate)
+    dDump.Add "LastMergedCommit", Me.LastMergedCommit
+    Set dDump("CategoryHashes") = m_dIndex("CategoryHashes")
+
+    ' Convert clsVCSIndexItem entries to Dictionaries
+    Set dComponents = New Dictionary
+    If m_dIndex.Exists("Components") Then
+        For Each varCat In m_dIndex("Components").Keys
+            Set dCatOut = New Dictionary
+            For Each varFile In m_dIndex("Components")(varCat).Keys
+                Set cEntry = m_dIndex("Components")(varCat)(varFile)
+                Set dEntryOut = New Dictionary
+                If Len(cEntry.FileHash) > 0 Then dEntryOut.Add "FileHash", cEntry.FileHash
+                If cEntry.ExportDate <> 0 Then dEntryOut.Add "ExportDate", cEntry.ExportDate
+                If cEntry.ImportDate <> 0 Then dEntryOut.Add "ImportDate", cEntry.ImportDate
+                dEntryOut.Add "SourceModified", ZNDate(cEntry.SourceModified)
+                If Len(cEntry.FilePropertiesHash) > 0 Then dEntryOut.Add "FilePropertiesHash", cEntry.FilePropertiesHash
+                If Len(cEntry.OtherHash) > 0 Then dEntryOut.Add "OtherHash", cEntry.OtherHash
+                If Len(cEntry.MetaHash) > 0 Then dEntryOut.Add "MetaHash", cEntry.MetaHash
+                If cEntry.ObjectDate <> 0 Then dEntryOut.Add "ObjectDate", cEntry.ObjectDate
+                dCatOut.Add CStr(varFile), dEntryOut
+            Next varFile
+            dComponents.Add CStr(varCat), dCatOut
+        Next varCat
+    End If
+    Set dDump("Components") = dComponents
+
+    ' Serialize to JSON with ISO date conversion
+    blnSavedValue = JsonOptions.ConvertDateToIso
+    JsonOptions.ConvertDateToIso = True
+    WriteFile BuildJsonFile(TypeName(Me), dDump, "Version Control System Index (Debug Dump)"), strPath
+    JsonOptions.ConvertDateToIso = blnSavedValue
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CategoryHashes
 ' Author    : Adam Waller
 ' Date      : 3/10/2026
@@ -971,6 +1152,185 @@ End Function
 Private Function DefaultFilePath() As String
     If DatabaseFileOpen Then DefaultFilePath = Options.GetExportFolder & cstrFileName
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Binary I/O Helpers
+' Used for reading and writing the binary index format (.idx)
+'---------------------------------------------------------------------------------------
+
+Private Sub InitWriteBuffer(Optional lngInitialSize As Long = 65536)
+    m_lngBufSize = lngInitialSize
+    ReDim m_bBuffer(0 To m_lngBufSize - 1)
+    m_lngBufPos = 0
+End Sub
+
+Private Sub EnsureBuffer(lngNeeded As Long)
+    If m_lngBufPos + lngNeeded > m_lngBufSize Then
+        Do While m_lngBufPos + lngNeeded > m_lngBufSize
+            m_lngBufSize = m_lngBufSize * 2
+        Loop
+        ReDim Preserve m_bBuffer(0 To m_lngBufSize - 1)
+    End If
+End Sub
+
+Private Function GetWriteBuffer() As Byte()
+    If m_lngBufPos > 0 Then
+        ReDim Preserve m_bBuffer(0 To m_lngBufPos - 1)
+    End If
+    GetWriteBuffer = m_bBuffer
+    Erase m_bBuffer
+    m_lngBufPos = 0
+    m_lngBufSize = 0
+End Function
+
+Private Function ReadUInt32(bData() As Byte, ByRef lngPos As Long) As Long
+    EnsureReadable bData, lngPos, 4
+    ReadUInt32 = bData(lngPos) + _
+                 bData(lngPos + 1) * 256& + _
+                 CLng(bData(lngPos + 2)) * 65536 + _
+                 CLng(bData(lngPos + 3)) * 16777216
+    lngPos = lngPos + 4
+End Function
+
+Private Function ReadUInt16(bData() As Byte, ByRef lngPos As Long) As Long
+    EnsureReadable bData, lngPos, 2
+    ReadUInt16 = bData(lngPos) + bData(lngPos + 1) * 256&
+    lngPos = lngPos + 2
+End Function
+
+Private Sub WriteUInt32(lngValue As Long)
+    EnsureBuffer 4
+    m_bBuffer(m_lngBufPos) = lngValue And &HFF&
+    m_bBuffer(m_lngBufPos + 1) = (lngValue \ 256&) And &HFF&
+    m_bBuffer(m_lngBufPos + 2) = (lngValue \ 65536) And &HFF&
+    m_bBuffer(m_lngBufPos + 3) = (lngValue \ 16777216) And &HFF&
+    m_lngBufPos = m_lngBufPos + 4
+End Sub
+
+Private Sub WriteUInt16(lngValue As Long)
+    If lngValue < 0 Or lngValue > 65535 Then
+        Err.Raise 5, ModuleName(Me) & ".WriteUInt16", "Value out of range for UInt16."
+    End If
+    EnsureBuffer 2
+    m_bBuffer(m_lngBufPos) = lngValue And &HFF&
+    m_bBuffer(m_lngBufPos + 1) = (lngValue \ 256&) And &HFF&
+    m_lngBufPos = m_lngBufPos + 2
+End Sub
+
+Private Function ReadDouble(bData() As Byte, ByRef lngPos As Long) As Double
+    Dim tB As tDoubleBytes
+    Dim tV As tDoubleVal
+    Dim i As Long
+    EnsureReadable bData, lngPos, 8
+    For i = 0 To 7
+        tB.b(i) = bData(lngPos + i)
+    Next i
+    LSet tV = tB
+    ReadDouble = tV.Value
+    lngPos = lngPos + 8
+End Function
+
+Private Sub WriteDouble(dblValue As Double)
+    Dim tB As tDoubleBytes
+    Dim tV As tDoubleVal
+    tV.Value = dblValue
+    LSet tB = tV
+    EnsureBuffer 8
+    Dim i As Long
+    For i = 0 To 7
+        m_bBuffer(m_lngBufPos + i) = tB.b(i)
+    Next i
+    m_lngBufPos = m_lngBufPos + 8
+End Sub
+
+Private Function ReadUtcDate(bData() As Byte, ByRef lngPos As Long) As Date
+    Dim dblValue As Double
+    dblValue = ReadDouble(bData, lngPos)
+    If dblValue <> 0# Then ReadUtcDate = ConvertToLocalDate(CDate(dblValue))
+End Function
+
+Private Sub WriteUtcDate(dteValue As Date)
+    If dteValue = 0 Then
+        WriteDouble 0#
+    Else
+        WriteDouble CDbl(ConvertToUtc(dteValue))
+    End If
+End Sub
+
+Private Function ReadLPS(bData() As Byte, ByRef lngPos As Long) As String
+    Dim lngLen As Long
+    Dim bStr() As Byte
+    Dim i As Long
+    lngLen = ReadUInt32(bData, lngPos)
+    If lngLen = 0 Then
+        ReadLPS = vbNullString
+    Else
+        If (lngLen And 1) <> 0 Then Err.Raise 5, ModuleName(Me) & ".ReadLPS", "Invalid UTF-16 byte length in index file."
+        EnsureReadable bData, lngPos, lngLen
+        ReDim bStr(0 To lngLen - 1)
+        For i = 0 To lngLen - 1
+            bStr(i) = bData(lngPos + i)
+        Next i
+        ReadLPS = bStr
+        lngPos = lngPos + lngLen
+    End If
+End Function
+
+Private Sub WriteLPS(strValue As String)
+    Dim bStr() As Byte
+    Dim lngLen As Long
+    Dim i As Long
+    If Len(strValue) = 0 Then
+        WriteUInt32 0
+    Else
+        bStr = strValue
+        lngLen = UBound(bStr) + 1
+        WriteUInt32 lngLen
+        EnsureBuffer lngLen
+        For i = 0 To lngLen - 1
+            m_bBuffer(m_lngBufPos + i) = bStr(i)
+        Next i
+        m_lngBufPos = m_lngBufPos + lngLen
+    End If
+End Sub
+
+Private Function ReadByte(bData() As Byte, ByRef lngPos As Long) As Byte
+    EnsureReadable bData, lngPos, 1
+    ReadByte = bData(lngPos)
+    lngPos = lngPos + 1
+End Function
+
+Private Sub WriteByte(bValue As Byte)
+    EnsureBuffer 1
+    m_bBuffer(m_lngBufPos) = bValue
+    m_lngBufPos = m_lngBufPos + 1
+End Sub
+
+Private Sub WriteMagic(strMagic As String)
+    Dim intCnt As Integer
+
+    For intCnt = 1 To Len(strMagic)
+        WriteByte CByte(Asc(Mid$(strMagic, intCnt, 1)))
+    Next intCnt
+End Sub
+
+Private Sub EnsureReadable(bData() As Byte, ByVal lngPos As Long, ByVal lngCount As Long)
+    Dim lngMax As Long
+
+    If lngCount < 0 Then
+        Err.Raise 5, ModuleName(Me) & ".EnsureReadable", "Negative read length in index file."
+    End If
+    If lngCount = 0 Then Exit Sub
+    If lngPos < 0 Then
+        Err.Raise 5, ModuleName(Me) & ".EnsureReadable", "Negative read position in index file."
+    End If
+
+    lngMax = UBound(bData)
+    If lngPos > lngMax Or (lngPos + lngCount - 1) > lngMax Then
+        Err.Raise 5, ModuleName(Me) & ".EnsureReadable", "Truncated index file."
+    End If
+End Sub
 
 
 '---------------------------------------------------------------------------------------

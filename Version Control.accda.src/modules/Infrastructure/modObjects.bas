@@ -231,7 +231,7 @@ End Property
 ' Procedure : VSCIndex
 ' Author    : Adam Waller
 ' Date      : 12/1/2020
-' Purpose   : Reference to the VCS Index class (saved state from vcs-index.json)
+' Purpose   : Reference to the VCS Index class (saved state from vcs-index.idx)
 '---------------------------------------------------------------------------------------
 '
 Public Property Get VCSIndex() As clsVCSIndex

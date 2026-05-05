@@ -18,7 +18,6 @@ Option Compare Database
 Option Explicit
 '@Folder("Infrastructure")
 
-Public dParent As Dictionary
 Public ImportDate As Date
 Public ExportDate As Date
 Public SourceModified As Date

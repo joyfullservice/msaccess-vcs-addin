@@ -62,7 +62,7 @@ Note that in your export folder you will only see the folders and files for the 
         ├── proj-properties.json        # CurrentProject properties
         ├── vbe-project.json            # VBA project properties
         ├── vbe-references.json         # VBA project references
-        ├── vcs-index.json              # Index to track changes and versions for VCS
+        ├── vcs-index.idx               # Binary index to track changes and versions for VCS
         └── vcs-options.json            # VCS options for this project
 
 

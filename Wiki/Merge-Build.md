@@ -29,7 +29,7 @@ This feature is primarily intended for larger/complex databases where a full bui
 |Missing    |Modified       |Conflict (Delete)|
 
 # Additional Notes
-For the merge build functionality to work correctly, it is very important that the `vcs-index.json` file be paired with the (binary) database file and *not* committed to version control. The recommended (and default) setup is that the binary database file and index file are excluded from version control.
+For the merge build functionality to work correctly, it is very important that the `vcs-index.idx` file be paired with the (binary) database file and *not* committed to version control. The recommended (and default) setup is that the binary database file and index file are excluded from version control.
 
 While a merge build is a very helpful development tool, a *full build* is the most robust way to ensure that a database project fully reflects the source files. A full build is recommended for final testing and deployment.
 
