@@ -29,7 +29,7 @@ VBA files (`.bas`, `.cls`) have required headers that must not be modified. See 
 
 ### 4. Do Not Edit These Files
 
-- **`vcs-index.json`** - Managed automatically by the add-in (tracks file hashes)
+- **`vcs-index.idx`** - Binary index managed automatically by the add-in (tracks file hashes). Use `VCSIndex.DumpToJson` to export a human-readable JSON copy for debugging.
 - **`.frx` files** - Binary OLE data, not editable as text
 - **`.thmx` files** - ZIP archives, edit extracted contents instead
 
@@ -247,6 +247,40 @@ Edit the `.sql` file directly. The companion `.json` preserves design layout and
 
 If the SQL becomes incompatible with Design View (e.g., UNION, subqueries), the layout data from `.json` is ignored and the query is imported as SQL View with a log warning.
 
+### Before changing the query parser
+
+The query parser (`clsQueryComposer.cls` + `clsDbQuery.cls`) carries hard-won decisions in places that are not always obvious from a casual read. Before modifying either class, read these in order:
+
+Do not look in `Testing.accdb.src` for query regression fixtures; the shipped
+round-trip corpus is `../Testing/Fixtures/queries/`.
+
+- **[../docs/access-query-storage.md](../docs/access-query-storage.md)** — in-repo reference for how Access stores queries, what shapes our parser handles (with the canonical fixture for each), known gaps where behaviour is unverified, and findings unique to our pipeline (`Application.LoadFromText` / `Application.SaveAsText` asymmetries).
+- **[../DECISIONS.md](../DECISIONS.md)** — search for entries mentioning `clsQueryComposer` or `clsDbQuery` (e.g. `rg "clsQueryComposer" DECISIONS.md -A 30`). Captures the rationale and rejected alternatives behind each choice.
+- **`../Testing/Fixtures/queries/regression/*.notes.md`** — each one pins a specific SQL shape and explains what would re-break if a careful decision were reverted.
+- **Procedure-header comments** on the functions you're modifying — `RequiresDesignView`, `IsDesignerCompatible`, `HasTopLevelBoolean`, `ParseJoinExpression`, `SafeBreak`, `EmitDbMemoSql` carry constraints in their headers that the body alone does not convey.
+
+When you discover a new invariant or edge case worth preserving, follow the four-layer documentation pattern at [../Testing/Fixtures/README.md § Documenting parser invariants and edge cases](../Testing/Fixtures/README.md).
+
+### VBA error-handler cleanup
+
+Inside an active `On Error GoTo Handler` block, `Err.Clear` clears the error
+object but does not reset the active handler state. If cleanup code in that
+handler may raise expected errors, call `On Error GoTo -1` before switching to
+`On Error Resume Next`, and use `GoTo` rather than `Resume` afterward:
+
+```vba
+Handler:
+    Err.Clear
+    On Error GoTo -1
+    On Error Resume Next
+    CurrentDb.QueryDefs.Delete "__temp_query__"
+    Err.Clear
+    On Error GoTo 0
+    GoTo ContinueAfterHandler
+```
+
+Prefer checking for object existence before deletion when practical.
+
 ---
 
 ## Safe Editing Guidelines
@@ -354,7 +388,7 @@ When the source file and database object have both changed:
 | File | Purpose |
 |------|---------|
 | `vcs-options.json` | Export/import configuration for this project |
-| `vcs-index.json` | Change tracking (do not edit) |
+| `vcs-index.idx` | Change tracking, binary format (do not edit) |
 | `dbs-properties.json` | DAO database properties |
 | `project.json` | File format version |
 | `vbe-project.json` | VBA project properties |

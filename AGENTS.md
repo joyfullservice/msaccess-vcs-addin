@@ -56,7 +56,7 @@ This repository contains the **MSAccess Version Control System (VCS) Add-in** - 
                           │   - modules/*.bas,*.cls│
                           │   - queries/*.qdef,*.sql│
                           │   - vcs-options.json   │
-                          │   - vcs-index.json     │
+                          │   - vcs-index.idx      │
                           └────────────────────────┘
 ```
 
@@ -68,7 +68,7 @@ This repository contains the **MSAccess Version Control System (VCS) Add-in** - 
 
 3. **Two Types of Build**: Full builds create a new database from source; merge builds update existing databases with changed files only.
 
-4. **Index-Based Change Detection**: `vcs-index.json` tracks file hashes and timestamps to detect changes and enable "fast save" exports.
+4. **Index-Based Change Detection**: `vcs-index.idx` (binary format) tracks file hashes and timestamps to detect changes and enable "fast save" exports.
 
 ---
 
@@ -270,6 +270,16 @@ Log.Add T("Error in file: {0}", var0:=strFileName)
 MsgBox2 T("VCS Version {0}", var0:=GetVCSVersion), ...
 ```
 
+### File System Operations
+
+**Never use the VBA `Dir()` function.** `Dir()` does not support Unicode filenames and will silently skip or fail on paths containing non-ASCII characters. Access databases frequently contain objects with Unicode names (accented characters, CJK, etc.).
+
+Instead, use:
+- **`Scripting.FileSystemObject`** (FSO) for general file operations — supports Unicode natively
+- **Win32 API** (`FindFirstFileW`/`FindNextFileW` in `modFileWinAPI`) for performance-critical scans or existence checks
+- **`FilePatternExists()`** in `modFileWinAPI` for quick wildcard existence checks (O(1) when no match)
+- **`ScanFolderContents()`** in `modFileWinAPI` for enumerating files and subfolders in a single pass
+
 ---
 
 ## Key Enums
@@ -391,6 +401,31 @@ Each `Erl` value collected inside the `H:` label is meaningful because the wrapp
 
 The decision between the default single-error capture and an explicit multi-error handler is per-test: pick whichever shape best matches what the test is trying to verify.
 
+### VBA error-handler state: `Err.Clear` is not enough
+
+When execution is inside an active `On Error GoTo Handler` block, `Err.Clear`
+clears the error object but does **not** reset the active exception/handler
+state. Expected cleanup errors inside that handler can still break or poison
+the wrapper if you only write `On Error Resume Next`.
+
+Use this pattern before any expected-error cleanup inside a handler:
+
+```vba
+Handler:
+    strMsg = Err.Description
+    Err.Clear
+    On Error GoTo -1      ' clear active handler state
+    On Error Resume Next  ' now expected cleanup errors are safe
+    CurrentDb.QueryDefs.Delete "__temp_query__"
+    Err.Clear
+    On Error GoTo 0
+    GoTo ContinueAfterHandler
+```
+
+Do not use `Resume` after `On Error GoTo -1`; jump to a continuation label
+instead. Prefer explicit existence checks over expected-error cleanup when the
+code is simple enough.
+
 ---
 
 ## Testing Strategy
@@ -403,6 +438,15 @@ The add-in benefits from three distinct testing layers, each catching a differen
 | **2. Object round-trip tests** | "Does this database object survive a serialize/deserialize cycle unchanged?" | `modTestRoundtrip.bas` + `Testing/Fixtures/` |
 | **3. Whole-database integration** | "Does building an entire database from source produce a working database?" | `Testing/Testing.accdb.src` |
 
+Important location distinction: the canonical object round-trip fixture corpus
+is `Testing/Fixtures/` as plain text files. Query fixtures live under
+`Testing/Fixtures/queries/` as `.sql` + `.json` pairs, with optional
+`.notes.md` files for regression context. `Testing/Testing.accdb.src` is the
+sample/integration database used for full build/export flows; do not look there
+for the primary `VCS.RunRoundtripTests` fixture corpus. `MSysQueriesExamples`
+and `db-analysis-tools` are useful sources or validation projects for query
+shapes, but they are not the add-in's canonical regression fixture store.
+
 ### `modTest*` naming convention
 
 All test-infrastructure modules use the `modTest*` family prefix. This matches the existing family-grouping conventions already used in the codebase (`clsDb*` for component classes, `clsLv*` for ListView property parsers) and gives "Test" maximum prominence for developer and agent discoverability.
@@ -414,6 +458,12 @@ All test-infrastructure modules use the `modTest*` family prefix. This matches t
 ### Object round-trip harness (`modTestRoundtrip`)
 
 The Layer 2 harness is generic over `IDbComponent`. v1 ships query support; forms, reports, modules, and table data follow the same pattern by adding a per-type helper.
+
+When adding regression fixtures from a user or production database, sanitize
+the fixture and its `.notes.md` file. Do not include source database names,
+source query names, table/field names, business concepts, file paths, customer
+names, or server names. Use generic parser-shape language such as "production
+validation exposed a cross-subtree join predicate placement bug."
 
 For each fixture under `Testing/Fixtures/`, the harness:
 
@@ -543,7 +593,7 @@ Releases are created from the `master` branch. The add-in is self-installing - u
 | File | Purpose |
 |------|---------|
 | `vcs-options.json` | Per-project configuration (export folder, options, etc.) |
-| `vcs-index.json` | Change tracking index (do not edit manually) |
+| `vcs-index.idx` | Change tracking index, binary format (do not edit manually). Use `VCSIndex.DumpToJson` for a human-readable dump. |
 | `project.json` | Database file format version |
 | `vbe-references.json` | VBA library references |
 | `dbs-properties.json` | Database properties |

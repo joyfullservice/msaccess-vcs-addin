@@ -81,6 +81,160 @@ contradictory guidance.
 
 ---
 
+## 2026-05-04 — Gate deterministic query export behind `UseDeterministicQueryExport` option
+
+**Trigger**: The new MSysQueries-based export path (`clsQueryComposer` + `clsDbQuery.ExportNewFormat`) is a large architectural change covering SQL reconstruction, Design View vs SQL View arbitration, `LvExtra`/`LvProp` layout handling, and qdef generation. Despite a 40+ fixture regression corpus, undiscovered edge cases are likely in real-world databases with thousands of queries. Users need a fallback to continue development while parser bugs are resolved.
+
+**Options explored**:
+- **Always-on behind export-format-version only** (`EFV_5_0_0`): rejected. Format version gating prevents format-version downgrade but offers no escape hatch if the new code path has a runtime bug on a specific query. The user is stuck until a fix ships.
+- **Per-query toggle** (e.g. a list of query names that use legacy export): rejected. Too granular — the user would have to identify each failing query individually, and the option surface is unwieldy.
+- **Ship as beta/preview flag** (hidden, not in the UI): rejected. No existing flag infrastructure in the add-in; a hidden option is easily forgotten and hard to document.
+- **User-visible boolean option** (chosen): `UseDeterministicQueryExport` in `clsOptions`, default `True`, exposed as a checkbox on the Export Options form. When `False`, `clsDbQuery` routes to the legacy `SaveAsText`-based `.qdef` export. Simple, discoverable, one click to revert.
+
+**Decision**: Add `UseDeterministicQueryExport` as a user-visible boolean option (default `True`). The export path in `clsDbQuery` checks this option: when enabled, queries export as `.sql` + `.json` via `clsQueryComposer`; when disabled, queries export as `.qdef` via `SaveAsText`. Import remains extension-based regardless of this setting — `.sql` files always use the new import path, `.qdef` files always use the legacy path. This decouples the export rollout from the import path, ensuring users can always build from source regardless of which format was used to export.
+
+**What this rules out**: Removing the option without a follow-up decision — the escape hatch is a shipped contract until the new path has proven stable across a broad user base. Making the option affect import behavior — import must always handle both formats since a repository may contain a mix of `.sql` and `.qdef` files from different contributors or time periods.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/clsOptions.cls`, `Version Control.accda.src/forms/frmVCSOptionsExport.cls`, `Version Control.accda.src/forms/frmVCSOptionsExport.form`, `Version Control.accda.src/vcs-options.json`, `Version Control.accda.src/modules/Components/clsDbQuery.cls` (gate check in export path).
+
+---
+
+## 2026-05-01 — Pass-through queries bypass SQL formatter and composer entirely
+
+**Trigger**: Exporting a database containing `dbQSQLPassThrough` queries crashed `clsSqlFormatter` with "Unable to parse SQL after position N" — the formatter's tokenizer is designed for Access SQL syntax and cannot handle T-SQL, PL/SQL, or other server-side dialects that pass-through queries may contain.
+
+**Options explored**:
+- **Teach the formatter about T-SQL/PL-SQL**: rejected. Scope explosion — every server dialect has its own syntax, reserved words, quoting rules, and comment styles. The formatter would become a multi-dialect parser with no clear boundary.
+- **Format only the SELECT-like subset** (heuristic detection of "looks like Access SQL"): rejected. Fragile — any heuristic would produce false positives on server SQL that happens to resemble Access SQL, silently corrupting the stored query text.
+- **Detect and bypass entirely** (chosen): Check `QueryDef.Type` for `dbQSQLPassThrough` (112) and `dbQSPTBulk` (144) early in `clsDbQuery.ExportNewFormat`. Store the SQL verbatim — no formatting, no decomposition through `clsQueryComposer`, no MSysQueries reconstruction. The `Connect` string is captured via `QueryDef.Connect` with an `ODBC;` placeholder fallback.
+
+**Decision**: Pass-through query types are detected at the top of the export path and routed to a verbatim-storage branch. SQL is written as-is to the `.sql` file. The `.json` metadata includes `QueryType` so the import path knows to skip `LoadFromText` qdef generation and use `CreateQueryDef` directly. `clsSqlFormatter` and `clsQueryComposer` are never invoked for these query types.
+
+**What this rules out**: Future attempts to "fix" the formatter or composer for non-Access SQL dialects — pass-through SQL must always be stored verbatim. If a future need arises to pretty-print server SQL (e.g. for diff readability), it must be a separate, opt-in formatter that does not share code paths with the Access SQL formatter.
+
+**Relevant files**: `Version Control.accda.src/modules/Components/clsDbQuery.cls` (type detection and verbatim export/import), `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` (`ConnectString` property for SQL View qdef emission), `Testing/Fixtures/queries/passthrough/qryPassThroughNoConnect.*` (regression fixture).
+
+---
+
+## 2026-04-29 — Replace `Dir()` and FSO folder scanning with Win32 API (`FindFirstFileW`)
+
+**Trigger**: Export profiling on a large database (`db-sec`, ~3,500 components) showed orphan scanning and file-extension migration checks dominated the "no changes" export time. Two separate problems: (1) `Dir()` does not support Unicode filenames — it silently skips or fails on paths containing non-ASCII characters, which Access databases frequently contain (accented characters, CJK object names). (2) `Scripting.FileSystemObject` (FSO) folder enumeration is correct but slow — each `oFolder.Files` / `oFolder.SubFolders` iteration creates COM proxy objects with per-item round-trip overhead.
+
+**Options explored**:
+- **FSO-only** (drop `Dir()`, keep FSO for all scanning): rejected. Correct for Unicode but too slow — FSO `GetFolder().Files` on a 500-file export folder added measurable latency per component type during orphan cleanup.
+- **`Dir()` with Unicode workarounds** (e.g. short 8.3 names, `Dir$` variants): rejected. Fragile — 8.3 name generation is optional on NTFS and disabled by default on modern Windows; `Dir$` has the same Unicode limitation as `Dir`.
+- **Shell out to PowerShell** (`Get-ChildItem`): rejected. Process startup overhead per invocation; unsuitable for hot paths called hundreds of times per export.
+- **Win32 API via `FindFirstFileW` / `FindNextFileW`** (chosen): Single kernel call enumerates all entries in one pass with full Unicode support. Wrapped in `modFileWinAPI.bas` as `ScanFolderContents` (returns files + subfolders in one pass) and `FilePatternExists` (O(1) early-exit check for wildcard matches).
+
+**Decision**: Blanket prohibition on `Dir()` in all add-in code — documented in `AGENTS.md` under "File System Operations". All folder scanning converted to Win32 API wrappers in `modFileWinAPI.bas`. `modOrphaned.ScanFolderForOrphans` now takes a `String` path instead of a `Scripting.Folder` object. `modFileAccess.ClearFilesByExtension` and `modSourceUpgrade.RenameFilesInFolder` use `FilePatternExists` for early exit before attempting FSO operations.
+
+**What this rules out**: Any future use of `Dir()` without an explicit follow-up decision overriding this one. New file-scanning code must use the `modFileWinAPI` wrappers or FSO (for cases where the API wrappers don't yet cover the need, e.g. recursive glob patterns). FSO remains acceptable for targeted single-file operations (`FSO.FileExists`, `FSO.GetFile`) where COM overhead is negligible.
+
+**Relevant files**: `Version Control.accda.src/modules/Utility/modFileWinAPI.bas` (new wrappers), `Version Control.accda.src/modules/Core/modOrphaned.bas` (orphan scan converted), `Version Control.accda.src/modules/Utility/modFileAccess.bas` (`ClearFilesByExtension` converted), `Version Control.accda.src/modules/Core/modSourceUpgrade.bas` (`FilePatternExists` guard), `AGENTS.md` ("File System Operations" section).
+
+---
+
+## 2026-04-29 — Reconstruct stored query attributes instead of normalizing them away
+
+**Trigger**: The SEC `ValidateQuerySqlBuilder` run flagged 398 queries for
+review. Most were harmless formatting or commutative join predicates, but a
+small set showed stored MSysQueries attributes being dropped: external
+make-table targets (`Attribute 1 Name2`), parameter declarations
+(`Attribute 2 Name1/Flag`), action-query `DISTINCTROW` (`Attribute 3 bit 8`),
+and UNION `ORDER BY` rows (`Attribute 11`).
+
+**Options explored**:
+- **Broaden the validation canonicalizer**: rejected for these cases. It would
+  hide real reconstruction loss, especially external destination paths and
+  UNION ordering.
+- **Treat action-query `DISTINCTROW` as semantic noise**: rejected. It may be
+  benign for many queries, but Access stores it explicitly and users expect
+  export/import fidelity.
+- **Preserve the stored attributes in `clsQueryComposer`**: chosen. The builder
+  already reads the MSysQueries row stream; the missing behavior belongs at
+  reconstruction and parsing boundaries, not in downstream formatter rules.
+
+**Decision**: `clsQueryComposer` reconstructs the stored attributes directly:
+external targets emit `IN '<path>'`, Attribute 2 rows become `PARAMETERS`
+clauses, UPDATE/DELETE emit `DISTINCTROW` when bit 8 is set, UNION appends
+stored `ORDER BY`, and aliases use a wider Access reserved/contextual keyword
+set for bracketing.
+
+**What this rules out**: Do not classify these as formatting-only review
+cases, and do not solve them by changing only `modTestQuerySqlBuilder`.
+Canonical comparison is allowed to ignore presentation drift, but not loss of
+stored query attributes.
+
+**Relevant files**: `Version Control.accda.src/modules/Utility/clsQueryComposer.cls`,
+`Testing/Fixtures/queries/regression/qryRegressionExternalMakeTable.*`,
+`qryRegressionParameterizedCrosstab.*`, `qryRegressionUnionOrderBy.*`,
+`qryRegressionDeleteDistinctRow.*`, `qryRegressionUpdateDistinctRow.*`,
+`qryRegressionReservedAlias.*`, `docs/access-query-storage.md`.
+
+---
+
+## 2026-04-28 — Replace JSON index with binary `.idx` format and promote `clsVCSIndexItem` to persistent storage
+
+**Trigger**: On a large database (db-sec: ~3,500 component entries), the `vcs-index.json` file grew to 1.5MB / 40K lines. Parsing it via `modJsonConverter.ParseJson` consumed 1.5-2.2s per export — nearly half the total runtime for a no-changes export. The bottleneck was threefold: three `Replace()` calls stripping whitespace from a 1.5MB string, character-by-character recursive descent creating ~10,000 `Scripting.Dictionary` COM objects, and ~3,500 ISO 8601 date string parses.
+
+**Options explored**:
+- **SQLite sidecar database**: Maximum query flexibility and proven binary format. Rejected: requires distributing and maintaining an external DLL dependency (`sqlite3.dll`), version management across 32/64-bit Access, and introduces a non-VBA dependency for a core infrastructure component.
+- **ACE/DAO sidecar `.accdb`**: Zero-dependency since the Jet/ACE engine is always present. Considered seriously, but rejected: adds file locking complexity, requires schema migrations for index structure changes, and the overhead of opening a second database connection on every export.
+- **Optimized JSON (minified, pre-sorted)**: Marginal improvement. The fundamental bottleneck is the recursive descent parser and COM object creation, not whitespace. Would not change the O(n) string manipulation cost.
+- **Custom binary flat file** (chosen): A length-prefixed binary format using VBA's native UTF-16LE string encoding and raw `Double` dates. Eliminates all JSON parsing overhead. Dates stored as UTC for cross-timezone portability. File size drops ~73% (1.5MB to ~400KB). Load time drops ~90-95% (1.5s to ~0.05-0.15s).
+
+**Decision**: Two coordinated changes in `clsVCSIndex.cls`:
+
+1. **Binary format**: `vcs-index.json` replaced by `vcs-index.idx`. Format is: 4-byte magic (`VCSI`), 2-byte version (UInt16 LE), global date properties (UTC doubles), length-prefixed category hashes, then per-category component entries with a flags byte controlling which optional hash strings are present. Strings are length-prefixed UTF-16LE (VBA native, zero conversion cost). Dates use `LSet` UDT punning for `Double` <-> `Byte()` conversion (no `CopyMemory` dependency). UTC conversion uses existing `ConvertToUtc`/`ConvertToLocalDate` from `modUtcConverter.bas`.
+
+2. **Entry storage refactoring**: `clsVCSIndexItem` promoted from a throwaway view object (created fresh on every `Item()` call, linked to a per-entry `Dictionary` via `dParent`) to persistent storage (stored directly in `m_dIndex("Components")(category)(filename)`). Eliminates ~3,500 per-entry `Dictionary` objects. The `dParent` property was removed from `clsVCSIndexItem`. The public API (`Item`, `Update`, `Remove`, `Exists`) is unchanged — callers still receive `clsVCSIndexItem` objects.
+
+No backward compatibility: if `vcs-index.idx` is missing and `vcs-index.json` is found, the legacy file is deleted. The next full export regenerates the binary index. No export format version gating since the index is gitignored and local.
+
+A `DumpToJson` method is available for troubleshooting — it reconstructs a temporary `Dictionary` tree and serializes it through the existing JSON pipeline.
+
+**What this rules out**: The index can no longer be inspected with a text editor or `jq`. Use `VCSIndex.DumpToJson` (from the Immediate Window or via `vcs_run_vba`) to generate a human-readable JSON snapshot. Any future index schema changes must bump `IDX_FORMAT_VERSION` and handle the version mismatch in `LoadFromFile` (currently treats unknown versions as corrupt, triggering a full re-export). Adding new fields to `clsVCSIndexItem` requires updating both `Save` (write the field) and `LoadFromFile` (read it), plus bumping the format version.
+
+**Relevant files**: `clsVCSIndex.cls` (binary I/O, entry storage refactoring), `clsVCSIndexItem.cls` (removed `dParent`), `.gitignore` / `.gitignore.default` (changed `vcs-index.json` to `vcs-index.*`).
+
+---
+
+## 2026-04-28 — Handle FROM-clause subqueries at the emitter (`BuildFromClause`), not upstream in `ReconstructSQL` Case 5
+
+**Trigger**: A user reported that `clsQueryComposer.ReconstructSQL` was emitting `FROM   AS % $ ##@_Alias;` for queries with a derived table in the FROM clause (subquery), losing the entire subquery body. Two coordinated bugs: the FROM emitter read MSysQueries `Name1` (NULL for derived tables) instead of `Expression` (the inner SELECT), and `BracketIfNeeded` did not bracket the `%$##@_Alias` placeholder, so `clsSqlFormatter` then tokenized `%`, `$`, `#`, `@` as separate operators. See [docs/access-query-storage.md § 6](docs/access-query-storage.md) for the empirical evidence and [regression/qryRegressionFromSubquery](Testing/Fixtures/queries/regression/qryRegressionFromSubquery.sql) for the pinned shape.
+
+**Options explored**:
+- **Detect derived tables in `ReconstructSQL` Case 5 and pre-populate `name = "(" & expression & ")"`**: rejected. Attribute 5 has the same shape (Name1 empty, Name2 = alias / segment id, Expression contains a SELECT) for both derived tables *and* UNION segments. UNION segments go through the dedicated case 9 branch (line 321) which reads `expression` directly and never reaches the FROM emitter. Mutating `name` upstream couples the derived-table fix to UNION processing -- benign today (case 9 doesn't read `name`), but every future maintainer of the UNION branch would have to remember the upstream rewrite. Fragile.
+- **Read `Expression` directly inside `BuildFromClause` whenever `Name1` is empty**: rejected for code-clarity reasons. The check would have to repeat at three call sites (the no-joins branch line 672, the join-chain `dTableLookup` line 697, and the cartesian fallback line 727), and each site would conflate "is this a derived table" with "format this as a FROM operand." Hard to grep for, easy to miss when adding a fourth FROM emission path.
+- **Force Design View qdef for FROM-subquery shapes (mirroring the multi-cond `ON` workaround)**: rejected. `IsDesignerCompatible` already returns False for `HasSubqueries`, so the importer correctly emits SQL View qdef -- which `LoadFromText` accepts. Forcing Design View would re-introduce the legacy 4.x `InputTables.Name = "<entire SELECT>"` / `Alias = "%$##@_Alias"` shape that `LoadFromText` rejects with "Resource failure" (the original user bug). The export reconstruction is the right fix layer.
+- **Centralize at the emitter via a `FormatInputTableName` helper**: chosen. Single function captures the "render an input table for a FROM clause" rule (derived-table → `(<expr>)`, normal → `BracketIfNeeded(name)`); all three FROM emission sites now route through it. UNION processing is unaffected because case 9 never calls the helper.
+
+**Decision**: Handle FROM-clause derived tables centrally at the emitter (`BuildFromClause` via the new private helper `FormatInputTableName`), and broaden `BracketIfNeeded` via a new `HasNonIdentChars` predicate to bracket any identifier with characters outside `[A-Za-z0-9_]`. The two fixes are coordinated -- without the bracketing fix the formatter still mangles the alias even with the subquery correctly emitted; without the emitter fix the alias is correct but references nothing.
+
+**What this rules out**: Refactoring the derived-table handling back into `ReconstructSQL` Case 5 (the more "intuitive" location) -- doing so re-couples the fix to UNION processing and makes future UNION changes risky. Loosening `HasNonIdentChars` to accept additional characters (e.g. `?`, `!`, `#` in pre-bracketed contexts) -- the simpler "alphanumeric + underscore only" rule covers all known Access auto-generated alias shapes (`%$##@_Alias`, `~sq_*`, `~TMPCLP*`) and matches what `[...]` brackets already escape, so any expansion would need a fixture proving the looser rule is needed. Reverting to single-call-site bracketing in `BracketIfNeeded` (e.g. only checking spaces) -- the formatter's tokenization of `%`, `$`, `#`, `@` is the actual constraint and is independent of identifier choice.
+
+**Relevant files**: Modified: `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` (added `FormatInputTableName`, `HasNonIdentChars`; extended `BracketIfNeeded`; routed three FROM emission sites through `FormatInputTableName`). New: `Testing/Fixtures/queries/regression/qryRegressionFromSubquery.{sql,json,notes.md}` (regression pin). Updated: `docs/access-query-storage.md` §§ 4 and 6 (added "Derived table in FROM" row to handled-shapes table, new finding subsection documenting the bug + fix).
+
+---
+
+## 2026-04-27 — Adopt top-level `docs/` folder for internal reference documentation (separate from public-facing `Wiki/`)
+
+**Trigger**: Drafting the first long-form internal reference doc (`docs/access-query-storage.md`, ~28 KB synthesizing MSysQueries field semantics, Design View vs SQL View arbitration, the `LoadFromText` / `SaveAsText` asymmetries the round-trip harness exposed, and parser-handled-vs-known-gaps tables) raised the question of where this kind of content belongs. None of the existing venues fit cleanly: `Wiki/` is user-facing how-to that syncs to the public GitHub Wiki, `AGENTS.md` is workflow + standards, `DECISIONS.md` is the why-journal, and per-fixture `.notes.md` files are bug-specific. A long reference about how a third-party system (Access query storage) works and what the add-in depends on from it doesn't match any of those audiences.
+
+**Options explored**:
+- **Put the new doc in `Wiki/`**: rejected. Wiki pages sync to the public GitHub Wiki and are written for end users learning to use the add-in. A long internal reference about MSysQueries field bits, `Lv*` binary blobs, and `LoadFromText` rejection asymmetries dilutes the wiki for that audience and pulls maintenance attention away from the user-facing pages already there (`Options.md`, `FAQs.md`, `Supported-Objects.md`, etc.).
+- **Co-locate with the artifacts** (e.g. `Testing/Fixtures/queries/REFERENCE.md`): rejected. The query doc covers parser logic in `clsQueryComposer.cls` and `clsDbQuery.cls`, which live under `Version Control.accda.src/modules/`, so co-location with fixtures is a partial fit at best. More importantly, the same problem repeats for plausible future siblings (form storage, report storage, COM ribbon DLL, hook DLL): each would need its own scattered home, defeating consolidation. Per-artifact `.notes.md` for narrow bug-specific context is still the right pattern at that scope; long-form reference about a *family* of artifacts is a different shape.
+- **Embed the content into `AGENTS.md`**: rejected. `AGENTS.md` is already a long workflow/standards guide; absorbing multiple 20–30 KB references would bury the workflow guidance under reference material. `AGENTS.md` should *point at* `docs/` references (it now does, in the new "Before changing the query parser" subsection), not contain them.
+- **Top-level `docs/` folder**: chosen. Conventional OSS layout — a separate venue for developer/maintainer reference, distinct from user-facing wiki content. Future siblings (`access-form-storage.md`, `access-binary-formats.md`, `com-ribbon-addin.md`, `hook-dll-architecture.md`, etc.) cluster naturally without needing per-doc location decisions.
+
+**Decision**: Top-level `docs/` is the home for internal/agent-facing reference documentation about underlying systems and what the add-in depends on (Access internals, binary blob formats, COM ribbon architecture, hook DLL architecture, etc.). `Wiki/` continues to hold user-facing how-to material. A small `docs/README.md` index file is added now so the folder's intent is visible at the folder level and future contributors/agents don't have to infer it from a single existing entry.
+
+**What this rules out**: Putting future internal/maintainer reference material into `Wiki/` — the user/internal split is now load-bearing. Litmus test: if a doc's primary audience is end users learning the product, `Wiki/`; if it's a developer/agent reference about how something works internally or what we depend on, `docs/`. Co-locating long-form reference docs with their artifacts (per-artifact `.notes.md` companions for narrow bug-specific context still belong with the artifact; long-form references about a family of artifacts go in `docs/`). Treating `docs/` as a dumping ground for one-shot or session-scoped notes — entries here are sustained reference material, edited as understanding evolves; one-shot architectural rationale belongs in `DECISIONS.md`, and bug-specific context belongs in a `.notes.md`.
+
+**Relevant files**: New: `docs/access-query-storage.md` (first reference doc, seed of the family), `docs/README.md` (folder index). Cross-references already in place: `Testing/Fixtures/README.md` ("Documenting parser invariants and edge cases" section links to `docs/access-query-storage.md`), `Version Control.accda.src/AGENTS.md` ("Before changing the query parser" subsection links the same doc).
+
+---
+
 ## 2026-04-24 — Object round-trip regression harness lives inside the add-in, fixtures are versioned text files, queries pilot the IDbComponent abstraction, and the public surface routes through `clsVersionControl`
 
 **Trigger**: Post-`clsQueryComposer` work on the SQL/JSON query format surfaced ~723 affected queries in `db-sec` from a single self-join alias bug (`qryCurrencyCrossRates` archetype). Manual repro-and-fix is unsustainable as more edge cases land. Traditional VBA unit testing (Rubberduck-style or hand-rolled) would require hundreds of fixture queries hard-coded into the add-in — thousands of lines of VBA permanently loaded into memory in every running instance, for code paths that are only exercised during development. A different shape was needed.

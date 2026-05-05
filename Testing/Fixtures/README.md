@@ -157,6 +157,112 @@ report and the permanent regression test are literally the same artifact.
 - [ ] If the fixture depends on a scaffold object, that object is added to
       `_scaffold/` and is also sanitized.
 
+Fixture notes (`*.notes.md`) must be sanitized too. Do not name the source
+database, source query, customer/project, table, field, path, or business
+domain that exposed the bug. Describe the generic parser shape instead, e.g.
+"a production validation run exposed a cross-subtree join predicate placement
+bug" rather than naming the production query or its business objects.
+
+## Documenting parser invariants and edge cases
+
+A round-trip fixture pins a specific shape, but most non-trivial parser
+work also produces durable knowledge that doesn't fit inside one fixture
+file: cross-cutting design decisions, Access-API quirks, format-level
+references, and the running list of "things we know we don't yet handle."
+Future agents lose this knowledge silently if it isn't captured somewhere
+discoverable.
+
+The repo uses **four layers** of documentation, each with a distinct
+trigger. Every non-obvious parser fact should land in at least one layer;
+cross-references between layers are encouraged.
+
+| Layer | Lives at | Trigger |
+|-------|----------|---------|
+| **Reference doc** | [docs/access-query-storage.md](../../docs/access-query-storage.md) | "Is this a stable fact about how Access stores queries, or about which shapes our parser does/doesn't handle?" |
+| **DECISIONS.md** | [DECISIONS.md](../../DECISIONS.md) at repo root | "Would the next agent reasonably try the rejected approach again? Did we evaluate alternatives that aren't obvious from the code?" Append-only journal. |
+| **`.notes.md` beside a fixture** | `Testing/Fixtures/queries/<category>/<name>.notes.md` | "Is there a single SQL pattern that demonstrates this? What would re-break it?" |
+| **Procedure-header comment** | Inside the `.cls` / `.bas` source | "Would someone reading just this function be confused without context the body itself doesn't carry?" Add an `INVARIANT:` or `EDGE CASE:` callout. |
+
+The four layers are complementary, not exclusive. A new finding often
+warrants entries in two or three of them — for example, the
+multi-condition `ON` `LoadFromText` rejection finding lives as a
+fact in [docs/access-query-storage.md § 6](../../docs/access-query-storage.md),
+as a decision rationale (alternatives ruled out) in `DECISIONS.md`, and as
+a regression pin in
+[regression/qryRegressionMultiCondJoin.notes.md](queries/regression/qryRegressionMultiCondJoin.notes.md).
+
+### Before you change `clsQueryComposer.cls` or `clsDbQuery.cls`
+
+The parser carries hard-won decisions in places that are not always
+obvious from a casual read. Before modifying either class, do this short
+read pass:
+
+1. **Read the parser reference.** Skim
+   [docs/access-query-storage.md](../../docs/access-query-storage.md) §§ 4
+   and 5 for the shape you're about to alter. § 4 tells you which
+   fixtures exercise it; § 5 tells you whether we have a known gap that
+   touches it.
+2. **Search `DECISIONS.md`.** Run `rg "clsQueryComposer" DECISIONS.md -A 30`
+   (or the corresponding search for `clsDbQuery`). Recent entries cover
+   SQL reconstruction fidelity, the Design / SQL view fallback, column
+   metadata serialization, and the composer's error-handling shape.
+3. **Skim the regression fixtures.**
+   `Testing/Fixtures/queries/regression/*.notes.md` — each one is a
+   1-paragraph description of what would re-break if a careful decision
+   were reverted.
+4. **Read the procedure-header comments.** Functions like
+   `RequiresDesignView`, `IsDesignerCompatible`, `HasTopLevelBoolean`,
+   `ParseJoinExpression`, `SafeBreak`, and `EmitDbMemoSql` carry
+   constraints in their headers that the body alone does not convey.
+
+### Worked example: multi-condition `ON`
+
+Concrete example of the four layers working together for a single
+finding:
+
+- **Reference doc.**
+  [docs/access-query-storage.md § 6](../../docs/access-query-storage.md)
+  records the empirical fact: Access's
+  `Application.SaveAsText` produces a `dbMemo "SQL"` qdef for queries
+  with multi-condition `ON`, but `Application.LoadFromText` rejects the
+  same file. This is not in the upstream Riddington documentation;
+  it's specific to our use of `LoadFromText` for import.
+- **DECISIONS.md.** The rationale entry (when added in the deferred
+  follow-up pass) records the alternatives that were ruled out — for
+  example, "fall back to setting `QueryDefs(name).SQL` directly like the
+  legacy path does" was rejected because the new pipeline can choose its
+  qdef shape rather than receive one.
+- **`.notes.md`.** [regression/qryRegressionMultiCondJoin.notes.md](queries/regression/qryRegressionMultiCondJoin.notes.md)
+  pins the specific SQL shape and explains what would re-break it.
+- **Procedure-header comment.** `clsQueryComposer.RequiresDesignView`
+  carries an `' INVARIANT:` callout that names the shape and points back
+  at both the fixture and the reference doc.
+
+### `INVARIANT:` and `EDGE CASE:` comment convention
+
+Two lightweight tags for in-code callouts that are intentionally
+greppable:
+
+- `' INVARIANT:` — "this must remain true; reverting this is a known
+  regression." Used at the call site or the procedure header for any
+  property the implementation is deliberately upholding.
+- `' EDGE CASE:` — "Access (or some other dependency) does this weird
+  thing here; the surrounding code is the workaround." Used at the
+  workaround site.
+
+Both end with a pointer to the other layer(s) carrying the full story:
+
+```vba
+' INVARIANT: multi-condition ON cannot survive a SQL View qdef round-trip;
+' Access's LoadFromText rejects what its own SaveAsText produces. We force
+' Design View import for this shape via RequiresDesignView.
+' See: docs/access-query-storage.md § 6, regression/qryRegressionMultiCondJoin
+```
+
+The convention is already in informal use on the procedure headers for
+`RequiresDesignView`, `SafeBreak`, and `EmitDbMemoSql`; the tags above
+are the canonical form for new callouts.
+
 ## Naming convention
 
 Test-infrastructure modules use the `modTest*` family prefix
