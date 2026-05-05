@@ -379,12 +379,24 @@ End Function
 '
 Public Function IDbComponent_IsModified() As Boolean
 
-    ' The modified date for the object changes frequently with compile/save operations,
-    ' so use the hash instead to detect changes.
+    ' Fast path: if the VBE project has no unsaved changes and the
+    ' VBA project date matches the stored VBAProjectDate, skip the
+    ' expensive VBA code hash. (Access saves all modules as a monolithic
+    ' project, so all module dates move in lockstep -- we only need to
+    ' check one date against a single top-level stored value.)
+    If CurrentVBProject.Saved Then
+        If VCSIndex.VBAProjectDate <> 0 Then
+            If DateTruncToSeconds(CurrentProject.AllModules(0).DateModified) = VCSIndex.VBAProjectDate Then
+                GoTo CheckMetadata
+            End If
+        End If
+    End If
 
+    ' VBE is dirty or date changed -- hash the code to detect changes.
     ' NOTE: This will not detect changes to hidden VBE attributes
     IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
 
+CheckMetadata:
     ' Check metadata (Description/Hidden) which don't update DateModified
     If Not IDbComponent_IsModified Then
         IDbComponent_IsModified = VCSIndex.Item(Me).MetaHash <> _

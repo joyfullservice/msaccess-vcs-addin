@@ -26,6 +26,7 @@ Public MergeBuildDate As Date
 Public FullBuildDate As Date
 Public ExportDate As Date
 Public FullExportDate As Date
+Public VBAProjectDate As Date
 Public Disabled As Boolean
 
 ' Git integration
@@ -48,7 +49,7 @@ Private m_strTempExportFolderPath As String
 
 ' Binary index format
 Private Const cstrIdxMagic As String = "VCSI"
-Private Const cintIdxFormatVersion As Integer = 2
+Private Const cintIdxFormatVersion As Integer = 3
 Private Const cstrLegacyFileName As String = "vcs-index.json"
 
 ' Optional field flags for component entries
@@ -152,6 +153,7 @@ Public Sub LoadFromFile(Optional strFile As String)
     Me.ExportDate = ReadUtcDate(bData, lngPos)
     Me.FullExportDate = ReadUtcDate(bData, lngPos)
     Me.LastMergedCommit = ReadLPS(bData, lngPos)
+    Me.VBAProjectDate = ReadUtcDate(bData, lngPos)
 
     ' Read category hashes
     lngHashCount = ReadUInt32(bData, lngPos)
@@ -263,6 +265,7 @@ Public Sub Save(Optional strInFolder As String)
     WriteUtcDate Me.ExportDate
     WriteUtcDate Me.FullExportDate
     WriteLPS Me.LastMergedCommit
+    WriteUtcDate Me.VBAProjectDate
 
     ' Category hashes
     Set dCatHashes = m_dIndex("CategoryHashes")
@@ -385,7 +388,13 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         ' Save the object's DateModified for accurate change detection.
         ' Truncate to seconds since serialization cannot preserve sub-second
         ' precision, and Access DateModified may carry fractional seconds.
-        .ObjectDate = DateTruncToSeconds(cItem.DateModified)
+        ' For modules, use the top-level VBAProjectDate instead (all module
+        ' dates are always identical since Access saves VBA as a monolith).
+        If cItem.ComponentType = edbModule Then
+            Me.VBAProjectDate = DateTruncToSeconds(cItem.DateModified)
+        Else
+            .ObjectDate = DateTruncToSeconds(cItem.DateModified)
+        End If
 
         ' Save timestamp and property hash of exported source file.
         ' (Skip for alternate exports -- the canonical source file may not
@@ -1112,6 +1121,7 @@ Public Sub DumpToJson(Optional strPath As String)
     dDump.Add "ExportDate", ZNDate(Me.ExportDate)
     dDump.Add "FullExportDate", ZNDate(Me.FullExportDate)
     dDump.Add "LastMergedCommit", Me.LastMergedCommit
+    dDump.Add "VBAProjectDate", ZNDate(Me.VBAProjectDate)
     Set dDump("CategoryHashes") = m_dIndex("CategoryHashes")
 
     ' Convert clsVCSIndexItem entries to Dictionaries
@@ -1382,6 +1392,7 @@ Private Sub Class_Initialize()
         .Add "FullBuildDate", Null
         .Add "ExportDate", Null
         .Add "FullExportDate", Null
+        .Add "VBAProjectDate", Null
         .Add "LastMergedCommit", vbNullString
         Set .Item("CategoryHashes") = New Dictionary
         Set .Item("Components") = New Dictionary

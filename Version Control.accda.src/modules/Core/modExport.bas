@@ -188,13 +188,27 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Perf.OperationEnd
     End If
 
-    ' Close any open database objects.
+    ' Close open database objects and save unsaved VBA changes.
+    ' Pause timing so user interaction doesn't affect performance.
+    Perf.PauseTiming
     If Not CloseDatabaseObjects Then
+        Perf.ResumeTiming
         MsgBox2 T("Please close all database objects"), _
             T("All database objects (i.e.forms, reports, tables, queries, etc...) must be closed to export source code."), _
             , vbExclamation
-        Exit Sub
+        Operation.ErrorLevel = eelCritical
+        GoTo CleanUp
     End If
+
+    ' Save unsaved VBA project changes so exported source reflects
+    ' the current state of the code. (Analogous to closing forms/reports
+    ' which forces a save decision on layout changes.)
+    If Not CurrentVBProject.Saved Then
+        If CurrentProject.AllModules.Count > 0 Then
+            DoCmd.Save acModule, CurrentProject.AllModules(0).Name
+        End If
+    End If
+    Perf.ResumeTiming
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections

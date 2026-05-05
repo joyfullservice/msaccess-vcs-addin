@@ -1903,3 +1903,45 @@ Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", 
 - `tools.py` — `vcs_set_option` registers session, `vcs_end_session` tool added
 
 ---
+
+## 2026-05-05 — VBProject.Saved + DateModified fast path for VBA code hashing
+
+**Trigger**: Fast-save exports were spending significant time hashing every VBA module's code (via `GetCodeModuleHash` → `CodeModule.Lines(1, 999999)` → SHA256) even when no VBA code had changed since the last export. For a project with 110+ modules, the "Get VBA Hash" operation dominated the scan phase.
+
+**Key empirical findings** (tested against `Version Control.accda` with 110 modules, 17 forms):
+
+1. `VBProject.Saved` (Boolean) reliably detects all unsaved VBE changes, including VBA's automatic case-sync propagation across modules. Goes `False` on any in-memory edit, `True` after any save.
+2. `CurrentProject.AllModules(name).DateModified` is a VBE-level property (NOT from `MSysObjects`). Always identical across all modules. Updates in real-time from VBE memory, even without saving.
+3. `MSysObjects.DateUpdate` is a separate DAO-level per-row write timestamp with millisecond precision. Only updates on actual disk writes. Does NOT reflect VBE code edits. DOES reflect DAO property changes (e.g., Description). These are two completely different dates from different subsystems.
+4. Saving any single module triggers a full VBA project write that updates `DateModified` on all 110 modules simultaneously. Saving a form's code-behind also updates all 110 module dates, but only that form's `DateModified` changes.
+5. `CurrentProject.AllModules` does NOT include form/report code-behind — those are `vbext_ct_Document` components in the VBE.
+
+**Options explored for the fast-path guard**:
+- **DateModified only** — rejected: VBA case-sync changes `CodeModule.Lines()` without updating `DateModified`, so the date alone could miss changes.
+- **Force compile-and-save before export** — rejected: would fail on uncompilable code, which the add-in must support exporting.
+- **VBProject.Saved + DateModified (chosen)** — `Saved = True` means no dirty VBE memory (covers case-sync); `DateModified` match confirms nothing was saved since last export. Both must pass to skip hashing.
+
+**Options explored for index storage of module dates**:
+- **Per-module ObjectDate (existing)** — rejected: all 110 values are always identical, and partial exports only update N entries, leaving the other 110-N stale until a full export "heals" them.
+- **Per-module ObjectDate with post-export healing pass** — rejected: unnecessary iteration when a single value suffices.
+- **Top-level VBAProjectDate (chosen)** — one value in the index, updated whenever any module is exported. Eliminates redundant storage, eliminates the healing problem, eliminates 110 per-module COM property reads during change detection.
+
+**Decision**: Two-tier guard in `clsDbModule.IsModified`: (1) `CurrentVBProject.Saved = True`, (2) `AllModules(0).DateModified = VCSIndex.VBAProjectDate`. When both pass, skip `GetCodeModuleHash` entirely. `MetaHash` check always runs (metadata changes don't affect `Saved` or `DateModified`). For forms/reports, the same `VBProject.Saved` guard skips the code-behind hash when the layout `DateModified` also matches.
+
+Additionally, unsaved VBA project changes are now persisted at the start of the export flow (alongside `CloseDatabaseObjects`), ensuring exported source always reflects the current VBE state and preventing the scenario where a user exports code then discards changes on close.
+
+**Performance results** (no-change fast-save export):
+- Before: 0.88s total, 127 `Get VBA Hash` calls (0.09s), 286 `Compute SHA256` calls (0.15s)
+- After: 0.44s total, 0 `Get VBA Hash` calls, 159 `Compute SHA256` calls (0.05s)
+- 50% faster overall; `Get VBA Hash` completely eliminated
+
+**What this rules out**: Per-module `ObjectDate` is no longer written for module components (other types still use it). The binary index format version was bumped from 2 to 3, so existing index files are rebuilt on first use. `MSysObjects.DateUpdate` was investigated but provides no advantage over `AllModules.DateModified` for VBA change detection. `CompileAndSaveAllModules` is intentionally NOT added to the export flow — it would break on uncompilable code.
+
+**Relevant files**:
+- `clsVCSIndex.cls` — new `VBAProjectDate` top-level property, format version 3, `Update` sets `VBAProjectDate` instead of per-module `ObjectDate` for modules
+- `clsDbModule.cls` — `IsModified` uses `VBProject.Saved` + `VBAProjectDate` fast path
+- `clsDbForm.cls` — `IsModified` skips code-behind hash when `VBProject.Saved = True` and layout date matches
+- `clsDbReport.cls` — same as `clsDbForm.cls`
+- `modExport.bas` — saves VBA project before export scan, wraps `CloseDatabaseObjects` in `Perf.PauseTiming`/`ResumeTiming`, fixes `Exit Sub` → `GoTo CleanUp` with `eelCritical`
+
+---

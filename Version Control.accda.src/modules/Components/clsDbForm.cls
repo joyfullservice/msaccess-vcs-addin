@@ -240,11 +240,14 @@ Public Function IDbComponent_IsModified() As Boolean
     IDbComponent_IsModified = True
 
     ' Check the modified date first.
-    ' (This may not reflect some code changes)
     If DateTruncToSeconds(m_Form.DateModified) = VCSIndex.Item(Me).ObjectDate Then
 
-        ' Date is okay, check hash
-        IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+        ' Layout unchanged. Only hash code if the VBE project is dirty.
+        If Not CurrentVBProject.Saved Then
+            IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+        Else
+            IDbComponent_IsModified = False
+        End If
     End If
 
     ' Check metadata (Description/Hidden) which don't update DateModified
