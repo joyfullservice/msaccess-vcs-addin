@@ -429,6 +429,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     Dim dCategory As Dictionary
     Dim dObjects As Dictionary
     Dim cDbObject As IDbComponent
+    Dim cDisabledIndex As clsVCSIndex
     Dim strTempFile As String
 
     ' Guard clause
@@ -448,26 +449,24 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     End With
 
     If blnNoIndex Then
-        ' Skip the expensive index load and options reload. The caller has already
-        ' set up Options and is treating this as a direct edit (agent-as-user).
-        VCSIndex.Disabled = True
-        Log.Clear
-        Log.SourcePath = Options.GetExportFolder
-        Log.Active = True
-        Perf.StartTiming
+        ' Skip expensive index conflict work, but still reload options so
+        ' MCP/API session overrides (e.g. ShowDebug) affect this export.
+        Set cDisabledIndex = New clsVCSIndex
+        cDisabledIndex.Disabled = True
+        Set VCSIndex = cDisabledIndex
     Else
-        ' Reload the project options and reset the logs
+        ' Reload the project index for normal single-object exports.
         Set VCSIndex = Nothing
-        Set Options = Nothing
-        Options.LoadProjectOptions
-        If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-            Options.LoadOptionOverrides
-        End If
-        Log.Clear
-        Log.SourcePath = Options.GetExportFolder
-        Log.Active = True
-        Perf.StartTiming
     End If
+    Set Options = Nothing
+    Options.LoadProjectOptions
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        Options.LoadOptionOverrides
+    End If
+    Log.Clear
+    Log.SourcePath = Options.GetExportFolder
+    Log.Active = True
+    Perf.StartTiming
 
     ' Check error handling mode after loading project options
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -577,7 +576,7 @@ CleanUp:
     End With
 
     If blnNoIndex Then
-        VCSIndex.Disabled = False
+        Set VCSIndex = Nothing
     ElseIf Not VCSIndex.Conflicts.UserCanceled Then
         ' Save index file (don't change export date for single item export).
         ' Skipped if the user canceled a conflict dialog so the same conflicts

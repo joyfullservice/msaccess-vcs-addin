@@ -698,14 +698,22 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
             If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
             Dim blnNoIndex As Boolean
+            Dim cDisabledIndex As clsVCSIndex
             blnNoIndex = (Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI)
 
             If blnNoIndex Then
-                VCSIndex.Disabled = True
+                ' Skip index persistence for direct agent/API exports, but still
+                ' reload options below so session overrides are honored.
+                Set cDisabledIndex = New clsVCSIndex
+                cDisabledIndex.Disabled = True
+                Set VCSIndex = cDisabledIndex
             Else
                 Set VCSIndex = Nothing
-                Set Options = Nothing
-                Options.LoadProjectOptions
+            End If
+            Set Options = Nothing
+            Options.LoadProjectOptions
+            If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+                Options.LoadOptionOverrides
             End If
             Log.Clear
             Log.SourcePath = Options.GetExportFolder
@@ -783,7 +791,7 @@ ExportCleanUp:
                 .Flush
             End With
             If blnNoIndex Then
-                VCSIndex.Disabled = False
+                Set VCSIndex = Nothing
             Else
                 VCSIndex.Save
             End If
