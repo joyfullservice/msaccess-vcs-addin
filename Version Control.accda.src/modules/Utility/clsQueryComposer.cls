@@ -1261,6 +1261,9 @@ Private Function InputTableSql(ByVal strRef As String, dTableLookup As Dictionar
     If dTableLookup.Exists(strRef) Then
         InputTableSql = CStr(dTableLookup(strRef))
     Else
+        AddBuilderWarning "Join reference '" & strRef & "' not found in FROM " & _
+            "table list; query may have corrupted MSysQueries storage. " & SqlSnippet(), _
+            ModuleName(Me) & ".InputTableSql"
         InputTableSql = BracketIfNeeded(strRef)
     End If
 End Function

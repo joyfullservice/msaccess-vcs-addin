@@ -774,6 +774,10 @@ ErrHandler:
     ' From here on, swallow secondary errors so a failure inside the
     ' artifact-writing fallback can't replace the original error info.
     On Error Resume Next
+    If lngErrNumber = 3334 And strCheckpoint = "QueryDefs.SQL" Then
+        strErrDescription = strErrDescription & _
+            " (Access cannot render SQL for this query -- it may have corrupted internal storage.)"
+    End If
     strArtifactFolder = WriteErrorArtifact(strArtifactRoot, strQueryName, _
         lngErrNumber, strErrDescription, strCheckpoint, _
         strGeneratedRaw, strGenerated, _
