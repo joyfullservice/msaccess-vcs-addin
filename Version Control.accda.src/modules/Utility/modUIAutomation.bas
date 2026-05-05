@@ -58,7 +58,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 2/21/2023
 ' Purpose   : Return the database object from the UI button
-'           : Supported languages: English, German, French
+'           : Supported languages: English, German, French, Dutch
 '---------------------------------------------------------------------------------------
 '
 Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElement As IUIAutomationElement) As AccessObject
@@ -79,13 +79,13 @@ Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElem
 
     ' Identify the item based on the image name
     ' This sadly depends on the Access language
-    If LikeAny(strImage, "Table*", "*Tabelle") Then
+    If LikeAny(strImage, "Table*", "*Tabel*") Then
         Set objItem = CurrentData.AllTables(strName)
     ElseIf LikeAny(strImage, "*Query", "*Abfrage", "Requête*") Then
         Set objItem = CurrentData.AllQueries(strName)
     ElseIf LikeAny(strImage, "Form*") Then
         Set objItem = CurrentProject.AllForms(strName)
-    ElseIf LikeAny(strImage, "Report", "Bericht", "État") Then
+    ElseIf LikeAny(strImage, "Report", "Rapport", "Bericht", "État") Then
         Set objItem = CurrentProject.AllReports(strName)
     ElseIf LikeAny(strImage, "Macro", "Makro") Then
         Set objItem = CurrentProject.AllMacros(strName)
