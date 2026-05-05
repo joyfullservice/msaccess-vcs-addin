@@ -57,11 +57,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Export as sanitized UTF-8 file
     ExportCodeModule m_Module.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
 
-    ' Export object metadata (doc properties + hidden attribute) into companion .json
-    If strAlternatePath = vbNullString Then
-        ExportObjectMetadata FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep _
-            & GetSafeFileName(m_Module.Name) & ".json", "Modules", m_Module.Name, acModule
-    End If
+    ' Export object metadata (doc properties + hidden attribute) into companion .json.
+    ' Produced for both normal and alternate-path (temp) exports so that conflict
+    ' detection can compare all files and the conflict dialog can offer per-file diffs.
+    ExportObjectMetadata FSO.GetParentFolderName(Nz2(strAlternatePath, IDbComponent_SourceFile)) & PathSep _
+        & GetSafeFileName(m_Module.Name) & ".json", "Modules", m_Module.Name, acModule
 
     ' Clean up stale files only during normal exports (not alternate/temp exports)
     If strAlternatePath = vbNullString Then

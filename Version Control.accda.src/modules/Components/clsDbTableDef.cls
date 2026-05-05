@@ -159,9 +159,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ' Collect object metadata (doc properties + hidden attribute) directly into
         ' the dictionary before serializing. This avoids the write-read-merge-rewrite
         ' cycle that ExportObjectMetadata would otherwise perform for linked tables.
-        If strAlternatePath = vbNullString Then
-            CollectObjectMetadata dItem, "Tables", m_Table.Name, acTable
-        End If
+        CollectObjectMetadata dItem, "Tables", m_Table.Name, acTable
 
         ' Write export file.
         strContent = BuildJsonFile(TypeName(Me), dItem, "Linked Table")
@@ -170,28 +168,34 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     End If
 
-    ' Additional processing when exporting to source folder
+    ' Export companion files (metadata .json, optional .sql).
+    ' These are produced for both normal and alternate-path (temp) exports
+    ' so that conflict detection can compare all files and the conflict
+    ' dialog can offer per-file diffs.
+    Dim strExportFolder As String
+    strExportFolder = FSO.GetParentFolderName(strFile) & PathSep
+
+    ' Export object metadata for local tables into a companion .json file.
+    ' Linked tables already have metadata included in their primary .json above.
+    If Not IsLinkedTable Then
+        ExportObjectMetadata strExportFolder & GetSafeFileName(m_Table.Name) & ".json", _
+            "Tables", m_Table.Name, acTable
+    End If
+
+    ' Remove any alternate source file in case we have switched formats
     If strAlternatePath = vbNullString Then
-
-        ' Export object metadata for local tables into a companion .json file.
-        ' Linked tables already have metadata included in their primary .json above.
-        If Not IsLinkedTable Then
-            ExportObjectMetadata IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".json", _
-                "Tables", m_Table.Name, acTable
-        End If
-
-        ' Remove any alternate source file in case we have switched formats
         RemoveAlternateFormatSourceFile
+    End If
 
-        ' Optionally save in SQL format
-        strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & ".sql"
-        If Options.SaveTableSQL And ((Not IsLinkedTable) Or Options.SaveLinkedTableDef) Then
-            Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
-            SaveTableSqlDef m_Table.Name, IDbComponent_BaseFolder
-        Else
-            ' Remove file if it exists
-            If FSO.FileExists(strFile) Then DeleteFile strFile
-        End If
+    ' Optionally save in SQL format
+    Dim strSqlFile As String
+    strSqlFile = strExportFolder & GetSafeFileName(m_Table.Name) & ".sql"
+    If Options.SaveTableSQL And ((Not IsLinkedTable) Or Options.SaveLinkedTableDef) Then
+        Log.Add "  " & m_Table.Name & " (SQL)", Options.ShowDebug
+        SaveTableSqlDef m_Table.Name, strExportFolder
+    ElseIf strAlternatePath = vbNullString Then
+        ' Remove stale SQL files only during real exports, not temp exports
+        If FSO.FileExists(strSqlFile) Then DeleteFile strSqlFile
     End If
 
     ' Update index

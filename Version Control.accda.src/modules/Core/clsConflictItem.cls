@@ -23,6 +23,7 @@ Public Operation As eIndexOperationType
 Public ActionType As eResolveConflict
 Public Resolution As eResolveConflict
 Public Suggestion As eResolveConflict
+Public DifferingFiles As Collection
 
 
 '---------------------------------------------------------------------------------------

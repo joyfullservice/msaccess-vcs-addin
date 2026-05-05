@@ -81,6 +81,22 @@ contradictory guidance.
 
 ---
 
+## 2026-05-05 — Multi-file conflict detection: per-file diff with per-component resolution
+
+**Trigger**: On first export (empty index) all table definitions showed as export conflicts even though the XML files were byte-identical. Root cause: `SourceMatches` compared all `FileExtensions` across source and temp directories, but companion files (`.json` metadata, `.sql` DDL) were never produced during temp/alternate-path exports — they were gated behind `If strAlternatePath = vbNullString`. The file-count mismatch caused every multi-file component to report a false conflict.
+
+**Options explored**:
+- **Relax `SourceMatches` to intersection-based comparison** (only compare files present in both directories): rejected. This masks the root cause — companion files simply aren't being exported. It also prevents the conflict dialog from ever diffing companion files, since they don't exist in the temp folder.
+- **Export all companion files during temp exports** (chosen): Fix the component `Export` methods to produce all files regardless of `strAlternatePath`. Destructive operations (stale file deletion, format switching) remain gated to real exports. This makes `SourceMatches` correct again and provides temp copies of every file for per-file diffs.
+
+**Decision**: Component `Export` methods (`clsDbTableDef`, `clsDbModule`) now produce companion files during alternate-path exports. `SourceMatches` was replaced with `GetDifferingFiles` which returns a `Collection` of file names that differ (or `Nothing` when all match). The conflict dialog writes one `tblConflicts` row per differing file (all sharing the same `ItemKey`), and a `cboResolution_AfterUpdate` handler propagates resolution to all sibling rows — keeping resolution atomic at the component level while allowing per-file diffs. Forms and reports are unaffected because their `FileExtensions` do not include `json` or `svg`.
+
+**What this rules out**: Per-file resolution (skip one file but overwrite another within the same component) — export/import operates atomically on whole components, so partial resolution would require fundamentally different import/export logic. If per-file resolution is ever needed, it would require splitting components into independently importable sub-units. Adding new file extensions to a component's `FileExtensions` now requires ensuring those files are also produced during alternate-path exports, or the strict count comparison in `GetDifferingFiles` will flag false conflicts.
+
+**Relevant files**: `clsDbTableDef.cls` (companion file export), `clsDbModule.cls` (metadata export), `clsVCSIndex.cls` (`GetDifferingFiles`, `GetExportConflictFiles`, `IsMergeConflict`), `clsConflictItem.cls` (`DifferingFiles` property), `clsConflicts.cls` (multi-row `SaveToTable`), `frmVCSConflictList.cls` (resolution propagation), `frmVCSConflictList.form` (`AfterUpdate` event wiring).
+
+---
+
 ## 2026-05-04 — Gate deterministic query export behind `UseDeterministicQueryExport` option
 
 **Trigger**: The new MSysQueries-based export path (`clsQueryComposer` + `clsDbQuery.ExportNewFormat`) is a large architectural change covering SQL reconstruction, Design View vs SQL View arbitration, `LvExtra`/`LvProp` layout handling, and qdef generation. Despite a 40+ fixture regression corpus, undiscovered edge cases are likely in real-world databases with thousands of queries. Users need a fallback to continue development while parser bugs are resolved.

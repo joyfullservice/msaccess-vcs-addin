@@ -762,6 +762,7 @@ Public Sub CheckExportConflicts(dDbComponents As Dictionary)
     Dim varKey As Variant
     Dim cItem As IDbComponent
     Dim sngStart As Single
+    Dim colFiles As Collection
 
     ' Capture start time so we can display some progress if this
     ' scan takes a while.
@@ -770,13 +771,14 @@ Public Sub CheckExportConflicts(dDbComponents As Dictionary)
     ' Loop through all components
     For Each varKey In dDbComponents.Keys
         Set cItem = dDbComponents(varKey)
-        If IsExportConflict(cItem) Then
-            ' Add to list of conflicts
+        Set colFiles = GetExportConflictFiles(cItem)
+        If Not colFiles Is Nothing Then
+            ' Add to list of conflicts with per-file detail
             Me.Conflicts.Add cItem, _
                 CStr(varKey), _
                 Me.Item(cItem).ExportDate, _
                 GetSourceModifiedDate(cItem, cItem.SourceFile), _
-                ercOverwrite
+                ercOverwrite, , , colFiles
         End If
         ' Increment the progress bar
         Log.Increment
@@ -793,16 +795,16 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : IsExportConflict
+' Procedure : GetExportConflictFiles
 ' Author    : Adam Waller
 ' Date      : 9/15/2021
-' Purpose   : Returns true if exporting the item would conflict with an existing file
-'           : that is different AND newer than the last export of this object.
+' Purpose   : Returns a Collection of file names that differ between the source folder
+'           : and a fresh temp export, or Nothing if there is no conflict. Used by
+'           : CheckExportConflicts to populate per-file conflict rows.
 '---------------------------------------------------------------------------------------
 '
-Private Function IsExportConflict(cItem As IDbComponent) As Boolean
+Private Function GetExportConflictFiles(cItem As IDbComponent) As Collection
 
-    Dim blnConflict As Boolean
     Dim strHash As String
     Dim strFile As String
     Dim strTempFile As String
@@ -812,7 +814,6 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
     If cItem.ComponentType = edbTableData Then
         ' Table data is not considered an export conflict, and should
         ' always be overwritten.
-        IsExportConflict = False
         Exit Function
     End If
 
@@ -848,16 +849,13 @@ Private Function IsExportConflict(cItem As IDbComponent) As Boolean
         End If
     End If
 
-    ' Compare the content hash of a fresh export to see if it matches the existing file.
+    ' Compare files to identify which ones actually differ.
     If blnCompareTemp Then
         strTempFile = Replace(strFile, Options.GetExportFolder, GetTempExportFolder)
         Log.Add "  Exporting " & cItem.Name, False
         cItem.Export strTempFile
-        blnConflict = Not SourceMatches(cItem, strFile, strTempFile)
+        Set GetExportConflictFiles = GetDifferingFiles(cItem, strFile, strTempFile)
     End If
-
-    ' Return result
-    IsExportConflict = blnConflict
 
 End Function
 
@@ -876,6 +874,7 @@ Public Sub CheckMergeConflicts(cComponent As IDbComponent, dFiles As Dictionary)
     Dim sngStart As Single
     Dim strFile As String
     Dim intConflict As eResolveConflict
+    Dim colFiles As Collection
 
     ' Capture start time so we can display some progress if this
     ' scan takes a while.
@@ -886,7 +885,8 @@ Public Sub CheckMergeConflicts(cComponent As IDbComponent, dFiles As Dictionary)
     ' (Each key is a full path to a source file)
     For Each varKey In dFiles.Keys
         strFile = varKey
-        intConflict = IsMergeConflict(cComponent, strFile)
+        Set colFiles = Nothing
+        intConflict = IsMergeConflict(cComponent, strFile, colFiles)
         If intConflict Then
             ' Get database item
             If cComponent.GetAllFromDB.Exists(strFile) Then
@@ -896,14 +896,14 @@ Public Sub CheckMergeConflicts(cComponent As IDbComponent, dFiles As Dictionary)
                 ' Get parent class for single file items
                 Set cItem = cComponent
             End If
-            ' Add to list of conflicts
+            ' Add to list of conflicts with per-file detail
             Me.Conflicts.Add cItem, _
                 strFile, _
                 cItem.DateModified, _
                 GetSourceModifiedDate(cComponent, strFile), _
                 intConflict, _
                 strFile, _
-                ercSkip
+                ercSkip, colFiles
         End If
         ' Increment the progress bar
         Log.Increment
@@ -924,11 +924,13 @@ End Sub
 ' Procedure : IsMergeConflict
 ' Author    : Adam Waller
 ' Date      : 12/5/2023
-' Purpose   : Returns true if we are about to overwrite changes in the database that
-'           : don't match the current source file.
+' Purpose   : Returns the conflict type if we are about to overwrite changes in the
+'           : database that don't match the current source file. When the conflict
+'           : involves differing files, colDiffFiles is set to the list of file names.
 '---------------------------------------------------------------------------------------
 '
-Private Function IsMergeConflict(cItemClass As IDbComponent, strSourceFile As String) As eResolveConflict
+Private Function IsMergeConflict(cItemClass As IDbComponent, strSourceFile As String, _
+    Optional ByRef colDiffFiles As Collection) As eResolveConflict
 
     Dim cItem As IDbComponent
     Dim strTempFile As String
@@ -967,7 +969,8 @@ Private Function IsMergeConflict(cItemClass As IDbComponent, strSourceFile As St
                     cItem.Export strTempFile
                     ' Because we are using a newly exported temp file, the file properties
                     ' hash won't match, since the file dates are going to be different.
-                    If Not SourceMatches(cItemClass, strSourceFile, strTempFile) Then
+                    Set colDiffFiles = GetDifferingFiles(cItemClass, strSourceFile, strTempFile)
+                    If Not colDiffFiles Is Nothing Then
                         IsMergeConflict = ercOverwrite
                     End If
                 End If
@@ -987,14 +990,15 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SourceMatches
+' Procedure : GetDifferingFiles
 ' Author    : Adam Waller
-' Date      : 12/7/2023
-' Purpose   : Returns true if the two represented source components match at a source
-'           : file level, not counting file modification dates.
+' Date      : 5/5/2026
+' Purpose   : Returns a Collection of relative file names (e.g. "MyTable.xml") that
+'           : differ between two source paths. Returns Nothing when all files match.
+'           : Files present on only one side are included as differences.
 '---------------------------------------------------------------------------------------
 '
-Private Function SourceMatches(cType As IDbComponent, strFile1 As String, strFile2 As String) As Boolean
+Private Function GetDifferingFiles(cType As IDbComponent, strFile1 As String, strFile2 As String) As Collection
 
     Dim dPaths(1 To 2) As Dictionary
     Dim strFiles(1 To 2) As String
@@ -1002,6 +1006,7 @@ Private Function SourceMatches(cType As IDbComponent, strFile1 As String, strFil
     Dim varExt As Variant
     Dim strPath As String
     Dim varKey As Variant
+    Dim colResult As Collection
 
     strFiles(1) = strFile1
     strFiles(2) = strFile2
@@ -1012,33 +1017,38 @@ Private Function SourceMatches(cType As IDbComponent, strFile1 As String, strFil
         For Each varExt In cType.FileExtensions
             strPath = SwapExtension(strFiles(intCnt), CStr(varExt))
             If FSO.FileExists(strPath) Then
-                ' Add path to existing source file
                 dPaths(intCnt).Add FSO.GetFileName(strPath), strPath
             End If
         Next varExt
     Next intCnt
 
-    ' Simple comparison of dictionaries
-    If dPaths(1).Count <> dPaths(2).Count Then Exit Function
-    ' Check for matching keys
+    Set colResult = New Collection
+
+    ' Files only in path 1 (source) but not path 2 (temp)
     For Each varKey In dPaths(1).Keys
-        If Not dPaths(2).Exists(varKey) Then Exit Function
+        If Not dPaths(2).Exists(varKey) Then colResult.Add CStr(varKey)
     Next varKey
 
-    ' If count and keys match, check file sizes
-    For Each varKey In dPaths(1).Keys
-        If FSO.GetFile(dPaths(1).Item(varKey)).Size _
-        <> FSO.GetFile(dPaths(2).Item(varKey)).Size Then Exit Function
+    ' Files only in path 2 (temp) but not path 1 (source)
+    For Each varKey In dPaths(2).Keys
+        If Not dPaths(1).Exists(varKey) Then colResult.Add CStr(varKey)
     Next varKey
 
-    ' Compare hash of content
+    ' Files in both -- compare sizes, then hashes
     For Each varKey In dPaths(1).Keys
-        If GetFileHash(CStr(dPaths(1).Item(varKey))) _
-        <> GetFileHash(CStr(dPaths(2).Item(varKey))) Then Exit Function
+        If dPaths(2).Exists(varKey) Then
+            If FSO.GetFile(CStr(dPaths(1).Item(varKey))).Size _
+            <> FSO.GetFile(CStr(dPaths(2).Item(varKey))).Size Then
+                colResult.Add CStr(varKey)
+            ElseIf GetFileHash(CStr(dPaths(1).Item(varKey))) _
+            <> GetFileHash(CStr(dPaths(2).Item(varKey))) Then
+                colResult.Add CStr(varKey)
+            End If
+        End If
     Next varKey
 
-    ' If we have reached this point without exiting, then the source must match.
-    SourceMatches = True
+    ' Return Nothing when everything matches
+    If colResult.Count > 0 Then Set GetDifferingFiles = colResult
 
 End Function
 

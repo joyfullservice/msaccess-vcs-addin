@@ -126,7 +126,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Date, dteFileDate As Date, intActionType As eResolveConflict, _
-    Optional strSourceFile As String, Optional intSuggestedResolution As eResolveConflict)
+    Optional strSourceFile As String, Optional intSuggestedResolution As eResolveConflict, _
+    Optional colDifferingFiles As Collection)
 
     Dim cItem As clsConflictItem
 
@@ -142,6 +143,7 @@ Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Dat
         .FileDate = dteFileDate
         .ActionType = intActionType
         .Suggestion = intSuggestedResolution
+        Set .DifferingFiles = colDifferingFiles
         Set .CategoryList = m_dCategories
         ' Key by ItemKey so UpdateResolutionsFromTable can find the item after
         ' the user closes the dialog. (The tblConflicts round-trip stores
@@ -168,6 +170,9 @@ Private Sub SaveToTable()
     Dim rst As Recordset
     Dim varKey As Variant
     Dim cItem As clsConflictItem
+    Dim varFile As Variant
+    Dim strRelPath As String
+    Dim intDefaultRes As eResolveConflict
 
     ' Clear any existing records first
     ClearTable
@@ -181,25 +186,48 @@ Private Sub SaveToTable()
         ' Loop through items
         For Each varKey In m_dItems.Keys
             Set cItem = m_dItems(varKey)
-            .AddNew
-                !Component = cItem.CategoryName
-                !ItemKey = cItem.ItemKey
-                ' Save the file name, including object type folder
-                !FileName = Mid$(cItem.FileName, Len(Options.GetExportFolder) + 1)
-                !ObjectDate = ZN(cItem.ObjectDate)
-                !IndexDate = ZN(cItem.IndexDate)
-                !FileDate = ZN(cItem.FileDate)
-                !Suggestion = cItem.Suggestion
-                !Resolution = cItem.Resolution
-                ' Set default resolution, if provided
-                If cItem.Resolution = ercNone Then
-                    If cItem.Suggestion <> ercNone Then
-                        !Resolution = cItem.Suggestion
-                    ElseIf cItem.ActionType <> ercNone Then
-                        !Resolution = cItem.ActionType
-                    End If
+
+            ' Determine default resolution once per component
+            intDefaultRes = cItem.Resolution
+            If intDefaultRes = ercNone Then
+                If cItem.Suggestion <> ercNone Then
+                    intDefaultRes = cItem.Suggestion
+                ElseIf cItem.ActionType <> ercNone Then
+                    intDefaultRes = cItem.ActionType
                 End If
-            .Update
+            End If
+
+            If cItem.DifferingFiles Is Nothing Then
+                ' Single-file component or no per-file detail: one row
+                .AddNew
+                    !Component = cItem.CategoryName
+                    !ItemKey = cItem.ItemKey
+                    !FileName = Mid$(cItem.FileName, Len(Options.GetExportFolder) + 1)
+                    !ObjectDate = ZN(cItem.ObjectDate)
+                    !IndexDate = ZN(cItem.IndexDate)
+                    !FileDate = ZN(cItem.FileDate)
+                    !Suggestion = cItem.Suggestion
+                    !Resolution = intDefaultRes
+                .Update
+            Else
+                ' Multi-file component: one row per differing file.
+                ' All rows share the same ItemKey so resolution propagation
+                ' ties them together.
+                strRelPath = FSO.GetParentFolderName( _
+                    Mid$(cItem.FileName, Len(Options.GetExportFolder) + 1))
+                For Each varFile In cItem.DifferingFiles
+                    .AddNew
+                        !Component = cItem.CategoryName
+                        !ItemKey = cItem.ItemKey
+                        !FileName = strRelPath & PathSep & CStr(varFile)
+                        !ObjectDate = ZN(cItem.ObjectDate)
+                        !IndexDate = ZN(cItem.IndexDate)
+                        !FileDate = ZN(cItem.FileDate)
+                        !Suggestion = cItem.Suggestion
+                        !Resolution = intDefaultRes
+                    .Update
+                Next varFile
+            End If
         Next varKey
         .Close
     End With
