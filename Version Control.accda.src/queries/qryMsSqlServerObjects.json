@@ -1,0 +1,15 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryMsSqlServerObjects"
+  },
+  "Items": {
+    "QueryType": 112,
+    "QueryProperties": {
+      "LogMessages": {
+        "Type": 1,
+        "Value": false
+      }
+    }
+  }
+}

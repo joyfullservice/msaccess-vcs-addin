@@ -17,10 +17,10 @@
 FROM
   qryStrings
   LEFT JOIN tblTranslation ON (
-    qryStrings.LanguageID = tblTranslation.Language
+    qryStrings.ID = tblTranslation.StringID
   )
   AND (
-    qryStrings.ID = tblTranslation.StringID
+    qryStrings.LanguageID = tblTranslation.Language
   )
 ORDER BY
   IIf(
