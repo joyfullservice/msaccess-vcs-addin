@@ -48,7 +48,7 @@ Private m_strTempExportFolderPath As String
 
 ' Binary index format
 Private Const cstrIdxMagic As String = "VCSI"
-Private Const cintIdxFormatVersion As Integer = 1
+Private Const cintIdxFormatVersion As Integer = 2
 Private Const cstrLegacyFileName As String = "vcs-index.json"
 
 ' Optional field flags for component entries
@@ -56,6 +56,7 @@ Private Const cbytFlagFileHash As Byte = 1
 Private Const cbytFlagOtherHash As Byte = 2
 Private Const cbytFlagMetaHash As Byte = 4
 Private Const cbytFlagFilePropertiesHash As Byte = 8
+Private Const cbytFlagFolderAnnotation As Byte = 16
 
 ' UDTs for LSet Double <-> Byte() punning
 Private Type tDoubleBytes
@@ -183,6 +184,7 @@ Public Sub LoadFromFile(Optional strFile As String)
             If (bFlags And cbytFlagOtherHash) Then cEntry.OtherHash = ReadLPS(bData, lngPos)
             If (bFlags And cbytFlagMetaHash) Then cEntry.MetaHash = ReadLPS(bData, lngPos)
             If (bFlags And cbytFlagFilePropertiesHash) Then cEntry.FilePropertiesHash = ReadLPS(bData, lngPos)
+            If (bFlags And cbytFlagFolderAnnotation) Then cEntry.FolderAnnotation = ReadLPS(bData, lngPos)
 
             dCategory.Add strFileName, cEntry
         Next lngItem
@@ -287,6 +289,7 @@ Public Sub Save(Optional strInFolder As String)
             If Len(cEntry.OtherHash) > 0 Then bFlags = bFlags Or cbytFlagOtherHash
             If Len(cEntry.MetaHash) > 0 Then bFlags = bFlags Or cbytFlagMetaHash
             If Len(cEntry.FilePropertiesHash) > 0 Then bFlags = bFlags Or cbytFlagFilePropertiesHash
+            If Len(cEntry.FolderAnnotation) > 0 Then bFlags = bFlags Or cbytFlagFolderAnnotation
             WriteByte bFlags
 
             ' Fixed date fields (UTC)
@@ -300,6 +303,7 @@ Public Sub Save(Optional strInFolder As String)
             If (bFlags And cbytFlagOtherHash) Then WriteLPS cEntry.OtherHash
             If (bFlags And cbytFlagMetaHash) Then WriteLPS cEntry.MetaHash
             If (bFlags And cbytFlagFilePropertiesHash) Then WriteLPS cEntry.FilePropertiesHash
+            If (bFlags And cbytFlagFolderAnnotation) Then WriteLPS cEntry.FolderAnnotation
         Next varFile
     Next varCat
 
@@ -439,6 +443,7 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
             .OtherHash = cAltItem.OtherHash
             .MetaHash = cAltItem.MetaHash
             .FilePropertiesHash = cAltItem.FilePropertiesHash
+            .FolderAnnotation = cAltItem.FolderAnnotation
             .ExportDate = cAltItem.ExportDate
             .ImportDate = cAltItem.ImportDate
             .SourceModified = cAltItem.SourceModified
@@ -560,6 +565,34 @@ Private Function LoadItem(cItem As IDbComponent, strSourceFile As String, strSec
             Set .Item(cItem.Category)(strSourceFile) = New clsVCSIndexItem
         End If
         Set LoadItem = .Item(cItem.Category)(strSourceFile)
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetCachedAnnotation
+' Author    : Adam Waller
+' Date      : 5/5/2026
+' Purpose   : Return the cached @Folder annotation for a component, looked up by
+'           : category name and source file name. This avoids the SourceFile property
+'           : (which itself depends on the annotation) to break the circular dependency.
+'           : Returns vbNullString when the item is not in the index.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetCachedAnnotation(strCategory As String, strFileName As String) As String
+
+    Dim dCat As Dictionary
+
+    If Me.Disabled Then Exit Function
+
+    With m_dIndex("Components")
+        If .Exists(strCategory) Then
+            Set dCat = .Item(strCategory)
+            If dCat.Exists(strFileName) Then
+                GetCachedAnnotation = dCat(strFileName).FolderAnnotation
+            End If
+        End If
     End With
 
 End Function
@@ -1097,6 +1130,7 @@ Public Sub DumpToJson(Optional strPath As String)
                 If Len(cEntry.OtherHash) > 0 Then dEntryOut.Add "OtherHash", cEntry.OtherHash
                 If Len(cEntry.MetaHash) > 0 Then dEntryOut.Add "MetaHash", cEntry.MetaHash
                 If cEntry.ObjectDate <> 0 Then dEntryOut.Add "ObjectDate", cEntry.ObjectDate
+                If Len(cEntry.FolderAnnotation) > 0 Then dEntryOut.Add "FolderAnnotation", cEntry.FolderAnnotation
                 dCatOut.Add CStr(varFile), dEntryOut
             Next varFile
             dComponents.Add CStr(varCat), dCatOut

@@ -21,6 +21,7 @@ Option Explicit
 Private m_Module As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
+Private m_strSourceFile As String
 
 Private Type udtVbaFileContent
     strContent As String
@@ -48,6 +49,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strAlternateFile As String
     Dim strExportFolder As String
     Dim strOldFile As String
+
+    ' Force fresh @Folder read from live VBA so the export path is correct
+    ' even if the annotation changed since the scan phase.
+    m_strSourceFile = vbNullString
 
     ' Export as sanitized UTF-8 file
     ExportCodeModule m_Module.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
@@ -83,9 +88,16 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Update the index with the current VBA hash. (Note, this will not show
     ' changes to the hidden VBE properties that might have been added.)
-    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
+    Dim cIdx As clsVCSIndexItem
+    Set cIdx = VCSIndex.Update(Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
         GetFileHash(Nz2(strAlternatePath, IDbComponent_SourceFile)), GetCodeModuleHash(edbModule, m_Module.Name), _
-        strMetaHash:=GetMetadataHash("Modules", m_Module.Name, acModule)
+        strMetaHash:=GetMetadataHash("Modules", m_Module.Name, acModule))
+
+    ' Cache the @Folder annotation in the index so subsequent scans
+    ' can skip the expensive VBE COM call for unchanged objects.
+    Dim strAnnotation As String
+    strAnnotation = GetFolderAnnotation(Me.Parent)
+    cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
 End Sub
 
@@ -457,21 +469,20 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    Static strCached As String
-    If Len(strCached) > 0 Then
-        IDbComponent_SourceFile = strCached
+    If Len(m_strSourceFile) > 0 Then
+        IDbComponent_SourceFile = m_strSourceFile
         Exit Property
     End If
     If m_Module Is Nothing Then Exit Property
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
-        strCached = IDbComponent_BaseFolder _
+        m_strSourceFile = IDbComponent_BaseFolder _
             & GetFolderAnnotation(Me.Parent) _
             & GetSafeFileName(m_Module.Name) & GetExtension
     Else
-        strCached = IDbComponent_BaseFolder _
+        m_strSourceFile = IDbComponent_BaseFolder _
             & GetSafeFileName(m_Module.Name) & GetExtension
     End If
-    IDbComponent_SourceFile = strCached
+    IDbComponent_SourceFile = m_strSourceFile
 End Property
 
 

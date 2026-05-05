@@ -21,6 +21,7 @@ Option Explicit
 Private m_Form As VBIDE.VBComponent
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
+Private m_strSourceFile As String
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -56,6 +57,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strExportFolder As String
 
+    ' Force fresh @Folder read from live VBA so the export path is correct
+    ' even if the annotation changed since the scan phase.
+    m_strSourceFile = vbNullString
+
     ' Get the JSON representation of the current database object
     strContent = GetSource
 
@@ -90,7 +95,13 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     End If
 
     ' Update index with a hash of the serialized content. (Since the binary content changes frequently)
-    VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True)
+    Dim cIdx As clsVCSIndexItem
+    Set cIdx = VCSIndex.Update(Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True))
+
+    ' Cache the @Folder annotation in the index
+    Dim strAnnotation As String
+    strAnnotation = GetFolderAnnotation(Me.Parent)
+    cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
     ' Clean up old files at base folder if @Folder moved them to a subfolder
     If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
@@ -381,21 +392,20 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    Static strCached As String
-    If Len(strCached) > 0 Then
-        IDbComponent_SourceFile = strCached
+    If Len(m_strSourceFile) > 0 Then
+        IDbComponent_SourceFile = m_strSourceFile
         Exit Property
     End If
     If m_Form Is Nothing Then Exit Property
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
-        strCached = IDbComponent_BaseFolder _
+        m_strSourceFile = IDbComponent_BaseFolder _
             & GetFolderAnnotation(Me.Parent) _
             & GetSafeFileName(m_Form.Name) & ".json"
     Else
-        strCached = IDbComponent_BaseFolder _
+        m_strSourceFile = IDbComponent_BaseFolder _
             & GetSafeFileName(m_Form.Name) & ".json"
     End If
-    IDbComponent_SourceFile = strCached
+    IDbComponent_SourceFile = m_strSourceFile
 End Property
 
 

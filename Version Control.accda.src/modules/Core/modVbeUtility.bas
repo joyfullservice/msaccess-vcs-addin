@@ -71,11 +71,21 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent) As String
     Dim lngPos As Long
     Dim lngStart As Long
     Dim lngEnd As Long
+    Dim strCached As String
 
     Const TAG As String = "'@FOLDER("
-
     LogUnhandledErrors
     On Error Resume Next
+
+    ' Check index cache before making any VBE COM calls.
+    ' The sentinel FOLDER_ANNOTATION_NONE means "checked, no annotation found."
+    strCached = TryGetCachedAnnotation(cComponent)
+    If Len(strCached) > 0 Then
+        If strCached <> FOLDER_ANNOTATION_NONE Then
+            GetFolderAnnotation = strCached
+        End If
+        Exit Function
+    End If
 
     ' Determine VBE component name from the database component type
     Select Case cComponent.ComponentType
@@ -150,6 +160,43 @@ CleanUp:
     Perf.OperationEnd
     If Err Then Err.Clear
 
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TryGetCachedAnnotation
+' Author    : Adam Waller
+' Date      : 5/5/2026
+' Purpose   : Try to retrieve a cached @Folder annotation from the VCS index using the
+'           : component's category and name, avoiding the SourceFile property (which
+'           : depends on the annotation). Returns vbNullString on cache miss.
+'           : For modules, tries both .bas and .cls extensions since the type is not
+'           : known without a VBE COM call.
+'---------------------------------------------------------------------------------------
+'
+Private Function TryGetCachedAnnotation(cComponent As IDbComponent) As String
+
+    Dim strSafeName As String
+    Dim strResult As String
+
+    strSafeName = GetSafeFileName(cComponent.Name)
+
+    Select Case cComponent.ComponentType
+        Case edbModule
+            strResult = VCSIndex.GetCachedAnnotation("Modules", strSafeName & ".bas")
+            If Len(strResult) = 0 Then
+                strResult = VCSIndex.GetCachedAnnotation("Modules", strSafeName & ".cls")
+            End If
+        Case edbForm
+            strResult = VCSIndex.GetCachedAnnotation("Forms", strSafeName & ".form")
+        Case edbReport
+            strResult = VCSIndex.GetCachedAnnotation("Reports", strSafeName & ".report")
+        Case edbVbeForm
+            strResult = VCSIndex.GetCachedAnnotation("VBE Forms", strSafeName & ".json")
+    End Select
+
+    TryGetCachedAnnotation = strResult
 
 End Function
 

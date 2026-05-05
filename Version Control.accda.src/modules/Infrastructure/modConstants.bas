@@ -35,6 +35,11 @@ Public Const UTF8_BOM As String = "ï»¿"
 ' Default hashing algorithm
 Public Const DefaultHashAlgorithm As String = "SHA256"
 
+' Sentinel value stored in the VCS index to indicate that a component was
+' checked for an @Folder annotation but none was found. Distinguishes
+' "no annotation" from "not yet cached" (empty string).
+Public Const FOLDER_ANNOTATION_NONE As String = "."
+
 ' This value seems to indicate that the theme was not used.
 Public Const NO_THEME_INDEX As Integer = -1
 

@@ -26,3 +26,4 @@ Public OtherHash As String
 Public ObjectDate As Date
 Public FilePropertiesHash As String
 Public MetaHash As String
+Public FolderAnnotation As String
