@@ -103,6 +103,9 @@ End Function
 ' Purpose   : Change the window style of an existing dialog window to make it resizable.
 '           : (This allows you to use the acDialog argument when opening a form, but
 '           :  still have the form resizable by the user.)
+'           : NOTE: As of 5/6/2026, this no longer works on newer versions of Windows/Access.
+'           : The Win32 style change is applied but the resize behavior is not honored.
+'           : Leaving in place for older platform compatibility.
 '---------------------------------------------------------------------------------------
 '
 Public Sub MakeDialogResizable(frmMe As Form)
