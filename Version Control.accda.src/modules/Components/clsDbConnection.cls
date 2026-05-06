@@ -46,7 +46,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strContent As String
     strContent = GetSource
     If strContent = vbNullString Then
-        If FSO.FileExists(IDbComponent_SourceFile) Then DeleteFile IDbComponent_SourceFile
+        ' Only remove the source file during a normal export, not when
+        ' exporting to an alternate (temp) path for conflict comparison.
+        If strAlternatePath = vbNullString Then
+            If FSO.FileExists(IDbComponent_SourceFile) Then DeleteFile IDbComponent_SourceFile
+        End If
     Else
         WriteFile strContent, Nz2(strAlternatePath, IDbComponent_SourceFile)
     End If

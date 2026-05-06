@@ -219,7 +219,11 @@ Private Sub SaveToTable()
                     .AddNew
                         !Component = cItem.CategoryName
                         !ItemKey = cItem.ItemKey
-                        !FileName = strRelPath & PathSep & CStr(varFile)
+                        If Len(strRelPath) = 0 Then
+                            !FileName = CStr(varFile)
+                        Else
+                            !FileName = strRelPath & PathSep & CStr(varFile)
+                        End If
                         !ObjectDate = ZN(cItem.ObjectDate)
                         !IndexDate = ZN(cItem.IndexDate)
                         !FileDate = ZN(cItem.FileDate)

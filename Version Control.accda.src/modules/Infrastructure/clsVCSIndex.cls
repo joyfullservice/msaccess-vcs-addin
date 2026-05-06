@@ -700,17 +700,25 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
             blnModified = True
             blnMissing = False
 
-            ' See if the database object currently exists
-            If Not cCategory.SingleFile Then
-                blnMissing = Not dItems.Exists(strFile)
-            End If
+            ' Single-file components always return their source path from
+            ' GetFileList even when the file was never exported or was
+            ' removed during a format migration.  Skip non-existent files
+            ' so they are not passed to Merge (which could be destructive).
+            If cCategory.SingleFile And (Not FSO.FileExists(strFile)) Then
+                blnModified = False
+            Else
+                ' See if the database object currently exists
+                If Not cCategory.SingleFile Then
+                    blnMissing = Not dItems.Exists(strFile)
+                End If
 
-            ' Check the index for any existing entry, so we can compare the saved modified date.
-            If (Not blnMissing) And Me.Exists(cCategory, strFile) Then
-                ' Get hash of current source files.
-                strHash = GetSourceFilesPropertyHash(cCategory, strFile)
-                ' File is considered not modified if the index hash matches the current hash.
-                blnModified = Not (Me.Item(cCategory, strFile).FilePropertiesHash = strHash)
+                ' Check the index for any existing entry, so we can compare the saved modified date.
+                If (Not blnMissing) And Me.Exists(cCategory, strFile) Then
+                    ' Get hash of current source files.
+                    strHash = GetSourceFilesPropertyHash(cCategory, strFile)
+                    ' File is considered not modified if the index hash matches the current hash.
+                    blnModified = Not (Me.Item(cCategory, strFile).FilePropertiesHash = strHash)
+                End If
             End If
 
             ' Add modified files to collection
@@ -943,9 +951,32 @@ Private Function IsMergeConflict(cItemClass As IDbComponent, strSourceFile As St
         Exit Function
     End If
 
-    ' Single file objects are treated a little differently
+    ' Single file objects use the same temp-export + compare approach as
+    ' multi-file components, ensuring the temp file exists for diffing and
+    ' eliminating false-positive conflicts from stale index hashes.
     If cItemClass.SingleFile Then
-        If cItemClass.IsModified Then IsMergeConflict = ercOverwrite
+        If cItemClass.IsModified Then
+            If Not FSO.FileExists(strSourceFile) Then
+                ' Source file does not exist. For single-file components this
+                ' means the file was never exported or was removed during a
+                ' format migration — not a conflict to resolve.
+            Else
+                strTempFile = Replace(strSourceFile, Options.GetExportFolder, GetTempExportFolder)
+                Log.Add "  Exporting " & cItemClass.Name, False
+                cItemClass.Export strTempFile
+                ' When content is empty (e.g. hidden-attributes with EFV >= 5.0.0),
+                ' the export produces no file. Create an empty placeholder so the
+                ' diff tool has something to compare against.
+                If Not FSO.FileExists(strTempFile) Then
+                    VerifyPath strTempFile
+                    WriteFile vbNullString, strTempFile
+                End If
+                Set colDiffFiles = GetDifferingFiles(cItemClass, strSourceFile, strTempFile)
+                If Not colDiffFiles Is Nothing Then
+                    IsMergeConflict = ercOverwrite
+                End If
+            End If
+        End If
     Else
         ' See if the database object even exists before we worry about conflicts.
         If cItemClass.GetAllFromDB.Exists(strSourceFile) Then
