@@ -277,41 +277,48 @@ End Sub
 '
 Private Function UpdateAddInFile(ByVal blnCreateCompiledVersion As Boolean) As Boolean
 
-    Dim strPath As String
+    Dim strAddInFile As String
+    Dim strCompiledFile As String
+
+    ' Build file paths before entering the error-handled block so that
+    ' no calls to the FSO() getter (which contains LogUnhandledErrors)
+    ' can intercept a pending error before we check for it below.
+    strAddInFile = GetAddInFileName
+    strCompiledFile = GetAddInFileName(True)
 
     ' Make sure the destination folder exists
-    VerifyPath GetAddInFileName
+    VerifyPath strAddInFile
 
     ' Update the file
     LogUnhandledErrors
-    On Error Resume Next
-    If FSO.FileExists(GetAddInFileName) Then DeleteFile GetAddInFileName, True
+    On Error GoTo UpdateError
+    If FSO.FileExists(strAddInFile) Then DeleteFile strAddInFile, True
 
     If blnCreateCompiledVersion Then
         ' Remove any existing uncompiled version
         ' (Very important, since we are invoking the add-in file directly without the extension.
         ' if both files exist, the .accda file will be opened instead of the compiled one.)
-        If FSO.FileExists(GetAddInFileName) Then DeleteFile GetAddInFileName
+        If FSO.FileExists(strAddInFile) Then DeleteFile strAddInFile
         ' Now we can generate the compiled version as a *.accde
-        CreateAccde CodeProject.FullName, GetAddInFileName(True)
+        CreateAccde CodeProject.FullName, strCompiledFile
     Else
-        FSO.CopyFile CodeProject.FullName, GetAddInFileName, True
-        ' Remove any existing compiled version
-        strPath = GetAddInFileName(True)
-        If FSO.FileExists(strPath) Then DeleteFile strPath
+        FSO.CopyFile CodeProject.FullName, strAddInFile, True
     End If
 
-    If Err Then
-        MsgBox2 "Unable to Update File", _
-            "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
-            "Is the Version Control Add-in loaded in another instance of Microsoft Access?" & vbCrLf & _
-            "Please check to be sure that the following file is not in use:" & _
-            vbCrLf & GetInstalledAddInFileName, vbExclamation
-        Err.Clear
-    Else
-        ' Copied file with no errors.
-        UpdateAddInFile = True
+    ' Remove any existing alternate version
+    If Not blnCreateCompiledVersion Then
+        If FSO.FileExists(strCompiledFile) Then DeleteFile strCompiledFile
     End If
+    ' Copied file with no errors.
+    UpdateAddInFile = True
+    Exit Function
+
+UpdateError:
+    MsgBox2 "Unable to Update File", _
+        "Encountered error " & Err.Number & ": " & Err.Description & " when copying file.", _
+        "Is the Version Control Add-in loaded in another instance of Microsoft Access?" & vbCrLf & _
+        "Please check to be sure that the following file is not in use:" & _
+        vbCrLf & strAddInFile, vbExclamation
 
 End Function
 

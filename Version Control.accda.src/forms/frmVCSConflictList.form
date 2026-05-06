@@ -399,8 +399,8 @@ Begin Form
                     Name ="cboResolution"
                     ControlSource ="Resolution"
                     RowSourceType ="Value List"
-                    AfterUpdate ="[Event Procedure]"
                     ColumnWidths ="0"
+                    AfterUpdate ="[Event Procedure]"
                     GroupTable =1
                     BottomPadding =150
                     LeftMargin =44
