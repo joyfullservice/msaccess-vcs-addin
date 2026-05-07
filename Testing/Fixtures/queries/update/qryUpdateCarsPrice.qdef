@@ -1,0 +1,51 @@
+﻿Operation =4
+Option =2
+Where ="(((tblCars.Manufacturer)=\"Audi\") AND ((tblCars.Year)=2011) AND ((tbl"
+    "CarsModel.Model)=\"GS\"))"
+Begin InputTables
+    Name ="tblCars"
+    Name ="tblCarsModel"
+    Name ="tblCarsColour"
+    Name ="tblCarsPrice"
+End
+Begin OutputColumns
+    Name ="tblCarsPrice.Price"
+    Expression ="[Price]*1.05"
+End
+Begin Joins
+    LeftTable ="tblCars"
+    RightTable ="tblCarsModel"
+    Expression ="tblCars.ID = tblCarsModel.ID"
+    Flag =1
+    LeftTable ="tblCarsModel"
+    RightTable ="tblCarsColour"
+    Expression ="tblCarsModel.ID = tblCarsColour.ID"
+    Flag =1
+    LeftTable ="tblCarsColour"
+    RightTable ="tblCarsPrice"
+    Expression ="tblCarsColour.ID = tblCarsPrice.ID"
+    Flag =1
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbBoolean "UseTransaction" ="-1"
+dbBoolean "FailOnError" ="0"
+dbByte "Orientation" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblCarsPrice.Price"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCars.Manufacturer"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCars.Year"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCarsModel.Model"
+        dbLong "AggregateType" ="-1"
+    End
+End

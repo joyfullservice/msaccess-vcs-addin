@@ -1,0 +1,9 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionCrossTableOnEmitter"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

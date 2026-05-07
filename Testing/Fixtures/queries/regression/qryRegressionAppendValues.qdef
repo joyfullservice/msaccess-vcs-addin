@@ -1,0 +1,41 @@
+﻿Operation =3
+Name ="tblSettings"
+Option =0
+Begin OutputColumns
+    Name ="ID"
+    Expression ="11"
+    Name ="ItemName"
+    Expression ="'WebPage'"
+    Name ="ItemValue"
+    Expression ="'http://example.com'"
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbBoolean "UseTransaction" ="-1"
+dbByte "Orientation" ="0"
+Begin
+    Begin
+        dbText "Name" ="11"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblSettings.ID"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="'WebPage'"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblSettings.ItemName"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="'http://example.com'"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblSettings.ItemValue"
+        dbLong "AggregateType" ="-1"
+    End
+End

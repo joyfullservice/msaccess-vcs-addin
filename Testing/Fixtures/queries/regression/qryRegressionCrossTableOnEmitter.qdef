@@ -1,0 +1,64 @@
+﻿Operation =1
+Option =0
+Begin InputTables
+    Name ="tblOrders"
+    Name ="tblProducts"
+    Name ="tblCategories"
+    Name ="tblShippers"
+    Name ="tblCustomers"
+End
+Begin OutputColumns
+    Expression ="tblOrders.OrderID"
+    Expression ="tblProducts.ProductName"
+    Expression ="tblCategories.CategoryName"
+    Expression ="tblShippers.ShipperName"
+End
+Begin Joins
+    LeftTable ="tblProducts"
+    RightTable ="tblCategories"
+    Expression ="tblProducts.CategoryID = tblCategories.CategoryID"
+    Flag =1
+    LeftTable ="tblProducts"
+    RightTable ="tblShippers"
+    Expression ="tblProducts.ShipperID = tblShippers.ShipperID"
+    Flag =1
+    LeftTable ="tblOrders"
+    RightTable ="tblProducts"
+    Expression ="tblOrders.ProductID = tblProducts.ProductID"
+    Flag =1
+    LeftTable ="tblOrders"
+    RightTable ="tblCategories"
+    Expression ="tblOrders.CategoryID = tblCategories.CategoryID"
+    Flag =1
+    LeftTable ="tblOrders"
+    RightTable ="tblCustomers"
+    Expression ="tblOrders.CustomerID = tblCustomers.CustomerID"
+    Flag =1
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblOrders.OrderID"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblProducts.ProductName"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCategories.CategoryName"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblShippers.ShipperName"
+        dbLong "AggregateType" ="-1"
+    End
+End

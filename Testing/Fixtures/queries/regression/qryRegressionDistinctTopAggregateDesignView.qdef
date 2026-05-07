@@ -1,0 +1,29 @@
+﻿Operation =1
+Option =18
+RowCount ="3"
+Begin InputTables
+    Name ="tblCurrencyExchange"
+End
+Begin OutputColumns
+    Alias ="PriorYear"
+    Expression ="Max(Year([Date])-1)"
+End
+Begin OrderBy
+    Expression ="Max( Year([Date])-1 )"
+    Flag =1
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="PriorYear"
+        dbLong "AggregateType" ="-1"
+    End
+End

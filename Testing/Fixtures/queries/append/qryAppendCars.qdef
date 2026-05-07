@@ -1,0 +1,43 @@
+﻿Operation =3
+Name ="tblCars"
+Option =2
+Where ="(((tblCars.Manufacturer) Is Null))"
+Begin InputTables
+    Name ="tblVehicles"
+    Name ="tblCars"
+End
+Begin OutputColumns
+    Name ="Manufacturer"
+    Expression ="tblVehicles.Manufacturer"
+    Alias ="Year"
+    Name ="Year"
+    Expression ="2019"
+End
+Begin Joins
+    LeftTable ="tblVehicles"
+    RightTable ="tblCars"
+    Expression ="tblVehicles.Manufacturer = tblCars.Manufacturer"
+    Flag =2
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="30"
+dbBoolean "UseTransaction" ="0"
+dbByte "Orientation" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblVehicles.Manufacturer"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCars.Manufacturer"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="Year"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCars.Year"
+        dbLong "AggregateType" ="-1"
+    End
+End

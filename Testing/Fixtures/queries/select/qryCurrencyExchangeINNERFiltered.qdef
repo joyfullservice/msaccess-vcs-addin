@@ -1,0 +1,26 @@
+﻿dbMemo "SQL" ="SELECT\015\012  tblCurrencies.CurrencyCode,\015\012  tblCurrencies.Cur"
+    "rency,\015\012  tblCurrencyExchange.Base,\015\012  tblCurrencyExchange"
+    ".Date,\015\012  tblCurrencyExchange.Currency,\015\012  tblCurrencyExch"
+    "ange.Rate\015\012FROM\015\012  tblCurrencies\015\012  INNER JOIN tblCu"
+    "rrencyExchange ON tblCurrencies.CurrencyCode = tblCurrencyExchange.Cur"
+    "rency\015\012WHERE\015\012  (\015\012    (\015\012      (tblCurrencyEx"
+    "change.Base)= \"GBP\"\015\012    )\015\012    AND (\015\012      (tblC"
+    "urrencyExchange.Date)= #12/14/2018#\015\012    )\015\012  )\015\012ORD"
+    "ER BY\015\012  tblCurrencies.CurrencyCode;\015\012"
+dbMemo "Connect" =""
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblCurrencies.Currency"
+        dbInteger "ColumnWidth" ="2550"
+        dbLong "AggregateType" ="-1"
+    End
+End

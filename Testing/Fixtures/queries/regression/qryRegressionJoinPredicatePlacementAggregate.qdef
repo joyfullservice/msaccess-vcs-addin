@@ -1,0 +1,54 @@
+﻿Operation =1
+Option =0
+Begin InputTables
+    Name ="tblCars"
+    Name ="tblCarsModel"
+    Name ="tblCarsPrice"
+    Name ="tblCarsColour"
+End
+Begin OutputColumns
+    Expression ="tblCarsPrice.ID"
+    Alias ="TotalPrice"
+    Expression ="Sum(tblCarsPrice.Price)"
+End
+Begin Joins
+    LeftTable ="tblCars"
+    RightTable ="tblCarsModel"
+    Expression ="tblCars.ID = tblCarsModel.ID"
+    Flag =1
+    LeftTable ="tblCars"
+    RightTable ="tblCarsPrice"
+    Expression ="tblCars.Year = tblCarsPrice.Year"
+    Flag =1
+    LeftTable ="tblCarsModel"
+    RightTable ="tblCarsPrice"
+    Expression ="tblCarsModel.ModelID = tblCarsPrice.ID"
+    Flag =1
+    LeftTable ="tblCarsPrice"
+    RightTable ="tblCarsColour"
+    Expression ="tblCarsPrice.ID = tblCarsColour.ID"
+    Flag =1
+End
+Begin Groups
+    Expression ="tblCarsPrice.ID"
+    GroupLevel =0
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblCarsPrice.ID"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="TotalPrice"
+        dbLong "AggregateType" ="-1"
+    End
+End
