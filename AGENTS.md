@@ -257,6 +257,10 @@ Option Explicit          ' Require variable declaration
 Option Private Module    ' For internal modules (not exposed via add-in API)
 ```
 
+### Library Constants
+
+All modules in the VBA project share the same library references (DAO, VBE, Scripting, etc.). Use the library-defined constants (e.g., `dbQSQLPassThrough`, `acQuery`, `vbTextCompare`) rather than hard-coding their numeric values. Magic numbers obscure intent and bypass compile-time checking.
+
 ### Translation Support
 
 All user-facing strings should use the `T()` function for translation:
@@ -481,10 +485,13 @@ validation exposed a cross-subtree join predicate placement bug."
 For each fixture under `Testing/Fixtures/`, the harness:
 
 1. Imports the fixture into the running database under a sandboxed name (`vcs_test_<basename>_<hash>`).
-2. Exports it twice (Pass 1 and Pass 2), into a per-run scratch folder.
-3. Asserts Pass 2 == Pass 1 (idempotency, hard requirement).
-4. Asserts Pass 1 == fixture (drift check, soft requirement).
-5. Drops the sandboxed object and moves on.
+2. Validates the emitter's `.qdef` output:
+   - `qdef_joins` — structural check: each join row's `LeftTable`/`RightTable` matches its `Expression` (Design View only).
+   - `qdef_vs_fixture` — drift check: compares generated `.qdef` against stored `.qdef` baseline (if present).
+3. Exports it twice (Pass 1 and Pass 2), into a per-run scratch folder.
+4. Asserts Pass 2 == Pass 1 (idempotency, hard requirement).
+5. Asserts Pass 1 == fixture (drift check, soft requirement).
+6. Drops the sandboxed object and moves on.
 
 Output goes to three coordinated channels:
 

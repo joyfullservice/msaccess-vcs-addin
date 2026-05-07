@@ -1920,6 +1920,28 @@ Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", 
 
 ---
 
+## 2026-05-07 — Cross-table ON condition LeftTable/RightTable in Design View qdef
+
+**Trigger**: A production database had four queries that passed SQL builder validation but failed with DAO error 3082 ("JOIN operation refers to a field that is not in one of the joined tables") after a full build from source. The queries used compound `ON` clauses where individual conditions referenced different table pairs, and one table was also used inside a saved subquery referenced in another condition.
+
+**Root cause**: `clsQueryComposer.EmitDesignViewQdef` reused the parent join's `leftTable`/`rightTable` for all split conditions in a compound `ON` clause. Access stores each compound `ON` condition as a separate Attribute 7 row in `MSysQueries` with its own `Name1`/`Name2` (the specific table pair for that condition). The emitter's reuse of the parent join's tables produced a `.qdef` where the `RightTable` for a condition referencing table `C` was set to table `B` (the parent join's right table). `LoadFromText` accepted this silently, but the resulting internal storage confused Access's scope resolution at execution time.
+
+**Options explored**:
+- **Fall back to `QueryDefs(name).SQL` (legacy path)** — rejected: the new pipeline was designed to generate its own `.qdef` rather than receive a pre-baked one, and falling back to the legacy path would lose design layout. The bug was in the emitter, not in `LoadFromText`.
+- **Store per-condition table pairs in the `.json` companion** — rejected: the table pair for each condition is derivable from the condition expression itself (e.g., `tblFunds.FundID = tblAssociates.fldFundID` clearly references `tblFunds` and `tblAssociates`). Adding explicit storage would be redundant.
+- **Extract per-condition table pairs from the expression at emit time (chosen)** — the emitter already has `ExtractTableFromOnSide` available. Using it for each split condition, with a fallback to the parent join's tables if extraction fails, is correct, minimal, and preserves backward compatibility.
+
+**Decision**: `EmitDesignViewQdef` now calls `ExtractTableFromOnSide(condition, True)` and `ExtractTableFromOnSide(condition, False)` for each individual condition in a split compound `ON` clause. Falls back to the parent join's `leftTable`/`rightTable` only if extraction returns empty.
+
+**Why this was hard to diagnose**: The SQL builder validation compares `ReconstructSQL` output against `QueryDefs.SQL` — a text-level check. The bug was not in SQL reconstruction but in `.qdef` emission, and `LoadFromText` accepted the wrong structure silently. The error only surfaced at query execution time, where the misleading error message ("field not in one of the joined tables") pointed away from the actual root cause (wrong `LeftTable`/`RightTable` metadata).
+
+**Relevant files**:
+- `clsQueryComposer.cls` — `EmitDesignViewQdef`: per-condition `LeftTable`/`RightTable` extraction
+- `docs/access-query-storage.md` § 6 — documents the finding
+- `Testing/Fixtures/queries/regression/qryRegressionCrossTableOn.notes.md` — regression context
+
+---
+
 ## 2026-05-05 — VBProject.Saved + DateModified fast path for VBA code hashing
 
 **Trigger**: Fast-save exports were spending significant time hashing every VBA module's code (via `GetCodeModuleHash` → `CodeModule.Lines(1, 999999)` → SHA256) even when no VBA code had changed since the last export. For a project with 110+ modules, the "Get VBA Hash" operation dominated the scan phase.

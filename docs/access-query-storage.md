@@ -339,6 +339,8 @@ contract.
 | Multi-condition `ON` (parenthesized AND/OR) | [regression/qryRegressionMultiCondJoin.sql](../Testing/Fixtures/queries/regression/qryRegressionMultiCondJoin.sql)       |
 | Cross-subtree `ON` predicate placement      | [regression/qryRegressionJoinPredicatePlacement.sql](../Testing/Fixtures/queries/regression/qryRegressionJoinPredicatePlacement.sql) |
 | Aggregate cross-subtree `ON` placement      | [regression/qryRegressionJoinPredicatePlacementAggregate.sql](../Testing/Fixtures/queries/regression/qryRegressionJoinPredicatePlacementAggregate.sql) |
+| Cross-table multi-condition `ON`            | [regression/qryRegressionCrossTableOn.sql](../Testing/Fixtures/queries/regression/qryRegressionCrossTableOn.sql)                                 |
+| Cross-table `ON` emitter table pairs       | [regression/qryRegressionCrossTableOnEmitter.sql](../Testing/Fixtures/queries/regression/qryRegressionCrossTableOnEmitter.sql)                   |
 | Nested secondary `ON` predicate placement   | [regression/qryRegressionNestedSecondaryJoinPredicate.sql](../Testing/Fixtures/queries/regression/qryRegressionNestedSecondaryJoinPredicate.sql) |
 | Disconnected join graph (Cartesian + chain) | [regression/qryRegressionDisconnectedComponents.sql](../Testing/Fixtures/queries/regression/qryRegressionDisconnectedComponents.sql) |
 | `IN (SELECT ...)` subquery                  | [regression/qryRegressionFindDuplicates.sql](../Testing/Fixtures/queries/regression/qryRegressionFindDuplicates.sql)     |
@@ -588,6 +590,59 @@ qdef shape rather than being handed a pre-baked one.
 `.bas`); `clsOptions.ForceImportOriginalQuerySQL`. The user-facing
 description of the option is at
 [Wiki/Options.md](../Wiki/Options.md).
+
+### Cross-table `ON` condition requires per-condition `LeftTable`/`RightTable` in Design View qdef
+
+**Symptom.** A query with a compound `ON` clause whose individual
+conditions reference different table pairs — e.g.
+`ON (A.x = B.x) AND (A.x = C.x)` — imports successfully via
+`Application.LoadFromText` but fails at execution time with DAO error
+3082 ("JOIN operation refers to a field that is not in one of the joined
+tables"). The error occurs when one of the referenced tables also
+appears inside a saved subquery referenced in another condition of the
+same compound `ON`.
+
+**Root cause.** Access stores each compound `ON` condition as a
+separate Attribute 7 row in `MSysQueries`, each with its own
+`Name1`/`Name2` (the specific table pair for that condition). When the
+VCS emitter generated a Design View `.qdef`, it reused the parent
+join's `LeftTable`/`RightTable` for all split conditions. For the
+second condition (`A.x = C.x`), the emitted `RightTable` was `B`
+(the parent join's right table) instead of `C`.
+
+`Application.LoadFromText` accepted the `.qdef` without error, but the
+internal `MSysQueries` storage then had `Name2 = B` for a condition
+referencing `C`. When Access compiled the query at execution time, it
+looked for `C.x` within the scope of table `B` — and when `B` is a
+saved query that itself references a table sharing columns with `C`,
+the engine's scope resolution produced the ambiguity that triggers
+error 3082.
+
+**Empirical evidence.**
+
+1. Exported a production query with `SaveAsText` — the native `.qdef`
+   had per-condition `LeftTable`/`RightTable` (correct).
+2. The VCS emitter produced a `.qdef` with the parent join's
+   `RightTable` on all conditions (incorrect).
+3. `LoadFromText` on the VCS-emitted `.qdef` succeeded (no error).
+4. Executing the reimported query failed with error 3082.
+5. Manually correcting the `RightTable` to match the condition's
+   actual table pair, then re-importing, produced a query that
+   executed correctly with the expected row count.
+
+**Implication.** Unlike the multi-condition `ON` `LoadFromText`
+asymmetry (above), this bug was in the VCS emitter, not in Access.
+`LoadFromText` accepts the wrong `LeftTable`/`RightTable` silently —
+the error manifests only at query execution, making it hard to
+diagnose.
+
+**Implementation.** `clsQueryComposer.EmitDesignViewQdef` now uses
+`ExtractTableFromOnSide` to derive the correct `LeftTable`/`RightTable`
+for each individual condition in a split compound `ON`, falling back to
+the parent join's tables only if extraction fails.
+
+**Pinned by:** [regression/qryRegressionCrossTableOn.sql](../Testing/Fixtures/queries/regression/qryRegressionCrossTableOn.sql)
+\+ sibling `.notes.md`.
 
 ## 7. References
 

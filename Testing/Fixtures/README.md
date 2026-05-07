@@ -9,10 +9,11 @@ The harness:
 
 1. Imports each fixture into the running database under a sandboxed name
    (`vcs_test_<basename>_<hash>`).
-2. Exports it twice (Pass 1 and Pass 2).
-3. Asserts Pass 2 equals Pass 1 (idempotency, hard requirement).
-4. Asserts Pass 1 equals the fixture (drift check, soft requirement).
-5. Drops the sandboxed object and moves on.
+2. Validates the emitter's `.qdef` output (`qdef_joins` check — see below).
+3. Exports it twice (Pass 1 and Pass 2).
+4. Asserts Pass 2 equals Pass 1 (idempotency, hard requirement).
+5. Asserts Pass 1 equals the fixture (drift check, soft requirement).
+6. Drops the sandboxed object and moves on.
 
 Fixtures themselves are **never modified** by a normal run. The only way to
 overwrite them is to deliberately invoke the harness with `blnRebaseline:=True`
@@ -56,6 +57,48 @@ A dedicated session log file is written to
 `Testing\Fixtures\logs\ObjectRoundtrip_<opId>.log`, and the function returns a
 JSON document summarizing every fixture (parseable by automation).
 
+## Qdef emitter validation
+
+The harness runs two checks on the `.qdef` that the emitter would produce for
+each fixture. The `.qdef` is a structured text file that `Application.LoadFromText`
+consumes to create the query — bugs in the emitter can cause `LoadFromText` to
+silently create broken queries that fail at execution time.
+
+### `qdef_joins` — structural invariant check
+
+For Design View `.qdef` fixtures, the harness validates that every join row's
+`LeftTable` and `RightTable` reference tables that appear in that row's
+`Expression`. This catches emitter bugs where split compound `ON` conditions
+get the wrong table pair — bugs that `Application.LoadFromText` accepts silently
+but cause DAO error 3082 at query execution time.
+
+Skipped for SQL-View-only queries (UNION, DDL, pass-through, etc.) since those
+have no `Joins` block. See
+[regression/qryRegressionCrossTableOnEmitter.notes.md](queries/regression/qryRegressionCrossTableOnEmitter.notes.md)
+for the fixture that pins this invariant.
+
+### `qdef_vs_fixture` — drift comparison
+
+For fixtures that have a `.qdef` baseline file (alongside the `.sql` and
+`.json`), the harness compares the generated `.qdef` against the baseline and
+reports any differences. This catches *any* change to the emitter's output —
+properties, input tables, output columns, joins, ordering, etc. — not just the
+specific invariant that `qdef_joins` checks.
+
+The `.qdef` baseline is generated without the Layout section (layout is a
+pass-through from the JSON's `DesignLayout` blob, already validated by the
+`json_vs_fixture` check).
+
+To create baselines for all fixtures, run with `blnRebaseline:=True`:
+
+```vba
+?VCS.RunRoundtripTests(, True)
+```
+
+Review the resulting `git diff` before committing — each new `.qdef` file
+should be inspected for correctness. Subsequent runs without rebaselining will
+detect drift against these baselines.
+
 ## Folder layout
 
 ```
@@ -97,6 +140,11 @@ For queries (v1):
   name). The `Info` block is purely informational — the import path reads the
   query name from the filename, not from the JSON — so the harness strips it
   entirely before comparison to keep diffs name-agnostic.
+- **`<name>.qdef`** *(optional)* — the `.qdef` text the emitter generates
+  for this fixture. Stored without the Layout section (layout drift is
+  covered by the `.json` comparison). When present, the harness compares
+  the freshly-generated `.qdef` against this baseline and reports any
+  drift. Created automatically when running with `blnRebaseline:=True`.
 - **`<name>.notes.md`** *(optional)* — short prose describing why this
   fixture exists. Especially valuable for regression fixtures: link to the
   GitHub issue, summarize the failure mode, and note any constraints (e.g.

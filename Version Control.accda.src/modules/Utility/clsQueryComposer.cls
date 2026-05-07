@@ -3168,20 +3168,35 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     ' Joins — multi-condition ON clauses must be decomposed into separate
     ' rows because Access's Design View .qdef stores each condition as its
     ' own entry (separate Attribute 7 rows in MSysQueries).
+    '
+    ' Each split condition gets its own LeftTable/RightTable extracted from
+    ' the condition expression, not the parent join's tables. Access stores
+    ' each Attribute 7 row with the specific table pair that the condition
+    ' references (e.g. ON (A.x = B.x) AND (A.x = C.x) becomes two rows:
+    ' A-B and A-C). Reusing the parent join's tables for all conditions
+    ' causes LoadFromText to create ambiguous internal references when one
+    ' of the referenced tables is a saved query that internally uses a
+    ' table also mentioned in another condition.
     If m_colJoins.Count > 0 Then
         cOut.Add "Begin Joins", vbCrLf
         Dim dJn As Dictionary
         Dim asConditions() As String
         Dim lngC As Long
         Dim strCondition As String
+        Dim strCondLeft As String
+        Dim strCondRight As String
         For Each dJn In m_colJoins
             If HasTopLevelBoolean(CStr(dJn("expression"))) Then
                 asConditions = SplitTopLevel(StripOuterParens(CStr(dJn("expression"))), " AND ")
                 For lngC = LBound(asConditions) To UBound(asConditions)
                     strCondition = StripOuterParens(Trim$(asConditions(lngC)))
                     If Len(strCondition) > 0 Then
-                        cOut.Add "    LeftTable =""" & CStr(dJn("leftTable")) & """", vbCrLf
-                        cOut.Add "    RightTable =""" & CStr(dJn("rightTable")) & """", vbCrLf
+                        strCondLeft = ExtractTableFromOnSide(strCondition, True)
+                        strCondRight = ExtractTableFromOnSide(strCondition, False)
+                        If Len(strCondLeft) = 0 Then strCondLeft = CStr(dJn("leftTable"))
+                        If Len(strCondRight) = 0 Then strCondRight = CStr(dJn("rightTable"))
+                        cOut.Add "    LeftTable =""" & strCondLeft & """", vbCrLf
+                        cOut.Add "    RightTable =""" & strCondRight & """", vbCrLf
                         EmitWrappedString cOut, "    Expression", strCondition
                         cOut.Add "    Flag =" & CStr(dJn("flag")), vbCrLf
                     End If
