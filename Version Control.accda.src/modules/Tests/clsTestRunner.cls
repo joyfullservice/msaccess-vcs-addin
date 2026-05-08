@@ -832,6 +832,16 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
 
     varLines = Split(strAllCode, vbCrLf)
 
+    ' Only register tests from modules that actually call TestAssert
+    Dim blnCallsTestAssert As Boolean
+    For lngLine = LBound(varLines) To UBound(varLines)
+        If Left$(UCase$(Trim$(varLines(lngLine))), 11) = "TESTASSERT " Then
+            blnCallsTestAssert = True
+            Exit For
+        End If
+    Next lngLine
+    If Not blnCallsTestAssert Then Exit Sub
+
     For lngLine = LBound(varLines) To UBound(varLines)
         strTrimmed = Trim$(varLines(lngLine))
 
