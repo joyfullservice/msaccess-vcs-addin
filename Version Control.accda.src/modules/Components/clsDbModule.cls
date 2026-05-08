@@ -161,8 +161,13 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Apply object metadata (doc properties + hidden attribute) from companion .json
     ImportObjectMetadata SwapExtension(strFile, "json"), "Modules", strName, acModule
 
-    ' Save hash, update the index, and remove the temp file
-    VCSIndex.Update Me, eatImport, GetCodeModuleHash(IDbComponent_ComponentType, strName)
+    ' Save hash, update the index, and remove the temp file.
+    ' Store the source file content hash (FileHash), VBA code hash (OtherHash),
+    ' and metadata hash (MetaHash) so the content-hash fallback in
+    ' GetModifiedSourceFiles works correctly after a merge+import cycle.
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
+        GetCodeModuleHash(IDbComponent_ComponentType, strName), _
+        strMetaHash:=GetMetadataHash("Modules", strName, acModule)
     DeleteFile strTempFile
 
     CatchAny eelError, T("Error importing module: {0}", var0:=strName), FunctionName

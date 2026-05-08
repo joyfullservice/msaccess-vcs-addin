@@ -683,6 +683,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
     Dim strFile As String
     Dim blnModified As Boolean
     Dim blnMissing As Boolean
+    Dim strStoredHash As String
 
     Set GetModifiedSourceFiles = New Dictionary
     With GetModifiedSourceFiles
@@ -713,11 +714,25 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
                 End If
 
                 ' Check the index for any existing entry, so we can compare the saved modified date.
-                If (Not blnMissing) And Me.Exists(cCategory, strFile) Then
+                ' NOTE: We intentionally do NOT gate this on blnMissing. The
+                ' path-based check (dItems.Exists) can fail due to casing,
+                ' @Folder annotation drift, or stale index state. As long as
+                ' the index has an entry keyed by filename we can still compare
+                ' hashes and avoid unnecessary merges.
+                If Me.Exists(cCategory, strFile) Then
                     ' Get hash of current source files.
                     strHash = GetSourceFilesPropertyHash(cCategory, strFile)
                     ' File is considered not modified if the index hash matches the current hash.
                     blnModified = Not (Me.Item(cCategory, strFile).FilePropertiesHash = strHash)
+                    ' Content-hash fallback: if property hash differs (e.g. git
+                    ' checkout touched timestamps without changing content), verify
+                    ' by comparing the stored file content hash.
+                    If blnModified Then
+                        strStoredHash = Me.Item(cCategory, strFile).FileHash
+                        If Len(strStoredHash) > 0 Then
+                            blnModified = (strStoredHash <> GetFileHash(strFile))
+                        End If
+                    End If
                 End If
             End If
 
