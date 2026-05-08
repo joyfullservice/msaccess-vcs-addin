@@ -132,10 +132,9 @@ Public Sub TestParseSpecialCharsInJson()
 
     strPath = m_strTempFolder & "special_chars.json"
 
-    With FSO.CreateTextFile(strPath, True)
-        .WriteLine "{""Test"":""ÆØÅ are special?""}"
-        .Close
-    End With
+    ' Must use WriteFile (UTF-8 with BOM) so ReadJsonFile decodes correctly.
+    ' FSO.CreateTextFile writes ANSI, which mangles non-ASCII characters on read-back.
+    WriteFile "{""Test"":""ÆØÅ are special?""}", strPath
 
     Set dict = modFileAccess.ReadJsonFile(strPath)
 
