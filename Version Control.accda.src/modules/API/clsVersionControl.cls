@@ -1966,7 +1966,6 @@ Public Function RunTests() As String
     Dim lngFailed As Long
     Dim lngErrored As Long
     Dim lngEmpty As Long
-    Dim strColor As String
 
     If Not DatabaseFileOpen Then
         MsgBox2 T("No Database Open"), _
@@ -2015,7 +2014,7 @@ Public Function RunTests() As String
     End If
 
     Log.Add T("Found {0} test(s). Running...", var0:=TestRunner.Tests.Count)
-    Log.Spacer
+    Log.Spacer True, 61
 
     DoCmd.Hourglass True
 
@@ -2035,20 +2034,6 @@ Public Function RunTests() As String
     lngEmpty = TestRunner.EmptyCount
     blnAllPassed = (Not blnCanceled) And (lngFailed = 0 And lngErrored = 0 And lngPassed > 0)
 
-    If blnCanceled Then
-        strColor = "orange"
-    ElseIf lngFailed + lngErrored > 0 Then
-        strColor = "red"
-    ElseIf lngPassed > 0 Then
-        strColor = "green"
-    Else
-        strColor = "gray"
-    End If
-
-    Log.Spacer
-    Log.Add lngPassed & " passed, " & lngFailed & " failed, " & _
-        lngErrored & " errored, " & lngEmpty & " empty" & _
-        IIf(blnCanceled, " (canceled)", vbNullString), True, , strColor, True
     Log.Flush
     DoCmd.Hourglass False
 

@@ -57,6 +57,8 @@ Private Type udtTestRunner
     ErroredCount As Long
     EmptyCount As Long
     TotalAssertions As Long
+    PassedAssertions As Long
+    FailedAssertions As Long
 End Type
 Private this As udtTestRunner
 
@@ -336,15 +338,13 @@ Public Sub RunSelected(colTestKeys As Collection)
         ElseIf AnyAssertionFailed(this.AssertionResults) Then
             dTest("status") = etsFailed
             this.FailedCount = this.FailedCount + 1
-            LogTestResult strProcName, "FAIL", "red"
+            Log.Add "  " & strProcName
             LogAssertionDetails this.AssertionResults
         Else
             dTest("status") = etsPassed
             this.PassedCount = this.PassedCount + 1
-            LogTestResult strProcName, "PASS", "green"
-            If ShouldShowAssertionDetails(this.AssertionResults) Then
-                LogAssertionDetails this.AssertionResults
-            End If
+            Log.Add "  " & strProcName
+            LogAssertionDetails this.AssertionResults
         End If
 
         DoEvents
@@ -419,6 +419,11 @@ Public Sub RecordAssertion(ByVal blnCondition As Boolean, ByVal varContext As Va
 
     this.AssertionCounter = this.AssertionCounter + 1
     this.TotalAssertions = this.TotalAssertions + 1
+    If blnCondition Then
+        this.PassedAssertions = this.PassedAssertions + 1
+    Else
+        this.FailedAssertions = this.FailedAssertions + 1
+    End If
 
     Set dResult = New Dictionary
     dResult.Add "seq", this.AssertionCounter
@@ -460,10 +465,9 @@ Public Function GetResultsAsJson() As String
     dRoot.Add "addinVersion", GetVCSVersion
     dRoot.Add "durationMs", CLng((Perf.MicroTimer - this.RunStartTime) * 1000)
 
-    dSummary.Add "assertions", this.TotalAssertions
     dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
-    dSummary.Add "passed", this.PassedCount
-    dSummary.Add "failed", this.FailedCount
+    dSummary.Add "passed", this.PassedAssertions
+    dSummary.Add "failed", this.FailedAssertions
     dSummary.Add "errored", this.ErroredCount
     dSummary.Add "empty", this.EmptyCount
     Set dRoot("summary") = dSummary
@@ -1076,6 +1080,8 @@ End Sub
 '
 Private Sub LogRunSummary()
 
+    Const SPACER_LEN As Long = 61
+
     Dim lngTotal As Long
     Dim dblElapsed As Double
 
@@ -1083,19 +1089,19 @@ Private Sub LogRunSummary()
     dblElapsed = Round((Perf.MicroTimer - this.RunStartTime), 3)
 
     With Log
-        .Spacer
+        .Spacer True, SPACER_LEN
         .Add "Test summary", True, , "blue", True
-        .Add "  Assertions: " & this.TotalAssertions & "  (" & lngTotal & " subs)"
-        LogSummaryLine "  Passed:     ", CStr(this.PassedCount), _
-            IIf(this.PassedCount > 0, "green", vbNullString)
-        LogSummaryLine "  Failed:     ", CStr(this.FailedCount), _
-            IIf(this.FailedCount > 0, "red", vbNullString)
+        .Add "  Subs:       " & lngTotal
+        LogSummaryLine "  Passed:     ", CStr(this.PassedAssertions), _
+            IIf(this.PassedAssertions > 0, "green", vbNullString)
+        LogSummaryLine "  Failed:     ", CStr(this.FailedAssertions), _
+            IIf(this.FailedAssertions > 0, "red", vbNullString)
         LogSummaryLine "  Errored:    ", CStr(this.ErroredCount), _
             IIf(this.ErroredCount > 0, "red", vbNullString)
         LogSummaryLine "  Empty:      ", CStr(this.EmptyCount), _
             IIf(this.EmptyCount > 0, "gray", vbNullString)
         .Add "  Elapsed:    " & dblElapsed & "s"
-        .Spacer
+        .Spacer True, SPACER_LEN
     End With
 
 End Sub
@@ -1120,31 +1126,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ShouldShowAssertionDetails
-' Author    : Adam Waller
-' Date      : 5/8/2026
-' Purpose   : Returns True when assertion detail lines should be displayed — either
-'           : because there are multiple assertions or any assertion has context.
-'---------------------------------------------------------------------------------------
-'
-Private Function ShouldShowAssertionDetails(colResults As Collection) As Boolean
-    Dim dResult As Dictionary
-    Dim i As Long
-    If colResults.Count > 1 Then
-        ShouldShowAssertionDetails = True
-        Exit Function
-    End If
-    For i = 1 To colResults.Count
-        Set dResult = colResults(i)
-        If Len(dResult("context")) > 0 Then
-            ShouldShowAssertionDetails = True
-            Exit Function
-        End If
-    Next i
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : LogAssertionDetails
 ' Author    : Adam Waller
 ' Date      : 5/8/2026
@@ -1156,7 +1137,6 @@ Private Sub LogAssertionDetails(colResults As Collection)
     Dim i As Long
     Dim strTag As String
     Dim strColor As String
-    Dim blnHasContext As Boolean
     For i = 1 To colResults.Count
         Set dResult = colResults(i)
         If CBool(dResult("passed")) Then
@@ -1166,13 +1146,10 @@ Private Sub LogAssertionDetails(colResults As Collection)
             strTag = "FAIL"
             strColor = "red"
         End If
-        blnHasContext = (Len(dResult("context")) > 0)
         Log.Add "    #" & dResult("seq") & " ", True, False, "gray"
-        If blnHasContext Then
-            Log.Add strTag, True, False, strColor
+        Log.Add strTag, True, IIf(Len(dResult("context")) = 0, True, False), strColor
+        If Len(dResult("context")) > 0 Then
             Log.Add ": " & dResult("context"), True, True, "gray"
-        Else
-            Log.Add strTag, True, True, strColor
         End If
     Next i
 End Sub
@@ -1191,6 +1168,8 @@ Private Sub ResetCounts()
     this.ErroredCount = 0
     this.EmptyCount = 0
     this.TotalAssertions = 0
+    this.PassedAssertions = 0
+    this.FailedAssertions = 0
 End Sub
 
 

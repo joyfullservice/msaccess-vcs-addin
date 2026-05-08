@@ -96,8 +96,12 @@ End Sub
 ' Purpose   : Add a spacer to the log
 '---------------------------------------------------------------------------------------
 '
-Public Sub Spacer(Optional blnPrint As Boolean = True)
-    Me.Add cstrSpacer, blnPrint
+Public Sub Spacer(Optional blnPrint As Boolean = True, Optional lngLength As Long = 0)
+    If lngLength > 0 Then
+        Me.Add String$(lngLength, "-"), blnPrint
+    Else
+        Me.Add cstrSpacer, blnPrint
+    End If
 End Sub
 
 
