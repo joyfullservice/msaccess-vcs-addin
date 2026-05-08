@@ -205,6 +205,7 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim strErrDesc As String
     Dim strTestKey As String
     Dim strProcName As String
+    Dim strCurrentModule As String
     Dim curStart As Currency
     Dim intErrorTrapping As Integer
     Dim blnBreakOnError As Boolean
@@ -261,6 +262,12 @@ Public Sub RunSelected(colTestKeys As Collection)
         this.AssertionCounter = 0
         Set this.AssertionResults = New Collection
 
+        ' Emit module heading when the module changes
+        If StrComp(CStr(dTest("moduleName")), strCurrentModule, vbTextCompare) <> 0 Then
+            strCurrentModule = CStr(dTest("moduleName"))
+            Log.Add strCurrentModule, True, True, vbNullString, True
+        End If
+
         If dTest("sourceType") = "class" Then
             ' --- Class-based test: instantiate via factory, call via CallByName ---
             curStart = Perf.MicroTimer
@@ -275,8 +282,8 @@ Public Sub RunSelected(colTestKeys As Collection)
                 dTest("status") = etsErrored
                 dTest("errorMessage") = "Factory error " & lngErrNum & ": " & strErrDesc
                 this.ErroredCount = this.ErroredCount + 1
-                LogTestResult strTestKey, "ERROR", "red"
-                Log.Add "  " & dTest("errorMessage"), False
+                LogTestResult strProcName, "ERROR", "red"
+                Log.Add "        " & dTest("errorMessage"), False
                 GoTo NextTest
             End If
 
@@ -295,8 +302,8 @@ Public Sub RunSelected(colTestKeys As Collection)
                 dTest("status") = etsErrored
                 dTest("errorMessage") = "Not callable (Option Private Module or not found): " & strProcName
                 this.ErroredCount = this.ErroredCount + 1
-                LogTestResult strTestKey, "SKIP", "orange"
-                Log.Add "  " & dTest("errorMessage"), False
+                LogTestResult strProcName, "SKIP", "orange"
+                Log.Add "        " & dTest("errorMessage"), False
                 GoTo NextTest
             End If
 
@@ -319,21 +326,24 @@ Public Sub RunSelected(colTestKeys As Collection)
             dTest("status") = etsErrored
             dTest("errorMessage") = "Error " & lngErrNum & ": " & strErrDesc
             this.ErroredCount = this.ErroredCount + 1
-            LogTestResult strTestKey, "ERROR", "red"
-            Log.Add "  " & dTest("errorMessage"), False
+            LogTestResult strProcName, "ERROR", "red"
+            Log.Add "        " & dTest("errorMessage"), False
         ElseIf this.AssertionCounter = 0 Then
             dTest("status") = etsEmpty
             this.EmptyCount = this.EmptyCount + 1
-            LogTestResult strTestKey, "EMPTY", "gray"
+            LogTestResult strProcName, "EMPTY", "gray"
         ElseIf AnyAssertionFailed(this.AssertionResults) Then
             dTest("status") = etsFailed
             this.FailedCount = this.FailedCount + 1
-            LogTestResult strTestKey, "FAIL", "red"
-            LogFailedAssertions this.AssertionResults
+            LogTestResult strProcName, "FAIL", "red"
+            LogAssertionDetails this.AssertionResults
         Else
             dTest("status") = etsPassed
             this.PassedCount = this.PassedCount + 1
-            LogTestResult strTestKey, "PASS", "green"
+            LogTestResult strProcName, "PASS", "green"
+            If ShouldShowAssertionDetails(this.AssertionResults) Then
+                LogAssertionDetails this.AssertionResults
+            End If
         End If
 
         DoEvents
@@ -1031,12 +1041,14 @@ End Function
 '           : fixed column position so all result labels start at the same place.
 '---------------------------------------------------------------------------------------
 '
-Private Sub LogTestResult(strTestKey As String, strStatus As String, strColor As String)
-    Const STATUS_COL As Long = 50
+Private Sub LogTestResult(strProcName As String, strStatus As String, strColor As String)
+    Const STATUS_COL As Long = 48
+    Dim strLine As String
     Dim lngPad As Long
-    lngPad = STATUS_COL - Len(strTestKey)
+    strLine = "    " & strProcName
+    lngPad = STATUS_COL - Len(strLine)
     If lngPad < 2 Then lngPad = 2
-    Log.Add strTestKey & Space$(lngPad), True, False
+    Log.Add strLine & Space$(lngPad), True, False
     Log.Add strStatus, True, True, strColor
 End Sub
 
@@ -1095,24 +1107,55 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : LogFailedAssertions
+' Procedure : ShouldShowAssertionDetails
 ' Author    : Adam Waller
-' Date      : 5/7/2026
-' Purpose   : Log details for failed assertions to the console (file-only).
+' Date      : 5/8/2026
+' Purpose   : Returns True when assertion detail lines should be displayed — either
+'           : because there are multiple assertions or any assertion has context.
 '---------------------------------------------------------------------------------------
 '
-Private Sub LogFailedAssertions(colResults As Collection)
+Private Function ShouldShowAssertionDetails(colResults As Collection) As Boolean
     Dim dResult As Dictionary
     Dim i As Long
+    If colResults.Count > 1 Then
+        ShouldShowAssertionDetails = True
+        Exit Function
+    End If
     For i = 1 To colResults.Count
         Set dResult = colResults(i)
-        If Not CBool(dResult("passed")) Then
-            If Len(dResult("context")) > 0 Then
-                Log.Add "        #" & dResult("seq") & " FAILED: " & dResult("context"), False
-            Else
-                Log.Add "        #" & dResult("seq") & " FAILED", False
-            End If
+        If Len(dResult("context")) > 0 Then
+            ShouldShowAssertionDetails = True
+            Exit Function
         End If
+    Next i
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogAssertionDetails
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Log per-assertion detail lines to the console with color coding.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LogAssertionDetails(colResults As Collection)
+    Dim dResult As Dictionary
+    Dim i As Long
+    Dim strLine As String
+    Dim strColor As String
+    For i = 1 To colResults.Count
+        Set dResult = colResults(i)
+        If CBool(dResult("passed")) Then
+            strColor = "green"
+            strLine = "        #" & dResult("seq") & " PASS"
+        Else
+            strColor = "red"
+            strLine = "        #" & dResult("seq") & " FAIL"
+        End If
+        If Len(dResult("context")) > 0 Then
+            strLine = strLine & ": " & dResult("context")
+        End If
+        Log.Add strLine, True, True, strColor
     Next i
 End Sub
 
