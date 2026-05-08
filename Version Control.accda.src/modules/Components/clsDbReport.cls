@@ -42,10 +42,18 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
     Dim strExportFolder As String
     Dim strSafeName As String
+    Dim strAnnotation As String
 
-    ' Force fresh @Folder read from live VBA so the export path is correct
-    ' even if the annotation changed since the scan phase.
+    ' Read the live @Folder annotation once (bypassing any stale cache)
+    strAnnotation = GetFolderAnnotation(Me.Parent, blnBypassCache:=True)
+    strSafeName = GetSafeFileName(m_Report.Name)
+
+    ' Build export path using the live annotation
     m_strSourceFile = vbNullString
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        m_strSourceFile = IDbComponent_BaseFolder _
+            & strAnnotation & strSafeName & ".report"
+    End If
 
     strHash = SaveComponentAsText(acReport, m_Report.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
 
@@ -59,15 +67,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         TryExportLayoutSvg IDbComponent_SourceFile, acReport
     End If
 
-    ' Clean up old files at base folder if @Folder moved them to a subfolder
+    ' Remove duplicate files at any other location in the base folder tree
     strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
-    If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
-        strSafeName = GetSafeFileName(m_Report.Name)
-        If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".report") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".report"
-        If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".json") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".json"
-        If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".cls") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".cls"
-        If FSO.FileExists(IDbComponent_BaseFolder & strSafeName & ".svg") Then DeleteFile IDbComponent_BaseFolder & strSafeName & ".svg"
-    End If
+    CleanupDuplicateSourceFiles IDbComponent_BaseFolder, strExportFolder, _
+        strSafeName, ".report", ".json", ".cls", ".svg"
 
     Dim cIdx As clsVCSIndexItem
     Set cIdx = VCSIndex.Update(Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
@@ -75,8 +78,6 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         strMetaHash:=GetMetadataHash("Reports", m_Report.Name, acReport))
 
     ' Cache the @Folder annotation in the index
-    Dim strAnnotation As String
-    strAnnotation = GetFolderAnnotation(Me.Parent)
     cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
 End Sub

@@ -62,7 +62,8 @@ End Sub
 '           : actual disk casing rather than the annotation casing.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFolderAnnotation(cComponent As IDbComponent) As String
+Public Function GetFolderAnnotation(cComponent As IDbComponent, _
+    Optional blnBypassCache As Boolean = False) As String
 
     Dim cmpItem As VBComponent
     Dim strCode As String
@@ -79,12 +80,16 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent) As String
 
     ' Check index cache before making any VBE COM calls.
     ' The sentinel FOLDER_ANNOTATION_NONE means "checked, no annotation found."
-    strCached = TryGetCachedAnnotation(cComponent)
-    If Len(strCached) > 0 Then
-        If strCached <> FOLDER_ANNOTATION_NONE Then
-            GetFolderAnnotation = strCached
+    ' Export callers pass blnBypassCache:=True to read the live annotation
+    ' from VBE, since the cached value may be stale after an annotation edit.
+    If Not blnBypassCache Then
+        strCached = TryGetCachedAnnotation(cComponent)
+        If Len(strCached) > 0 Then
+            If strCached <> FOLDER_ANNOTATION_NONE Then
+                GetFolderAnnotation = strCached
+            End If
+            Exit Function
         End If
-        Exit Function
     End If
 
     ' Determine VBE component name from the database component type
@@ -162,6 +167,87 @@ CleanUp:
 
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CleanupDuplicateSourceFiles
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : After exporting a component, scan the base folder tree for any file
+'           : matching strSafeName + one of the given extensions that lives in a
+'           : subfolder OTHER than strCorrectFolder. Deletes duplicates regardless of
+'           : how they were introduced (stale cache, manual copy, git merge, etc.).
+'           : Empty subfolders are removed after cleanup.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CleanupDuplicateSourceFiles(strBaseFolder As String, _
+    strCorrectFolder As String, strSafeName As String, _
+    ParamArray varExtensions() As Variant)
+
+    ' Copy ParamArray into a plain Variant so it can be forwarded to the recursive helper
+    Dim varExts As Variant
+    varExts = varExtensions
+
+    If StrComp(StripSlash(strBaseFolder), StripSlash(strCorrectFolder), vbTextCompare) = 0 Then Exit Sub
+    If Not FSO.FolderExists(strBaseFolder) Then Exit Sub
+
+    ' Recursive scan of the base folder tree
+    ScanForDuplicates StripSlash(strBaseFolder), strCorrectFolder, strSafeName, varExts
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScanForDuplicates
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Recursively scan a folder and subfolders, deleting any file matching
+'           : the target name + extensions that is not in the correct folder.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ScanForDuplicates(strFolder As String, strCorrectFolder As String, _
+    strSafeName As String, varExtensions As Variant)
+
+    Dim colFiles As New Collection
+    Dim colSubFolders As New Collection
+    Dim varItem As Variant
+    Dim strName As String
+    Dim strParent As String
+    Dim i As Long
+
+    ScanFolderContents strFolder, colFiles, colSubFolders
+
+    ' Only check files if this is NOT the correct folder
+    strParent = AddSlash(strFolder)
+    If StrComp(strParent, strCorrectFolder, vbTextCompare) <> 0 Then
+        For Each varItem In colFiles
+            strName = FSO.GetFileName(CStr(varItem))
+            For i = LBound(varExtensions) To UBound(varExtensions)
+                If StrComp(strName, strSafeName & CStr(varExtensions(i)), vbTextCompare) = 0 Then
+                    DeleteFile CStr(varItem)
+                    Exit For
+                End If
+            Next i
+        Next varItem
+    End If
+
+    ' Recurse into subfolders
+    For Each varItem In colSubFolders
+        ScanForDuplicates CStr(varItem), strCorrectFolder, strSafeName, varExtensions
+        ' Remove subfolder if empty after cleanup
+        If FSO.FolderExists(CStr(varItem)) Then
+            If FSO.GetFolder(CStr(varItem)).Files.Count = 0 _
+                And FSO.GetFolder(CStr(varItem)).SubFolders.Count = 0 Then
+                LogUnhandledErrors
+                On Error Resume Next
+                FSO.DeleteFolder CStr(varItem), True
+                CatchAny eelWarning, "Unable to delete empty folder: " & CStr(varItem), _
+                    ModuleName & ".ScanForDuplicates"
+            End If
+        End If
+    Next varItem
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------

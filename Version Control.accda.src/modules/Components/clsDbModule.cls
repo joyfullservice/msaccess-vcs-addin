@@ -48,11 +48,19 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strExt As String
     Dim strAlternateFile As String
     Dim strExportFolder As String
-    Dim strOldFile As String
+    Dim strAnnotation As String
+    Dim strSafeName As String
 
-    ' Force fresh @Folder read from live VBA so the export path is correct
-    ' even if the annotation changed since the scan phase.
+    ' Read the live @Folder annotation once (bypassing any stale cache)
+    strAnnotation = GetFolderAnnotation(Me.Parent, blnBypassCache:=True)
+    strSafeName = GetSafeFileName(m_Module.Name)
+
+    ' Build export path using the live annotation
     m_strSourceFile = vbNullString
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        m_strSourceFile = IDbComponent_BaseFolder _
+            & strAnnotation & strSafeName & GetExtension
+    End If
 
     ' Export as sanitized UTF-8 file
     ExportCodeModule m_Module.Name, Nz2(strAlternatePath, IDbComponent_SourceFile)
@@ -61,7 +69,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Produced for both normal and alternate-path (temp) exports so that conflict
     ' detection can compare all files and the conflict dialog can offer per-file diffs.
     ExportObjectMetadata FSO.GetParentFolderName(Nz2(strAlternatePath, IDbComponent_SourceFile)) & PathSep _
-        & GetSafeFileName(m_Module.Name) & ".json", "Modules", m_Module.Name, acModule
+        & strSafeName & ".json", "Modules", m_Module.Name, acModule
 
     ' Clean up stale files only during normal exports (not alternate/temp exports)
     If strAlternatePath = vbNullString Then
@@ -71,18 +79,12 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
         ' Remove any file with the same name but alternate extension in the export folder
         strExt = IIf(GetExtension = ".bas", ".cls", ".bas")
-        strAlternateFile = strExportFolder & GetSafeFileName(m_Module.Name) & strExt
+        strAlternateFile = strExportFolder & strSafeName & strExt
         If FSO.FileExists(strAlternateFile) Then DeleteFile strAlternateFile
 
-        ' Clean up old file at base folder if @Folder moved it to a subfolder
-        If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
-            strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & GetExtension
-            If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
-            strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & strExt
-            If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
-            strOldFile = IDbComponent_BaseFolder & GetSafeFileName(m_Module.Name) & ".json"
-            If FSO.FileExists(strOldFile) Then DeleteFile strOldFile
-        End If
+        ' Remove duplicate files at any other location in the base folder tree
+        CleanupDuplicateSourceFiles IDbComponent_BaseFolder, strExportFolder, _
+            strSafeName, GetExtension, strExt, ".json"
 
     End If
 
@@ -95,8 +97,6 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Cache the @Folder annotation in the index so subsequent scans
     ' can skip the expensive VBE COM call for unchanged objects.
-    Dim strAnnotation As String
-    strAnnotation = GetFolderAnnotation(Me.Parent)
     cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
 End Sub

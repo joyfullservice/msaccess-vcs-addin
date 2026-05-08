@@ -56,17 +56,26 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim blnUnchanged As Boolean
 
     Dim strExportFolder As String
+    Dim strAnnotation As String
 
-    ' Force fresh @Folder read from live VBA so the export path is correct
-    ' even if the annotation changed since the scan phase.
+    ' Read the live @Folder annotation once (bypassing any stale cache)
+    strAnnotation = GetFolderAnnotation(Me.Parent, blnBypassCache:=True)
+    Dim strSafeName As String
+    strSafeName = GetSafeFileName(m_Form.Name)
+
+    ' Build export path using the live annotation
     m_strSourceFile = vbNullString
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        m_strSourceFile = IDbComponent_BaseFolder _
+            & strAnnotation & strSafeName & ".json"
+    End If
 
     ' Get the JSON representation of the current database object
     strContent = GetSource
 
     ' Build out all three normal source file paths using the @Folder-aware location
     strExportFolder = FSO.GetParentFolderName(IDbComponent_SourceFile) & PathSep
-    strBasePath = strExportFolder & GetSafeFileName(m_Form.Name)
+    strBasePath = strExportFolder & strSafeName
     strJsonPath = strBasePath & ".json"
     strBinaryPath = strBasePath & ".frx"
     strFormPath = strBasePath & ".frm"
@@ -99,18 +108,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Set cIdx = VCSIndex.Update(Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True))
 
     ' Cache the @Folder annotation in the index
-    Dim strAnnotation As String
-    strAnnotation = GetFolderAnnotation(Me.Parent)
     cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
-    ' Clean up old files at base folder if @Folder moved them to a subfolder
-    If StrComp(strExportFolder, IDbComponent_BaseFolder, vbTextCompare) <> 0 Then
-        Dim strOldBase As String
-        strOldBase = IDbComponent_BaseFolder & GetSafeFileName(m_Form.Name)
-        If FSO.FileExists(strOldBase & ".json") Then DeleteFile strOldBase & ".json"
-        If FSO.FileExists(strOldBase & ".frm") Then DeleteFile strOldBase & ".frm"
-        If FSO.FileExists(strOldBase & ".frx") Then DeleteFile strOldBase & ".frx"
-    End If
+    ' Remove duplicate files at any other location in the base folder tree
+    CleanupDuplicateSourceFiles IDbComponent_BaseFolder, strExportFolder, _
+        strSafeName, ".json", ".frm", ".frx"
 
 End Sub
 
