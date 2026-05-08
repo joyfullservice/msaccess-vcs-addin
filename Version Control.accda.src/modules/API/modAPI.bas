@@ -110,6 +110,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : HandleTestAssertion
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Entry point for TestAssert calls from user projects. Must live in a
+'           : standard module so Application.Run can reach it.
+'---------------------------------------------------------------------------------------
+'
+Public Function HandleTestAssertion(ByVal blnCondition As Boolean, _
+                                     Optional ByVal varContext As Variant) As Boolean
+    If TestRunner.State <> etrsRunning Then
+        HandleTestAssertion = False
+        Exit Function
+    End If
+    HandleTestAssertion = True
+    TestRunner.RecordAssertion blnCondition, varContext
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : VCS
 ' Author    : Adam Waller
 ' Date      : 3/28/2022

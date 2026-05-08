@@ -30,6 +30,7 @@ Private Type udtObjects
     Git As clsGitIntegration
     Translation As clsTranslation
     MCP As clsMCP
+    TestRunner As clsTestRunner
 
     ' Keep a persistent reference to file system object after initializing version control.
     ' This way we don't have to recreate this object dozens of times while using VCS.
@@ -78,6 +79,7 @@ Public Sub ReleaseObjects()
     Set this.FSO = Nothing
     Set this.Translation = Nothing
     Set this.MCP = Nothing
+    Set this.TestRunner = Nothing
     Set this.dbs = Nothing
 
     Dim udtEmpty As udtObjects
@@ -116,13 +118,12 @@ End Function
 Public Property Get Options() As clsOptions
     If this.Options Is Nothing Then
         Set this.Options = LoadOptions
-        ConfigureErrorHandling this.Options.BreakOnError
     End If
     Set Options = this.Options
 End Property
 Public Property Set Options(cNewOptions As clsOptions)
     Set this.Options = cNewOptions
-    If Not cNewOptions Is Nothing Then ConfigureErrorHandling cNewOptions.BreakOnError
+    ' DebugMode() now reads Options.BreakOnError directly via OptionsLoaded guard
 End Property
 
 
@@ -328,6 +329,19 @@ End Property
 Public Property Let SessionId(strValue As String)
     m_strSessionId = strValue
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestRunner
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Singleton accessor for the test runner engine.
+'---------------------------------------------------------------------------------------
+'
+Public Function TestRunner() As clsTestRunner
+    If this.TestRunner Is Nothing Then Set this.TestRunner = New clsTestRunner
+    Set TestRunner = this.TestRunner
+End Function
 
 
 '---------------------------------------------------------------------------------------

@@ -496,7 +496,7 @@ Private Function SaveString(strText As String, strReference As String, _
         .AddNew
             !msgid = strText
             !Reference = ZN(strReference)
-            !Context = ZN(strContext)
+            !context = ZN(strContext)
             !Comments = ZN(strComments)
         .Update
         .Bookmark = .LastModified
@@ -562,7 +562,7 @@ Private Sub LoadLanguage(strLanguage As String)
     Set rst = dbs.OpenRecordset(strSql, dbOpenDynaset)
     With rst
         Do While Not .EOF
-            strKey = BuildKey(Nz(!Context), Nz(!msgid))
+            strKey = BuildKey(Nz(!context), Nz(!msgid))
             If Not this.dStrings.Exists(strKey) Then this.dStrings.Add strKey, CStr(!ID)
             If Nz(!Translation) <> vbNullString Then
                 If Not this.dTranslation.Exists(CStr(!ID)) Then
@@ -797,7 +797,7 @@ Private Sub SaveStringEntriesToDatabase(colEntries As Collection)
                 ' Add string to table
                 .AddNew
                     !msgid = dItem("msgid")
-                    !Context = ZN(dItem("Context"))
+                    !context = ZN(dItem("Context"))
                     !Reference = ZN(dItem("Reference"))
                     !Comments = ZN(dItem("Comments"))
                 .Update
@@ -941,7 +941,7 @@ Private Function BuildFileContent(strLanguage As String) As String
             If rst!msgid = cstrBreak Then Stop
             If Nz(rst!Comments) <> vbNullString Then .Add FormatComment(Nz(rst!Comments))
             If Nz(rst!Reference) <> vbNullString Then .Add "#: ", Nz(rst!Reference)
-            If Nz(rst!Context) <> vbNullString Then .Add "msgctxt ", Q(Nz(rst!Context))
+            If Nz(rst!context) <> vbNullString Then .Add "msgctxt ", Q(Nz(rst!context))
             .Add "msgid ", Q(Nz(rst!msgid))
             If strLanguage = "en_TEST" Then
                 ' Create test strings by captializing English

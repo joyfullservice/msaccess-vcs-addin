@@ -5,10 +5,7 @@
 ' Date      : 5/13/2023
 ' Purpose   : General error handling functions.
 ' Layer     : Infrastructure
-' Depends on: modObjects (Log singleton only — single documented coupling point)
-' Note      : BreakOnError is cached locally via ConfigureErrorHandling() to avoid
-'           : a circular dependency with modObjects/Options. The Log.Error coupling
-'           : remains because VBA lacks function pointers for object methods.
+' Depends on: modObjects (Log singleton, Options.BreakOnError via OptionsLoaded guard)
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -19,7 +16,6 @@ Private Const ModuleName As String = "modErrorHandling"
 
 Private Type udtThis
     blnInError As Boolean       ' Monitor error state
-    blnBreakOnError As Boolean  ' Cached from Options; set via ConfigureErrorHandling
 End Type
 Private this As udtThis
 
@@ -36,25 +32,11 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
     ' Log any unhandled errors
     If blnTrapUnhandledErrors Then LogUnhandledErrors
 
-    ' Use cached value set by ConfigureErrorHandling (defaults to False
-    ' until modObjects loads options and pushes the setting here).
-    DebugMode = this.blnBreakOnError
+    ' Read directly from Options. Guard with OptionsLoaded to prevent
+    ' circular initialization (Options getter -> load -> DebugMode -> Options).
+    If OptionsLoaded Then DebugMode = Options.BreakOnError
 
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ConfigureErrorHandling
-' Author    : Adam Waller
-' Date      : 3/10/2026
-' Purpose   : Called by modObjects after options load to push the BreakOnError setting
-'           : into this module. This avoids a circular dependency: modErrorHandling no
-'           : longer needs to reach into Options (modObjects) to read BreakOnError.
-'---------------------------------------------------------------------------------------
-'
-Public Sub ConfigureErrorHandling(blnBreakOnError As Boolean)
-    this.blnBreakOnError = blnBreakOnError
-End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -71,13 +53,16 @@ End Sub
 '
 Public Sub LogUnhandledErrors(Optional ByRef CallingFunction As String = vbNullString)
 
+    Dim blnBreak As Boolean
+
     ' Check for any unhandled errors
     If (Err.Number <> 0) And Not this.blnInError Then
 
         this.blnInError = True ' Set flag so we don't create a loop while logging the error
 
-        ' Check cached BreakOnError flag (pushed by modObjects.ConfigureErrorHandling)
-        If this.blnBreakOnError Then
+        ' Check live BreakOnError setting
+        If OptionsLoaded Then blnBreak = Options.BreakOnError
+        If blnBreak Then
             ' Stop the code here so we can investigate the source of the error.
             Debug.Print "Error " & Err.Number & ": " & Err.Description
             Stop

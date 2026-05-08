@@ -47,20 +47,20 @@ Private Function GetDesigner(ByVal FormComponent As VBComponent) As Dictionary
     Set GetDesigner = dict
 End Function
 
-Private Function GetProperties(ByVal Context As Object, ByVal Properties As VBIDE.Properties) As Dictionary
+Private Function GetProperties(ByVal context As Object, ByVal Properties As VBIDE.Properties) As Dictionary
     Dim dict As New Dictionary
     Dim p As VBIDE.Property
     Dim i As Long
     For i = 1 To Properties.Count
         Set p = Properties(i)
-        If IsSerializableProperty(Context, p) Then
-            dict.Add p.Name, GetValue(Context, p)
+        If IsSerializableProperty(context, p) Then
+            dict.Add p.Name, GetValue(context, p)
         End If
     Next i
     Set GetProperties = dict
 End Function
 
-Private Function IsSerializableProperty(ByVal Context As Object, ByVal Property As VBIDE.Property) As Boolean
+Private Function IsSerializableProperty(ByVal context As Object, ByVal Property As VBIDE.Property) As Boolean
     Dim tp As VbVarType
     LogUnhandledErrors
     On Error Resume Next
@@ -71,7 +71,7 @@ Private Function IsSerializableProperty(ByVal Context As Object, ByVal Property 
         Left(Property.Name, 1) <> "_" And _
         InStr("ActiveControls,Controls,Handle,MouseIcon,Picture,Selected,DesignMode,ShowToolbox,ShowGridDots,SnapToGrid,GridX,GridY,DrawBuffer,CanPaste", Property.Name) = 0
 
-    If TypeName(Context) = "VBComponent" Then
+    If TypeName(context) = "VBComponent" Then
         ' We must ignore Top and Height MSForm properties since these seem to be related to the some settings in the Windows user profile.
         IsSerializableProperty = _
             IsSerializableProperty And _
@@ -79,12 +79,12 @@ Private Function IsSerializableProperty(ByVal Context As Object, ByVal Property 
     End If
 End Function
 
-Private Function GetProperty(ByVal Context As Object, ByVal Property As VBIDE.Property) As Dictionary
+Private Function GetProperty(ByVal context As Object, ByVal Property As VBIDE.Property) As Dictionary
     Dim dict As New Dictionary
     dict.Add "Name", Property.Name
     If Property.Name = "Controls" Then
     Else
-        dict.Add "Value", GetValue(Context, Property)
+        dict.Add "Value", GetValue(context, Property)
     End If
     Set GetProperty = dict
 End Function
@@ -195,11 +195,11 @@ Private Function GetPicture(ByVal Picture As IPictureDisp) As String
 
 End Function
 
-Private Function GetValue(ByVal Context As Object, ByVal Property As VBIDE.Property) As Variant
+Private Function GetValue(ByVal context As Object, ByVal Property As VBIDE.Property) As Variant
     If VarType(Property.Value) = vbObject Then
         Select Case TypeName(Property.Value)
             Case "Properties"
-                Set GetValue = GetProperties(Context, Property.Value)
+                Set GetValue = GetProperties(context, Property.Value)
             Case Else
                 Set GetValue = Nothing
         End Select

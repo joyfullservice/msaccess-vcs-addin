@@ -49,7 +49,7 @@ Public Sub TestUCS2toUTF8RoundTrip()
         .Close
     End With
 
-    Debug.Assert originalExport = finalFile
+    TestAssert originalExport = finalFile
 
 End Sub
 
@@ -72,7 +72,7 @@ Public Sub TestParseSpecialCharsInJson()
 
     Set dict = modFileAccess.ReadJsonFile(strPath)
 
-    Debug.Assert Not dict Is Nothing
+    TestAssert Not dict Is Nothing
     Debug.Print dict("Test")
 
 End Sub
@@ -89,9 +89,9 @@ Public Sub TestSortDictionaryByKeys()
 
     Set dItems = SortDictionaryByKeys(dItems)
 
-    Debug.Assert dItems.Items(0) = "A"
-    Debug.Assert dItems.Items(1) = "B"
-    Debug.Assert dItems.Items(2) = "C"
+    TestAssert dItems.Items(0) = "A"
+    TestAssert dItems.Items(1) = "B"
+    TestAssert dItems.Items(2) = "C"
 
 End Sub
 
@@ -105,12 +105,12 @@ Private Sub TestQuickSort()
 
     QuickSort astr
     strResult = Join(astr, " ")
-    Debug.Assert strResult = "a i u"
+    TestAssert strResult = "a i u"
 
 End Sub
 
 
-Private Sub TestConcat()
+Private Sub TestConcat(Optional ManualRunOnly)
 
     With New clsConcat
         .SelfTest
@@ -122,13 +122,13 @@ End Sub
 Private Sub TestSanitizeConnectionString()
 
     ' Verify semicolon placement matches original
-    Debug.Assert SanitizeConnectionString(";test;test;") = ";test;test;"
-    Debug.Assert SanitizeConnectionString("test;test") = "test;test"
-    Debug.Assert SanitizeConnectionString(";test;test") = ";test;test"
-    Debug.Assert SanitizeConnectionString("test;test;") = "test;test;"
-    Debug.Assert SanitizeConnectionString("test;test;") = "test;test;"
-    Debug.Assert SanitizeConnectionString("test") = "test"
-    Debug.Assert SanitizeConnectionString(vbNullString) = vbNullString
+    TestAssert SanitizeConnectionString(";test;test;") = ";test;test;"
+    TestAssert SanitizeConnectionString("test;test") = "test;test"
+    TestAssert SanitizeConnectionString(";test;test") = ";test;test"
+    TestAssert SanitizeConnectionString("test;test;") = "test;test;"
+    TestAssert SanitizeConnectionString("test;test;") = "test;test;"
+    TestAssert SanitizeConnectionString("test") = "test"
+    TestAssert SanitizeConnectionString(vbNullString) = vbNullString
 
 End Sub
 
@@ -164,17 +164,17 @@ Private Sub TestCloneDictionary()
     dClone("Apple")("Seed2") = "Pear Seed"
 
     ' Test the results to make sure it cloned correctly.
-    Debug.Assert dClone.Exists("APPLE") = False
-    Debug.Assert dClone.Exists("Apple") = True
-    Debug.Assert dClone.Exists("ORANGE") = False
-    Debug.Assert dClone.Exists("Orange") = True
-    Debug.Assert dClone.CompareMode = BinaryCompare
-    Debug.Assert dClone("Apple").CompareMode = Scripting.CompareMethod.TextCompare
-    Debug.Assert dClone("Apple").Exists("seed1") = True
-    Debug.Assert dClone("Apple").Exists("SEED1") = True
-    Debug.Assert dClone("Apple").Exists("Seed3") = False
-    Debug.Assert dClone("Apple")("Seed2") = "Pear Seed"
-    Debug.Assert dFruit("Apple")("Seed2") = "Apple Seed"
+    TestAssert dClone.Exists("APPLE") = False
+    TestAssert dClone.Exists("Apple") = True
+    TestAssert dClone.Exists("ORANGE") = False
+    TestAssert dClone.Exists("Orange") = True
+    TestAssert dClone.CompareMode = BinaryCompare
+    TestAssert dClone("Apple").CompareMode = Scripting.CompareMethod.TextCompare
+    TestAssert dClone("Apple").Exists("seed1") = True
+    TestAssert dClone("Apple").Exists("SEED1") = True
+    TestAssert dClone("Apple").Exists("Seed3") = False
+    TestAssert dClone("Apple")("Seed2") = "Pear Seed"
+    TestAssert dFruit("Apple")("Seed2") = "Apple Seed"
 
 End Sub
 
@@ -190,7 +190,7 @@ Private Sub TestComponentPropertyAccess()
         varTest = cnt.Name
         varTest = cnt.DateModified
         varTest = cnt.SourceFile
-        Debug.Assert cnt.DbObject Is Nothing
+        TestAssert cnt.DbObject Is Nothing
     Next
 
 End Sub
@@ -203,7 +203,7 @@ Private Sub TestUniqueComponentCategory()
 
     Set dList = New Dictionary
     For Each cnt In GetContainers
-        Debug.Assert Not dList.Exists(cnt.Category)
+        TestAssert Not dList.Exists(cnt.Category)
         dList.Add cnt.Category, vbNullString
     Next
 
@@ -217,7 +217,7 @@ Private Sub TestUniqueComponentType()
 
     Set dList = New Dictionary
     For Each cnt In GetContainers
-        Debug.Assert Not dList.Exists(cnt.ComponentType)
+        TestAssert Not dList.Exists(cnt.ComponentType)
         dList.Add cnt.ComponentType, vbNullString
     Next
 
@@ -232,7 +232,7 @@ Private Sub TestUniqueBaseSubfolder()
     Set dList = New Dictionary
     For Each cnt In GetContainers
         If Not cnt.SingleFile Then
-            Debug.Assert Not dList.Exists(cnt.BaseFolder)
+            TestAssert Not dList.Exists(cnt.BaseFolder)
             dList.Add cnt.BaseFolder, vbNullString
         End If
     Next
@@ -264,24 +264,24 @@ Public Sub TestGitRepositoryRoot()
     With New clsGitIntegration
 
         ' Verify repository root for this project
-        Debug.Assert .GetRepositoryRoot = CurrentProject.Path & PathSep
+        TestAssert .GetRepositoryRoot = CurrentProject.Path & PathSep
 
         ' Resolve from subfolder
         .WorkingFolder = CurrentProject.Path & "\Version Control.accda.src\modules\"
-        Debug.Assert .GetRepositoryRoot = CurrentProject.Path & PathSep
+        TestAssert .GetRepositoryRoot = CurrentProject.Path & PathSep
 
         ' Return working folder when not in a git repository
         ' (Also tests returning final path separator)
         .WorkingFolder = "c:\windows"
-        Debug.Assert .GetRepositoryRoot = "c:\windows\"
+        TestAssert .GetRepositoryRoot = "c:\windows\"
 
         ' Reflect change in working folder
         .WorkingFolder = vbNullString
-         Debug.Assert .GetRepositoryRoot = CurrentProject.Path & PathSep
+         TestAssert .GetRepositoryRoot = CurrentProject.Path & PathSep
 
         ' Return specified working folder, even if it doesn't exist
         .WorkingFolder = "c:\Some Path that Doesn't Exist"
-         Debug.Assert .GetRepositoryRoot = "c:\Some Path that Doesn't Exist\"
+         TestAssert .GetRepositoryRoot = "c:\Some Path that Doesn't Exist\"
 
     End With
 
@@ -291,14 +291,14 @@ End Sub
 Public Sub TestInArray()
     Dim varArray As Variant
     varArray = Array("a", "b", "c", 1, 2, 3, #1/1/2000#)
-    Debug.Assert InArray(varArray, "b")
-    Debug.Assert Not InArray(varArray, "B")
-    Debug.Assert InArray(varArray, "B", vbTextCompare)
-    Debug.Assert InArray(varArray, 2)
-    Debug.Assert InArray(varArray, #1/1/2000#)
-    Debug.Assert Not InArray(varArray, Null)
-    Debug.Assert Not InArray(Null, "b")
-    Debug.Assert Not InArray(Array(), "b")
+    TestAssert InArray(varArray, "b")
+    TestAssert Not InArray(varArray, "B")
+    TestAssert InArray(varArray, "B", vbTextCompare)
+    TestAssert InArray(varArray, 2)
+    TestAssert InArray(varArray, #1/1/2000#)
+    TestAssert Not InArray(varArray, Null)
+    TestAssert Not InArray(Null, "b")
+    TestAssert Not InArray(Array(), "b")
 End Sub
 
 
@@ -314,11 +314,11 @@ Public Sub TestStringFileHash()
     WriteFile cstrText, strTempFile
 
     ' Compare to known hash (without BOM)
-    Debug.Assert GetStringHash(cstrText) = "f80a555"        ' Without BOM
-    Debug.Assert GetStringHash(cstrText, True) = "b628391"  ' With UTF-8 BOM and trailing vbCrLf
+    TestAssert GetStringHash(cstrText) = "f80a555"        ' Without BOM
+    TestAssert GetStringHash(cstrText, True) = "b628391"  ' With UTF-8 BOM and trailing vbCrLf
 
     ' Compare results of hashing file with hashing a string.
-    Debug.Assert GetFileHash(strTempFile) = GetStringHash(cstrText, True)
+    TestAssert GetFileHash(strTempFile) = GetStringHash(cstrText, True)
 
     ' Remove temp file.
     FSO.DeleteFile strTempFile
@@ -333,7 +333,7 @@ Public Sub TestGetClassFromComponentType()
     ' Test the entire enum range of component types
     ' to make sure they are all assigned to a class.
     For intType = edbTableDataMacro To eDatabaseComponentType.[_Last] - 1
-        Debug.Assert Not GetComponentClass(intType) Is Nothing
+        TestAssert Not GetComponentClass(intType) Is Nothing
     Next intType
 
 End Sub
@@ -357,11 +357,11 @@ Public Sub TestJsonNewLineIssue()
     Set dTest = New Dictionary
 
     dTest("Multiline") = cstrTest
-    Debug.Assert dTest("Multiline") = cstrTest
+    TestAssert dTest("Multiline") = cstrTest
 
     ' Test round trip conversion
     strResult = ParseJson(ConvertToJson(dTest, 2))("Multiline")
-    Debug.Assert (strResult = cstrTest)
+    TestAssert (strResult = cstrTest)
 
 End Sub
 
@@ -373,7 +373,7 @@ End Sub
 ' Purpose   : Self-test the SQL Formatter class
 '---------------------------------------------------------------------------------------
 '
-Public Sub TestSqlFormatter()
+Public Sub TestSqlFormatter(Optional ManualRunOnly)
     With New clsSqlFormatter
         .SelfTest
     End With
@@ -396,6 +396,10 @@ Public Sub TestCatch()
     ' Specifiying a Const FunctionName allows copy/paste code and having the wrong FunctionName
     ' names if (when) they change.
     Const FunctionName As String = ModuleName & ".CatchTest"
+
+    ' Make sure we don't trigger break mode
+    Options.BreakOnError = False
+    Operation.InteractionMode = eimSilent
 
     On Error Resume Next ' Clear out any errors that may happen, and continue on when errors happen.
     Err.Raise 24601, "Pre Log Test"
@@ -431,7 +435,7 @@ Public Sub TestPathFunctions()
 
     ' Test expansion of environment variable
     strPath = ExpandEnvironmentVariables("%TEMP%\test.tmp")
-    Debug.Assert FSO.FolderExists(FSO.GetParentFolderName(strPath))
+    TestAssert FSO.FolderExists(FSO.GetParentFolderName(strPath))
 
     ' Test relative path
     ' NOTE: strBase intentionally has NO trailing separator so callers below can
@@ -442,38 +446,38 @@ Public Sub TestPathFunctions()
     strBase = ExpandEnvironmentVariables("%TEMP%")
     strTempPath = strBase & "\subfolder\level2\"
     If FSO.FolderExists(strTempPath) Then FSO.DeleteFolder StripSlash(strTempPath)
-    Debug.Assert Not FSO.FolderExists(strTempPath)
-    Debug.Assert VerifyPath(strTempPath)
-    Debug.Assert FSO.FolderExists(strTempPath)
-    Debug.Assert GetRelativePath(strTempPath, strBase) = "rel:\subfolder\level2\"
+    TestAssert Not FSO.FolderExists(strTempPath)
+    TestAssert VerifyPath(strTempPath)
+    TestAssert FSO.FolderExists(strTempPath)
+    TestAssert GetRelativePath(strTempPath, strBase) = "rel:\subfolder\level2\"
     FSO.DeleteFolder strBase & "\subfolder"
 
     ' Test verify path with file name
     strTempPath = strTempPath & "test.tmp"
-    Debug.Assert VerifyPath(strTempPath)
-    Debug.Assert FSO.FolderExists(FSO.GetParentFolderName(strTempPath))
+    TestAssert VerifyPath(strTempPath)
+    TestAssert FSO.FolderExists(FSO.GetParentFolderName(strTempPath))
     FSO.DeleteFolder strBase & "\subfolder"
 
     ' Test UNC path (May not work on all systems)
     strTempPath = ExpandEnvironmentVariables(cstrUncBase & "subfolder\level2\test.tmp")
-    Debug.Assert VerifyPath(strTempPath)
-    Debug.Assert FSO.FolderExists(FSO.GetParentFolderName(strTempPath))
+    TestAssert VerifyPath(strTempPath)
+    TestAssert FSO.FolderExists(FSO.GetParentFolderName(strTempPath))
     FSO.DeleteFolder strBase & "\subfolder"
 
     ' BuildPath2 must preserve the leading "\\" UNC prefix on the first segment.
     ' Regression: a previous slash-stripping change collapsed "\\server\share\..."
     ' to "server\share\..." which made VerifyPath / SHCreateDirectoryEx report the
     ' path as relative (#issue: command bar image export against UNC export folder).
-    Debug.Assert BuildPath2("\\server\share\root\", "menus", "name_Images") = _
+    TestAssert BuildPath2("\\server\share\root\", "menus", "name_Images") = _
         "\\server\share\root\menus\name_Images"
-    Debug.Assert BuildPath2("\\server\share\root", "sub\") = _
+    TestAssert BuildPath2("\\server\share\root", "sub\") = _
         "\\server\share\root\sub"
 
     ' Non-UNC behaviour must remain unchanged: redundant separators between
     ' segments are still trimmed and a leading slash on a non-first segment is
     ' still stripped (e.g. BuildPath2(CurrentProject.Path, "\Template\..."))
-    Debug.Assert BuildPath2("C:\foo\", "\bar\", "baz") = "C:\foo\bar\baz"
-    Debug.Assert BuildPath2("C:\foo", "\Template\CommandBars.bin") = _
+    TestAssert BuildPath2("C:\foo\", "\bar\", "baz") = "C:\foo\bar\baz"
+    TestAssert BuildPath2("C:\foo", "\Template\CommandBars.bin") = _
         "C:\foo\Template\CommandBars.bin"
 
     ' LONG PATHS (> 260) (Requires OS support and newer version of Access)
@@ -485,13 +489,13 @@ Public Sub TestPathFunctions()
 
         ' Test long path (On newer versions of Access)
         strTempPath = strBase & "\" & Repeat("subfolder\", 26)
-        Debug.Assert VerifyPath(strTempPath)
+        TestAssert VerifyPath(strTempPath)
         strPath = strBase & "\subfolder"
         If FSO.FolderExists(strPath) Then FSO.DeleteFolder strPath
 
         ' Test long UNC path
         strTempPath = cstrUncBase & Repeat("subfolder\", 26)
-        Debug.Assert VerifyPath(strTempPath)
+        TestAssert VerifyPath(strTempPath)
         strPath = strBase & "\subfolder"
         If FSO.FolderExists(strPath) Then FSO.DeleteFolder strPath
     ElseIf Application.Version >= 16 Then

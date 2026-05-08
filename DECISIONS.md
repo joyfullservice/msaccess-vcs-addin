@@ -81,6 +81,91 @@ contradictory guidance.
 
 ---
 
+## 2026-05-08 — BreakOnError: read live from Options instead of caching
+
+**Trigger**: `clsTestRunner.RunSelected` sets `Options.BreakOnError = False` during test execution so errors don't break into the debugger. But `DebugMode()` in `modErrorHandling` was reading a stale cached copy (`this.blnBreakOnError`) that was only updated by the `ConfigureErrorHandling` push-function. Setting the public field had no effect on `DebugMode()`.
+
+**Options explored**:
+- **Make `BreakOnError` a `Property Let` that calls `ConfigureErrorHandling`** — rejected: every other option in `clsOptions` is a plain public field. Adding a setter to one field breaks the pattern and creates a maintenance trap (future option fields would need the same treatment).
+- **Have `DebugMode()` read `Options.BreakOnError` directly (chosen)** — guarded by `OptionsLoaded` (already exists in `modObjects`) to prevent circular initialization during the Options load sequence.
+
+**Decision**: `DebugMode()` and `LogUnhandledErrors` now read `Options.BreakOnError` directly. The `ConfigureErrorHandling` sub and the `blnBreakOnError` UDT field in `modErrorHandling` are deleted. During early initialization (before Options loads), `OptionsLoaded` returns `False` and `DebugMode` returns `False` — the same safe default the cache used.
+
+**What this rules out**: The push-cache pattern for error handling configuration. Any future setting that `modErrorHandling` needs must either be read through `Options` with an `OptionsLoaded` guard, or use a different mechanism. Revisit if `OptionsLoaded` ever becomes unreliable or if `modErrorHandling` needs settings before Options initialization.
+
+**Relevant files**: `modErrorHandling.bas` (live read, removed cache), `modObjects.bas` (removed `ConfigureErrorHandling` calls), `clsOptions.cls` (removed `ConfigureErrorHandling` call in `LoadProjectOptions`).
+
+---
+
+## 2026-05-08 — Cross-project test execution: unqualified Application.Run with GlobalProcExists guard
+
+**Trigger**: `Application.Run "ModuleName.ProcName"` fails with Error 28 (out of stack space) or Error 2517 when the target module uses `Option Private Module`. Module-qualified names also don't resolve correctly across library references. The test runner needs to call test procedures in the user's `CurrentVBProject` from the add-in.
+
+**Options explored**:
+- **Module-qualified `Application.Run` calls** (`"modTests.TestFoo"`) — rejected: fails for `Option Private Module`, and the qualification is unnecessary when procedure names are globally unique (which they should be in a well-structured project).
+- **Unqualified `Application.Run` with no pre-check** — rejected: produces confusing stack overflow errors when a procedure is uncallable.
+- **Unqualified `Application.Run` with `GlobalProcExists` pre-check (chosen)** — `GlobalProcExists` (already exists in the codebase) verifies the procedure is callable before attempting `Application.Run`. Uncallable procedures are logged as SKIP with a clear message.
+
+**Decision**: `clsTestRunner.RunSelected` passes only the procedure name (no module qualifier) to `Application.Run`. Before each call, `GlobalProcExists` checks callability. Procedures in `Option Private Module` are skipped and logged as SKIP rather than producing runtime errors.
+
+**What this rules out**: Testing procedures inside `Option Private Module` via the add-in toolbar. Those modules can still be tested directly via F5 or Immediate Window (where `TestAssert` falls back to `Debug.Assert`). Revisit if Access adds a way to call private-module procedures cross-project.
+
+**Relevant files**: `clsTestRunner.cls` (`RunSelected`, `BuildRunCmd`).
+
+---
+
+## 2026-05-08 — Test UI: reuse frmVCSMain console instead of a dedicated form
+
+**Trigger**: The test runner needs to display real-time progress and results. A dedicated `frmVCSTestRunner` was prototyped but added unnecessary complexity — another form to maintain, no consistency with existing UI patterns.
+
+**Options explored**:
+- **New native Access form (`frmVCSTestRunner`)** — tried and reverted. Added a form file, a class module, and UI layout work for something that duplicated what `frmVCSMain` already does.
+- **EdgeBrowserControl web UI** — deferred as Plan A for a future enhancement. Requires Access versions that ship the control and adds HTML/JS asset management complexity.
+- **Stream results through `frmVCSMain`'s rich-text console (chosen)** — matches the existing query validation pattern. Right-aligned color-coded status (green PASS, red FAIL/ERROR, gray EMPTY, orange SKIP) using the `Log.Add` HTML formatting already available.
+
+**Decision**: `clsVersionControl.RunTests` opens `frmVCSMain` via `PrepareTestConsole` (sets `InsideWidth=12000`, `InsideHeight=9000`), streams test lines via `Log.Add`, and finalizes with `FinalizeTestConsole`. No new form files. Individual test results are formatted as `TestName` + right-aligned `STATUS` with color coding.
+
+**What this rules out**: Interactive test selection, tree-view grouping, or re-run buttons in the current UI. These would require a dedicated form or the EdgeBrowserControl plan. Revisit when the web UI plan is implemented.
+
+**Relevant files**: `clsVersionControl.cls` (`RunTests`, `PrepareTestConsole`, `FinalizeTestConsole`), `clsTestRunner.cls` (`LogTestResult`).
+
+---
+
+## 2026-05-08 — Test discovery: any parameterless Public Sub in a test module
+
+**Trigger**: Designing the test discovery rules for the TestAssert framework. Needed a convention that requires zero boilerplate but doesn't accidentally pick up non-test code.
+
+**Options explored**:
+- **Rubberduck-style `'@Test` annotations** — rejected: adds a dependency on a specific comment convention that most Access developers don't use. Scanning for magic comments is fragile.
+- **`Test_` prefix requirement** — rejected: too restrictive. Existing tests in the project use `Test` without underscore, and the prefix convention varies across developers.
+- **`*Test*` in procedure name** — rejected as too narrow: would miss legitimate test subs like `VerifyHashConsistency` or `CheckEncodingRoundtrip`.
+- **Any parameterless `Public Sub` in a designated test module (chosen)** — the module-level designation (`@Folder("Tests")` or `*Test*` in the module name) scopes what counts as a test module. Within a test module, every parameterless `Public Sub` is a test. Simple, zero-boilerplate, matches how most VBA developers already write tests.
+
+**Decision**: Test module identification: standard modules only (not class modules) with either `@Folder("Tests")` annotation in the first 30 lines or `*Test*` anywhere in the module name. Test procedure identification: any `Public Sub` with zero parameters. No tags, no naming conventions beyond the module-level designation.
+
+**What this rules out**: Parameterized tests, class-based test suites, and selective test tagging within a module. Helper subs in test modules must be `Private` or take parameters to avoid being treated as tests. Revisit if parameterized test support is needed (would require a `'@TestCase` annotation or similar).
+
+**Relevant files**: `clsTestRunner.cls` (`IsTestModule`, `ScanModuleForTests`, `ProjectHasFolderAnnotations`).
+
+---
+
+## 2026-05-08 — TestAssert framework: dual execution model with Application.Run callback
+
+**Trigger**: The add-in needed a built-in test runner. Existing tests used `Debug.Assert` which provides no result capture, no progress display, and halts execution on failure in break mode.
+
+**Options explored**:
+- **Full Rubberduck-style framework** (class-based, annotation-driven) — rejected: too heavy for the Access VBA ecosystem, requires significant boilerplate, and Rubberduck itself provides this if users want it.
+- **Add-in-only test execution** (tests only work when the add-in is loaded) — rejected: developers need to run individual tests via F5 or Immediate Window during active development without the add-in toolbar.
+- **`TestAssert` as a thin wrapper with dual paths (chosen)** — `modTestAssert.bas` is installed in the user's project. `TestAssert condition` calls `Application.Run` to notify the add-in's `HandleTestAssertion` function. If the add-in isn't loaded or the runner isn't active, it falls back to `Debug.Assert condition`. Same test code works in both contexts.
+
+**Decision**: `modTestAssert.bas` ships as a standalone file, offered for installation on first "Run Tests" click (similar to the letter casing template). It resolves the add-in path by scanning `VBE.VBProjects` for the `MSAccessVCS` project name, with a `CurrentProject` fallback for self-testing. `HandleTestAssertion` lives in `modAPI.bas` (not a class) so it's callable via `Application.Run`. The runner (`clsTestRunner`) is a singleton accessed via `modObjects.TestRunner`. Results are persisted as JSON in the project's `logs/` folder.
+
+**What this rules out**: Assertion variants beyond pass/fail (no `AssertEqual`, `AssertThrows`, etc. in v1). The `TestAssert` sub takes a boolean condition and an optional context variant — richer assertion types would require additional subs in `modTestAssert.bas`. Also rules out automatic `modTestAssert` updates — once installed, the user's copy is independent. Revisit assertion API if users request structured matchers.
+
+**Relevant files**: `modTestAssert.bas` (user-installed helper), `modAPI.bas` (`HandleTestAssertion`), `clsTestRunner.cls` (singleton engine), `clsVersionControl.cls` (`RunTests`, `InstallTestAssertModule`, `MigrateDebugAssert`), `modObjects.bas` (`TestRunner` accessor), `Ribbon/Ribbon.xml` (`btnRunTests` in Tools group, `MacroPlay` icon).
+
+---
+
 ## 2026-05-05 — Multi-file conflict detection: per-file diff with per-component resolution
 
 **Trigger**: On first export (empty index) all table definitions showed as export conflicts even though the XML files were byte-identical. Root cause: `SourceMatches` compared all `FileExtensions` across source and temp directories, but companion files (`.json` metadata, `.sql` DDL) were never produced during temp/alternate-path exports — they were gated behind `If strAlternatePath = vbNullString`. The file-count mismatch caused every multi-file component to report a false conflict.

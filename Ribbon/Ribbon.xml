@@ -180,6 +180,17 @@
 			getDescription="GetDescription"
 			getSupertip="GetSupertip"
 		  />
+          <button
+			id="btnRunTests"
+			size="large"
+			imageMso="MacroPlay"
+			onAction="OnActionButton"
+			getVisible="GetVisible"
+			getEnabled="GetEnabled"
+			getLabel="GetLabel"
+			getDescription="GetDescription"
+			getSupertip="GetSupertip"
+		  />
           <menu
 			id="mnuAdvancedTools"
 			size="large" itemSize="large"

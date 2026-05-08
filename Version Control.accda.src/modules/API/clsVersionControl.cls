@@ -1884,6 +1884,458 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : HandleTestAssertion
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Assertion dispatcher called from modTestAssert.TestAssert via
+'           : Application.Run. When a test run is active, records the assertion
+'           : result and returns True. When no run is active, returns False so
+'           : the caller falls back to Debug.Assert.
+'---------------------------------------------------------------------------------------
+'
+Public Function HandleTestAssertion(ByVal blnCondition As Boolean, _
+                                     ByVal varContext As Variant) As Boolean
+    If TestRunner.State <> etrsRunning Then
+        HandleTestAssertion = False
+        Exit Function
+    End If
+    HandleTestAssertion = True
+    TestRunner.RecordAssertion blnCondition, varContext
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunTests
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Scan for tests in CurrentVBProject and run them. Streams progress to
+'           : the frmVCSMain log console. Returns a JSON summary of results.
+'---------------------------------------------------------------------------------------
+'
+Public Function RunTests() As String
+
+    Dim blnAllPassed As Boolean
+    Dim lngPassed As Long
+    Dim lngFailed As Long
+    Dim lngErrored As Long
+    Dim lngEmpty As Long
+    Dim strColor As String
+
+    If Not DatabaseFileOpen Then
+        MsgBox2 T("No Database Open"), _
+            T("Please open a database file before running tests."), _
+            , vbInformation
+        Exit Function
+    End If
+
+    ' Ensure modTestAssert is present
+    If Not TestAssertModuleExists Then
+        If vbYes = MsgBox2(T("Test Helper Not Found"), _
+            T("The modTestAssert module was not found in the current project."), _
+            T("Would you like to install it now?"), _
+            vbYesNo + vbQuestion) Then
+            InstallTestAssertModule
+        Else
+            Exit Function
+        End If
+    End If
+
+    ' Offer to migrate if no module (other than modTestAssert) uses TestAssert yet
+    If Not TestAssertInUse Then
+        If vbYes = MsgBox2(T("TestAssert Not In Use"), _
+            T("No test modules are using TestAssert yet. Would you like to migrate " & _
+              "Debug.Assert calls to TestAssert in your test modules?"), _
+            T("You can always do this manually later."), _
+            vbYesNo + vbQuestion) Then
+            MigrateDebugAssert
+        End If
+    End If
+
+    If Not Operation.Begin(eotOther) Then Exit Function
+
+    ' Open the main form and set up the console
+    PrepareTestConsole
+
+    ' Scan for tests
+    Log.Add T("Scanning for tests...")
+    TestRunner.Scan
+
+    If TestRunner.Tests.Count = 0 Then
+        Log.Add T("No test subs found in the current project.")
+        FinalizeTestConsole True
+        Operation.Finish eorSuccess
+        Exit Function
+    End If
+
+    Log.Add T("Found {0} test(s). Running...", var0:=TestRunner.Tests.Count)
+    Log.Spacer
+
+    ' Run all tests (streams progress via Log)
+    TestRunner.RunAll
+    TestRunner.SaveResults
+
+    ' Summary
+    lngPassed = TestRunner.PassedCount
+    lngFailed = TestRunner.FailedCount
+    lngErrored = TestRunner.ErroredCount
+    lngEmpty = TestRunner.EmptyCount
+    blnAllPassed = (lngFailed = 0 And lngErrored = 0 And lngPassed > 0)
+
+    If lngFailed + lngErrored > 0 Then
+        strColor = "red"
+    ElseIf lngPassed > 0 Then
+        strColor = "green"
+    Else
+        strColor = "gray"
+    End If
+
+    Log.Spacer
+    Log.Add lngPassed & " passed, " & lngFailed & " failed, " & _
+        lngErrored & " errored, " & lngEmpty & " empty", True, , strColor, True
+    Log.Flush
+
+    FinalizeTestConsole blnAllPassed
+    RunTests = TestRunner.GetResultsAsJson
+    Operation.Finish IIf(blnAllPassed, eorSuccess, eorFailed)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrepareTestConsole
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Open frmVCSMain and configure it for test runner output.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PrepareTestConsole()
+    On Error Resume Next
+    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    With Form_frmVCSMain
+        .InsideWidth = 12300
+        .InsideHeight = 9000
+        .cmdClose.SetFocus
+        .HideActionButtons
+        DoEvents
+        With .txtLog
+            .ScrollBars = 0
+            .Visible = True
+            .SetFocus
+        End With
+        Log.SetConsole .txtLog, .GetProgressBar
+        .SetStatusText T("Running Tests"), _
+            T("Executing tests in the current project"), _
+            T("Results are displayed below as each test completes.")
+        .Visible = True
+    End With
+    Err.Clear
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FinalizeTestConsole
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Update the main form after test execution completes.
+'---------------------------------------------------------------------------------------
+'
+Private Sub FinalizeTestConsole(blnAllPassed As Boolean)
+    On Error Resume Next
+    With Form_frmVCSMain
+        .txtLog.ScrollBars = 2
+        If blnAllPassed Then
+            .SetStatusText T("Finished"), T("All Tests Passed"), _
+                T("All tests completed successfully.")
+        Else
+            .SetStatusText T("Finished"), T("Some Tests Failed"), _
+                T("Review the results above for details on failed tests.")
+        End If
+    End With
+    Err.Clear
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InstallTestAssertModule
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Install the modTestAssert helper module into the current project.
+'           : Follows the same pattern as CreateLetterCasingTemplate.
+'---------------------------------------------------------------------------------------
+'
+Public Sub InstallTestAssertModule()
+
+    Dim cmp As VBIDE.VBComponent
+    Dim cCode As New clsConcat
+
+    If TestAssertModuleExists Then
+        MsgBox2 T("Already Installed"), _
+            T("The modTestAssert module already exists in the current project."), _
+            , vbInformation
+        Exit Sub
+    End If
+
+    Set cmp = CurrentVBProject.VBComponents.Add(vbext_ct_StdModule)
+    cmp.Name = "modTestAssert"
+
+    With cCode
+        .AppendOnAdd = vbCrLf
+        .Add "'---------------------------------------------------------------------------------------"
+        .Add "' Module    : modTestAssert"
+        .Add "' Purpose   : Lightweight assertion module for VBA test suites. TestAssert is a"
+        .Add "'           : near-drop-in replacement for Debug.Assert that integrates with the"
+        .Add "'           : VCS add-in test runner when available, and falls back to Debug.Assert"
+        .Add "'           : when the add-in is not loaded or no test run is active."
+        .Add "'---------------------------------------------------------------------------------------"
+        .Add "Option Compare Database"
+        .Add "Option Explicit"
+        .Add "'@Folder(""Tests"")"
+        .Add vbNullString
+        .Add "Private m_strAddInPath As String"
+        .Add vbNullString
+        .Add "Public Sub TestAssert(ByVal condition As Boolean, _"
+        .Add "                      Optional ByVal context As Variant)"
+        .Add "    On Error Resume Next"
+        .Add "    Dim blnHandled As Boolean"
+        .Add "    blnHandled = Application.Run(ResolveAddInPath() & "".HandleTestAssertion"", condition, context)"
+        .Add "    If Err.Number <> 0 Or Not blnHandled Then"
+        .Add "        Err.Clear"
+        .Add "        Debug.Assert condition"
+        .Add "    End If"
+        .Add "End Sub"
+        .Add vbNullString
+        .Add "Private Function ResolveAddInPath() As String"
+        .Add "    If Len(m_strAddInPath) = 0 Then"
+        .Add "        m_strAddInPath = GetSetting(""MSAccessVCS"", ""Install"", ""Install Folder"", _"
+        .Add "            Environ$(""AppData"") & ""\MSAccessVCS"") & ""\Version Control"""
+        .Add "    End If"
+        .Add "    ResolveAddInPath = m_strAddInPath"
+        .Add "End Function"
+    End With
+
+    If cmp.CodeModule.CountOfLines > 0 Then
+        cmp.CodeModule.DeleteLines 1, cmp.CodeModule.CountOfLines
+    End If
+    cmp.CodeModule.InsertLines 1, cCode.GetStr
+
+    MsgBox2 T("Test Helper Installed"), _
+        T("The modTestAssert module has been added to your project."), _
+        T("Use TestAssert in your test subs to record assertions. " & _
+          "Run tests from the VCS ribbon or call VCS.RunTests."), _
+        vbInformation
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MigrateDebugAssert
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Scoped migration tool: replace Debug.Assert with TestAssert in test
+'           : modules only. Uses @Folder("Tests") discovery when folder annotations
+'           : exist in the project, otherwise falls back to *Test* in the module name.
+'           : Shows a preview and requires confirmation before applying changes.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MigrateDebugAssert()
+
+    Dim proj As VBIDE.VBProject
+    Dim cmp As VBIDE.VBComponent
+    Dim blnHasFolders As Boolean
+    Dim dReplacements As New Dictionary
+    Dim lngTotalCount As Long
+    Dim blnIsTest As Boolean
+    Dim strHeader As String
+    Dim strFolder As String
+    Dim lngFolderPos As Long
+    Dim lngQStart As Long
+    Dim lngQEnd As Long
+    Dim varParts As Variant
+    Dim p As Long
+    Dim colLines As Collection
+    Dim lngLine As Long
+    Dim strLine As String
+    Dim strPreview As String
+    Dim varModName As Variant
+    Dim colModLines As Collection
+    Dim lngApplied As Long
+    Dim lngIdx As Long
+    Dim strOriginal As String
+    Dim strNew As String
+
+    If Not DatabaseFileOpen Then
+        MsgBox2 T("No Database Open"), _
+            T("Please open a database file first."), , vbInformation
+        Exit Sub
+    End If
+
+    Set proj = CurrentVBProject
+
+    ' Check if project uses @Folder annotations
+    blnHasFolders = TestRunner.State >= etrsReady
+    If Not blnHasFolders Then
+        TestRunner.Scan
+    End If
+
+    ' Scan for Debug.Assert in qualifying modules
+    For Each cmp In proj.VBComponents
+        If cmp.Type <> vbext_ct_StdModule Then GoTo NextModule
+
+        blnIsTest = False
+
+        On Error Resume Next
+        If cmp.CodeModule.CountOfLines = 0 Then GoTo NextModule
+        strHeader = cmp.CodeModule.Lines(1, IIf(cmp.CodeModule.CountOfLines < 30, cmp.CodeModule.CountOfLines, 30))
+
+        ' Check for @Folder("Tests") annotation
+        strFolder = vbNullString
+        lngFolderPos = InStr(1, UCase$(strHeader), "'@FOLDER(")
+        If lngFolderPos > 0 Then
+            lngQStart = InStr(lngFolderPos, strHeader, """")
+            If lngQStart > 0 Then
+                lngQEnd = InStr(lngQStart + 1, strHeader, """")
+                If lngQEnd > lngQStart Then
+                    strFolder = Mid$(strHeader, lngQStart + 1, lngQEnd - lngQStart - 1)
+                End If
+            End If
+        End If
+        On Error GoTo 0
+
+        If Len(strFolder) > 0 Then
+            varParts = Split(strFolder, ".")
+            For p = LBound(varParts) To UBound(varParts)
+                If StrComp(varParts(p), "Tests", vbTextCompare) = 0 Then
+                    blnIsTest = True
+                    Exit For
+                End If
+            Next p
+        ElseIf InStr(1, cmp.Name, "Test", vbTextCompare) > 0 Then
+            blnIsTest = True
+        End If
+
+        If Not blnIsTest Then GoTo NextModule
+
+        ' Scan this module for Debug.Assert
+        Set colLines = New Collection
+        On Error Resume Next
+        For lngLine = 1 To cmp.CodeModule.CountOfLines
+            strLine = Trim$(cmp.CodeModule.Lines(lngLine, 1))
+            If InStr(1, strLine, "Debug.Assert ", vbTextCompare) > 0 Or _
+               InStr(1, strLine, "Debug.Assert(", vbTextCompare) > 0 Then
+                colLines.Add lngLine
+            End If
+        Next lngLine
+        On Error GoTo 0
+
+        If colLines.Count > 0 Then
+            dReplacements.Add cmp.Name, colLines
+            lngTotalCount = lngTotalCount + colLines.Count
+        End If
+
+NextModule:
+    Next cmp
+
+    If lngTotalCount = 0 Then
+        MsgBox2 T("No Replacements Found"), _
+            T("No Debug.Assert calls were found in test modules."), _
+            , vbInformation
+        Exit Sub
+    End If
+
+    ' Build preview text
+    strPreview = T("{0} occurrence(s) in {1} module(s):", _
+        var0:=lngTotalCount, var1:=dReplacements.Count) & vbCrLf & vbCrLf
+    For Each varModName In dReplacements.Keys
+        Set colModLines = dReplacements(CStr(varModName))
+        strPreview = strPreview & CStr(varModName) & " (" & colModLines.Count & " lines)" & vbCrLf
+    Next varModName
+    strPreview = strPreview & vbCrLf & _
+        T("Note: Debug.Assert breaks into the debugger on failure. " & _
+          "TestAssert records the failure and continues. " & _
+          "This change can be reverted with git.")
+
+    ' Confirm
+    If vbYes <> MsgBox2(T("Migrate Debug.Assert to TestAssert"), _
+        T("Replace Debug.Assert with TestAssert in the following test modules?"), _
+        strPreview, _
+        vbYesNo + vbQuestion) Then
+        Exit Sub
+    End If
+
+    ' Apply replacements (bottom to top so line numbers stay valid)
+    For Each varModName In dReplacements.Keys
+        Set cmp = proj.VBComponents(CStr(varModName))
+        Set colModLines = dReplacements(CStr(varModName))
+        For lngIdx = colModLines.Count To 1 Step -1
+            lngLine = colModLines(lngIdx)
+            strOriginal = cmp.CodeModule.Lines(lngLine, 1)
+            strNew = Replace(strOriginal, "Debug.Assert ", "TestAssert ", , , vbTextCompare)
+            strNew = Replace(strNew, "Debug.Assert(", "TestAssert(", , , vbTextCompare)
+            If strNew <> strOriginal Then
+                cmp.CodeModule.ReplaceLine lngLine, strNew
+                lngApplied = lngApplied + 1
+            End If
+        Next lngIdx
+    Next varModName
+
+    MsgBox2 T("Migration Complete"), _
+        T("{0} Debug.Assert call(s) replaced with TestAssert.", var0:=lngApplied), _
+        , vbInformation
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestAssertModuleExists
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Check if modTestAssert already exists in CurrentVBProject.
+'---------------------------------------------------------------------------------------
+'
+Private Function TestAssertModuleExists() As Boolean
+    Dim cmp As VBIDE.VBComponent
+    On Error Resume Next
+    Set cmp = CurrentVBProject.VBComponents("modTestAssert")
+    TestAssertModuleExists = (Not cmp Is Nothing)
+    On Error GoTo 0
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestAssertInUse
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Returns True if any standard module (other than modTestAssert itself)
+'           : contains a "TestAssert " call. Used to decide whether to offer the
+'           : Debug.Assert migration prompt -- once the user has adopted TestAssert
+'           : in at least one place, we stop asking.
+'---------------------------------------------------------------------------------------
+'
+Private Function TestAssertInUse() As Boolean
+
+    Dim cmp As VBIDE.VBComponent
+    Dim strCode As String
+
+    On Error Resume Next
+    For Each cmp In CurrentVBProject.VBComponents
+        If cmp.Type = vbext_ct_StdModule Then
+            If StrComp(cmp.Name, "modTestAssert", vbTextCompare) <> 0 Then
+                If cmp.CodeModule.CountOfLines > 0 Then
+                    strCode = cmp.CodeModule.Lines(1, cmp.CodeModule.CountOfLines)
+                    If InStr(1, strCode, "TestAssert ", vbTextCompare) > 0 Then
+                        TestAssertInUse = True
+                        Exit Function
+                    End If
+                End If
+            End If
+        End If
+    Next cmp
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GoToLink...
 ' Author    : Adam Waller
 ' Date      : 3/4/2022

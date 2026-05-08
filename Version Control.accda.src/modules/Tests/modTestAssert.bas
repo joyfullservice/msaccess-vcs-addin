@@ -1,0 +1,69 @@
+﻿Attribute VB_Name = "modTestAssert"
+'---------------------------------------------------------------------------------------
+' Module    : modTestAssert
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Lightweight assertion module for VBA test suites. Drop this file into any
+'           : Access project to gain TestAssert, a near-drop-in replacement for
+'           : Debug.Assert that integrates with the VCS add-in test runner.
+'           :
+'           : When the VCS test runner is driving execution, TestAssert reports each
+'           : assertion result back to the add-in for streaming display.
+'           : When called outside a test run (or when the add-in is not installed),
+'           : TestAssert falls back to Debug.Assert, preserving the standard
+'           : debugger-break behavior.
+'           :
+'           : This module has ZERO compile-time dependencies on the VCS add-in.
+'           : It compiles and runs in any Access database.
+'---------------------------------------------------------------------------------------
+Option Compare Database
+Option Explicit
+'@Folder("Tests")
+
+' Cached path for the add-in library, resolved on first use.
+Private m_strAddInPath As String
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestAssert
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Evaluate a Boolean condition. When the VCS test runner is active, reports
+'           : the result to the add-in. Otherwise falls back to Debug.Assert.
+'           :
+'           : condition - Any expression that evaluates to Boolean.
+'           : context   - Optional label for disambiguation when the same assertion
+'           :             runs multiple times (loops, shared helpers, etc.).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestAssert(ByVal condition As Boolean, _
+                      Optional ByVal context As Variant)
+
+    On Error Resume Next
+    Dim blnHandled As Boolean
+    blnHandled = Application.Run(ResolveAddInPath() & ".HandleTestAssertion", condition, context)
+    If Err.Number <> 0 Or Not blnHandled Then
+        Err.Clear
+        Debug.Assert condition
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveAddInPath
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Return the path-qualified library name for Application.Run, built from
+'           : the installed add-in location in the registry. Cached after first call.
+'           : If the add-in is not installed, the default path is used. If that also
+'           : fails, Application.Run will error (handled gracefully by TestAssert).
+'---------------------------------------------------------------------------------------
+'
+Private Function ResolveAddInPath() As String
+    If Len(m_strAddInPath) = 0 Then
+        m_strAddInPath = GetSetting("MSAccessVCS", "Install", "Install Folder", _
+            Environ$("AppData") & "\MSAccessVCS") & "\Version Control"
+    End If
+    ResolveAddInPath = m_strAddInPath
+End Function

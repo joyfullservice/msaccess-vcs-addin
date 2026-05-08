@@ -438,6 +438,15 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
         AddCheck colChecks, "import", "pass", vbNullString
     End If
 
+    ' --- Qdef emitter validation ---
+    ' Generate the .qdef independently (same logic as the import path) and:
+    '  1. Structural check: verify each join row's LeftTable/RightTable
+    '     matches the tables in its Expression (qdef_joins check).
+    '  2. Drift check: compare the generated .qdef against a stored
+    '     baseline .qdef file if one exists (qdef_vs_fixture check).
+    RunQdefValidation strFixtureSql, strFixtureJson, strOriginalName, _
+        blnRebaseline, colChecks
+
     ' --- Pass 1 export (re-export the sandbox query) ---
     cComponent.Export strPass1Sql
 
@@ -1222,4 +1231,393 @@ Private Function GetDefaultFixtureRoot() As String
     strRoot = CodeProject.Path
     If Right$(strRoot, 1) <> PathSep Then strRoot = strRoot & PathSep
     GetDefaultFixtureRoot = strRoot & FIXTURE_RELATIVE_PATH & PathSep
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunQdefValidation
+' Author    : VCS contributors
+' Date      : 5/7/2026
+' Purpose   : Generate the .qdef that the emitter would produce for a fixture
+'           : and run two validation checks:
+'           :
+'           :   qdef_joins — structural check: every join row's LeftTable and
+'           :     RightTable must reference tables that appear in its Expression.
+'           :     Catches emitter bugs (like wrong LeftTable/RightTable for split
+'           :     compound ON conditions) that LoadFromText may accept silently
+'           :     but cause DAO error 3082 at execution time.
+'           :     Skipped for SQL-View-only queries (no Joins block).
+'           :
+'           :   qdef_vs_fixture — drift check: compares the generated .qdef
+'           :     against a stored .qdef baseline file (if one exists alongside
+'           :     the .sql and .json). Catches any change to the emitter's output
+'           :     (properties, input tables, columns, joins, ordering, etc.).
+'           :     Skipped when no baseline exists (run with blnRebaseline:=True
+'           :     to create baselines for all fixtures).
+'           :
+'           : The .qdef is generated without a Layout section (layout is
+'           : independent of the SQL parser — it's a pass-through from the JSON's
+'           : DesignLayout blob, already validated by the json_vs_fixture check).
+'---------------------------------------------------------------------------------------
+'
+Private Sub RunQdefValidation(ByVal strFixtureSql As String, _
+    ByVal strFixtureJson As String, ByVal strOriginalName As String, _
+    ByVal blnRebaseline As Boolean, ByVal colChecks As Collection)
+
+    Dim cComposer As clsQueryComposer
+    Dim strSql As String
+    Dim strQdef As String
+    Dim strError As String
+    Dim blnDesignView As Boolean
+    Dim dJson As Dictionary
+    Dim blnHasDesignLayout As Boolean
+    Dim blnIsPassThrough As Boolean
+    Dim dProperties As Dictionary
+    Dim dColumns As Dictionary
+    Dim lngOptionFlag As Long
+    Dim strFixtureQdef As String
+    Dim strConnect As String
+
+    On Error GoTo QdefValErr
+
+    strSql = ReadFile(strFixtureSql)
+    If Len(strSql) = 0 Then Exit Sub
+
+    ' Derive the .qdef baseline path from the fixture .sql path.
+    strFixtureQdef = Left$(strFixtureSql, Len(strFixtureSql) - 4) & ".qdef"
+
+    ' Parse the companion JSON for fields that affect qdef generation.
+    Set dJson = ReadJsonFile(strFixtureJson)
+    Set dProperties = New Dictionary
+    Set dColumns = New Dictionary
+    lngOptionFlag = -1
+
+    If Not dJson Is Nothing Then
+        If dJson.Exists("Items") Then
+            Dim dItems As Dictionary
+            Set dItems = dJson("Items")
+            If dItems.Exists("QueryProperties") Then Set dProperties = dItems("QueryProperties")
+            If dItems.Exists("Columns") Then Set dColumns = dItems("Columns")
+            If dItems.Exists("OptionFlag") Then lngOptionFlag = CLng(dItems("OptionFlag"))
+            blnHasDesignLayout = dItems.Exists("DesignLayout")
+            If dItems.Exists("Connect") Then
+                strConnect = CStr(dItems("Connect"))
+                blnIsPassThrough = True
+            ElseIf dItems.Exists("QueryType") Then
+                Dim lngQT As Long
+                lngQT = CLng(dItems("QueryType"))
+                blnIsPassThrough = (lngQT = dbQSQLPassThrough Or lngQT = dbQSPTBulk)
+            End If
+        End If
+    End If
+
+    ' Decompose the SQL and determine view mode (same logic as ImportNewFormat).
+    Set cComposer = New clsQueryComposer
+    cComposer.DecomposeSQL strSql, blnIsPassThrough
+    cComposer.RawSQL = strSql
+    If blnIsPassThrough And Len(strConnect) > 0 Then cComposer.ConnectString = strConnect
+
+    blnDesignView = cComposer.IsDesignerCompatible And _
+        (blnHasDesignLayout Or cComposer.RequiresDesignView)
+
+    ' Generate the qdef (Design View or SQL View, matching the import path).
+    ' Layout is omitted — it doesn't affect the Joins, InputTables, or
+    ' OutputColumns blocks and is already validated via json_vs_fixture.
+    strQdef = cComposer.GenerateQdef(blnDesignView, dProperties, dColumns, Nothing, lngOptionFlag)
+
+    ' --- qdef_joins: structural join validation (Design View only) ---
+    ' Only add this check for Design View qdefs that have a Joins block.
+    ' SQL View qdefs have no structured joins — skipping silently avoids
+    ' dragging the fixture's overall status to "skip".
+    If blnDesignView Then
+        strError = ValidateQdefJoinTables(strQdef)
+        If Len(strError) = 0 Then
+            AddCheck colChecks, "qdef_joins", "pass", vbNullString
+        Else
+            AddCheck colChecks, "qdef_joins", "fail", strError
+        End If
+    End If
+
+    ' --- qdef_vs_fixture: drift comparison ---
+    ' Only add this check when a baseline exists (or is being created). A missing
+    ' baseline is not a failure or skip — it just means the fixture predates the
+    ' qdef validation feature. This avoids dragging the fixture's overall status
+    ' to "skip" when all other checks pass.
+    If FSO.FileExists(strFixtureQdef) Then
+        Dim strBaseline As String
+        strBaseline = ReadFile(strFixtureQdef)
+        If strQdef = strBaseline Then
+            AddCheck colChecks, "qdef_vs_fixture", "pass", vbNullString
+        Else
+            Dim strDiff As String
+            strDiff = MakeUnifiedDiff(strBaseline, strQdef, _
+                "fixture/" & strOriginalName & ".qdef", _
+                "generated/" & strOriginalName & ".qdef")
+            AddCheckWithDiff colChecks, "qdef_vs_fixture", "fail", _
+                "Generated .qdef differs from baseline", strDiff
+            If blnRebaseline Then
+                WriteFile strQdef, strFixtureQdef
+                Log.Add T("REBASELINE: overwrote {0}", var0:=strFixtureQdef), False
+            End If
+        End If
+    ElseIf blnRebaseline Then
+        WriteFile strQdef, strFixtureQdef
+        Log.Add T("REBASELINE: created {0}", var0:=strFixtureQdef), False
+        AddCheck colChecks, "qdef_vs_fixture", "pass", "Baseline created."
+    End If
+
+    Exit Sub
+
+QdefValErr:
+    AddCheck colChecks, "qdef_joins", "error", _
+        "Qdef validation error: " & Err.Number & " " & Err.Description
+    AddCheck colChecks, "qdef_vs_fixture", "error", _
+        "Qdef validation error: " & Err.Number & " " & Err.Description
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ValidateQdefJoinTables
+' Author    : VCS contributors
+' Date      : 5/7/2026
+' Purpose   : Parse a Design View .qdef string and verify that every join row's
+'           : LeftTable and RightTable appear in its Expression.
+'           :
+'           : INVARIANT: Access stores each Attribute 7 row in MSysQueries with
+'           : the specific table pair referenced in that row's Expression. The
+'           : emitter must replicate this — if LeftTable="B" but the Expression
+'           : is "A.x = C.y", then "B" is wrong and will cause runtime errors
+'           : when the tables actually exist in the target database.
+'           :
+'           : Returns empty string if all join rows are valid, or a semicolon-
+'           : delimited error description if any are invalid.
+'---------------------------------------------------------------------------------------
+'
+Private Function ValidateQdefJoinTables(ByVal strQdef As String) As String
+
+    Dim lngJoinStart As Long
+    Dim lngJoinEnd As Long
+    Dim strJoinBlock As String
+    Dim asLines() As String
+    Dim i As Long
+    Dim strLine As String
+    Dim strLeftTable As String
+    Dim strRightTable As String
+    Dim strExpression As String
+    Dim blnCollectingExpr As Boolean
+    Dim colErrors As Collection
+
+    Set colErrors = New Collection
+
+    ' Only Design View qdefs have a Joins block.
+    lngJoinStart = InStr(1, strQdef, "Begin Joins" & vbCrLf)
+    If lngJoinStart = 0 Then Exit Function
+
+    ' Find the matching "End" for the Joins block (the first standalone End
+    ' after Begin Joins, on its own line).
+    lngJoinEnd = InStr(lngJoinStart + 11, strQdef, vbCrLf & "End" & vbCrLf)
+    If lngJoinEnd = 0 Then Exit Function
+
+    strJoinBlock = Mid$(strQdef, lngJoinStart, lngJoinEnd - lngJoinStart)
+    asLines = Split(strJoinBlock, vbCrLf)
+
+    For i = 0 To UBound(asLines)
+        strLine = Trim$(asLines(i))
+
+        ' Multi-line expression continuation: lines starting with `"` (after
+        ' trim) are continuations of the previous Expression value.
+        If blnCollectingExpr And Left$(strLine, 1) = """" Then
+            strExpression = strExpression & UnquoteQdefValue(strLine)
+
+        ElseIf Left$(strLine, 11) = "LeftTable =" Then
+            blnCollectingExpr = False
+            strLeftTable = ExtractQdefQuotedValue(strLine)
+
+        ElseIf Left$(strLine, 12) = "RightTable =" Then
+            blnCollectingExpr = False
+            strRightTable = ExtractQdefQuotedValue(strLine)
+
+        ElseIf Left$(strLine, 12) = "Expression =" Then
+            strExpression = ExtractQdefQuotedValue(strLine)
+            blnCollectingExpr = True
+
+        ElseIf Left$(strLine, 5) = "Flag " Then
+            blnCollectingExpr = False
+
+            ' We've reached the Flag line — validate the complete join row.
+            If Len(strLeftTable) > 0 And Len(strRightTable) > 0 _
+                And Len(strExpression) > 0 Then
+                ValidateJoinRow strLeftTable, strRightTable, strExpression, colErrors
+            End If
+
+            strLeftTable = vbNullString
+            strRightTable = vbNullString
+            strExpression = vbNullString
+        End If
+    Next i
+
+    ' Build result string.
+    If colErrors.Count > 0 Then
+        Dim v As Variant
+        Dim strResult As String
+        For Each v In colErrors
+            If Len(strResult) > 0 Then strResult = strResult & "; "
+            strResult = strResult & CStr(v)
+        Next v
+        ValidateQdefJoinTables = strResult
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ValidateJoinRow
+' Author    : VCS contributors
+' Date      : 5/7/2026
+' Purpose   : Check that every table referenced in the Expression (via table.field
+'           : notation) is either LeftTable or RightTable. This catches the bug
+'           : where the emitter assigns the wrong table pair to a split condition.
+'           :
+'           : Single-table predicates (e.g. "tblB.ID > 0") are valid — they only
+'           : reference one table, so the other table (LeftTable or RightTable)
+'           : may not appear. The invariant is directional: tables in the
+'           : expression must be LeftTable or RightTable, not the reverse.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ValidateJoinRow(ByVal strLeftTable As String, _
+    ByVal strRightTable As String, ByVal strExpression As String, _
+    ByVal colErrors As Collection)
+
+    Dim strExpr As String
+    Dim colTableRefs As Collection
+    Dim varRef As Variant
+
+    ' Unescape qdef backslash sequences for comparison.
+    strExpr = Replace(Replace(strExpression, "\\", "\"), "\""", """")
+
+    ' Extract all table references from "table.field" patterns.
+    Set colTableRefs = ExtractTableRefsFromExpression(strExpr)
+
+    ' Each referenced table must be either LeftTable or RightTable.
+    For Each varRef In colTableRefs
+        If StrComp(CStr(varRef), strLeftTable, vbTextCompare) <> 0 _
+            And StrComp(CStr(varRef), strRightTable, vbTextCompare) <> 0 Then
+            colErrors.Add "Table """ & CStr(varRef) & """ in Expression """ & _
+                strExpression & """ is neither LeftTable """ & strLeftTable & _
+                """ nor RightTable """ & strRightTable & """"
+        End If
+    Next varRef
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractTableRefsFromExpression
+' Author    : VCS contributors
+' Date      : 5/7/2026
+' Purpose   : Extract unique table names from "table.field" patterns in a join
+'           : expression. Handles both bare (tblFoo.ID) and bracketed ([tblFoo].ID)
+'           : identifiers. Returns a Collection of unique table names (unbracketed).
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractTableRefsFromExpression(ByVal strExpr As String) As Collection
+
+    Dim col As Collection
+    Dim dSeen As Dictionary
+    Dim lngPos As Long
+    Dim lngDot As Long
+    Dim strBefore As String
+    Dim strTable As String
+    Dim lngStart As Long
+    Dim ch As String
+
+    Set col = New Collection
+    Set dSeen = New Dictionary
+    dSeen.CompareMode = vbTextCompare
+
+    lngPos = 1
+    Do
+        lngDot = InStr(lngPos, strExpr, ".")
+        If lngDot = 0 Then Exit Do
+
+        ' Walk backwards from the dot to find the start of the identifier.
+        lngStart = lngDot - 1
+
+        ' Check for bracketed identifier: [tableName].
+        If lngStart >= 1 And Mid$(strExpr, lngStart, 1) = "]" Then
+            Dim lngBracket As Long
+            lngBracket = InStrRev(strExpr, "[", lngStart)
+            If lngBracket > 0 Then
+                strTable = Mid$(strExpr, lngBracket + 1, lngStart - lngBracket - 1)
+            Else
+                strTable = vbNullString
+            End If
+        Else
+            ' Walk backwards over identifier characters (letters, digits, underscore).
+            Do While lngStart >= 1
+                ch = Mid$(strExpr, lngStart, 1)
+                If ch Like "[A-Za-z0-9_]" Then
+                    lngStart = lngStart - 1
+                Else
+                    Exit Do
+                End If
+            Loop
+            strTable = Mid$(strExpr, lngStart + 1, lngDot - lngStart - 1)
+        End If
+
+        ' Add unique table references (skip empty and numeric-only strings).
+        If Len(strTable) > 0 And Not IsNumeric(strTable) Then
+            If Not dSeen.Exists(strTable) Then
+                dSeen.Add strTable, True
+                col.Add strTable
+            End If
+        End If
+
+        lngPos = lngDot + 1
+    Loop
+
+    Set ExtractTableRefsFromExpression = col
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractQdefQuotedValue
+' Author    : VCS contributors
+' Date      : 5/7/2026
+' Purpose   : Extract the value from a .qdef line like:
+'           :     LeftTable ="tblCars"
+'           : Returns "tblCars".
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractQdefQuotedValue(ByVal strLine As String) As String
+    Dim lngEq As Long
+    Dim strVal As String
+
+    lngEq = InStr(1, strLine, "=""")
+    If lngEq = 0 Then Exit Function
+
+    strVal = Mid$(strLine, lngEq + 2)
+    ' Strip trailing quote
+    If Right$(strVal, 1) = """" Then strVal = Left$(strVal, Len(strVal) - 1)
+
+    ExtractQdefQuotedValue = strVal
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UnquoteQdefValue
+' Author    : VCS contributors
+' Date      : 5/7/2026
+' Purpose   : Extract the text from a .qdef continuation line like:
+'           :     "more expression text"
+'           : Returns "more expression text".
+'---------------------------------------------------------------------------------------
+'
+Private Function UnquoteQdefValue(ByVal strLine As String) As String
+    Dim strVal As String
+    strVal = Trim$(strLine)
+    If Left$(strVal, 1) = """" Then strVal = Mid$(strVal, 2)
+    If Right$(strVal, 1) = """" Then strVal = Left$(strVal, Len(strVal) - 1)
+    UnquoteQdefValue = strVal
 End Function

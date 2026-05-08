@@ -1178,8 +1178,6 @@ Private Sub MergeOverrideFile(strFile As String)
     If lngApplied > 0 Then
         Log.Add T("Applied {0} option override(s) from {1}", _
             var0:=lngApplied, var1:=FSO.GetFileName(strFile)), False
-        ' Re-apply BreakOnError to the error handling module
-        ConfigureErrorHandling Me.BreakOnError
     End If
 
 End Sub
