@@ -130,6 +130,12 @@ End Function
 '
 Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
 
+    ' If writing an empty string, remove any existing file instead.
+    If Len(strText) = 0 Then
+        If FSO.FileExists(strPath) Then DeleteFile strPath
+        Exit Sub
+    End If
+
     Perf.OperationStart "Write File"
 
     ' Write to a UTF-8 eoncoded file
