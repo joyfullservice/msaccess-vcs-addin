@@ -338,6 +338,17 @@ Operation logs are stored in the `logs/` subfolder with timestamped filenames:
 |---------|---------|
 | `Export_YYYYMMDD_HHMMSS_mmm.log` | Export operation logs |
 | `Build_YYYYMMDD_HHMMSS_mmm.log` | Build/merge operation logs |
+| `TestResults_YYYYMMDD_HHMMSS_mmm.json` | Test runner results (JSON) |
+| `TestRun_YYYYMMDD_HHMMSS_mmm.log` | Test runner console output |
+
+**Important: Log files are gitignored.** The `.gitignore` excludes `logs/` directories and `*.log` files. This means agent tools that respect `.gitignore` (such as Glob, Grep, and semantic search) will **not** find these files. To locate and read log files, use shell commands instead:
+
+```powershell
+# List log files (run from repository root or source folder)
+Get-ChildItem -Recurse -Include "*.log","*.json" | Where-Object { $_.DirectoryName -like "*logs*" }
+```
+
+The same applies to `Testing/Fixtures/logs/` (round-trip test logs).
 
 **When troubleshooting:** Always check the most recent log file in `logs/` for detailed operation output, timing information, and any error messages.
 

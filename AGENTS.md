@@ -455,6 +455,17 @@ The add-in benefits from three distinct testing layers, each catching a differen
 | **2. Object round-trip tests** | "Does this database object survive a serialize/deserialize cycle unchanged?" | `modTestRoundtrip.bas` + `Testing/Fixtures/` |
 | **3. Whole-database integration** | "Does building an entire database from source produce a working database?" | `Testing/Testing.accdb.src` |
 
+**Log files are gitignored.** All `logs/` directories and `*.log` files are excluded by `.gitignore`. Agent tools that respect `.gitignore` (Glob, Grep, semantic search) will silently skip them. Use shell commands to find and read log files:
+
+```powershell
+# Find log files (run from repository root)
+Get-ChildItem -Recurse -Include "*.log","*.json" | Where-Object { $_.DirectoryName -like "*logs*" }
+```
+
+Key log locations:
+- `Version Control.accda.src/logs/` — build, export, merge, and **test result** logs (`TestResults_*.json`, `TestRun_*.log`)
+- `Testing/Fixtures/logs/` — object round-trip test logs (`ObjectRoundtrip_*.log`)
+
 Important location distinction: the canonical object round-trip fixture corpus
 is `Testing/Fixtures/` as plain text files. Query fixtures live under
 `Testing/Fixtures/queries/` as `.sql` + `.json` pairs, with optional
