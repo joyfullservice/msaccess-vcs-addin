@@ -555,11 +555,19 @@ Private Sub Form_Unload(Cancel As Integer)
 
     ' Check to see if we have an active job running.
     If Operation.Status = eosRunning Then
-        If ConfirmCancel Then Log.Error eelCritical, T("Canceled Operation"), Me.Name & ".Form_Unload"
-        ' Either way, we want the log to complete first.
-        Cancel = True
-        Operation.Finish eorCanceled
-        intAttempt = intAttempt + 1
+        If TestRunner.State = etrsRunning Then
+            ' Tests use DoEvents between iterations, so this event fires mid-run.
+            ' Call Cancel (sets CancelRequested flag) and let RunTests handle
+            ' Operation.Finish after the loop exits cleanly with results intact.
+            If ConfirmCancel Then TestRunner.Cancel
+            Cancel = True
+        Else
+            If ConfirmCancel Then Log.Error eelCritical, T("Canceled Operation"), Me.Name & ".Form_Unload"
+            ' Either way, we want the log to complete first.
+            Cancel = True
+            Operation.Finish eorCanceled
+            intAttempt = intAttempt + 1
+        End If
     End If
 
     ' Release the log console if we are closing the form

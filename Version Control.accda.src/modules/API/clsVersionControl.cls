@@ -2017,18 +2017,27 @@ Public Function RunTests() As String
     Log.Add T("Found {0} test(s). Running...", var0:=TestRunner.Tests.Count)
     Log.Spacer
 
+    DoCmd.Hourglass True
+
     ' Run all tests (streams progress via Log)
     TestRunner.RunAll
     TestRunner.SaveResults
+
+    ' Detect cancellation (before computing summary, so "all passed" is not
+    ' incorrectly reported when only a subset ran before the user canceled)
+    Dim blnCanceled As Boolean
+    blnCanceled = (TestRunner.State = etrsCancelled)
 
     ' Summary
     lngPassed = TestRunner.PassedCount
     lngFailed = TestRunner.FailedCount
     lngErrored = TestRunner.ErroredCount
     lngEmpty = TestRunner.EmptyCount
-    blnAllPassed = (lngFailed = 0 And lngErrored = 0 And lngPassed > 0)
+    blnAllPassed = (Not blnCanceled) And (lngFailed = 0 And lngErrored = 0 And lngPassed > 0)
 
-    If lngFailed + lngErrored > 0 Then
+    If blnCanceled Then
+        strColor = "orange"
+    ElseIf lngFailed + lngErrored > 0 Then
         strColor = "red"
     ElseIf lngPassed > 0 Then
         strColor = "green"
@@ -2038,12 +2047,20 @@ Public Function RunTests() As String
 
     Log.Spacer
     Log.Add lngPassed & " passed, " & lngFailed & " failed, " & _
-        lngErrored & " errored, " & lngEmpty & " empty", True, , strColor, True
+        lngErrored & " errored, " & lngEmpty & " empty" & _
+        IIf(blnCanceled, " (canceled)", vbNullString), True, , strColor, True
     Log.Flush
+    DoCmd.Hourglass False
 
-    FinalizeTestConsole blnAllPassed
+    ' Save the test run log
+    Dim strLogPath As String
+    strLogPath = FSO.BuildPath(Options.GetExportFolder & "logs", _
+        "TestRun_" & Log.OperationId & ".log")
+    Log.SaveFile strLogPath
+
+    FinalizeTestConsole blnAllPassed, strLogPath, blnCanceled
     RunTests = TestRunner.GetResultsAsJson
-    Operation.Finish IIf(blnAllPassed, eorSuccess, eorFailed)
+    Operation.Finish IIf(blnCanceled, eorCanceled, IIf(blnAllPassed, eorSuccess, eorFailed))
 
 End Function
 
@@ -2086,16 +2103,23 @@ End Sub
 ' Purpose   : Update the main form after test execution completes.
 '---------------------------------------------------------------------------------------
 '
-Private Sub FinalizeTestConsole(blnAllPassed As Boolean)
+Private Sub FinalizeTestConsole(blnAllPassed As Boolean, _
+    Optional ByVal strLogPath As String = vbNullString, _
+    Optional ByVal blnCanceled As Boolean = False)
     On Error Resume Next
     With Form_frmVCSMain
         .txtLog.ScrollBars = 2
-        If blnAllPassed Then
+        .strLastLogFilePath = strLogPath
+        .cmdOpenLogFile.Visible = (Len(strLogPath) > 0)
+        If blnCanceled Then
+            .SetStatusText T("Canceled"), T("Tests Canceled"), _
+                T("The test run was canceled. Partial results are available in the log file.")
+        ElseIf blnAllPassed Then
             .SetStatusText T("Finished"), T("All Tests Passed"), _
-                T("All tests completed successfully.")
+                T("All tests completed successfully. Click the log button to view the full results.")
         Else
             .SetStatusText T("Finished"), T("Some Tests Failed"), _
-                T("Review the results above for details on failed tests.")
+                T("Review the results above for details on failed tests. Click the log button to view the full log.")
         End If
     End With
     Err.Clear

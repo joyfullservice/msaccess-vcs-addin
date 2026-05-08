@@ -56,6 +56,7 @@ Private Type udtTestRunner
     FailedCount As Long
     ErroredCount As Long
     EmptyCount As Long
+    TotalAssertions As Long
 End Type
 Private this As udtTestRunner
 
@@ -283,7 +284,7 @@ Public Sub RunSelected(colTestKeys As Collection)
                 dTest("errorMessage") = "Factory error " & lngErrNum & ": " & strErrDesc
                 this.ErroredCount = this.ErroredCount + 1
                 LogTestResult strProcName, "ERROR", "red"
-                Log.Add "        " & dTest("errorMessage"), False
+                Log.Add "    " & dTest("errorMessage"), False
                 GoTo NextTest
             End If
 
@@ -303,7 +304,7 @@ Public Sub RunSelected(colTestKeys As Collection)
                 dTest("errorMessage") = "Not callable (Option Private Module or not found): " & strProcName
                 this.ErroredCount = this.ErroredCount + 1
                 LogTestResult strProcName, "SKIP", "orange"
-                Log.Add "        " & dTest("errorMessage"), False
+                Log.Add "    " & dTest("errorMessage"), False
                 GoTo NextTest
             End If
 
@@ -327,7 +328,7 @@ Public Sub RunSelected(colTestKeys As Collection)
             dTest("errorMessage") = "Error " & lngErrNum & ": " & strErrDesc
             this.ErroredCount = this.ErroredCount + 1
             LogTestResult strProcName, "ERROR", "red"
-            Log.Add "        " & dTest("errorMessage"), False
+            Log.Add "    " & dTest("errorMessage"), False
         ElseIf this.AssertionCounter = 0 Then
             dTest("status") = etsEmpty
             this.EmptyCount = this.EmptyCount + 1
@@ -417,6 +418,7 @@ Public Sub RecordAssertion(ByVal blnCondition As Boolean, ByVal varContext As Va
     Dim dResult As Dictionary
 
     this.AssertionCounter = this.AssertionCounter + 1
+    this.TotalAssertions = this.TotalAssertions + 1
 
     Set dResult = New Dictionary
     dResult.Add "seq", this.AssertionCounter
@@ -458,7 +460,8 @@ Public Function GetResultsAsJson() As String
     dRoot.Add "addinVersion", GetVCSVersion
     dRoot.Add "durationMs", CLng((Perf.MicroTimer - this.RunStartTime) * 1000)
 
-    dSummary.Add "total", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
+    dSummary.Add "assertions", this.TotalAssertions
+    dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
     dSummary.Add "passed", this.PassedCount
     dSummary.Add "failed", this.FailedCount
     dSummary.Add "errored", this.ErroredCount
@@ -1042,10 +1045,10 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub LogTestResult(strProcName As String, strStatus As String, strColor As String)
-    Const STATUS_COL As Long = 48
+    Const STATUS_COL As Long = 46
     Dim strLine As String
     Dim lngPad As Long
-    strLine = "    " & strProcName
+    strLine = "  " & strProcName
     lngPad = STATUS_COL - Len(strLine)
     If lngPad < 2 Then lngPad = 2
     Log.Add strLine & Space$(lngPad), True, False
@@ -1072,16 +1075,16 @@ Private Sub LogRunSummary()
     With Log
         .Spacer
         .Add "Test summary", True, , "blue", True
-        .Add "  Total:     " & lngTotal
-        LogSummaryLine "  Passed:    ", CStr(this.PassedCount), _
+        .Add "  Assertions: " & this.TotalAssertions & "  (" & lngTotal & " subs)"
+        LogSummaryLine "  Passed:     ", CStr(this.PassedCount), _
             IIf(this.PassedCount > 0, "green", vbNullString)
-        LogSummaryLine "  Failed:    ", CStr(this.FailedCount), _
+        LogSummaryLine "  Failed:     ", CStr(this.FailedCount), _
             IIf(this.FailedCount > 0, "red", vbNullString)
-        LogSummaryLine "  Errored:   ", CStr(this.ErroredCount), _
+        LogSummaryLine "  Errored:    ", CStr(this.ErroredCount), _
             IIf(this.ErroredCount > 0, "red", vbNullString)
-        LogSummaryLine "  Empty:     ", CStr(this.EmptyCount), _
+        LogSummaryLine "  Empty:      ", CStr(this.EmptyCount), _
             IIf(this.EmptyCount > 0, "gray", vbNullString)
-        .Add "  Elapsed:   " & dblElapsed & "s"
+        .Add "  Elapsed:    " & dblElapsed & "s"
         .Spacer
     End With
 
@@ -1141,21 +1144,26 @@ End Function
 Private Sub LogAssertionDetails(colResults As Collection)
     Dim dResult As Dictionary
     Dim i As Long
-    Dim strLine As String
+    Dim strTag As String
     Dim strColor As String
+    Dim blnHasContext As Boolean
     For i = 1 To colResults.Count
         Set dResult = colResults(i)
         If CBool(dResult("passed")) Then
+            strTag = "PASS"
             strColor = "green"
-            strLine = "        #" & dResult("seq") & " PASS"
         Else
+            strTag = "FAIL"
             strColor = "red"
-            strLine = "        #" & dResult("seq") & " FAIL"
         End If
-        If Len(dResult("context")) > 0 Then
-            strLine = strLine & ": " & dResult("context")
+        blnHasContext = (Len(dResult("context")) > 0)
+        Log.Add "    #" & dResult("seq") & " ", True, False, "gray"
+        If blnHasContext Then
+            Log.Add strTag, True, False, strColor
+            Log.Add ": " & dResult("context"), True, True, "gray"
+        Else
+            Log.Add strTag, True, True, strColor
         End If
-        Log.Add strLine, True, True, strColor
     Next i
 End Sub
 
@@ -1172,6 +1180,7 @@ Private Sub ResetCounts()
     this.FailedCount = 0
     this.ErroredCount = 0
     this.EmptyCount = 0
+    this.TotalAssertions = 0
 End Sub
 
 
