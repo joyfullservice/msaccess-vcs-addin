@@ -150,11 +150,14 @@ Public Sub Scan()
         End If
     Next cmp
 
-    ' Third pass: scan each test module for test subs
+    ' Third pass: scan each test module for tests
     Dim varKey As Variant
     For Each varKey In dModules.Keys
         ScanModuleForTests dModules(varKey), blnHasFolderTags
     Next varKey
+
+    ' Reconcile TestClassFactory entries in modTestAssert for any class-based tests
+    SyncFactoryEntries proj
 
     this.State = etrsReady
 
@@ -205,6 +208,7 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim curStart As Currency
     Dim intErrorTrapping As Integer
     Dim blnBreakOnError As Boolean
+    Dim obj As Object
 
     this.State = etrsRunning
     this.CancelRequested = False
@@ -218,6 +222,20 @@ Public Sub RunSelected(colTestKeys As Collection)
     blnBreakOnError = Options.BreakOnError
     Options.BreakOnError = False
 
+    ' Set active VB project to Current DB (not Add-in)
+    Set VBE.ActiveVBProject = CurrentVBProject
+
+    ' Compile project before running tests
+    On Error Resume Next
+    DoCmd.RunCommand acCmdCompileAllModules
+    DoEvents
+    On Error GoTo 0
+    If Not Application.IsCompiled Then
+        Log.Add T("Project has compile errors. Please resolve before running tests."), , , "red"
+        this.State = etrsCancelled
+        GoTo CleanUp
+    End If
+
     ' Reset status on all selected tests
     For Each varKey In colTestKeys
         If this.Tests.Exists(CStr(varKey)) Then
@@ -226,9 +244,6 @@ Public Sub RunSelected(colTestKeys As Collection)
             Set dTest("assertionResults") = New Collection
         End If
     Next varKey
-
-    ' Set active VB project to Current DB (not Add-in)
-    Set VBE.ActiveVBProject = CurrentVBProject
 
     For Each varKey In colTestKeys
 
@@ -246,25 +261,54 @@ Public Sub RunSelected(colTestKeys As Collection)
         this.AssertionCounter = 0
         Set this.AssertionResults = New Collection
 
-        ' Verify procedure is callable
-        If Not GlobalProcExists(strProcName) Then
-            dTest("status") = etsErrored
-            dTest("errorMessage") = "Not callable (Option Private Module or not found): " & strProcName
-            this.ErroredCount = this.ErroredCount + 1
-            LogTestResult strTestKey, "SKIP", "orange"
-            Log.Add "  " & dTest("errorMessage"), False
-            GoTo NextTest
-        End If
+        If dTest("sourceType") = "class" Then
+            ' --- Class-based test: instantiate via factory, call via CallByName ---
+            curStart = Perf.MicroTimer
+            On Error Resume Next
+            Set obj = Application.Run(BuildRunCmd("TestClassFactory"), CStr(dTest("moduleName")))
+            lngErrNum = Err.Number
+            strErrDesc = Err.Description
+            If lngErrNum <> 0 Then Err.Clear
+            On Error GoTo 0
 
-        ' Run the test sub
-        strCmd = BuildRunCmd(strProcName)
-        curStart = Perf.MicroTimer
-        On Error Resume Next
-        Application.Run strCmd
-        lngErrNum = Err.Number
-        strErrDesc = Err.Description
-        If lngErrNum <> 0 Then Err.Clear
-        On Error GoTo 0
+            If lngErrNum <> 0 Then
+                dTest("status") = etsErrored
+                dTest("errorMessage") = "Factory error " & lngErrNum & ": " & strErrDesc
+                this.ErroredCount = this.ErroredCount + 1
+                LogTestResult strTestKey, "ERROR", "red"
+                Log.Add "  " & dTest("errorMessage"), False
+                GoTo NextTest
+            End If
+
+            On Error Resume Next
+            CallByName obj, strProcName, VbMethod
+            lngErrNum = Err.Number
+            strErrDesc = Err.Description
+            If lngErrNum <> 0 Then Err.Clear
+            On Error GoTo 0
+
+            ' Release instance (fires Class_Terminate for teardown)
+            Set obj = Nothing
+        Else
+            ' --- Standard module test: Application.Run ---
+            If Not GlobalProcExists(strProcName) Then
+                dTest("status") = etsErrored
+                dTest("errorMessage") = "Not callable (Option Private Module or not found): " & strProcName
+                this.ErroredCount = this.ErroredCount + 1
+                LogTestResult strTestKey, "SKIP", "orange"
+                Log.Add "  " & dTest("errorMessage"), False
+                GoTo NextTest
+            End If
+
+            strCmd = BuildRunCmd(strProcName)
+            curStart = Perf.MicroTimer
+            On Error Resume Next
+            Application.Run strCmd
+            lngErrNum = Err.Number
+            strErrDesc = Err.Description
+            If lngErrNum <> 0 Then Err.Clear
+            On Error GoTo 0
+        End If
 
         ' Store assertion results and duration
         Set dTest("assertionResults") = this.AssertionResults
@@ -303,6 +347,7 @@ NextTest:
 
     LogRunSummary
 
+CleanUp:
     ' Restore original error trapping settings
     Options.BreakOnError = blnBreakOnError
     Application.SetOption "Error Trapping", intErrorTrapping
@@ -481,7 +526,7 @@ Private Function ProjectHasFolderAnnotations(proj As VBIDE.VBProject) As Boolean
 
     On Error Resume Next
     For Each cmp In proj.VBComponents
-        If cmp.Type = vbext_ct_StdModule Then
+        If cmp.Type = vbext_ct_StdModule Or cmp.Type = vbext_ct_ClassModule Then
             If cmp.CodeModule.CountOfLines > 0 Then
                 strCode = UCase$(cmp.CodeModule.Lines(1, IIf(cmp.CodeModule.CountOfLines < 30, cmp.CodeModule.CountOfLines, 30)))
                 If InStr(strCode, "'@FOLDER(") > 0 Then
@@ -501,9 +546,9 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Determine whether a VBComponent is a test module using discovery rules:
-'           :   1. @Folder annotation containing "Tests" segment (if project uses folders)
-'           :   2. Name containing "Test" (fallback if no @Folder tags in project)
-'           :   3. Standard modules only (not forms/reports)
+'           :   1. Standard modules or standalone class modules (not forms/reports)
+'           :   2. @Folder annotation containing "Tests" segment (if project uses folders)
+'           :   3. Name containing "Test" (fallback if no @Folder tags in project)
 '---------------------------------------------------------------------------------------
 '
 Private Function IsTestModule(cmp As VBIDE.VBComponent, _
@@ -512,8 +557,11 @@ Private Function IsTestModule(cmp As VBIDE.VBComponent, _
     Dim strCode As String
     Dim strFolder As String
 
-    ' Only scan standard modules
-    If cmp.Type <> vbext_ct_StdModule Then Exit Function
+    ' Only scan standard modules and standalone class modules
+    Select Case cmp.Type
+        Case vbext_ct_StdModule, vbext_ct_ClassModule
+        Case Else: Exit Function
+    End Select
 
     On Error Resume Next
 
@@ -594,11 +642,152 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SyncFactoryEntries
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Ensure the TestClassFactory function in modTestAssert has Select Case
+'           : entries matching the currently discovered test classes. Only modifies
+'           : the CodeModule if the entries are out of date.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SyncFactoryEntries(proj As VBIDE.VBProject)
+
+    Dim cmp As VBIDE.VBComponent
+    Dim colClassNames As Collection
+    Dim varKey As Variant
+    Dim dTest As Dictionary
+    Dim strClassName As String
+    Dim lngBegin As Long
+    Dim lngEnd As Long
+    Dim lngLine As Long
+    Dim strLine As String
+    Dim strExpected As String
+    Dim strExisting As String
+    Dim i As Long
+
+    ' Collect unique class names from discovered tests
+    Set colClassNames = New Collection
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        If dTest("sourceType") = "class" Then
+            strClassName = CStr(dTest("moduleName"))
+            ' Use dictionary-style uniqueness check via error trapping
+            On Error Resume Next
+            colClassNames.Add strClassName, strClassName
+            On Error GoTo 0
+        End If
+    Next varKey
+
+    ' No class-based tests — nothing to sync
+    If colClassNames.Count = 0 Then Exit Sub
+
+    ' Locate modTestAssert in the project
+    On Error Resume Next
+    Set cmp = proj.VBComponents("modTestAssert")
+    On Error GoTo 0
+    If cmp Is Nothing Then Exit Sub
+
+    ' Find the BEGIN/END markers
+    lngBegin = 0
+    lngEnd = 0
+    For lngLine = 1 To cmp.CodeModule.CountOfLines
+        strLine = cmp.CodeModule.Lines(lngLine, 1)
+        If InStr(1, strLine, "BEGIN TEST CLASS ENTRIES", vbTextCompare) > 0 Then
+            lngBegin = lngLine
+        ElseIf InStr(1, strLine, "END TEST CLASS ENTRIES", vbTextCompare) > 0 Then
+            lngEnd = lngLine
+            Exit For
+        End If
+    Next lngLine
+
+    ' Markers not found — append the full TestClassFactory template
+    If lngBegin = 0 Or lngEnd = 0 Then
+        AppendFactoryTemplate cmp, colClassNames
+        Exit Sub
+    End If
+
+    ' Build expected content between markers
+    strExpected = BuildFactorySelectCase(colClassNames)
+
+    ' Read existing content between markers
+    strExisting = vbNullString
+    If lngEnd > lngBegin + 1 Then
+        strExisting = cmp.CodeModule.Lines(lngBegin + 1, lngEnd - lngBegin - 1)
+    End If
+
+    ' Only modify if different
+    If StrComp(strExisting, strExpected, vbBinaryCompare) = 0 Then Exit Sub
+
+    ' Replace lines between markers
+    If lngEnd > lngBegin + 1 Then
+        cmp.CodeModule.DeleteLines lngBegin + 1, lngEnd - lngBegin - 1
+    End If
+    cmp.CodeModule.InsertLines lngBegin + 1, strExpected
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildFactorySelectCase
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Generate the Select Case block for TestClassFactory given a collection
+'           : of class names.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildFactorySelectCase(colClassNames As Collection) As String
+
+    Dim strLines As String
+    Dim i As Long
+
+    strLines = "    Select Case strClassName" & vbCrLf
+    For i = 1 To colClassNames.Count
+        strLines = strLines & "        Case """ & colClassNames(i) & """: Set TestClassFactory = New " & colClassNames(i) & vbCrLf
+    Next i
+    strLines = strLines & "    End Select"
+
+    BuildFactorySelectCase = strLines
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppendFactoryTemplate
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Append the full TestClassFactory function to modTestAssert when the
+'           : BEGIN/END markers are not yet present.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AppendFactoryTemplate(cmp As VBIDE.VBComponent, colClassNames As Collection)
+
+    Dim strTemplate As String
+
+    strTemplate = vbCrLf & vbCrLf & _
+        "'---------------------------------------------------------------------------------------" & vbCrLf & _
+        "' Procedure : TestClassFactory" & vbCrLf & _
+        "' Purpose   : Create a new instance of a test class by name. The Select Case entries" & vbCrLf & _
+        "'           : below are auto-generated by the VCS test runner during test discovery." & vbCrLf & _
+        "'           : Do not manually edit the lines between the BEGIN/END markers." & vbCrLf & _
+        "'---------------------------------------------------------------------------------------" & vbCrLf & _
+        "'" & vbCrLf & _
+        "Public Function TestClassFactory(ByVal strClassName As String) As Object" & vbCrLf & _
+        "'--- BEGIN TEST CLASS ENTRIES (auto-generated by VCS test runner) ---" & vbCrLf & _
+        BuildFactorySelectCase(colClassNames) & vbCrLf & _
+        "'--- END TEST CLASS ENTRIES ---" & vbCrLf & _
+        "End Function"
+
+    cmp.CodeModule.InsertLines cmp.CodeModule.CountOfLines + 1, strTemplate
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ScanModuleForTests
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
-' Purpose   : Scan a test module for parameterless Public Subs and register each one
-'           : as a test. Populates the Tests dictionary.
+' Purpose   : Scan a test module for parameterless Public Subs (and Functions for class
+'           : modules) and register each one as a test. Populates the Tests dictionary.
 '---------------------------------------------------------------------------------------
 '
 Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boolean)
@@ -611,12 +800,16 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
     Dim strFolder As String
     Dim strTestKey As String
     Dim dTest As Dictionary
+    Dim blnIsClass As Boolean
+    Dim blnMatched As Boolean
 
     On Error Resume Next
     If cmp.CodeModule.CountOfLines = 0 Then Exit Sub
     strAllCode = cmp.CodeModule.Lines(1, cmp.CodeModule.CountOfLines)
     On Error GoTo 0
     If Len(strAllCode) = 0 Then Exit Sub
+
+    blnIsClass = (cmp.Type = vbext_ct_ClassModule)
 
     ' Determine folder annotation for suite grouping
     If blnHasFolderTags Then
@@ -629,13 +822,24 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
     For lngLine = LBound(varLines) To UBound(varLines)
         strTrimmed = Trim$(varLines(lngLine))
 
-        If IsParameterlessSub(strTrimmed, strProcName) Then
+        ' For class modules, match both Sub and Function
+        If blnIsClass Then
+            blnMatched = IsParameterlessMethod(strTrimmed, strProcName)
+        Else
+            blnMatched = IsParameterlessSub(strTrimmed, strProcName)
+        End If
+
+        If blnMatched Then
+            ' Skip class lifecycle methods
+            If blnIsClass And Left$(LCase$(strProcName), 6) = "class_" Then GoTo NextLine
+
             strTestKey = cmp.Name & "." & strProcName
 
             Set dTest = New Dictionary
             dTest.Add "moduleName", cmp.Name
             dTest.Add "procName", strProcName
             dTest.Add "folder", strFolder
+            dTest.Add "sourceType", IIf(blnIsClass, "class", "module")
             dTest.Add "status", CLng(etsPending)
             dTest.Add "durationMs", CLng(0)
             Set dTest("assertionResults") = New Collection
@@ -649,6 +853,7 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
             this.SuiteMap(strFolder).Add strTestKey
         End If
 
+NextLine:
     Next lngLine
 
 End Sub
@@ -696,6 +901,55 @@ Private Function IsParameterlessSub(strTrimmed As String, ByRef strName As Strin
 
     strBetween = Trim$(Mid$(strTrimmed, lngParenOpen + 1, lngParenClose - lngParenOpen - 1))
     IsParameterlessSub = (Len(strBetween) = 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsParameterlessMethod
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Check if a line declares a parameterless Public Sub or Public Function.
+'           : Returns the method name via the ByRef parameter if matched. Used for
+'           : class-based test discovery where both Subs and Functions are valid tests.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsParameterlessMethod(strTrimmed As String, ByRef strName As String) As Boolean
+
+    Dim strUpper As String
+    Dim lngPos As Long
+    Dim lngParenOpen As Long
+    Dim lngParenClose As Long
+    Dim strBetween As String
+
+    strUpper = UCase$(strTrimmed)
+
+    ' Match Public Sub/Function or bare Sub/Function (implicit Public)
+    If Left$(strUpper, 11) = "PUBLIC SUB " Then
+        lngPos = 12
+    ElseIf Left$(strUpper, 16) = "PUBLIC FUNCTION " Then
+        lngPos = 17
+    ElseIf Left$(strUpper, 4) = "SUB " Then
+        If Left$(strUpper, 12) = "PRIVATE SUB " Then Exit Function
+        lngPos = 5
+    ElseIf Left$(strUpper, 9) = "FUNCTION " Then
+        If Left$(strUpper, 17) = "PRIVATE FUNCTION " Then Exit Function
+        lngPos = 10
+    Else
+        Exit Function
+    End If
+
+    lngParenOpen = InStr(lngPos, strTrimmed, "(")
+    If lngParenOpen = 0 Then Exit Function
+
+    strName = Trim$(Mid$(strTrimmed, lngPos, lngParenOpen - lngPos))
+    If Len(strName) = 0 Then Exit Function
+
+    lngParenClose = InStr(lngParenOpen + 1, strTrimmed, ")")
+    If lngParenClose = 0 Then Exit Function
+
+    strBetween = Trim$(Mid$(strTrimmed, lngParenOpen + 1, lngParenClose - lngParenOpen - 1))
+    IsParameterlessMethod = (Len(strBetween) = 0)
 
 End Function
 

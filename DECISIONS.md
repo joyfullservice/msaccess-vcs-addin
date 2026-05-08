@@ -81,6 +81,24 @@ contradictory guidance.
 
 ---
 
+## 2026-05-08 — Class-based test suites via TestClassFactory dispatcher
+
+**Trigger**: The original test runner (2026-05-08) explicitly ruled out class-based test suites. As the test suite grew, the limitation became painful: standard module tests pollute the global public namespace, and there is no built-in setup/teardown mechanism. Class modules naturally solve both problems via `Class_Initialize`/`Class_Terminate` and encapsulated scope.
+
+**Options explored**:
+- **Temporary factory module (inject/remove per run)** — rejected: VBE `CodeModule` manipulations are expensive, risk recompile between tests, and leave orphan modules on crash.
+- **One factory function per class (N separate `Public Function` declarations)** — rejected: clutters the module, harder to read, generates more VBE code churn during reconciliation.
+- **`PredeclaredId = True` on test classes** — rejected: requires modifying every test class's attributes, non-standard for user code, confuses developers unfamiliar with default instances.
+- **Single `TestClassFactory` dispatcher with `Select Case` (chosen)** — one function in `modTestAssert`, `Select Case` entries auto-maintained by the runner. Minimal code surface, single `GlobalProcExists` check, and the pattern is self-documenting.
+
+**Decision**: `clsTestRunner.Scan` now discovers class modules (alongside standard modules) using the same `@Folder("Tests")` or `*Test*` naming rules. After discovery, `SyncFactoryEntries` reconciles the `Select Case` block inside `TestClassFactory` (in `modTestAssert`) — only writing if entries are stale. At execution time, `RunSelected` calls `Application.Run(BuildRunCmd("TestClassFactory"), className)` to get a fresh instance per test method, then `CallByName obj, procName, VbMethod`. `Set obj = Nothing` triggers `Class_Terminate` (teardown). A compile check (`acCmdCompileAllModules` + `Application.IsCompiled`) gates test execution — the run aborts if the project has compile errors.
+
+**What this rules out**: Shared state across test methods within a class (each method gets its own instance). Parameterized test classes (the factory takes only a class name string). Custom setup/teardown method names — only `Class_Initialize` and `Class_Terminate` serve this role. The `TestClassFactory` function must remain in a non-`Option Private Module` standard module for `GlobalProcExists` to work.
+
+**Relevant files**: `clsTestRunner.cls` (`IsTestModule`, `ScanModuleForTests`, `SyncFactoryEntries`, `RunSelected`), `modTestAssert.bas` (`TestClassFactory` template), `.cursor/rules/testing.mdc` (agent documentation).
+
+---
+
 ## 2026-05-08 — BreakOnError: read live from Options instead of caching
 
 **Trigger**: `clsTestRunner.RunSelected` sets `Options.BreakOnError = False` during test execution so errors don't break into the debugger. But `DebugMode()` in `modErrorHandling` was reading a stale cached copy (`this.blnBreakOnError`) that was only updated by the `ConfigureErrorHandling` push-function. Setting the public field had no effect on `DebugMode()`.

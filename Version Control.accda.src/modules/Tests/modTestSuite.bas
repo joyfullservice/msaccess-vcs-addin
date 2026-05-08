@@ -8,74 +8,8 @@ Private Const ModuleName As String = "modTestSuite"
 '@Folder("Tests")
 
 
-' Test shows that UCS-2 files exported by Access make round trip through our conversions.
-Public Sub TestUCS2toUTF8RoundTrip()
-
-    Dim queryName As String
-    queryName = "Temp_Test_Query_Delete_Me_Æ_ø_Å"
-    Dim tempFileName As String
-    tempFileName = GetTempFile()
-
-    Dim UCStoUCS As String
-    Dim UCStoUTF As String
-    Dim UTFtoUTF As String
-    Dim UTFtoUCS As String
-    UCStoUCS = tempFileName & "UCS-2toUCS-2"
-    UCStoUTF = tempFileName & "UCS-2toUTF-8"
-    UTFtoUTF = tempFileName & "UTF-8toUTF-8"
-    UTFtoUCS = tempFileName & "UTF-8toUCS-2"
-
-    ' Use temporary query to export example file
-    CurrentDb.CreateQueryDef queryName, "SELECT * FROM TEST WHERE TESTING='ÆØÅ'"
-    Application.SaveAsText acQuery, queryName, tempFileName
-    CurrentDb.QueryDefs.Delete queryName
-
-    ' Read original export
-    Dim originalExport As String
-    With FSO.OpenTextFile(tempFileName, ForReading, False, TristateTrue)
-        originalExport = .ReadAll
-        .Close
-    End With
-
-    ConvertUtf8Ucs2 tempFileName, UCStoUCS
-    ConvertUcs2Utf8 UCStoUCS, UCStoUTF
-    ConvertUcs2Utf8 UCStoUTF, UTFtoUTF
-    ConvertUtf8Ucs2 UTFtoUTF, UTFtoUCS
-
-    ' Read final file that went through all permutations of conversion
-    Dim finalFile As String
-    With FSO.OpenTextFile(UTFtoUCS, ForReading, False, TristateTrue)
-        finalFile = .ReadAll
-        .Close
-    End With
-
-    TestAssert originalExport = finalFile
-
-End Sub
-
-
-Public Sub TestParseSpecialCharsInJson()
-
-    Dim strPath As String
-    Dim dict As Dictionary
-    Dim FSO As Object
-
-    strPath = GetTempFile
-
-    Set FSO = CreateObject("Scripting.FileSystemObject")
-    With FSO.CreateTextFile(strPath, True)
-        .WriteLine "{""Test"":""ÆØÅ are special?""}"
-        .Close
-    End With
-
-    Debug.Print strPath
-
-    Set dict = modFileAccess.ReadJsonFile(strPath)
-
-    TestAssert Not dict Is Nothing
-    Debug.Print dict("Test")
-
-End Sub
+' Encoding tests (TestUCS2toUTF8RoundTrip, TestParseSpecialCharsInJson, TestStringFileHash)
+' moved to clsTestEncoding for class-based setup/teardown of temp files.
 
 
 Public Sub TestSortDictionaryByKeys()
@@ -299,30 +233,6 @@ Public Sub TestInArray()
     TestAssert Not InArray(varArray, Null)
     TestAssert Not InArray(Null, "b")
     TestAssert Not InArray(Array(), "b")
-End Sub
-
-
-Public Sub TestStringFileHash()
-
-    Const cstrText As String = "This is my text content."
-    Dim strTempFile As String
-
-    ' Make sure we get the same result when hashing a string as hashing a file.
-
-    ' Create a file, and write our content.
-    strTempFile = GetTempFile
-    WriteFile cstrText, strTempFile
-
-    ' Compare to known hash (without BOM)
-    TestAssert GetStringHash(cstrText) = "f80a555"        ' Without BOM
-    TestAssert GetStringHash(cstrText, True) = "b628391"  ' With UTF-8 BOM and trailing vbCrLf
-
-    ' Compare results of hashing file with hashing a string.
-    TestAssert GetFileHash(strTempFile) = GetStringHash(cstrText, True)
-
-    ' Remove temp file.
-    FSO.DeleteFile strTempFile
-
 End Sub
 
 
