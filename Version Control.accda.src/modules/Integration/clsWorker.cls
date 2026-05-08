@@ -50,6 +50,21 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Run_BuildAndInstall
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Rebuild the VCS add-in from source files and install the result.
+'           : Runs disconnected: quits the current Access instance, opens a new one
+'           : to perform the build, then launches the install via /cmd INSTALL.
+'---------------------------------------------------------------------------------------
+'
+Public Function Run_BuildAndInstall(strSourcePath As String)
+    CallWorker PROJECT_NAME, 300, "BuildAndInstall", _
+        """" & strSourcePath & """"
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsDatabaseAccessible
 ' Author    : Adam Waller
 ' Date      : 4/2/2026
@@ -464,6 +479,12 @@ Sub Main()
             ' Args: Access application instance, add-in path
             UninstallAddIn objApp, WScript.Arguments(3)
 
+        Case "BuildAndInstall"
+            ' Rebuild the add-in from source and install the result.
+            ' (This must be done after closing Access)
+            ' Args: Access application instance, source path
+            BuildAndInstall objApp, WScript.Arguments(3)
+
         Case "CheckDatabaseAccessible"
             varReturn = CheckDatabaseAccessible(WScript.Arguments(0))
 
@@ -662,4 +683,219 @@ Function CheckDatabaseAccessible(strPath)
         CheckDatabaseAccessible = False
     End If
     Set objEngine = Nothing
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildAndInstall
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Rebuild the VCS add-in from source files and install the result.
+'           : Quits the current Access instance, opens a new one to build via the
+'           : installed library, polls the build log for completion, then launches
+'           : the install phase via /cmd INSTALL.
+'---------------------------------------------------------------------------------------
+'
+Function BuildAndInstall(objApp, strSourcePath)
+
+    Dim objFSO
+    Dim objNewAccess
+    Dim WshShell
+    Dim strMSAccessPath
+    Dim strInstalledLib
+    Dim strRepoAddinPath
+    Dim strLogsPath
+    Dim strLockFile
+    Dim intCnt
+
+    Set objFSO = CreateObject("Scripting.FileSystemObject")
+    Set WshShell = CreateObject("WScript.Shell")
+
+    ' Derive paths before quitting Access
+    strMSAccessPath = objApp.SysCmd(9) & "MSACCESS.EXE"  ' acSysCmdAccessDir = 9
+
+    ' Installed library path (Worker.vbs lives next to the installed .accda)
+    strInstalledLib = objFSO.GetParentFolderName(WScript.ScriptFullName) & "\Version Control"
+
+    ' Repo .accda path: source folder is "Version Control.accda.src" so the
+    ' .accda sits in the same parent directory.
+    Dim strSrcClean
+    strSrcClean = strSourcePath
+    If Right(strSrcClean, 1) = "\" Then strSrcClean = Left(strSrcClean, Len(strSrcClean) - 1)
+    strRepoAddinPath = objFSO.GetParentFolderName(strSrcClean) & "\Version Control.accda"
+
+    ' Build log folder
+    If Right(strSourcePath, 1) = "\" Then
+        strLogsPath = strSourcePath & "logs\"
+    Else
+        strLogsPath = strSourcePath & "\logs\"
+    End If
+
+    ' Close the current Access instance to release all locks
+    objApp.Quit
+    Set objApp = Nothing
+
+    ' Build lock file path for the repo .accda
+    strLockFile = Replace(strRepoAddinPath, ".accda", ".laccdb", 1, 1, vbTextCompare)
+
+    ' Wait for lock files to clear (up to 10 seconds)
+    For intCnt = 1 To 10
+        If Not objFSO.FileExists(strLockFile) Then Exit For
+        WScript.Sleep 1000
+    Next
+
+    ' Snapshot existing build log files
+    Dim dictExistingLogs
+    Set dictExistingLogs = CreateObject("Scripting.Dictionary")
+    SnapshotLogFiles objFSO, strLogsPath, "Build_", dictExistingLogs
+
+    ' --- BUILD PHASE ---
+    On Error Resume Next
+    Set objNewAccess = CreateObject("Access.Application")
+    If Err.Number <> 0 Then
+        MsgBox "Failed to create Access application instance." & vbCrLf & vbCrLf & _
+            "Error " & Err.Number & ": " & Err.Description, vbCritical, "Rebuild Add-In"
+        Exit Function
+    End If
+    On Error GoTo 0
+
+    objNewAccess.Visible = True
+    objNewAccess.OpenCurrentDatabase strRepoAddinPath
+
+    ' Close the installer form if AutoExec opened it
+    On Error Resume Next
+    objNewAccess.DoCmd.Close 2, "frmVCSInstall"  ' acForm = 2
+    Err.Clear
+    On Error GoTo 0
+
+    ' Trigger build via the installed library
+    On Error Resume Next
+    objNewAccess.Run strInstalledLib & ".HandleRibbonCommand", "btnBuild", strSourcePath
+    If Err.Number <> 0 Then
+        Dim strBuildErr
+        strBuildErr = "Error " & Err.Number & ": " & Err.Description
+        Err.Clear
+        On Error GoTo 0
+        On Error Resume Next
+        objNewAccess.Quit
+        On Error GoTo 0
+        Set objNewAccess = Nothing
+        MsgBox "Failed to trigger build command." & vbCrLf & vbCrLf & _
+            strBuildErr, vbCritical, "Rebuild Add-In"
+        Exit Function
+    End If
+    On Error GoTo 0
+
+    ' Poll for build log completion (2s interval, up to 120s)
+    Dim strNewLog
+    Dim strLogContent
+    Dim intWait
+    strNewLog = ""
+    For intWait = 1 To 60
+        WScript.Sleep 2000
+        strNewLog = FindNewBuildLog(objFSO, strLogsPath, "Build_", dictExistingLogs)
+        If Len(strNewLog) > 0 Then
+            strLogContent = ReadTextFile(objFSO, strNewLog)
+            If InStr(1, strLogContent, "TOTAL RUNTIME:", vbTextCompare) > 0 Then
+                Exit For
+            End If
+            strNewLog = ""
+        End If
+    Next
+
+    ' Close the build Access instance
+    On Error Resume Next
+    objNewAccess.Quit
+    On Error GoTo 0
+    Set objNewAccess = Nothing
+    WScript.Sleep 2000
+
+    ' Check build result
+    If Len(strNewLog) = 0 Then
+        MsgBox "Build timed out. No completed build log was found." & vbCrLf & vbCrLf & _
+            "Check the logs folder for details:" & vbCrLf & strLogsPath, _
+            vbCritical, "Rebuild Add-In"
+        Exit Function
+    End If
+
+    ' Re-read the log to confirm success
+    strLogContent = ReadTextFile(objFSO, strNewLog)
+    Dim blnSuccess
+    blnSuccess = (InStr(1, strLogContent, "Done. (", vbTextCompare) > 0) And _
+                  (InStr(1, strLogContent, "CRITICAL:", vbTextCompare) = 0)
+
+    If Not blnSuccess Then
+        MsgBox "Build failed. Check the build log for details:" & vbCrLf & vbCrLf & _
+            strNewLog, vbCritical, "Rebuild Add-In"
+        Exit Function
+    End If
+
+    ' --- INSTALL PHASE ---
+    ' Wait for lock files from the build to clear
+    For intCnt = 1 To 10
+        If Not objFSO.FileExists(strLockFile) Then Exit For
+        WScript.Sleep 1000
+    Next
+
+    ' Launch Access with /cmd INSTALL (blocks until user clicks OK on success dialog)
+    WshShell.Run """" & strMSAccessPath & """ """ & strRepoAddinPath & """ /cmd INSTALL", 1, True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SnapshotLogFiles
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Collect existing log file names matching a prefix into a dictionary.
+'---------------------------------------------------------------------------------------
+'
+Sub SnapshotLogFiles(objFSO, strFolder, strPrefix, dictOut)
+    Dim objFile
+    If Not objFSO.FolderExists(strFolder) Then Exit Sub
+    For Each objFile In objFSO.GetFolder(strFolder).Files
+        If Left(objFile.Name, Len(strPrefix)) = strPrefix Then
+            dictOut.Add objFile.Name, True
+        End If
+    Next
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindNewBuildLog
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Find a build log file that wasn't in the original snapshot.
+'---------------------------------------------------------------------------------------
+'
+Function FindNewBuildLog(objFSO, strFolder, strPrefix, dictExisting)
+    Dim objFile
+    FindNewBuildLog = ""
+    If Not objFSO.FolderExists(strFolder) Then Exit Function
+    For Each objFile In objFSO.GetFolder(strFolder).Files
+        If Left(objFile.Name, Len(strPrefix)) = strPrefix Then
+            If Not dictExisting.Exists(objFile.Name) Then
+                FindNewBuildLog = objFile.Path
+                Exit Function
+            End If
+        End If
+    Next
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadTextFile
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Read entire contents of a text file.
+'---------------------------------------------------------------------------------------
+'
+Function ReadTextFile(objFSO, strPath)
+    Dim objStream
+    ReadTextFile = ""
+    If Not objFSO.FileExists(strPath) Then Exit Function
+    Set objStream = objFSO.OpenTextFile(strPath, 1, False)
+    If Not objStream.AtEndOfStream Then ReadTextFile = objStream.ReadAll
+    objStream.Close
+    Set objStream = Nothing
 End Function

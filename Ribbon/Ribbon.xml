@@ -281,6 +281,16 @@
 				getDescription="GetDescription"
 				getSupertip="GetSupertip"
 			  />
+			  <button
+				id="btnRebuildAddIn"
+				imageMso="RecurrenceEdit"
+				onAction="OnActionButton"
+				getVisible="GetVisible"
+				getEnabled="GetEnabled"
+				getLabel="GetLabel"
+				getDescription="GetDescription"
+				getSupertip="GetSupertip"
+			  />
           </menu>
           <!--End menu (mnuAdvancedTools) NOT delete this remark-->
         </group>

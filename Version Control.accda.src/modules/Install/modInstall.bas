@@ -48,6 +48,15 @@ Private this As udtInstallSettings
 '
 Public Function AutoRun() As Boolean
 
+    ' Handle command-line install automation (/cmd INSTALL)
+    If UCase$(Trim$(Command$)) = "INSTALL" Then
+        VerifyResources
+        GetInstallSettings
+        InstallVCSAddin this.blnTrustAddInFolder, this.blnUseRibbonAddIn, _
+            False, this.strInstallFolder, this.blnUseCompiledAddIn
+        Exit Function
+    End If
+
     ' See if the we are opening the file from the installed location.
     If CodeProject.FullName = GetInstalledAddInFileName Then
 

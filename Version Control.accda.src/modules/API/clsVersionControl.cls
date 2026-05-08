@@ -464,6 +464,53 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RebuildAddIn
+' Author    : Adam Waller
+' Date      : 5/8/2026
+' Purpose   : Rebuild the VCS add-in from source files and install it.
+'           : This only works when the add-in is opened as the current database
+'           : (not when loaded as a library). Access will close during this process.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RebuildAddIn()
+
+    Dim strPath As String
+
+    ' Only works when the add-in is the current database
+    If StrComp(FSO.GetBaseName(CurrentProject.Name), ADDIN_BASENAME, vbTextCompare) <> 0 Then
+        MsgBox2 T("Cannot Rebuild"), _
+            T("This function can only be used when the add-in is opened as the current database."), _
+            , vbExclamation
+        Exit Sub
+    End If
+
+    ' Derive source folder from the current project
+    strPath = CurrentProject.Path & PathSep & CurrentProject.Name & ".src" & PathSep
+
+    ' Validate source folder exists
+    If Not FSO.FolderExists(strPath) Then
+        MsgBox2 T("Source Folder Not Found"), _
+            T("The source folder was not found:") & vbCrLf & strPath, _
+            , vbExclamation
+        Exit Sub
+    End If
+    If Not FSO.FileExists(strPath & "vcs-options.json") Then
+        MsgBox2 T("Invalid Source Folder"), _
+            T("The source folder does not contain the expected VCS source files.") & vbCrLf & strPath, _
+            , vbExclamation
+        Exit Sub
+    End If
+
+    ' Verify resource files are available
+    VerifyResources
+
+    ' Launch the worker to handle the build and install disconnected
+    Worker.Run_BuildAndInstall strPath
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RepairColors
 ' Author    : Adam Waller
 ' Date      : 6/8/2021

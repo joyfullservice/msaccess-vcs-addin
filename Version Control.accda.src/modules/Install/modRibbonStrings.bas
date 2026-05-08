@@ -105,6 +105,9 @@ Public Function GetRibbonStrings() As Dictionary
             AddCtl "btnReloadRibbon", "Reload Ribbon", _
                 strDescription:="Refresh the add-in ribbon menu to reflect changes in XML source"
 
+            AddCtl "btnRebuildAddIn", "Rebuild Add-In", _
+                strDescription:="Rebuild the VCS add-in from source files and install. Access will close during this process."
+
     ' GitHub Community group
     AddCtl "grpGitHub", "GitHub Community"
 
@@ -143,5 +146,5 @@ Private Sub AddCtl(strControl As String, strLabel As String, _
         .Add "Description", T(strDescription, "Ribbon." & strControl & ".Description")
         .Add "Supertip", T(strSupertip, "Ribbon." & strControl & ".Supertip")
     End With
-    m_dStrings.Add strControl, dControl
+    If Not m_dStrings.Exists(strControl) Then m_dStrings.Add strControl, dControl
 End Sub
