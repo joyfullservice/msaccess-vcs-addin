@@ -193,3 +193,10 @@ Public Enum eImportCommandBarsResult
     eicImportedVerified = 1
     eicImportedUnableToVerify = 2
 End Enum
+
+' Action types for update function
+Public Enum eIndexOperationType
+    eatExport
+    eatImport
+    eatAltExport    ' Alternate export folder, such as a scan for changes
+End Enum

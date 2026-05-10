@@ -249,6 +249,13 @@ Private Function GetDictionary(Optional blnUseCache As Boolean = True) As Dictio
                         Case "Description"
                             blnSave = True
                     End Select
+                Else
+                    ' For other documents, use the whitelist approach, primarily
+                    ' gathering navigation pane item descriptions and hidden status.
+                    Select Case prp.Name
+                        Case "Description"
+                            blnSave = True
+                    End Select
                 End If
                 ' Don't save properties on temporary items
                 If Left(doc.Name, 1) = "~" Then blnSave = False

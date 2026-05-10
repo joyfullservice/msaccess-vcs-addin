@@ -1261,12 +1261,7 @@ CleanUp:
     ' Save index file after build is complete, or discard index for "Build As..."
     ' discard update if build failed.
     If strAlternatePath = vbNullString And blnSuccess Then
-        If blnFullBuild Then
-            ' NOTE: Add a couple seconds since some items may still be in the process of saving.
-            VCSIndex.FullBuildDate = DateAdd("s", 2, Now)
-        Else
-            VCSIndex.MergeBuildDate = DateAdd("s", 2, Now)
-        End If
+        VCSIndex.UpdateMergeState blnFullBuild
         VCSIndex.Save strSourceFolder
     End If
     Set VCSIndex = Nothing

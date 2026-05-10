@@ -164,16 +164,37 @@ Public Sub MergeBuild()
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         ' See if merge build is available
-        If .chkFullBuild.Enabled Then
-            ' Initiate the merge build
-            .chkFullBuild = False
-            .cmdBuild_Click
+        Dim strTitle As String
+        Dim strMessage As String
+        Dim lngStyle As VbMsgBoxStyle
+        Dim lngResponse As VbMsgBoxResult
+
+        If VCSIndex.GetMergeMessage(strTitle, strMessage, lngStyle) Then
+            ' NOTE: the MsgBox2 could also return vbOK which would mean merge cannot proceed.
+            ' vbYes is the only possible condition here that could proceed.
+            lngResponse = MsgBox2(strTitle, strMessage, , lngStyle)
         Else
-            MsgBox2 "Merge Build Not Available", _
-                "A full build must be performed before you can merge from source.", _
-                "Please perform a full build of this database first.", vbInformation
+            ' In this case, we can merge without prompting the user.
+            lngResponse = vbYes
+        End If
+
+        If lngResponse = vbYes Then
+            ' We should be able to merge but just as a sanity check, check
+            ' that the full build checkbox is enabled (which is determined
+            ' by the IsMergable function in the form's Load event).
+            If .chkFullBuild.Enabled Then
+                ' Initiate the merge build
+                .chkFullBuild = False
+                .cmdBuild_Click
+            Else
+                ' Something went horribly, horribly wrong....
+                MsgBox2 "Merge Build Not Available", _
+                    "While checking the mergability, inconsistency was detected so it is not possible to accurately determine if it's safe to merge or not. Therefore, a full build must be performed before you can merge from source.", _
+                    "Please perform a full build of this database first.", vbInformation
+            End If
         End If
     End With
+
 End Sub
 
 

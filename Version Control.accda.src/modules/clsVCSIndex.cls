@@ -20,32 +20,90 @@ Option Explicit
 ' File name for index
 Private Const cstrFileName As String = "vcs-index.json"
 
-' General properties
-Public MergeBuildDate As Date
-Public FullBuildDate As Date
-Public ExportDate As Date
-Public FullExportDate As Date
-Public OptionsHash As String
-Public Disabled As Boolean
+Private Type udtState
+    ' Index of component/file information, based on source files
+    dIndex As Dictionary
+    dGitIndex As Dictionary
+    strFile As String
+    Conflicts As clsConflicts
+    strTempExportFolderPath As String
+
+    ' General properties
+    Disabled As Boolean
+
+    ' Git integration
+    Git As clsGitIntegration
+End Type
+Private this As udtState
+
+Public Property Get MergeBuildDate() As Date
+    MergeBuildDate = this.dIndex("MergeBuildDate")
+End Property
+
+Private Property Let MergeBuildDate(NewValue As Date)
+    this.dIndex("MergeBuildDate") = NewValue
+End Property
+
+Public Property Get FullBuildDate() As Date
+    FullBuildDate = this.dIndex("FullBuildDate")
+End Property
+
+Private Property Let FullBuildDate(NewValue As Date)
+    this.dIndex("FullBuildDate") = NewValue
+End Property
+
+Public Property Get ExportDate() As Date
+    ExportDate = this.dIndex("ExportDate")
+End Property
+
+Public Property Let ExportDate(NewValue As Date)
+    this.dIndex("ExportDate") = NewValue
+End Property
+
+Public Property Get FullExportDate() As Date
+    FullExportDate = this.dIndex("FullExportDate")
+End Property
+
+Public Property Let FullExportDate(NewValue As Date)
+    this.dIndex("FullExportDate") = NewValue
+End Property
+
+Public Property Get OptionsHash() As String
+    OptionsHash = this.dIndex("OptionsHash")
+End Property
+
+Public Property Let OptionsHash(NewValue As String)
+    this.dIndex("OptionsHash") = NewValue
+End Property
+
+Public Property Get Disabled() As Boolean
+    Disabled = this.Disabled
+End Property
 
 ' Git integration
-Public LastMergedCommit As String
+Public Property Get LastMergedCommit() As String
+    LastMergedCommit = this.dIndex("LastMergedCommit")
+End Property
 
-' Action types for update function
-Public Enum eIndexOperationType
-    eatExport
-    eatImport
-    eatAltExport    ' Alternate export folder, such as a scan for changes
-End Enum
+Public Property Let LastMergedCommit(NewValue As String)
+    this.dIndex("LastMergedCommit") = NewValue
+End Property
 
-' Index of component/file information, based on source files
-Private m_dIndex As Dictionary
-Private m_dGitIndex As Dictionary
-Private m_strFile As String
-Private m_Git As clsGitIntegration
-Private m_Conflicts As clsConflicts
-Private m_strTempExportFolderPath As String
+Public Property Get LastBranchName() As String
+    LastBranchName = this.dIndex("LastBranchName")
+End Property
 
+Private Property Let LastBranchName(NewValue As String)
+    this.dIndex("LastBranchName") = NewValue
+End Property
+
+Public Property Get LastBranchCommit() As String
+    LastBranchCommit = this.dIndex("LastBranchCommit")
+End Property
+
+Private Property Let LastBranchCommit(NewValue As String)
+    this.dIndex("LastBranchCommit") = NewValue
+End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadFromFile
@@ -68,24 +126,24 @@ Public Sub LoadFromFile(Optional strFile As String)
     Call Class_Initialize
 
     ' Load properties
-    m_strFile = strFile
-    If m_strFile = vbNullString Then m_strFile = DefaultFilePath
-    If FSO.FileExists(m_strFile) Then
+    this.strFile = strFile
+    If this.strFile = vbNullString Then this.strFile = DefaultFilePath
+    If FSO.FileExists(this.strFile) Then
         ' Convert dates back to local time for processing
         blnSavedValue = JsonOptions.ConvertDateToIso
         JsonOptions.ConvertDateToIso = True
-        Set dFile = ReadJsonFile(m_strFile)
+        Set dFile = ReadJsonFile(this.strFile)
         JsonOptions.ConvertDateToIso = blnSavedValue
         If Not dFile Is Nothing Then
             If dFile.Exists("Items") Then
                 ' Load properties from class
                 For Each varKey In dFile("Items").Keys
-                    If m_dIndex.Exists(varKey) Then
+                    If this.dIndex.Exists(varKey) Then
                         Select Case varKey
                             Case "Components", "AlternateExport"
                                 ' Load as dictionary
                                 Set dItem = dFile("Items")(varKey)
-                                Set m_dIndex(varKey) = dItem
+                                Set this.dIndex(varKey) = dItem
                             Case Else
                                 ' Set property by name
                                 CallByName Me, CStr(varKey), VbLet, Nz(dFile("Items")(varKey), 0)
@@ -117,30 +175,30 @@ Public Sub Save(Optional strInFolder As String)
     If Me.Disabled Then Exit Sub
 
     ' Load dictionary from properties
-    For Each varKey In m_dIndex.Keys
+    For Each varKey In this.dIndex.Keys
         Select Case varKey
             Case "Components", "AlternateExport"
             Case Else
                 varValue = CallByName(Me, CStr(varKey), VbGet)
                 ' Save blank dates as null
-                If Right(varKey, 4) = "Date" Then
-                    m_dIndex(varKey) = ZNDate(varValue)
+                If Right$(varKey, 4) = "Date" Then
+                    this.dIndex(varKey) = ZNDate(varValue)
                 Else
-                    m_dIndex(varKey) = CStr(varValue)
+                    this.dIndex(varKey) = CStr(varValue)
                 End If
         End Select
     Next varKey
 
     ' Sort files and components
-    SortComponentSection m_dIndex, "Components"
+    SortComponentSection this.dIndex, "Components"
 
     ' Remove the AlternateExport section, since this is not
     ' needed after the completion of the export process.
-    If m_dIndex.Exists("AlternateExport") Then m_dIndex.Remove "AlternateExport"
+    If this.dIndex.Exists("AlternateExport") Then this.dIndex.Remove "AlternateExport"
 
     ' Build file path
     If strInFolder = vbNullString Then
-        strFile = m_strFile
+        strFile = this.strFile
     Else
         strFile = StripSlash(strInFolder) & PathSep & cstrFileName
     End If
@@ -150,8 +208,8 @@ Public Sub Save(Optional strInFolder As String)
     JsonOptions.ConvertDateToIso = True
 
     ' Save index to file
-    If m_strFile <> vbNullString Then
-        WriteFile BuildJsonFile(TypeName(Me), m_dIndex, "Version Control System Index"), strFile
+    If this.strFile <> vbNullString Then
+        WriteFile BuildJsonFile(TypeName(Me), this.dIndex, "Version Control System Index"), strFile
     End If
 
     ' Restore previous setting
@@ -279,7 +337,7 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
     strFile = FSO.GetFileName(cItem.SourceFile)
 
     ' Look for entry in AlternateExport section
-    With m_dIndex("AlternateExport")
+    With this.dIndex("AlternateExport")
         If .Exists(cItem.Category) Then
             If .Item(cItem.Category).Exists(strFile) Then
                 ' Get reference to alternate export entry
@@ -319,7 +377,7 @@ Public Sub Remove(cItem As IDbComponent, Optional strSourceFile As String)
     strFile = FSO.GetFileName(Nz2(strSourceFile, cItem.SourceFile))
 
     ' Remove dictionary objects.
-    With m_dIndex("Components")
+    With this.dIndex("Components")
         If .Exists(cItem.Category) Then
             If .Item(cItem.Category).Exists(strFile) Then
                 .Item(cItem.Category).Remove strFile
@@ -368,7 +426,7 @@ Private Function LoadItem(cItem As IDbComponent, strSourceFile As String, strSec
     Dim dItem As Dictionary
 
     ' Get or create dictionary objects.
-    With m_dIndex(strSection)
+    With this.dIndex(strSection)
         If Not .Exists(cItem.Category) Then Set .Item(cItem.Category) = New Dictionary
         If Not .Item(cItem.Category).Exists(strSourceFile) Then Set .Item(cItem.Category)(strSourceFile) = New Dictionary
         Set dItem = .Item(cItem.Category)(strSourceFile)
@@ -404,7 +462,7 @@ Public Function Exists(cCategory As IDbComponent, strSourceFilePath As String) A
     strFile = FSO.GetFileName(strSourceFilePath)
 
     ' See if the entry exists in the index
-    With m_dIndex("Components")
+    With this.dIndex("Components")
         If .Exists(cCategory.Category) Then
             blnExists = .Item(cCategory.Category).Exists(strFile)
         End If
@@ -494,7 +552,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
                 ' Build the path to find the item in the index.
                 strPath = Join(Array("Components", cCategory.Category, FSO.GetFileName(strFile), "FilePropertiesHash"), "\")
                 ' File is considered not modified if the index date matches the file modification date.
-                blnModified = Not (dNZ(m_dIndex, strPath) = strHash)
+                blnModified = Not (dNZ(this.dIndex, strPath) = strHash)
             End If
 
             ' Add modified files to collection
@@ -529,8 +587,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Conflicts() As clsConflicts
-    If m_Conflicts Is Nothing Then Set m_Conflicts = New clsConflicts
-    Set Conflicts = m_Conflicts
+    If this.Conflicts Is Nothing Then Set this.Conflicts = New clsConflicts
+    Set Conflicts = this.Conflicts
 End Function
 
 
@@ -842,8 +900,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get GetTempExportFolder() As String
-    If m_strTempExportFolderPath = vbNullString Then m_strTempExportFolderPath = GetTempFolder("VCS")
-    GetTempExportFolder = m_strTempExportFolderPath & PathSep
+    If this.strTempExportFolderPath = vbNullString Then this.strTempExportFolderPath = GetTempFolder("VCS")
+    GetTempExportFolder = this.strTempExportFolderPath & PathSep
 End Property
 
 
@@ -856,17 +914,167 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Sub ClearTempExportFolder()
-    If m_strTempExportFolderPath <> vbNullString Then
-        If FSO.FolderExists(m_strTempExportFolderPath) Then
+    If this.strTempExportFolderPath <> vbNullString Then
+        If FSO.FolderExists(this.strTempExportFolderPath) Then
             LogUnhandledErrors
             On Error Resume Next
             ' Use FSO to delete the folder and contents
-            FSO.DeleteFolder m_strTempExportFolderPath, True
-            CatchAny eelWarning, "Unable to delete temp folder: '" & m_strTempExportFolderPath & _
+            FSO.DeleteFolder this.strTempExportFolderPath, True
+            CatchAny eelWarning, "Unable to delete temp folder: '" & this.strTempExportFolderPath & _
                 "' You will need to manually remove this folder.", ModuleName(Me) & ".ClearTempExportFolder"
         End If
-        m_strTempExportFolderPath = vbNullString
+        this.strTempExportFolderPath = vbNullString
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsMergable
+' Author    : bclothier
+' Date      : 9/9/2025
+' Purpose   : Check if merge build is available.
+'           : Returns true if:
+'           :   Branch is in a consistent state (see IsBranchConsistent)
+'           :   And a full build has been already done before.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsMergable() As Boolean
+
+    ' Quickly check if a full build exists.
+    IsMergable = Not (Me.FullBuildDate = 0)
+    If IsMergable Then
+        ' Now we need to check if the branch is consistent.
+        IsMergable = IsBranchConsistent
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetMergeMessage
+' Author    : bclothier
+' Date      : 9/9/2025
+' Purpose   : Get the message that may be displayed to explain why merge
+'           : cannot proceed or to warn of possible concerns.
+'           : NOTE: this is multi-valued function (yuck!) so the variables
+'           : must be passed byref to get the message and the icon.
+'           : The boolean return is primarily to signal that we could construct
+'           : the message and that the byref "out" parameters contain data.
+'           : NOTE 2: The logic should be compatible with the IsMergable function.
+'           : The primary difference is handling the case where we want to warn the
+'           : the user about possible branch difference (same hashes).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetMergeMessage( _
+    OutTitle As String, _
+    OutMessage As String, _
+    OutStyle As VbMsgBoxStyle _
+) As Boolean
+
+    If (Me.FullBuildDate = 0) Then
+        OutTitle = "No full build data; merge build is not available."
+        OutMessage = _
+            "A full build must be performed before you can merge from source." & vbNewLine & _
+            "Please perform a full build of this database first."
+        OutStyle = vbInformation
+        GetMergeMessage = True
+    ElseIf IsBranchConsistent = False Then
+        Dim strIndexBranchName As String
+        Dim strIndexBranchHash As String
+        Dim strRepoBranchName As String
+        Dim strRepoBranchHash As String
+        Dim cCat As clsConcat
+
+        Set cCat = New clsConcat
+
+        strIndexBranchName = Me.LastBranchName
+        strIndexBranchHash = Me.LastBranchCommit
+
+        strRepoBranchName = Git.BranchName
+        strRepoBranchHash = Git.GetHeadCommitHash
+
+        If strIndexBranchName <> strRepoBranchName Then
+            cCat.Add _
+                "The repository is currently on branch '" & strRepoBranchName & "'" & vbNewLine & _
+                    "  at commit '" & strRepoBranchHash & "'." & vbNewLine & _
+                    "The VCS index was built on the branch '" & strIndexBranchName & "'" & vbNewLine & _
+                    "  at commit '" & strIndexBranchHash & "'." & vbNewLine & _
+                    vbNewLine
+            If strRepoBranchHash <> strIndexBranchHash Then
+                ' Different branch, incompatible hash
+                cCat.Add "This is not a compatible branch so therefore a full build is required."
+                OutTitle = "Cannot merge on a different branch at a different head"
+                OutMessage = cCat.GetStr
+                OutStyle = vbInformation
+            Else
+                ' Different branch, compatible hash (e.g., newly checked out branch
+                cCat.Add "This is a different but compatible branch. Do you want to proceed with the merge on a different branch anyway?"
+                OutTitle = "DIfferent branch at the same head; confirm if you want to merge from a different branch"
+                OutMessage = cCat.GetStr
+                OutStyle = vbExclamation Or vbYesNo
+            End If
+            GetMergeMessage = True
+        End If
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsBranchConsistent
+' Author    : bclothier
+' Date      : 9/9/2025
+' Purpose   : Check if the git's branch is consistent with the index's metadata.
+'           : Returns true if:
+'           :   It's not a git repository (and therefore nothing to compare)
+'           :   Else, If the branch name is the same
+'           :     And the branch commit is the same
+'           :     Then it's consistent
+'           :   Else, it's not and therefore a full build/export is probably needed.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsBranchConsistent() As Boolean
+
+    ' In this case, we have only one specific case where it should be false
+    ' so we will assume success for the function generally.
+    IsBranchConsistent = True
+
+    If Git.IsInsideRepository = False Then
+        Exit Function
+    End If
+
+    If Len(Me.LastBranchName) = 0 Then
+        Exit Function
+    End If
+
+    If Git.BranchName = Me.LastBranchName Then
+        Exit Function
+    End If
+
+    If Not (Git.GetHeadCommitHash = Me.LastBranchCommit) Then
+        IsBranchConsistent = False
+    End If
+End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateMergeState
+' Author    : bclothier
+' Date      : 9/9/2025
+' Purpose   : Updates the mergability state
+'---------------------------------------------------------------------------------------
+'
+Public Sub UpdateMergeState(blnFullBuild As Boolean)
+
+    ' NOTE: Add a couple seconds since some items may still be in the process of saving.
+    If blnFullBuild Then
+        FullBuildDate = DateAdd("s", 2, Now)
+    Else
+        MergeBuildDate = DateAdd("s", 2, Now)
+    End If
+
+    If Git.IsInsideRepository Then
+        LastBranchName = Git.BranchName
+        LastBranchCommit = Git.GetHeadCommitHash
+    End If
+
 End Sub
 
 
@@ -878,8 +1086,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function Git() As clsGitIntegration
-    If m_Git Is Nothing Then Set m_Git = New clsGitIntegration
-    Set Git = m_Git
+    If this.Git Is Nothing Then Set this.Git = New clsGitIntegration
+    Set Git = this.Git
 End Function
 
 
@@ -903,20 +1111,23 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub Class_Initialize()
+    Const ZeroDate As Date = 0
 
-    Set m_dIndex = New Dictionary
-    With m_dIndex
-        .Add "MergeBuildDate", Null
-        .Add "FullBuildDate", Null
-        .Add "ExportDate", Null
-        .Add "FullExportDate", Null
+    Set this.dIndex = New Dictionary
+    With this.dIndex
+        .Add "MergeBuildDate", ZeroDate
+        .Add "FullBuildDate", ZeroDate
+        .Add "ExportDate", ZeroDate
+        .Add "FullExportDate", ZeroDate
         .Add "OptionsHash", vbNullString
         .Add "LastMergedCommit", vbNullString
+        .Add "LastBranchName", vbNullString
+        .Add "LastBranchCommit", vbNullString
         Set .Item("Components") = New Dictionary
         Set .Item("AlternateExport") = New Dictionary
     End With
 
     ' Load Git integration
-    Set m_dGitIndex = Nothing
+    Set this.dGitIndex = Nothing
 
 End Sub
