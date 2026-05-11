@@ -280,20 +280,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : NormalizeLineEndings
-' Author    : Adam Waller
-' Date      : 5/5/2026
-' Purpose   : Converts any mix of LF, CR, or CRLF line endings to CRLF so that
-'           : Split(..., vbCrLf) works reliably regardless of how the file was saved.
-'---------------------------------------------------------------------------------------
-'
-Private Function NormalizeLineEndings(strText As String) As String
-    NormalizeLineEndings = Replace(Replace(strText, vbCrLf, vbLf), vbCr, vbLf)
-    NormalizeLineEndings = Replace(NormalizeLineEndings, vbLf, vbCrLf)
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : ReplaceGitignoreLine
 ' Author    : Adam Waller
 ' Date      : 5/4/2026
@@ -311,7 +297,7 @@ Private Function ReplaceGitignoreLine(strFile As String, strOldPattern As String
     Dim blnFoundOld As Boolean
     Dim blnFoundNew As Boolean
 
-    strContent = NormalizeLineEndings(ReadFile(strFile))
+    strContent = ReadFile(strFile)
     If Len(strContent) = 0 Then Exit Function
 
     varLines = Split(strContent, vbCrLf)
@@ -365,7 +351,7 @@ Private Function EnsureGitignoreLine(strFile As String, strNewPattern As String,
     Dim lngInsertAfter As Long
     Dim strResult As String
 
-    strContent = NormalizeLineEndings(ReadFile(strFile))
+    strContent = ReadFile(strFile)
     If Len(strContent) = 0 Then Exit Function
 
     varLines = Split(strContent, vbCrLf)

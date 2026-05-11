@@ -113,9 +113,27 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "utf
         Perf.OperationEnd
     End If
 
-    ' Return text contents of file.
-    ReadFile = cData.GetStr
+    ' Return text contents of file, normalizing line endings in case a file
+    ' was saved with LF-only or mixed line endings by an external tool.
+    ReadFile = NormalizeLineEndings(cData.GetStr)
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NormalizeLineEndings
+' Author    : Adam Waller
+' Date      : 5/11/2026
+' Purpose   : Converts any mix of LF, CR, or CRLF line endings to CRLF so that
+'           : Split(..., vbCrLf) works reliably regardless of how the file was saved.
+'           : This is called automatically by ReadFile so that all downstream text
+'           : parsing is protected from files saved with non-Windows line endings
+'           : (e.g. by an AI agent or Linux-based tool).
+'---------------------------------------------------------------------------------------
+'
+Public Function NormalizeLineEndings(strText As String) As String
+    NormalizeLineEndings = Replace(Replace(strText, vbCrLf, vbLf), vbCr, vbLf)
+    NormalizeLineEndings = Replace(NormalizeLineEndings, vbLf, vbCrLf)
 End Function
 
 
