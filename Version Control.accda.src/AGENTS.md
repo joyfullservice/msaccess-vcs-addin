@@ -285,7 +285,78 @@ If the SQL becomes incompatible with Design View (e.g., UNION, subqueries), the 
 - **Editing VBA code:** Modify `.bas` or `.cls` files in `modules/` (or subdirectories). Add functions after existing code, preserving all `Attribute` and `Option` lines.
 - **Editing queries:** Edit the `.sql` file directly in `queries/`. The companion `.json` preserves design layout and properties automatically on import.
 - **Editing form/report code:** If "Split Layout from VBA" is enabled, edit `forms/FormName.cls`. Otherwise, find the `CodeBehindForm` section in the `.form` / `.report` file.
-- **Testing changes:** Have the user perform a merge build in Access to import and verify changes.
+- **Testing changes:** Have the user perform a merge build in Access to import and verify changes. See the next section for automated testing.
+
+---
+
+## Automated Testing
+
+The VCS add-in includes a test runner that discovers and executes tests in the current Access database. Tests use `TestAssert` (a drop-in replacement for `Debug.Assert`) for assertions. No compile-time dependency on the add-in is required.
+
+### Setup
+
+Run `VCS.InstallTestAssertModule` from the Immediate Window to inject `modTestAssert` into the project. If the project already uses `Debug.Assert` in test modules, `VCS.MigrateDebugAssert` can batch-convert them to `TestAssert`.
+
+### Writing Tests
+
+Create a standard module with parameterless `Public Sub` procedures that call `TestAssert`:
+
+```vba
+Option Compare Database
+Option Explicit
+Option Private Module
+'@Folder("Tests")
+
+Public Sub TestDoubleInput()
+    TestAssert MyFunction(42) = 84, "MyFunction should double input"
+    TestAssert MyFunction(0) = 0, "Zero input returns zero"
+End Sub
+```
+
+**Discovery rules:**
+- A module is a test module if it has `'@Folder("...Tests...")` (when the project uses `@Folder` annotations) OR its name contains `Test`
+- Only parameterless `Public Sub` procedures are discovered as tests
+- The module must contain at least one `TestAssert` call, otherwise no tests are registered from it
+
+To exclude helpers from discovery, make them `Private` or give them a parameter.
+
+**Class modules** work the same way but provide built-in setup/teardown: each test method gets a fresh instance, so `Class_Initialize` runs before and `Class_Terminate` runs after every test. Use `Public Sub` or `Public Function` (parameterless, excluding `Class_Initialize`/`Class_Terminate`).
+
+### TestAssert
+
+```vba
+TestAssert condition, "optional context for disambiguation"
+```
+
+When the VCS test runner is active, `TestAssert` reports each result to the add-in for streaming display. When called outside a test run (or when the add-in is not installed), it falls back to `Debug.Assert`.
+
+### Running Tests
+
+- **Immediate Window:** `?VCS.RunTests`
+- **Ribbon:** Tools > Run Tests
+- **Re-run failures only:** The runner supports `RunFailed` after a completed run
+
+`RunTests` returns a JSON summary string with per-test status and assertion details.
+
+### Test Logs
+
+After a test run, two log files are written to the `logs/` subfolder inside the export folder:
+
+| File | Contents |
+|------|----------|
+| `TestResults_<timestamp>.json` | Machine-readable results with per-assertion detail |
+| `TestRun_<timestamp>.log` | Full console output including timing |
+
+**Log files are gitignored.** Agent search tools (Glob, Grep, semantic search) will not find them. Use shell commands instead:
+
+```powershell
+Get-ChildItem -Path "<export-folder>\logs" -Filter "TestR*" | Sort-Object LastWriteTime -Descending | Select-Object -First 2
+```
+
+### Conventions
+
+- Use `'@Folder("Tests")` and `Option Private Module` on test modules
+- Name test modules `modTest*` (standard) or `clsTest*` (class)
 
 ---
 
