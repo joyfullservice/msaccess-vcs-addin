@@ -1074,7 +1074,7 @@ Private Sub LogTestResult(strProcName As String, strStatus As String, strColor A
     If lngPad < 2 Then lngPad = 2
     Log.Add strLine & Space$(lngPad), True, False
     If lngDurationMs >= 0 Then
-        Log.Add strStatus & "  " & lngDurationMs & "ms", True, True, strColor
+        Log.Add strStatus & "  " & FormatDuration(lngDurationMs), True, True, strColor
     Else
         Log.Add strStatus, True, True, strColor
     End If
@@ -1111,7 +1111,7 @@ Private Sub LogRunSummary()
             IIf(this.ErroredCount > 0, "red", vbNullString)
         LogSummaryLine "  Empty:      ", CStr(this.EmptyCount), _
             IIf(this.EmptyCount > 0, "gray", vbNullString)
-        .Add "  Elapsed:    " & dblElapsed & "s"
+        .Add "  Elapsed:    " & FormatDuration(CLng(dblElapsed * 1000))
         .Spacer True, SPACER_LEN
     End With
 
@@ -1184,17 +1184,17 @@ Private Sub LogTestTimingTable(ByVal lngSpacerLen As Long)
     Const DUR_COL As Long = 10
 
     With Log
-        .Add T("Test timing (slowest first)"), True, , "blue", True
+        .Add T("Test timing (slowest first)"), False
         For i = lngCount - 1 To 0 Step -1
             varParts = Split(CStr(varRecords(i)), "|")
             strProcName = CStr(varParts(1))
-            strDur = Format$(CLng(varParts(0)) / 1000, "0.000") & "s"
+            strDur = FormatDuration(CLng(varParts(0)))
             lngPad = (lngMaxName + 2) - Len(strProcName)
             If lngPad < 2 Then lngPad = 2
             .Add "  " & strProcName & Space$(lngPad) & _
-                Space$(DUR_COL - Len(strDur)) & strDur & "  " & CStr(varParts(2))
+                Space$(DUR_COL - Len(strDur)) & strDur & "  " & CStr(varParts(2)), False
         Next i
-        .Spacer True, lngSpacerLen
+        .Spacer False, lngSpacerLen
     End With
 
 End Sub
@@ -1228,6 +1228,27 @@ Private Sub LogAssertionDetails(colResults As Collection)
         End If
     Next i
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatDuration
+' Author    : Adam Waller
+' Date      : 5/11/2026
+' Purpose   : Convert milliseconds to a compact human-readable string.
+'           :   < 1000  -> "25ms"
+'           :   < 60000 -> "12.5s"
+'           :   else    -> "2.1m"
+'---------------------------------------------------------------------------------------
+'
+Private Function FormatDuration(ByVal lngMs As Long) As String
+    If lngMs < 1000 Then
+        FormatDuration = lngMs & "ms"
+    ElseIf lngMs < 60000 Then
+        FormatDuration = Format$(lngMs / 1000, "0.00") & "s"
+    Else
+        FormatDuration = Format$(lngMs / 60000, "0.0") & "m"
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
