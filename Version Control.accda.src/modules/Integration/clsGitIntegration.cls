@@ -117,8 +117,12 @@ Private Function RunGitCommand(intCmd As eGitCommand, Optional strArgument As St
     strResult = ShellRun(strCmd, intCmd)
     Perf.OperationEnd
 
-    ' Trim any trailing vbLf
-    If Right$(strResult, 1) = vbLf Then strResult = Left$(strResult, Len(strResult) - 1)
+    ' Trim any trailing line ending (vbCrLf or vbLf)
+    If Right$(strResult, 2) = vbCrLf Then
+        strResult = Left$(strResult, Len(strResult) - 2)
+    ElseIf Right$(strResult, 1) = vbLf Then
+        strResult = Left$(strResult, Len(strResult) - 1)
+    End If
     RunGitCommand = strResult
 
     ' Show debug info, if flag is on
