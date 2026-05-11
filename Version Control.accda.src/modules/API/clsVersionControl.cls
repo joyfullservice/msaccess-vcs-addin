@@ -2015,6 +2015,7 @@ Public Function RunTests() As String
 
     ' Scan for tests
     Log.Add T("Scanning for tests...")
+    Log.Flush
     TestRunner.Scan
 
     If TestRunner.Tests.Count = 0 Then
