@@ -118,8 +118,9 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
     Optional blnBold As Boolean = False, _
     Optional blnItalic As Boolean = False)
 
-    ' Add to log file output
-    m_Log.Add strText, vbCrLf
+    ' Add to log file output (respect inline continuation)
+    m_Log.Add strText
+    If blnNextOutputOnNewLine Then m_Log.Add vbCrLf
 
     ' See if we want to print the output of this message.
     If blnPrint Then

@@ -59,6 +59,7 @@ Private Type udtTestRunner
     TotalAssertions As Long
     PassedAssertions As Long
     FailedAssertions As Long
+    ScannedAssertionCount As Long
 End Type
 Private this As udtTestRunner
 
@@ -118,6 +119,9 @@ End Property
 Public Property Get EmptyCount() As Long
     EmptyCount = this.EmptyCount
 End Property
+Public Property Get ScannedAssertionCount() As Long
+    ScannedAssertionCount = this.ScannedAssertionCount
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -138,6 +142,7 @@ Public Sub Scan()
     this.State = etrsScanning
     Set this.Tests = New Dictionary
     Set this.SuiteMap = New Dictionary
+    this.ScannedAssertionCount = 0
     ResetCounts
 
     Set proj = CurrentVBProject
@@ -329,21 +334,21 @@ Public Sub RunSelected(colTestKeys As Collection)
             dTest("status") = etsErrored
             dTest("errorMessage") = "Error " & lngErrNum & ": " & strErrDesc
             this.ErroredCount = this.ErroredCount + 1
-            LogTestResult strProcName, "ERROR", "red"
+            LogTestResult strProcName, "ERROR", "red", dTest("durationMs")
             Log.Add "    " & dTest("errorMessage"), False
         ElseIf this.AssertionCounter = 0 Then
             dTest("status") = etsEmpty
             this.EmptyCount = this.EmptyCount + 1
-            LogTestResult strProcName, "EMPTY", "gray"
+            LogTestResult strProcName, "EMPTY", "gray", dTest("durationMs")
         ElseIf AnyAssertionFailed(this.AssertionResults) Then
             dTest("status") = etsFailed
             this.FailedCount = this.FailedCount + 1
-            Log.Add "  " & strProcName
+            LogTestResult strProcName, "FAIL", "red", dTest("durationMs")
             LogAssertionDetails this.AssertionResults
         Else
             dTest("status") = etsPassed
             this.PassedCount = this.PassedCount + 1
-            Log.Add "  " & strProcName
+            LogTestResult strProcName, "PASS", "green", dTest("durationMs")
             LogAssertionDetails this.AssertionResults
         End If
 
@@ -836,15 +841,15 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
 
     varLines = Split(strAllCode, vbCrLf)
 
-    ' Only register tests from modules that actually call TestAssert
-    Dim blnCallsTestAssert As Boolean
+    ' Count TestAssert calls to determine if this is a test module and how many assertions it contains
+    Dim lngAssertCount As Long
     For lngLine = LBound(varLines) To UBound(varLines)
         If Left$(UCase$(Trim$(varLines(lngLine))), 11) = "TESTASSERT " Then
-            blnCallsTestAssert = True
-            Exit For
+            lngAssertCount = lngAssertCount + 1
         End If
     Next lngLine
-    If Not blnCallsTestAssert Then Exit Sub
+    If lngAssertCount = 0 Then Exit Sub
+    this.ScannedAssertionCount = this.ScannedAssertionCount + lngAssertCount
 
     For lngLine = LBound(varLines) To UBound(varLines)
         strTrimmed = Trim$(varLines(lngLine))
@@ -1055,10 +1060,12 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/8/2026
 ' Purpose   : Log a single test result line with the status left-justified at a
-'           : fixed column position so all result labels start at the same place.
+'           : fixed column position so all result labels start at the same place,
+'           : followed by the test duration.
 '---------------------------------------------------------------------------------------
 '
-Private Sub LogTestResult(strProcName As String, strStatus As String, strColor As String)
+Private Sub LogTestResult(strProcName As String, strStatus As String, strColor As String, _
+    Optional lngDurationMs As Long = -1)
     Const STATUS_COL As Long = 46
     Dim strLine As String
     Dim lngPad As Long
@@ -1066,7 +1073,11 @@ Private Sub LogTestResult(strProcName As String, strStatus As String, strColor A
     lngPad = STATUS_COL - Len(strLine)
     If lngPad < 2 Then lngPad = 2
     Log.Add strLine & Space$(lngPad), True, False
-    Log.Add strStatus, True, True, strColor
+    If lngDurationMs >= 0 Then
+        Log.Add strStatus & "  " & lngDurationMs & "ms", True, True, strColor
+    Else
+        Log.Add strStatus, True, True, strColor
+    End If
 End Sub
 
 
@@ -1104,6 +1115,8 @@ Private Sub LogRunSummary()
         .Spacer True, SPACER_LEN
     End With
 
+    LogTestTimingTable SPACER_LEN
+
 End Sub
 
 
@@ -1122,6 +1135,68 @@ Private Sub LogSummaryLine(ByVal strLabel As String, ByVal strValue As String, B
     Else
         Log.Add strLabel & strValue
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogTestTimingTable
+' Author    : Adam Waller
+' Date      : 5/11/2026
+' Purpose   : Print a slowest-first table of per-test durations after the summary.
+'           : Only shown when 2+ tests were run.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LogTestTimingTable(ByVal lngSpacerLen As Long)
+
+    Dim lngCount As Long
+    Dim varKey As Variant
+    Dim dTest As Dictionary
+    Dim i As Long
+    Dim lngMaxName As Long
+    Dim strProcName As String
+    Dim strDur As String
+    Dim lngPad As Long
+    Dim varParts As Variant
+
+    If this.Tests Is Nothing Then Exit Sub
+    lngCount = this.Tests.Count
+    If lngCount < 2 Then Exit Sub
+
+    ' Build sortable records: "00000000|procName|STATUS"
+    ' Same pattern as clsPerformance.SortItemsByTime -- fixed-width key
+    ' on the left so QuickSort produces ascending order, then walk
+    ' backwards for descending (slowest first).
+    Dim varRecords() As Variant
+    ReDim varRecords(0 To lngCount - 1)
+
+    i = 0
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        strProcName = CStr(dTest("procName"))
+        varRecords(i) = Format$(CLng(dTest("durationMs")), "00000000") & "|" & _
+            strProcName & "|" & StatusToString(CLng(dTest("status")))
+        If Len(strProcName) > lngMaxName Then lngMaxName = Len(strProcName)
+        i = i + 1
+    Next varKey
+
+    QuickSort varRecords
+
+    Const DUR_COL As Long = 10
+
+    With Log
+        .Add T("Test timing (slowest first)"), True, , "blue", True
+        For i = lngCount - 1 To 0 Step -1
+            varParts = Split(CStr(varRecords(i)), "|")
+            strProcName = CStr(varParts(1))
+            strDur = Format$(CLng(varParts(0)) / 1000, "0.000") & "s"
+            lngPad = (lngMaxName + 2) - Len(strProcName)
+            If lngPad < 2 Then lngPad = 2
+            .Add "  " & strProcName & Space$(lngPad) & _
+                Space$(DUR_COL - Len(strDur)) & strDur & "  " & CStr(varParts(2))
+        Next i
+        .Spacer True, lngSpacerLen
+    End With
+
 End Sub
 
 

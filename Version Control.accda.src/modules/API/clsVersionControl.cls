@@ -2002,6 +2002,17 @@ Public Function RunTests() As String
     ' Open the main form and set up the console
     PrepareTestConsole
 
+    ' Display heading
+    With Log
+        .Spacer
+        .Add T("Running Tests"), False
+        .Add CurrentProject.Name
+        .Add T("VCS Version {0}", var0:=GetVCSVersion)
+        .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
+        .Add Now
+        .Spacer
+    End With
+
     ' Scan for tests
     Log.Add T("Scanning for tests...")
     TestRunner.Scan
@@ -2013,7 +2024,8 @@ Public Function RunTests() As String
         Exit Function
     End If
 
-    Log.Add T("Found {0} test(s). Running...", var0:=TestRunner.Tests.Count)
+    Log.Add T("Found {0} test(s) in {1} sub(s). Running...", _
+        var0:=TestRunner.ScannedAssertionCount, var1:=TestRunner.Tests.Count)
     Log.Spacer True, 61
 
     DoCmd.Hourglass True
@@ -2037,11 +2049,15 @@ Public Function RunTests() As String
     Log.Flush
     DoCmd.Hourglass False
 
-    ' Save the test run log
+    ' Add performance data to log file and save
     Dim strLogPath As String
     strLogPath = FSO.BuildPath(Options.GetExportFolder & "logs", _
         "TestRun_" & Log.OperationId & ".log")
-    Log.SaveFile strLogPath
+    Perf.EndTiming
+    With Log
+        .Add vbNewLine & Perf.GetReports, False
+        .SaveFile strLogPath
+    End With
 
     FinalizeTestConsole blnAllPassed, strLogPath, blnCanceled
     RunTests = TestRunner.GetResultsAsJson
