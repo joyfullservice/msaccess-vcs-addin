@@ -62,7 +62,8 @@ Public Sub TestCommentPreservation()
     Dim cEnv As New clsDotEnv
     cEnv.LoadFromFile m_strTempFile
     TestAssert cEnv.GetVar("KEY", False) = "value", "key after comment"
-    TestAssert cEnv.Lines.Count = 2, "comment line counted"
+    ' WriteFile appends trailing vbCrLf; Split produces an extra blank entry
+    TestAssert cEnv.Lines.Count = 3, "comment + key + trailing blank"
 End Sub
 
 
