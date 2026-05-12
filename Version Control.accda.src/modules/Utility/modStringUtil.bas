@@ -99,7 +99,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function StartsWith(strText As String, strStartsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
-    StartsWith = (InStr(1, strText, strStartsWith, Compare) = 1)
+    If Len(strStartsWith) = 0 Then
+        StartsWith = True
+    Else
+        StartsWith = (InStr(1, strText, strStartsWith, Compare) = 1)
+    End If
 End Function
 
 
