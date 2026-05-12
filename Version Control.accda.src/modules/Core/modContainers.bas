@@ -415,14 +415,11 @@ Public Function GetSourceModifiedDate(cmp As IDbComponent, Optional strFile As S
     Dim dteLatest As Date
     Dim strBaseFile As String
 
-    ' Build base file path without extension
-    If Len(strFile) Then
-        ' Use provided file name first
-        strBaseFile = FSO.GetBaseName(strFile)
-    Else
-        ' Otherwise use default source file name
-        strBaseFile = FSO.GetBaseName(cmp.SourceFile)
-    End If
+    ' Resolve to the provided file or the component's default source file,
+    ' then build the full base path (folder + name, no extension).
+    Dim strPath As String
+    strPath = Nz2(strFile, cmp.SourceFile)
+    strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(strPath), FSO.GetBaseName(strPath))
 
     ' Check each possible file extension to find the most recent date
     For Each varExt In cmp.FileExtensions
@@ -452,14 +449,11 @@ Public Function GetLastModifiedSourceFile(cmp As IDbComponent, Optional strFile 
     Dim strLastModifiedFile As String
     Dim strBaseFile As String
 
-    ' Build base file path without extension
-    If Len(strFile) Then
-        ' Use provided file name first
-        strBaseFile = FSO.GetBaseName(strFile)
-    Else
-        ' Otherwise use default source file name
-        strBaseFile = FSO.GetBaseName(cmp.SourceFile)
-    End If
+    ' Resolve to the provided file or the component's default source file,
+    ' then build the full base path (folder + name, no extension).
+    Dim strPath As String
+    strPath = Nz2(strFile, cmp.SourceFile)
+    strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(strPath), FSO.GetBaseName(strPath))
 
     ' Check each possible file extension to find the most recent date
     For Each varExt In cmp.FileExtensions
