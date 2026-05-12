@@ -43,9 +43,9 @@ End Sub
 
 Public Sub TestSanitizeLevelNames()
     Dim cOpt As New clsOptions
-    TestAssert cOpt.GetSanitizeLevelName(eslNone) = "None", "None level"
+    TestAssert cOpt.GetSanitizeLevelName(eslNone) = "None (Off)", "None level"
     TestAssert cOpt.GetSanitizeLevelName(eslStandard) = "Standard", "Standard level"
-    TestAssert cOpt.GetSanitizeLevel("None") = eslNone, "None from name"
+    TestAssert cOpt.GetSanitizeLevel("None (Off)") = eslNone, "None from name"
     TestAssert cOpt.GetSanitizeLevel("Standard") = eslStandard, "Standard from name"
 End Sub
 
