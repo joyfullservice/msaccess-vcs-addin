@@ -666,7 +666,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_Name() As String
-'    If m_Project Is Nothing Then Exit Property
+    If m_CommandBar Is Nothing Then Exit Property
     IDbComponent_Name = m_CommandBar.Name
 End Property
 
@@ -679,6 +679,7 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    If m_CommandBar Is Nothing Then Exit Property
     IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_CommandBar.Name) & ".json"
 End Property
 
