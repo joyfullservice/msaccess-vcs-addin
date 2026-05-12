@@ -104,6 +104,13 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         ' Use existing controls
         Set this.lblFront = FrontLabel
         Set this.lblCaption = CaptionLabel
+        ' Match anchoring so the layout engine keeps all labels in sync
+        this.lblFront.HorizontalAnchor = this.lblBack.HorizontalAnchor
+        this.lblFront.VerticalAnchor = this.lblBack.VerticalAnchor
+        If Not this.lblCaption Is Nothing Then
+            this.lblCaption.HorizontalAnchor = this.lblBack.HorizontalAnchor
+            this.lblCaption.VerticalAnchor = this.lblBack.VerticalAnchor
+        End If
     #Else
         this.sngOffset = 1.5
         ' Create front controls dynamically
