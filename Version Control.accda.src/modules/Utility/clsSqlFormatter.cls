@@ -120,7 +120,13 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
     Dim varItem As Variant
     Dim strType As String
 
-    If Len(strSql) = 0 Then Exit Function
+    If Len(strSql) = 0 Then
+        If m_colTokens Is Nothing Then
+            Exit Function
+        ElseIf m_colTokens.Count = 0 Then
+            Exit Function
+        End If
+    End If
 
     Perf.CategoryStart "Format SQL"
     Perf.OperationStart "Formating"
@@ -1512,7 +1518,7 @@ Public Sub SelfTest()
     Tokenize "SELECT [dbo].[field] FROM [server].[schema].[table];", esdMSSQL
 
     ' Verify tokens
-    Debug.Assert m_colTokens.Count = 13
+    Debug.Assert m_colTokens.Count = 14
     Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
     Debug.Assert VerifyToken(2, ttWhitespace, " ")
     Debug.Assert VerifyToken(3, ttQuote, "[dbo]")
@@ -1526,6 +1532,7 @@ Public Sub SelfTest()
     Debug.Assert VerifyToken(11, ttQuote, "[schema]")
     Debug.Assert VerifyToken(12, ttBoundary, ".")
     Debug.Assert VerifyToken(13, ttQuote, "[table]")
+    Debug.Assert VerifyToken(14, ttBoundary, ";")
 
     ' Verify result
     With New clsConcat
@@ -1533,7 +1540,7 @@ Public Sub SelfTest()
         .Add "SELECT"
         .Add "  [dbo].[field]"
         .Add "FROM"
-        .Add "  [server].[schema].[table]"
+        .Add "  [server].[schema].[table];"
         .Remove 2
         strActual = .GetStr
     End With
@@ -1545,7 +1552,7 @@ Public Sub SelfTest()
     Tokenize "SELECT [Forms]![frmColors]![Text18];", esdAccess
 
     ' Verify tokens
-    Debug.Assert m_colTokens.Count = 7
+    Debug.Assert m_colTokens.Count = 8
     Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
     Debug.Assert VerifyToken(2, ttWhitespace, " ")
     Debug.Assert VerifyToken(3, ttQuote, "[Forms]")
@@ -1553,12 +1560,13 @@ Public Sub SelfTest()
     Debug.Assert VerifyToken(5, ttQuote, "[frmColors]")
     Debug.Assert VerifyToken(6, ttBoundary, "!")
     Debug.Assert VerifyToken(7, ttQuote, "[Text18]")
+    Debug.Assert VerifyToken(8, ttBoundary, ";")
 
     ' Verify result
     With New clsConcat
         .AppendOnAdd = vbCrLf
         .Add "SELECT"
-        .Add "  [Forms]![frmColors]![Text18]"
+        .Add "  [Forms]![frmColors]![Text18];"
         .Remove 2
         strActual = .GetStr
     End With
@@ -1570,7 +1578,7 @@ Public Sub SelfTest()
     Tokenize "SELECT foo.* INTO (C:\path\to\bar.accdb) fizz FROM bazz;", esdAccess
 
     ' Verify tokens
-    Debug.Assert m_colTokens.Count = 21
+    Debug.Assert m_colTokens.Count = 22
     Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
     Debug.Assert VerifyToken(2, ttWhitespace, " ")
     Debug.Assert VerifyToken(3, ttWord, "foo")
@@ -1592,6 +1600,7 @@ Public Sub SelfTest()
     Debug.Assert VerifyToken(19, ttReservedTopLevel, "FROM")
     Debug.Assert VerifyToken(20, ttWhitespace, " ")
     Debug.Assert VerifyToken(21, ttWord, "bazz")
+    Debug.Assert VerifyToken(22, ttBoundary, ";")
 
     ' Verify result
     With New clsConcat
@@ -1599,7 +1608,7 @@ Public Sub SelfTest()
         .Add "SELECT"
         .Add "  foo.* INTO (C:\path\to\bar.accdb) fizz"
         .Add "FROM"
-        .Add "  bazz"
+        .Add "  bazz;"
         .Remove 2
         strActual = .GetStr
     End With
@@ -1612,7 +1621,7 @@ Public Sub SelfTest()
         " WHERE (((MSysQueries.Flag) In (SELECT Flag from [MSysQueries] where flag=0)));", esdAccess
 
     ' Verify tokens
-    Debug.Assert m_colTokens.Count = 44
+    Debug.Assert m_colTokens.Count = 45
     Debug.Assert VerifyToken(1, ttReservedTopLevel, "SELECT")
     Debug.Assert VerifyToken(2, ttWhitespace, " ")
     Debug.Assert VerifyToken(3, ttWord, "MSysQueries")
@@ -1657,6 +1666,7 @@ Public Sub SelfTest()
     Debug.Assert VerifyToken(42, ttBoundary, ")")
     Debug.Assert VerifyToken(43, ttBoundary, ")")
     Debug.Assert VerifyToken(44, ttBoundary, ")")
+    Debug.Assert VerifyToken(45, ttBoundary, ";")
 
     ' Verify result
     With New clsConcat
@@ -1678,7 +1688,7 @@ Public Sub SelfTest()
         .Add "          flag = 0"
         .Add "      )"
         .Add "    )"
-        .Add "  )"
+        .Add "  );"
         .Remove 2
         strActual = .GetStr
     End With
