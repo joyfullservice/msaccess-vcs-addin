@@ -209,7 +209,8 @@ Public Function Largest(ParamArray varValues()) As Variant
     Dim varLargest As Variant
     Dim intCnt As Integer
 
-    For intCnt = LBound(varValues) To UBound(varValues)
+    varLargest = varValues(LBound(varValues))
+    For intCnt = LBound(varValues) + 1 To UBound(varValues)
         If varLargest < varValues(intCnt) Then varLargest = varValues(intCnt)
     Next intCnt
     Largest = varLargest
