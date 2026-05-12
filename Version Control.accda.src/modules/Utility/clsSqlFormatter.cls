@@ -485,7 +485,7 @@ Private Sub Tokenize(strSql As String, intDialect As eSqlDialect)
     Perf.CategoryStart "Tokenize SQL"
 
     ' Loop through SQL, converting string into tokens
-    Do While m_lngPos < Len(strSql)
+    Do While m_lngPos <= Len(strSql)
 
         ' Debugging breakpoint
         If NextChar(cstrBreakAfter) Then Stop
@@ -1035,7 +1035,7 @@ Private Function NextBoundary() As Long
     Next lngChar
 
     ' Return position of first boundary, or length of string if no boundary was found.
-    If NextBoundary = 0 Then NextBoundary = Len(m_strSql)
+    If NextBoundary = 0 Then NextBoundary = Len(m_strSql) + 1
 
     Perf.OperationEnd
 
