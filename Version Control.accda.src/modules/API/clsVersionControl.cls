@@ -2082,6 +2082,10 @@ Private Sub PrepareTestConsole()
         .InsideHeight = 9000
         .cmdClose.SetFocus
         .HideActionButtons
+        .SetStatusText T("Running Tests"), _
+            T("Executing tests in the current project"), _
+            T("Results are displayed below as each test completes.")
+        .Visible = True
         DoEvents
         With .txtLog
             .ScrollBars = 0
@@ -2089,10 +2093,6 @@ Private Sub PrepareTestConsole()
             .SetFocus
         End With
         Log.SetConsole .txtLog, .GetProgressBar
-        .SetStatusText T("Running Tests"), _
-            T("Executing tests in the current project"), _
-            T("Results are displayed below as each test completes.")
-        .Visible = True
     End With
     Err.Clear
 End Sub

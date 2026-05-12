@@ -218,6 +218,8 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim intErrorTrapping As Integer
     Dim blnBreakOnError As Boolean
     Dim obj As Object
+    Dim lngCurrent As Long
+    Dim lngTotal As Long
 
     this.State = etrsRunning
     this.CancelRequested = False
@@ -244,6 +246,12 @@ Public Sub RunSelected(colTestKeys As Collection)
         this.State = etrsCancelled
         GoTo CleanUp
     End If
+
+    ' Set up progress bar
+    lngTotal = colTestKeys.Count
+    Log.KeepProgressVisible = True
+    Log.ProgressBar.Reset
+    Log.ProgressBar.Max = lngTotal
 
     ' Reset status on all selected tests
     For Each varKey In colTestKeys
@@ -272,6 +280,7 @@ Public Sub RunSelected(colTestKeys As Collection)
 
         ' Emit module heading when the module changes
         If StrComp(CStr(dTest("moduleName")), strCurrentModule, vbTextCompare) <> 0 Then
+            If Len(strCurrentModule) > 0 Then Log.Flush
             strCurrentModule = CStr(dTest("moduleName"))
             Log.Add strCurrentModule, True, True, vbNullString, True
         End If
@@ -352,11 +361,14 @@ Public Sub RunSelected(colTestKeys As Collection)
             LogAssertionDetails this.AssertionResults
         End If
 
-        DoEvents
+        lngCurrent = lngCurrent + 1
+        Log.Progress lngCurrent, lngTotal, strProcName
 
 NextTest:
     Next varKey
 
+    Log.KeepProgressVisible = False
+    Log.ProgressBar.Hide
     Perf.OperationEnd
     this.CurrentTestKey = vbNullString
     If this.State <> etrsCancelled Then this.State = etrsComplete
