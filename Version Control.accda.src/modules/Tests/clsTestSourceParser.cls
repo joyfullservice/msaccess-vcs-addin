@@ -34,6 +34,7 @@ Public Sub TestLoadString_ReturnsOutput()
     Dim strContent As String
     strContent = "Begin Form" & vbCrLf & "  Caption =""Test""" & vbCrLf & "End"
     m_parser.LoadString strContent, edbForm
+    m_parser.Sanitize ectObjectDefinition
     TestAssert Len(m_parser.GetOutput) > 0, "GetOutput returns content"
 End Sub
 
