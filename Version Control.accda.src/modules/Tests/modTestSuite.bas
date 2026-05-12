@@ -24,7 +24,9 @@ Public Sub TestMeterProgressBar()
         For intCnt = 1 To 30
             .Increment
         Next intCnt
+        TestAssert .Value = 20, "value clamped to Max after overflow"
         .Reset
+        TestAssert .Value = 0, "value reset to zero"
         .Clear
     End With
 
