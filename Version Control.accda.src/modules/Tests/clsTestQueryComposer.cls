@@ -35,8 +35,8 @@ Public Sub TestDecomposeAndReconstruct_SimpleSelect()
     Dim strResult As String
     strSql = "SELECT a, b FROM tbl1 WHERE x = 1"
     m_qc.DecomposeSQL strSql
-    strResult = m_qc.ReconstructSQL(Nothing)
-    TestAssert Len(strResult) > 0, "non-empty reconstruction"
+    strResult = m_qc.GenerateQdef(False, New Dictionary, New Dictionary)
+    TestAssert Len(strResult) > 0, "non-empty qdef output"
     TestAssert InStr(strResult, "SELECT") > 0, "contains SELECT"
     TestAssert InStr(strResult, "tbl1") > 0, "table name preserved"
 End Sub
@@ -47,7 +47,7 @@ Public Sub TestDecomposeAndReconstruct_WithJoin()
     Dim strResult As String
     strSql = "SELECT a FROM t1 INNER JOIN t2 ON t1.id = t2.id"
     m_qc.DecomposeSQL strSql
-    strResult = m_qc.ReconstructSQL(Nothing)
+    strResult = m_qc.GenerateQdef(False, New Dictionary, New Dictionary)
     TestAssert InStr(strResult, "INNER JOIN") > 0, "JOIN preserved"
 End Sub
 
