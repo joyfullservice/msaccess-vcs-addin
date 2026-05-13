@@ -333,10 +333,11 @@ When the VCS test runner is active, `TestAssert` reports each result to the add-
 ### Running Tests
 
 - **Immediate Window:** `?VCS.RunTests`
+- **Filtered by module:** `?VCS.RunTests("clsTestParser", "modTestEncoding")`
 - **Ribbon:** Tools > Run Tests
 - **Re-run failures only:** The runner supports `RunFailed` after a completed run
 
-`RunTests` returns a JSON summary string with per-test status and assertion details.
+`RunTests` accepts an optional `ParamArray` of module names. When provided, only tests from those modules run. Omit arguments to run all tests. `RunTests` returns a JSON summary string with per-test status and assertion details.
 
 ### Test Logs
 

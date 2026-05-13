@@ -117,8 +117,11 @@ When the VCS test runner is active, `TestAssert` reports results back to the add
 
 - **Ribbon**: Tools > Run Tests
 - **Immediate Window**: `?VCS.RunTests`
+- **Filtered by module**: `?VCS.RunTests("clsTestParser", "modTestEncoding")`
 - **MCP**: `vcs_run_vba(<addin-path>, "MCP_TempFunction = VCS.RunTests()")`
 - **Re-run failures only**: The runner supports `RunFailed` to re-execute only tests that failed or errored
+
+`RunTests` accepts an optional `ParamArray` of module names. When provided, only tests from those modules run. Omit arguments to run all tests.
 
 ## Test Results
 

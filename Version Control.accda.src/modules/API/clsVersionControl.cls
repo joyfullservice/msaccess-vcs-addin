@@ -1957,15 +1957,27 @@ End Function
 ' Date      : 5/7/2026
 ' Purpose   : Scan for tests in CurrentVBProject and run them. Streams progress to
 '           : the frmVCSMain log console. Returns a JSON summary of results.
+'           : Pass one or more module names to run only tests from those modules:
+'           :   ?VCS.RunTests("clsTestParser", "modTestEncoding")
+'           : Omit arguments to run all tests.
 '---------------------------------------------------------------------------------------
 '
-Public Function RunTests() As String
+Public Function RunTests(ParamArray varModules() As Variant) As String
 
     Dim blnAllPassed As Boolean
     Dim lngPassed As Long
     Dim lngFailed As Long
     Dim lngErrored As Long
     Dim lngEmpty As Long
+    Dim blnFiltered As Boolean
+    Dim colKeys As Collection
+    Dim varKey As Variant
+    Dim dTest As Dictionary
+    Dim lngIdx As Long
+    Dim strFilter As String
+
+    ' Determine whether a module filter was supplied
+    blnFiltered = (UBound(varModules) >= LBound(varModules))
 
     If Not DatabaseFileOpen Then
         MsgBox2 T("No Database Open"), _
@@ -2002,10 +2014,22 @@ Public Function RunTests() As String
     ' Open the main form and set up the console
     PrepareTestConsole
 
+    ' Build filter description for log heading
+    If blnFiltered Then
+        For lngIdx = LBound(varModules) To UBound(varModules)
+            If Len(strFilter) > 0 Then strFilter = strFilter & ", "
+            strFilter = strFilter & CStr(varModules(lngIdx))
+        Next lngIdx
+    End If
+
     ' Display heading
     With Log
         .Spacer
-        .Add T("Running Tests"), False
+        If blnFiltered Then
+            .Add T("Running Tests (filtered: {0})", var0:=strFilter), False
+        Else
+            .Add T("Running Tests"), False
+        End If
         .Add CurrentProject.Name
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
         .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
@@ -2025,14 +2049,39 @@ Public Function RunTests() As String
         Exit Function
     End If
 
-    Log.Add T("Found {0} test(s) in {1} sub(s). Running...", _
-        var0:=TestRunner.ScannedAssertionCount, var1:=TestRunner.Tests.Count)
+    ' Apply module filter if specified
+    If blnFiltered Then
+        Set colKeys = New Collection
+        For Each varKey In TestRunner.Tests.Keys
+            Set dTest = TestRunner.Tests(CStr(varKey))
+            For lngIdx = LBound(varModules) To UBound(varModules)
+                If StrComp(CStr(dTest("moduleName")), CStr(varModules(lngIdx)), vbTextCompare) = 0 Then
+                    colKeys.Add CStr(varKey)
+                    Exit For
+                End If
+            Next lngIdx
+        Next varKey
+        If colKeys.Count = 0 Then
+            Log.Add T("No tests found matching filter: {0}", var0:=strFilter)
+            FinalizeTestConsole True
+            Operation.Finish eorSuccess
+            Exit Function
+        End If
+        Log.Add T("Found {0} test(s) matching filter. Running...", var0:=colKeys.Count)
+    Else
+        Log.Add T("Found {0} test(s) in {1} sub(s). Running...", _
+            var0:=TestRunner.ScannedAssertionCount, var1:=TestRunner.Tests.Count)
+    End If
     Log.Spacer True, 61
 
     DoCmd.Hourglass True
 
-    ' Run all tests (streams progress via Log)
-    TestRunner.RunAll
+    ' Run tests (filtered or all)
+    If blnFiltered Then
+        TestRunner.RunSelected colKeys
+    Else
+        TestRunner.RunAll
+    End If
     TestRunner.SaveResults
 
     ' Detect cancellation (before computing summary, so "all passed" is not
