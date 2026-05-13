@@ -46,6 +46,7 @@ Private Type udtProg
         lblBack As Access.Label         ' Existing label for back
         lblFront As Access.Label        ' Label for moving bar
         lblCaption As Access.Label      ' Progress bar caption
+        frmParent As Access.Form        ' Live form reference for anchor delta
     #Else
         ' Generic VBA objects
         lblBack As MSForms.Label        ' Existing label for back
@@ -56,12 +57,14 @@ Private Type udtProg
     ' Shared private properties
     dblValue As Double                  ' Current value of progress bar
     dblDisplayed As Double              ' Displayed value
-    dblFullWidth As Double              ' Width of front label at 100%
+    dblFullWidth As Double              ' Width of front label at 100% (design-time)
     sngOffset As Single                 ' Offset for front label
     blnCaptionVisible As Boolean        ' Show/hide percent complete caption
     objParent As Object                 ' Parent object of back label (in MSForms 2.0)
     dteStartTime As Date                ' Time of first value change
     sngRepaintInterval As Single        ' Seconds between updates
+    dblInitialInsideWidth As Double     ' Form InsideWidth at load time (baseline)
+    dblInitialInsideHeight As Double    ' Form InsideHeight at load time (baseline)
 End Type
 Private this As udtProg
 
@@ -83,7 +86,10 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
     Public Sub Initialize(BackLabel As Label _
                         , FrontLabel As Label _
                         , Optional CaptionLabel As Label _
-                        , Optional BarStyle As eProgressBarStyle = epbTraditional)
+                        , Optional BarStyle As eProgressBarStyle = epbTraditional _
+                        , Optional ParentForm As Access.Form _
+                        , Optional FormInitialInsideWidth As Double = 0 _
+                        , Optional FormInitialInsideHeight As Double = 0)
 #Else
     Public Sub Initialize(BackLabel As MSForms.Label _
                         , Optional FrontLabel As MSForms.Label _
@@ -104,13 +110,26 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         ' Use existing controls
         Set this.lblFront = FrontLabel
         Set this.lblCaption = CaptionLabel
-        ' Match anchoring so the layout engine keeps all labels in sync
-        this.lblFront.HorizontalAnchor = this.lblBack.HorizontalAnchor
-        this.lblFront.VerticalAnchor = this.lblBack.VerticalAnchor
-        If Not this.lblCaption Is Nothing Then
-            this.lblCaption.HorizontalAnchor = this.lblBack.HorizontalAnchor
-            this.lblCaption.VerticalAnchor = this.lblBack.VerticalAnchor
+
+        ' Store form reference and baseline dimensions for live delta calculation
+        Set this.frmParent = ParentForm
+        this.dblInitialInsideWidth = FormInitialInsideWidth
+        this.dblInitialInsideHeight = FormInitialInsideHeight
+
+        ' Disable horizontal anchor on lblFront only — its width is set
+        ' programmatically and any anchor delta distorts intermediate values.
+        If this.lblBack.HorizontalAnchor <> 0 Then
+            this.lblFront.HorizontalAnchor = 0
         End If
+
+        ' Caption gets both anchors from back label (centers correctly)
+        If Not this.lblCaption Is Nothing Then
+            this.lblCaption.VerticalAnchor = this.lblBack.VerticalAnchor
+            this.lblCaption.HorizontalAnchor = this.lblBack.HorizontalAnchor
+        End If
+
+        ' Front label matches vertical anchor for bottom/top tracking
+        this.lblFront.VerticalAnchor = this.lblBack.VerticalAnchor
     #Else
         this.sngOffset = 1.5
         ' Create front controls dynamically
@@ -185,6 +204,7 @@ End Property
 Public Property Let BarColor(NewVal As Long)
     this.lblFront.BackColor = NewVal
 End Property
+
 Public Property Get BackColor() As Long
     BarColor = this.lblBack.BackColor
 End Property
@@ -400,8 +420,21 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
 
     Dim intPercent As Integer
     Dim dblWidth As Double
+    Dim dblEffectiveFullWidth As Double
 
     Static sngLastUpdate As Single
+
+    ' Compute effective full width accounting for form resize delta
+    With this
+        dblEffectiveFullWidth = .dblFullWidth
+        #If APPLICATION_NAME = "Microsoft Access" Then
+            If Not .frmParent Is Nothing Then
+                If .frmParent.InsideWidth > 0 And .dblInitialInsideWidth > 0 Then
+                    dblEffectiveFullWidth = .dblFullWidth + (.frmParent.InsideWidth - .dblInitialInsideWidth)
+                End If
+            End If
+        #End If
+    End With
 
     ' Set size and caption
     With this
@@ -411,10 +444,10 @@ Public Sub UpdateDisplay(Optional blnForceUpdate As Boolean)
         ElseIf .dblValue >= Me.Max Then
             intPercent = 100
             .dblValue = Me.Max
-            dblWidth = .dblFullWidth
+            dblWidth = dblEffectiveFullWidth
         Else
             intPercent = .dblValue * (100 / Me.Max)
-            dblWidth = .dblValue * (.dblFullWidth / Me.Max)
+            dblWidth = .dblValue * (dblEffectiveFullWidth / Me.Max)
         End If
 
         ' See if we have a label assigned
@@ -548,6 +581,9 @@ Private Sub Class_Terminate()
     Set this.lblFront = Nothing
     Set this.lblCaption = Nothing
     Set this.objParent = Nothing
+    #If APPLICATION_NAME = "Microsoft Access" Then
+        Set this.frmParent = Nothing
+    #End If
 
     ' Clear any VBA errors
     If Err.Number <> 0 Then Err.Clear

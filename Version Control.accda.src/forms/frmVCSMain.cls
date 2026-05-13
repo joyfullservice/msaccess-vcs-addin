@@ -28,6 +28,11 @@ Public strLastLogFilePath As String
 ' Use this property to set the path to the source files (such as a build triggered from the API)
 Public strSourcePath As String
 
+' Captured at form load so GetProgressBar can compute the resize delta
+' for horizontally-anchored controls whose VBA Width stays at design-time.
+Private m_dblInitialInsideWidth As Double
+Private m_dblInitialInsideHeight As Double
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : cmdBuild_Click
@@ -400,6 +405,10 @@ End Sub
 '
 Public Sub Form_Load()
 
+    ' Capture baseline for anchored-control width calculations.
+    m_dblInitialInsideWidth = Me.InsideWidth
+    m_dblInitialInsideHeight = Me.InsideHeight
+
     ' Load translations
     Translation.ApplyTo Me
 
@@ -521,9 +530,12 @@ Public Function GetProgressBar() As clsLblProg
 
     Dim cProg As clsLblProg
 
-    ' Create a new progress bar class, and initialize with form controls
+    ' Create a new progress bar class, and initialize with form controls.
+    ' Pass form reference and initial dimensions so the progress bar can
+    ' compute live resize deltas for anchored-control positioning.
     Set cProg = New clsLblProg
-    cProg.Initialize lblProgBack, lblProgFront, lblProgCaption
+    cProg.Initialize lblProgBack, lblProgFront, lblProgCaption, _
+        epbTraditional, Me, m_dblInitialInsideWidth, m_dblInitialInsideHeight
     cProg.SetRepaintInterval 0.5
 
     ' Move caption up slightly for better alignment on this very small progress bar
