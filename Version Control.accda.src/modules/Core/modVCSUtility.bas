@@ -260,6 +260,13 @@ Public Sub CheckGitFiles()
         End If
     End If
 
+    ' Ensure logs/ is excluded (VCS add-in writes operation logs there)
+    If FSO.FileExists(strFile) Then
+        If EnsureGitignoreLineRespectComment(strFile, "logs/", "*.env") Then
+            Log.Add T("Added logs/ to .gitignore"), , , "blue"
+        End If
+    End If
+
     ' gitattributes file
     strFile = strPath & ".gitattributes"
     If Not FSO.FileExists(strFile) Then
@@ -417,6 +424,44 @@ Private Function ArraySlice(varArr As Variant, lngStart As Long, lngEnd As Long)
         varResult(lngIdx - lngStart) = varArr(lngIdx)
     Next lngIdx
     ArraySlice = varResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EnsureGitignoreLineRespectComment
+' Author    : Adam Waller
+' Date      : 5/13/2026
+' Purpose   : Like EnsureGitignoreLine, but first checks whether the pattern already
+'           : exists in commented-out form (e.g. "# logs/"). If the user has
+'           : deliberately commented out the line, this respects that choice and
+'           : does not re-add it. Returns True only if the file was modified.
+'---------------------------------------------------------------------------------------
+'
+Private Function EnsureGitignoreLineRespectComment( _
+        strFile As String, strNewPattern As String, strAfterPattern As String) As Boolean
+
+    Dim strContent As String
+    Dim varLines As Variant
+    Dim lngLine As Long
+    Dim strTrimmed As String
+
+    strContent = ReadFile(strFile)
+    If Len(strContent) = 0 Then Exit Function
+
+    varLines = Split(strContent, vbCrLf)
+    For lngLine = LBound(varLines) To UBound(varLines)
+        strTrimmed = Trim$(varLines(lngLine))
+        ' Strip leading # and whitespace to detect commented-out patterns
+        If Left$(strTrimmed, 1) = "#" Then
+            strTrimmed = Trim$(Mid$(strTrimmed, 2))
+        End If
+        If StrComp(strTrimmed, strNewPattern, vbTextCompare) = 0 Then
+            Exit Function
+        End If
+    Next lngLine
+
+    EnsureGitignoreLineRespectComment = EnsureGitignoreLine(strFile, strNewPattern, strAfterPattern)
 
 End Function
 
