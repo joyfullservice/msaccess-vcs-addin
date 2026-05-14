@@ -8,7 +8,7 @@ FROM
 WHERE
   (
     (
-      (qryCars.Manufacturer)= [Select Manufacturer]
+      (qryCars.Manufacturer) = [Select Manufacturer]
     )
   )
 GROUP BY

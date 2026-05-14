@@ -15,7 +15,7 @@ WHERE
         GROUP BY
           [Manufacturer]
         HAVING
-          Count(*)> 1
+          Count(*) > 1
       )
     )
   )

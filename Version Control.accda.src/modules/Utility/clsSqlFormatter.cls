@@ -119,6 +119,8 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
     Dim lngLength As Long
     Dim varItem As Variant
     Dim strType As String
+    Dim blnCurOp As Boolean
+    Dim blnPrevOp As Boolean
 
     If Len(strSql) = 0 Then
         If m_colTokens Is Nothing Then
@@ -379,12 +381,21 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
 
         ElseIf intTokenType = ttBoundary Then
             ' Multiple boundary characters in a row should not have
-            ' spaces between them (not including parentheses)
+            ' spaces between them (not including parentheses).
+            ' Exception: preserve space around operators so `) > 0`
+            ' instead of `)> 0`, while keeping compound operators
+            ' like `>=`, `<=`, `<>` glued together.
             lngToken2 = GetPreviousTokenID(lngToken, ttWhitespace)
             If m_colTokens(lngToken2)(0) = ttBoundary Then
-                ' If previous non-whitespace character was a boundary, then trim
-                ' any whitespace going back to the boundary.
-                cReturn.RTrim
+                blnCurOp = IsOperatorChar(strTokenValue)
+                blnPrevOp = IsOperatorChar(CStr(m_colTokens(lngToken2)(1)))
+                If (blnCurOp Or blnPrevOp) _
+                    And Not IsCompoundOperator(CStr(m_colTokens(lngToken2)(1)), strTokenValue) Then
+                    ' At least one side is an operator and this is not
+                    ' a compound pair -- keep the space.
+                Else
+                    cReturn.RTrim
+                End If
             End If
         End If
 
@@ -475,7 +486,9 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
             GoTo NextToken
         End If
 
-        ' Check previous token
+        ' Check previous token to distinguish unary minus from binary subtraction.
+        ' After a value-producing token (word, number, quote, closing paren) the
+        ' dash is binary subtraction and should keep its surrounding spaces.
         lngToken2 = GetPreviousTokenID(lngToken, ttWhitespace)
         If lngToken2 = 0 Then
             GoTo NextToken
@@ -488,6 +501,8 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                 ttNumber) Then
                 GoTo NextToken
             End If
+            ' Closing paren also means the dash is binary subtraction
+            If CStr(m_colTokens(lngToken2)(1)) = ")" Then GoTo NextToken
         End If
 
         ' Trim whitespace after dash
@@ -1222,6 +1237,39 @@ Private Function IsTokenType(intToken As eTokenTypes, ParamArray intMatchTypes()
             Exit For
         End If
     Next intMatch
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsOperatorChar
+' Author    : Adam Waller
+' Date      : 5/14/2026
+' Purpose   : Return True when the single-character boundary token is a comparison
+'           : or arithmetic operator. Used to preserve whitespace around operators
+'           : in the boundary-collapsing logic (e.g. `) > 0` instead of `)> 0`).
+'---------------------------------------------------------------------------------------
+'
+Private Function IsOperatorChar(strChar As String) As Boolean
+    Select Case strChar
+        Case "=", "<", ">", "+", "-", "*", "/"
+            IsOperatorChar = True
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsCompoundOperator
+' Author    : Adam Waller
+' Date      : 5/14/2026
+' Purpose   : Return True when two adjacent boundary tokens form a multi-character
+'           : comparison operator that must remain glued (no space between them).
+'---------------------------------------------------------------------------------------
+'
+Private Function IsCompoundOperator(strLeft As String, strRight As String) As Boolean
+    Select Case strLeft & strRight
+        Case ">=", "<=", "<>", "!="
+            IsCompoundOperator = True
+    End Select
 End Function
 
 

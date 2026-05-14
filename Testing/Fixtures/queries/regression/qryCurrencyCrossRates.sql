@@ -13,6 +13,6 @@ FROM
 WHERE
   (
     (
-      (a.Currency)< [b].[Currency]
+      (a.Currency) < [b].[Currency]
     )
   );

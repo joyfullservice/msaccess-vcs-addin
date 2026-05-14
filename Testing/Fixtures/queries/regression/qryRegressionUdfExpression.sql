@@ -14,10 +14,10 @@ FROM
 WHERE
   (
     (
-      (tblItems.Flags)<> 3
+      (tblItems.Flags) <> 3
     )
     AND (
-      (tblItems.Type)= 5
+      (tblItems.Type) = 5
     )
   )
 ORDER BY

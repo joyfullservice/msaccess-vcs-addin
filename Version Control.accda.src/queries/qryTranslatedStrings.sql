@@ -8,7 +8,7 @@
   qryStrings.Reference,
   IIf(
     (
-      Len([msgid])= 0
+      Len([msgid]) = 0
     ),
     1,
     2
@@ -25,7 +25,7 @@ FROM
 ORDER BY
   IIf(
     (
-      Len([msgid])= 0
+      Len([msgid]) = 0
     ),
     1,
     2

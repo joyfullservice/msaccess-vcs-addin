@@ -16,13 +16,13 @@ FROM
 WHERE
   (
     (
-      (A.MeterFK)<= 1
+      (A.MeterFK) <= 1
     )
     AND (
-      (B.Estimate)= False
+      (B.Estimate) = False
     )
     AND (
-      (A.Estimate)= False
+      (A.Estimate) = False
     )
   )
 ORDER BY

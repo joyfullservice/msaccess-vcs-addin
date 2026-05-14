@@ -9,7 +9,7 @@ Begin OutputColumns
     Expression ="Max(Year([Date])-1)"
 End
 Begin OrderBy
-    Expression ="Max( Year([Date])-1 )"
+    Expression ="Max( Year([Date]) - 1 )"
     Flag =1
 End
 dbBoolean "ReturnsRecords" ="-1"

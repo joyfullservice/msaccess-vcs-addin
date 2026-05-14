@@ -11,10 +11,10 @@ FROM
 WHERE
   (
     (
-      (tblCurrencyExchange.Base)= "GBP"
+      (tblCurrencyExchange.Base) = "GBP"
     )
     AND (
-      (tblCurrencyExchange.Date)= #12/14/2018#
+      (tblCurrencyExchange.Date) = #12/14/2018#
     )
   )
 ORDER BY

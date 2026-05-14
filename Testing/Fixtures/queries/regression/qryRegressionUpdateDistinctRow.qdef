@@ -1,6 +1,6 @@
 ﻿dbMemo "SQL" ="UPDATE DISTINCTROW\015\012  tblCars\015\012SET\015\012  tblCars.Colour"
     " = tblCars.Colour\015\012WHERE\015\012  (\015\012    (\015\012      (t"
-    "blCars.ID)> 0\015\012    )\015\012  );\015\012"
+    "blCars.ID) > 0\015\012    )\015\012  );\015\012"
 dbMemo "Connect" =""
 dbBoolean "ReturnsRecords" ="-1"
 dbInteger "ODBCTimeout" ="60"

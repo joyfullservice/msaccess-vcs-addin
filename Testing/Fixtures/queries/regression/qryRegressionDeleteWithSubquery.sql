@@ -9,4 +9,4 @@ WHERE
       tblVehicles
     WHERE
       tblVehicles.Manufacturer = tblCars.Manufacturer
-  )= False;
+  ) = False;

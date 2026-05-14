@@ -11,7 +11,7 @@ FROM
 WHERE
   (
     (
-      (MSysObjects.Flags)<> 3
+      (MSysObjects.Flags) <> 3
     )
   )
 ORDER BY

@@ -11,7 +11,7 @@ FROM
 WHERE
   (
     (
-      (tblCurrencyExchange.Base)= "GBP"
+      (tblCurrencyExchange.Base) = "GBP"
     )
   )
 ORDER BY

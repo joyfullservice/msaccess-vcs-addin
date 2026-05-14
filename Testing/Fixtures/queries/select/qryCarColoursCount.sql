@@ -8,7 +8,7 @@ FROM
 WHERE
   (
     (
-      (qryCars.Price)< 15000
+      (qryCars.Price) < 15000
     )
   )
 GROUP BY
@@ -18,7 +18,7 @@ GROUP BY
 HAVING
   (
     (
-      (qryCars.Year)= 2011
+      (qryCars.Year) = 2011
     )
   )
 ORDER BY

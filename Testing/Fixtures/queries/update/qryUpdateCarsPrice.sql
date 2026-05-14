@@ -12,12 +12,12 @@ SET
 WHERE
   (
     (
-      (tblCars.Manufacturer)= "Audi"
+      (tblCars.Manufacturer) = "Audi"
     )
     AND (
-      (tblCars.Year)= 2011
+      (tblCars.Year) = 2011
     )
     AND (
-      (tblCarsModel.Model)= "GS"
+      (tblCarsModel.Model) = "GS"
     )
   );

@@ -234,6 +234,63 @@ Public Sub TestFormatSQL_NestedWhere()
 End Sub
 
 
+Public Sub TestFormatSQL_ComparisonOperatorSpacing()
+    Dim strResult As String
+
+    ' Closing paren followed by comparison operator should have a space between
+    strResult = m_fmt.FormatSQL( _
+        "SELECT a FROM t1 WHERE ((t1.ID)>0)", esdAccess)
+    TestAssert InStr(strResult, ") > 0") > 0, ") > 0 has space before >"
+    AssertIdempotent strResult, esdAccess, "paren-gt spacing"
+
+    strResult = m_fmt.FormatSQL( _
+        "SELECT a FROM t1 WHERE ((t1.ID)<100)", esdAccess)
+    TestAssert InStr(strResult, ") < 100") > 0, ") < 100 has space before <"
+    AssertIdempotent strResult, esdAccess, "paren-lt spacing"
+
+    strResult = m_fmt.FormatSQL( _
+        "SELECT a FROM t1 WHERE ((t1.ID)<>5)", esdAccess)
+    TestAssert InStr(strResult, ") <> 5") > 0, ") <> 5 has space before <>"
+    AssertIdempotent strResult, esdAccess, "paren-neq spacing"
+
+    ' Compound operators (>=, <=) must stay glued
+    strResult = m_fmt.FormatSQL( _
+        "SELECT a FROM t1 WHERE a >= 5", esdAccess)
+    TestAssert InStr(strResult, ">= 5") > 0, ">= stays together"
+    AssertIdempotent strResult, esdAccess, "gte compound"
+
+    strResult = m_fmt.FormatSQL( _
+        "SELECT a FROM t1 WHERE a <= 10", esdAccess)
+    TestAssert InStr(strResult, "<= 10") > 0, "<= stays together"
+    AssertIdempotent strResult, esdAccess, "lte compound"
+End Sub
+
+
+Public Sub TestFormatSQL_ArithmeticOperatorSpacing()
+    Dim strResult As String
+
+    ' Binary minus after closing paren should keep spaces on both sides
+    strResult = m_fmt.FormatSQL( _
+        "SELECT Year([Date])-1 AS PriorYear FROM t1", esdAccess)
+    TestAssert InStr(strResult, "Year([Date]) - 1") > 0, _
+        "binary minus has spaces: ) - 1"
+    AssertIdempotent strResult, esdAccess, "binary minus"
+
+    ' Unary minus (negative number) should still glue to the number
+    strResult = m_fmt.FormatSQL( _
+        "SELECT a FROM t1 WHERE x = -5", esdAccess)
+    TestAssert InStr(strResult, "= -5") > 0, _
+        "unary minus glued to number: = -5"
+    AssertIdempotent strResult, esdAccess, "unary minus"
+
+    ' Negative number after opening paren
+    strResult = m_fmt.FormatSQL( _
+        "SELECT a FROM t1 WHERE x IN (-1, -2)", esdAccess)
+    TestAssert InStr(strResult, "(-1") > 0, "negative after open paren: (-1"
+    AssertIdempotent strResult, esdAccess, "neg after open paren"
+End Sub
+
+
 Public Sub TestFormatSQL_DoctrineExample()
     Dim strExpected As String
     With New clsConcat

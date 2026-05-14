@@ -7,6 +7,6 @@ FROM
 WHERE
   (
     (
-      (tblCars.Year)> Year([Pick Date])
+      (tblCars.Year) > Year([Pick Date])
     )
   );

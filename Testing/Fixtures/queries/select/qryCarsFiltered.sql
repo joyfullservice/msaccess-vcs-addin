@@ -16,15 +16,15 @@ FROM
 WHERE
   (
     (
-      (tblCars.Manufacturer)= "Ford"
+      (tblCars.Manufacturer) = "Ford"
     )
     AND (
-      (tblCars.Year)= 2007
+      (tblCars.Year) = 2007
     )
     AND (
-      (tblCarsModel.Model)= "Altima"
+      (tblCarsModel.Model) = "Altima"
     )
     AND (
-      (tblCarsColour.Colour)= "Orange"
+      (tblCarsColour.Colour) = "Orange"
     )
   );
