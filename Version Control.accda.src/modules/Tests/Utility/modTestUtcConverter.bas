@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestUtcConverter"
+﻿Attribute VB_Name = "modTestUtcConverter"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestUtcConverter
 ' Author    : Adam Waller

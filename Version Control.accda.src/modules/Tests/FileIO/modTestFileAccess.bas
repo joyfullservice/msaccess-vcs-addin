@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestFileAccess"
+﻿Attribute VB_Name = "modTestFileAccess"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestFileAccess
 ' Author    : Adam Waller

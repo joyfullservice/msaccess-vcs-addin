@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestHash"
+﻿Attribute VB_Name = "modTestHash"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestHash
 ' Author    : Adam Waller

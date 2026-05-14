@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestEncoding"
+﻿Attribute VB_Name = "modTestEncoding"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestEncoding
 ' Author    : Adam Waller

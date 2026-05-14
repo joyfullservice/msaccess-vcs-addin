@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestIndex"
+﻿Attribute VB_Name = "modTestIndex"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestIndex
 ' Author    : Adam Waller

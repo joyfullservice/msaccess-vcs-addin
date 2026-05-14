@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestJsonConverter"
+﻿Attribute VB_Name = "modTestJsonConverter"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestJsonConverter
 ' Author    : Adam Waller

@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestCollectionUtil"
+﻿Attribute VB_Name = "modTestCollectionUtil"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestCollectionUtil
 ' Author    : Adam Waller

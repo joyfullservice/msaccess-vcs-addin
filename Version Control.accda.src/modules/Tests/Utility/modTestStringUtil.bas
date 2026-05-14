@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestStringUtil"
+﻿Attribute VB_Name = "modTestStringUtil"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestStringUtil
 ' Author    : Adam Waller

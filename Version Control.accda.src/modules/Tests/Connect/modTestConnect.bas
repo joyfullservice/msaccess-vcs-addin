@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestConnect"
+﻿Attribute VB_Name = "modTestConnect"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestConnect
 ' Author    : Adam Waller

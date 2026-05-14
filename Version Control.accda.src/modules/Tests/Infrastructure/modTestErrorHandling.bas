@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestErrorHandling"
+﻿Attribute VB_Name = "modTestErrorHandling"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestErrorHandling
 ' Author    : Adam Waller

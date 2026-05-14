@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestConflicts"
+﻿Attribute VB_Name = "modTestConflicts"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestConflicts
 ' Author    : Adam Waller
@@ -52,7 +52,7 @@ Public Sub TestExportConflict_DetectsModifiedSource()
     ' Save original file content
     strOriginal = ReadFile(strFile)
 
-    On Error GoTo Cleanup
+    On Error GoTo CleanUp
 
     ' Append a comment line to simulate external modification
     WriteFile strOriginal & vbCrLf & "' Test conflict marker " & Now, strFile
@@ -73,7 +73,7 @@ Public Sub TestExportConflict_DetectsModifiedSource()
     ' The modified source file should have been detected as a conflict
     TestAssert VCSIndex.Conflicts.Count > 0, "conflict detected for modified source file"
 
-Cleanup:
+CleanUp:
     ' Restore original file content unconditionally
     If Len(strOriginal) > 0 Then WriteFile strOriginal, strFile
 
