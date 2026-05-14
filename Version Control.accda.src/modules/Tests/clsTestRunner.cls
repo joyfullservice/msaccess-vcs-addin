@@ -716,6 +716,9 @@ Private Sub SyncFactoryEntries(proj As VBIDE.VBProject)
     ' No class-based tests — nothing to sync
     If colClassNames.Count = 0 Then Exit Sub
 
+    ' Sort for deterministic output
+    Set colClassNames = SortCollectionByValue(colClassNames)
+
     ' Locate modTestAssert in the project
     On Error Resume Next
     Set cmp = proj.VBComponents("modTestAssert")
