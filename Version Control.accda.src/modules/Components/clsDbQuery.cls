@@ -214,6 +214,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     If Not blnIsPassThrough Then
         Perf.OperationStart "Format SQL"
         With New clsSqlFormatter
+            .FormatVersion = Options.ExportFormatVersion
             strSql = .FormatSQL(strSql, esdAccess)
         End With
         Perf.OperationEnd
@@ -355,6 +356,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
         If Len(strComSql) > 0 Then
             If Not blnIsPassThrough Then
                 With New clsSqlFormatter
+                    .FormatVersion = Options.ExportFormatVersion
                     strComSql = .FormatSQL(strComSql, esdAccess)
                 End With
             End If
@@ -562,6 +564,7 @@ Private Sub ExportLegacy(strFile As String, Optional blnAlternate As Boolean = F
                     Case dbQSQLPassThrough, dbQSPTBulk
                     Case Else
                         With New clsSqlFormatter
+                            .FormatVersion = Options.ExportFormatVersion
                             Perf.OperationStart "Format SQL"
                             strSql = .FormatSQL(strSql, esdAccess)
                             Perf.OperationEnd

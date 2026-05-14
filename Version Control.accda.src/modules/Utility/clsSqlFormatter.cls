@@ -87,6 +87,19 @@ Private m_colTokens As Collection
 Private m_lngPos As Long
 Private m_intDialect As eSqlDialect
 Private m_varWordCache(1 To 2) As Variant
+Private m_lngFormatVersion As Long
+
+
+Private Sub Class_Initialize()
+    m_lngFormatVersion = LATEST_EXPORT_FORMAT
+End Sub
+
+
+' Callers may set a lower version for backwards-compatible formatting.
+' Defaults to LATEST_EXPORT_FORMAT when not explicitly set.
+Public Property Let FormatVersion(lngVersion As Long)
+    m_lngFormatVersion = lngVersion
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -387,12 +400,16 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
             ' like `>=`, `<=`, `<>` glued together.
             lngToken2 = GetPreviousTokenID(lngToken, ttWhitespace)
             If m_colTokens(lngToken2)(0) = ttBoundary Then
-                blnCurOp = IsOperatorChar(strTokenValue)
-                blnPrevOp = IsOperatorChar(CStr(m_colTokens(lngToken2)(1)))
-                If (blnCurOp Or blnPrevOp) _
-                    And Not IsCompoundOperator(CStr(m_colTokens(lngToken2)(1)), strTokenValue) Then
-                    ' At least one side is an operator and this is not
-                    ' a compound pair -- keep the space.
+                If m_lngFormatVersion >= EFV_5_0_0 Then
+                    blnCurOp = IsOperatorChar(strTokenValue)
+                    blnPrevOp = IsOperatorChar(CStr(m_colTokens(lngToken2)(1)))
+                    If (blnCurOp Or blnPrevOp) _
+                        And Not IsCompoundOperator(CStr(m_colTokens(lngToken2)(1)), strTokenValue) Then
+                        ' At least one side is an operator and this is not
+                        ' a compound pair -- keep the space.
+                    Else
+                        cReturn.RTrim
+                    End If
                 Else
                     cReturn.RTrim
                 End If
@@ -424,7 +441,7 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
         ' they stay on the same line:
         '   SELECT [DISTINCT|DISTINCTROW] [TOP n [PERCENT]]
         '   UPDATE [DISTINCTROW]
-        If intTokenType = ttReservedTopLevel Then
+        If m_lngFormatVersion >= EFV_5_0_0 And intTokenType = ttReservedTopLevel Then
             If UCase$(strTokenValue) = "SELECT" Then
                 lngToken2 = lngToken
                 Do
@@ -502,7 +519,9 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                 GoTo NextToken
             End If
             ' Closing paren also means the dash is binary subtraction
-            If CStr(m_colTokens(lngToken2)(1)) = ")" Then GoTo NextToken
+            If m_lngFormatVersion >= EFV_5_0_0 Then
+                If CStr(m_colTokens(lngToken2)(1)) = ")" Then GoTo NextToken
+            End If
         End If
 
         ' Trim whitespace after dash
