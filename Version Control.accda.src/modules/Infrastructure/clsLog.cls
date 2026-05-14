@@ -546,7 +546,7 @@ Public Sub Progress(lngCurrent As Long, lngTotal As Long, _
     If Not m_Prog Is Nothing Then
         m_Prog.Max = lngTotal
         m_Prog.Value = lngCurrent
-        If m_blnKeepProgressVisible Or Not m_blnProgressActive Then m_Prog.UpdateDisplay True
+        m_Prog.UpdateDisplay (Not m_blnProgressActive)
         m_blnProgressActive = True
     End If
 

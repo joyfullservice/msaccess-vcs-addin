@@ -280,9 +280,9 @@ Public Sub RunSelected(colTestKeys As Collection)
 
         ' Emit module heading when the module changes
         If StrComp(CStr(dTest("moduleName")), strCurrentModule, vbTextCompare) <> 0 Then
-            If Len(strCurrentModule) > 0 Then Log.Flush
             strCurrentModule = CStr(dTest("moduleName"))
             Log.Add strCurrentModule, True, True, vbNullString, True
+            Log.Flush   ' Update the console
         End If
 
         If dTest("sourceType") = "class" Then
