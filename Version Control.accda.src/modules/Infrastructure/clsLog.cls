@@ -205,11 +205,10 @@ Public Sub Flush()
             With m_RichText
                 ' Set value, not text to avoid errors with large text strings.
                 Echo False
-                ' Show the last 20K characters so
-                ' we don't hit the Integer limit
-                ' on the SelStart property.
-                .Value = m_Console.RightStr(20000)
-                If VerifyFocus(m_RichText) Then .SelStart = 20000
+                ' Show the last 10K characters to stay within the
+                ' rich text control's rendering capacity.
+                .Value = m_Console.RightStr(10000)
+                If VerifyFocus(m_RichText) Then .SelStart = 10000
                 Echo True
             End With
             m_blnConsoleDirty = False
@@ -512,11 +511,10 @@ Private Sub ApplyPendingIncrements()
         ' Flush any pending output
         With m_RichText
             Echo False
-            ' Show the last 20K characters so
-            ' we don't hit the Integer limit
-            ' on the SelStart property.
-            .Value = m_Console.RightStr(20000)
-            If VerifyFocus(m_RichText) Then .SelStart = 20000
+            ' Show the last 10K characters to stay within the
+            ' rich text control's rendering capacity.
+            .Value = m_Console.RightStr(10000)
+            If VerifyFocus(m_RichText) Then .SelStart = 10000
             Echo True
         End With
         m_blnConsoleDirty = False
