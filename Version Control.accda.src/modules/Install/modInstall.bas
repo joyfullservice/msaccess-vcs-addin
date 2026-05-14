@@ -33,6 +33,7 @@ Public Type udtInstallSettings
     blnUseCompiledAddIn As Boolean
     blnOpenAfterInstall As Boolean
     strInstallFolder As String
+    strSourcePath As String
     blnSettingsLoaded As Boolean
 End Type
 Private this As udtInstallSettings
@@ -737,6 +738,7 @@ Public Function GetInstallSettings(Optional blnUseCache As Boolean = True) As ud
             .blnUseCompiledAddIn = GetSetting(PROJECT_NAME, "Install", "Compile accde", False)
             .blnOpenAfterInstall = GetSetting(PROJECT_NAME, "Install", "Open File", CInt(False))
             .strInstallFolder = GetSetting(PROJECT_NAME, "Install", "Install Folder", DefaultAddInFolderPath)
+            .strSourcePath = GetSetting(PROJECT_NAME, "Install", "Source Path", vbNullString)
             .blnSettingsLoaded = True
         End If
     End With
@@ -759,6 +761,9 @@ Public Function SaveInstallSettings()
         SaveSetting PROJECT_NAME, "Install", "Use Ribbon", CInt(.blnUseRibbonAddIn)
         SaveSetting PROJECT_NAME, "Install", "Compile accde", CInt(.blnUseCompiledAddIn)
         SaveSetting PROJECT_NAME, "Install", "Open File", CInt(.blnOpenAfterInstall)
+        If Len(.strSourcePath) Then
+            SaveSetting PROJECT_NAME, "Install", "Source Path", .strSourcePath
+        End If
         ' Special handling
         If .strInstallFolder = DefaultAddInFolderPath Then
             ' This value should only be saved if using a non-standard path.

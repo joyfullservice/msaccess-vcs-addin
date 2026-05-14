@@ -207,6 +207,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub AfterBuild()
+    SaveSetting PROJECT_NAME, "Install", "Source Path", Options.ExportFolder
     modResource.VerifyResources
     Translation.LoadTranslations
     ImportCommandBarsTemplate

@@ -468,24 +468,37 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/8/2026
 ' Purpose   : Rebuild the VCS add-in from source files and install it.
-'           : This only works when the add-in is opened as the current database
-'           : (not when loaded as a library). Access will close during this process.
+'           : Access will close during this process.
+'           : Source path is resolved from (1) current database, (2) registry, or
+'           : (3) a folder picker dialog.
 '---------------------------------------------------------------------------------------
 '
 Public Sub RebuildAddIn()
 
     Dim strPath As String
 
-    ' Only works when the add-in is the current database
-    If StrComp(FSO.GetBaseName(CurrentProject.Name), ADDIN_BASENAME, vbTextCompare) <> 0 Then
-        MsgBox2 T("Cannot Rebuild"), _
-            T("This function can only be used when the add-in is opened as the current database."), _
-            , vbExclamation
-        Exit Sub
+    ' Try to derive source folder from the current project
+    If StrComp(FSO.GetBaseName(CurrentProject.Name), ADDIN_BASENAME, vbTextCompare) = 0 Then
+        strPath = CurrentProject.Path & PathSep & CurrentProject.Name & ".src" & PathSep
     End If
 
-    ' Derive source folder from the current project
-    strPath = CurrentProject.Path & PathSep & CurrentProject.Name & ".src" & PathSep
+    ' Fall back to the registry (saved during previous builds)
+    If Len(strPath) = 0 Then
+        strPath = GetSetting(PROJECT_NAME, "Install", "Source Path", vbNullString)
+    End If
+
+    ' Last resort: ask the user to pick the source folder
+    If Len(strPath) = 0 Then
+        With Application.FileDialog(msoFileDialogFolderPicker)
+            .Title = T("Select Add-In Source Folder")
+            .ButtonName = T("Select")
+            If .Show = True Then
+                strPath = StripSlash(.SelectedItems(1)) & PathSep
+            Else
+                Exit Sub
+            End If
+        End With
+    End If
 
     ' Validate source folder exists
     If Not FSO.FolderExists(strPath) Then
