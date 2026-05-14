@@ -1,6 +1,6 @@
 ﻿INSERT INTO tblCars (Manufacturer, [Year])
-SELECT
-  DISTINCT tblVehicles.Manufacturer,
+SELECT DISTINCT
+  tblVehicles.Manufacturer,
   2019 AS [Year]
 FROM
   tblVehicles

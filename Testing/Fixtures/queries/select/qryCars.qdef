@@ -1,4 +1,4 @@
-﻿dbMemo "SQL" ="SELECT\015\012  DISTINCT tblCars.Manufacturer,\015\012  tblCars.Year,"
+﻿dbMemo "SQL" ="SELECT DISTINCT\015\012  tblCars.Manufacturer,\015\012  tblCars.Year,"
     "\015\012  tblCarsModel.Model,\015\012  tblCarsColour.Colour,\015\012  "
     "tblCarsPrice.Price\015\012FROM\015\012  (\015\012    (\015\012      tb"
     "lCars\015\012      INNER JOIN tblCarsModel ON tblCars.ID = tblCarsMode"

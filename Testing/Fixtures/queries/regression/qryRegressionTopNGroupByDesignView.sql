@@ -1,5 +1,5 @@
-﻿SELECT
-  TOP 1 tblCars.Manufacturer
+﻿SELECT TOP 1
+  tblCars.Manufacturer
 FROM
   tblCars
   INNER JOIN tblCarsModel ON tblCars.ID = tblCarsModel.ID

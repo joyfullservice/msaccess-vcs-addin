@@ -1,5 +1,5 @@
-﻿SELECT
-  TOP 3 tblCars.Manufacturer,
+﻿SELECT TOP 3
+  tblCars.Manufacturer,
   tblCars.Year,
   tblCars.ID
 FROM

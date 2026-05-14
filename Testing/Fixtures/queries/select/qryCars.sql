@@ -1,5 +1,5 @@
-﻿SELECT
-  DISTINCT tblCars.Manufacturer,
+﻿SELECT DISTINCT
+  tblCars.Manufacturer,
   tblCars.Year,
   tblCarsModel.Model,
   tblCarsColour.Colour,

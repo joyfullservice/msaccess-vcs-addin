@@ -1,5 +1,5 @@
-﻿SELECT
-  DISTINCT TOP 3 Max(
+﻿SELECT DISTINCT TOP 3
+  Max(
     Year([Date])-1
   ) AS PriorYear
 FROM

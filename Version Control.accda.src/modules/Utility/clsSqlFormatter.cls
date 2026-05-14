@@ -409,6 +409,60 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
             cReturn.RTrim
         End If
 
+        ' After emitting SELECT or UPDATE, consume clause modifiers inline so
+        ' they stay on the same line:
+        '   SELECT [DISTINCT|DISTINCTROW] [TOP n [PERCENT]]
+        '   UPDATE [DISTINCTROW]
+        If intTokenType = ttReservedTopLevel Then
+            If UCase$(strTokenValue) = "SELECT" Then
+                lngToken2 = lngToken
+                Do
+                    lngToken2 = GetNextTokenID(lngToken2, ttWhitespace)
+                    If lngToken2 > m_colTokens.Count Then Exit Do
+                    strNextValue = UCase$(m_colTokens(lngToken2)(1))
+
+                    If strNextValue = "DISTINCT" Or strNextValue = "DISTINCTROW" Then
+                        cReturn.Add strNextValue, " "
+                        lngToken = lngToken2
+
+                    ElseIf strNextValue = "TOP" Then
+                        cReturn.Add strNextValue, " "
+                        lngToken = lngToken2
+                        ' Consume the number after TOP
+                        lngToken2 = GetNextTokenID(lngToken2, ttWhitespace)
+                        If lngToken2 <= m_colTokens.Count Then
+                            If m_colTokens(lngToken2)(0) = ttNumber Then
+                                cReturn.Add CStr(m_colTokens(lngToken2)(1)), " "
+                                lngToken = lngToken2
+                                ' Optionally consume PERCENT
+                                lngToken2 = GetNextTokenID(lngToken2, ttWhitespace)
+                                If lngToken2 <= m_colTokens.Count Then
+                                    strNextValue = UCase$(m_colTokens(lngToken2)(1))
+                                    If strNextValue = "PERCENT" Then
+                                        cReturn.Add strNextValue, " "
+                                        lngToken = lngToken2
+                                    End If
+                                End If
+                            End If
+                        End If
+                        Exit Do
+                    Else
+                        Exit Do
+                    End If
+                Loop
+
+            ElseIf UCase$(strTokenValue) = "UPDATE" Then
+                lngToken2 = GetNextTokenID(lngToken, ttWhitespace)
+                If lngToken2 <= m_colTokens.Count Then
+                    strNextValue = UCase$(m_colTokens(lngToken2)(1))
+                    If strNextValue = "DISTINCTROW" Then
+                        cReturn.Add strNextValue, " "
+                        lngToken = lngToken2
+                    End If
+                End If
+            End If
+        End If
+
         ' If this is the "-" of a negative number, it shouldn't have a space after it
         If strTokenValue <> "-" Then
             GoTo NextToken
@@ -1689,6 +1743,77 @@ Public Sub SelfTest()
         .Add "      )"
         .Add "    )"
         .Add "  );"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
+
+    ' Test SELECT TOP N keeps modifiers on the same line as SELECT
+    Tokenize "SELECT TOP 3 ID, Name FROM tblItems;", esdAccess
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT TOP 3"
+        .Add "  ID,"
+        .Add "  Name"
+        .Add "FROM"
+        .Add "  tblItems;"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
+
+    ' Test SELECT DISTINCT keeps modifier on the same line
+    Tokenize "SELECT DISTINCT ID, Name FROM tblItems;", esdAccess
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT DISTINCT"
+        .Add "  ID,"
+        .Add "  Name"
+        .Add "FROM"
+        .Add "  tblItems;"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
+
+    ' Test SELECT DISTINCT TOP N PERCENT keeps all modifiers on the same line
+    Tokenize "SELECT DISTINCT TOP 5 PERCENT ID, Name FROM tblItems;", esdAccess
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT DISTINCT TOP 5 PERCENT"
+        .Add "  ID,"
+        .Add "  Name"
+        .Add "FROM"
+        .Add "  tblItems;"
+        .Remove 2
+        strActual = .GetStr
+    End With
+    Debug.Assert (strActual = FormatSQL)
+    If (strActual <> FormatSQL) Then Diff.Strings strActual, FormatSQL
+
+
+    ' Test UPDATE DISTINCTROW keeps modifier on the same line
+    Tokenize "UPDATE DISTINCTROW tblItems SET tblItems.Name = 'x';", esdAccess
+
+    ' Verify result
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "UPDATE DISTINCTROW"
+        .Add "  tblItems"
+        .Add "SET"
+        .Add "  tblItems.Name = 'x';"
         .Remove 2
         strActual = .GetStr
     End With

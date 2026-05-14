@@ -1,4 +1,4 @@
-﻿dbMemo "SQL" ="SELECT\015\012  TOP 5 PERCENT tblCars.Manufacturer,\015\012  tblCars.Y"
+﻿dbMemo "SQL" ="SELECT TOP 5 PERCENT\015\012  tblCars.Manufacturer,\015\012  tblCars.Y"
     "ear\015\012FROM\015\012  tblCars\015\012ORDER BY\015\012  tblCars.Year"
     " DESC;\015\012"
 dbMemo "Connect" =""

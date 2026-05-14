@@ -1,5 +1,5 @@
-﻿SELECT
-  DISTINCT qryCars.Manufacturer,
+﻿SELECT DISTINCT
+  qryCars.Manufacturer,
   qryCars.Year,
   qryCars.Model,
   Count(qryCars.Colour) AS Colours

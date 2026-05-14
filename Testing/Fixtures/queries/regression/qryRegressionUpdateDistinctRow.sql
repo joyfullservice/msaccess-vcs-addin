@@ -1,5 +1,5 @@
-﻿UPDATE
-  DISTINCTROW tblCars
+﻿UPDATE DISTINCTROW
+  tblCars
 SET
   tblCars.Colour = tblCars.Colour
 WHERE

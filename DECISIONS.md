@@ -81,6 +81,23 @@ contradictory guidance.
 
 ---
 
+## 2026-05-14 — Keep SELECT/UPDATE modifiers (DISTINCT, TOP N) on the same line
+
+**Trigger**: After switching to the MSysQueries-based `.sql` + `.json` export format, users noticed that `SELECT TOP N` was being split across two lines: `SELECT` alone on the first line, then `TOP N` indented with the first column on the next. The same issue affected `UPDATE DISTINCTROW`. The formatter had always done this, but it was only visible now that formatted `.sql` files became the primary source.
+
+**Options explored**:
+- **Add TOP/DISTINCT/DISTINCTROW to `cstrReservedToplevel`** — rejected: these are not clause-level keywords. Making them top-level would force line breaks *before* them too, creating `SELECT\nTOP\n  ID` rather than `SELECT TOP N\n  ID`.
+- **Suppress `blnNewline` for SELECT and re-enable after modifiers** — rejected: requires threading state through several iterations of the main loop; fragile.
+- **Post-emit look-ahead after SELECT and UPDATE (chosen)** — after emitting `SELECT`, a small loop peeks ahead and consumes `DISTINCT`/`DISTINCTROW`, then `TOP` + number + optional `PERCENT`, emitting them inline. After emitting `UPDATE`, a simpler check consumes `DISTINCTROW`. `blnNewline` (already set by the `ttReservedTopLevel` block) takes effect for the next token. `DELETE DISTINCTROW` was already correct — `DELETE` alone is not top-level (only `DELETE FROM` is), so no newline is forced.
+
+**Decision**: Inline modifier consumption after SELECT and UPDATE. Matches the convention used by SQLFluff (rule LT10: "SELECT clause modifiers must be on the same line as SELECT") and the expected output of Poor Man's T-SQL Formatter. No export format version gate — the formatter is stateless and the change is cosmetic whitespace only.
+
+**What this rules out**: Formatters that place each modifier on its own line (`SELECT\n  DISTINCT\n  TOP 3\n  Column`). If someone wanted that style, the look-ahead would need to be made conditional. Revisit if a formatting-options system is ever added to `clsSqlFormatter`.
+
+**Relevant files**: `clsSqlFormatter.cls` (modifier look-ahead in `FormatSQL`, four new `SelfTest` cases), `Testing/Fixtures/queries/` (updated `.sql` and `.qdef` baselines for TOP, DISTINCT, and DISTINCTROW fixtures).
+
+---
+
 ## 2026-05-08 — Class-based test suites via TestClassFactory dispatcher
 
 **Trigger**: The original test runner (2026-05-08) explicitly ruled out class-based test suites. As the test suite grew, the limitation became painful: standard module tests pollute the global public namespace, and there is no built-in setup/teardown mechanism. Class modules naturally solve both problems via `Class_Initialize`/`Class_Terminate` and encapsulated scope.
