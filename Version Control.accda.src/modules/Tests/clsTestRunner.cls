@@ -483,6 +483,7 @@ Public Function GetResultsAsJson() As String
     dRoot.Add "durationMs", CLng((Perf.MicroTimer - this.RunStartTime) * 1000)
 
     dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
+    dSummary.Add "assertions", this.TotalAssertions
     dSummary.Add "passed", this.PassedAssertions
     dSummary.Add "failed", this.FailedAssertions
     dSummary.Add "errored", this.ErroredCount
@@ -1114,16 +1115,17 @@ Private Sub LogRunSummary()
     With Log
         .Spacer True, SPACER_LEN
         .Add "Test summary", True, , "blue", True
-        .Add "  Subs:       " & lngTotal
-        LogSummaryLine "  Passed:     ", CStr(this.PassedAssertions), _
+        .Add "  Subs:         " & lngTotal
+        .Add "  Assertions:   " & this.TotalAssertions
+        LogSummaryLine "    Passed:     ", CStr(this.PassedAssertions), _
             IIf(this.PassedAssertions > 0, "green", vbNullString)
-        LogSummaryLine "  Failed:     ", CStr(this.FailedAssertions), _
+        LogSummaryLine "    Failed:     ", CStr(this.FailedAssertions), _
             IIf(this.FailedAssertions > 0, "red", vbNullString)
-        LogSummaryLine "  Errored:    ", CStr(this.ErroredCount), _
+        LogSummaryLine "  Errored:      ", CStr(this.ErroredCount), _
             IIf(this.ErroredCount > 0, "red", vbNullString)
-        LogSummaryLine "  Empty:      ", CStr(this.EmptyCount), _
+        LogSummaryLine "  Empty:        ", CStr(this.EmptyCount), _
             IIf(this.EmptyCount > 0, "gray", vbNullString)
-        .Add "  Elapsed:    " & FormatDuration(CLng(dblElapsed * 1000))
+        .Add "  Elapsed:      " & FormatDuration(CLng(dblElapsed * 1000))
         .Spacer True, SPACER_LEN
     End With
 

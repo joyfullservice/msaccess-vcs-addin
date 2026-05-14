@@ -2067,9 +2067,9 @@ Public Function RunTests(ParamArray varModules() As Variant) As String
             Operation.Finish eorSuccess
             Exit Function
         End If
-        Log.Add T("Found {0} test(s) matching filter. Running...", var0:=colKeys.Count)
+        Log.Add T("Found {0} sub(s) matching filter. Running...", var0:=colKeys.Count)
     Else
-        Log.Add T("Found {0} test(s) in {1} sub(s). Running...", _
+        Log.Add T("Found {0} assertion(s) in {1} sub(s). Running...", _
             var0:=TestRunner.ScannedAssertionCount, var1:=TestRunner.Tests.Count)
     End If
     Log.Spacer True, 61
