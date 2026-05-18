@@ -117,11 +117,58 @@ When the VCS test runner is active, `TestAssert` reports results back to the add
 
 - **Ribbon**: Tools > Run Tests
 - **Immediate Window**: `?VCS.RunTests`
-- **Filtered by module**: `?VCS.RunTests("clsTestParser", "modTestEncoding")`
+- **Filtered**: `?VCS.RunTests("modTestEncoding", "-slow")`
 - **MCP**: `vcs_run_vba(<addin-path>, "MCP_TempFunction = VCS.RunTests()")`
 - **Re-run failures only**: The runner supports `RunFailed` to re-execute only tests that failed or errored
 
-`RunTests` accepts an optional `ParamArray` of module names. When provided, only tests from those modules run. Omit arguments to run all tests.
+### Filter Syntax
+
+`RunTests` accepts an optional `ParamArray` of filter arguments. Each argument is resolved in priority order:
+
+1. **Module name** — exact match on the module/class name
+2. **Suite/folder** — match against `@Folder` annotation values (exact or final-segment, e.g., `"SQL"` matches `"Tests.SQL"`)
+3. **Procedure name** — match on procedure name or full `Module.Procedure` key
+4. **Tag** — match against `'@Tag("...")` annotations
+
+Prefix any argument with `-` to **exclude** it. Inclusions combine with OR; exclusions combine with AND. If only exclusions are specified, the base set is all tests.
+
+```vba
+?VCS.RunTests                                    ' Run all tests
+?VCS.RunTests("modTestEncoding")                 ' Run one module
+?VCS.RunTests("-slow")                           ' Run all except slow-tagged
+?VCS.RunTests("SQL", "-slow")                    ' Run SQL suite, skip slow
+?VCS.RunTests("TestParseJoinExpression")         ' Run one specific procedure
+?VCS.RunTests("-modTestConnect", "-slow")        ' Exclude a module and a tag
+```
+
+## Tagging Tests
+
+Use `'@Tag("name")` annotations to categorize tests for selective filtering. Tags are case-insensitive.
+
+**Module-level tags** (in the first ~30 lines, before any procedure) apply to all tests in the module:
+
+```vba
+Option Private Module
+'@Folder("Tests")
+'@Tag("slow")
+'@Tag("database")
+```
+
+**Procedure-level tags** go inside the procedure body, at the very top before any executable code:
+
+```vba
+Public Sub TestExpensiveQuery()
+    '@Tag("slow")
+    '@Tag("regression")
+    Dim result As Boolean
+    result = RunExpensiveCheck()
+    TestAssert result, "check passes"
+End Sub
+```
+
+The scanner collects `'@Tag(...)` annotations from comment/blank lines at the start of the body and stops at the first executable line (`Dim`, `Set`, `TestAssert`, etc.). This means tags must appear before any variable declarations or code.
+
+Module-level and procedure-level tags are merged — a test inherits all module-level tags plus any procedure-specific tags.
 
 ## Test Results
 
@@ -129,6 +176,8 @@ Results are:
 - Streamed live to the `frmVCSMain` console (color-coded: green PASS, red FAIL/ERROR, gray EMPTY, orange SKIP)
 - Saved as JSON to `<export-folder>/logs/TestResults_<timestamp>.json`
 - Returned as a JSON string from `VCS.RunTests`
+
+Each test entry in the JSON output includes a `"tags"` array listing the tags applied to that test.
 
 ## Class Test Factory
 

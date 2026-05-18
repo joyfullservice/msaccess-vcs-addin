@@ -10,6 +10,7 @@ Option Compare Database
 Option Explicit
 Option Private Module
 '@Folder("Tests.FileIO")
+'@Tag("io")
 
 
 Public Sub TestPathFunctions()

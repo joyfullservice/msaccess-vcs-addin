@@ -18,6 +18,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 '@Folder("Tests.SQL")
+'@Tag("unit")
 
 Private m_fmt As clsSqlFormatter
 

@@ -333,11 +333,42 @@ When the VCS test runner is active, `TestAssert` reports each result to the add-
 ### Running Tests
 
 - **Immediate Window:** `?VCS.RunTests`
-- **Filtered by module:** `?VCS.RunTests("clsTestParser", "modTestEncoding")`
+- **Filtered:** `?VCS.RunTests("modTestEncoding", "-slow")`
 - **Ribbon:** Tools > Run Tests
 - **Re-run failures only:** The runner supports `RunFailed` after a completed run
 
-`RunTests` accepts an optional `ParamArray` of module names. When provided, only tests from those modules run. Omit arguments to run all tests. `RunTests` returns a JSON summary string with per-test status and assertion details.
+`RunTests` accepts an optional `ParamArray` of filter arguments. Each argument is resolved in priority order:
+
+1. **Module name** — exact match on the module/class name
+2. **Suite/folder** — match against `@Folder` values (exact or final-segment, e.g., `"SQL"` matches `"Tests.SQL"`)
+3. **Procedure name** — match on procedure name or full `Module.Procedure` key
+4. **Tag** — match against `'@Tag("...")` annotations
+
+Prefix any argument with `-` to exclude. Inclusions combine with OR; exclusions combine with AND. If only exclusions are specified, the base set is all tests.
+
+```vba
+?VCS.RunTests("-slow")                   ' Run all except slow-tagged
+?VCS.RunTests("SQL", "-slow")            ' Run SQL suite, skip slow
+?VCS.RunTests("TestParseJoinExpression") ' Run one specific procedure
+```
+
+### Tagging Tests
+
+Use `'@Tag("name")` annotations (case-insensitive) to categorize tests:
+
+- **Module-level** (first ~30 lines, before any procedure) — applies to all tests in the module
+- **Procedure-level** (inside the procedure body, first lines before any code) — applies to that test only
+
+```vba
+'@Tag("slow")           ' Module-level: all tests inherit this tag
+
+Public Sub TestExpensiveQuery()
+    '@Tag("database")   ' Procedure-level: only this test gets this tag
+    TestAssert RunCheck(), "check passes"
+End Sub
+```
+
+Module-level and procedure-level tags are merged. `RunTests` returns a JSON summary string with per-test status, assertion details, and a `"tags"` array per test.
 
 ### Test Logs
 

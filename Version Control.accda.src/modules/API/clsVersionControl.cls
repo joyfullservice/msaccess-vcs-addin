@@ -1984,10 +1984,9 @@ Public Function RunTests(ParamArray varModules() As Variant) As String
     Dim lngEmpty As Long
     Dim blnFiltered As Boolean
     Dim colKeys As Collection
-    Dim varKey As Variant
-    Dim dTest As Dictionary
     Dim lngIdx As Long
     Dim strFilter As String
+    Dim varFilters As Variant
 
     ' Determine whether a module filter was supplied
     blnFiltered = (UBound(varModules) >= LBound(varModules))
@@ -2062,18 +2061,10 @@ Public Function RunTests(ParamArray varModules() As Variant) As String
         Exit Function
     End If
 
-    ' Apply module filter if specified
+    ' Apply filter if specified (resolves module, suite, procedure, and tag matches)
     If blnFiltered Then
-        Set colKeys = New Collection
-        For Each varKey In TestRunner.Tests.Keys
-            Set dTest = TestRunner.Tests(CStr(varKey))
-            For lngIdx = LBound(varModules) To UBound(varModules)
-                If StrComp(CStr(dTest("moduleName")), CStr(varModules(lngIdx)), vbTextCompare) = 0 Then
-                    colKeys.Add CStr(varKey)
-                    Exit For
-                End If
-            Next lngIdx
-        Next varKey
+        varFilters = varModules
+        Set colKeys = TestRunner.ResolveFilters(varFilters)
         If colKeys.Count = 0 Then
             Log.Add T("No tests found matching filter: {0}", var0:=strFilter)
             FinalizeTestConsole True

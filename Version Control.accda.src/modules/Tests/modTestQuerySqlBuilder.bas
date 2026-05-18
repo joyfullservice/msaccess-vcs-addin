@@ -13,6 +13,9 @@
 Option Compare Database
 Option Explicit
 Option Private Module
+'@Folder("Tests.SQL")
+'@Tag("slow")
+'@Tag("integration")
 
 Private Const ModuleName As String = "modTestQuerySqlBuilder"
 Private Const STATUS_PASS_EXACT As String = "PASS_EXACT"

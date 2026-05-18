@@ -550,6 +550,53 @@ See `Testing/Fixtures/README.md` for the full workflow, the `_scaffold/` convent
 
 When adding a new test module, follow the `modTest*` prefix convention and place it under `Version Control.accda.src/modules/Tests/`. If the module wraps an existing concept (encoding, hashing, sanitization), prefer extracting it from `modTestSuite` into a focused `modTest<Topic>` module rather than letting `modTestSuite` grow indefinitely.
 
+### Running and filtering tests
+
+`VCS.RunTests` accepts an optional `ParamArray` of filter arguments. Each argument is resolved in priority order:
+
+1. **Module name** — exact match on the module/class name
+2. **Suite/folder** — match against `@Folder` annotation values (exact or final-segment, e.g., `"SQL"` matches `"Tests.SQL"`)
+3. **Procedure name** — match on procedure name or full `Module.Procedure` key
+4. **Tag** — match against `'@Tag("...")` annotations
+
+Prefix any argument with `-` to **exclude** it. Inclusions combine with OR; exclusions combine with AND. If only exclusions are specified, the base set is all tests.
+
+```vba
+?VCS.RunTests                                    ' Run all tests
+?VCS.RunTests("modTestEncoding")                 ' Run one module
+?VCS.RunTests("-slow")                           ' Run all except slow-tagged tests
+?VCS.RunTests("SQL", "-slow")                    ' Run SQL suite, skip slow tests
+?VCS.RunTests("TestParseJoinExpression")         ' Run one specific procedure
+?VCS.RunTests("-modTestConnect", "-slow")        ' Exclude a module and a tag
+```
+
+### Tagging tests
+
+Use `'@Tag("name")` annotations to categorize tests. Tags are case-insensitive.
+
+**Module-level tags** (in the first ~30 lines, before any procedure) apply to all tests in the module:
+
+```vba
+Option Private Module
+'@Folder("Tests")
+'@Tag("slow")
+'@Tag("database")
+```
+
+**Procedure-level tags** go inside the procedure body (first lines, before any executable code):
+
+```vba
+Public Sub TestExpensiveQuery()
+    '@Tag("slow")
+    '@Tag("regression")
+    TestAssert RunExpensiveCheck(), "check passes"
+End Sub
+```
+
+Tags must appear at the very top of the body (before `Dim` statements or code). The scanner stops at the first non-comment, non-blank line. Module-level and procedure-level tags are merged — a test inherits all module-level tags plus its own.
+
+Tags are included in the JSON test results under a `"tags"` array per test entry.
+
 ---
 
 ## COM Ribbon Add-in (Ribbon/)

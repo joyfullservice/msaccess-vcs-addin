@@ -9,6 +9,7 @@ Option Compare Database
 Option Explicit
 Option Private Module
 '@Folder("Tests.Connect")
+'@Tag("unit")
 
 
 Public Sub TestSanitizeConnectionString()

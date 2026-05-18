@@ -11,6 +11,7 @@ Option Compare Database
 Option Explicit
 Option Private Module
 '@Folder("Tests.Components")
+'@Tag("integration")
 
 
 Public Sub TestComponentPropertyAccess()

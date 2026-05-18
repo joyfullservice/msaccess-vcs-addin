@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 '@Folder("Tests.Infrastructure")
+'@Tag("unit")
 
 
 Public Sub TestLoadDefaults_HashStable()

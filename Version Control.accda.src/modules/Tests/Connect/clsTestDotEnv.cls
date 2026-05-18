@@ -16,6 +16,7 @@ Attribute VB_Exposed = False
 Option Compare Database
 Option Explicit
 '@Folder("Tests.Connect")
+'@Tag("io")
 
 Private m_strTempFile As String
 

@@ -9,6 +9,7 @@ Option Compare Database
 Option Explicit
 Option Private Module
 '@Folder("Tests.Utility")
+'@Tag("unit")
 
 
 Public Sub TestSortDictionaryByKeys()

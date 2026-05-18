@@ -423,6 +423,202 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ResolveFilters
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Resolve ParamArray filter arguments into a collection of test keys to run.
+'           : Each argument is resolved in priority order:
+'           :   1. Module name (exact match)
+'           :   2. Suite/folder name (exact or final-segment match on SuiteMap keys)
+'           :   3. Procedure name (match on procName or full Module.Procedure key)
+'           :   4. Tag (match against test tags)
+'           : Prefix with "-" to exclude. Inclusions combine with OR; exclusions with AND.
+'           : If only exclusions are specified, the base set is all tests.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResolveFilters(varFilters As Variant) As Collection
+
+    Dim colIncludeKeys As New Collection
+    Dim dExcludeKeys As New Dictionary
+    Dim blnHasIncludes As Boolean
+    Dim lngIdx As Long
+    Dim strFilter As String
+    Dim strRaw As String
+    Dim blnExclude As Boolean
+    Dim colMatched As Collection
+    Dim varKey As Variant
+    Dim i As Long
+
+    For lngIdx = LBound(varFilters) To UBound(varFilters)
+        strFilter = Trim$(CStr(varFilters(lngIdx)))
+        If Len(strFilter) = 0 Then GoTo NextFilter
+
+        ' Determine if exclusion
+        If Left$(strFilter, 1) = "-" Then
+            blnExclude = True
+            strRaw = Mid$(strFilter, 2)
+        Else
+            blnExclude = False
+            strRaw = strFilter
+        End If
+        If Len(strRaw) = 0 Then GoTo NextFilter
+
+        ' Resolve the filter value to a set of test keys
+        Set colMatched = ResolveOneFilter(strRaw)
+
+        ' Add to inclusion or exclusion set
+        If blnExclude Then
+            For i = 1 To colMatched.Count
+                If Not dExcludeKeys.Exists(CStr(colMatched(i))) Then
+                    dExcludeKeys.Add CStr(colMatched(i)), True
+                End If
+            Next i
+        Else
+            blnHasIncludes = True
+            For i = 1 To colMatched.Count
+                On Error Resume Next
+                colIncludeKeys.Add CStr(colMatched(i)), CStr(colMatched(i))
+                On Error GoTo 0
+            Next i
+        End If
+
+NextFilter:
+    Next lngIdx
+
+    ' Build final result: start from includes (or all tests), then remove exclusions
+    Dim colResult As New Collection
+    If blnHasIncludes Then
+        ' Use the inclusion set as the base
+        For i = 1 To colIncludeKeys.Count
+            If Not dExcludeKeys.Exists(CStr(colIncludeKeys(i))) Then
+                colResult.Add CStr(colIncludeKeys(i))
+            End If
+        Next i
+    Else
+        ' No inclusions specified — start with all tests
+        For Each varKey In this.Tests.Keys
+            If Not dExcludeKeys.Exists(CStr(varKey)) Then
+                colResult.Add CStr(varKey)
+            End If
+        Next varKey
+    End If
+
+    Set ResolveFilters = colResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveOneFilter
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Resolve a single filter value (without the "-" prefix) to matching test
+'           : keys using the 4-level priority: module, suite, procedure, tag.
+'---------------------------------------------------------------------------------------
+'
+Private Function ResolveOneFilter(strValue As String) As Collection
+
+    Dim colResult As New Collection
+    Dim varKey As Variant
+    Dim dTest As Dictionary
+    Dim varSuiteKey As Variant
+    Dim colSuiteTests As Collection
+    Dim varParts As Variant
+    Dim strLastSegment As String
+    Dim i As Long
+    Dim colTags As Collection
+
+    ' 1. Try as module name
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        If StrComp(CStr(dTest("moduleName")), strValue, vbTextCompare) = 0 Then
+            colResult.Add CStr(varKey)
+        End If
+    Next varKey
+    If colResult.Count > 0 Then
+        Set ResolveOneFilter = colResult
+        Exit Function
+    End If
+
+    ' 2. Try as suite/folder name (exact match or final-segment match)
+    For Each varSuiteKey In this.SuiteMap.Keys
+        If StrComp(CStr(varSuiteKey), strValue, vbTextCompare) = 0 Then
+            ' Exact match on suite key
+            Set colSuiteTests = this.SuiteMap(CStr(varSuiteKey))
+            For i = 1 To colSuiteTests.Count
+                colResult.Add CStr(colSuiteTests(i))
+            Next i
+        Else
+            ' Check if the last dot-segment matches
+            varParts = Split(CStr(varSuiteKey), ".")
+            strLastSegment = CStr(varParts(UBound(varParts)))
+            If StrComp(strLastSegment, strValue, vbTextCompare) = 0 Then
+                Set colSuiteTests = this.SuiteMap(CStr(varSuiteKey))
+                For i = 1 To colSuiteTests.Count
+                    colResult.Add CStr(colSuiteTests(i))
+                Next i
+            End If
+        End If
+    Next varSuiteKey
+    If colResult.Count > 0 Then
+        Set ResolveOneFilter = colResult
+        Exit Function
+    End If
+
+    ' 3. Try as procedure name or full Module.Procedure key
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        If StrComp(CStr(dTest("procName")), strValue, vbTextCompare) = 0 Then
+            colResult.Add CStr(varKey)
+        ElseIf StrComp(CStr(varKey), strValue, vbTextCompare) = 0 Then
+            colResult.Add CStr(varKey)
+        End If
+    Next varKey
+    If colResult.Count > 0 Then
+        Set ResolveOneFilter = colResult
+        Exit Function
+    End If
+
+    ' 4. Treat as tag
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        Set colTags = dTest("tags")
+        If TestHasTag(colTags, strValue) Then
+            colResult.Add CStr(varKey)
+        End If
+    Next varKey
+
+    Set ResolveOneFilter = colResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestHasTag
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Check if a test's tag collection contains the specified tag (case-insensitive).
+'---------------------------------------------------------------------------------------
+'
+Private Function TestHasTag(colTags As Collection, strTag As String) As Boolean
+
+    Dim i As Long
+    Dim strLower As String
+
+    If colTags Is Nothing Then Exit Function
+    strLower = LCase$(strTag)
+
+    For i = 1 To colTags.Count
+        If StrComp(CStr(colTags(i)), strLower, vbTextCompare) = 0 Then
+            TestHasTag = True
+            Exit Function
+        End If
+    Next i
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RecordAssertion
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
@@ -491,6 +687,8 @@ Public Function GetResultsAsJson() As String
     Set dRoot("summary") = dSummary
 
     If Not this.Tests Is Nothing Then
+        Dim colTags As Collection
+        Dim colTagsOut As Collection
         For Each varKey In this.Tests.Keys
             Set dTest = this.Tests(CStr(varKey))
             Set dTestOut = New Dictionary
@@ -499,6 +697,16 @@ Public Function GetResultsAsJson() As String
             If dTest.Exists("errorMessage") Then
                 dTestOut.Add "errorMessage", dTest("errorMessage")
             End If
+
+            ' Include tags array
+            Set colTagsOut = New Collection
+            If dTest.Exists("tags") Then
+                Set colTags = dTest("tags")
+                For i = 1 To colTags.Count
+                    colTagsOut.Add CStr(colTags(i))
+                Next i
+            End If
+            Set dTestOut("tags") = colTagsOut
 
             Set colAssertOut = New Collection
             Set colAssertions = dTest("assertionResults")
@@ -677,6 +885,133 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExtractTags
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Parse all '@Tag("...") annotations from a block of text. Returns a
+'           : collection of tag name strings (lowercased for case-insensitive matching).
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractTags(strCode As String) As Collection
+
+    Dim colResult As New Collection
+    Dim strUpper As String
+    Dim lngPos As Long
+    Dim lngQuoteStart As Long
+    Dim lngQuoteEnd As Long
+    Dim strTag As String
+
+    Const TAG_MARKER As String = "'@TAG("
+
+    strUpper = UCase$(strCode)
+    lngPos = 1
+
+    Do
+        lngPos = InStr(lngPos, strUpper, TAG_MARKER)
+        If lngPos = 0 Then Exit Do
+
+        ' Find the quoted tag name
+        lngQuoteStart = InStr(lngPos, strCode, """")
+        If lngQuoteStart = 0 Then Exit Do
+
+        lngQuoteEnd = InStr(lngQuoteStart + 1, strCode, """")
+        If lngQuoteEnd <= lngQuoteStart Then Exit Do
+
+        strTag = LCase$(Mid$(strCode, lngQuoteStart + 1, lngQuoteEnd - lngQuoteStart - 1))
+        If Len(strTag) > 0 Then
+            ' Avoid duplicates
+            On Error Resume Next
+            colResult.Add strTag, strTag
+            On Error GoTo 0
+        End If
+
+        lngPos = lngQuoteEnd + 1
+    Loop
+
+    Set ExtractTags = colResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractProcedureTags
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Scan forward from the procedure declaration line to find '@Tag("...")
+'           : annotations inside the procedure body. Collects tags from comment and
+'           : blank lines at the top of the body; stops at the first executable line.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractProcedureTags(varLines As Variant, ByVal lngDeclLine As Long) As Collection
+
+    Dim colResult As New Collection
+    Dim lngScan As Long
+    Dim strTrimmed As String
+    Dim strBlock As String
+
+    strBlock = vbNullString
+
+    ' Walk forward from the line after the declaration
+    For lngScan = lngDeclLine + 1 To UBound(varLines)
+        strTrimmed = Trim$(varLines(lngScan))
+
+        ' Blank line — continue scanning
+        If Len(strTrimmed) = 0 Then
+            ' Skip
+        ElseIf Left$(strTrimmed, 1) = "'" Then
+            ' Comment line — accumulate for tag extraction
+            strBlock = strBlock & strTrimmed & vbCrLf
+        ElseIf Left$(UCase$(strTrimmed), 10) = "ATTRIBUTE " Then
+            ' VBA member attribute line — skip (appears after declaration in .cls files)
+        Else
+            ' Hit executable code — stop
+            Exit For
+        End If
+    Next lngScan
+
+    If Len(strBlock) > 0 Then
+        Set colResult = ExtractTags(strBlock)
+    End If
+
+    Set ExtractProcedureTags = colResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeTagCollections
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Combine two tag collections into one, de-duplicating by key.
+'---------------------------------------------------------------------------------------
+'
+Private Function MergeTagCollections(col1 As Collection, col2 As Collection) As Collection
+
+    Dim colResult As New Collection
+    Dim i As Long
+    Dim strTag As String
+
+    On Error Resume Next
+    If Not col1 Is Nothing Then
+        For i = 1 To col1.Count
+            strTag = col1(i)
+            colResult.Add strTag, strTag
+        Next i
+    End If
+    If Not col2 Is Nothing Then
+        For i = 1 To col2.Count
+            strTag = col2(i)
+            colResult.Add strTag, strTag
+        Next i
+    End If
+    On Error GoTo 0
+
+    Set MergeTagCollections = colResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SyncFactoryEntries
 ' Author    : Adam Waller
 ' Date      : 5/8/2026
@@ -840,6 +1175,10 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
     Dim dTest As Dictionary
     Dim blnIsClass As Boolean
     Dim blnMatched As Boolean
+    Dim colModuleTags As Collection
+    Dim colProcTags As Collection
+    Dim colCombined As Collection
+    Dim strHeader As String
 
     On Error Resume Next
     If cmp.CodeModule.CountOfLines = 0 Then Exit Sub
@@ -856,6 +1195,16 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
     If Len(strFolder) = 0 Then strFolder = cmp.Name
 
     varLines = Split(strAllCode, vbCrLf)
+
+    ' Extract module-level tags from the header area (~30 lines)
+    Dim lngHeaderEnd As Long
+    lngHeaderEnd = UBound(varLines)
+    If lngHeaderEnd > 29 Then lngHeaderEnd = 29
+    strHeader = vbNullString
+    For lngLine = LBound(varLines) To lngHeaderEnd
+        strHeader = strHeader & varLines(lngLine) & vbCrLf
+    Next lngLine
+    Set colModuleTags = ExtractTags(strHeader)
 
     ' Count TestAssert calls to determine if this is a test module and how many assertions it contains
     Dim lngAssertCount As Long
@@ -883,6 +1232,12 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
 
             strTestKey = cmp.Name & "." & strProcName
 
+            ' Collect procedure-level tags from the preceding comment block
+            Set colProcTags = ExtractProcedureTags(varLines, lngLine)
+
+            ' Combine module-level and procedure-level tags
+            Set colCombined = MergeTagCollections(colModuleTags, colProcTags)
+
             Set dTest = New Dictionary
             dTest.Add "moduleName", cmp.Name
             dTest.Add "procName", strProcName
@@ -890,6 +1245,7 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
             dTest.Add "sourceType", IIf(blnIsClass, "class", "module")
             dTest.Add "status", CLng(etsPending)
             dTest.Add "durationMs", CLng(0)
+            Set dTest("tags") = colCombined
             Set dTest("assertionResults") = New Collection
 
             this.Tests.Add strTestKey, dTest

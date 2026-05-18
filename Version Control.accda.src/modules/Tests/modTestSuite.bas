@@ -13,6 +13,7 @@ Option Compare Database
 Option Explicit
 Option Private Module
 '@Folder("Tests")
+'@Tag("integration")
 
 
 Public Sub TestMeterProgressBar()

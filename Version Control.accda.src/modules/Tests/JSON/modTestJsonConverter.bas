@@ -9,6 +9,7 @@ Option Compare Database
 Option Explicit
 Option Private Module
 '@Folder("Tests.JSON")
+'@Tag("unit")
 
 
 Public Sub TestJsonRoundTrip_SimpleObject()

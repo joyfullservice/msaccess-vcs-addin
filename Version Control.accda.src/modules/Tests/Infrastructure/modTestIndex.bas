@@ -9,6 +9,7 @@ Option Compare Database
 Option Explicit
 Option Private Module
 '@Folder("Tests.Infrastructure")
+'@Tag("integration")
 
 
 Public Sub TestIndexExists()
