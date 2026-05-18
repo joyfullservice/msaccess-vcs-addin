@@ -489,3 +489,42 @@ Public Function ExpandEnvironmentVariables(strString) As String
     ExpandEnvironmentVariables = strNew
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetClipboardText
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Copy a text string to the Windows clipboard.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetClipboardText(strText As String)
+    On Error Resume Next
+    Dim objData As Object
+    Set objData = CreateObject("New:{1C3B4210-F441-11CE-B9EA-00AA006B1A69}")
+    If Err.Number <> 0 Then Exit Sub
+    objData.SetText strText
+    objData.PutInClipboard
+    Set objData = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetClipboardText
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Return the current clipboard text, or vbNullString if the clipboard
+'           : is empty, locked, or contains non-text content (image, file, etc.).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetClipboardText() As String
+    On Error Resume Next
+    Dim objData As Object
+    Set objData = CreateObject("New:{1C3B4210-F441-11CE-B9EA-00AA006B1A69}")
+    If Err.Number <> 0 Then Exit Function
+    objData.GetFromClipboard
+    If Err.Number <> 0 Then Exit Function
+    GetClipboardText = objData.GetText
+    If Err.Number <> 0 Then GetClipboardText = vbNullString
+    Set objData = Nothing
+End Function

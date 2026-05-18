@@ -386,6 +386,8 @@ Private Sub UpdateValidationConsoleComplete(ByVal strLogPath As String, ByVal st
         .txtLog.ScrollBars = 2
         .strLastLogFilePath = strLogPath
         .cmdOpenLogFile.Visible = (Len(strLogPath) > 0)
+        .cmdCopyPath.Visible = .cmdOpenLogFile.Visible
+        .strCopyToClipboardPath = strLogPath
         If blnCanceled Then
             .SetStatusText T("Canceled"), T("Validation Canceled"), _
                 T("The SQL builder validation was canceled. Partial results are available in the log file.")

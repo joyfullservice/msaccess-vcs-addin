@@ -148,3 +148,51 @@ Public Sub TestExpandEnvironmentVariables()
     TestAssert ExpandEnvironmentVariables("no vars here") = "no vars here", "no vars unchanged"
     TestAssert ExpandEnvironmentVariables("") = "", "empty string"
 End Sub
+
+
+Public Sub TestClipboardRoundTrip()
+    '@Tag("clipboard")
+    Dim strOriginal As String
+    strOriginal = GetClipboardText()
+
+    Dim strExpected As String
+    strExpected = "C:\Test\Path\file.log"
+    SetClipboardText strExpected
+    TestAssert WaitForClipboard(strExpected), "Round-trip text should match"
+
+    SetClipboardText strOriginal
+End Sub
+
+
+Public Sub TestClipboardWithSpecialChars()
+    '@Tag("clipboard")
+    Dim strOriginal As String
+    strOriginal = GetClipboardText()
+
+    Dim strExpected As String
+    strExpected = "C:\Users\Name With Spaces\logs\TestResults_20260518_120000_001.json"
+    SetClipboardText strExpected
+    TestAssert WaitForClipboard(strExpected), "Paths with spaces should round-trip"
+
+    SetClipboardText strOriginal
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WaitForClipboard
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Read the clipboard with retries, allowing time for PutInClipboard to
+'           : finish committing data before the read.
+'---------------------------------------------------------------------------------------
+'
+Private Function WaitForClipboard(strExpected As String) As Boolean
+    Dim intRetry As Integer
+    For intRetry = 1 To 5
+        If GetClipboardText() = strExpected Then
+            WaitForClipboard = True
+            Exit Function
+        End If
+        Pause 0.05
+    Next intRetry
+End Function

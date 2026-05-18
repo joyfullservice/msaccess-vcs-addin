@@ -736,7 +736,7 @@ End Function
 ' Purpose   : Write test results to a timestamped JSON file in the logs folder.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveResults()
+Public Function SaveResults() As String
 
     Dim strFolder As String
     Dim strFile As String
@@ -748,8 +748,9 @@ Public Sub SaveResults()
         Format$(Timer * 1000 Mod 1000, "000") & ".json"
 
     WriteFile GetResultsAsJson, strFile
+    SaveResults = strFile
 
-End Sub
+End Function
 
 
 ' ===================== Private helpers =====================

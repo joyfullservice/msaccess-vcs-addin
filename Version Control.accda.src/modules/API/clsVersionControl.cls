@@ -2073,8 +2073,7 @@ Public Function RunTests(ParamArray varModules() As Variant) As String
         End If
         Log.Add T("Found {0} sub(s) matching filter. Running...", var0:=colKeys.Count)
     Else
-        Log.Add T("Found {0} assertion(s) in {1} sub(s). Running...", _
-            var0:=TestRunner.ScannedAssertionCount, var1:=TestRunner.Tests.Count)
+        Log.Add T("Found {0} test sub(s). Running...", var0:=TestRunner.Tests.Count)
     End If
     Log.Spacer True, 61
 
@@ -2086,7 +2085,8 @@ Public Function RunTests(ParamArray varModules() As Variant) As String
     Else
         TestRunner.RunAll
     End If
-    TestRunner.SaveResults
+    Dim strJsonPath As String
+    strJsonPath = TestRunner.SaveResults
 
     ' Detect cancellation (before computing summary, so "all passed" is not
     ' incorrectly reported when only a subset ran before the user canceled)
@@ -2113,7 +2113,7 @@ Public Function RunTests(ParamArray varModules() As Variant) As String
         .SaveFile strLogPath
     End With
 
-    FinalizeTestConsole blnAllPassed, strLogPath, blnCanceled
+    FinalizeTestConsole blnAllPassed, strLogPath, blnCanceled, strJsonPath
     RunTests = TestRunner.GetResultsAsJson
     Operation.Finish IIf(blnCanceled, eorCanceled, IIf(blnAllPassed, eorSuccess, eorFailed))
 
@@ -2160,12 +2160,15 @@ End Sub
 '
 Private Sub FinalizeTestConsole(blnAllPassed As Boolean, _
     Optional ByVal strLogPath As String = vbNullString, _
-    Optional ByVal blnCanceled As Boolean = False)
+    Optional ByVal blnCanceled As Boolean = False, _
+    Optional ByVal strCopyPath As String = vbNullString)
     On Error Resume Next
     With Form_frmVCSMain
         .txtLog.ScrollBars = 2
         .strLastLogFilePath = strLogPath
         .cmdOpenLogFile.Visible = (Len(strLogPath) > 0)
+        .cmdCopyPath.Visible = .cmdOpenLogFile.Visible
+        .strCopyToClipboardPath = IIf(Len(strCopyPath) > 0, strCopyPath, strLogPath)
         If blnCanceled Then
             .SetStatusText T("Canceled"), T("Tests Canceled"), _
                 T("The test run was canceled. Partial results are available in the log file.")

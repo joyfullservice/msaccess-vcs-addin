@@ -25,6 +25,9 @@ Public objSingleObject As AccessObject
 ' (The Log object has already been reset at this point, so we can't use Log.LogFilePath.)
 Public strLastLogFilePath As String
 
+' Path to copy to clipboard (may differ from log path, e.g. JSON results for tests)
+Public strCopyToClipboardPath As String
+
 ' Use this property to set the path to the source files (such as a build triggered from the API)
 Public strSourcePath As String
 
@@ -219,7 +222,9 @@ Public Sub FinishBuild(blnFullBuild As Boolean _
     SetStatusText T("Finished"), strMessage _
         , T("Additional details can be found in the project log file.<br><br>You may now close this window.")
     cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+    cmdCopyPath.Visible = cmdOpenLogFile.Visible
     Me.strLastLogFilePath = Log.LogFilePath
+    Me.strCopyToClipboardPath = Log.LogFilePath
 
 End Sub
 
@@ -325,7 +330,8 @@ Public Sub cmdExport_Click()
         SetStatusText T("Finished"), T("Export Complete"), _
             T("Additional details can be found in the project log file.<br><br>You may now close this window.")
         cmdOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
-        Me.strLastLogFilePath = Me.strLastLogFilePath
+        cmdCopyPath.Visible = cmdOpenLogFile.Visible
+        Me.strCopyToClipboardPath = Me.strLastLogFilePath
         Operation.Finish
         DoEvents
     Else
@@ -600,5 +606,19 @@ Private Sub cmdOpenLogFile_Click()
     If FSO.FileExists(strLastLogFilePath) Then
         ' (Note, parentheses are required for the path argument)
         CreateObject("Shell.Application").Open (strLastLogFilePath)
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdCopyPath_Click
+' Author    : Adam Waller
+' Date      : 5/18/2026
+' Purpose   : Copy the relevant file path to the clipboard for pasting into an agent.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdCopyPath_Click()
+    If Len(strCopyToClipboardPath) > 0 Then
+        SetClipboardText strCopyToClipboardPath
     End If
 End Sub
