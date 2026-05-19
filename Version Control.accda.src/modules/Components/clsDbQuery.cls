@@ -342,35 +342,8 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
 
     Log.Add "  " & strQueryName, Options.ShowDebug
 
-    ' When ShowDebug is on, save native SaveAsText output as .qdf for comparison,
-    ' and the COM .SQL property as .com.sql for comparison with our reconstructed .sql
-    If Options.ShowDebug Then
-        SaveComponentAsText acQuery, strQueryName, _
-            Left$(strSqlFile, Len(strSqlFile) - 4) & ".qdf"
-
-        Dim strComSql As String
-        LogUnhandledErrors
-        On Error Resume Next
-        strComSql = dbs.QueryDefs(strQueryName).SQL
-        On Error GoTo 0
-        If Len(strComSql) > 0 Then
-            If Not blnIsPassThrough Then
-                With New clsSqlFormatter
-                    .FormatVersion = Options.ExportFormatVersion
-                    strComSql = .FormatSQL(strComSql, esdAccess)
-                End With
-            End If
-            WriteFile strComSql, Left$(strSqlFile, Len(strSqlFile) - 4) & ".com.sql"
-        End If
-    End If
-
     ' Clean up any legacy .qdef or .bas files
     CleanupLegacyFiles strSqlFile
-
-    ' Clean up any debug artifacts left behind from a previous export/import
-    ' that ran with "Show Detailed Output" (ShowDebug) enabled. Those files
-    ' should not linger in source control once the option is turned back off.
-    If Not Options.ShowDebug Then CleanupDebugFiles strSqlFile
 
 CleanUp:
     ' Cache the real error before any cleanup-induced errors clobber it.
@@ -488,26 +461,6 @@ Private Sub CleanupLegacyFiles(strSqlFile As String)
     strBase = Left$(strSqlFile, Len(strSqlFile) - 4)
     If FSO.FileExists(strBase & ".qdef") Then DeleteFile strBase & ".qdef"
     If FSO.FileExists(strBase & ".bas") Then DeleteFile strBase & ".bas"
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : CleanupDebugFiles
-' Author    : Adam Waller
-' Date      : 4/28/2026
-' Purpose   : Remove debug artifact files (.qdf, .com.sql, .tmp, .failed.tmp) that
-'           : are only generated when ShowDebug ("Show Detailed Output") is enabled.
-'           : Called during export when ShowDebug is off so that turning the option
-'           : back off cleans up any leftover artifacts from a previous run.
-'---------------------------------------------------------------------------------------
-'
-Private Sub CleanupDebugFiles(strSqlFile As String)
-    Dim strBase As String
-    strBase = Left$(strSqlFile, Len(strSqlFile) - 4)
-    If FSO.FileExists(strBase & ".qdf") Then DeleteFile strBase & ".qdf"
-    If FSO.FileExists(strBase & ".com.sql") Then DeleteFile strBase & ".com.sql"
-    If FSO.FileExists(strBase & ".tmp") Then DeleteFile strBase & ".tmp"
-    If FSO.FileExists(strBase & ".failed.tmp") Then DeleteFile strBase & ".failed.tmp"
 End Sub
 
 
@@ -738,13 +691,6 @@ Private Sub ImportNewFormat(strSqlFile As String)
             Log.Error eelWarning, "Design View import failed for '" & strQueryName & _
                 "'; falling back to SQL View (layout will be lost).", _
                 "clsDbQuery.ImportNewFormat"
-            ' Preserve the failed Design View .qdef for debugging
-            If Options.ShowDebug Then
-                Dim strFailedFile As String
-                strFailedFile = IDbComponent_BaseFolder & GetSafeFileName(strQueryName) & ".failed.tmp"
-                If FSO.FileExists(strFailedFile) Then DeleteFile strFailedFile
-                FSO.CopyFile strTempFile, strFailedFile
-            End If
             strQdefContent = cComposer.GenerateQdef(False, dProperties, dColumns, , lngOptionFlag)
             WriteFile strQdefContent, strTempFile
             If LoadComponentFromText(acQuery, strQueryName, strTempFile) = False Then
@@ -775,16 +721,7 @@ CleanUp:
 
     On Error Resume Next
     If Len(strTempFile) > 0 Then
-        If FSO.FileExists(strTempFile) Then
-            ' When ShowDebug is on, preserve the generated .qdef as .tmp for inspection
-            If Options.ShowDebug Then
-                Dim strDebugFile As String
-                strDebugFile = IDbComponent_BaseFolder & GetSafeFileName(strQueryName) & ".tmp"
-                If FSO.FileExists(strDebugFile) Then DeleteFile strDebugFile
-                FSO.CopyFile strTempFile, strDebugFile
-            End If
-            DeleteFile strTempFile
-        End If
+        If FSO.FileExists(strTempFile) Then DeleteFile strTempFile
     End If
     ' Don't leak cleanup-induced errors to the caller
     Err.Clear

@@ -699,11 +699,11 @@ The "compileError" return value now also includes the full generated wrapper sou
 - **Graph-based JOIN chain with DFS traversal** (chosen): Treat joins as a directed graph (leftTable → rightTable). Find the root table (appears only as leftTable, never as rightTable). DFS from root with deterministic sorting (INNER before LEFT/RIGHT, then alphabetical by rightTable) produces the same nesting order as Access's COM property. Handles star joins (multiple joins from same hub), self-joins (via aliases), and Cartesian products (no joins → comma-separated table list).
 - **RIGHT JOIN normalization**: RIGHT JOINs are temporarily flipped to LEFT JOINs during graph traversal (so the hub table becomes the graph root), then restored to RIGHT JOIN syntax during emission. This avoids special-casing RIGHT JOINs in the graph algorithm.
 
-**Decision**: `BuildJoinChain` uses DFS from the root table with `InsertJoinSorted` for deterministic child ordering. `ConsolidateJoins` merges multi-condition ON clauses (Access stores each condition as a separate Attribute 7 row) before traversal. For UNION queries, each segment is identified by its Attribute 5 `Name2` identifier (e.g. `X7YZ_____1`, `X7YZ_____2`); the SQL for each segment is reconstructed independently and joined with `UNION` or `UNION ALL` based on the Attribute 3 flag. A `.com.sql` debug artifact (the COM `QueryDefs.SQL` property, formatted identically) is exported alongside the `.sql` file when `ShowDebug` is on, enabling systematic diff-based fidelity verification.
+**Decision**: `BuildJoinChain` uses DFS from the root table with `InsertJoinSorted` for deterministic child ordering. `ConsolidateJoins` merges multi-condition ON clauses (Access stores each condition as a separate Attribute 7 row) before traversal. For UNION queries, each segment is identified by its Attribute 5 `Name2` identifier (e.g. `X7YZ_____1`, `X7YZ_____2`); the SQL for each segment is reconstructed independently and joined with `UNION` or `UNION ALL` based on the Attribute 3 flag.
 
-**What this rules out**: The reconstructed SQL must match Access's COM `QueryDefs.SQL` output in structure (not just semantics). Any future changes to `BuildJoinChain` or `ReconstructSQL` should be validated by re-exporting with `ShowDebug` and diffing `.sql` vs `.com.sql` across test databases. If Access changes its internal JOIN ordering algorithm, `BuildJoinChain` will need to be updated to match.
+**What this rules out**: The reconstructed SQL must match Access's COM `QueryDefs.SQL` output in structure (not just semantics). Any future changes to `BuildJoinChain` or `ReconstructSQL` should be validated using `SqlBuilderValidation` (which writes diff artifacts under `logs/`). If Access changes its internal JOIN ordering algorithm, `BuildJoinChain` will need to be updated to match. *(The `.com.sql` per-query sidecar originally described here was removed — see 2026-05-19 entry.)*
 
-**Relevant files**: `clsQueryComposer.cls` (`BuildJoinChain`, `BuildFromClause`, `ConsolidateJoins`, `DFSTraverse`, `InsertJoinSorted`), `clsDbQuery.cls` (`.com.sql` debug export block in `ExportNewFormat`).
+**Relevant files**: `clsQueryComposer.cls` (`BuildJoinChain`, `BuildFromClause`, `ConsolidateJoins`, `DFSTraverse`, `InsertJoinSorted`).
 
 ---
 
@@ -717,11 +717,25 @@ The "compileError" return value now also includes the full generated wrapper sou
 - **Always import as Design View**: Fails for SQL-only query types (UNION, DDL, pass-through) and for queries with complex syntax that the designer cannot represent.
 - **Attempt Design View, fall back to SQL View** (chosen): When layout data exists in the `.json` and `IsDesignerCompatible` returns True, generate a Design View `.qdef` and attempt `LoadFromText`. If import fails, regenerate as SQL View `.qdef` and retry. Log a warning so the user knows layout was lost. This preserves layout for the majority of queries while never failing outright.
 
-**Decision**: `ImportNewFormat` attempts Design View first when conditions are met, then falls back to SQL View on failure. Three debug artifacts support post-mortem analysis when `ShowDebug` is on: `.tmp` (the generated `.qdef` that was actually imported), `.failed.tmp` (the Design View `.qdef` that failed, preserved only when fallback occurs), and `.qdf` (native `SaveAsText` output for comparison). Alternate-path exports now route through `ExportNewFormat` when format version >= 5.0, producing `.sql` + `.json` instead of legacy `.qdef`. The `VBA Dim As New` anti-pattern (which caused "key already exists" errors in the column property loop because VBA scopes `Dim` to the procedure, not the block) was replaced with explicit `Set = New Dictionary` at the top of each loop iteration throughout all new code.
+**Decision**: `ImportNewFormat` attempts Design View first when conditions are met, then falls back to SQL View on failure. Alternate-path exports now route through `ExportNewFormat` when format version >= 5.0, producing `.sql` + `.json` instead of legacy `.qdef`. The `VBA Dim As New` anti-pattern (which caused "key already exists" errors in the column property loop because VBA scopes `Dim` to the procedure, not the block) was replaced with explicit `Set = New Dictionary` at the top of each loop iteration throughout all new code. *(The `.tmp`, `.failed.tmp`, and `.qdf` debug sidecar files originally described here were removed — see 2026-05-19 entry.)*
 
 **What this rules out**: Queries imported via SQL View fallback lose their Design View layout permanently — the next export will have no `DesignLayout` in the `.json`. This is acceptable because the SQL itself is preserved faithfully. If a future Access update improves the designer's tolerance for complex SQL, the `IsDesignerCompatible` check could be relaxed to attempt Design View for more query types. The `ForceImportOriginalQuerySQL` option is only relevant to legacy `.qdef` imports and has no effect on the new format.
 
 **Relevant files**: `clsDbQuery.cls` (`ImportNewFormat`, `IDbComponent_Export`), `clsQueryComposer.cls` (`IsDesignerCompatible`, `GenerateQdef`).
+
+---
+
+## 2026-05-19 — Remove query debug sidecar files from export/import
+
+**Trigger**: When `ShowDebug` ("Show Detailed Output") was enabled, `ExportNewFormat` wrote `.qdf` and `.com.sql` sidecar files alongside each query's `.sql`, and `ImportNewFormat` wrote `.tmp` and `.failed.tmp` files preserving the generated `.qdef`. These files were intended for ad-hoc developer debugging during the early development of the deterministic query export pipeline. Turning `ShowDebug` off did not reliably clean them up (Fast Save skips unchanged queries, and `ShowDebug` is a non-export option that doesn't trigger category re-export).
+
+Rather than building cleanup infrastructure for a feature that had outlived its purpose, the sidecar-writing code was removed entirely.
+
+**Why removal instead of cleanup**: The dedicated testing tools — `SqlBuilderValidation` (writes artifacts under `logs/SqlBuilderValidation_*/`) and the round-trip harness (`modTestRoundtrip`, writes to `Testing/Fixtures/logs/`) — already produce their own diagnostic artifacts in gitignored locations. Per-query sidecars in the source tree were redundant with these tools and created a cleanup problem that no approach could solve cheaply without re-exporting all queries.
+
+**Decision**: All `ShowDebug`-gated sidecar-writing code was removed from `ExportNewFormat` and `ImportNewFormat`. The `ShowDebug` option itself remains — it still controls verbose per-object logging throughout the codebase.
+
+**Relevant files**: `clsDbQuery.cls` (`ExportNewFormat`, `ImportNewFormat`).
 
 ---
 
