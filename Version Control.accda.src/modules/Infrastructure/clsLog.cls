@@ -38,6 +38,7 @@ Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
 Private m_dblPendingIncrements As Double  ' Accumulated increments awaiting throttled flush
 Private m_sngLastIncrement As Single    ' Timer value of the last applied Increment
 Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
+Private m_strNbsp As String     ' Non-breaking space character (U+00A0) used in place of &nbsp; entity
 Private m_lngErrCount(eelNoError To eelCritical) As Long
 
 
@@ -140,7 +141,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
 
             ' Content
             .Add MultiReplace(strText, _
-                " ", "&nbsp;", _
+                " ", m_strNbsp, _
                 vbCrLf, "<br>")
 
             ' Closing tags
@@ -205,10 +206,10 @@ Public Sub Flush()
             With m_RichText
                 ' Set value, not text to avoid errors with large text strings.
                 Echo False
-                ' Show the last 10K characters to stay within the
+                ' Show the last 8K characters to stay within the
                 ' rich text control's rendering capacity.
-                .Value = m_Console.RightStr(10000)
-                If VerifyFocus(m_RichText) Then .SelStart = 10000
+                .Value = m_Console.RightStr(8000)
+                If VerifyFocus(m_RichText) Then .SelStart = 8000
                 Echo True
             End With
             m_blnConsoleDirty = False
@@ -439,6 +440,7 @@ Private Sub Class_Initialize()
     m_sngLastUpdate = 0
     m_dblPendingIncrements = 0
     m_sngLastIncrement = 0
+    m_strNbsp = ChrW$(160)
     Erase m_lngErrCount
     Me.PadLength = 30
     Me.Active = False
@@ -511,10 +513,10 @@ Private Sub ApplyPendingIncrements()
         ' Flush any pending output
         With m_RichText
             Echo False
-            ' Show the last 10K characters to stay within the
+            ' Show the last 8K characters to stay within the
             ' rich text control's rendering capacity.
-            .Value = m_Console.RightStr(10000)
-            If VerifyFocus(m_RichText) Then .SelStart = 10000
+            .Value = m_Console.RightStr(8000)
+            If VerifyFocus(m_RichText) Then .SelStart = 8000
             Echo True
         End With
         m_blnConsoleDirty = False

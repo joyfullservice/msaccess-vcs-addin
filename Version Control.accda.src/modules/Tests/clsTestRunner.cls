@@ -264,7 +264,11 @@ Public Sub RunSelected(colTestKeys As Collection)
 
     For Each varKey In colTestKeys
 
-        If this.CancelRequested Then
+        ' Allow pending UI events (e.g. form close) to fire
+        DoEvents
+
+        ' Check both internal flag and operation-level cancellation
+        If this.CancelRequested Or (Operation.Status <> eosRunning) Then
             this.State = etrsCancelled
             Exit For
         End If
@@ -363,6 +367,7 @@ Public Sub RunSelected(colTestKeys As Collection)
 
         lngCurrent = lngCurrent + 1
         Log.Progress lngCurrent, lngTotal, strProcName
+        Operation.Pulse
 
 NextTest:
     Next varKey
