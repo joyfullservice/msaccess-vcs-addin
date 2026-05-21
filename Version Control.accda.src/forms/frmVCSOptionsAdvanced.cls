@@ -72,6 +72,9 @@ Private Sub LoadOptions()
 
         ' Logging
         Me.txtMaxLogFiles = .MaxLogFiles
+
+        ' Automated Testing
+        Me.txtDefaultTestFilter = .DefaultTestFilter
     End With
 
 End Sub
@@ -107,6 +110,9 @@ Private Sub SaveOptions()
 
         ' Logging
         .MaxLogFiles = Nz(Me.txtMaxLogFiles, 0)
+
+        ' Automated Testing
+        .DefaultTestFilter = Nz(Me.txtDefaultTestFilter, vbNullString)
     End With
 
 End Sub

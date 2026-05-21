@@ -197,7 +197,7 @@ contradictory guidance.
 
 **What this rules out**: Assertion variants beyond pass/fail (no `AssertEqual`, `AssertThrows`, etc. in v1). The `TestAssert` sub takes a boolean condition and an optional context variant — richer assertion types would require additional subs in `modTestAssert.bas`. Also rules out automatic `modTestAssert` updates — once installed, the user's copy is independent. Revisit assertion API if users request structured matchers.
 
-**Relevant files**: `modTestAssert.bas` (user-installed helper), `modAPI.bas` (`HandleTestAssertion`), `clsTestRunner.cls` (singleton engine), `clsVersionControl.cls` (`RunTests`, `InstallTestAssertModule`, `MigrateDebugAssert`), `modObjects.bas` (`TestRunner` accessor), `Ribbon/Ribbon.xml` (`btnRunTests` in Tools group, `MacroPlay` icon).
+**Relevant files**: `modTestAssert.bas` (user-installed helper), `modAPI.bas` (`HandleTestAssertion`), `clsTestRunner.cls` (singleton engine), `clsVersionControl.cls` (`RunTests`, `RunFilteredTests`, `InstallTestAssertModule`, `MigrateDebugAssert`), `modObjects.bas` (`TestRunner` accessor), `Ribbon/Ribbon.xml` (`btnRunFilteredTests` in Tools group, `MacroPlay` icon).
 
 ---
 

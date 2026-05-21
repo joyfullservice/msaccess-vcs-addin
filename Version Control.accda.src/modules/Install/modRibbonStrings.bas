@@ -93,7 +93,7 @@ Public Function GetRibbonStrings() As Dictionary
             AddCtl "btnActivateHook", "Activate Hook", _
                 strDescription:="Enable Access Application hook to report saving of objects and enabling automatic export on save."
 
-            AddCtl "btnRunTests", "Run Tests", _
+            AddCtl "btnRunFilteredTests", "Run Tests", _
                 strDescription:="Discover and run TestAssert-based tests in the current database"
 
             AddCtl "btnStandardizeLetterCasing", "Standardize Letter Casing", _

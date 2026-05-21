@@ -75,6 +75,7 @@
     "McpAllowRunVBA": true,
     "McpAllowExecuteSQL": true,
     "McpAllowCallVBA": true,
-    "McpAllowImport": true
+    "McpAllowImport": true,
+    "DefaultTestFilter": ""
   }
 }

@@ -1970,26 +1970,76 @@ End Function
 ' Date      : 5/7/2026
 ' Purpose   : Scan for tests in CurrentVBProject and run them. Streams progress to
 '           : the frmVCSMain log console. Returns a JSON summary of results.
-'           : Pass one or more module names to run only tests from those modules:
+'           : Pass one or more filter arguments to restrict which tests run:
 '           :   ?VCS.RunTests("clsTestParser", "modTestEncoding")
-'           : Omit arguments to run all tests.
+'           :   ?VCS.RunTests("-slow")
+'           : Omit arguments to run all tests. The DefaultTestFilter option is NOT
+'           : applied here; use RunFilteredTests for that (ribbon entry point).
 '---------------------------------------------------------------------------------------
 '
-Public Function RunTests(ParamArray varModules() As Variant) As String
+Public Function RunTests(ParamArray varFilters() As Variant) As String
+
+    Dim blnFiltered As Boolean
+
+    ' Determine whether a filter was supplied
+    blnFiltered = (UBound(varFilters) >= LBound(varFilters))
+
+    If blnFiltered Then
+        RunTests = ExecuteTests(CVar(varFilters), True)
+    Else
+        RunTests = ExecuteTests(Empty, False)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunFilteredTests
+' Author    : Adam Waller
+' Date      : 5/21/2026
+' Purpose   : Ribbon entry point for running tests. Reads the DefaultTestFilter option
+'           : and applies it automatically. If the option is empty, runs all tests.
+'---------------------------------------------------------------------------------------
+'
+Public Function RunFilteredTests() As String
+
+    Dim strFilter As String
+    Dim arrParts() As String
+    Dim lngIdx As Long
+
+    strFilter = Trim$(Nz(Options.DefaultTestFilter, vbNullString))
+
+    If Len(strFilter) = 0 Then
+        RunFilteredTests = ExecuteTests(Empty, False)
+    Else
+        arrParts = Split(strFilter, ",")
+        For lngIdx = LBound(arrParts) To UBound(arrParts)
+            arrParts(lngIdx) = Trim$(arrParts(lngIdx))
+        Next lngIdx
+        RunFilteredTests = ExecuteTests(CVar(arrParts), True)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExecuteTests
+' Author    : Adam Waller
+' Date      : 5/21/2026
+' Purpose   : Shared implementation for RunTests and RunFilteredTests. Scans for tests,
+'           : optionally applies filters, runs the suite, and returns a JSON summary.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As String
 
     Dim blnAllPassed As Boolean
     Dim lngPassed As Long
     Dim lngFailed As Long
     Dim lngErrored As Long
     Dim lngEmpty As Long
-    Dim blnFiltered As Boolean
     Dim colKeys As Collection
     Dim lngIdx As Long
     Dim strFilter As String
-    Dim varFilters As Variant
-
-    ' Determine whether a module filter was supplied
-    blnFiltered = (UBound(varModules) >= LBound(varModules))
 
     If Not DatabaseFileOpen Then
         MsgBox2 T("No Database Open"), _
@@ -2028,9 +2078,9 @@ Public Function RunTests(ParamArray varModules() As Variant) As String
 
     ' Build filter description for log heading
     If blnFiltered Then
-        For lngIdx = LBound(varModules) To UBound(varModules)
+        For lngIdx = LBound(varFilters) To UBound(varFilters)
             If Len(strFilter) > 0 Then strFilter = strFilter & ", "
-            strFilter = strFilter & CStr(varModules(lngIdx))
+            strFilter = strFilter & CStr(varFilters(lngIdx))
         Next lngIdx
     End If
 
@@ -2063,7 +2113,6 @@ Public Function RunTests(ParamArray varModules() As Variant) As String
 
     ' Apply filter if specified (resolves module, suite, procedure, and tag matches)
     If blnFiltered Then
-        varFilters = varModules
         Set colKeys = TestRunner.ResolveFilters(varFilters)
         If colKeys.Count = 0 Then
             Log.Add T("No tests found matching filter: {0}", var0:=strFilter)
@@ -2114,7 +2163,7 @@ Public Function RunTests(ParamArray varModules() As Variant) As String
     End With
 
     FinalizeTestConsole blnAllPassed, strLogPath, blnCanceled, strJsonPath
-    RunTests = TestRunner.GetResultsAsJson
+    ExecuteTests = TestRunner.GetResultsAsJson
     Operation.Finish IIf(blnCanceled, eorCanceled, IIf(blnAllPassed, eorSuccess, eorFailed))
 
 End Function

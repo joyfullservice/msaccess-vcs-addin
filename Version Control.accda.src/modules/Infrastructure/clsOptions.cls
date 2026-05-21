@@ -72,6 +72,9 @@ Public McpAllowExecuteSQL As Boolean    ' Allow vcs_execute_sql read-only querie
 Public McpAllowCallVBA As Boolean       ' Allow vcs_call_vba to call existing functions (default: True)
 Public McpAllowImport As Boolean        ' Allow vcs_import_object to load from source (default: True)
 
+' Testing
+Public DefaultTestFilter As String      ' Comma-separated test filter applied by ribbon Run Tests
+
 ' Enum to compare loaded version to installed version.
 Public Enum eVersionCompare
     evcUnknown
@@ -133,6 +136,9 @@ Public Sub LoadDefaults()
         .McpAllowExecuteSQL = True
         .McpAllowCallVBA = True
         .McpAllowImport = True
+
+        ' Testing
+        .DefaultTestFilter = vbNullString
 
         ' Table data export
         Set .TablesToExportData = New Dictionary
@@ -993,6 +999,7 @@ Private Sub Class_Initialize()
         .Add "McpAllowExecuteSQL"
         .Add "McpAllowCallVBA"
         .Add "McpAllowImport"
+        .Add "DefaultTestFilter"
     End With
 
     ' Load default values

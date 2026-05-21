@@ -181,7 +181,7 @@
 			getSupertip="GetSupertip"
 		  />
           <button
-			id="btnRunTests"
+			id="btnRunFilteredTests"
 			size="large"
 			imageMso="MacroPlay"
 			onAction="OnActionButton"
