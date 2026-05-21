@@ -731,6 +731,12 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
                         strStoredHash = Me.Item(cCategory, strFile).FileHash
                         If Len(strStoredHash) > 0 Then
                             blnModified = (strStoredHash <> GetFileHash(strFile))
+                            If Not blnModified Then
+                                ' Content unchanged -- refresh stale property hash so this
+                                ' fallback doesn't repeat on the next operation.
+                                Me.Item(cCategory, strFile).FilePropertiesHash = strHash
+                                Me.Item(cCategory, strFile).SourceModified = GetSourceModifiedDate(cCategory, strFile)
+                            End If
                         End If
                     End If
                 End If
@@ -799,7 +805,7 @@ Public Sub CheckExportConflicts(dDbComponents As Dictionary)
             ' Add to list of conflicts with per-file detail
             Me.Conflicts.Add cItem, _
                 CStr(varKey), _
-                Me.Item(cItem).ExportDate, _
+                Me.Item(cItem).SyncDate, _
                 GetSourceModifiedDate(cItem, cItem.SourceFile), _
                 ercOverwrite, , , colFiles
         End If
@@ -858,9 +864,9 @@ Private Function GetExportConflictFiles(cItem As IDbComponent) As Collection
                 ' We should be good to overwrite it.
             Else
                 ' Doesn't match. This could be a conflict, depending on the dates.
-                ' If the modified date of the source file is NEWER than the
-                ' last export date...
-                If Me.Item(cItem).ExportDate < GetSourceModifiedDate(cItem) Then
+                ' If the source file has been modified since we last synced with
+                ' it (either by exporting to it or importing from it)...
+                If Me.Item(cItem).SyncDate < GetSourceModifiedDate(cItem) Then
                     ' ...and the content is different, then we have a conflict.
                     blnCompareTemp = True
                 End If
@@ -878,6 +884,12 @@ Private Function GetExportConflictFiles(cItem As IDbComponent) As Collection
         Log.Add "  Exporting " & cItem.Name, False
         cItem.Export strTempFile
         Set GetExportConflictFiles = GetDifferingFiles(cItem, strFile, strTempFile)
+        If GetExportConflictFiles Is Nothing Then
+            ' No actual conflict -- refresh stale property hash so this
+            ' file doesn't trigger an expensive temp export next time.
+            Me.Item(cItem).FilePropertiesHash = strHash
+            Me.Item(cItem).SourceModified = GetSourceModifiedDate(cItem)
+        End If
     End If
 
 End Function

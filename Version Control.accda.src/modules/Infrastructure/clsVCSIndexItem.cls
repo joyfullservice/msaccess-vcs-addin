@@ -27,3 +27,17 @@ Public ObjectDate As Date
 Public FilePropertiesHash As String
 Public MetaHash As String
 Public FolderAnnotation As String
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SyncDate
+' Author    : Adam Waller
+' Date      : 5/20/2026
+' Purpose   : Returns the date we last synced with the source file, whether by exporting
+'           : to it or importing from it. Used by conflict detection to determine if the
+'           : source file has been modified externally since we last touched it.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SyncDate() As Date
+    SyncDate = Largest(ExportDate, ImportDate)
+End Property

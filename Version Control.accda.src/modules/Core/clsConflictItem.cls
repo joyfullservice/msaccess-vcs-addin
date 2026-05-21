@@ -17,7 +17,7 @@ Public SingleFile As Boolean
 Public ItemKey As String
 Public FileName As String
 Public ObjectDate As Date
-Public IndexDate As Date
+Public SyncDate As Date
 Public FileDate As Date
 Public Operation As eIndexOperationType
 Public ActionType As eResolveConflict

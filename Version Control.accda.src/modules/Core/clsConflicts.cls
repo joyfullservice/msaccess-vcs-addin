@@ -76,6 +76,9 @@ Public Sub ResolveOrPrompt()
     Dim varKey As Variant
     Dim cItem As clsConflictItem
 
+    ' Log detected conflicts with date details for diagnostics
+    LogDetectedConflicts
+
     If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
         For Each varKey In m_dItems.Keys
             Set cItem = m_dItems(varKey)
@@ -113,6 +116,8 @@ Public Sub Resolve()
         ' Clear reference to categories dictionary
         Set cItem.CategoryList = Nothing
     Next varKey
+    ' Log the resolution summary
+    LogResolutionSummary
     ' Clear additional reference to list
     Set m_dCategories = Nothing
 End Sub
@@ -125,7 +130,7 @@ End Sub
 ' Purpose   : Add an item to the conflict list.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Date, dteFileDate As Date, intActionType As eResolveConflict, _
+Public Sub Add(cComponent As IDbComponent, strKey As String, dteSyncDate As Date, dteFileDate As Date, intActionType As eResolveConflict, _
     Optional strSourceFile As String, Optional intSuggestedResolution As eResolveConflict, _
     Optional colDifferingFiles As Collection)
 
@@ -139,7 +144,7 @@ Public Sub Add(cComponent As IDbComponent, strKey As String, dteIndexDate As Dat
         .SingleFile = cComponent.SingleFile
         .FileName = Nz2(strSourceFile, cComponent.SourceFile)
         .ObjectDate = DateTruncToSeconds(cComponent.DateModified)
-        .IndexDate = dteIndexDate
+        .SyncDate = dteSyncDate
         .FileDate = dteFileDate
         .ActionType = intActionType
         .Suggestion = intSuggestedResolution
@@ -204,7 +209,7 @@ Private Sub SaveToTable()
                     !ItemKey = cItem.ItemKey
                     !FileName = Mid$(cItem.FileName, Len(Options.GetExportFolder) + 1)
                     !ObjectDate = ZN(cItem.ObjectDate)
-                    !IndexDate = ZN(cItem.IndexDate)
+                    !SyncDate = ZN(cItem.SyncDate)
                     !FileDate = ZN(cItem.FileDate)
                     !Suggestion = cItem.Suggestion
                     !Resolution = intDefaultRes
@@ -225,7 +230,7 @@ Private Sub SaveToTable()
                             !FileName = strRelPath & PathSep & CStr(varFile)
                         End If
                         !ObjectDate = ZN(cItem.ObjectDate)
-                        !IndexDate = ZN(cItem.IndexDate)
+                        !SyncDate = ZN(cItem.SyncDate)
                         !FileDate = ZN(cItem.FileDate)
                         !Suggestion = cItem.Suggestion
                         !Resolution = intDefaultRes
@@ -294,6 +299,70 @@ End Sub
 Public Function Count() As Long
     Count = m_dItems.Count
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogDetectedConflicts
+' Author    : Adam Waller
+' Date      : 5/20/2026
+' Purpose   : Log details of detected conflicts including dates, so the information
+'           : is preserved in the log file for diagnostics.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LogDetectedConflicts()
+
+    Dim varKey As Variant
+    Dim cItem As clsConflictItem
+    Dim strType As String
+
+    If m_dItems.Count = 0 Then Exit Sub
+
+    strType = IIf(m_intOperationType = eatImport, "merge", "export")
+    Log.Add T("Detected {0} {1} conflict(s):", var0:=m_dItems.Count, var1:=strType), False
+    For Each varKey In m_dItems.Keys
+        Set cItem = m_dItems(varKey)
+        Log.Add "  " & FSO.GetFileName(cItem.FileName) _
+            & " - Object: " & ZN(cItem.ObjectDate) _
+            & ", File: " & ZN(cItem.FileDate) _
+            & ", Sync: " & ZN(cItem.SyncDate), False
+    Next varKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogResolutionSummary
+' Author    : Adam Waller
+' Date      : 5/20/2026
+' Purpose   : Log the outcome of conflict resolution: counts of overwritten, skipped,
+'           : and deleted items.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LogResolutionSummary()
+
+    Dim varKey As Variant
+    Dim cItem As clsConflictItem
+    Dim lngOverwrite As Long
+    Dim lngSkip As Long
+    Dim lngDelete As Long
+
+    For Each varKey In m_dItems.Keys
+        Set cItem = m_dItems(varKey)
+        Select Case cItem.Resolution
+            Case ercOverwrite:  lngOverwrite = lngOverwrite + 1
+            Case ercSkip:       lngSkip = lngSkip + 1
+            Case ercDelete:     lngDelete = lngDelete + 1
+        End Select
+    Next varKey
+
+    Dim strSummary As String
+    strSummary = T("Resolved {0} conflict(s):", var0:=m_dItems.Count)
+    strSummary = strSummary & " " & lngOverwrite & " overwritten"
+    strSummary = strSummary & ", " & lngSkip & " skipped"
+    If lngDelete > 0 Then strSummary = strSummary & ", " & lngDelete & " deleted"
+    Log.Add strSummary, False
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
