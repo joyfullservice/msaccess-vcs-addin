@@ -23,57 +23,65 @@ Private Const cstrOverridesSubfolder As String = "mcp"
 Private Const cstrOverridesPrefix As String = "options-"
 Private Const STALE_OVERRIDE_DAYS As Long = 30
 
-' Options
+' General
 Public ExportFolder As String
-Public ShowDebug As Boolean
+
+' Export
 Public UseFastSave As Boolean
-Public UseMergeBuild As Boolean
-Public ExportAfterMerge As Boolean
-Public UseGitIntegration As Boolean
-Public GitSettings As Dictionary
-Public SavePrintVars As Boolean
-Public ExportPrintSettings As Dictionary
-Public SaveQuerySQL As Boolean
-Public FormatSQL As Boolean
-Public ForceImportOriginalQuerySQL As Boolean
-Public UseDeterministicQueryExport As Boolean
-Public SaveTableSQL As Boolean
-Public SaveLinkedTableDef As Boolean
 Public SplitLayoutFromVBA As Boolean
-Public StripPublishOption As Boolean
-Public SanitizeColors As eSanitizeLevel
-Public SanitizeLevel As eSanitizeLevel
-Public ExtractThemeFiles As Boolean
-Public TablesToExportData As Dictionary
-Public SchemaExports As Dictionary
+Public ExportFormatVersion As Long      ' Packed integer from eExportFormatVersion enum
 Public RunBeforeExport As String
 Public RunAfterExport As String
-Public RunBeforeBuild As String
-Public RunAfterBuild As String
-Public RunBeforeMerge As String
-Public RunAfterMerge As String
-Public ShowVCSLegacy As Boolean
-Public HashAlgorithm As String
-Public UseShortHash As Boolean
-Public BreakOnError As Boolean
-Public PreserveRubberDuckID As Boolean
-Public MaxLogFiles As Long              ' Default: 20 (per operation type), 0 = keep all
-Public SaveAllDocumentProperties As Boolean
+Public SanitizeLevel As eSanitizeLevel
+Public SanitizeColors As eSanitizeLevel
+Public SaveQuerySQL As Boolean
+Public FormatSQL As Boolean
+Public UseDeterministicQueryExport As Boolean
+Public SaveTableSQL As Boolean
+Public SavePrintVars As Boolean
+Public ExtractThemeFiles As Boolean
 Public UseEnvForConnections As eUseEnvConnections
 Public EnvConnectionNames As Collection ' User-defined named connection keys for .env
-Public ExportFormatVersion As Long      ' Packed integer from eExportFormatVersion enum
+Public ExportPrintSettings As Dictionary
 Public ExportLayoutSvg As Boolean
 Public LayoutSvgImageEmbed As String    ' "None", "Small", "Medium", "All"
 Public LayoutSvgScaleMode As String     ' "Universal", "Screenshot"
 
-' MCP security options (control what agents can do via MCP tools)
-Public McpAllowRunVBA As Boolean        ' Allow vcs_run_vba temp module execution (default: False)
-Public McpAllowExecuteSQL As Boolean    ' Allow vcs_execute_sql read-only queries (default: True)
-Public McpAllowCallVBA As Boolean       ' Allow vcs_call_vba to call existing functions (default: True)
-Public McpAllowImport As Boolean        ' Allow vcs_import_object to load from source (default: True)
+' Build
+Public ExportAfterMerge As Boolean
+Public ForceImportOriginalQuerySQL As Boolean
+Public UseMergeBuild As Boolean
+Public RunBeforeBuild As String
+Public RunAfterBuild As String
+Public RunBeforeMerge As String
+Public RunAfterMerge As String
+Public GitSettings As Dictionary
 
-' Testing
+' Table Data
+Public TablesToExportData As Dictionary
+
+' External Databases
+Public SchemaExports As Dictionary
+
+' MCP Security
+Public McpAllowImport As Boolean        ' Allow vcs_import_object to load from source (default: True)
+Public McpAllowCallVBA As Boolean       ' Allow vcs_call_vba to call existing functions (default: True)
+Public McpAllowExecuteSQL As Boolean    ' Allow vcs_execute_sql read-only queries (default: True)
+Public McpAllowRunVBA As Boolean        ' Allow vcs_run_vba temp module execution (default: False)
+
+' Advanced
 Public DefaultTestFilter As String      ' Comma-separated test filter applied by ribbon Run Tests
+Public ShowDebug As Boolean
+Public BreakOnError As Boolean
+Public MaxLogFiles As Long              ' Default: 20 (per operation type), 0 = keep all
+Public StripPublishOption As Boolean
+Public PreserveRubberDuckID As Boolean
+Public SaveAllDocumentProperties As Boolean
+Public SaveLinkedTableDef As Boolean
+Public HashAlgorithm As String
+Public UseShortHash As Boolean
+Public UseGitIntegration As Boolean
+Public ShowVCSLegacy As Boolean
 
 ' Enum to compare loaded version to installed version.
 Public Enum eVersionCompare
@@ -101,58 +109,25 @@ Private m_strLoadedVersion As String
 Public Sub LoadDefaults()
 
     With Me
-        ' Top level settings
+        ' General
         .ExportFolder = vbNullString
-        .ShowDebug = False
+
+        ' Export
         .UseFastSave = True
-        .UseMergeBuild = False
-        .ExportAfterMerge = False
-        .UseGitIntegration = False
-        .SavePrintVars = True
-        .SaveQuerySQL = True
-        .SaveLinkedTableDef = False
-        .FormatSQL = True
-        .ForceImportOriginalQuerySQL = False
-        .UseDeterministicQueryExport = True
-        .SaveTableSQL = True
         .SplitLayoutFromVBA = True
-        .StripPublishOption = True
+        .ExportFormatVersion = LATEST_EXPORT_FORMAT
         .SanitizeLevel = eslStandard
         .SanitizeColors = eslMinimal
-        .ShowVCSLegacy = True
-        .HashAlgorithm = DefaultHashAlgorithm
-        .UseShortHash = True
-        .MaxLogFiles = 20
-        .SaveAllDocumentProperties = False
+        .SaveQuerySQL = True
+        .FormatSQL = True
+        .UseDeterministicQueryExport = True
+        .SaveTableSQL = True
+        .SavePrintVars = True
         .UseEnvForConnections = uecAuto
         Set .EnvConnectionNames = New Collection
-        .ExportFormatVersion = LATEST_EXPORT_FORMAT
         .ExportLayoutSvg = False
         .LayoutSvgImageEmbed = "Small"
         .LayoutSvgScaleMode = "Universal"
-
-        ' MCP security defaults (least-privilege: RunVBA off, others on)
-        .McpAllowRunVBA = False
-        .McpAllowExecuteSQL = True
-        .McpAllowCallVBA = True
-        .McpAllowImport = True
-
-        ' Testing
-        .DefaultTestFilter = vbNullString
-
-        ' Table data export
-        Set .TablesToExportData = New Dictionary
-        ' Set CompareMode to textual comparison
-        .TablesToExportData.CompareMode = vbTextCompare
-        ' Save specific tables by default
-        AddTableToExportData "USysRegInfo", etdTabDelimited
-        AddTableToExportData "USysRibbons", etdTabDelimited
-
-        ' External Database Schemas
-        Set .SchemaExports = New Dictionary
-        .SchemaExports.CompareMode = TextCompare
-
-        ' Print settings to export
         Set .ExportPrintSettings = New Dictionary
         With .ExportPrintSettings
             .CompareMode = TextCompare
@@ -178,7 +153,10 @@ Public Sub LoadDefaults()
             .Add "TTOption", False
         End With
 
-        ' Git integration settings
+        ' Build
+        .ExportAfterMerge = False
+        .ForceImportOriginalQuerySQL = False
+        .UseMergeBuild = False
         Set .GitSettings = New Dictionary
         With .GitSettings
             .CompareMode = TextCompare
@@ -191,6 +169,36 @@ Public Sub LoadDefaults()
             .Add "InspectSharedImages", False
             .Add "InspectThemeFiles", False
         End With
+
+        ' Table Data
+        Set .TablesToExportData = New Dictionary
+        .TablesToExportData.CompareMode = vbTextCompare
+        AddTableToExportData "USysRegInfo", etdTabDelimited
+        AddTableToExportData "USysRibbons", etdTabDelimited
+
+        ' External Databases
+        Set .SchemaExports = New Dictionary
+        .SchemaExports.CompareMode = TextCompare
+
+        ' MCP Security
+        .McpAllowImport = True
+        .McpAllowCallVBA = True
+        .McpAllowExecuteSQL = True
+        .McpAllowRunVBA = False
+
+        ' Advanced
+        .DefaultTestFilter = vbNullString
+        .ShowDebug = False
+        .BreakOnError = False
+        .MaxLogFiles = 20
+        .StripPublishOption = True
+        .PreserveRubberDuckID = False
+        .SaveAllDocumentProperties = False
+        .SaveLinkedTableDef = False
+        .HashAlgorithm = DefaultHashAlgorithm
+        .UseShortHash = True
+        .UseGitIntegration = False
+        .ShowVCSLegacy = True
     End With
 
 End Sub
@@ -955,51 +963,58 @@ Private Sub Class_Initialize()
 
     ' Load list of property names for reflection type behavior.
     With m_colOptions
+        ' General
         .Add "ExportFolder"
-        .Add "ShowDebug"
+        ' Export
         .Add "UseFastSave"
-        .Add "UseMergeBuild"
-        .Add "ExportAfterMerge"
-        .Add "UseGitIntegration"
-        .Add "SavePrintVars"
-        .Add "ExportPrintSettings"
-        .Add "SaveQuerySQL"
-        .Add "FormatSQL"
-        .Add "ForceImportOriginalQuerySQL"
-        .Add "UseDeterministicQueryExport"
-        .Add "SaveTableSQL"
-        .Add "SaveLinkedTableDef"
         .Add "SplitLayoutFromVBA"
-        .Add "StripPublishOption"
-        .Add "SanitizeColors"
-        .Add "SanitizeLevel"
-        .Add "ExtractThemeFiles"
-        .Add "TablesToExportData"
-        .Add "SchemaExports"
+        .Add "ExportFormatVersion"
         .Add "RunBeforeExport"
         .Add "RunAfterExport"
+        .Add "SanitizeLevel"
+        .Add "SanitizeColors"
+        .Add "SaveQuerySQL"
+        .Add "FormatSQL"
+        .Add "UseDeterministicQueryExport"
+        .Add "SaveTableSQL"
+        .Add "SavePrintVars"
+        .Add "ExtractThemeFiles"
+        .Add "UseEnvForConnections"
+        .Add "EnvConnectionNames"
+        .Add "ExportPrintSettings"
+        .Add "ExportLayoutSvg"
+        .Add "LayoutSvgImageEmbed"
+        .Add "LayoutSvgScaleMode"
+        ' Build
+        .Add "ExportAfterMerge"
+        .Add "ForceImportOriginalQuerySQL"
+        .Add "UseMergeBuild"
         .Add "RunBeforeBuild"
         .Add "RunAfterBuild"
         .Add "RunBeforeMerge"
         .Add "RunAfterMerge"
-        .Add "ShowVCSLegacy"
+        ' Table Data
+        .Add "TablesToExportData"
+        ' External Databases
+        .Add "SchemaExports"
+        ' MCP Security
+        .Add "McpAllowImport"
+        .Add "McpAllowCallVBA"
+        .Add "McpAllowExecuteSQL"
+        .Add "McpAllowRunVBA"
+        ' Advanced
+        .Add "DefaultTestFilter"
+        .Add "ShowDebug"
+        .Add "BreakOnError"
+        .Add "MaxLogFiles"
+        .Add "StripPublishOption"
+        .Add "PreserveRubberDuckID"
+        .Add "SaveAllDocumentProperties"
+        .Add "SaveLinkedTableDef"
         .Add "HashAlgorithm"
         .Add "UseShortHash"
-        .Add "BreakOnError"
-        .Add "PreserveRubberDuckID"
-        .Add "MaxLogFiles"
-        .Add "SaveAllDocumentProperties"
-        .Add "UseEnvForConnections"
-        .Add "EnvConnectionNames"
-        .Add "ExportFormatVersion"
-        .Add "ExportLayoutSvg"
-        .Add "LayoutSvgImageEmbed"
-        .Add "LayoutSvgScaleMode"
-        .Add "McpAllowRunVBA"
-        .Add "McpAllowExecuteSQL"
-        .Add "McpAllowCallVBA"
-        .Add "McpAllowImport"
-        .Add "DefaultTestFilter"
+        .Add "UseGitIntegration"
+        .Add "ShowVCSLegacy"
     End With
 
     ' Load default values
