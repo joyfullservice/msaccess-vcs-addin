@@ -81,6 +81,24 @@ contradictory guidance.
 
 ---
 
+## 2026-05-21 — Rich Text console truncation: boundary-aware HTML truncation
+
+**Trigger**: Console output in `frmVCSMain.txtLog` was visibly truncated — the test summary and final lines never appeared on screen, even though `txtLog.Value` contained the complete HTML. The problem was intermittent and sometimes occurred with minimal content. Previous attempts (reducing buffer from 10K to 8K, replacing `&nbsp;` entities with `ChrW$(160)`) did not resolve it.
+
+**Options explored**:
+- **Reduce buffer limit (10K → 8K → smaller)** — tried and reverted. Empirical probing showed the Rich Text control renders at least 256KB of well-formed HTML without issue. The character limit was a red herring.
+- **Replace `&nbsp;` with `ChrW$(160)` to shrink HTML source** — tried and reverted. Reduced source size ~5× per space, but had no effect on rendering because the actual limit was not size-related.
+- **Add `DoEvents` after `Echo True`** — probed empirically. Made no difference; the control updates correctly without it.
+- **Trim `RightStr` output to the first `<br>` boundary (chosen)** — root cause: `m_Console.RightStr(N)` cuts at an arbitrary character position, often splitting an HTML tag (e.g., producing `olor=gray>Text...</font>`). The Access Rich Text control accepts malformed HTML into `.Value` but its renderer silently stops partway through, truncating the visual display. Trimming to the first `<br>` after the cut ensures the HTML always starts at a clean line boundary.
+
+**Decision**: Added `ConsoleHtml()` private function in `clsLog.cls` that (1) fetches the last 64K characters via `RightStr`, (2) if truncation occurred, finds the first `<br>` and discards everything before it. Buffer limit raised from 8K to 64K since the control has no meaningful rendering limit for well-formed HTML. Also added `ClampInt()` to cap `.SelStart` at 32000 (the property is Integer-typed and overflows above 32,767).
+
+**What this rules out**: Any future assumption that the Rich Text control has a ~10K rendering capacity. It does not — the limit is at least 256K. What *does* break rendering is malformed HTML at the start of the assigned string. If `ConsoleHtml` is ever bypassed or a different truncation method is used, it must guarantee valid HTML at the start. Revisit if Access gains a different Rich Text implementation or if performance degrades with very large console buffers.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/clsLog.cls` (`ConsoleHtml`, `ClampInt`, `Flush`, `ApplyPendingIncrements`).
+
+---
+
 ## 2026-05-14 — Keep SELECT/UPDATE modifiers (DISTINCT, TOP N) on the same line
 
 **Trigger**: After switching to the MSysQueries-based `.sql` + `.json` export format, users noticed that `SELECT TOP N` was being split across two lines: `SELECT` alone on the first line, then `TOP N` indented with the first column on the next. The same issue affected `UPDATE DISTINCTROW`. The formatter had always done this, but it was only visible now that formatted `.sql` files became the primary source.

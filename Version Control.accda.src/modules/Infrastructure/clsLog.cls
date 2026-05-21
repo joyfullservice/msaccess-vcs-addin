@@ -38,7 +38,6 @@ Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
 Private m_dblPendingIncrements As Double  ' Accumulated increments awaiting throttled flush
 Private m_sngLastIncrement As Single    ' Timer value of the last applied Increment
 Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
-Private m_strNbsp As String     ' Non-breaking space character (U+00A0) used in place of &nbsp; entity
 Private m_lngErrCount(eelNoError To eelCritical) As Long
 
 
@@ -141,7 +140,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
 
             ' Content
             .Add MultiReplace(strText, _
-                " ", m_strNbsp, _
+                " ", "&nbsp;", _
                 vbCrLf, "<br>")
 
             ' Closing tags
@@ -204,12 +203,11 @@ Public Sub Flush()
         End If
         If m_blnConsoleDirty Then
             With m_RichText
-                ' Set value, not text to avoid errors with large text strings.
                 Echo False
-                ' Show the last 8K characters to stay within the
-                ' rich text control's rendering capacity.
-                .Value = m_Console.RightStr(8000)
-                If VerifyFocus(m_RichText) Then .SelStart = 8000
+                .Value = ConsoleHtml
+                If VerifyFocus(m_RichText) Then
+                    .SelStart = ClampInt(Len(Nz(.Value, vbNullString)))
+                End If
                 Echo True
             End With
             m_blnConsoleDirty = False
@@ -440,7 +438,6 @@ Private Sub Class_Initialize()
     m_sngLastUpdate = 0
     m_dblPendingIncrements = 0
     m_sngLastIncrement = 0
-    m_strNbsp = ChrW$(160)
     Erase m_lngErrCount
     Me.PadLength = 30
     Me.Active = False
@@ -513,10 +510,10 @@ Private Sub ApplyPendingIncrements()
         ' Flush any pending output
         With m_RichText
             Echo False
-            ' Show the last 8K characters to stay within the
-            ' rich text control's rendering capacity.
-            .Value = m_Console.RightStr(8000)
-            If VerifyFocus(m_RichText) Then .SelStart = 8000
+            .Value = ConsoleHtml
+            If VerifyFocus(m_RichText) Then
+                .SelStart = ClampInt(Len(Nz(.Value, vbNullString)))
+            End If
             Echo True
         End With
         m_blnConsoleDirty = False
@@ -597,6 +594,55 @@ Private Sub CleanupOldLogs(strFolder As String, strBase As String, lngMaxFiles A
     Loop
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConsoleHtml
+' Author    : Adam Waller
+' Date      : 5/21/2026
+' Purpose   : Return the console buffer trimmed to a safe size, ensuring the result
+'           : starts at a clean <br> boundary. A raw Right$ cut can split an HTML tag,
+'           : producing malformed markup that causes the Rich Text control to silently
+'           : stop rendering content before the end.
+'---------------------------------------------------------------------------------------
+'
+Private Function ConsoleHtml() As String
+
+    Const CONSOLE_LIMIT As Long = 64000
+    Dim strRaw As String
+    Dim lngPos As Long
+
+    strRaw = m_Console.RightStr(CONSOLE_LIMIT)
+    If m_Console.Length > CONSOLE_LIMIT Then
+        ' Truncation occurred; find the first line break and start after it.
+        lngPos = InStr(1, strRaw, "<br>")
+        If lngPos > 0 Then
+            ConsoleHtml = Mid$(strRaw, lngPos + 4)
+        Else
+            ConsoleHtml = strRaw
+        End If
+    Else
+        ConsoleHtml = strRaw
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClampInt
+' Author    : Adam Waller
+' Date      : 5/21/2026
+' Purpose   : Cap a Long value at 32000 to avoid Overflow when assigning to Integer
+'           : properties like TextBox.SelStart.
+'---------------------------------------------------------------------------------------
+'
+Private Function ClampInt(lngValue As Long) As Long
+    If lngValue > 32000 Then
+        ClampInt = 32000
+    Else
+        ClampInt = lngValue
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
