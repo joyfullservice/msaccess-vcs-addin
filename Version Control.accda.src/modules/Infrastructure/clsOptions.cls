@@ -808,7 +808,7 @@ Public Function GetCategoryHashes() As Dictionary
                  "RunBeforeMerge", "RunAfterMerge", _
                  "ShowVCSLegacy", "BreakOnError", "MaxLogFiles", _
                  "HashAlgorithm", "UseShortHash", "SchemaExports", _
-                 "TablesToExportData", _
+                 "TablesToExportData", "DefaultTestFilter", _
                  "McpAllowRunVBA", "McpAllowExecuteSQL", _
                  "McpAllowCallVBA", "McpAllowImport"
                 ' Not included in hash
