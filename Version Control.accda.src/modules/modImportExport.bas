@@ -264,6 +264,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             End If
             'Log.Flush  ' Gives smoother output, but slows down export.
             Perf.CategoryEnd lngCount
+            Log.ProgressBar.Reset
         End If
 
     Next varCatKey
@@ -1160,6 +1161,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             Log.Add "[" & dFiles.Count & "]"
         End If
         Perf.CategoryEnd dFiles.Count
+        Log.ProgressBar.Reset
 
     Next varCategory
 
