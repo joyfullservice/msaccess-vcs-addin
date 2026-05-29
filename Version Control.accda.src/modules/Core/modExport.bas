@@ -638,22 +638,12 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     Set frm = Form_frmVCSMain   ' Connect to hidden instance
     With frm
 
-        ' Prepare the UI screen
-        .cmdClose.SetFocus
-        .HideActionButtons
-        DoEvents
-        With .txtLog
-            .ScrollBars = 0
-            .Visible = True
-            .SetFocus
-        End With
-        Log.SetConsole .txtLog, .GetProgressBar
+        .ResetForOperation
         .strLastLogFilePath = Log.LogFilePath
 
         ' Show the status
         .SetStatusText T("Running..."), T("Automatically exporting the saved source code"), _
             T("A summary of the export progress can be seen on this screen, and additional details are included in the log file.")
-        .Visible = True
     End With
 
     ' Make sure the object is currently closed

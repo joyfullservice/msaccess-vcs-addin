@@ -57,16 +57,7 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
     Set frm = Form_frmVCSMain   ' Connect to hidden instance
     With frm
 
-        ' Prepare the UI screen
-        .cmdClose.SetFocus
-        .HideActionButtons
-        DoEvents
-        With .txtLog
-            .ScrollBars = 0
-            .Visible = True
-            .SetFocus
-        End With
-        Log.SetConsole .txtLog, .GetProgressBar
+        .ResetForOperation
 
         ' Show the status
         .SetStatusText "Running...", "Localizing References", _
@@ -74,7 +65,6 @@ Public Sub LocalizeLibraryReferences(Optional blnAlwaysShowGUI As Boolean)
         Log.Add "Fixing " & dRefs("RefCount") & " references in " & dRefs("ProjCount") & " databases. " & _
             "This may take several seconds to complete, so please be patient."
         Log.Spacer
-        .Visible = True
     End With
 
     ' Loop through databases

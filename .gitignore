@@ -25,3 +25,6 @@ mcp/
 
 # TwinBasic ribbon project packages
 Ribbon/Source/Packages
+
+# VSCode settings
+/.vscode

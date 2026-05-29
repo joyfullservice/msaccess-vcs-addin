@@ -412,19 +412,10 @@ Private Sub PrepareValidationConsole()
     Dim frm As Form_frmVCSMain
     Set frm = Form_frmVCSMain
     With frm
-        .cmdClose.SetFocus
-        .HideActionButtons
-        DoEvents
-        With .txtLog
-            .ScrollBars = 0
-            .Visible = True
-            .SetFocus
-        End With
-        Log.SetConsole .txtLog, .GetProgressBar
+        .ResetForOperation
         .SetStatusText T("Validating query SQL builder..."), _
             T("Comparing reconstructed SQL to Access SQL"), _
             T("A summary is shown here; review and warning cases are written to the validation log folder.")
-        .Visible = True
     End With
     Err.Clear
 End Sub

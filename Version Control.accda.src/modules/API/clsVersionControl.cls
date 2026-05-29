@@ -2196,19 +2196,10 @@ Private Sub PrepareTestConsole()
     With Form_frmVCSMain
         .InsideWidth = 12300
         .InsideHeight = 9000
-        .cmdClose.SetFocus
-        .HideActionButtons
+        .ResetForOperation
         .SetStatusText T("Running Tests"), _
             T("Executing tests in the current project"), _
             T("Results are displayed below as each test completes.")
-        .Visible = True
-        DoEvents
-        With .txtLog
-            .ScrollBars = 0
-            .Visible = True
-            .SetFocus
-        End With
-        Log.SetConsole .txtLog, .GetProgressBar
     End With
     Err.Clear
 End Sub

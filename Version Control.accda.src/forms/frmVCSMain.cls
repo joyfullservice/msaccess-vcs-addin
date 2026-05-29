@@ -181,18 +181,7 @@ End Function
 '
 Public Sub StartBuild(blnFullBuild As Boolean)
 
-    Dim strType As String
-
-    cmdClose.SetFocus
-    HideActionButtons
-    DoEvents
-    With txtLog
-        .ScrollBars = 0
-        .Visible = True
-        .SetFocus
-    End With
-    Log.SetConsole Me.txtLog, GetProgressBar
-    Me.Visible = True
+    ResetForOperation
 
     ' Show the status
     SetStatusText T("Running..."), IIf(blnFullBuild, T("Building From Source"), T("Merging From Source")), _
@@ -298,15 +287,7 @@ Public Sub cmdExport_Click()
     ' Make sure we are ready to begin an operation...
     If Not Operation.Begin(eotExport) Then Exit Sub
 
-    cmdClose.SetFocus
-    HideActionButtons
-    DoEvents
-    With txtLog
-        .ScrollBars = 0
-        .Visible = True
-        .SetFocus
-    End With
-    Log.SetConsole Me.txtLog, GetProgressBar
+    ResetForOperation
 
     ' Show the status
     SetStatusText T("Running..."), T("Exporting source code"), _
@@ -337,6 +318,48 @@ Public Sub cmdExport_Click()
     Else
         Operation.Finish eorCanceled
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResetForOperation
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Reset completion-state UI when reusing the form for a new operation.
+'           : Hides log links, clears stale paths and console output, and reconnects
+'           : the log console and progress bar.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ResetForOperation()
+
+    If Not FormLoaded(Me) Then Exit Sub
+
+    Me.TimerInterval = 0
+    cmdOpenLogFile.Visible = False
+    cmdCopyPath.Visible = False
+    strLastLogFilePath = vbNullString
+    strCopyToClipboardPath = vbNullString
+
+    cmdClose.SetFocus
+    HideActionButtons
+    DoEvents
+
+    With txtLog
+        .ScrollBars = 0
+        .Value = vbNullString
+        .Visible = True
+        .SetFocus
+    End With
+
+    LogUnhandledErrors
+    On Error Resume Next
+    If Not Log.ProgressBar Is Nothing Then Log.ProgressBar.Hide
+    CatchAny eelNoError, vbNullString, Me.Name & ".ResetForOperation"
+    On Error GoTo 0
+
+    Log.SetConsole Me.txtLog, GetProgressBar
+    Me.Visible = True
 
 End Sub
 
