@@ -81,6 +81,66 @@ contradictory guidance.
 
 ---
 
+## 2026-05-29 — Module full-build import: sync VBE with AllModules before index/metadata
+
+**Trigger**: Two related bugs during full builds of ~135 modules. (1) After
+`VBComponents.Remove` / `.Import`, `CurrentProject.AllModules` can lag behind
+VBE, causing intermittent error 2467 on the immediate `AllModules(strName)`
+lookup. This produced critical "Imported module not found after import" failures
+and skipped `ImportObjectMetadata` / `VCSIndex.Update` for the affected module.
+(2) Full builds reuse a single `clsDbModule` instance across all files, but
+`m_strSourceFile` was cached from the prior import, causing `VCSIndex.Update` to
+index the new module under the previous file's path. Both bugs surfaced as false
+export conflict prompts after a full build. Commit `2e3b6abd`.
+
+**Options explored**:
+- **Immediate `AllModules(strName)` with no retry (status quo)** — simple; fails
+  intermittently when 135 modules are imported in a tight loop and Access's
+  navigation catalog lags behind VBE.
+- **Batch verification after entire module category** — fewer `DoEvents` in the
+  hot loop; rejected because `ImportObjectMetadata` needs the DAO document per
+  file, and `VCSIndex.Update` reads `m_Module.DateModified`. Deferring these
+  requires either passing explicit per-file keys (API change) or accepting
+  wrong/stale index entries during the loop. Fail-late also wastes work when an
+  early import is broken.
+- **`Sleep` between retries** — does not pump Access's message queue the way
+  `DoEvents` does; same finding as the worker-queue decision (2026-04-03).
+- **`DoEvents` after save + `AllModules` retry loop (chosen)** — per-module
+  message-pump cost so each import leaves metadata and index in a correct state
+  before the next file starts.
+
+**Decision**: After `DoCmd.Save`, call `DoEvents` once to let Access publish the
+module. Resolve `m_Module` via `GetAccessModuleObject` (up to 3 tries with
+`DoEvents` between failures); fail critical if still missing. Clear
+`m_strSourceFile` at the top of each `Import` call so the shared instance never
+indexes under a stale path. Add `VbeModuleExists` check (VBE-side only, no pump)
+inside `LoadVbeModuleFromFile` for early detection of bad `Attribute VB_Name`.
+
+**Performance**: On the 135-module add-in build, `Import VBE Module` stays flat
+at ~0.37–0.40 s total. The `Modules` category rises from ~3.1 s (old code) to
+~3.3–3.5 s typical, with occasional spikes to ~4.5 s. The extra cost sits in
+`DoEvents` and `AllModules` retries between `Import VBE Module` and
+`VCSIndex.Update` — work not captured under any named `Perf.OperationStart`.
+
+**What this rules out**: Deferring `AllModules` verification to end-of-category
+without also deferring metadata/index or supplying explicit per-file keys to
+`VCSIndex.Update`. Removing all `DoEvents` without an alternative queue pump.
+Treating `VBComponents` existence alone as proof the module is ready for DAO
+document property writes.
+
+**Revisit if**: Access offers a reliable "module published to navigation
+container" event or callback; or `VCSIndex.Update` is refactored to accept an
+explicit file key and timestamp so it no longer depends on `m_Module` /
+`DateModified` during import.
+
+**Relevant files**: `clsDbModule.cls` (`IDbComponent_Import`, `GetAccessModuleObject`,
+`VbeModuleExists`, `LoadVbeModuleFromFile`), `modTestConflicts.bas`
+(`TestModuleImport_IndexesEachFileOnSharedInstance`), `clsVCSIndex.cls` (module
+`Update` / `VBAProjectDate`). Related: "VBProject.Saved + DateModified fast path"
+(2026-05-05) for `AllModules` semantics on the export side.
+
+---
+
 ## 2026-05-29 — Test runs: dedicated eotTestRun operation, TestRun_ log path, loggedErrors in JSON
 
 **Trigger**: Test runs already wrapped `Operation.Begin`, but used `eotOther` with a hard-coded `TestRun_*.log` alternate path in `ExecuteTests`. Import/build failures logged via `Log.Error` during tests (e.g. `clsDbModule.Import` critical errors) appeared in the console and log file but not in `TestResults_*.json` — agents and MCP tooling parse JSON first and only saw a generic "Logged error(s) during test" message.
