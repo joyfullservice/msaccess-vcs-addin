@@ -283,14 +283,21 @@ Public Sub TestModuleImport_IndexesEachFileOnSharedInstance()
     Dim strFile1 As String
     Dim strFile2 As String
     Dim strBase As String
+    Dim strRepoRoot As String
 
-    ' Use non-test utility modules so the import under test does not remove/reload
-    ' modules that are actively hosting the test runner or other test subs.
-    strBase = Options.GetExportFolder & "modules\"
-    strFile1 = strBase & "Utility\modTimer.bas"
-    strFile2 = strBase & "Utility\modZip.bas"
+    ' Use fixture modules that are not already loaded in the add-in project.
+    ' Re-importing live modules (e.g. modTimer) fails to remove the in-use
+    ' component and leaves duplicates (modTimer1) plus a VBE project-reset prompt.
+    strRepoRoot = Git.GetRepositoryRoot
+    If Len(strRepoRoot) = 0 Then Exit Sub
+    strBase = strRepoRoot & "Testing\Fixtures\modules\"
+    strFile1 = strBase & "vcs_test_import_alpha.bas"
+    strFile2 = strBase & "vcs_test_import_beta.bas"
     If Not FSO.FileExists(strFile1) Then Exit Sub
     If Not FSO.FileExists(strFile2) Then Exit Sub
+
+    RemoveTestImportFixtureModule "vcs_test_import_alpha"
+    RemoveTestImportFixtureModule "vcs_test_import_beta"
 
     Set cMod = New clsDbModule
     cMod.Import strFile1
@@ -298,5 +305,25 @@ Public Sub TestModuleImport_IndexesEachFileOnSharedInstance()
 
     TestAssert VCSIndex.Exists(cMod, strFile1), "first imported module indexed"
     TestAssert VCSIndex.Exists(cMod, strFile2), "second imported module indexed under its own name"
+
+    RemoveTestImportFixtureModule "vcs_test_import_alpha"
+    RemoveTestImportFixtureModule "vcs_test_import_beta"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveTestImportFixtureModule
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Remove a sandbox module imported by TestModuleImport_* if present.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveTestImportFixtureModule(strName As String)
+
+    LogUnhandledErrors
+    On Error Resume Next
+    CurrentVBProject.VBComponents.Remove CurrentVBProject.VBComponents(strName)
+    Err.Clear
 
 End Sub

@@ -309,7 +309,7 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
         Me.Add strDisplay, (eLevel > eelWarning), , "red"
 
         ' Log the additional error and source details to the log file
-        If lngErrNum <> 0 Then .Add "Error ", lngErrNum, ": ", strErrDesc, " "
+        If lngErrNum <> 0 Then .Add "Error ", CStr(lngErrNum), ": ", strErrDesc, " "
         If strSource <> vbNullString Then .Add "Source: ", strSource
         Me.Add .GetStr, False
         Me.Spacer (eLevel > eelWarning)
