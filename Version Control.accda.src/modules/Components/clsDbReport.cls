@@ -95,6 +95,8 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strName As String
     Dim blnImportCheck As Boolean
 
+    m_strSourceFile = vbNullString
+
     ' Only import files with the correct extension.
     If Not (strFile Like "*.report" Or strFile Like "*.bas") Then Exit Sub
 

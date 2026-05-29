@@ -220,6 +220,8 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim obj As Object
     Dim lngCurrent As Long
     Dim lngTotal As Long
+    Dim lngErrAtStart As Long
+    Dim eelAtStart As eErrorLevel
 
     this.State = etrsRunning
     this.CancelRequested = False
@@ -281,6 +283,8 @@ Public Sub RunSelected(colTestKeys As Collection)
         this.CurrentTestKey = strTestKey
         this.AssertionCounter = 0
         Set this.AssertionResults = New Collection
+        lngErrAtStart = Log.ErrorCount
+        eelAtStart = Operation.ErrorLevel
 
         ' Emit module heading when the module changes
         If StrComp(CStr(dTest("moduleName")), strCurrentModule, vbTextCompare) <> 0 Then
@@ -346,6 +350,12 @@ Public Sub RunSelected(colTestKeys As Collection)
         If lngErrNum <> 0 Then
             dTest("status") = etsErrored
             dTest("errorMessage") = "Error " & lngErrNum & ": " & strErrDesc
+            this.ErroredCount = this.ErroredCount + 1
+            LogTestResult strProcName, "ERROR", "red", dTest("durationMs")
+            Log.Add "    " & dTest("errorMessage"), False
+        ElseIf Log.ErrorCount > lngErrAtStart Or Operation.ErrorLevel > eelAtStart Then
+            dTest("status") = etsErrored
+            dTest("errorMessage") = T("Logged error(s) during test (see console or TestRun log)")
             this.ErroredCount = this.ErroredCount + 1
             LogTestResult strProcName, "ERROR", "red", dTest("durationMs")
             Log.Add "    " & dTest("errorMessage"), False
@@ -696,6 +706,7 @@ Public Function GetResultsAsJson() As String
         Dim colTagsOut As Collection
         For Each varKey In this.Tests.Keys
             Set dTest = this.Tests(CStr(varKey))
+            If CLng(dTest("status")) = etsPending Then GoTo NextJsonTest
             Set dTestOut = New Dictionary
             dTestOut.Add "status", StatusToString(CLng(dTest("status")))
             dTestOut.Add "durationMs", dTest("durationMs")
@@ -725,6 +736,7 @@ Public Function GetResultsAsJson() As String
             Next i
             Set dTestOut("assertions") = colAssertOut
             Set dTests(CStr(varKey)) = dTestOut
+NextJsonTest:
         Next varKey
     End If
 
@@ -1528,6 +1540,7 @@ End Sub
 Private Sub LogTestTimingTable(ByVal lngSpacerLen As Long)
 
     Dim lngCount As Long
+    Dim lngExecuted As Long
     Dim varKey As Variant
     Dim dTest As Dictionary
     Dim i As Long
@@ -1538,24 +1551,31 @@ Private Sub LogTestTimingTable(ByVal lngSpacerLen As Long)
     Dim varParts As Variant
 
     If this.Tests Is Nothing Then Exit Sub
-    lngCount = this.Tests.Count
-    If lngCount < 2 Then Exit Sub
+
+    ' Count only tests that actually ran (skip pending/unexecuted).
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        If CLng(dTest("status")) <> etsPending Then lngExecuted = lngExecuted + 1
+    Next varKey
+    If lngExecuted < 2 Then Exit Sub
 
     ' Build sortable records: "00000000|procName|STATUS"
     ' Same pattern as clsPerformance.SortItemsByTime -- fixed-width key
     ' on the left so QuickSort produces ascending order, then walk
     ' backwards for descending (slowest first).
     Dim varRecords() As Variant
-    ReDim varRecords(0 To lngCount - 1)
+    ReDim varRecords(0 To lngExecuted - 1)
 
     i = 0
     For Each varKey In this.Tests.Keys
         Set dTest = this.Tests(CStr(varKey))
+        If CLng(dTest("status")) = etsPending Then GoTo NextTimingEntry
         strProcName = CStr(dTest("procName"))
         varRecords(i) = Format$(CLng(dTest("durationMs")), "00000000") & "|" & _
             strProcName & "|" & StatusToString(CLng(dTest("status")))
         If Len(strProcName) > lngMaxName Then lngMaxName = Len(strProcName)
         i = i + 1
+NextTimingEntry:
     Next varKey
 
     QuickSort varRecords
@@ -1564,7 +1584,7 @@ Private Sub LogTestTimingTable(ByVal lngSpacerLen As Long)
 
     With Log
         .Add T("Test timing (slowest first)"), False
-        For i = lngCount - 1 To 0 Step -1
+        For i = lngExecuted - 1 To 0 Step -1
             varParts = Split(CStr(varRecords(i)), "|")
             strProcName = CStr(varParts(1))
             strDur = FormatDuration(CLng(varParts(0)))

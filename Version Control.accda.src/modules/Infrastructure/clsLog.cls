@@ -264,21 +264,23 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
         Me.Add .GetStr, False
         Me.Spacer (eLevel > eelWarning)
         Me.Flush ' Force a screen update.
-        ' See if we are actively logging an operation
-        If Log.Active Then
-            ' Show message box for fatal error.
-            If eLevel = eelCritical Then
-                MsgBox2 "Unable to Continue", .GetStr, _
-                    "Please review the log file for additional details.", vbCritical
+        ' Show message boxes only when no console is attached to receive the output.
+        ' (Test runs and other console-driven operations log here instead of blocking
+        ' with a dialog when Log.Active is false.)
+        If m_RichText Is Nothing Then
+            If Log.Active Then
+                If eLevel = eelCritical Then
+                    MsgBox2 "Unable to Continue", .GetStr, _
+                        "Please review the log file for additional details.", vbCritical
+                End If
+            Else
+                Select Case eLevel
+                    Case eelNoError:    ' Do nothing
+                    Case eelWarning:    MsgBox2 "Warning", strDisplay, .GetStr, vbInformation
+                    Case eelError:      MsgBox2 "Error", strDisplay, .GetStr, vbExclamation
+                    Case eelCritical:   MsgBox2 "Critical", strDisplay, .GetStr, vbCritical
+                End Select
             End If
-        Else
-            ' Show message on any error level when we are not logging to a file.
-            Select Case eLevel
-                Case eelNoError:    ' Do nothing
-                Case eelWarning:    MsgBox2 "Warning", strDisplay, .GetStr, vbInformation
-                Case eelError:      MsgBox2 "Error", strDisplay, .GetStr, vbExclamation
-                Case eelCritical:   MsgBox2 "Critical", strDisplay, .GetStr, vbCritical
-            End Select
         End If
     End With
 

@@ -121,6 +121,9 @@ Private Sub IDbComponent_Import(strFile As String)
 
     FunctionName = ModuleName(Me) & ".Import"
 
+    ' Full build reuses one instance; do not reuse a prior object's cached path.
+    m_strSourceFile = vbNullString
+
     LogUnhandledErrors FunctionName
     On Error Resume Next
 
@@ -137,26 +140,32 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Import the source code
     LoadVbeModuleFromFile strTempFile, strName
+    If Operation.ErrorLevel >= eelError Then GoTo ImportCleanUp
 
     ' Make sure the correct project is active before saving.
     Set VBE.ActiveVBProject = CurrentVBProject
     DoCmd.Save acModule, strName
+    If CatchAny(eelError, T("Error saving module: {0}", var0:=strName), FunctionName) Then GoTo ImportCleanUp
+
+    DoEvents
 
     ' Update instancing for public creatable classes
     If udtFile.blnPublicCreatable Then
         CurrentVBProject.VBComponents(strName).Properties("Instancing") = cintPublicCreateable
         DoCmd.Save acModule, strName
+        If CatchAny(eelError, T("Error saving module instancing: {0}", var0:=strName), FunctionName) Then GoTo ImportCleanUp
     End If
 
-    ' Set reference to object
-    CatchAny eelError, T("Error with module: {0}", var0:=strName), FunctionName
-
-    Set m_Module = CurrentProject.AllModules(strName)
-    If Catch(2467) Then Log.Error eelCritical, _
-        T("Imported module not found after import: {0}" & vbNewLine & _
-            "Ensure 'Attribute VB_Name = {0}' is found at the start of the file. " & _
-            "Filenames (before prefix) must match the 'Attribute VB_Name' value." _
-            , var0:=strName), FunctionName
+    ' Set reference to object (AllModules can lag briefly after a VBE re-import)
+    Set m_Module = GetAccessModuleObject(strName)
+    If m_Module Is Nothing Then
+        Log.Error eelCritical, _
+            T("Imported module not found after import: {0}" & vbNewLine & _
+                "Ensure 'Attribute VB_Name = {0}' is found at the start of the file. " & _
+                "Filenames (before prefix) must match the 'Attribute VB_Name' value." _
+                , var0:=strName), FunctionName
+        GoTo ImportCleanUp
+    End If
 
     ' Apply object metadata (doc properties + hidden attribute) from companion .json
     ImportObjectMetadata SwapExtension(strFile, "json"), "Modules", strName, acModule
@@ -168,6 +177,8 @@ Private Sub IDbComponent_Import(strFile As String)
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
         GetCodeModuleHash(IDbComponent_ComponentType, strName), _
         strMetaHash:=GetMetadataHash("Modules", strName, acModule)
+
+ImportCleanUp:
     DeleteFile strTempFile
 
     CatchAny eelError, T("Error importing module: {0}", var0:=strName), FunctionName
@@ -267,8 +278,9 @@ End Function
 Private Sub LoadVbeModuleFromFile(strFile As String, strName As String)
 
     Dim proj As VBProject
+    Dim strSource As String
 
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    strSource = ModuleName(Me) & ".LoadVbeModuleFromFile"
 
     Set proj = CurrentVBProject
     Perf.OperationStart "Import VBE Module"
@@ -278,16 +290,65 @@ Private Sub LoadVbeModuleFromFile(strFile As String, strName As String)
         LogUnhandledErrors
         On Error Resume Next
         .Remove .Item(strName)
-        If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
+        Err.Clear
 
         ' Load from the file
         .Import strFile
+        If CatchAny(eelError, T("Error importing VBA code for {0}", var0:=strName), strSource) Then GoTo CleanUp
+
+        If Not VbeModuleExists(strName) Then
+            Log.Error eelError, _
+                T("VBE import did not create module {0}. Check Attribute VB_Name in the source file.", _
+                    var0:=strName), strSource
+        End If
+
     End With
+
+CleanUp:
     Perf.OperationEnd
 
-    CatchAny eelError, "Error importing VBA code for " & strName, ModuleName(Me) & ".LoadVbeModuleFromFile"
-
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VbeModuleExists
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Return true when strName exists in the current project's VBComponents.
+'---------------------------------------------------------------------------------------
+'
+Private Function VbeModuleExists(strName As String) As Boolean
+
+    LogUnhandledErrors
+    On Error Resume Next
+    VbeModuleExists = (CurrentVBProject.VBComponents(strName).Name = strName)
+    Err.Clear
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAccessModuleObject
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Resolve an imported module in CurrentProject.AllModules, retrying briefly
+'           : because AllModules can lag behind VBE after a remove/re-import cycle.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetAccessModuleObject(strName As String) As AccessObject
+
+    Dim intTry As Integer
+
+    For intTry = 1 To 3
+        LogUnhandledErrors
+        On Error Resume Next
+        Set GetAccessModuleObject = CurrentProject.AllModules(strName)
+        If Not GetAccessModuleObject Is Nothing Then Exit Function
+        Err.Clear
+        DoEvents
+    Next intTry
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

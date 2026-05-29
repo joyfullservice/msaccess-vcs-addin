@@ -19,6 +19,7 @@ Option Explicit
 '@Folder("Components")
 
 Private m_Table As AccessObject
+Private m_lngTableType As Long
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 
@@ -218,6 +219,9 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strTempFile As String
     Dim strName As String
 
+    ' Full build reuses one instance; reset link-type cache per file.
+    m_lngTableType = 0
+
     ' Determine import type from extension
     Select Case LCase$(FSO.GetExtensionName(strFile))
 
@@ -259,6 +263,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Update index
     strName = GetObjectNameFromFileName(strFile)
+    m_lngTableType = 0
     Set m_Table = CurrentData.AllTables(strName)
 
     ' Apply object metadata (doc properties + hidden attribute) from companion .json.
@@ -293,6 +298,7 @@ Private Sub IDbComponent_Merge(strFile As String)
 
     ' Delete any existing table with this name
     Set m_Table = Nothing
+    m_lngTableType = 0
     DeleteObjectIfExists acTable, strName
 
     If FSO.FileExists(strFile) Then
@@ -990,18 +996,15 @@ End Property
 '
 Private Property Get IsLinkedTable() As Boolean
 
-    ' Cache the value to save lookups
-    Static lngType As Long
-
     Dim dbs As Database
     Dim rst As Recordset
 
     ' Nothing to check if we don't have a table name
     If m_Table Is Nothing Then Exit Property
 
-    ' Use cached value if possible
-    If lngType > 0 Then
-        IsLinkedTable = (lngType <> 1)
+    ' Use cached value if possible (per table object on this instance)
+    If m_lngTableType > 0 Then
+        IsLinkedTable = (m_lngTableType <> 1)
         Exit Property
     End If
 
@@ -1019,14 +1022,14 @@ Private Property Get IsLinkedTable() As Boolean
         " and Type in(1,4,6)", _
         dbOpenDynaset, dbReadOnly)
     ' Read the table type from the system objects record.
-    lngType = Nz(rst!Type, 1)
+    m_lngTableType = Nz(rst!Type, 1)
     rst.Close
     Set rst = Nothing
     Set dbs = Nothing
 
     ' A value of 1 means a local Access table. Any other value
     ' is almost certainly a linked table of some type. (ODBC, Excel, etc)
-    IsLinkedTable = (lngType <> 1)
+    IsLinkedTable = (m_lngTableType <> 1)
     Perf.OperationEnd
 
 End Property
@@ -1100,6 +1103,7 @@ Private Property Get IDbComponent_DbObject() As Object
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set m_Table = RHS
+    m_lngTableType = 0
 End Property
 
 

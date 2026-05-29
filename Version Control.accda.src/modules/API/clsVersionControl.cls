@@ -2040,6 +2040,8 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     Dim colKeys As Collection
     Dim lngIdx As Long
     Dim strFilter As String
+    Dim eimPriorMode As eInteractionMode
+    Dim blnLogWasActive As Boolean
 
     If Not DatabaseFileOpen Then
         MsgBox2 T("No Database Open"), _
@@ -2072,6 +2074,13 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     End If
 
     If Not Operation.Begin(eotOther) Then Exit Function
+
+    ' Match the round-trip harness: log to file and suppress blocking MsgBox dialogs
+    ' so import/build errors surface in the test console and TestRun_*.log instead.
+    eimPriorMode = Operation.InteractionMode
+    Operation.InteractionMode = eimSilent
+    blnLogWasActive = Log.Active
+    Log.Active = True
 
     ' Open the main form and set up the console
     PrepareTestConsole
@@ -2107,6 +2116,8 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     If TestRunner.Tests.Count = 0 Then
         Log.Add T("No test subs found in the current project.")
         FinalizeTestConsole True
+        Log.Active = blnLogWasActive
+        Operation.InteractionMode = eimPriorMode
         Operation.Finish eorSuccess
         Exit Function
     End If
@@ -2117,6 +2128,8 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
         If colKeys.Count = 0 Then
             Log.Add T("No tests found matching filter: {0}", var0:=strFilter)
             FinalizeTestConsole True
+            Log.Active = blnLogWasActive
+            Operation.InteractionMode = eimPriorMode
             Operation.Finish eorSuccess
             Exit Function
         End If
@@ -2164,6 +2177,9 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
 
     FinalizeTestConsole blnAllPassed, strLogPath, blnCanceled, strJsonPath
     ExecuteTests = TestRunner.GetResultsAsJson
+
+    Log.Active = blnLogWasActive
+    Operation.InteractionMode = eimPriorMode
     Operation.Finish IIf(blnCanceled, eorCanceled, IIf(blnAllPassed, eorSuccess, eorFailed))
 
 End Function

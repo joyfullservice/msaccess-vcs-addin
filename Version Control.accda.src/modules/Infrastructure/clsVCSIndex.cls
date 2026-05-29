@@ -608,6 +608,75 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetExistingIndexItem
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Return an existing index entry without creating a new one. Honors legacy
+'           : table-def index keys (.json vs .xml).
+'---------------------------------------------------------------------------------------
+'
+Private Function GetExistingIndexItem(cItem As IDbComponent, strSourceFilePath As String) As clsVCSIndexItem
+
+    Dim strKey As String
+
+    strKey = FindIndexedFileName(cItem, FSO.GetFileName(strSourceFilePath))
+    If Len(strKey) = 0 Then Exit Function
+    Set GetExistingIndexItem = m_dIndex("Components")(cItem.Category)(strKey)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindIndexedFileName
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Return the index dictionary key for a source file, including legacy
+'           : .xml/.json mismatch for table definitions from pre-fix full builds.
+'---------------------------------------------------------------------------------------
+'
+Private Function FindIndexedFileName(cCategory As IDbComponent, strFile As String) As String
+
+    Dim strAltFile As String
+
+    With m_dIndex("Components")
+        If Not .Exists(cCategory.Category) Then Exit Function
+        If .Item(cCategory.Category).Exists(strFile) Then
+            FindIndexedFileName = strFile
+            Exit Function
+        End If
+        If cCategory.ComponentType = edbTableDef Then
+            strAltFile = GetAlternateTableDefIndexFileName(strFile)
+            If Len(strAltFile) Then
+                If .Item(cCategory.Category).Exists(strAltFile) Then
+                    FindIndexedFileName = strAltFile
+                End If
+            End If
+        End If
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAlternateTableDefIndexFileName
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Return the paired table-def index file name (.json <-> .xml).
+'---------------------------------------------------------------------------------------
+'
+Private Function GetAlternateTableDefIndexFileName(strFile As String) As String
+
+    Select Case LCase$(FSO.GetExtensionName(strFile))
+        Case "json"
+            GetAlternateTableDefIndexFileName = FSO.GetBaseName(strFile) & ".xml"
+        Case "xml"
+            GetAlternateTableDefIndexFileName = FSO.GetBaseName(strFile) & ".json"
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Exists
 ' Author    : Adam Waller
 ' Date      : 12/2/2020
@@ -617,20 +686,12 @@ End Function
 Public Function Exists(cCategory As IDbComponent, strSourceFilePath As String) As Boolean
 
     Dim strFile As String
-    Dim blnExists
 
     ' Get just the file name from the path.
     strFile = FSO.GetFileName(strSourceFilePath)
 
     ' See if the entry exists in the index
-    With m_dIndex("Components")
-        If .Exists(cCategory.Category) Then
-            blnExists = .Item(cCategory.Category).Exists(strFile)
-        End If
-    End With
-
-    ' Return result
-    Exists = blnExists
+    Exists = (Len(FindIndexedFileName(cCategory, strFile)) > 0)
 
 End Function
 
@@ -838,6 +899,7 @@ Private Function GetExportConflictFiles(cItem As IDbComponent) As Collection
     Dim strFile As String
     Dim strTempFile As String
     Dim blnCompareTemp As Boolean
+    Dim cIdx As clsVCSIndexItem
 
     ' Check for special cases based on component type
     If cItem.ComponentType = edbTableData Then
@@ -857,16 +919,18 @@ Private Function GetExportConflictFiles(cItem As IDbComponent) As Collection
         ' (Has been exported/imported before.)
         If Me.Exists(cItem, strFile) Then
 
+            Set cIdx = GetExistingIndexItem(cItem, strFile)
+
             ' Item found in index.
             ' Check to see if it matches the property hash in the index.
-            If Me.Item(cItem).FilePropertiesHash = strHash Then
+            If cIdx.FilePropertiesHash = strHash Then
                 ' Source file has not changed since last export/import.
                 ' We should be good to overwrite it.
             Else
                 ' Doesn't match. This could be a conflict, depending on the dates.
                 ' If the source file has been modified since we last synced with
                 ' it (either by exporting to it or importing from it)...
-                If Me.Item(cItem).SyncDate < GetSourceModifiedDate(cItem) Then
+                If cIdx.SyncDate < GetSourceModifiedDate(cItem) Then
                     ' ...and the content is different, then we have a conflict.
                     blnCompareTemp = True
                 End If
@@ -887,8 +951,10 @@ Private Function GetExportConflictFiles(cItem As IDbComponent) As Collection
         If GetExportConflictFiles Is Nothing Then
             ' No actual conflict -- refresh stale property hash so this
             ' file doesn't trigger an expensive temp export next time.
-            Me.Item(cItem).FilePropertiesHash = strHash
-            Me.Item(cItem).SourceModified = GetSourceModifiedDate(cItem)
+            Set cIdx = GetExistingIndexItem(cItem, strFile)
+            If cIdx Is Nothing Then Set cIdx = Me.Item(cItem, strFile)
+            cIdx.FilePropertiesHash = strHash
+            cIdx.SourceModified = GetSourceModifiedDate(cItem)
         End If
     End If
 

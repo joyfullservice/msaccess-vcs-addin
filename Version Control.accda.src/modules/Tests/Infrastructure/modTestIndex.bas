@@ -48,7 +48,7 @@ End Sub
 
 
 Public Sub TestIndexConflictsObject()
-    TestAssert Not VCSIndex.Conflicts() Is Nothing, "Conflicts returns object"
+    TestAssert Not VCSIndex.Conflicts Is Nothing, "Conflicts returns object"
     TestAssert VCSIndex.Conflicts.Count >= 0, "Conflicts count is non-negative"
 End Sub
 

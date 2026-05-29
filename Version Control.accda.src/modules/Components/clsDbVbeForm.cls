@@ -129,6 +129,8 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim proj As VBProject
     Dim strTestFile As String
 
+    m_strSourceFile = vbNullString
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Only import files with the correct (primary) extension.

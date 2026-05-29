@@ -380,3 +380,15 @@ Public Sub Initialize(ByRef dCategories As Dictionary, intOperationType As eInde
     Me.ApproveResolutions = False
     Me.UserCanceled = False
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Empty conflict list before Initialize is called (e.g. VCSIndex.Conflicts.Count).
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
+    Set m_dItems = New Dictionary
+End Sub
