@@ -136,7 +136,8 @@ Public Enum eOperationType
     eotExport = 1
     eotBuild = 2
     eotMerge = 3
-    eotOther = 4
+    eotTestRun = 4   ' VCS.RunTests / clsTestRunner suite
+    eotOther = 9     ' Other / catch-all operations
 End Enum
 
 ' State of operation

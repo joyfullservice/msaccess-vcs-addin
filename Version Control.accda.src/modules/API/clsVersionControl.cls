@@ -2073,7 +2073,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
         End If
     End If
 
-    If Not Operation.Begin(eotOther) Then Exit Function
+    If Not Operation.Begin(eotTestRun) Then Exit Function
 
     ' Match the round-trip harness: log to file and suppress blocking MsgBox dialogs
     ' so import/build errors surface in the test console and TestRun_*.log instead.
@@ -2081,6 +2081,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     Operation.InteractionMode = eimSilent
     blnLogWasActive = Log.Active
     Log.Active = True
+    Log.ClearErrorJournal
 
     ' Open the main form and set up the console
     PrepareTestConsole
@@ -2166,16 +2167,13 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     DoCmd.Hourglass False
 
     ' Add performance data to log file and save
-    Dim strLogPath As String
-    strLogPath = FSO.BuildPath(Options.GetExportFolder & "logs", _
-        "TestRun_" & Log.OperationId & ".log")
     Perf.EndTiming
     With Log
         .Add vbNewLine & Perf.GetReports, False
-        .SaveFile strLogPath
+        .SaveFile
     End With
 
-    FinalizeTestConsole blnAllPassed, strLogPath, blnCanceled, strJsonPath
+    FinalizeTestConsole blnAllPassed, Log.LogFilePath, blnCanceled, strJsonPath
     ExecuteTests = TestRunner.GetResultsAsJson
 
     Log.Active = blnLogWasActive

@@ -318,7 +318,8 @@ eelCritical  ' Cancels current operation
 eotExport = 1  ' Exporting source files
 eotBuild = 2   ' Full build from source
 eotMerge = 3   ' Merge build
-eotOther = 4   ' Other operations
+eotTestRun = 4 ' VCS.RunTests / clsTestRunner suite
+eotOther = 9   ' Other / catch-all operations
 ```
 
 ---

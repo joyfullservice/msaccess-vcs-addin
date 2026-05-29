@@ -221,6 +221,7 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim lngCurrent As Long
     Dim lngTotal As Long
     Dim lngErrAtStart As Long
+    Dim lngErrJournalAtStart As Long
     Dim eelAtStart As eErrorLevel
 
     this.State = etrsRunning
@@ -284,6 +285,7 @@ Public Sub RunSelected(colTestKeys As Collection)
         this.AssertionCounter = 0
         Set this.AssertionResults = New Collection
         lngErrAtStart = Log.ErrorCount
+        lngErrJournalAtStart = Log.ErrorJournalCount
         eelAtStart = Operation.ErrorLevel
 
         ' Emit module heading when the module changes
@@ -355,7 +357,10 @@ Public Sub RunSelected(colTestKeys As Collection)
             Log.Add "    " & dTest("errorMessage"), False
         ElseIf Log.ErrorCount > lngErrAtStart Or Operation.ErrorLevel > eelAtStart Then
             dTest("status") = etsErrored
-            dTest("errorMessage") = T("Logged error(s) during test (see console or TestRun log)")
+            AttachLoggedErrors dTest, lngErrJournalAtStart
+            If Not dTest.Exists("errorMessage") Then
+                dTest("errorMessage") = T("Logged error(s) during test (see console or TestRun log)")
+            End If
             this.ErroredCount = this.ErroredCount + 1
             LogTestResult strProcName, "ERROR", "red", dTest("durationMs")
             Log.Add "    " & dTest("errorMessage"), False
@@ -712,6 +717,27 @@ Public Function GetResultsAsJson() As String
             dTestOut.Add "durationMs", dTest("durationMs")
             If dTest.Exists("errorMessage") Then
                 dTestOut.Add "errorMessage", dTest("errorMessage")
+            End If
+            If dTest.Exists("loggedErrors") Then
+                Dim colLoggedErrors As Collection
+                Dim colLoggedOut As Collection
+                Dim dErr As Dictionary
+                Dim dErrOut As Dictionary
+                Set colLoggedOut = New Collection
+                Set colLoggedErrors = dTest("loggedErrors")
+                For i = 1 To colLoggedErrors.Count
+                    Set dErr = colLoggedErrors(i)
+                    Set dErrOut = New Dictionary
+                    dErrOut.Add "level", dErr("level")
+                    dErrOut.Add "message", dErr("message")
+                    If Len(CStr(dErr("source"))) > 0 Then dErrOut.Add "source", dErr("source")
+                    If CLng(dErr("errNumber")) <> 0 Then dErrOut.Add "errNumber", dErr("errNumber")
+                    If Len(CStr(dErr("errDescription"))) > 0 Then
+                        dErrOut.Add "errDescription", dErr("errDescription")
+                    End If
+                    colLoggedOut.Add dErrOut
+                Next i
+                Set dTestOut("loggedErrors") = colLoggedOut
             End If
 
             ' Include tags array
@@ -1403,6 +1429,42 @@ Private Function BuildRunCmd(strProcName As String) As String
     End If
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AttachLoggedErrors
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Copy Log.Error journal entries from a test run into the test dictionary
+'           : for TestResults JSON export (loggedErrors + errorMessage).
+'---------------------------------------------------------------------------------------
+'
+Private Sub AttachLoggedErrors(dTest As Dictionary, lngJournalAtStart As Long)
+
+    Dim colNew As Collection
+    Dim colStored As Collection
+    Dim dErr As Dictionary
+    Dim varItem As Variant
+    Dim strFirst As String
+
+    If Log.ErrorJournalCount <= lngJournalAtStart Then Exit Sub
+
+    Set colNew = Log.GetErrorJournalSince(lngJournalAtStart)
+    Set colStored = New Collection
+    For Each varItem In colNew
+        Set dErr = varItem
+        colStored.Add dErr
+        If Len(strFirst) = 0 Then strFirst = CStr(dErr("message"))
+    Next varItem
+
+    Set dTest("loggedErrors") = colStored
+    If colNew.Count > 1 Then
+        dTest("errorMessage") = strFirst & T(" (+{0} more logged error(s))", var0:=colNew.Count - 1)
+    Else
+        dTest("errorMessage") = strFirst
+    End If
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------

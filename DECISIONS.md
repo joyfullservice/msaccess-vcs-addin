@@ -81,6 +81,23 @@ contradictory guidance.
 
 ---
 
+## 2026-05-29 — Test runs: dedicated eotTestRun operation, TestRun_ log path, loggedErrors in JSON
+
+**Trigger**: Test runs already wrapped `Operation.Begin`, but used `eotOther` with a hard-coded `TestRun_*.log` alternate path in `ExecuteTests`. Import/build failures logged via `Log.Error` during tests (e.g. `clsDbModule.Import` critical errors) appeared in the console and log file but not in `TestResults_*.json` — agents and MCP tooling parse JSON first and only saw a generic "Logged error(s) during test" message.
+
+**Options explored**:
+- **`Test_` log prefix with `eotTest`** — shorter filename, but too generic; breaks continuity with existing `TestRun_*.log` files and weakens the pairing with `TestResults_*.json`.
+- **`TestRun_` prefix via hard-coded alternate path (status quo)** — worked, but bypassed `LogFilePath` and did not exercise the same save/cleanup path as Export/Build.
+- **`eotTestRun` + `LogFilePath` base `TestRun` (chosen)** — dedicated operation type maps to `TestRun_{OperationId}.log` through the normal `Log.SaveFile` path, including `CleanupOldLogs`. Enum name and log prefix align for clarity.
+
+**Decision**: Add `eotTestRun = 4` to `eOperationType` and move `eotOther = 9` to the end of the enum (values 5–8 reserved for future dedicated operation types). `ExecuteTests` calls `Operation.Begin(eotTestRun)`, sets `Log.Active = True` and `InteractionMode = eimSilent`, clears an error journal at run start, and saves via `Log.SaveFile` (no alternate path). `clsLog` maintains an error journal on each `Log.Error` call; `clsTestRunner` snapshots the journal per test and exports a `loggedErrors` array (level, message, source, errNumber, errDescription) in `TestResults_*.json`, with `errorMessage` set to the first logged error text.
+
+**What this rules out**: Using `eotOther` for the main test suite (round-trip and other harnesses may still use `eotOther` with custom prefixes). Relying on agents to open `TestRun_*.log` for operation-level failure details when JSON is available.
+
+**Relevant files**: `modConstants.bas` (`eotTestRun`), `clsLog.cls` (`LogFilePath`, error journal), `clsVersionControl.cls` (`ExecuteTests`), `clsTestRunner.cls` (`AttachLoggedErrors`, `GetResultsAsJson`).
+
+---
+
 ## 2026-05-21 — Rich Text console truncation: boundary-aware HTML truncation
 
 **Trigger**: Console output in `frmVCSMain.txtLog` was visibly truncated — the test summary and final lines never appeared on screen, even though `txtLog.Value` contained the complete HTML. The problem was intermittent and sometimes occurred with minimal content. Previous attempts (reducing buffer from 10K to 8K, replacing `&nbsp;` entities with `ChrW$(160)`) did not resolve it.

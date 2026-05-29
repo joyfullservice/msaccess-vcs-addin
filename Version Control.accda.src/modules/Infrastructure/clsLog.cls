@@ -39,6 +39,7 @@ Private m_dblPendingIncrements As Double  ' Accumulated increments awaiting thro
 Private m_sngLastIncrement As Single    ' Timer value of the last applied Increment
 Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
 Private m_lngErrCount(eelNoError To eelCritical) As Long
+Private m_colErrorJournal As Collection
 
 
 '---------------------------------------------------------------------------------------
@@ -75,6 +76,51 @@ End Property
 Public Property Get ErrorCount() As Long
     ErrorCount = m_lngErrCount(eelError) + m_lngErrCount(eelCritical)
 End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ErrorJournalCount
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Return the number of Log.Error entries recorded in the error journal.
+'---------------------------------------------------------------------------------------
+'
+Public Function ErrorJournalCount() As Long
+    ErrorJournalCount = m_colErrorJournal.Count
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearErrorJournal
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Clear the error journal (call at the start of a test run).
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearErrorJournal()
+    Set m_colErrorJournal = New Collection
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetErrorJournalSince
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Return journal entries logged after the given index (for per-test capture).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetErrorJournalSince(lngStart As Long) As Collection
+
+    Dim colResult As Collection
+    Dim i As Long
+
+    Set colResult = New Collection
+    For i = lngStart + 1 To m_colErrorJournal.Count
+        colResult.Add m_colErrorJournal(i)
+    Next i
+    Set GetErrorJournalSince = colResult
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -233,7 +279,11 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
 
     Dim strPrefix As String
     Dim strDisplay As String
+    Dim lngErrNum As Long
+    Dim strErrDesc As String
 
+    lngErrNum = Err.Number
+    strErrDesc = Err.Description
     m_lngErrCount(eLevel) = m_lngErrCount(eLevel) + 1
     Select Case eLevel
         Case eelWarning:    strPrefix = "WARNING: "
@@ -245,10 +295,10 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
     With New clsConcat
 
         ' Sometimes the error description is sufficient for the description
-        If strDescription = vbNullString And Err.Number <> 0 Then
-            strDisplay = strPrefix & Err.Number & " - " & Err.Description
+        If strDescription = vbNullString And lngErrNum <> 0 Then
+            strDisplay = strPrefix & lngErrNum & " - " & strErrDesc
         ElseIf blnIncludeErrorMessage Then
-            strDisplay = strPrefix & strDescription & "; Error " & Err.Number & " - " & Err.Description
+            strDisplay = strPrefix & strDescription & "; Error " & lngErrNum & " - " & strErrDesc
         Else
             strDisplay = strPrefix & strDescription
         End If
@@ -259,11 +309,12 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
         Me.Add strDisplay, (eLevel > eelWarning), , "red"
 
         ' Log the additional error and source details to the log file
-        If Err Then .Add "Error ", Err.Number, ": ", Err.Description, " "
+        If lngErrNum <> 0 Then .Add "Error ", lngErrNum, ": ", strErrDesc, " "
         If strSource <> vbNullString Then .Add "Source: ", strSource
         Me.Add .GetStr, False
         Me.Spacer (eLevel > eelWarning)
         Me.Flush ' Force a screen update.
+        AppendErrorJournal eLevel, strDisplay, strSource, lngErrNum, strErrDesc
         ' Show message boxes only when no console is attached to receive the output.
         ' (Test runs and other console-driven operations log here instead of blocking
         ' with a dialog when Log.Active is false.)
@@ -393,10 +444,11 @@ Public Sub SaveFile(Optional strAlternatePath As String)
 
     ' Cleanup old logs beyond MaxLogFiles
     Select Case Operation.OperationType
-        Case eotExport: strBase = "Export"
-        Case eotBuild:  strBase = "Build"
-        Case eotMerge:  strBase = "Merge"
-        Case Else:      strBase = "Other"
+        Case eotExport:   strBase = "Export"
+        Case eotBuild:    strBase = "Build"
+        Case eotMerge:    strBase = "Merge"
+        Case eotTestRun:  strBase = "TestRun"
+        Case Else:        strBase = "Other"
     End Select
     CleanupOldLogs strLogsFolder, strBase, Options.MaxLogFiles
 End Sub
@@ -413,10 +465,11 @@ Public Property Get LogFilePath() As String
     Dim strBase As String
     Dim strFolder As String
     Select Case Operation.OperationType
-        Case eotExport: strBase = "Export"
-        Case eotBuild:  strBase = "Build"
-        Case eotMerge:  strBase = "Merge"
-        Case Else:      strBase = "Other"
+        Case eotExport:   strBase = "Export"
+        Case eotBuild:    strBase = "Build"
+        Case eotMerge:    strBase = "Merge"
+        Case eotTestRun:  strBase = "TestRun"
+        Case Else:        strBase = "Other"
     End Select
     ' Use logs subfolder with unique operation ID in filename
     ' e.g., Export_20260126_153042_847.log
@@ -435,6 +488,7 @@ End Property
 Private Sub Class_Initialize()
     Set m_Console = New clsConcat
     Set m_Log = New clsConcat
+    Set m_colErrorJournal = New Collection
     m_blnProgressActive = False
     m_blnKeepProgressVisible = False
     m_sngLastUpdate = 0
@@ -644,6 +698,46 @@ Private Function ClampInt(lngValue As Long) As Long
     Else
         ClampInt = lngValue
     End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppendErrorJournal
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Record a Log.Error call for per-test JSON export (TestResults loggedErrors).
+'---------------------------------------------------------------------------------------
+'
+Private Sub AppendErrorJournal(eLevel As eErrorLevel, strMessage As String, _
+    strSource As String, lngErrNum As Long, strErrDesc As String)
+
+    Dim dEntry As Dictionary
+
+    Set dEntry = New Dictionary
+    dEntry.Add "level", ErrorLevelToJournalString(eLevel)
+    dEntry.Add "message", strMessage
+    dEntry.Add "source", Nz2(strSource, vbNullString)
+    dEntry.Add "errNumber", lngErrNum
+    dEntry.Add "errDescription", Nz2(strErrDesc, vbNullString)
+    m_colErrorJournal.Add dEntry
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ErrorLevelToJournalString
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Serialize eErrorLevel for the error journal JSON field.
+'---------------------------------------------------------------------------------------
+'
+Private Function ErrorLevelToJournalString(eLevel As eErrorLevel) As String
+    Select Case eLevel
+        Case eelWarning:  ErrorLevelToJournalString = "warning"
+        Case eelError:    ErrorLevelToJournalString = "error"
+        Case eelCritical: ErrorLevelToJournalString = "critical"
+        Case Else:        ErrorLevelToJournalString = "unknown"
+    End Select
 End Function
 
 
