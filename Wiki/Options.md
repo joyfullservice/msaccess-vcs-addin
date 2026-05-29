@@ -95,7 +95,7 @@ This tool is limited, and does not have the full featured tools of other Databas
 ||_MySQL Server_|Select this if your external database is hosted on a MySQL Server instance.
 |**Description:**||If you wish to provide additional context to the Connection Name, type it here. Examples might be "Production", or "Test", or "Staging1"
 |**ADO (OLE) Connection String:**||The ADO (OLE) Connection string. This needs to be an OLE connection string as this tool is built on the ADODB functions. The examples which populate automatically are based on linked tables in your database, and are generally ODBC connection strings. If you have an MSSQL type database backend, this tool can attempt to create a compliant OLE connection string.
-|**Save in .env file**|**Default: On**|Save the connection string (and passwords) in a `.env` file. <p>**NOTE: ensure the `.env` files are excluded from version control if you have a password string.**
+|**Save in .env file**|**Default: On**|Save the connection string (and passwords) in a `.env` file. <p>**NOTE: ensure the `.env` files are excluded from version control if you have a password string.** See [Connections](Connections) for layered `.env` files via `APP_ENV`.
 |**Attempt Conversion to ADO (OLE) String**|**Default: On**|Attempt to convert linked table string from ODBC to OLE.
 |**Filter for database objects (source file paths):**||Use this to exclude objects from export. An example might be that you do not want the code for a login check to be exported, or you do not want some views exported.
 

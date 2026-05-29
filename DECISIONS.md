@@ -81,6 +81,45 @@ contradictory guidance.
 
 ---
 
+## 2026-05-29 — Layered `.env` resolution via `APP_ENV`
+
+**Trigger**: Projects with live/offline (or dev/staging/production) backends need
+the same exported source tree to target different ODBC servers without editing
+connection strings in source files. A prototype in a consumer project used a
+selector `.env` plus `.env.{environment}` files; the add-in previously resolved
+all `env:conn_*` references from a single flat `.env`.
+
+**Options explored**:
+- **Runtime public API** (`VCS.GetEnv`) for ADODB code — rejected for this change;
+  scope limited to build/import resolution only.
+- **Replace semantics** (environment file fully replaces base) — rejected; layered
+  merge lets shared keys live in base `.env` with environment-specific overrides.
+- **Configurable selector key in `vcs-options.json`** — rejected; fixed `APP_ENV`
+  matches common dotenv-flow conventions and keeps config surface small.
+
+**Decision**: At import/build, merge `.env` files in dotenv-flow order: `.env` →
+`.env.local` → `.env.{APP_ENV}` → `.env.{APP_ENV}.local`. `APP_ENV` comes from
+the OS environment first, then the merged base level. Export writes remain on base
+`.env` only; reads use the merged config. No export-format-version gate — exported
+source content is unchanged.
+
+**What this rules out**: Automatic relinking when `APP_ENV` changes without a
+rebuild/merge. Runtime VBA in the user's database still needs its own `.env` reader
+if it opens ADODB connections outside the add-in's import path.
+
+**Secrets safety**: The auto-`.gitignore` only excluded `*.env`, which (by
+gitignore glob rules) does not match `.env.local`, `.env.<APP_ENV>`, or
+`.env.<APP_ENV>.local`. Extended the default template and `EnsureGitignore` logic
+to also exclude `.env.*` with a `!.env*.example` negation so layered credential
+files are ignored while `*.example` templates stay committed.
+
+**Relevant files**: `clsDotEnv.cls` (`LoadFromFileIfExists`, merge flag),
+`modConnect.bas` (`BuildResolvedEnv`, split read/write caches),
+`modVCSUtility.bas` (gitignore `.env.*` / `!.env*.example`), `.gitignore.default`,
+`modTestConnect.bas`, `Version Control.accda.src/AGENTS.md`, `Wiki/Connections.md`
+
+---
+
 ## 2026-05-29 — Module full-build import: sync VBE with AllModules before index/metadata
 
 **Trigger**: Two related bugs during full builds of ~135 modules. (1) After

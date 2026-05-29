@@ -12,10 +12,12 @@ Option Explicit
 
 Private Const ModuleName = "modConnect"
 Private Const ENV_KEY_PREFIX As String = "conn_"
+Private Const APP_ENV_KEY As String = "APP_ENV"
 Private m_dCachedConnections As Dictionary
 Private m_dBackEndConnections As Dictionary
 Private m_dUnavailableBackEnds As Dictionary
 Private m_cEnvCache As clsDotEnv
+Private m_cEnvResolved As clsDotEnv
 Private m_dEnvKeysWritten As Dictionary
 Private m_dMissingEnvKeys As Dictionary
 
@@ -742,6 +744,8 @@ Public Sub SaveConnectionToEnv(strKey As String, strConnect As String, strSource
     ' Save the file
     cEnv.SaveToFile strFile
 
+    Set m_cEnvResolved = Nothing
+
 End Sub
 
 
@@ -871,7 +875,7 @@ Public Function FindNamedConnectionKey(strConnect As String) As String
     If colNames Is Nothing Then Exit Function
     If colNames.Count = 0 Then Exit Function
 
-    Set cEnv = GetEnvCache(True)
+    Set cEnv = GetEnvCache(False)
 
     For Each varName In colNames
         strName = CStr(varName)
@@ -1004,22 +1008,63 @@ End Function
 ' Date      : 03/17/2026
 ' Purpose   : Return a cached clsDotEnv instance to avoid re-reading the .env file
 '           : for every table/query during an export or import operation.
-'           : Set blnForWrite to True during export to allow creating a new file.
+'           : blnForWrite=True returns the base .env only (for export writes).
+'           : blnForWrite=False returns the merged layered config (for resolution).
 '---------------------------------------------------------------------------------------
 '
 Private Function GetEnvCache(blnForWrite As Boolean) As clsDotEnv
 
     Dim strFile As String
 
-    If m_cEnvCache Is Nothing Then
-        Set m_cEnvCache = New clsDotEnv
-        strFile = GetEnvFilePath
-        If FSO.FileExists(strFile) Then
-            m_cEnvCache.LoadFromFile strFile
+    If blnForWrite Then
+        If m_cEnvCache Is Nothing Then
+            Set m_cEnvCache = New clsDotEnv
+            strFile = GetEnvFilePath
+            If FSO.FileExists(strFile) Then
+                m_cEnvCache.LoadFromFile strFile
+            End If
         End If
+        Set GetEnvCache = m_cEnvCache
+    Else
+        If m_cEnvResolved Is Nothing Then
+            Set m_cEnvResolved = BuildResolvedEnv
+        End If
+        Set GetEnvCache = m_cEnvResolved
     End If
 
-    Set GetEnvCache = m_cEnvCache
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildResolvedEnv
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Build merged .env config: .env, .env.local, .env.{APP_ENV},
+'           : .env.{APP_ENV}.local (later files override earlier).
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildResolvedEnv() As clsDotEnv
+
+    Dim strDir As String
+    Dim strAppEnv As String
+    Dim cEnv As clsDotEnv
+
+    strDir = Options.GetExportFolder
+    Set cEnv = New clsDotEnv
+    cEnv.LoadFromFileIfExists strDir & ".env"
+    cEnv.LoadFromFileIfExists strDir & ".env.local", blnMerge:=True
+
+    strAppEnv = Environ$(APP_ENV_KEY)
+    If Len(strAppEnv) = 0 Then
+        strAppEnv = cEnv.GetVar(APP_ENV_KEY, blnUseEnviron:=False)
+    End If
+
+    If Len(strAppEnv) > 0 Then
+        cEnv.LoadFromFileIfExists strDir & ".env." & strAppEnv, blnMerge:=True
+        cEnv.LoadFromFileIfExists strDir & ".env." & strAppEnv & ".local", blnMerge:=True
+    End If
+
+    Set BuildResolvedEnv = cEnv
 
 End Function
 
@@ -1033,6 +1078,7 @@ End Function
 '
 Public Sub ClearEnvCache()
     Set m_cEnvCache = Nothing
+    Set m_cEnvResolved = Nothing
     Set m_dEnvKeysWritten = Nothing
     Set m_dMissingEnvKeys = Nothing
 End Sub
@@ -1072,7 +1118,7 @@ Public Sub LogUnusedEnvEntries()
 
     If m_dEnvKeysWritten Is Nothing Then Exit Sub
 
-    Set cEnv = GetEnvCache(False)
+    Set cEnv = GetEnvCache(True)
 
     For Each varKey In cEnv.Lines.Keys
         strKey = CStr(varKey)

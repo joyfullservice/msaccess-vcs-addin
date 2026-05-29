@@ -252,6 +252,26 @@ If the SQL becomes incompatible with Design View (e.g., UNION, subqueries), the 
 
 ---
 
+## Linked Table Connections (`.env` / `env:`)
+
+Linked tables and pass-through queries store `env:conn_*` references (not raw ODBC
+strings) in `tbldefs/*.json`, `queries/*.json` (`Connect`), and `db-connection.json`.
+At build/import, the add-in resolves each reference to a connection string in the
+`.env` file at the export-folder root (per-developer, gitignored).
+
+`db-connection.json` only **primes** Access's ODBC cache during import (one temp
+query per connection so later linked-table imports reuse cached credentials). It
+holds `env:` keys, not connection strings — do not treat it as a connection registry.
+
+Per-environment `.env` layering via an `APP_ENV` selector is supported; see
+[Wiki/Connections.md](../Wiki/Connections.md).
+
+If build prompts for SQL authentication, the referenced key is missing from the
+resolved `.env` config or the server is unreachable. Check the build log for
+`Connection key not found in .env file: ...`.
+
+---
+
 ## Safe Editing Guidelines
 
 ### What You CAN Safely Modify
@@ -425,6 +445,8 @@ When the source file and database object have both changed:
 | File | Purpose |
 |------|---------|
 | `vcs-options.json` | Export/import configuration for this project |
+| `db-connection.json` | ODBC connection priming map for import (`env:` keys only) |
+| `.env` | Per-developer connection strings (gitignored; resolves `env:conn_*` refs) |
 | `vcs-index.idx` | Change tracking, binary format (do not edit) |
 | `dbs-properties.json` | DAO database properties |
 | `documents.json` | DAO database document properties (Description, Hidden for containers) |
@@ -465,7 +487,7 @@ The same applies to `Testing/Fixtures/logs/` (round-trip test logs).
 | `queries/` | Queries | `.sql`, `.json` (legacy: `.qdef`, `.bas`) |
 | `macros/` | Access macros | `.macro` (or `.bas`) |
 | `tables/` | Table data (if exported) | `.txt`, `.xml` |
-| `tbldefs/` | Table definitions | `.sql`, `.xml`, `.json` |
+| `tbldefs/` | Table definitions (`Connect` may use `env:conn_*`) | `.sql`, `.xml`, `.json` |
 | `relations/` | Table relationships | `.json` |
 | `images/` | Shared images | various + `.json` |
 | `themes/` | Visual themes | `.thmx` or folder |

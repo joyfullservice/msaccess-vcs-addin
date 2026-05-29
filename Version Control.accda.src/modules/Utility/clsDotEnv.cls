@@ -32,6 +32,21 @@ Public Lines As Dictionary
 '---------------------------------------------------------------------------------------
 '
 Public Function LoadFromFile(strFilePath As String)
+    LoadFromFileIfExists strFilePath
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadFromFileIfExists
+' Author    : Adam Waller
+' Date      : 5/29/2026
+' Purpose   : Load .env file if present. Returns False when the file is missing.
+'           : When blnMerge is False (default), resets Lines before loading.
+'           : When blnMerge is True, new keys are added and existing keys overwritten.
+'---------------------------------------------------------------------------------------
+'
+Public Function LoadFromFileIfExists(strFilePath As String, _
+    Optional blnMerge As Boolean = False) As Boolean
 
     Dim varLines As Variant
     Dim strLine As String
@@ -40,30 +55,30 @@ Public Function LoadFromFile(strFilePath As String)
     Dim strKey As String
     Dim strValue As String
 
-    ' Reset Lines dictionary
-    Class_Initialize
+    If Not FSO.FileExists(strFilePath) Then Exit Function
 
-    ' Attempt to read file to array of lines
+    If Not blnMerge Then Class_Initialize
+
     varLines = Split(ReadFile(strFilePath), vbCrLf)
     For lngLine = 0 To UBound(varLines)
         strLine = varLines(lngLine)
         If (Left(Trim(strLine), 1) = "#") _
             Or (Trim(strLine) = vbNullString) Then
-            ' Add comment line or blank line
-            strKey = "COMMENT_" & Format(lngLine, "###")
-            Lines(strKey) = strLine
+            If Not blnMerge Then
+                strKey = "COMMENT_" & Format(lngLine, "###")
+                Lines(strKey) = strLine
+            End If
         Else
-            ' Find first equals sign
             lngPos = InStr(2, strLine, "=")
             If lngPos > 0 Then
                 strKey = Trim(Left(strLine, lngPos - 1))
                 strValue = Mid(strLine, lngPos + 1)
                 Lines(strKey) = strValue
-            Else
-                ' Neither comment or key/value pair. Discard line
             End If
         End If
     Next lngLine
+
+    LoadFromFileIfExists = True
 
 End Function
 

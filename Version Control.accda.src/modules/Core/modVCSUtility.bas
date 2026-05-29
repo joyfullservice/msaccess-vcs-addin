@@ -261,6 +261,19 @@ Public Sub CheckGitFiles()
         End If
     End If
 
+    ' Ensure layered/per-environment dotenv variants are excluded too
+    ' (.env.local, .env.<APP_ENV>, .env.<APP_ENV>.local), while keeping
+    ' committed *.example templates. Patterns must stay in this order so the
+    ' negation follows the broad ignore.
+    If FSO.FileExists(strFile) Then
+        If EnsureGitignoreLine(strFile, ".env.*", "*.env") Then
+            Log.Add T("Added .env.* to .gitignore"), , , "blue"
+        End If
+        If EnsureGitignoreLine(strFile, "!.env*.example", ".env.*") Then
+            Log.Add T("Added !.env*.example to .gitignore"), , , "blue"
+        End If
+    End If
+
     ' Ensure logs/ is excluded (VCS add-in writes operation logs there)
     If FSO.FileExists(strFile) Then
         If EnsureGitignoreLineRespectComment(strFile, "logs/", "*.env") Then

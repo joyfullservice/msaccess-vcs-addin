@@ -20,8 +20,12 @@ vcs-index.*
 # MCP/API session option overrides (transient, per-developer)
 mcp/
 
-# Ignore any dotenv files (used for external database connections)
+# Ignore any dotenv files (used for external database connections).
+# Includes layered/per-environment variants (.env.local, .env.<APP_ENV>, etc.).
+# Templates (*.example) are kept under version control.
 *.env
+.env.*
+!.env*.example
 
 # TwinBasic ribbon project packages
 Ribbon/Source/Packages
