@@ -390,6 +390,17 @@ End Sub
 
 Module-level and procedure-level tags are merged. `RunTests` returns a JSON summary string with per-test status, assertion details, and a `"tags"` array per test.
 
+### Global suite hooks
+
+Optional once-per-run setup/teardown in `modTestAssert` (same module as `TestAssert`):
+
+```vba
+Public Sub GlobalTestSetup()    ' Before first test when ≥1 test is selected
+Public Sub GlobalTestTeardown() ' After all tests; results JSON already built
+```
+
+`VCS.InstallTestAssertModule` includes empty stubs with inline guidance. If absent, the runner skips silently. Hooks do not run when no tests are discovered or a filter matches nothing (@BeforeAll semantics). Hook errors are non-fatal (console only); the run continues and teardown still runs. Per-test `Class_Initialize` / `Class_Terminate` are unchanged and nest inside these hooks.
+
 ### Test Logs
 
 After a test run, two log files are written to the `logs/` subfolder inside the export folder:

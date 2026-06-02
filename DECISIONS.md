@@ -81,6 +81,39 @@ contradictory guidance.
 
 ---
 
+## 2026-06-02 — Global suite hooks in VCS test runner
+
+**Trigger**: Consumer projects need once-per-run setup/teardown (suite fixtures) around
+`VCS.RunTests`, distinct from per-test `Class_Initialize` / `Class_Terminate`. Example
+use: sweep leftover temp objects from a prior test run before executing the suite.
+
+**Options explored**:
+- **Module-qualified `Application.Run`** (`modTestAssert.GlobalTestSetup`) — rejected;
+  fails for `Option Private Module` and conflicts with existing cross-project run pattern
+  (see 2026-05-08 entry).
+- **Catch error 2517 around `Application.Run`** for missing procedures — rejected in
+  favor of **`GlobalProcExists`** pre-check (same as module test discovery).
+- **Run hooks when zero tests selected** — rejected; standard @BeforeAll / pytest session
+  semantics skip fixtures when nothing is selected.
+- **Include hook status in `TestResults_*.json`** — deferred; teardown runs after JSON is
+  written, so a JSON block would be asymmetric. v1 logs hook errors to the console only.
+
+**Decision**: Add optional parameterless `GlobalTestSetup` / `GlobalTestTeardown` public
+subs in the target project's `modTestAssert`. `ExecuteTests` calls setup immediately before
+`RunAll`/`RunSelected` and teardown after `GetResultsAsJson`, only when ≥1 test will run.
+Missing procedures skip silently. Hook errors use `Log.Add` (never `Log.Error`) and do not
+fail the run. Fresh `InstallTestAssertModule` installs include empty stubs with inline
+comments; existing projects are not auto-upgraded.
+
+**What this rules out**: Auto-migrating existing `modTestAssert` modules to add hook stubs.
+Global hooks on `RunFailed` (not routed through `ExecuteTests` today). Parameterized hook
+signatures in v1.
+
+**Relevant files**: `clsTestRunner.cls` (`InvokeGlobalTestSetup`, `InvokeGlobalTestTeardown`,
+`InvokeOptionalGlobalHook`), `clsVersionControl.cls` (`ExecuteTests`, `InstallTestAssertModule`).
+
+---
+
 ## 2026-05-29 — Layered `.env` resolution via `APP_ENV`
 
 **Trigger**: Projects with live/offline (or dev/staging/production) backends need

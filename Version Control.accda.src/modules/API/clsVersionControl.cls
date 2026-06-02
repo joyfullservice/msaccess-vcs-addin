@@ -2142,6 +2142,8 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
 
     DoCmd.Hourglass True
 
+    TestRunner.InvokeGlobalTestSetup
+
     ' Run tests (filtered or all)
     If blnFiltered Then
         TestRunner.RunSelected colKeys
@@ -2175,6 +2177,8 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
 
     FinalizeTestConsole blnAllPassed, Log.LogFilePath, blnCanceled, strJsonPath
     ExecuteTests = TestRunner.GetResultsAsJson
+
+    TestRunner.InvokeGlobalTestTeardown
 
     Log.Active = blnLogWasActive
     Operation.InteractionMode = eimPriorMode
@@ -2295,6 +2299,26 @@ Public Sub InstallTestAssertModule()
         .Add "    End If"
         .Add "    ResolveAddInPath = m_strAddInPath"
         .Add "End Function"
+        .Add vbNullString
+        .Add "'---------------------------------------------------------------------------------------"
+        .Add "' Procedure : GlobalTestSetup"
+        .Add "' Purpose   : Optional suite-level setup. Called once per VCS.RunTests invocation,"
+        .Add "'           : immediately before the first test runs."
+        .Add "'---------------------------------------------------------------------------------------"
+        .Add "Public Sub GlobalTestSetup()"
+        .Add "    ' Add one-time setup here (e.g. reset shared test state, sweep leftover temp data)."
+        .Add "    ' Leave empty if your project does not need suite-level setup."
+        .Add "End Sub"
+        .Add vbNullString
+        .Add "'---------------------------------------------------------------------------------------"
+        .Add "' Procedure : GlobalTestTeardown"
+        .Add "' Purpose   : Optional suite-level cleanup. Called once per VCS.RunTests invocation"
+        .Add "'           : after all tests complete and results JSON is built."
+        .Add "'---------------------------------------------------------------------------------------"
+        .Add "Public Sub GlobalTestTeardown()"
+        .Add "    ' Add one-time cleanup here (e.g. delete temp objects created during the run)."
+        .Add "    ' Leave empty if your project does not need suite-level teardown."
+        .Add "End Sub"
     End With
 
     If cmp.CodeModule.CountOfLines > 0 Then

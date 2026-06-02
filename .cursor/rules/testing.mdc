@@ -183,6 +183,22 @@ Each test entry in the JSON output includes a `"tags"` array listing the tags ap
 
 When class-based tests are discovered, the runner auto-maintains a `TestClassFactory` function inside `modTestAssert`. This function has a `Select Case` block with one entry per test class. The runner regenerates it during scan if the entries are out of date. Do not manually edit lines between the `BEGIN`/`END` markers.
 
+## Global Suite Hooks
+
+Optional **once-per-run** setup/teardown in the target project's `modTestAssert`:
+
+```vba
+Public Sub GlobalTestSetup()      ' Before first test (when ≥1 test selected)
+Public Sub GlobalTestTeardown()   ' After all tests and results JSON
+```
+
+- Included as empty stubs (with inline comments) in fresh `InstallTestAssertModule` installs
+- Silent skip when absent (backward compatible)
+- Not run when zero tests are discovered or a filter matches nothing
+- Hook errors are non-fatal (console warning only); teardown still runs
+
+Per-class `Class_Initialize` / `Class_Terminate` remain nested inside these hooks.
+
 ## Conventions
 
 - Name test modules with `Test` in the name (e.g., `modTestEncoding`, `clsTestQueryParser`)

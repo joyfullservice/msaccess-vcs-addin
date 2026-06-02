@@ -571,6 +571,10 @@ Prefix any argument with `-` to **exclude** it. Inclusions combine with OR; excl
 ?VCS.RunTests("-modTestConnect", "-slow")        ' Exclude a module and a tag
 ```
 
+### Global suite hooks
+
+Optional once-per-run `GlobalTestSetup` / `GlobalTestTeardown` in `modTestAssert`. See [`.cursor/rules/testing.mdc`](.cursor/rules/testing.mdc) (Global Suite Hooks) for the full contract when working in this repository.
+
 ### Tagging tests
 
 Use `'@Tag("name")` annotations to categorize tests. Tags are case-insensitive.

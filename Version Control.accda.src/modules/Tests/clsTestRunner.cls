@@ -22,6 +22,8 @@ Option Explicit
 '@Folder("Tests")
 
 Private Const ModuleName As String = "clsTestRunner"
+Private Const GlobalTestSetupProc As String = "GlobalTestSetup"
+Private Const GlobalTestTeardownProc As String = "GlobalTestTeardown"
 
 ' Runner state machine
 Public Enum eTestRunnerState
@@ -426,6 +428,33 @@ Public Sub RunFailed()
 
     If colKeys.Count > 0 Then RunSelected colKeys
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InvokeGlobalTestSetup
+' Author    : Adam Waller
+' Date      : 6/2/2026
+' Purpose   : Call the target project's optional GlobalTestSetup hook once per test run.
+'           : No-op when the procedure is absent. Hook errors are logged and non-fatal.
+'---------------------------------------------------------------------------------------
+'
+Public Sub InvokeGlobalTestSetup()
+    InvokeOptionalGlobalHook GlobalTestSetupProc
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InvokeGlobalTestTeardown
+' Author    : Adam Waller
+' Date      : 6/2/2026
+' Purpose   : Call the target project's optional GlobalTestTeardown hook once per test
+'           : run. No-op when the procedure is absent. Hook errors are logged and
+'           : non-fatal.
+'---------------------------------------------------------------------------------------
+'
+Public Sub InvokeGlobalTestTeardown()
+    InvokeOptionalGlobalHook GlobalTestTeardownProc
 End Sub
 
 
@@ -1429,6 +1458,41 @@ Private Function BuildRunCmd(strProcName As String) As String
     End If
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InvokeOptionalGlobalHook
+' Author    : Adam Waller
+' Date      : 6/2/2026
+' Purpose   : Invoke an optional parameterless public hook in the target database via
+'           : Application.Run. Silent when the procedure does not exist. Logs hook
+'           : failures via Log.Add (never Log.Error) so they do not affect test counts.
+'---------------------------------------------------------------------------------------
+'
+Private Sub InvokeOptionalGlobalHook(strProcName As String)
+
+    Dim lngErrNum As Long
+    Dim strErrDesc As String
+
+    On Error Resume Next
+    Set VBE.ActiveVBProject = CurrentVBProject
+    On Error GoTo 0
+
+    If Not GlobalProcExists(strProcName) Then Exit Sub
+
+    On Error Resume Next
+    Application.Run BuildRunCmd(strProcName)
+    lngErrNum = Err.Number
+    strErrDesc = Err.Description
+    Err.Clear
+    On Error GoTo 0
+
+    If lngErrNum <> 0 Then
+        Log.Add T("Global hook {0} error {1}: {2}", _
+            var0:=strProcName, var1:=lngErrNum, var2:=strErrDesc), False, , "orange"
+    End If
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
