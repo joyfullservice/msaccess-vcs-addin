@@ -36,8 +36,8 @@ Private Const DESIGN_INSIDE_WIDTH As Long = 9360
 Private Const TEST_INSIDE_WIDTH As Long = 12300
 Private Const TEST_INSIDE_HEIGHT As Long = 9000
 
-' Captured at form load so GetProgressBar can compute the resize delta
-' for horizontally-anchored controls whose VBA Width stays at design-time.
+' Design-time InsideWidth/Height baseline for clsLblProg resize delta (must stay at
+' design size after test-console layout; anchored controls report design Width in VBA).
 Private m_dblInitialInsideWidth As Double
 Private m_dblInitialInsideHeight As Double
 
@@ -52,7 +52,7 @@ Private m_dblDesignInsideHeight As Double
 ' Date      : 6/2/2026
 ' Purpose   : Apply test-runner client dimensions idempotently. Resets to design size,
 '           : then expands to test size so repeated RunTests calls do not cumulatively
-'           : shift anchored controls. Syncs progress-bar baseline to test dimensions.
+'           : shift anchored controls. Keeps progress-bar baseline at design dimensions.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ApplyTestConsoleLayout()
@@ -79,8 +79,9 @@ Public Sub ApplyTestConsoleLayout()
     Me.InsideWidth = TEST_INSIDE_WIDTH
     Me.InsideHeight = TEST_INSIDE_HEIGHT
 
-    m_dblInitialInsideWidth = Me.InsideWidth
-    m_dblInitialInsideHeight = Me.InsideHeight
+    ' Baseline stays at design size so clsLblProg delta matches anchored back-label stretch.
+    m_dblInitialInsideWidth = dblDesignW
+    m_dblInitialInsideHeight = dblDesignH
 
     Me.Visible = True
     DoEvents
