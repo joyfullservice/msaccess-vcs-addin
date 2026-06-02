@@ -31,10 +31,62 @@ Public strCopyToClipboardPath As String
 ' Use this property to set the path to the source files (such as a build triggered from the API)
 Public strSourcePath As String
 
+' Design-time and test-console client dimensions (twips; match frmVCSMain.form Width).
+Private Const DESIGN_INSIDE_WIDTH As Long = 9360
+Private Const TEST_INSIDE_WIDTH As Long = 12300
+Private Const TEST_INSIDE_HEIGHT As Long = 9000
+
 ' Captured at form load so GetProgressBar can compute the resize delta
 ' for horizontally-anchored controls whose VBA Width stays at design-time.
 Private m_dblInitialInsideWidth As Double
 Private m_dblInitialInsideHeight As Double
+
+' Baseline client size at first open (used to reset anchors before test layout).
+Private m_dblDesignInsideWidth As Double
+Private m_dblDesignInsideHeight As Double
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyTestConsoleLayout
+' Author    : Adam Waller
+' Date      : 6/2/2026
+' Purpose   : Apply test-runner client dimensions idempotently. Resets to design size,
+'           : then expands to test size so repeated RunTests calls do not cumulatively
+'           : shift anchored controls. Syncs progress-bar baseline to test dimensions.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ApplyTestConsoleLayout()
+
+    Dim dblDesignW As Double
+    Dim dblDesignH As Double
+
+    If Not FormLoaded(Me) Then Exit Sub
+
+    If m_dblDesignInsideWidth > 0 And m_dblDesignInsideHeight > 0 Then
+        dblDesignW = m_dblDesignInsideWidth
+        dblDesignH = m_dblDesignInsideHeight
+    Else
+        dblDesignW = DESIGN_INSIDE_WIDTH
+        dblDesignH = Me.InsideHeight
+        If dblDesignH <= 0 Then dblDesignH = TEST_INSIDE_HEIGHT
+    End If
+
+    Me.InsideWidth = dblDesignW
+    Me.InsideHeight = dblDesignH
+    DoEvents
+    Me.Repaint
+
+    Me.InsideWidth = TEST_INSIDE_WIDTH
+    Me.InsideHeight = TEST_INSIDE_HEIGHT
+
+    m_dblInitialInsideWidth = Me.InsideWidth
+    m_dblInitialInsideHeight = Me.InsideHeight
+
+    Me.Visible = True
+    DoEvents
+    Me.Repaint
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -434,7 +486,9 @@ End Sub
 '
 Public Sub Form_Load()
 
-    ' Capture baseline for anchored-control width calculations.
+    ' Capture design and progress-bar baselines for anchored-control calculations.
+    m_dblDesignInsideWidth = Me.InsideWidth
+    m_dblDesignInsideHeight = Me.InsideHeight
     m_dblInitialInsideWidth = Me.InsideWidth
     m_dblInitialInsideHeight = Me.InsideHeight
 

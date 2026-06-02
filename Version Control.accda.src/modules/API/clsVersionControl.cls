@@ -2192,10 +2192,11 @@ End Function
 '
 Private Sub PrepareTestConsole()
     On Error Resume Next
-    DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    If Not IsLoaded(acForm, "frmVCSMain", False) Then
+        DoCmd.OpenForm "frmVCSMain", , , , , acHidden
+    End If
     With Form_frmVCSMain
-        .InsideWidth = 12300
-        .InsideHeight = 9000
+        .ApplyTestConsoleLayout
         .ResetForOperation
         .SetStatusText T("Running Tests"), _
             T("Executing tests in the current project"), _
