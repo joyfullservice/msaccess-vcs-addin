@@ -533,7 +533,21 @@ The same applies to `Testing/Fixtures/logs/` (round-trip test logs).
 - Syntax error introduced in edit
 - Missing variable declaration
 - Reference to undefined object
-**Solution:** Check the specific line mentioned in the error
+
+**If you are using MCP** (`vcs_compile_vba` returned `success: false`, or
+`vcs_check_vba_compiled` returned `compiled: false`):
+
+1. **Stop** — do not edit more source files or guess at fixes.
+2. Ask the user to open the database in Access, open the VBE, and choose
+   **Debug → Compile**. Access navigates to the first error line.
+3. Ask the user to paste the code snippet around that line (a few lines above
+   and below). The error message text is optional — the snippet is usually enough.
+4. Propose a targeted fix, then re-import and re-compile.
+
+MCP cannot report the failing module or line programmatically.
+
+**If the user is in Access/VBE directly:** use the line Access highlights after
+**Debug → Compile** to locate and fix the error.
 
 ### Form/Report Looks Wrong After Import
 
