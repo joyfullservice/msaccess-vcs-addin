@@ -546,19 +546,28 @@ End Function
 '
 Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePattern As String = "*.*") As Dictionary
 
-    Dim oFile As Scripting.File
-    Dim strBaseFolder As String
+    Dim colFiles As Collection
+    Dim colSubFolders As Collection
+    Dim varFile As Variant
+    Dim strFile As String
 
-    strBaseFolder = StripSlash(strFolder)
     Set GetFilePathsInFolder = New Dictionary
 
     Perf.OperationStart "Get File List"
-    If FSO.FolderExists(strBaseFolder) Then
-        For Each oFile In FSO.GetFolder(strBaseFolder).Files
-            ' Add files that match the pattern.
-            If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path, vbNullString
-        Next oFile
-    End If
+    Set colFiles = New Collection
+    Set colSubFolders = New Collection
+    ' Single-pass Win32 enumeration avoids the per-file COM overhead of iterating
+    ' FSO's .Files collection, which dominates on large folders (e.g. queries).
+    ' A missing folder yields an empty list (FindFirstFileW returns no handle).
+    ScanFolderContents StripSlash(strFolder), colFiles, colSubFolders
+    For Each varFile In colFiles
+        strFile = varFile
+        ' Filter by file name using VBA pattern matching to preserve the exact
+        ' Like semantics of the previous FSO implementation (not Win32 wildcards).
+        If Mid$(strFile, InStrRev(strFile, PathSep) + 1) Like strFilePattern Then
+            GetFilePathsInFolder.Add strFile, vbNullString
+        End If
+    Next varFile
     Perf.OperationEnd
 
 End Function
@@ -575,30 +584,39 @@ End Function
 '
 Public Function GetFilePathsInFolderRecursive(strFolder As String, Optional strFilePattern As String = "*.*") As Dictionary
 
-    Dim oFile As Scripting.File
-    Dim oSubFolder As Scripting.Folder
-    Dim strBaseFolder As String
+    Dim colFiles As Collection
+    Dim colSubFolders As Collection
+    Dim varFile As Variant
+    Dim varSubFolder As Variant
+    Dim strFile As String
     Dim dSubResults As Dictionary
     Dim varKey As Variant
 
-    strBaseFolder = StripSlash(strFolder)
     Set GetFilePathsInFolderRecursive = New Dictionary
 
     Perf.OperationStart "Get File List Recursive"
-    If FSO.FolderExists(strBaseFolder) Then
-        ' Add matching files in this folder
-        For Each oFile In FSO.GetFolder(strBaseFolder).Files
-            If oFile.Name Like strFilePattern Then GetFilePathsInFolderRecursive.Add oFile.Path, vbNullString
-        Next oFile
+    Set colFiles = New Collection
+    Set colSubFolders = New Collection
+    ' One Win32 pass returns both files and subfolders, replacing two FSO
+    ' iterations (.Files + .SubFolders) and their per-item COM overhead.
+    ScanFolderContents StripSlash(strFolder), colFiles, colSubFolders
 
-        ' Recurse into subfolders
-        For Each oSubFolder In FSO.GetFolder(strBaseFolder).SubFolders
-            Set dSubResults = GetFilePathsInFolderRecursive(oSubFolder.Path, strFilePattern)
-            For Each varKey In dSubResults.Keys
-                GetFilePathsInFolderRecursive.Add varKey, vbNullString
-            Next varKey
-        Next oSubFolder
-    End If
+    ' Add matching files in this folder
+    For Each varFile In colFiles
+        strFile = varFile
+        ' Preserve the VBA Like semantics of the previous FSO implementation.
+        If Mid$(strFile, InStrRev(strFile, PathSep) + 1) Like strFilePattern Then
+            GetFilePathsInFolderRecursive.Add strFile, vbNullString
+        End If
+    Next varFile
+
+    ' Recurse into subfolders
+    For Each varSubFolder In colSubFolders
+        Set dSubResults = GetFilePathsInFolderRecursive(CStr(varSubFolder), strFilePattern)
+        For Each varKey In dSubResults.Keys
+            GetFilePathsInFolderRecursive.Add varKey, vbNullString
+        Next varKey
+    Next varSubFolder
     Perf.OperationEnd
 
 End Function
