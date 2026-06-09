@@ -249,6 +249,55 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IsAccessBackEndConnect
+' Author    : Adam Waller
+' Date      : 06/09/2026
+' Purpose   : Returns True if the connection string links to an Access database file.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsAccessBackEndConnect(strConnect As String) As Boolean
+    IsAccessBackEndConnect = (InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 _
+        Or InStr(1, strConnect, "MS Access;", vbTextCompare) = 1)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenAccessBackEnd
+' Author    : Adam Waller
+' Date      : 06/09/2026
+' Purpose   : Open an Access back-end database file in shared read-only mode. Returns
+'           : Nothing when the file cannot be opened.
+'---------------------------------------------------------------------------------------
+'
+Private Function OpenAccessBackEnd(strConnect As String) As DAO.Database
+
+    Dim strPath As String
+    Dim strPwd As String
+    Dim dbBackEnd As DAO.Database
+
+    strPath = GetConnectPath(strConnect)
+    If Len(strPath) = 0 Then Exit Function
+
+    strPwd = GetConnectPart(strConnect, "PWD")
+    LogUnhandledErrors
+    On Error Resume Next
+    If Len(strPwd) > 0 Then
+        Set dbBackEnd = DBEngine.OpenDatabase(strPath, False, True, ";PWD=" & strPwd)
+    Else
+        Set dbBackEnd = DBEngine.OpenDatabase(strPath, False, True)
+    End If
+    If Err.Number <> 0 Then
+        Err.Clear
+        Set dbBackEnd = Nothing
+    End If
+    On Error GoTo 0
+
+    Set OpenAccessBackEnd = dbBackEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CacheBackEndConnections
 ' Author    : Adam Waller
 ' Date      : 03/11/2026
@@ -264,7 +313,7 @@ Public Sub CacheBackEndConnections()
     Dim tdf As DAO.TableDef
     Dim strConnect As String
     Dim strPath As String
-    Dim strPwd As String
+    Dim strKey As String
     Dim dbBackEnd As DAO.Database
     Dim varKey As Variant
 
@@ -281,38 +330,24 @@ Public Sub CacheBackEndConnections()
     Set dbs = CurrentDb
     For Each tdf In dbs.TableDefs
 
-        ' Only process Access back-end linked tables (;DATABASE=... or MS Access;...)
         strConnect = tdf.Connect
         If Len(strConnect) > 0 Then
-            If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 _
-                Or InStr(1, strConnect, "MS Access;", vbTextCompare) = 1 Then
+            If IsAccessBackEndConnect(strConnect) Then
 
-                ' Extract the back-end file path
                 strPath = GetConnectPath(strConnect)
                 If Len(strPath) > 0 Then
-                    If m_dBackEndConnections.Exists(strPath) Then
+                    strKey = UCase$(strPath)
+                    If m_dBackEndConnections.Exists(strKey) Then
                         ' Already cached successfully
-                    ElseIf m_dUnavailableBackEnds.Exists(UCase$(strPath)) Then
-                        ' Already known unavailable - increment table count
-                        m_dUnavailableBackEnds(UCase$(strPath)) = _
-                            m_dUnavailableBackEnds(UCase$(strPath)) + 1
+                    ElseIf m_dUnavailableBackEnds.Exists(strKey) Then
+                        m_dUnavailableBackEnds(strKey) = m_dUnavailableBackEnds(strKey) + 1
                     Else
-                        ' Open the back-end database in shared, read-only mode
-                        strPwd = GetConnectPart(strConnect, "PWD")
-                        LogUnhandledErrors
-                        On Error Resume Next
-                        If Len(strPwd) > 0 Then
-                            Set dbBackEnd = DBEngine.OpenDatabase(strPath, False, True, ";PWD=" & strPwd)
+                        Set dbBackEnd = OpenAccessBackEnd(strConnect)
+                        If Not dbBackEnd Is Nothing Then
+                            m_dBackEndConnections.Add strKey, dbBackEnd
                         Else
-                            Set dbBackEnd = DBEngine.OpenDatabase(strPath, False, True)
+                            m_dUnavailableBackEnds.Add strKey, 1
                         End If
-                        If Err.Number = 0 Then
-                            m_dBackEndConnections.Add strPath, dbBackEnd
-                        Else
-                            Err.Clear
-                            m_dUnavailableBackEnds.Add UCase$(strPath), 1
-                        End If
-                        On Error GoTo 0
                     End If
                 End If
             End If
@@ -441,17 +476,27 @@ End Sub
 Public Function TestBackEndConnection(strConnect As String) As Boolean
 
     Dim qdf As DAO.QueryDef
+    Dim strPath As String
+    Dim strKey As String
+    Dim dbBackEnd As DAO.Database
 
-    ' Only test non-Access connections; Access back-ends are proactively
-    ' tested in CacheBackEndConnections via DBEngine.OpenDatabase.
-    If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 _
-        Or InStr(1, strConnect, "MS Access;", vbTextCompare) = 1 Then
-        ' Access back-end: check against the cached connections dictionary
-        Dim strPath As String
+    If IsAccessBackEndConnect(strConnect) Then
         strPath = GetConnectPath(strConnect)
-        If Len(strPath) > 0 Then
-            If Not m_dBackEndConnections Is Nothing Then
-                TestBackEndConnection = m_dBackEndConnections.Exists(strPath)
+        If Len(strPath) = 0 Then Exit Function
+
+        strKey = UCase$(strPath)
+        If m_dBackEndConnections Is Nothing Then Set m_dBackEndConnections = New Dictionary
+        If m_dUnavailableBackEnds Is Nothing Then Set m_dUnavailableBackEnds = New Dictionary
+
+        If m_dBackEndConnections.Exists(strKey) Then
+            TestBackEndConnection = True
+        ElseIf m_dUnavailableBackEnds.Exists(strKey) Then
+            TestBackEndConnection = False
+        Else
+            Set dbBackEnd = OpenAccessBackEnd(strConnect)
+            If Not dbBackEnd Is Nothing Then
+                m_dBackEndConnections.Add strKey, dbBackEnd
+                TestBackEndConnection = True
             End If
         End If
         Exit Function
@@ -478,6 +523,18 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetBackEndConnectKey
+' Author    : Adam Waller
+' Date      : 06/09/2026
+' Purpose   : Public wrapper around GetBackEndKey for unit tests and diagnostics.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetBackEndConnectKey(strConnect As String) As String
+    GetBackEndConnectKey = GetBackEndKey(strConnect)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetBackEndKey
 ' Author    : Adam Waller
 ' Date      : 03/11/2026
@@ -492,9 +549,7 @@ Private Function GetBackEndKey(strConnect As String) As String
 
     If Len(strConnect) = 0 Then Exit Function
 
-    If InStr(1, strConnect, ";DATABASE=", vbTextCompare) = 1 _
-        Or InStr(1, strConnect, "MS Access;", vbTextCompare) = 1 Then
-        ' Access back-end: use the file path as the key
+    If IsAccessBackEndConnect(strConnect) Then
         GetBackEndKey = UCase$(GetConnectPath(strConnect))
 
     ElseIf InStr(1, strConnect, "ODBC;", vbTextCompare) = 1 Then

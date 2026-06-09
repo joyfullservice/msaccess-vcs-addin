@@ -39,11 +39,18 @@ Public Sub TestIsEnvReference()
 End Sub
 
 
+Public Sub TestAccessBackEndConnectKey()
+    TestAssert GetBackEndConnectKey(";DATABASE=C:\Data\MyDatabase.accdb") = _
+        GetBackEndConnectKey("MS Access;PWD=secret;DATABASE=C:\DATA\MYDATABASE.ACCDB"), _
+        "connection string casing normalizes to same back-end key"
+End Sub
+
+
 Public Sub TestGetConnectionEnvKey()
     Dim strKey As String
 
     ' Access back-end: should use filename as key identity
-    strKey = GetConnectionEnvKey(";DATABASE=C:\Data\MyBackEnd.accdb")
+    strKey = GetConnectionEnvKey(";DATABASE=C:\Data\MyDatabase.accdb")
     TestAssert Len(strKey) > 0, "non-empty key for Access connection"
     TestAssert Left$(strKey, 5) = "conn_", "starts with conn_ prefix"
 

@@ -274,6 +274,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
     End If
 
+    ' Warm persistent connections to linked Access back-end files before merge
+    ' conflict temp-exports (same as full export operations).
+    CacheBackEndConnections
+
     ' Build collections of files to import/merge
     Log.Add T("Scanning source files...")
     Log.Flush
