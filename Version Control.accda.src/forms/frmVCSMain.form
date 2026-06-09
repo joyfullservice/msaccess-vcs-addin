@@ -1641,8 +1641,8 @@ Begin Form
                     End
                 End
                 Begin TextBox
-                    Locked = NotDefault
                     Visible = NotDefault
+                    Locked = NotDefault
                     EnterKeyBehavior = NotDefault
                     SpecialEffect =2
                     OldBorderStyle =0
