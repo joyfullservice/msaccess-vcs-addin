@@ -208,7 +208,6 @@ End Function
 '
 Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optional varArg1 As Variant, Optional varArg2 As Variant)
 
-    Dim projAddIn As VBProject
     Dim strLibName As String
     Dim strRunCmd As String
 
@@ -220,7 +219,6 @@ Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optio
     ' This means we can't just call `Run "MSAccessVCS.*" because it will run in
     ' the local project instead of the add-in. We can resolve this by using the
     ' full path to the add-in library instead. (#593)
-    Set projAddIn = GetAddInProject
     If RunningOnLocal Then
         strLibName = GetRunCmdAddInFullLibName
     Else

@@ -436,6 +436,30 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSafeProjectFileName
+' Author    : Adam Waller
+' Date      : 6/9/2026
+' Purpose   : Return the FileName of a VBProject, or an empty string if it cannot be
+'           : read. The VBE.VBProjects collection can contain entries that are not
+'           : true VBA projects (registered type libraries or wizards injected by
+'           : third-party VBE add-ins such as MZ-Tools, VBWatchdog, or VBExtras).
+'           : Reading .FileName on those raises "Requested Type Library or Wizard is
+'           : not a VBA Project" (#709). This guards against that so callers can scan
+'           : the collection safely.
+'           : NOTE: Do NOT short-circuit on Protection here. A locked project (such
+'           : as the compiled .accde add-in) still has a readable .FileName and must
+'           : remain matchable.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSafeProjectFileName(oProj As VBProject) As String
+    LogUnhandledErrors
+    On Error Resume Next
+    GetSafeProjectFileName = oProj.FileName
+    If Err Then Err.Clear
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAddInProject
 ' Author    : Adam Waller
 ' Date      : 11/10/2020
@@ -444,8 +468,10 @@ End Sub
 '
 Public Function GetAddInProject() As VBProject
     Dim oProj As VBProject
+    Dim strAddInFile As String
+    strAddInFile = GetInstalledAddInFileName
     For Each oProj In VBE.VBProjects
-        If StrComp(oProj.FileName, GetInstalledAddInFileName, vbTextCompare) = 0 Then
+        If StrComp(GetSafeProjectFileName(oProj), strAddInFile, vbTextCompare) = 0 Then
             Set GetAddInProject = oProj
             Exit For
         End If

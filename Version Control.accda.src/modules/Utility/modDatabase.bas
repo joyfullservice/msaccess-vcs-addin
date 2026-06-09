@@ -531,10 +531,13 @@ Private Function GetProjectByName(ByVal strPath As String) As VBProject
     ' VBProject filenames are UNC paths
     strUncPath = UCase(GetUncPath(strPath))
 
-    If UCase(VBE.ActiveVBProject.FileName) <> strUncPath Then
+    ' Use a guarded FileName read since the collection may contain non-VBA
+    ' entries (registered type libraries or wizards) that raise an error
+    ' when the .FileName property is accessed. (See GetSafeProjectFileName, #709.)
+    If UCase(GetSafeProjectFileName(VBE.ActiveVBProject)) <> strUncPath Then
         ' Search for project with matching filename.
         For Each objProj In VBE.VBProjects
-            If UCase(objProj.FileName) = strUncPath Then
+            If UCase(GetSafeProjectFileName(objProj)) = strUncPath Then
                 Set GetProjectByName = objProj
                 Exit For
             End If

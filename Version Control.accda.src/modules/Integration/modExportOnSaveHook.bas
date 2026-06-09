@@ -153,7 +153,11 @@ Public Function ActivateHook(Optional ExportRequestDelayMilliseconds As Long = 5
         If ptrLibraryHandle Then
             Config.Size = LenB(Config)
             Set Config.App = Application
-            Set Config.CallbackProject = GetAddInProject
+            ' The callback procedure runs in the currently executing add-in
+            ' project, which during development is the local dev copy rather than
+            ' the installed copy. GetCodeVBProject resolves the running project
+            ' (CodeProject), so the callback routes correctly in both cases.
+            Set Config.CallbackProject = GetCodeVBProject
             If Config.CallbackProject Is Nothing Then
                 With Application.WizHook
                     .Key = 51488399
