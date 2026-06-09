@@ -881,8 +881,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     If m_FileList Is Nothing Then
-        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
-        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml", "*.json")
     End If
     Set IDbComponent_GetFileList = m_FileList
 End Function

@@ -428,8 +428,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     If m_FileList Is Nothing Then
-        Set m_FileList = GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.bas")
-        MergeDictionary m_FileList, GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.cls")
+        Set m_FileList = GetFilePathsInFolderRecursive(IDbComponent_BaseFolder, "*.bas", "*.cls")
     End If
     Set IDbComponent_GetFileList = m_FileList
 End Function
