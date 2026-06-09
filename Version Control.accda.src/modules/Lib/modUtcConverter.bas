@@ -81,11 +81,6 @@ Private Declare PtrSafe Function utc_TzSpecificLocalTimeToSystemTime Lib "kernel
 ' From docs: the wYear is LOCAL time, so if the year converts over, you need to check the following (or prior) year.
 ' to ensure you get the correct time zone detail.
 ' Word of warning: https://devblogs.microsoft.com/oldnewthing/20110311-00/?p=11243
-Private Declare PtrSafe Function GetTimeZoneInformationForYear Lib "kernel32" ( _
-    wYear As Integer _
-    , ByRef lpDynamicTimeZoneInformation As DYNAMIC_TIME_ZONE_INFORMATION _
-    , ByRef lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION) As Long
-
 Private Declare PtrSafe Function GetDynamicTimeZoneInformation Lib "kernel32" ( _
     ByRef pTimeZoneInformation As DYNAMIC_TIME_ZONE_INFORMATION) As Long
 
@@ -101,12 +96,6 @@ Private Declare PtrSafe Function TzSpecificLocalTimeToSystemTimeEx Lib "kernel32
 
 #Else
 ' VBA 6 or less.
-
-Private Declare Function GetTimeZoneInformationForYear Lib "kernel32" ( _
-    wYear As Integer, _
-    lpDynamicTimeZoneInformation As DYNAMIC_TIME_ZONE_INFORMATION, _
-    lpTimeZoneInformation As utc_TIME_ZONE_INFORMATION _
-) As Long
 
 Private Declare Function GetDynamicTimeZoneInformation Lib "kernel32" ( _
     pTimeZoneInformation As DYNAMIC_TIME_ZONE_INFORMATION _
@@ -232,7 +221,6 @@ Public Function ConvertToLocalDate(ByVal utc_UtcDate As Date) As Date
     Dim UTCDateYear As Integer ' The year of UTC date.
 
     Dim utc_UtcDateSysTime As utc_SYSTEMTIME ' Gets the year and month to compare.
-    Dim utc_TimeZoneInfo As utc_TIME_ZONE_INFORMATION
 
     Dim utc_LocalDateSysTime As utc_SYSTEMTIME
 
@@ -242,9 +230,7 @@ Public Function ConvertToLocalDate(ByVal utc_UtcDate As Date) As Date
     UTCDateYear = utc_UtcDateSysTime.utc_wYear
 
 Recheck_Year:
-    ' Get the timezone data for that year.
-    GetDynamicTimeZoneInformation utc_DynamicTimeZoneInfo
-    GetTimeZoneInformationForYear UTCDateYear, utc_DynamicTimeZoneInfo, utc_TimeZoneInfo
+    utc_DynamicTimeZoneInfo = GetCachedDynamicTimeZone()
     SystemTimeToTzSpecificLocalTimeEx utc_DynamicTimeZoneInfo, utc_UtcDateSysTime, utc_LocalDateSysTime
 
     If UTCDateYear <> utc_LocalDateSysTime.utc_wYear Then
@@ -280,13 +266,11 @@ Public Function ConvertToUtc(utc_LocalDate As Date) As Date
     ConvertToUtc = utc_ConvertDate(utc_LocalDate, utc_ConvertToUtc:=True)
 #Else
     Dim utc_DynamicTimeZoneInfo As DYNAMIC_TIME_ZONE_INFORMATION
-    Dim utc_TimeZoneInfo As utc_TIME_ZONE_INFORMATION
     Dim utc_UtcDate As utc_SYSTEMTIME
     Dim utc_LocalSystemTime As utc_SYSTEMTIME
 
     utc_LocalSystemTime = utc_DateToSystemTime(utc_LocalDate)
-    GetDynamicTimeZoneInformation utc_DynamicTimeZoneInfo
-    GetTimeZoneInformationForYear utc_LocalSystemTime.utc_wYear, utc_DynamicTimeZoneInfo, utc_TimeZoneInfo
+    utc_DynamicTimeZoneInfo = GetCachedDynamicTimeZone()
     TzSpecificLocalTimeToSystemTimeEx utc_DynamicTimeZoneInfo, utc_LocalSystemTime, utc_UtcDate
 
     ConvertToUtc = utc_SystemTimeToDate(utc_UtcDate)
@@ -698,6 +682,25 @@ End Function
 
 #Else
 ' Windows
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetCachedDynamicTimeZone
+' Author    : Adam Waller
+' Date      : 6/9/2026
+' Purpose   : Return cached dynamic time zone information (stable for the process).
+'           : Avoids repeated registry lookups during bulk index date conversion.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetCachedDynamicTimeZone() As DYNAMIC_TIME_ZONE_INFORMATION
+    Static blnCached As Boolean
+    Static tzCached As DYNAMIC_TIME_ZONE_INFORMATION
+    If Not blnCached Then
+        GetDynamicTimeZoneInformation tzCached
+        blnCached = True
+    End If
+    GetCachedDynamicTimeZone = tzCached
+End Function
 
 
 ' Pass in a date, this will return a Windows SystemTime structure with millisecond accuracy.
