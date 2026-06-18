@@ -41,12 +41,3 @@ Public Sub TestGetDictionaryHash()
     TestAssert Len(GetDictionaryHash(d1)) > 0, "returns non-empty hash"
     TestAssert GetDictionaryHash(d1) = GetDictionaryHash(d2), "identical dictionaries same hash"
 End Sub
-
-
-Public Sub TestGetSimpleHash()
-    Dim strHash As String
-    strHash = GetSimpleHash("hello world")
-    TestAssert Len(strHash) = 7, "returns 7-char short hash"
-    TestAssert GetSimpleHash("hello world") = strHash, "deterministic"
-    TestAssert GetSimpleHash("different") <> strHash, "different inputs differ"
-End Sub

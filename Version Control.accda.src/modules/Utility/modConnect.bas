@@ -653,7 +653,7 @@ Public Function GetConnectionEnvKey(strConnect As String) As String
                 End If
             Next lngPart
             .Remove 1
-            GetConnectionEnvKey = ENV_KEY_PREFIX & GetSimpleHash(.GetStr)
+            GetConnectionEnvKey = ENV_KEY_PREFIX & Left$(GetStringHash(.GetStr), 7)
         End With
     End If
 

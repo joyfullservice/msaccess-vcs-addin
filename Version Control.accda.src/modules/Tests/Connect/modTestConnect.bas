@@ -58,6 +58,13 @@ Public Sub TestGetConnectionEnvKey()
     strKey = GetConnectionEnvKey("ODBC;DRIVER={SQL Server};SERVER=svr;DATABASE=SalesDB")
     TestAssert Left$(strKey, 5) = "conn_", "ODBC key starts with conn_ prefix"
     TestAssert InStr(strKey, "salesdb") > 0, "ODBC key contains db name"
+
+    ' No DATABASE or DSN: falls back to 7-char hash of connection string (credentials excluded)
+    strKey = GetConnectionEnvKey("ODBC;DRIVER={SQL Server};SERVER=svr;UID=user;PWD=secret")
+    TestAssert Left$(strKey, 5) = "conn_", "hash fallback starts with conn_ prefix"
+    TestAssert Len(strKey) = 12, "hash fallback is conn_ plus 7-char hash"
+    TestAssert GetConnectionEnvKey("ODBC;DRIVER={SQL Server};SERVER=svr;UID=user;PWD=secret") = strKey, _
+        "hash fallback is deterministic"
 End Sub
 
 
