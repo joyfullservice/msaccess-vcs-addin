@@ -202,7 +202,8 @@ Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinComm
 Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
     EFV_5_0_0 = 50000
-    [_Last] = 50000
+    EFV_5_1_0 = 50100      ' Extract conditional formatting blocks to companion JSON
+    [_Last] = 50100
 End Enum
 
 Public Const LATEST_EXPORT_FORMAT As Long = eExportFormatVersion.[_Last]

@@ -36,6 +36,8 @@ Private Type udtThis
     strOutput As String
     strVBA As String
     colBlocks As Collection
+    dConditionalFormat As Dictionary    ' Control name -> {CF14, Legacy} hex blocks
+    strCFControl As String              ' Name of the control currently being scanned
 End Type
 Private this As udtThis
 
@@ -106,6 +108,8 @@ Private Sub ResetContent()
         .strOutput = vbNullString
         .strVBA = vbNullString
         .blnOutputModified = False
+        Set .dConditionalFormat = Nothing
+        .strCFControl = vbNullString
     End With
     Me.ObjectName = vbNullString
 End Sub
@@ -208,6 +212,237 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MergeConditionalFormat
+' Author    : Adam Waller
+' Date      : 6/17/2026
+' Purpose   : Rebuild and reinsert per-control conditional formatting blocks from the
+'           : companion JSON file content. Always runs (no version gate) so that source
+'           : exported by newer versions can be imported by any build. Older source with
+'           : inline blocks simply has no ConditionalFormatting section to merge.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeConditionalFormat(strJson As String)
+
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim dControls As Dictionary
+    Dim varLines As Variant
+    Dim lngLine As Long
+    Dim strLine As String
+    Dim strTLine As String
+    Dim strName As String
+    Dim intIndent As Integer
+    Dim cCF As clsConditionalFormat
+    Dim cData As clsConcat
+    Dim blnStripInline As Boolean
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Make sure we have some output to work with
+    If Len(this.strOutput) = 0 Then this.strOutput = this.strInput
+    If strJson = vbNullString Then Exit Sub
+
+    ' Read the conditional formatting section from the companion JSON
+    Set dFile = ParseJson(strJson)
+    If dFile Is Nothing Then Exit Sub
+    If Not dFile.Exists("Items") Then Exit Sub
+    Set dItems = dFile("Items")
+    If Not dItems.Exists("ConditionalFormatting") Then Exit Sub
+    Set dControls = dItems("ConditionalFormatting")
+    If dControls Is Nothing Then Exit Sub
+    If dControls.Count = 0 Then Exit Sub
+
+    ' Rebuild the output, injecting the rebuilt blocks after each matching control's
+    ' Name property. (Property order within a control is not significant on import.)
+    ' The JSON is authoritative: for any control that has a JSON entry, drop any inline
+    ' binary block already in the source so the two representations can't both survive
+    ' (avoids duplicate blocks and makes the merge idempotent). Controls that have no
+    ' JSON entry keep their inline block untouched. This relies on the control's Name
+    ' property preceding its CF blocks, the same ordering the export capture assumes.
+    Perf.OperationStart "Merge Conditional Formatting"
+    Set cData = New clsConcat
+    cData.AppendOnAdd = vbCrLf
+    varLines = Split(this.strOutput, vbCrLf)
+    For lngLine = 0 To UBound(varLines)
+        strLine = varLines(lngLine)
+        strTLine = Trim$(strLine)
+
+        If blnStripInline Then
+            ' Discard the superseded inline block's lines through its closing End.
+            If strTLine = "End" Then blnStripInline = False
+        ElseIf (strTLine = "ConditionalFormat = Begin" _
+            Or strTLine = "ConditionalFormat14 = Begin") _
+            And Len(strName) > 0 And dControls.Exists(strName) Then
+            ' This control is rebuilt from JSON; strip its stale inline block.
+            blnStripInline = True
+            this.blnOutputModified = True
+        Else
+            cData.Add CStr(strLine)
+            If StartsWith(strTLine, "Name =""") Then
+                strName = ExtractControlName(strTLine)
+                If dControls.Exists(strName) Then
+                    intIndent = GetIndent(strLine)
+                    Set cCF = New clsConditionalFormat
+                    cCF.LoadFromDictionary dControls(strName)
+                    If cCF.HasRules Then
+                        ' Match Access output order: legacy block first, then CF14.
+                        cData.Add FormatCFBlock("ConditionalFormat", cCF.BuildLegacyHex, intIndent)
+                        cData.Add FormatCFBlock("ConditionalFormat14", cCF.BuildCF14Hex, intIndent)
+                        this.blnOutputModified = True
+                    End If
+                End If
+            End If
+        End If
+    Next lngLine
+
+    ' Remove the trailing line break and update the output
+    cData.Remove Len(vbCrLf)
+    this.strOutput = cData.GetStr
+    Perf.OperationEnd
+
+    CatchAny eelError, "Error merging conditional formatting", ModuleName(Me) & ".MergeConditionalFormat"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConditionalFormats
+' Author    : Adam Waller
+' Date      : 6/17/2026
+' Purpose   : Return the decoded conditional formatting captured during sanitizing,
+'           : keyed by control name. Empty dictionary if none were found.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetConditionalFormats() As Dictionary
+
+    Dim dResult As Dictionary
+    Dim varKey As Variant
+    Dim dControl As Dictionary
+    Dim cCF As clsConditionalFormat
+
+    Set dResult = New Dictionary
+    dResult.CompareMode = TextCompare
+    Set GetConditionalFormats = dResult
+    If this.dConditionalFormat Is Nothing Then Exit Function
+
+    Perf.OperationStart "Decode Conditional Formatting"
+    For Each varKey In this.dConditionalFormat.Keys
+        Set dControl = this.dConditionalFormat(varKey)
+        ' CF14 is the authoritative, complete copy; decode from it.
+        If dControl.Exists("CF14") Then
+            Set cCF = New clsConditionalFormat
+            cCF.LoadFromCF14Hex CStr(dControl("CF14"))
+            If cCF.HasRules Then dResult.Add CStr(varKey), cCF.GetDictionary
+        End If
+    Next varKey
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StoreCFBlock
+' Author    : Adam Waller
+' Date      : 6/17/2026
+' Purpose   : Save a captured conditional formatting hex block for the current control.
+'---------------------------------------------------------------------------------------
+'
+Private Sub StoreCFBlock(strKind As String, cBuffer As clsConcat)
+
+    Dim dControl As Dictionary
+
+    If this.dConditionalFormat Is Nothing Then Set this.dConditionalFormat = New Dictionary
+    If this.dConditionalFormat.Exists(this.strCFControl) Then
+        Set dControl = this.dConditionalFormat(this.strCFControl)
+    Else
+        Set dControl = New Dictionary
+        this.dConditionalFormat.Add this.strCFControl, dControl
+    End If
+    dControl(strKind) = cBuffer.GetStr
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractHexBytes
+' Author    : Adam Waller
+' Date      : 6/17/2026
+' Purpose   : Return the hex byte characters from a binary block line, stripping the
+'           : "0x" prefix and any trailing comma separator.
+'           : Input:  0x010000007e000000... ,
+'           : Output: 010000007e000000...
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractHexBytes(strTLine As String) As String
+    Dim strHex As String
+    strHex = Trim$(Mid$(strTLine, 3))
+    If Right$(strHex, 1) = "," Then strHex = Trim$(Left$(strHex, Len(strHex) - 1))
+    ExtractHexBytes = strHex
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractControlName
+' Author    : Adam Waller
+' Date      : 6/17/2026
+' Purpose   : Return the quoted control name from a Name property line.
+'           : Input:  Name ="Text9"
+'           : Output: Text9
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractControlName(strTLine As String) As String
+    Dim lngStart As Long
+    Dim lngEnd As Long
+    lngStart = InStr(1, strTLine, """")
+    If lngStart > 0 Then
+        lngEnd = InStrRev(strTLine, """")
+        If lngEnd > lngStart Then ExtractControlName = Mid$(strTLine, lngStart + 1, lngEnd - lngStart - 1)
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatCFBlock
+' Author    : Adam Waller
+' Date      : 6/17/2026
+' Purpose   : Format a hex byte string into an Access binary block (Name = Begin / 0x.. /
+'           : End) using 32 bytes (64 hex characters) per line, matching SaveAsText.
+'---------------------------------------------------------------------------------------
+'
+Private Function FormatCFBlock(strName As String, strHex As String, intIndent As Integer) As String
+
+    Dim cData As clsConcat
+    Dim lngPos As Long
+    Dim lngTotal As Long
+    Dim strChunk As String
+    Const CHARS_PER_LINE As Long = 64   ' 32 bytes per line
+
+    If Len(strHex) = 0 Then Exit Function
+
+    Set cData = New clsConcat
+    cData.AppendOnAdd = vbCrLf
+    cData.Add Space$(intIndent) & strName & " = Begin"
+    lngTotal = Len(strHex)
+    lngPos = 1
+    Do While lngPos <= lngTotal
+        strChunk = Mid$(strHex, lngPos, CHARS_PER_LINE)
+        lngPos = lngPos + CHARS_PER_LINE
+        If lngPos <= lngTotal Then
+            cData.Add Space$(intIndent + 4) & "0x" & strChunk & " ,"
+        Else
+            cData.Add Space$(intIndent + 4) & "0x" & strChunk
+        End If
+    Loop
+    cData.Add Space$(intIndent) & "End"
+
+    ' Remove the trailing line break (the caller's concat adds its own)
+    cData.Remove Len(vbCrLf)
+    FormatCFBlock = cData.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SaveObjectVBA
 ' Author    : Adam Waller
 ' Date      : 10/31/2023
@@ -251,6 +486,10 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     Dim blnIsPassThroughQuery As Boolean
     Dim curStart As Currency
     Dim cVBA As clsConcat
+    Dim blnInsideCFBlock As Boolean
+    Dim cCFBuffer As clsConcat
+    Dim strCFKind As String
+    Dim blnStripCF As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -263,6 +502,13 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
 
     Perf.OperationStart "Sanitize File"
     varLines = Split(this.strInput, vbCrLf)
+
+    ' Determine whether to extract per-control conditional formatting blocks to the
+    ' companion JSON file. Gated behind the export format version and the option, and
+    ' only applies to forms and reports (the only objects that carry these blocks).
+    blnStripCF = (Options.ExportFormatVersion >= EFV_5_1_0) _
+        And Options.DecodeConditionalFormatting _
+        And (this.intObjectType = edbForm Or this.intObjectType = edbReport)
 
     ' Set up index of lines to skip
     ReDim this.lngSkipLines(0 To UBound(varLines)) As Long
@@ -284,6 +530,19 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
         ' Improve performance by reducing comparisons
         If Len(strTLine) > 3 And blnInsideIgnoredBlock Then
             SkipLine lngLine
+        ElseIf blnInsideCFBlock Then
+            ' Capturing a conditional formatting block for the current control.
+            If strTLine = "End" Then
+                StoreCFBlock strCFKind, cCFBuffer
+                blnInsideCFBlock = False
+                SkipLine lngLine
+            ElseIf StartsWith(strTLine, "0x") Then
+                cCFBuffer.Add ExtractHexBytes(strTLine)
+                SkipLine lngLine
+            Else
+                ' Unexpected content inside the block; skip to stay safe.
+                SkipLine lngLine
+            End If
         ElseIf Len(strTLine) > 60 And StartsWith(strTLine, "0x") Then
             ' Add binary data line. No need to test this line further.
         Else
@@ -305,6 +564,20 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                     ' Set flag to ignore lines inside this block.
                     blnInsideIgnoredBlock = True
                     SkipLine lngLine
+
+                ' Per-control conditional formatting blocks. When enabled, capture the
+                ' hex content for serialization to the companion JSON and strip it from
+                ' the source file. Requires a known control name (see Name tracking below).
+                Case "ConditionalFormat = Begin", "ConditionalFormat14 = Begin"
+                    If blnStripCF And Len(this.strCFControl) > 0 Then
+                        blnInsideCFBlock = True
+                        strCFKind = IIf(strTLine = "ConditionalFormat14 = Begin", "CF14", "Legacy")
+                        Set cCFBuffer = New clsConcat
+                        SkipLine lngLine
+                    Else
+                        ' Leave the block in place as a generic binary block.
+                        BeginBlock
+                    End If
 
                 ' Aggressive sanitize blocks
                 Case "GUID = Begin", _
@@ -434,6 +707,12 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         BeginBlock
                     Else
                         ' All other lines will be added.
+
+                        ' Track the current control name so conditional formatting
+                        ' blocks can be keyed correctly in the companion JSON.
+                        If blnStripCF Then
+                            If StartsWith(strTLine, "Name =""") Then this.strCFControl = ExtractControlName(strTLine)
+                        End If
 
                         ' Check for color properties
                         If InStr(1, strTLine, " =") > 1 Then CheckColorProperties strTLine, lngLine

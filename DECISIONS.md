@@ -81,6 +81,50 @@ contradictory guidance.
 
 ---
 
+## 2026-06-17 — Conditional formatting blocks decoded to companion JSON
+
+**Trigger**: The per-control `ConditionalFormat` / `ConditionalFormat14` properties on form
+and report controls export as opaque binary hex blocks. Any formatting change produces a
+large, meaningless hex diff. We wanted the same clean-diff treatment we already give print
+settings (`PrtMip`): strip the binary from source and store decoded, human-readable rules.
+
+**Options explored**:
+- *Raw hex in JSON* — store the hex blocks verbatim in the `.json`. Lossless and trivially
+  byte-exact, but no more readable than leaving them inline. Rejected (defeats the purpose).
+- *Hybrid (decode + raw hex fallback)* — decode for readability, keep raw hex for blocks we
+  can't byte-rebuild. Safe but reintroduces hex noise. Rejected by the maintainer.
+- *Full decode + rebuild (chosen)* — decode both blocks to a rule model, rebuild both on
+  import. Cleanest JSON; relies on rebuild fidelity.
+
+**Decision**: Full decode + rebuild via `clsConditionalFormat`. The **CF14** block is the
+authoritative source and rebuilds **byte-for-byte** for every rule shape (expression,
+field-value/between, focus, data bar), validated by formulas derived from the fixtures
+(non-data-bar body length = `37 + 2·exprUnits`; data bar length = `P + 13`). The **legacy**
+block is single-type and rebuilds byte-exact for single-rule controls (the common case);
+its multi-rule per-rule layout is undocumented, so multi-rule legacy is rebuilt best-effort
+(correct header/flags/colors/expressions). Both blocks are always emitted to stay consistent
+with Access's precedence (legacy wins for overlapping rules). Gated behind export format
+version `EFV_5_1_0` and the `DecodeConditionalFormatting` option (default on); import is
+unconditional and backward compatible.
+
+**What this rules out**: We do not store raw hex, so a control whose CF14 cannot be decoded
+would lose its formatting on rebuild — acceptable because CF14 is the complete, verified
+copy. Multi-rule legacy blocks are not guaranteed byte-identical to Access's original; if a
+future Access version rejects our best-effort legacy layout, revisit by reverse-engineering
+the multi-rule legacy per-rule descriptor bytes (offsets 40–55 in the Text11 fixture) or by
+falling back to the hybrid raw-hex approach. Byte-exactness is enforced by
+`modTestConditionalFormat` (CF14 all shapes; legacy single-rule shapes).
+
+**Relevant files**: `modules/Core/clsConditionalFormat.cls` (new),
+`modules/Core/clsSourceParser.cls` (capture/strip + `MergeConditionalFormat`),
+`modules/Core/modLoadSaveText.bas` (`WriteConditionalFormatting` + pipeline),
+`modules/Infrastructure/modConstants.bas` (`EFV_5_1_0`),
+`modules/Infrastructure/clsOptions.cls` + `forms/frmVCSOptionsExport`
+(`DecodeConditionalFormatting`), `modules/Tests/Core/modTestConditionalFormat.bas`,
+`docs/access-conditional-format.md`.
+
+---
+
 ## 2026-06-02 — Global suite hooks in VCS test runner
 
 **Trigger**: Consumer projects need once-per-run setup/teardown (suite fixtures) around

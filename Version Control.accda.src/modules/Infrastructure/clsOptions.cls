@@ -39,6 +39,7 @@ Public FormatSQL As Boolean
 Public UseDeterministicQueryExport As Boolean
 Public SaveTableSQL As Boolean
 Public SavePrintVars As Boolean
+Public DecodeConditionalFormatting As Boolean
 Public ExtractThemeFiles As Boolean
 Public UseEnvForConnections As eUseEnvConnections
 Public EnvConnectionNames As Collection ' User-defined named connection keys for .env
@@ -123,6 +124,7 @@ Public Sub LoadDefaults()
         .UseDeterministicQueryExport = True
         .SaveTableSQL = True
         .SavePrintVars = True
+        .DecodeConditionalFormatting = True
         .UseEnvForConnections = uecAuto
         Set .EnvConnectionNames = New Collection
         .ExportLayoutSvg = False
@@ -754,7 +756,7 @@ Public Function GetCategoryHashes() As Dictionary
         Select Case CStr(varKey)
 
             ' --- Forms and Reports ---
-            Case "SavePrintVars", "ExportPrintSettings", _
+            Case "SavePrintVars", "ExportPrintSettings", "DecodeConditionalFormatting", _
                  "SplitLayoutFromVBA", "SanitizeColors", _
                  "ExportLayoutSvg", "LayoutSvgImageEmbed", "LayoutSvgScaleMode"
                 AddToCat dCats, "Forms", varKey, dOptions("Options")
@@ -978,6 +980,7 @@ Private Sub Class_Initialize()
         .Add "UseDeterministicQueryExport"
         .Add "SaveTableSQL"
         .Add "SavePrintVars"
+        .Add "DecodeConditionalFormatting"
         .Add "ExtractThemeFiles"
         .Add "UseEnvForConnections"
         .Add "EnvConnectionNames"

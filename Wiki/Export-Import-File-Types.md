@@ -13,7 +13,7 @@ Note that in your export folder you will only see the folders and files for the 
     └── Database.accdb.src              # Folder for source file export (default path)
         ├── forms                       # Access forms
         │   ├── MyForm.form             # Object definition (legacy: .bas)
-        │   └── MyForm.json             # Custom print settings (if used)
+        │   └── MyForm.json             # Print settings and/or conditional formatting (if used)
         ├── images                      # Linked images
         │   ├── MyPicture.png           # Image file
         │   └── MyPicture.json          # Image metadata
@@ -31,7 +31,7 @@ Note that in your export folder you will only see the folders and files for the 
         │   └── Table1Table2.json       # Json representation of a single relationship
         ├── reports                     # Reports
         │   ├── MyReport.report         # Object definition (legacy: .bas)
-        │   └── MyReport.json           # Print settings
+        │   └── MyReport.json           # Print settings and/or conditional formatting
         ├── savedspecs                  # XML-based import/export specifications
         │   └── MyExport.json           # Metadata with embedded XML
         ├── tables                      # Table data
@@ -92,7 +92,7 @@ Forms are exported into the `forms` folder by default. Each form will be exporte
 |:-|:-:|:-
 |`*.form`|Form Export |Object definition for each form present in the database. (Legacy projects may use `*.bas` instead; both are accepted on import.)
 |`*.cls`|Code Behind Form Export |Exported for each form present in the database. **Only exported when [Options/Export/ "Split Layout from VBA"](Options#export-tab) is _ON_.**
-|`*.json`|Form Print settings |Only exported if the form has print settings (rare). Contains printer formatting and page settings.
+|`*.json`|Form print settings and/or conditional formatting |Exported if the form has custom print settings (rare) and/or controls with conditional formatting. Contains printer formatting/page settings and a decoded, human-readable `ConditionalFormatting` section keyed by control name. Controlled by the **Save Printer Settings** and **Decode conditional formatting to JSON** export options.
 
 
 ### [YourSource.extension].src\images

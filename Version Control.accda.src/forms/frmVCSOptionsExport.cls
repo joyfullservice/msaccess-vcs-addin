@@ -59,8 +59,9 @@ Private Sub Form_Load()
     With Me.cboExportFormatVersion
         .RowSource = vbNullString
         For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]
+            ' Packed version integers are sparse; whitelist real enum members only.
             Select Case lngFormat
-                Case EFV_4_1_2, EFV_5_0_0
+                Case EFV_4_1_2, EFV_5_0_0, EFV_5_1_0
                     If lngFormat = LATEST_EXPORT_FORMAT Then
                         .AddItem lngFormat & ";" & ExportFormatToVersion(lngFormat) & " (latest)"
                     Else
@@ -118,6 +119,7 @@ Private Sub LoadOptions()
         Me.chkUseDeterministicQueryExport = .UseDeterministicQueryExport
         Me.chkSaveTableSQL = .SaveTableSQL
         Me.chkSavePrintVars = .SavePrintVars
+        Me.chkDecodeConditionalFormatting = .DecodeConditionalFormatting
         Me.chkExtractThemeFiles = .ExtractThemeFiles
         Me.cboUseEnvForConnections = .UseEnvForConnections
 
@@ -165,6 +167,7 @@ Private Sub SaveOptions()
         .UseDeterministicQueryExport = Nz(Me.chkUseDeterministicQueryExport)
         .SaveTableSQL = Nz(Me.chkSaveTableSQL)
         .SavePrintVars = Nz(Me.chkSavePrintVars)
+        .DecodeConditionalFormatting = Nz(Me.chkDecodeConditionalFormatting)
         .ExtractThemeFiles = Nz(Me.chkExtractThemeFiles)
         .UseEnvForConnections = Nz(Me.cboUseEnvForConnections)
 
