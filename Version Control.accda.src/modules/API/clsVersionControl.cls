@@ -1850,7 +1850,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RunRoundtripTests
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Run the object round-trip regression harness against a fixture
 '           : folder. Each fixture is imported into a sandbox object, exported,
@@ -1900,7 +1900,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ValidateQuerySqlBuilder
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/29/2026
 ' Purpose   : Run the query SQL builder validation tool against the current database.
 '           : The validator compares fast MSysQueries-based SQL reconstruction against
@@ -1916,7 +1916,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : InspectQuerySqlStorage
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/30/2026
 ' Purpose   : Developer diagnostic helper. Creates a temporary sandbox query from
 '           : SQL, optionally asks Access to save it from Design View, reads the
@@ -1931,7 +1931,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : CompareSqlBuilderArtifacts
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/30/2026
 ' Purpose   : Developer diagnostic helper. Compares validation artifact
 '           : access.sql/generated.sql pairs through DAO row counts and schemas,

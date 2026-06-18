@@ -1,7 +1,7 @@
 ﻿Attribute VB_Name = "modTestRoundtrip"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestRoundtrip
-' Author    : Adam Waller / VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Generalized object round-trip regression harness.
 '           :
@@ -68,7 +68,7 @@ Private m_colScaffoldQueries As Collection
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RunObjectRoundtripTests
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Main entry point for the harness. Iterates fixtures under
 '           : strFixtureFolder and returns a JSON result document.
@@ -263,7 +263,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RunQueryFixtures
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Enumerate every .sql fixture under strQueriesFolder (recursive)
 '           : and run the round-trip on each one. Adds a result Dictionary to
@@ -304,7 +304,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RunQueryRoundtrip
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Execute the two-pass round-trip for a single .sql fixture and
 '           : return a result dictionary.
@@ -504,7 +504,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : BindComponentAfterImport
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/25/2026
 ' Purpose   : Satisfy the IDbComponent.Export precondition by Set'ing DbObject
 '           : to the freshly-imported AccessObject. Test code imports under a
@@ -541,7 +541,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ComparePass1ToFixture
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Compare the Pass 1 export against the canonical fixture.
 '           :  - .sql is compared byte-for-byte.
@@ -590,7 +590,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ComparePass2Idempotency
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Compare Pass 2 against Pass 1. Both passes export the same
 '           : in-memory query under the same sandbox name, so even
@@ -627,7 +627,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : CompareJsonFiles
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Structural comparison of two .json files, ignoring the entire
 '           : Info block (which contains Description == query name and
@@ -704,7 +704,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : StripInfoSection
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Remove the entire "Info" block from a parsed .json document, in
 '           : place. The Info block (Class + Description) is purely descriptive
@@ -720,7 +720,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RebaselineFixtureJson
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Read the actual sandbox-export .json, rewrite Info.Description
 '           : back to the original (canonical) query name, and write the result
@@ -753,7 +753,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : EnumerateSqlFixtures
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Recursively enumerate .sql files under strRoot (skipping any
 '           : "_scaffold" subfolders, which are handled separately). Returns a
@@ -793,7 +793,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadScaffold / UnloadScaffold
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Pre-load supporting objects (currently queries only) from the
 '           : "_scaffold" folder of the fixture root and register them for
@@ -855,7 +855,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : CleanupStaleObjects
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Drop any leftover sandbox objects (vcs_test_* / vcs_scaffold_*)
 '           : at the start of a run. These can accumulate if a previous run
@@ -891,7 +891,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : DeleteSandboxObject
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/25/2026
 ' Purpose   : Drop a sandboxed (or scaffold) object via the lowest-level DAO/VBE
 '           : API for its type. Bypasses modDatabase.DeleteObjectIfExists, which
@@ -944,7 +944,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ProvisionScratchFolder
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Create a fresh per-run scratch folder under the fixture root's
 '           : "scratch\" subfolder, named after the current operation ID so
@@ -961,7 +961,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : MakeUnifiedDiff
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Produce a small unified-diff-style report between two text blobs.
 '           : Not a full Myers diff -- this is a line-by-line scanner that
@@ -1037,7 +1037,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AddCheck / AddCheckWithDiff
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Append a check result dictionary to colChecks.
 '           : "diff" is omitted when there is none; "diffTruncated" is set when
@@ -1074,7 +1074,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RollUpStatus
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Reduce a collection of check dictionaries to a single status:
 '           : "error" > "fail" > "skip" > "pass" (left wins).
@@ -1116,7 +1116,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LogFixtureResult
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Write a single-line summary for a fixture to the console log,
 '           : plus full diff text into the log file when there were failures.
@@ -1169,7 +1169,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : BuildStatsDict
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Tally pass/fail/skip/error counts across all fixture results.
 '---------------------------------------------------------------------------------------
@@ -1199,7 +1199,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : CollectionToJsonArray
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Convert a Collection into a Collection that ConvertToJson will
 '           : serialize as a JSON array (it already does -- this helper exists
@@ -1217,7 +1217,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetDefaultFixtureRoot
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : Resolve the path to the harness's own fixture corpus shipped in
 '           : the add-in repo. Assumes the running .accda lives at the repo
@@ -1236,7 +1236,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RunQdefValidation
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Generate the .qdef that the emitter would produce for a fixture
 '           : and run two validation checks:
@@ -1378,7 +1378,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ValidateQdefJoinTables
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Parse a Design View .qdef string and verify that every join row's
 '           : LeftTable and RightTable appear in its Expression.
@@ -1472,7 +1472,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ValidateJoinRow
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Check that every table referenced in the Expression (via table.field
 '           : notation) is either LeftTable or RightTable. This catches the bug
@@ -1513,7 +1513,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ExtractTableRefsFromExpression
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Extract unique table names from "table.field" patterns in a join
 '           : expression. Handles both bare (tblFoo.ID) and bracketed ([tblFoo].ID)
@@ -1583,7 +1583,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ExtractQdefQuotedValue
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Extract the value from a .qdef line like:
 '           :     LeftTable ="tblCars"
@@ -1607,7 +1607,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : UnquoteQdefValue
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Extract the text from a .qdef continuation line like:
 '           :     "more expression text"

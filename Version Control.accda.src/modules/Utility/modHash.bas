@@ -357,7 +357,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : UniqueHashSuffix
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/24/2026
 ' Purpose   : 8-character hex suffix for an arbitrary string. Used to make
 '           : sandbox object names unique across concurrent / repeated runs.

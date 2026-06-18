@@ -1,7 +1,7 @@
 ﻿Attribute VB_Name = "modTestQuerySqlBuilder"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestQuerySqlBuilder
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/29/2026
 ' Purpose   : Diagnostic harness that validates the fast MSysQueries SQL builder
 '           : against Access's own QueryDefs.SQL text for the current database.
@@ -29,7 +29,7 @@ Private Const DIFF_MAX_CHARS_FOR_JSON As Long = 4000
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RunQuerySqlBuilderValidation
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/29/2026
 ' Purpose   : Compare reconstructed SQL to Access QueryDefs.SQL for selected
 '           : queries or all queries in the current database. Returns a JSON
@@ -232,7 +232,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : InspectQuerySqlStorage
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/30/2026
 ' Purpose   : Create a sandbox query from SQL and return Access-authored
 '           : QueryDefs.SQL plus MSysObjects/MSysQueries storage rows. This is
@@ -305,7 +305,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : CompareSqlBuilderArtifacts
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/30/2026
 ' Purpose   : Compare SQL builder validation artifacts with DAO row counts and
 '           : field schemas. This runs inside Access so VBA UDFs and linked
