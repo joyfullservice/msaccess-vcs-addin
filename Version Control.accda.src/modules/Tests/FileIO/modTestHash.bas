@@ -48,6 +48,6 @@ Public Sub TestUniqueHashSuffix()
     Dim strSuffix2 As String
     strSuffix1 = UniqueHashSuffix("same input")
     strSuffix2 = UniqueHashSuffix("same input")
-    TestAssert Len(strSuffix1) = 8, "returns 8-character suffix"
+    TestAssert Len(strSuffix1) = 7, "returns 7-character suffix"
     TestAssert strSuffix1 <> strSuffix2, "non-deterministic (same input = different output)"
 End Sub
