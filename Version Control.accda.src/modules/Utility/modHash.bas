@@ -356,15 +356,21 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ShortHash
+' Procedure : UniqueHashSuffix
 ' Author    : VCS contributors
 ' Date      : 4/24/2026
-' Purpose   : 8-character hex hash of an arbitrary string. Used to make
+' Purpose   : 8-character hex suffix for an arbitrary string. Used to make
 '           : sandbox object names unique across concurrent / repeated runs.
+'           : Mixes in Perf.MicroTimer plus a per-call static counter, so two
+'           : calls landing in the same timer tick still produce distinct
+'           : output. The counter wraps just below Long.MaxValue to avoid
+'           : overflow; its period far exceeds the calls possible per tick.
 '---------------------------------------------------------------------------------------
 '
-Public Function ShortHash(ByVal s As String) As String
+Public Function UniqueHashSuffix(ByVal s As String) As String
+    Static lngCounter As Long
     Dim strFull As String
-    strFull = GetStringHash(s & ":" & CStr(Perf.MicroTimer))
-    ShortHash = LCase$(Left$(strFull, 8))
+    lngCounter = (lngCounter Mod 2147483646) + 1
+    strFull = GetStringHash(s & ":" & CStr(Perf.MicroTimer) & ":" & CStr(lngCounter))
+    UniqueHashSuffix = LCase$(Left$(strFull, 8))
 End Function

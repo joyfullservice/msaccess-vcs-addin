@@ -382,7 +382,7 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
     End If
 
     ' Build sandbox names + paths.
-    strSandboxName = TEST_PREFIX & strOriginalName & "_" & ShortHash(strFixtureSql & Now)
+    strSandboxName = TEST_PREFIX & strOriginalName & "_" & UniqueHashSuffix(strFixtureSql & Now)
     dResult.Add "sandboxName", strSandboxName
 
     strPass1Folder = strScratch & "pass1" & PathSep

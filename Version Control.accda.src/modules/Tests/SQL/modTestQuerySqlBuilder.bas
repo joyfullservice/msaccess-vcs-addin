@@ -513,8 +513,8 @@ Private Function CompareOneSqlBuilderArtifact(ByVal strArtifactFolder As String)
     Set dResult = New Dictionary
     Set dbs = CurrentDb
     strName = FSO.GetFileName(strArtifactFolder)
-    strAccessQueryName = "vcs_cmp_access_" & ShortHash(strArtifactFolder)
-    strGeneratedQueryName = "vcs_cmp_generated_" & ShortHash(strArtifactFolder)
+    strAccessQueryName = "vcs_cmp_access_" & UniqueHashSuffix(strArtifactFolder)
+    strGeneratedQueryName = "vcs_cmp_generated_" & UniqueHashSuffix(strArtifactFolder)
 
     dResult.Add "name", strName
     dResult.Add "artifactFolder", strArtifactFolder
