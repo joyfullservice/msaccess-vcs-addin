@@ -81,6 +81,47 @@ contradictory guidance.
 
 ---
 
+## 2026-06-18 — Build-time cleanup for duplicate `@Folder` source files
+
+**Trigger**: AI agents repeatedly created a second copy of a VBA module in the wrong
+folder (e.g. `modules/modTestRoundtrip.bas` alongside `modules/Tests/modTestRoundtrip.bas`)
+because file placement is driven by the `'@Folder` comment inside the file, not the folder
+being edited. Build/import scanned both copies recursively and silently last-one-wins; orphan
+cleanup did not remove them because the DB object still existed. Export already deleted
+stale copies per module via `CleanupDuplicateSourceFiles`, but build had no equivalent.
+
+**Options explored**:
+- *Agent guidance only* — document the rule in AGENTS.md and `.cursor/rules`. Cheap but
+  agents still miss it; duplicates persist until someone exports from Access.
+- *Import warning only* — detect duplicates and warn without deleting. Surfaces the problem
+  but still requires manual cleanup and leaves merge-index false positives.
+- *Build-time auto-cleanup + guidance + export warning (chosen)* — before build/merge scan,
+  group module files by basename; parse each file's `@Folder` from text; when exactly one copy
+  sits in its annotation-derived folder, delete the others; ambiguous groups warn and are
+  left alone.
+
+**Decision**: Add `GetFolderAnnotationFromText` (shared with live VBE reader) and
+`RemoveDuplicateComponentFiles` (with module/form/report wrappers), called at the start of
+`modBuild.Build` for the `modules/`, `forms/`, and `reports/` base folders. Duplicate
+detection keys on **distinct folders** per basename (not raw file count), so a form's
+`.form` + `.cls` + `.json` in one folder is not treated as duplicates. For forms/reports,
+`@Folder` is read from the `.cls` code-behind when present. `WarnDuplicate*Basenames`
+runs after export as a safety net. Agent docs updated to require searching the full
+component tree before creating a source file.
+
+**What this rules out**: We do not auto-delete when zero or multiple copies match their
+annotation path (divergent edits or two agents writing different folders). Those cases log
+a warning and keep current last-one-wins import behavior until a human resolves them.
+We do not relocate a lone misplaced instance with no duplicate to compare against — export
+handles moves via `MoveSource` + `CleanupDuplicateSourceFiles`.
+
+**Relevant files**: `modules/Core/modVbeUtility.bas` (`GetFolderAnnotationFromText`,
+`RemoveDuplicateModuleFiles`, `WarnDuplicateModuleBasenames`), `modules/Core/modBuild.bas`,
+`modules/Core/modExport.bas`, `modules/Tests/Core/modTestFolderPlacement.bas`,
+`.cursor/rules/vba-source-files.mdc`, `Version Control.accda.src/AGENTS.md`.
+
+---
+
 ## 2026-06-17 — Conditional formatting blocks decoded to companion JSON
 
 **Trigger**: The per-control `ConditionalFormat` / `ConditionalFormat14` properties on form

@@ -278,6 +278,18 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Build collections of files to import/merge
     Log.Add T("Scanning source files...")
     Log.Flush
+
+    ' Remove misplaced duplicate module/form/report copies before scanning (agent/git drift).
+    Dim cModuleCategory As IDbComponent
+    Dim cFormCategory As IDbComponent
+    Dim cReportCategory As IDbComponent
+    Set cModuleCategory = New clsDbModule
+    Set cFormCategory = New clsDbForm
+    Set cReportCategory = New clsDbReport
+    RemoveDuplicateModuleFiles cModuleCategory.BaseFolder
+    RemoveDuplicateFormFiles cFormCategory.BaseFolder
+    RemoveDuplicateReportFiles cReportCategory.BaseFolder
+
     Set dCategories = New Dictionary
     VCSIndex.Conflicts.Initialize dCategories, eatImport
     Perf.OperationStart "Scan Source Files"

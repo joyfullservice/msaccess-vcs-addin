@@ -58,7 +58,15 @@ End Sub
 
 **Note:** `Option` statements are not required - some codebases omit them entirely.
 
-**`@Folder` annotations:** Starting with export format 5.0.0, the add-in reads Rubberduck-style `'@Folder("Category")` annotations and exports modules into matching subdirectories under `modules/` (e.g., `'@Folder("Core")` exports to `modules/Core/`). Dots become path separators (`'@Folder("Components.ADP")` exports to `modules/Components/ADP/`). During import, subdirectories are scanned recursively. Modules without an `@Folder` annotation remain directly in `modules/`.
+**`@Folder` annotations:** Starting with export format 5.0.0, the add-in reads Rubberduck-style `'@Folder("Category")` annotations and exports modules into matching subdirectories under `modules/` (e.g., `'@Folder("Core")` exports to `modules/Core/`). Dots become path separators (`'@Folder("Components.ADP")` exports to `modules/Components/ADP/`). During import, subdirectories are scanned recursively. Modules without an `@Folder` annotation remain directly in `modules/`. The same subfolder layout applies to forms (`forms/`) and reports (`reports/`).
+
+**Critical for agents — file location follows the annotation, not the folder you are editing in:**
+
+- The `'@Folder("X.Y")` comment inside the file decides where it belongs on disk (`modules/X/Y/<name>.bas`, `forms/X/Y/<name>.form`, etc.).
+- For **modules**, the annotation is in the `.bas` or `.cls` file itself. For **forms and reports**, the annotation lives in the `.cls` code-behind file (not in `.form`/`.report`, `.json`, or `.svg`).
+- Before creating or moving a component, search the **entire** `modules/`, `forms/`, or `reports/` tree for an existing file with the same basename (`Attribute VB_Name` for modules). Edit that file in place; never create a second copy elsewhere.
+- If two copies exist (e.g. `modules/modFoo.bas` and `modules/Tests/modFoo.bas`), build/import processes **both** and the last import silently wins — no error is shown. This is a common source of drift when agents write to the wrong folder.
+- Build now auto-removes misplaced duplicates (modules, forms, and reports) when exactly one copy sits in its annotation-derived folder; ambiguous cases are left in place with a warning. Deleting a duplicate form/report removes the whole source group (`.form`/`.report` + `.cls` + `.json` + `.svg`) together.
 
 ### Class Modules (`.cls` files in `modules/`)
 
