@@ -479,12 +479,20 @@ End Function
 '           : (Useful for determining if any of the source files have been modified.)
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSourceFilesPropertyHash(cmp As IDbComponent, Optional strFile As String) As String
+'           : When dMeta is supplied (a path -> Array(date, size) map from a single
+'           : Win32 folder scan, see ScanFolderMetadata), file dates/sizes are read from
+'           : it instead of a per-file FSO.GetFile, which is dramatically faster on large
+'           : folders. The cached values are passed to clsConcat exactly as the FSO values
+'           : would be, so the resulting hash is identical. When dMeta is omitted (e.g.
+'           : the export-write path, where files are changing), it falls back to FSO.
+Public Function GetSourceFilesPropertyHash(cmp As IDbComponent, Optional strFile As String, _
+    Optional dMeta As Dictionary) As String
 
     Dim varExt As Variant
     Dim strSourceFile As String
     Dim strBaseFile As String
     Dim oFile As Scripting.File
+    Dim varMeta As Variant
 
     Perf.OperationStart "Get File Property Hash"
 
@@ -503,7 +511,18 @@ Public Function GetSourceFilesPropertyHash(cmp As IDbComponent, Optional strFile
         ' Check each possible file extension to find all the source files
         For Each varExt In cmp.FileExtensions
             strSourceFile = strBaseFile & "." & varExt
-            If FSO.FileExists(strSourceFile) Then
+            If Not dMeta Is Nothing Then
+                ' Use date/size captured in the single folder scan. Absence from the
+                ' map means the file does not exist (same as FSO.FileExists = False).
+                If dMeta.Exists(strSourceFile) Then
+                    varMeta = dMeta(strSourceFile)
+                    ' Parentheses force each Variant element to be passed ByVal so it
+                    ' coerces to clsConcat.Add's ByRef String parameter -- the same
+                    ' implicit Date/Number -> String coercion the FSO branch relies on,
+                    ' which keeps the resulting hash identical.
+                    .Add (varMeta(0)), (varMeta(1))
+                End If
+            ElseIf FSO.FileExists(strSourceFile) Then
                 Set oFile = FSO.GetFile(strSourceFile)
                 .Add oFile.DateLastModified, oFile.Size
             End If

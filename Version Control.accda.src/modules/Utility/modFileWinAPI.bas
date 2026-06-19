@@ -307,6 +307,78 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ScanFolderMetadata
+' Author    : Adam Waller
+' Date      : 6/9/2026
+' Purpose   : Single-pass Win32 scan returning a dictionary keyed by full file path with
+'           : a Variant array value of (DateLastModified, Size) for every file in the
+'           : folder (and subfolders when blnRecursive). This lets callers obtain dates
+'           : and sizes for an entire folder in one directory walk instead of issuing a
+'           : per-file FSO.GetFile, which is ~20x faster on large source folders.
+'           : The date is converted to the same local VBA Date that FSO.DateLastModified
+'           : returns, so property hashes built from this data match the FSO-based values
+'           : already stored in the index. Keys use case-insensitive comparison to mirror
+'           : FSO.FileExists semantics.
+'---------------------------------------------------------------------------------------
+'
+Public Function ScanFolderMetadata(strFolder As String, Optional blnRecursive As Boolean = True) As Dictionary
+
+    Dim dMeta As Dictionary
+
+    Set dMeta = New Dictionary
+    dMeta.CompareMode = TextCompare
+
+    Perf.OperationStart "Scan Folder Metadata (API)"
+    ScanMetadataRecurse StripSlash(strFolder), dMeta, blnRecursive
+    Perf.OperationEnd
+
+    Set ScanFolderMetadata = dMeta
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScanMetadataRecurse
+' Author    : Adam Waller
+' Date      : 6/9/2026
+' Purpose   : Recursive worker for ScanFolderMetadata. Walks one folder via
+'           : FindFirstFileW/FindNextFileW, recording (date, size) for each file and
+'           : recursing into subfolders when requested.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ScanMetadataRecurse(strFolder As String, dMeta As Dictionary, blnRecursive As Boolean)
+
+    Dim pFileHandle As LongPtr
+    Dim tFileData As WIN32_FIND_DATA
+    Dim strSearchPath As String
+    Dim strName As String
+    Dim strBase As String
+    Dim dblSize As Double
+
+    strBase = AddSlash(strFolder)
+    strSearchPath = strBase & "*"
+    pFileHandle = FindFirstFileW(StrPtr(strSearchPath), VarPtr(tFileData))
+    If pFileHandle = INVALID_HANDLE_VALUE Then Exit Sub
+    Do
+        strName = Left$(tFileData.cFileName, InStr(tFileData.cFileName, vbNullChar) - 1)
+        If strName = "." Or strName = ".." Then
+            ' Skip meta entries
+        ElseIf tFileData.dwFileAttributes And FILE_ATTRIBUTE_DIRECTORY Then
+            If blnRecursive Then ScanMetadataRecurse strBase & strName, dMeta, True
+        Else
+            ' Reconstruct the unsigned 64-bit file size. (Source files are small, but
+            ' nFileSizeLow is a signed Long, so correct the sign for 2-4 GB files.)
+            dblSize = (tFileData.nFileSizeHigh * 4294967296#) + tFileData.nFileSizeLow
+            If tFileData.nFileSizeLow < 0 Then dblSize = dblSize + 4294967296#
+            dMeta.Add strBase & strName, Array(FileTimeToDate(tFileData.ftLastWriteTime, True), dblSize)
+        End If
+    Loop While FindNextFileW(pFileHandle, VarPtr(tFileData))
+    FindClose pFileHandle
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SetFileDate
 ' Author    : Adam Waller
 ' Date      : 7/28/2023

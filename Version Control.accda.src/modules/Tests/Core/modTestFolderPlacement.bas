@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestFolderPlacement"
+﻿Attribute VB_Name = "modTestFolderPlacement"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestFolderPlacement
 ' Author    : Adam Waller

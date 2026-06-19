@@ -168,12 +168,15 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             Perf.OperationEnd
         End If
 
-        ' NOTE: The close/shift-open that unloads all objects before a merge is
-        ' deferred until after the source scan confirms there are actually changes
-        ' to apply (see the "Reopen DB before Merge" block further below). The scan
-        ' is read-only (plus conflict temp-exports, which already run without a
-        ' reopen during a normal export), so running it first lets a no-change
-        ' merge skip the expensive reopen cycle entirely.
+        ' Now, just to make sure all objects are closed and unloaded, we will
+        ' close and shift-open the database before merging source files into it.
+        Log.Add T("Closing and reopening current database before merge...")
+        Perf.OperationStart "Reopen DB before Merge"
+        StageMainForm
+        CloseCurrentDatabase2
+        ShiftOpenDatabase strPath
+        RestoreMainForm
+        Perf.OperationEnd
     End If
 
     ' Reset the LoadFromText state because the path may be now different
@@ -357,28 +360,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     If dCategories.Count = 0 And Not blnFullBuild Then
         Log.Add T("No changes found.")
     Else
+        ' Perform a backup if we have changes to merge
         If Not blnFullBuild Then
-            ' Deferred pre-merge reopen: now that the scan has confirmed there are
-            ' changes to apply, close and shift-open the database to ensure all
-            ' objects are unloaded before the (destructive) merge deletes and
-            ' re-imports them.
-            Log.Add T("Closing and reopening current database before merge...")
-            Perf.OperationStart "Reopen DB before Merge"
-            ' Release the cached CurrentDb reference picked up during the scan so
-            ' the close/reopen does not leave a stale DAO handle alive (Error 5).
-            ReleaseDbReferences
-            StageMainForm
-            CloseCurrentDatabase2
-            ShiftOpenDatabase strPath
-            RestoreMainForm
-            Perf.OperationEnd
-
-            ' The component class instances built during the scan now hold stale
-            ' object references from the pre-reopen database. Rebuild them against
-            ' the reopened database, preserving the already-computed file lists.
-            RefreshContainerClasses dCategories, intFilter
-
-            ' Perform a backup now that we have changes to merge
             LogUnhandledErrors
             Log.Add T("Saving backup of original database...")
             FSO.CopyFile strPath, strBackup
@@ -618,39 +601,6 @@ CleanUp:
             T("Note that some settings may not take effect until this database is reopened."), _
             T("A backup of the previous build was saved as '{0}'.", var0:=FSO.GetFileName(strBackup)), vbInformation
     End If
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : RefreshContainerClasses
-' Author    : Adam Waller
-' Date      : 6/9/2026
-' Purpose   : Replace the component class instances in the scanned category collection
-'           : with fresh instances bound to the current (reopened) database.
-'           : The merge scan deliberately runs before the pre-merge database reopen so
-'           : that a no-change merge can skip the reopen entirely. Once we know there
-'           : are changes and have reopened the database, the class instances captured
-'           : during the scan hold stale object references; we rebuild them here while
-'           : preserving the already-computed "Files" lists (plain path strings, which
-'           : are unaffected by the reopen). Matching is by Category name, which is the
-'           : key used when the collection was built.
-'---------------------------------------------------------------------------------------
-'
-Private Sub RefreshContainerClasses(dCategories As Dictionary, intFilter As eContainerFilter)
-
-    Dim cCategory As IDbComponent
-    Dim dCategory As Dictionary
-
-    For Each cCategory In GetContainers(intFilter)
-        If dCategories.Exists(cCategory.Category) Then
-            Set dCategory = dCategories(cCategory.Category)
-            ' Swap in the fresh instance (Remove + Add avoids any ambiguity around
-            ' Set-assigning through the Dictionary's default Item property).
-            dCategory.Remove "Class"
-            dCategory.Add "Class", cCategory
-        End If
-    Next cCategory
 
 End Sub
 

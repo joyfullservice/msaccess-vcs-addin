@@ -321,7 +321,7 @@ Public Function CompareSqlBuilderArtifacts(ByVal strArtifactRoot As String) As S
     Dim strLedger As String
     Dim fldRoot As Object
     Dim fldArtifact As Object
-    Dim Done As Dictionary
+    Dim dArtifactResult As Dictionary
 
     Set dResult = New Dictionary
     Set dStats = NewArtifactCompareStats()
@@ -347,10 +347,10 @@ Public Function CompareSqlBuilderArtifacts(ByVal strArtifactRoot As String) As S
     For Each fldArtifact In fldRoot.SubFolders
         If FSO.FileExists(fldArtifact.Path & PathSep & "access.sql") And _
            FSO.FileExists(fldArtifact.Path & PathSep & "generated.sql") Then
-            Set Done = CompareOneSqlBuilderArtifact(CStr(fldArtifact.Path))
-            colResults.Add Done
-            IncrementArtifactCompareStats dStats, CStr(Done("status"))
-            strLedger = strLedger & ArtifactCompareLedgerLine(Done)
+            Set dArtifactResult = CompareOneSqlBuilderArtifact(CStr(fldArtifact.Path))
+            colResults.Add dArtifactResult
+            IncrementArtifactCompareStats dStats, CStr(dArtifactResult("status"))
+            strLedger = strLedger & ArtifactCompareLedgerLine(dArtifactResult)
         End If
     Next fldArtifact
 

@@ -826,7 +826,7 @@ Private Sub SaveTranslationEntriesToDatabase(colEntries As Collection, strLangua
     Dim lngCnt As Long
     Dim dItem As Dictionary
     Dim varKey As Variant
-    Dim strID As String
+    Dim strId As String
     Dim dAdded As Dictionary
 
     ' Make sure we don't attempt to add translations before the main strings.
@@ -858,16 +858,16 @@ Private Sub SaveTranslationEntriesToDatabase(colEntries As Collection, strLangua
                 ' Only add entries that have values
                 If Len(dItem("Translation")) Then
                     ' Using a string for the ID so we can use it as a dictionary key
-                    strID = this.dStrings(varKey)
+                    strId = this.dStrings(varKey)
                     ' Make sure we have a string ID that has not already been added
-                    If Len(strID) And Not dAdded.Exists(strID) Then
+                    If Len(strId) And Not dAdded.Exists(strId) Then
                         .AddNew
                             !Language = strLanguage
-                            !StringID = CLng(strID)
+                            !StringID = CLng(strId)
                             !Translation = dItem("Translation")
                         .Update
                         ' Keep track of which IDs we have added.
-                        dAdded.Add strID, vbNullString
+                        dAdded.Add strId, vbNullString
                     End If
                 End If
             End If

@@ -1046,17 +1046,17 @@ End Function
 '           : written to the log file).
 '---------------------------------------------------------------------------------------
 '
-Private Sub AddCheck(ByVal colChecks As Collection, ByVal strID As String, _
+Private Sub AddCheck(ByVal colChecks As Collection, ByVal strId As String, _
     ByVal strStatus As String, ByVal strMessage As String)
-    AddCheckWithDiff colChecks, strID, strStatus, strMessage, vbNullString
+    AddCheckWithDiff colChecks, strId, strStatus, strMessage, vbNullString
 End Sub
 
-Private Sub AddCheckWithDiff(ByVal colChecks As Collection, ByVal strID As String, _
+Private Sub AddCheckWithDiff(ByVal colChecks As Collection, ByVal strId As String, _
     ByVal strStatus As String, ByVal strMessage As String, ByVal strDiff As String)
 
     Dim d As Dictionary
     Set d = New Dictionary
-    d.Add "id", strID
+    d.Add "id", strId
     d.Add "status", strStatus
     If Len(strMessage) > 0 Then d.Add "message", strMessage
     If Len(strDiff) > 0 Then
