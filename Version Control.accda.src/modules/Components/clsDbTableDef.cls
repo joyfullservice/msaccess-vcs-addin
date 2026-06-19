@@ -688,7 +688,14 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
             .Attributes = SafeAttributes(dItem("Attributes"))
         End With
         dbs.TableDefs.Append tdf
-        If Catch(3011, 3024, 3044) Then
+        If Catch(3059) Then
+            ' User canceled the ODBC connection/login dialog. Don't re-prompt for
+            ' every remaining linked object - cancel the whole operation.
+            Log.Error eelCritical, _
+                T("Connection canceled by user. Canceling operation."), _
+                ModuleName(Me) & ".ImportLinkedTable"
+            Exit Function
+        ElseIf Catch(3011, 3024, 3044) Then
             Log.Error eelError, "Could not link table '" & dItem("SourceTableName") & "'", _
             ModuleName(Me) & ".ImportLinkedTable"
             Log.Add "Linked table object not found in " & strFile, False
@@ -700,6 +707,14 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
             If tdf.Connect <> strConnect Then
                 tdf.Connect = strConnect
                 tdf.RefreshLink
+                If Catch(3059) Then
+                    ' User canceled the ODBC connection/login dialog. Don't re-prompt for
+                    ' every remaining linked object - cancel the whole operation.
+                    Log.Error eelCritical, _
+                        T("Connection canceled by user. Canceling operation."), _
+                        ModuleName(Me) & ".ImportLinkedTable"
+                    Exit Function
+                End If
                 If Catch(3283) Then Log.Add "Encountered error 3283 when refreshing link for " & tdf.Name & ". " & _
                     "You can probably safely ignore this error. (See issue #484)"
                 CatchAny eelError, "Error refreshing link for " & tdf.Name, ModuleName(Me) & ".ImportLinkedTable"

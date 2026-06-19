@@ -89,6 +89,10 @@ Private Sub IDbComponent_Import(strFile As String)
                 If Len(strConnect) = 0 Then strConnect = CStr(x)
             End If
             CacheConnection strConnect
+            ' If the user canceled a connection dialog, CacheConnection escalates
+            ' to a critical error. Stop priming so we don't re-prompt for every
+            ' remaining connection in this file.
+            If Operation.ErrorLevel = eelCritical Then Exit Sub
         Next
     Next
 

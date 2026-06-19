@@ -185,6 +185,7 @@ Public Function CacheConnection(strConnect As String) As Boolean
     End If
 
     Dim qdf As DAO.QueryDef
+    Dim lngErr As Long
 
     If m_dCachedConnections Is Nothing Then
         Set m_dCachedConnections = New Dictionary
@@ -209,10 +210,19 @@ Public Function CacheConnection(strConnect As String) As Boolean
         LogUnhandledErrors
         On Error Resume Next
         qdf.OpenRecordset
-        If Err.Number Then
-            Set qdf = Nothing
-        End If
+        lngErr = Err.Number
         On Error GoTo 0
+
+        If lngErr Then Set qdf = Nothing
+
+        If lngErr = 3059 Then
+            ' User canceled the ODBC login dialog while priming the connection cache.
+            ' Cancel the whole operation instead of re-prompting for every object.
+            Log.Error eelCritical, _
+                T("Connection canceled by user. Canceling operation."), _
+                "modConnect.CacheConnection"
+            Exit Function
+        End If
 
         If Not qdf Is Nothing Then
             m_dCachedConnections.Add strConnect, qdf
