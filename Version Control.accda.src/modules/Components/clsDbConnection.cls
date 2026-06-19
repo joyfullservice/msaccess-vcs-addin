@@ -69,7 +69,15 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim dConnections As Dictionary
     Dim varConnect As Variant
+    Dim varItem As Variant
+    Dim strRef As String
     Dim strConnect As String
+    Dim strKey As String
+    Dim strCompleted As String
+    Dim lngErr As Long
+    Dim strErrDesc As String
+    Dim dState As Dictionary
+    Dim eAction As eConnFailAction
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -80,21 +88,55 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Prime Access' internal cache. If the connection string is incomplete, it will
     ' pop open a dialog from the driver for the user to then fill in.
     For Each varConnect In dConnections
-        Dim x As Variant
-        For Each x In dConnections(varConnect)
-            ' Resolve env references before caching
-            strConnect = CStr(x)
-            If IsEnvReference(strConnect) Then
-                strConnect = ResolveEnvConnection(strConnect)
-                If Len(strConnect) = 0 Then strConnect = CStr(x)
+        For Each varItem In dConnections(varConnect)
+            strRef = CStr(varItem)
+            strConnect = strRef
+            strKey = vbNullString
+            If IsEnvReference(strRef) Then
+                strKey = Mid$(strRef, 5)
+                strConnect = ResolveEnvConnection(strRef)
             End If
-            CacheConnection strConnect
-            ' If the user canceled a connection dialog, CacheConnection escalates
-            ' to a critical error. Stop priming so we don't re-prompt for every
-            ' remaining connection in this file.
-            If Operation.ErrorLevel = eelCritical Then Exit Sub
-        Next
-    Next
+            If Len(strKey) = 0 Then strKey = GetConnectionEnvKey(strConnect)
+
+            Set dState = GetConnState(strKey)
+            If dState("Status") = csIgnored Then GoTo NextConn
+
+            If dState("Status") = csOK And Len(dState("Completed")) > 0 Then
+                strConnect = dState("Completed")
+            ElseIf Len(strConnect) = 0 Then
+                If Operation.InteractionMode = eimNormal And Options.UseEnvForConnections <> uecNever Then
+                    strConnect = "ODBC;"
+                Else
+                    GoTo NextConn
+                End If
+            End If
+
+            Do
+                If CacheConnection(strConnect, strCompleted, lngErr) Then
+                    RecordAuthenticatedConnection strKey, _
+                        IIf(IsEnvReference(strRef), strKey, vbNullString), _
+                        strCompleted, "db connection"
+                    Exit Do
+                End If
+                If Not IsConnectionError(lngErr) Then Exit Do
+                strErrDesc = Err.Description
+                eAction = HandleConnectionFailure(strKey, "db connection", lngErr, strErrDesc)
+                Select Case eAction
+                    Case cfaRetry
+                    Case cfaIgnore
+                        Exit Do
+                    Case cfaAbort
+                        Log.Error eelCritical, _
+                            T("Connection canceled by user. Canceling operation."), _
+                            ModuleName(Me) & ".Import"
+                        Exit Sub
+                End Select
+            Loop
+
+NextConn:
+        Next varItem
+        If Operation.ErrorLevel = eelCritical Then Exit Sub
+    Next varConnect
 
     CatchAny eelError, "Importing Connection", ModuleName(Me) & ".Import"
 
@@ -120,11 +162,19 @@ Private Function GetSource() As String
     Dim varOuterKey As Variant
     Dim varInnerKey As Variant
     Dim strEnvKey As String
+    Dim strSafeConnect As String
 
     Set dOriginal = GetDictionary
     Set dExport = New Dictionary
 
-    ' Apply env substitution to connection strings if applicable
+    ' Apply env substitution to connection strings if applicable.
+    ' SECURITY: connections kept in source (the non-env branches below) must still
+    ' never carry a raw password (v5.1.0+). GetSourceSafeConnect is the single
+    ' chokepoint that enforces this for both inner and outer keys - do NOT bypass it
+    ' when refactoring, or plaintext credentials can leak into committed source.
+    ' Regression coverage: modTestConnect.TestGetSourceSafeConnectGating /
+    ' TestStripConnectionCredentials. (No end-to-end export-to-file test exists;
+    ' that risk is accepted - see DECISIONS.md 2026-06-19.)
     For Each varOuterKey In dOriginal.Keys
         Set dInner = dOriginal(CStr(varOuterKey))
         Set dNewInner = New Dictionary
@@ -139,7 +189,12 @@ Private Function GetSource() As String
                     dNewInner.Add "env:" & strEnvKey, dInner(varInnerKey)
                 End If
             Else
-                dNewInner.Add CStr(varInnerKey), dInner(varInnerKey)
+                ' Not externalized to .env: never write a raw password to source (v5.1.0+)
+                strSafeConnect = GetSourceSafeConnect(CStr(varInnerKey), _
+                    CStr(dInner(varInnerKey)) & " (db connection)")
+                If Not dNewInner.Exists(strSafeConnect) Then
+                    dNewInner.Add strSafeConnect, dInner(varInnerKey)
+                End If
             End If
         Next varInnerKey
 
@@ -152,7 +207,11 @@ Private Function GetSource() As String
                 Set dExport("env:" & strEnvKey) = dNewInner
             End If
         Else
-            Set dExport(CStr(varOuterKey)) = dNewInner
+            ' Not externalized to .env: never write a raw password to source (v5.1.0+)
+            strSafeConnect = GetSourceSafeConnect(CStr(varOuterKey), "db connection")
+            If Not dExport.Exists(strSafeConnect) Then
+                Set dExport(strSafeConnect) = dNewInner
+            End If
         End If
     Next varOuterKey
 

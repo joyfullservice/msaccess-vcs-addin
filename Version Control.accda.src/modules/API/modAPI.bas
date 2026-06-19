@@ -42,10 +42,12 @@ Public Enum eSanitizeLevel
 End Enum
 
 ' Controls whether connection strings with credentials are stored in a .env file.
+' Export: Auto = only when UID/PWD detected; Always = all connections; Never = keep in source.
+' Build: Auto = prompt to save new credentials; Always = save silently; Never = never write .env.
 Public Enum eUseEnvConnections
-    uecAuto = 0     ' Only use .env when credentials (UID/PWD) are detected.
+    uecAuto = 0     ' Export when credentials detected; build prompts before saving.
     uecAlways = 1   ' Always store connection strings in .env file.
-    uecNever = 2    ' Leave all connection strings in source files.
+    uecNever = 2    ' Leave connection strings in source; never write .env on build.
     [_Last]
 End Enum
 

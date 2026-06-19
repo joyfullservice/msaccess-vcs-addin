@@ -302,9 +302,17 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     If Len(strConnect) > 0 Then
         strEnvKey = ShouldUseEnvForConnection(strConnect)
         If Len(strEnvKey) > 0 Then
+            SaveConnectionToEnv strEnvKey, strConnect, strQueryName & " (pass-through query)"
             dItems.Add "Connect", "env:" & strEnvKey
         Else
-            dItems.Add "Connect", strConnect
+            ' SECURITY: a connection kept in source (not externalized to .env) must
+            ' still never carry a raw password (v5.1.0+). GetSourceSafeConnect is the
+            ' single chokepoint that enforces this - do NOT bypass it when refactoring
+            ' this branch, or plaintext credentials can leak into committed source.
+            ' Regression coverage: modTestConnect.TestGetSourceSafeConnectGating /
+            ' TestStripConnectionCredentials. (No end-to-end export-to-file test exists;
+            ' that risk is accepted - see DECISIONS.md 2026-06-19.)
+            dItems.Add "Connect", GetSourceSafeConnect(strConnect, strQueryName & " (pass-through query)")
         End If
     End If
 

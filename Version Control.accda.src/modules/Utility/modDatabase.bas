@@ -142,12 +142,22 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/8/2020
 ' Purpose   : Updates a DAO property, adding if it does not exist or is the wrong type.
+'           : Engine-managed properties (error 3916) are skipped gracefully rather than
+'           : aborting the caller. Some properties -- e.g. the FCMin* feature-compatibility
+'           : version stamps Access writes when an object uses a newer data type such as
+'           : DateTime2 -- can only be set by the database engine. The engine regenerates
+'           : these from the object's actual structure, so there is nothing to preserve;
+'           : attempting to set them on import raises 3916. We swallow that one error (with
+'           : a debug note) and re-raise anything else so real failures still surface to
+'           : the caller's handler.
 '---------------------------------------------------------------------------------------
 '
 Public Sub SetDAOProperty(objParent As Object, intType As Integer, strName As String, varValue As Variant)
 
     Dim prp As DAO.Property
     Dim blnFound As Boolean
+    Dim lngErr As Long
+    Dim strErrDesc As String
 
     ' Look through existing properties.
     For Each prp In objParent.Properties
@@ -157,26 +167,75 @@ Public Sub SetDAOProperty(objParent As Object, intType As Integer, strName As St
         End If
     Next prp
 
-    ' Verify type, and update value if found.
+    ' Apply the change, tolerating engine-managed properties (see header).
+    On Error Resume Next
     If blnFound Then
         If prp.Type <> intType Then
             objParent.Properties.Delete strName
             blnFound = False
-        Else
-            If objParent.Properties(strName).Value <> varValue Then
-                objParent.Properties(strName).Value = varValue
-            End If
+        ElseIf objParent.Properties(strName).Value <> varValue Then
+            objParent.Properties(strName).Value = varValue
         End If
     End If
-
-    ' Add new property if needed
     If Not blnFound Then
         ' Create property, then append to collection
         Set prp = objParent.CreateProperty(strName, intType, varValue)
         objParent.Properties.Append prp
     End If
+    lngErr = Err.Number
+    strErrDesc = Err.Description
+    On Error GoTo 0
+
+    Select Case lngErr
+        Case 0
+            ' Success
+        Case 3916
+            ' Engine-managed property -- skip silently (debug note only).
+            Log.Add "    " & T("Skipped engine-managed property '{0}'", var0:=strName), Options.ShowDebug
+        Case Else
+            ' Surface real errors to the caller, preserving prior behavior.
+            Err.Raise lngErr, , strErrDesc
+    End Select
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsEngineManagedProperty
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Return True for object properties managed by the Access database engine,
+'           : which cannot be set by code. The FCMin* family (FCMinDesignVer,
+'           : FCMinReadVer, FCMinWriteVer) records the minimum Access build required to
+'           : design/read/write the object (e.g. "16.0.12600.10000"). These are
+'           : environment/version-specific and engine-regenerated, so we strip them from
+'           : exported source to avoid churn. (Import tolerance is handled generically by
+'           : SetDAOProperty via error 3916; this is purely an export-cleanliness filter.)
+'---------------------------------------------------------------------------------------
+'
+Public Function IsEngineManagedProperty(strName As String) As Boolean
+    IsEngineManagedProperty = StartsWith(strName, "FCMin", vbTextCompare)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FilterEngineManagedProps
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Return a copy of the property dictionary with any engine-managed
+'           : properties removed. (See IsEngineManagedProperty.)
+'---------------------------------------------------------------------------------------
+'
+Public Function FilterEngineManagedProps(dProps As Dictionary) As Dictionary
+    Dim varKey As Variant
+    Set FilterEngineManagedProps = New Dictionary
+    FilterEngineManagedProps.CompareMode = dProps.CompareMode
+    For Each varKey In dProps.Keys
+        If Not IsEngineManagedProperty(CStr(varKey)) Then
+            FilterEngineManagedProps.Add varKey, dProps(varKey)
+        End If
+    Next varKey
+End Function
 
 
 '---------------------------------------------------------------------------------------

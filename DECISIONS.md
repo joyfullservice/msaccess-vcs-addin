@@ -81,6 +81,109 @@ contradictory guidance.
 
 ---
 
+## 2026-06-19 — Gracefully skip engine-managed DAO properties on import (error 3916)
+
+**Trigger**: Building a database with linked tables that use a newer data type (e.g.
+DateTime2) failed three table imports with `Error 3916: The property 'FCMinWriteVer' can
+only be set or changed by the Microsoft Access database engine`. Access stamps the
+`FCMin*` family (`FCMinDesignVer`/`FCMinReadVer`/`FCMinWriteVer` -- "Feature Compatibility
+minimum version") on objects that use such features. These had been captured into the
+linked-table `.json` (`TableProperties`), and replaying them on import via `SetDAOProperty`
+raised 3916, which aborted the table import and inflated the build's error count -- even
+though the table itself had already been linked successfully.
+
+**Are these properties worth preserving?** No. `FCMin*` are derived, engine-managed version
+stamps: Access regenerates them automatically from the object's actual structure when it is
+recreated, they cannot be set by code at all (that is what 3916 means), and their values are
+build/machine-specific (`16.0.12600.10000`), so storing them only produces noisy,
+non-portable diffs.
+
+**Options explored**:
+- *Name-based skip* (initial fix) — skip the known `FCMin*` names on import and strip them
+  on export. Works, but brittle: any future engine-managed property would reintroduce the
+  same hard failure until its name was added.
+- *Generic tolerance in `SetDAOProperty` (chosen)* — catch error 3916 when applying any
+  property, skip it with a debug note, and re-raise every other error so real failures still
+  surface. This is inherently safe: it only ever skips a property the engine refuses to let
+  us set (i.e. an engine-managed/derived one); every property we can legitimately set is
+  still applied, so nothing meaningful is lost.
+
+**Decision**: `modDatabase.SetDAOProperty` now wraps the property mutation, swallows error
+3916 (debug-note only), and re-raises anything else. This makes all property importers
+resilient -- linked tables (`clsDbTableDef`), document properties (`clsDbDocument`,
+`modLoadSaveText`) -- and removes the need for the name-based import skip, which was reverted.
+As a separate source-cleanliness measure (not a correctness requirement), export still strips
+the `FCMin*` family from linked-table `TableProperties`, gated at `EFV_5_1_0`, via the now-
+public `modDatabase.IsEngineManagedProperty` / `FilterEngineManagedProps` helpers. Import is
+not gated and stays backward compatible with older source that still contains these stamps.
+
+**What this rules out**: We no longer fail an import when a property is engine-managed; the
+trade-off is that a genuinely unsettable property is silently skipped (visible only with
+ShowDebug). Other property-set errors are still surfaced unchanged.
+
+**Relevant files**: `modDatabase.bas` (`SetDAOProperty`, `IsEngineManagedProperty`,
+`FilterEngineManagedProps`), `clsDbTableDef.cls` (export filter; reverted import skips),
+`modConstants.bas` (`EFV_5_1_0` comment), `modTestDatabase.bas` (helper tests).
+
+---
+
+## 2026-06-19 — Never write raw passwords to source files (any mode)
+
+**Trigger**: The 2026-03-17 `.env` design left `UseEnvForConnections = Never` defined as
+"keep complete connection strings in source," which means a SQL-auth password is written
+verbatim into committed source files. A user can pick `Never` (or hit a non-externalized
+path) without realizing credentials will land in a public repo. The risk is amplified as
+AI agents author/edit database projects with less human review in the loop.
+
+**Options explored**:
+- *Warn only* — log a warning when a password is written to source, leave behavior as-is.
+  Surfaces the issue but still ships the secret.
+- *Strip only PWD, keep UID* — removes the secret but leaves the username; simpler but
+  inconsistent with the existing UID/PWD pairing in `SanitizeConnectionString`.
+- *Redefine `Never` to strip credentials; gate at export format 5.1.0 (chosen)* — passwords
+  are never written to source in any mode; `Never` means "connection strings in source,
+  minus credentials." Users who want self-contained source must manage credentials
+  themselves (runtime prompt or their own priming).
+
+**Decision**: New `modConnect.GetSourceSafeConnect` (gated by `EFV_5_1_0`) strips `UID`/`PWD`
+from any connection string written to source when it is not externalized to `.env`, and
+logs one `eelWarning` per distinct connection. It only acts when an actual `PWD` value is
+present (so passwordless AD/integrated connections, which may carry an empty `PWD=`, do not
+trip a false warning). Applied uniformly at all three connection-bearing exporters:
+`clsDbTableDef` (linked tables), `clsDbQuery` (pass-through queries), and `clsDbConnection`
+(`db-connection.json`, inner + outer keys). `clsDbQuery` previously emitted an `env:`
+reference without calling `SaveConnectionToEnv`; that gap is now fixed so the `.env` is
+populated for pass-through queries too. Import is unchanged and remains backward compatible
+with older source that still contains credentials.
+
+**What this rules out**: Self-contained source files with embedded passwords are no longer
+supported at export format 5.1.0+. Existing repos keep the old behavior until they bump
+their `ExportFormatVersion`, so the secret-leak window persists for un-migrated projects
+(mitigated by the warning when stripping occurs). Stripping covers `UID`/`PWD` only — if a
+driver carries a secret under a different key, `StripConnectionCredentials` would need
+extending.
+
+**Testing & accepted risk**: Locked in by unit tests on the single chokepoint —
+`modTestConnect.TestStripConnectionCredentials` (the strip logic across SQL-auth, Access
+back-end, lower-case keys, passwordless AD, and no-credential shapes) and
+`TestGetSourceSafeConnectGating` (the `EFV_5_1_0` gate: passthrough below 5.1.0, strip at/above,
+no-op for empty `PWD=` and credential-free strings). A full end-to-end test (link a
+password-protected back-end table, run the component export to file, grep the output for `PWD=`)
+was considered and deliberately *not* implemented: driving the real export path mutates shared
+state (the live `VCSIndex`, the project export folder, the log) and is flaky inside the unit
+suite, while a temp-linked table without the export-to-file step only re-tests
+`GetSourceSafeConnect` with a live string. Consequence: the unit tests guard the strip/gate
+logic but do **not** catch a refactor that removes a `GetSourceSafeConnect` *call site*. That
+gap is mitigated by an explicit SECURITY reminder comment at each of the three call sites
+(`clsDbTableDef`, `clsDbQuery`, `clsDbConnection`) and is accepted for now.
+
+**Relevant files**: `modConnect.bas` (`GetSourceSafeConnect`, `StripConnectionCredentials`,
+`m_dStrippedConnWarn`), `clsDbTableDef.cls`, `clsDbQuery.cls`, `clsDbConnection.cls`,
+`modConstants.bas` (`EFV_5_1_0` comment), `frmVCSOptionsExport.cls` (help text),
+`modTestConnect.bas` (regression tests).
+
+---
+
 ## 2026-06-18 — Build-time cleanup for duplicate `@Folder` source files
 
 **Trigger**: AI agents repeatedly created a second copy of a VBA module in the wrong
@@ -1648,6 +1751,7 @@ The ribbon button (`btnStandardizeLetterCasing`) is placed in the Advanced Tools
 **Decision**: Connection strings with credentials are replaced by `env:conn_<hash>` references in exported source files. The full connection string is stored in `{ExportFolder}/.env`, which is excluded from version control. Key design choices:
 
 - **Three-mode option** (`UseEnvForConnections`): `Auto` (default, only when UID/PWD detected), `Always` (all connection strings), `Never` (disabled). Enum uses `uec` prefix per project convention.
+  > **⚠ Partially superseded** (2026-06-19): `Never` no longer keeps *complete* strings in source. As of export format 5.1.0, raw passwords are stripped from source files in every mode (including `Never`); credentials live only in `.env`. See "Never write raw passwords to source files (any mode)" above.
 - **Gated behind `EFV_5_0_0`**: No new export format version needed since v5 hasn't shipped.
 - **Scope**: Linked tables (JSON), pass-through queries (.qdef via `clsSourceParser`), `db-connection.json`. Forms/reports deferred — investigation showed they don't directly embed connection strings.
 - **Auto-population**: First export auto-creates `.env` with header comments explaining multi-developer workflow, and adds a descriptive comment above each entry (`# tblCustomers (linked table)`).

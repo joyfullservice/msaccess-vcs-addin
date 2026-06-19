@@ -41,7 +41,7 @@ Public SaveTableSQL As Boolean
 Public SavePrintVars As Boolean
 Public DecodeConditionalFormatting As Boolean
 Public ExtractThemeFiles As Boolean
-Public UseEnvForConnections As eUseEnvConnections
+Public UseEnvForConnections As eUseEnvConnections ' Export: store creds in .env; Build: save new creds per policy
 Public EnvConnectionNames As Collection ' User-defined named connection keys for .env
 Public ExportPrintSettings As Dictionary
 Public ExportLayoutSvg As Boolean

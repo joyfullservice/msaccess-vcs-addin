@@ -52,6 +52,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     CloseCachedConnections
     CloseBackEndConnections
     ClearEnvCache
+    ClearConnState
 
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, T("Build"), T("Merge"))
@@ -423,6 +424,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     Next varCategory
 
+    If Operation.ErrorLevel <> eelCritical Then PromptAndSaveConnections
+
     ' Check for merge items that might affect other components
     If Not blnFullBuild Then
         ' Check for any object visible in the object navigation pane that might have a description property.
@@ -552,6 +555,7 @@ CleanUp:
     CloseCachedConnections
     CloseBackEndConnections
     ClearEnvCache
+    ClearConnState
 
     ' Add performance data to log file and save file.
     Perf.EndTiming

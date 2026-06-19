@@ -163,6 +163,20 @@ Public Enum eOperationSource
     eosMCPTool = 2          ' MCP server with callbacks
 End Enum
 
+' Per-connection state during build/import (modConnect)
+Public Enum eConnStatus
+    csUnknown = 0
+    csOK
+    csIgnored
+End Enum
+
+' User response to a failed connection attempt during build/import
+Public Enum eConnFailAction
+    cfaRetry
+    cfaIgnore
+    cfaAbort
+End Enum
+
 ' Options for resolving file conflicts
 Public Enum eResolveConflict
     ercNone
@@ -202,7 +216,7 @@ Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinComm
 Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
     EFV_5_0_0 = 50000
-    EFV_5_1_0 = 50100      ' Extract conditional formatting blocks to companion JSON
+    EFV_5_1_0 = 50100      ' Conditional formatting -> companion JSON; never write raw passwords to source; skip engine-managed FCMin* table props
     [_Last] = 50100
 End Enum
 

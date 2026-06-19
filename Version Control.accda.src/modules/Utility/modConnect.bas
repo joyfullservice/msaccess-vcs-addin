@@ -20,6 +20,8 @@ Private m_cEnvCache As clsDotEnv
 Private m_cEnvResolved As clsDotEnv
 Private m_dEnvKeysWritten As Dictionary
 Private m_dMissingEnvKeys As Dictionary
+Private m_dConnState As Dictionary
+Private m_dStrippedConnWarn As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -171,6 +173,213 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearConnState
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Reset per-connection build/import state at the start of a build.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearConnState()
+    Set m_dConnState = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConnState
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Return (and create if needed) the state dictionary for a connection key.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetConnState(strKey As String) As Dictionary
+
+    Dim dState As Dictionary
+
+    If Len(strKey) = 0 Then Exit Function
+
+    If m_dConnState Is Nothing Then Set m_dConnState = New Dictionary
+
+    If m_dConnState.Exists(strKey) Then
+        Set GetConnState = m_dConnState(strKey)
+    Else
+        Set dState = New Dictionary
+        dState.Add "Status", csUnknown
+        dState.Add "Completed", vbNullString
+        dState.Add "EnvKey", vbNullString
+        dState.Add "Source", vbNullString
+        dState.Add "NeedsSave", False
+        m_dConnState.Add strKey, dState
+        Set GetConnState = dState
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsConnectionError
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Returns True for ODBC/login errors that warrant Retry/Ignore/Abort.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsConnectionError(lngErr As Long) As Boolean
+    Select Case lngErr
+        Case 3059, 3146, 3151
+            IsConnectionError = True
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HandleConnectionFailure
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Prompt the user to Retry, Ignore, or Abort after a connection failure.
+'---------------------------------------------------------------------------------------
+'
+Public Function HandleConnectionFailure(strKey As String, strObjectLabel As String, _
+    lngErr As Long, strErrDesc As String) As eConnFailAction
+
+    Dim strDetail As String
+    Dim intResult As VbMsgBoxResult
+
+    If Len(strErrDesc) > 0 Then
+        strDetail = vbCrLf & vbCrLf & lngErr & " - " & strErrDesc
+    End If
+
+    intResult = MsgBox2(T("Connection Failed"), _
+        T("Could not connect for {0}.", var0:=strObjectLabel) & strDetail, _
+        T("Retry to try again, Ignore to skip objects on this connection, or Abort to cancel the build."), _
+        vbAbortRetryIgnore Or vbExclamation, , vbAbort)
+
+    Select Case intResult
+        Case vbRetry
+            HandleConnectionFailure = cfaRetry
+        Case vbIgnore
+            GetConnState(strKey)("Status") = csIgnored
+            HandleConnectionFailure = cfaIgnore
+        Case Else
+            HandleConnectionFailure = cfaAbort
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RecordAuthenticatedConnection
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Remember a successfully authenticated connection for reuse and optional
+'           : .env save at the end of the build.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RecordAuthenticatedConnection(strKey As String, strEnvKey As String, _
+    strCompletedConnect As String, strSource As String)
+
+    Dim dState As Dictionary
+    Dim strEnvValue As String
+    Dim cEnv As clsDotEnv
+
+    If Len(strKey) = 0 Then Exit Sub
+    If Len(strCompletedConnect) = 0 Then Exit Sub
+
+    Set dState = GetConnState(strKey)
+    dState("Status") = csOK
+    dState("Completed") = strCompletedConnect
+
+    If Len(strEnvKey) = 0 Then Exit Sub
+    If Options.UseEnvForConnections = uecNever Then Exit Sub
+
+    ' Only worth saving if the completed string carries the authentication detail
+    ' (UID/PWD, trusted, or an AD/SSPI authentication method) that lets a future
+    ' build connect without prompting.
+    If Not HasAuthInfo(strCompletedConnect) Then Exit Sub
+
+    Set cEnv = GetEnvCache(False)
+    strEnvValue = cEnv.GetVar(strEnvKey, False)
+    If Len(strEnvValue) > 0 Then
+        strEnvValue = GetFullConnect(strEnvValue)
+        ' If the stored value already resolves authentication on its own, it would
+        ' not prompt, so there is nothing new to save.
+        If HasAuthInfo(strEnvValue) Then Exit Sub
+        ' Identical parameters mean nothing meaningful changed.
+        If ConnectionParamsMatch(strCompletedConnect, strEnvValue) Then Exit Sub
+    End If
+
+    dState("NeedsSave") = True
+    dState("EnvKey") = strEnvKey
+    dState("Source") = strSource
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PromptAndSaveConnections
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : At the end of a build, save newly authenticated connections to .env per
+'           : the UseEnvForConnections policy (Never=off, Auto=prompt, Always=silent).
+'---------------------------------------------------------------------------------------
+'
+Public Sub PromptAndSaveConnections()
+
+    Dim varKey As Variant
+    Dim dState As Dictionary
+    Dim colSave As New Collection
+    Dim strList As String
+    Dim lngCount As Long
+
+    If m_dConnState Is Nothing Then Exit Sub
+
+    For Each varKey In m_dConnState.Keys
+        Set dState = m_dConnState(varKey)
+        If dState("NeedsSave") Then colSave.Add CStr(varKey)
+    Next varKey
+
+    If colSave.Count = 0 Then
+        Set m_dConnState = Nothing
+        Exit Sub
+    End If
+
+    If Options.UseEnvForConnections = uecNever Then
+        Set m_dConnState = Nothing
+        Exit Sub
+    End If
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        For Each varKey In colSave
+            Set dState = m_dConnState(CStr(varKey))
+            .Add CStr(dState("EnvKey")) & " (" & CStr(dState("Source")) & ")"
+        Next varKey
+        strList = .GetStr
+    End With
+
+    If Options.UseEnvForConnections = uecAuto Then
+        If MsgBox2(T("Save Connection Credentials?"), strList, _
+            T("Save them to your .env file so you are not prompted again?"), _
+            vbYesNo Or vbQuestion, , vbNo) <> vbYes Then
+            Set m_dConnState = Nothing
+            Exit Sub
+        End If
+    End If
+
+    For Each varKey In colSave
+        Set dState = m_dConnState(CStr(varKey))
+        SaveConnectionToEnv CStr(dState("EnvKey")), CStr(dState("Completed")), CStr(dState("Source"))
+        lngCount = lngCount + 1
+    Next varKey
+
+    ClearEnvCache
+    If lngCount > 0 Then
+        Log.Add T("Saved {0} connection credential(s) to .env.", var0:=lngCount), False
+    End If
+    Set m_dConnState = Nothing
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CacheConnection
 ' Author    : bclothier
 ' Date      : 3/31/2023
@@ -179,19 +388,25 @@ End Function
 '             may be incomplete, we will force a prompt for the user to then fill in
 '---------------------------------------------------------------------------------------
 '
-Public Function CacheConnection(strConnect As String) As Boolean
+Public Function CacheConnection(strConnect As String, _
+    Optional ByRef strCompletedConnect As String, Optional ByRef lngErr As Long) As Boolean
+
+    Dim qdf As DAO.QueryDef
+
+    lngErr = 0
+    strCompletedConnect = vbNullString
+
     If Not (Left$(strConnect, 5) = "ODBC;") Then
         Exit Function
     End If
-
-    Dim qdf As DAO.QueryDef
-    Dim lngErr As Long
 
     If m_dCachedConnections Is Nothing Then
         Set m_dCachedConnections = New Dictionary
     End If
 
     If m_dCachedConnections.Exists(strConnect) Then
+        Set qdf = m_dCachedConnections(strConnect)
+        strCompletedConnect = qdf.Connect
         CacheConnection = True
     Else
         ' We need to use the CurrentDb because it's the one that'll get stuff imported into. Otherwise,
@@ -213,15 +428,10 @@ Public Function CacheConnection(strConnect As String) As Boolean
         lngErr = Err.Number
         On Error GoTo 0
 
-        If lngErr Then Set qdf = Nothing
-
-        If lngErr = 3059 Then
-            ' User canceled the ODBC login dialog while priming the connection cache.
-            ' Cancel the whole operation instead of re-prompting for every object.
-            Log.Error eelCritical, _
-                T("Connection canceled by user. Canceling operation."), _
-                "modConnect.CacheConnection"
-            Exit Function
+        If lngErr Then
+            Set qdf = Nothing
+        Else
+            strCompletedConnect = qdf.Connect
         End If
 
         If Not qdf Is Nothing Then
@@ -758,6 +968,99 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : HasAuthInfo
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Returns True if the connection string carries enough authentication
+'           : detail to connect without prompting. Broader than HasCredentials: in
+'           : addition to UID/PWD this recognizes trusted (SSPI) and explicit
+'           : authentication methods such as Azure AD (Authentication=...), which
+'           : have no password but still resolve the credential prompt.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasAuthInfo(strConnect As String) As Boolean
+    HasAuthInfo = HasCredentials(strConnect) _
+        Or (InStr(1, strConnect, "Authentication=", vbTextCompare) > 0) _
+        Or (InStr(1, strConnect, "Trusted_Connection=", vbTextCompare) > 0) _
+        Or (InStr(1, strConnect, "Integrated Security=", vbTextCompare) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StripConnectionCredentials
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Return the connection string with any UID= and PWD= segments removed.
+'           : Used to ensure secrets are never written to source files.
+'---------------------------------------------------------------------------------------
+'
+Public Function StripConnectionCredentials(strConnect As String) As String
+
+    Dim varParts As Variant
+    Dim lngPart As Long
+    Dim strPart As String
+
+    If Len(strConnect) = 0 Then Exit Function
+
+    varParts = Split(strConnect, ";")
+    With New clsConcat
+        .AppendOnAdd = ";"
+        For lngPart = 0 To UBound(varParts)
+            strPart = CStr(varParts(lngPart))
+            If Len(strPart) > 0 Then
+                If Not StartsWith(strPart, "UID=", vbTextCompare) _
+                    And Not StartsWith(strPart, "PWD=", vbTextCompare) Then
+                    .Add strPart
+                End If
+            End If
+        Next lngPart
+        .Remove 1
+        StripConnectionCredentials = .GetStr
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSourceSafeConnect
+' Author    : Adam Waller
+' Date      : 06/19/2026
+' Purpose   : Return a connection string safe to write to a source file. Starting with
+'           : export format v5.1.0, raw passwords are never written to source files in
+'           : any UseEnvForConnections mode (including Never); credentials belong only
+'           : in the git-ignored .env file. This removes the secret-leak footgun where
+'           : a user (or an AI agent) commits source containing a plaintext password.
+'           : A single warning is logged per distinct connection when stripping occurs.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSourceSafeConnect(strConnect As String, strObjectLabel As String) As String
+
+    GetSourceSafeConnect = strConnect
+    If Len(strConnect) = 0 Then Exit Function
+
+    ' Gated so existing repos that rely on self-contained source are not force-migrated.
+    If Options.ExportFormatVersion < EFV_5_1_0 Then Exit Function
+
+    ' Only act when an actual password value is present (avoids false positives on
+    ' passwordless auth such as AD/integrated, which may carry an empty PWD=).
+    If Len(GetConnectPart(strConnect, "PWD")) = 0 Then Exit Function
+
+    GetSourceSafeConnect = StripConnectionCredentials(strConnect)
+
+    ' Warn once per distinct connection so secrets are never silently shipped.
+    If m_dStrippedConnWarn Is Nothing Then Set m_dStrippedConnWarn = New Dictionary
+    If Not m_dStrippedConnWarn.Exists(GetSourceSafeConnect) Then
+        m_dStrippedConnWarn.Add GetSourceSafeConnect, True
+        Log.Error eelWarning, T("Removed credentials from the connection string for {0} " & _
+            "to avoid storing secrets in source files. Store them in .env " & _
+            "(UseEnvForConnections) or supply them at build time.", var0:=strObjectLabel), _
+            ModuleName & ".GetSourceSafeConnect"
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : SaveConnectionToEnv
 ' Author    : Adam Waller
 ' Date      : 03/17/2026
@@ -1146,6 +1449,7 @@ Public Sub ClearEnvCache()
     Set m_cEnvResolved = Nothing
     Set m_dEnvKeysWritten = Nothing
     Set m_dMissingEnvKeys = Nothing
+    Set m_dStrippedConnWarn = Nothing
 End Sub
 
 
