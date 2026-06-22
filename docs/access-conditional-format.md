@@ -35,7 +35,7 @@ Behavior:
   blocks. A control that has an inline block but **no** JSON entry is left untouched (so
   option-off / un-migrated source round-trips unchanged, and will be decoded to JSON on the
   next export if the option is enabled).
-- The feature is gated behind export format version **`EFV_5_1_0`** and the
+- The feature is gated behind export format version **`EFV_5_0_0`** and the
   **`DecodeConditionalFormatting`** option (default **on**). The rules are always
   preserved; the option only chooses whether they are decoded to JSON (on) or left as
   the inline binary blocks (off). Import is always backward compatible: older source

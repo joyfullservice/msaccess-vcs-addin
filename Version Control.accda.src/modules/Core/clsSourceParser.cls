@@ -506,7 +506,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     ' Determine whether to extract per-control conditional formatting blocks to the
     ' companion JSON file. Gated behind the export format version and the option, and
     ' only applies to forms and reports (the only objects that carry these blocks).
-    blnStripCF = (Options.ExportFormatVersion >= EFV_5_1_0) _
+    blnStripCF = (Options.ExportFormatVersion >= EFV_5_0_0) _
         And Options.DecodeConditionalFormatting _
         And (this.intObjectType = edbForm Or this.intObjectType = edbReport)
 

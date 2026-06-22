@@ -104,7 +104,7 @@ Public Function SaveComponentAsText(intType As AcObjectType _
                 ' Extract per-control conditional formatting into the companion JSON.
                 ' (Merges with any existing print settings / metadata in the same file.)
                 If Options.DecodeConditionalFormatting _
-                    And Options.ExportFormatVersion >= EFV_5_1_0 Then
+                    And Options.ExportFormatVersion >= EFV_5_0_0 Then
                     WriteConditionalFormatting strPrintSettingsFile, _
                         .GetConditionalFormats, strName
                 End If
