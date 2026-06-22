@@ -169,7 +169,7 @@ Private Function GetSource() As String
 
     ' Apply env substitution to connection strings if applicable.
     ' SECURITY: connections kept in source (the non-env branches below) must still
-    ' never carry a raw password (v5.1.0+). GetSourceSafeConnect is the single
+    ' never carry a raw password (v5.0.0+). GetSourceSafeConnect is the single
     ' chokepoint that enforces this for both inner and outer keys - do NOT bypass it
     ' when refactoring, or plaintext credentials can leak into committed source.
     ' Regression coverage: modTestConnect.TestGetSourceSafeConnectGating /
@@ -189,7 +189,7 @@ Private Function GetSource() As String
                     dNewInner.Add "env:" & strEnvKey, dInner(varInnerKey)
                 End If
             Else
-                ' Not externalized to .env: never write a raw password to source (v5.1.0+)
+                ' Not externalized to .env: never write a raw password to source (v5.0.0+)
                 strSafeConnect = GetSourceSafeConnect(CStr(varInnerKey), _
                     CStr(dInner(varInnerKey)) & " (db connection)")
                 If Not dNewInner.Exists(strSafeConnect) Then
@@ -207,7 +207,7 @@ Private Function GetSource() As String
                 Set dExport("env:" & strEnvKey) = dNewInner
             End If
         Else
-            ' Not externalized to .env: never write a raw password to source (v5.1.0+)
+            ' Not externalized to .env: never write a raw password to source (v5.0.0+)
             strSafeConnect = GetSourceSafeConnect(CStr(varOuterKey), "db connection")
             If Not dExport.Exists(strSafeConnect) Then
                 Set dExport(strSafeConnect) = dNewInner

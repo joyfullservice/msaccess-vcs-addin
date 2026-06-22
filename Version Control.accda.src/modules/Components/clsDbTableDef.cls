@@ -114,7 +114,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                 strConnect = "env:" & strEnvKey
             Else
                 ' SECURITY: a connection kept in source (not externalized to .env) must
-                ' still never carry a raw password (v5.1.0+). GetSourceSafeConnect is the
+                ' still never carry a raw password (v5.0.0+). GetSourceSafeConnect is the
                 ' single chokepoint that enforces this - do NOT bypass it when refactoring
                 ' this branch, or plaintext credentials can leak into committed source.
                 ' Regression coverage: modTestConnect.TestGetSourceSafeConnectGating /
@@ -158,13 +158,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                     End If
                     If dProps.Exists("TableProperties") Then
                         Set dTblProps = dProps("TableProperties")
-                        ' v5.1.0+: keep engine-managed version stamps (FCMin*) out of
-                        ' source. They are build/version-specific and churn across machines.
-                        ' (Import already tolerates them via SetDAOProperty; this just keeps
-                        ' the exported .json clean.)
-                        If Options.ExportFormatVersion >= EFV_5_1_0 Then
-                            Set dTblProps = FilterEngineManagedProps(dTblProps)
-                        End If
+                        ' Keep engine-managed version stamps (FCMin*) out of source. They
+                        ' are build/version-specific and churn across machines. (Import
+                        ' already tolerates them via SetDAOProperty; this just keeps the
+                        ' exported .json clean.)
+                        Set dTblProps = FilterEngineManagedProps(dTblProps)
                         If dTblProps.Count > 0 Then
                             dItem.Add "TableProperties", SortDictionaryByKeys(dTblProps)
                         End If

@@ -113,7 +113,7 @@ non-portable diffs.
 resilient -- linked tables (`clsDbTableDef`), document properties (`clsDbDocument`,
 `modLoadSaveText`) -- and removes the need for the name-based import skip, which was reverted.
 As a separate source-cleanliness measure (not a correctness requirement), export still strips
-the `FCMin*` family from linked-table `TableProperties`, gated at `EFV_5_1_0`, via the now-
+the `FCMin*` family from linked-table `TableProperties`, gated at `EFV_5_0_0`, via the now-
 public `modDatabase.IsEngineManagedProperty` / `FilterEngineManagedProps` helpers. Import is
 not gated and stays backward compatible with older source that still contains these stamps.
 
@@ -123,7 +123,7 @@ ShowDebug). Other property-set errors are still surfaced unchanged.
 
 **Relevant files**: `modDatabase.bas` (`SetDAOProperty`, `IsEngineManagedProperty`,
 `FilterEngineManagedProps`), `clsDbTableDef.cls` (export filter; reverted import skips),
-`modConstants.bas` (`EFV_5_1_0` comment), `modTestDatabase.bas` (helper tests).
+`modConstants.bas` (`EFV_5_0_0` comment), `modTestDatabase.bas` (helper tests).
 
 ---
 
@@ -140,12 +140,12 @@ AI agents author/edit database projects with less human review in the loop.
   Surfaces the issue but still ships the secret.
 - *Strip only PWD, keep UID* — removes the secret but leaves the username; simpler but
   inconsistent with the existing UID/PWD pairing in `SanitizeConnectionString`.
-- *Redefine `Never` to strip credentials; gate at export format 5.1.0 (chosen)* — passwords
+- *Redefine `Never` to strip credentials; gate at export format 5.0.0 (chosen)* — passwords
   are never written to source in any mode; `Never` means "connection strings in source,
   minus credentials." Users who want self-contained source must manage credentials
   themselves (runtime prompt or their own priming).
 
-**Decision**: New `modConnect.GetSourceSafeConnect` (gated by `EFV_5_1_0`) strips `UID`/`PWD`
+**Decision**: New `modConnect.GetSourceSafeConnect` (gated by `EFV_5_0_0`) strips `UID`/`PWD`
 from any connection string written to source when it is not externalized to `.env`, and
 logs one `eelWarning` per distinct connection. It only acts when an actual `PWD` value is
 present (so passwordless AD/integrated connections, which may carry an empty `PWD=`, do not
@@ -157,7 +157,7 @@ populated for pass-through queries too. Import is unchanged and remains backward
 with older source that still contains credentials.
 
 **What this rules out**: Self-contained source files with embedded passwords are no longer
-supported at export format 5.1.0+. Existing repos keep the old behavior until they bump
+supported at export format 5.0.0+. Existing repos keep the old behavior until they bump
 their `ExportFormatVersion`, so the secret-leak window persists for un-migrated projects
 (mitigated by the warning when stripping occurs). Stripping covers `UID`/`PWD` only — if a
 driver carries a secret under a different key, `StripConnectionCredentials` would need
@@ -166,7 +166,7 @@ extending.
 **Testing & accepted risk**: Locked in by unit tests on the single chokepoint —
 `modTestConnect.TestStripConnectionCredentials` (the strip logic across SQL-auth, Access
 back-end, lower-case keys, passwordless AD, and no-credential shapes) and
-`TestGetSourceSafeConnectGating` (the `EFV_5_1_0` gate: passthrough below 5.1.0, strip at/above,
+`TestGetSourceSafeConnectGating` (the `EFV_5_0_0` gate: passthrough below 5.0.0, strip at/above,
 no-op for empty `PWD=` and credential-free strings). A full end-to-end test (link a
 password-protected back-end table, run the component export to file, grep the output for `PWD=`)
 was considered and deliberately *not* implemented: driving the real export path mutates shared
@@ -179,38 +179,45 @@ gap is mitigated by an explicit SECURITY reminder comment at each of the three c
 
 **Relevant files**: `modConnect.bas` (`GetSourceSafeConnect`, `StripConnectionCredentials`,
 `m_dStrippedConnWarn`), `clsDbTableDef.cls`, `clsDbQuery.cls`, `clsDbConnection.cls`,
-`modConstants.bas` (`EFV_5_1_0` comment), `frmVCSOptionsExport.cls` (help text),
+`modConstants.bas` (`EFV_5_0_0` comment), `frmVCSOptionsExport.cls` (help text),
 `modTestConnect.bas` (regression tests).
 
 ---
-## 2026-06-20 — Fold conditional formatting decode into export format 5.0.0
+## 2026-06-20 — Fold unreleased 5.1.0 export gates into format 5.0.0
 
-**Trigger**: Conditional formatting decode-to-JSON was gated behind unreleased
-`EFV_5_1_0`, but v5 has not shipped to the general public yet (only a handful of
-beta users). Keeping a separate 5.1.0 format version would make 5.0.0 an incomplete
-"first release" snapshot.
+**Trigger**: Several v5 behaviors — conditional formatting decode-to-JSON, source-safe
+connection strings (no raw passwords in source), and linked-table `FCMin*` export
+filtering — were initially gated behind unreleased `EFV_5_1_0`, but v5 has not shipped
+to the general public yet (only a handful of beta users). Keeping a separate 5.1.0 format
+version would make 5.0.0 an incomplete "first release" snapshot.
 
 **Options explored**:
-- **Keep `EFV_5_1_0` for CF decode**: Clean separation, but forces the first general
+- **Keep `EFV_5_1_0` for these behaviors**: Clean separation, but forces the first general
   release to advertise two format versions when only one meaningful baseline is needed.
 - **Fold into `EFV_5_0_0` (chosen)**: Same precedent as file extension migration
-  (2026-03-10). CF decode ships as part of the v5 baseline.
+  (2026-03-10). All unreleased v5 behaviors ship as part of the v5 baseline.
 - **Auto-migrate beta `"5.1.0"` in `clsOptions.Upgrade()`**: Rejected — only one known
   beta user; manual `vcs-options.json` edit is sufficient.
 
 **Decision**: Remove `EFV_5_1_0` from `eExportFormatVersion`, set `[_Last] = 50000`, and
-retarget the two CF gate sites (`clsSourceParser`, `modLoadSaveText`) from `>= EFV_5_1_0`
-to `>= EFV_5_0_0`. The `DecodeConditionalFormatting` option gate is unchanged. No runtime
-migration for stale `"5.1.0"` values in `vcs-options.json` (50100 still satisfies
-`>= 50000` if left untouched).
+retarget all gate sites from `>= EFV_5_1_0` to `>= EFV_5_0_0`:
+- CF decode: `clsSourceParser`, `modLoadSaveText` (the `DecodeConditionalFormatting`
+  option gate is unchanged)
+- Source-safe connections: `modConnect.GetSourceSafeConnect` and its three call sites
+- `FCMin*` export filtering: `clsDbTableDef` via `FilterEngineManagedProps`
 
-**What this rules out**: CF decode is no longer a post-5.0.0 format bump; it is part of
-the v5 baseline. The `EFV_5_1_0 = 50100` slot is free again for the first *post-release*
-export format change.
+No runtime migration for stale `"5.1.0"` values in `vcs-options.json` (50100 still
+satisfies `>= 50000` if left untouched).
+
+**What this rules out**: These behaviors are no longer post-5.0.0 format bumps; they are
+part of the v5 baseline. The `EFV_5_1_0 = 50100` slot is free again for the first
+*post-release* export format change.
 
 **Relevant files**: `modules/Infrastructure/modConstants.bas`, `modules/Core/clsSourceParser.cls`,
-`modules/Core/modLoadSaveText.bas`, `forms/frmVCSOptionsExport.cls`,
-`docs/access-conditional-format.md`.
+`modules/Core/modLoadSaveText.bas`, `modules/Utility/modConnect.bas`,
+`modules/Components/clsDbTableDef.cls`, `modules/Components/clsDbQuery.cls`,
+`modules/Components/clsDbConnection.cls`, `forms/frmVCSOptionsExport.cls`,
+`modules/Tests/Connect/modTestConnect.bas`, `docs/access-conditional-format.md`.
 
 ## 2026-06-18 — Build-time cleanup for duplicate `@Folder` source files
 
@@ -257,8 +264,8 @@ handles moves via `MoveSource` + `CleanupDuplicateSourceFiles`.
 
 > **⚠ Partially superseded** (2026-06-20): Export format gating moved from `EFV_5_1_0`
 > to `EFV_5_0_0` before v5 shipped. Decode/rebuild behavior and the
-> `DecodeConditionalFormatting` option are unchanged. See "Fold conditional formatting
-> decode into export format 5.0.0" above.
+> `DecodeConditionalFormatting` option are unchanged. See "Fold unreleased 5.1.0 export
+> gates into format 5.0.0" above.
 
 **Trigger**: The per-control `ConditionalFormat` / `ConditionalFormat14` properties on form
 and report controls export as opaque binary hex blocks. Any formatting change produces a

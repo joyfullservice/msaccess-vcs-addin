@@ -1026,7 +1026,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 06/19/2026
 ' Purpose   : Return a connection string safe to write to a source file. Starting with
-'           : export format v5.1.0, raw passwords are never written to source files in
+'           : export format v5.0.0, raw passwords are never written to source files in
 '           : any UseEnvForConnections mode (including Never); credentials belong only
 '           : in the git-ignored .env file. This removes the secret-leak footgun where
 '           : a user (or an AI agent) commits source containing a plaintext password.
@@ -1039,7 +1039,7 @@ Public Function GetSourceSafeConnect(strConnect As String, strObjectLabel As Str
     If Len(strConnect) = 0 Then Exit Function
 
     ' Gated so existing repos that rely on self-contained source are not force-migrated.
-    If Options.ExportFormatVersion < EFV_5_1_0 Then Exit Function
+    If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Function
 
     ' Only act when an actual password value is present (avoids false positives on
     ' passwordless auth such as AD/integrated, which may carry an empty PWD=).

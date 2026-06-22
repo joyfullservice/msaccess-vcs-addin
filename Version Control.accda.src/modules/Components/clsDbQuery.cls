@@ -306,7 +306,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
             dItems.Add "Connect", "env:" & strEnvKey
         Else
             ' SECURITY: a connection kept in source (not externalized to .env) must
-            ' still never carry a raw password (v5.1.0+). GetSourceSafeConnect is the
+            ' still never carry a raw password (v5.0.0+). GetSourceSafeConnect is the
             ' single chokepoint that enforces this - do NOT bypass it when refactoring
             ' this branch, or plaintext credentials can leak into committed source.
             ' Regression coverage: modTestConnect.TestGetSourceSafeConnectGating /

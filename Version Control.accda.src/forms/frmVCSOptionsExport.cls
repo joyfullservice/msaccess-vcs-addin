@@ -56,7 +56,7 @@ Private Sub Form_Load()
         .ControlTipText = T("Auto: export when credentials are present; prompt to save new credentials on build. " & _
             "Always: store all connections in .env on export and save silently on build. " & _
             "Never: keep connection strings in source files (without .env). " & _
-            "Passwords are never written to source files in any mode (export format 5.1.0+).")
+            "Passwords are never written to source files in any mode (export format 5.0.0+).")
     End With
 
     ' Populate export format version combo

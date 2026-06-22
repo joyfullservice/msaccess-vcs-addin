@@ -82,22 +82,22 @@ Public Sub TestGetSourceSafeConnectGating()
     ' restore at the end always runs even if an assertion fails).
     lngSaved = Options.ExportFormatVersion
 
-    ' Below 5.1.0: behavior unchanged - credentials pass through to source.
+    ' Below 5.0.0: behavior unchanged - credentials pass through to source.
+    Options.ExportFormatVersion = EFV_4_1_2
+    strResult = GetSourceSafeConnect(strConn, "test (linked table)")
+    TestAssert InStr(strResult, "PWD=secret") > 0, "pre-5.0.0 leaves password untouched"
+
+    ' 5.0.0+: real password stripped from anything bound for source.
     Options.ExportFormatVersion = EFV_5_0_0
     strResult = GetSourceSafeConnect(strConn, "test (linked table)")
-    TestAssert InStr(strResult, "PWD=secret") > 0, "pre-5.1.0 leaves password untouched"
+    TestAssert InStr(1, strResult, "PWD=", vbTextCompare) = 0, "5.0.0 strips PWD"
+    TestAssert InStr(strResult, "secret") = 0, "5.0.0 removes password value"
 
-    ' 5.1.0+: real password stripped from anything bound for source.
-    Options.ExportFormatVersion = EFV_5_1_0
-    strResult = GetSourceSafeConnect(strConn, "test (linked table)")
-    TestAssert InStr(1, strResult, "PWD=", vbTextCompare) = 0, "5.1.0 strips PWD"
-    TestAssert InStr(strResult, "secret") = 0, "5.1.0 removes password value"
-
-    ' 5.1.0+ with passwordless auth (empty PWD): no secret, returned unchanged.
+    ' 5.0.0+ with passwordless auth (empty PWD): no secret, returned unchanged.
     strResult = GetSourceSafeConnect(strAd, "test (linked table)")
     TestAssert strResult = strAd, "passwordless AD connection is not altered"
 
-    ' 5.1.0+ with no credentials at all: returned unchanged.
+    ' 5.0.0+ with no credentials at all: returned unchanged.
     strResult = GetSourceSafeConnect("ODBC;DRIVER=x;SERVER=s;DATABASE=d", "test")
     TestAssert strResult = "ODBC;DRIVER=x;SERVER=s;DATABASE=d", "no-credential string unchanged"
 
