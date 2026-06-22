@@ -183,6 +183,34 @@ gap is mitigated by an explicit SECURITY reminder comment at each of the three c
 `modTestConnect.bas` (regression tests).
 
 ---
+## 2026-06-20 — Fold conditional formatting decode into export format 5.0.0
+
+**Trigger**: Conditional formatting decode-to-JSON was gated behind unreleased
+`EFV_5_1_0`, but v5 has not shipped to the general public yet (only a handful of
+beta users). Keeping a separate 5.1.0 format version would make 5.0.0 an incomplete
+"first release" snapshot.
+
+**Options explored**:
+- **Keep `EFV_5_1_0` for CF decode**: Clean separation, but forces the first general
+  release to advertise two format versions when only one meaningful baseline is needed.
+- **Fold into `EFV_5_0_0` (chosen)**: Same precedent as file extension migration
+  (2026-03-10). CF decode ships as part of the v5 baseline.
+- **Auto-migrate beta `"5.1.0"` in `clsOptions.Upgrade()`**: Rejected — only one known
+  beta user; manual `vcs-options.json` edit is sufficient.
+
+**Decision**: Remove `EFV_5_1_0` from `eExportFormatVersion`, set `[_Last] = 50000`, and
+retarget the two CF gate sites (`clsSourceParser`, `modLoadSaveText`) from `>= EFV_5_1_0`
+to `>= EFV_5_0_0`. The `DecodeConditionalFormatting` option gate is unchanged. No runtime
+migration for stale `"5.1.0"` values in `vcs-options.json` (50100 still satisfies
+`>= 50000` if left untouched).
+
+**What this rules out**: CF decode is no longer a post-5.0.0 format bump; it is part of
+the v5 baseline. The `EFV_5_1_0 = 50100` slot is free again for the first *post-release*
+export format change.
+
+**Relevant files**: `modules/Infrastructure/modConstants.bas`, `modules/Core/clsSourceParser.cls`,
+`modules/Core/modLoadSaveText.bas`, `forms/frmVCSOptionsExport.cls`,
+`docs/access-conditional-format.md`.
 
 ## 2026-06-18 — Build-time cleanup for duplicate `@Folder` source files
 
@@ -226,6 +254,11 @@ handles moves via `MoveSource` + `CleanupDuplicateSourceFiles`.
 ---
 
 ## 2026-06-17 — Conditional formatting blocks decoded to companion JSON
+
+> **⚠ Partially superseded** (2026-06-20): Export format gating moved from `EFV_5_1_0`
+> to `EFV_5_0_0` before v5 shipped. Decode/rebuild behavior and the
+> `DecodeConditionalFormatting` option are unchanged. See "Fold conditional formatting
+> decode into export format 5.0.0" above.
 
 **Trigger**: The per-control `ConditionalFormat` / `ConditionalFormat14` properties on form
 and report controls export as opaque binary hex blocks. Any formatting change produces a

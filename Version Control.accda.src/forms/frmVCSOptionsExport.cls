@@ -65,7 +65,7 @@ Private Sub Form_Load()
         For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]
             ' Packed version integers are sparse; whitelist real enum members only.
             Select Case lngFormat
-                Case EFV_4_1_2, EFV_5_0_0, EFV_5_1_0
+                Case EFV_4_1_2, EFV_5_0_0
                     If lngFormat = LATEST_EXPORT_FORMAT Then
                         .AddItem lngFormat & ";" & ExportFormatToVersion(lngFormat) & " (latest)"
                     Else
