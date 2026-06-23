@@ -8,7 +8,8 @@ Since much of this could be considered subjective archetecutual design decisions
 * The goal is to replicate the original database as **closely as possible** when building from source.
 * The add-in is **not intended** to fix/repair/enhance the target database, other than what is necessary to perform the basic functions of exporting and importing source files.
 * The **user interface** should be as intuitive and user-friendly as possible. It should be both efficient for the expert, and easy for the beginner. Flexibility without clutter.
-* The tool should be **extensible**, where internal code can be added to carry out additional tasks outside the scope of this add-in.
+* The tool should be **extensible**, where internal code can be added to carry out additional tasks outside the scope of this add-in (export/build hooks, optional MCP automation with explicit opt-in permissions).
+* **Agent/MCP automation** is in scope when gated by administrator-controlled options ([MCP and Automation](MCP-and-Automation)); it is not enabled by default.
 
 
 ## How Features are Evaluated
@@ -19,4 +20,15 @@ Features add complexity, and complexity increases [cost of carry](https://martin
 * How complex is the feature? Is it limited to changes in a few areas of code, or are we talking about a significant refactoring?
 * Do functionality changes cause any risks for those currently using the add-in in production environments?
 
-If your idea didn't get implemented, don't take it personally.  :-)  Remember, this is an ongoing work in progress, and someone has to make the hard decisions about what gets added and what doesn't.
+If your idea didn't get implemented, don't take it personally. Remember, this is an ongoing work in progress, and someone has to make the hard decisions about what gets added and what doesn't.
+
+## Examples often considered out of scope
+
+- **Full CI/CD product** inside the add-in (discussed in [issue #51](https://github.com/joyfullservice/msaccess-vcs-addin/issues/51)) — integrate via GitHub Actions / GitLab yourself using `VCS` API and build scripts.
+- **Replacing SSMS or MySQL Workbench** — external schema export is a convenience snapshot, not a DBA tool.
+- **Fixing broken Access databases** unrelated to export/import fidelity.
+
+## In scope but evolving
+
+- **Automated round-trip testing** — query fixtures and harness are live; forms/reports/modules expand over time ([Regression Testing](Regression-Testing)).
+- **Translations** — partial UI coverage ([Translation](Translation)).

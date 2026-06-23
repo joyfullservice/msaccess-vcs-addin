@@ -1,72 +1,133 @@
-- [Is there a way to use a ribbon with this add-in?](#is-there-a-way-to-use-a-ribbon-with-this-add-in)
-- [Why are some issues/ideas considered out of scope for this project?](#why-are-some-issuesideas-considered-out-of-scope-for-this-project)
-- [Why am I seeing a large number of "changed" files after building my project from source?](#why-am-i-seeing-a-large-number-of-changed-files-after-building-my-project-from-source)
-- [How do I also export data from all the tables in my database?](#how-do-i-also-export-data-from-all-the-tables-in-my-database)
+# Frequently Asked Questions
 
-On this page you will find answers and guidance relating to common questions that come up when using this add-in.
+- [Is there a ribbon toolbar?](#is-there-a-ribbon-toolbar)
+- [Why are issues sometimes out of scope?](#why-are-some-issuesideas-considered-out-of-scope-for-this-project)
+- [Why do many files show as changed after a build?](#why-am-i-seeing-a-large-number-of-changed-files-after-building-my-project-from-source)
+- [How do I export data from all tables?](#how-do-i-also-export-data-from-all-the-tables-in-my-database)
+- [My queries changed to .sql and .json — is that normal?](#my-queries-changed-to-sql-and-json--is-that-normal)
+- [How do I upgrade to export format 5.0?](#how-do-i-upgrade-to-export-format-50)
+- [Merge build vs full build — when to use which?](#merge-build-vs-full-build--when-to-use-which)
+- [False conflicts after a full build?](#false-conflicts-after-a-full-build)
+- [Where do connection strings go?](#where-do-connection-strings-go)
+- [What are @Folder subfolders under modules?](#what-are-folder-subfolders-under-modules)
 
-## Is there a way to use a ribbon with this add-in?
-Yes! Version 4.x includes a ribbon toolbar created through a twinBASIC COM add-in. The source code for the ribbon, as well as the XML definition file is included in this project. The ribbon and related files are currently on the `dev` branch until the official release of version 4.
+---
+
+## Is there a ribbon toolbar?
+
+Yes. Version 4 and later ship a **twinBASIC COM ribbon add-in** (32- and 64-bit) installed with the add-in. It provides Export, Build, Merge, Options, Run Tests, and related commands.
+
+If you do not see it, see [Installation](Installation) (COM add-ins, trust, **Use Ribbon Addin**). You can still run the add-in from **Database Tools** → **Add-Ins**.
+
+---
 
 ## Why are some issues/ideas considered out of scope for this project?
-This is described in more detail on [Project-Scope](Project-Scope).
+
+See [Project Scope](Project-Scope). Examples often declined: full CI/CD pipelines inside the add-in, replacing dedicated SQL tools, or features that only help a single exotic environment without broad benefit.
+
+---
 
 ## Why am I seeing a large number of "changed" files after building my project from source?
-Before going into some technical details, let me clarify that in normal operation, this add-in is designed to be able to build a project with minimal, if any, changes showing between builds.
 
-There are several possible reasons for files showing as changed even when you didn't intentionally change the source objects. Click the heading to view additional information that may be relevant in your case.
+In normal use, a second export after build should show few or no unintended changes. If Git shows many diffs, consider the cases below.
 
 <details>
 <summary><b>Form source files are showing changes in color values</b></summary>
 
-This issue usually comes up in relation to a project being built on different computers, due to how Access internally stores the color values.
+Often caused by different monitors or color profiles. Access stores colors in a way that can shift between machines.
 
-The number you see in the exported source file is affected by the current color profile and settings used by your monitor to represent the colors you see on your screen.
-  
-  Example:
-  
-  ```diff
-  -     BackColor =11830108
-  +     BackColor =12874308
-  ```
-  
+```diff
+-     BackColor =11830108
++     BackColor =12874308
+```
+
+Try **Sanitize Colors** on the Export options. See [Options](Options).
 </details>
 
 <details>
 <summary><b>Changes in form dimension values</b></summary>
 
-This often happens when exporting/building on computers with different screen resolutions or monitor arrangements. These changes can often be ignored, since those values are dynamically generated. 
-
-In most cases it would be a bit too complex to try to build the logic to determine this from the source file content, to the extend that we could discard unneeded values. One place that we have successfully done this is on the `Right` and `Bottom` dimensions of reports. (See the `SanitizeFile` function for details.)
+Common with different screen DPI or monitor layouts. Often safe to ignore. Sanitization removes some report dimension noise; forms may still drift slightly.
 </details>
 
 <details>
-<summary><b>Query source is significantly different</b></summary>
+<summary><b>Query files look completely different (.sql / .json)</b></summary>
 
-You may observe that the source file for a query seems to be updated to an entirely different file structure. This has to do with whether the query was saved in a compiled state in the database. If you have issues with this frequently causing changes in source files, you may want to review your workflow for editing queries. (Saving via the designer will save one way, while using the SQL view will save another way.)
+Version 5 uses [deterministic query export](Query-Source-Files). The first export after upgrading changes layout from legacy `.qdef` or single `.bas` files. Review the diff once, commit the new shape, then expect stable exports.
+
+If drift continues, check **Use Deterministic Query Export** or temporarily use legacy behavior — see [Query Source Files](Query-Source-Files).
 </details>
 
 <details>
 <summary><b>Case changes in VBA code</b></summary>
 
-If you see a lot of changes happening with the capitalization of variables, keyworks, properties and methods, this may be caused by the VBA editor trying to enforce consistency in the naming. This is an internal feature to VBA that some people hate and some people love. There isn't much that you can do about this behavior in the VBA IDE, but the following tips have been helpful to me in minimizing the negative effects:
-* Use Pascal casing for procedures, methods and properties
-* Use Hungarian notation (or similar) for variable names (i.e `lngTotal`, `strCaption`)
+The VBA editor may normalize identifier casing. Tips: Pascal case for procedures; Hungarian-style prefixes for variables (`lngTotal`, `strCaption`).
 
-While many modern languages and IDE editors tend towards `camelCase` names, this just doesn't work as nicely in VBA. I personally find better success sticking with the original naming conventions the IDE was designed to work with.
-  
-Example ("**c**" > "**C**"):
-  
-  ```diff
-  -    cancel = True
-  +    Cancel = True
-  ```
- 
+```diff
+-    cancel = True
++    Cancel = True
+```
 </details>
 
+<details>
+<summary><b>Upgraded export format 5.0 (extensions renamed)</b></summary>
+
+Setting **Export Format** to 5.0 renames extensions (`.form`, `.report`, `.sql`, `.macro`). Git sees this as delete+add. Use a dedicated migration commit. See [Version 5 Overview](Version-5-Overview).
+</details>
+
+---
+
 ## How do I also export data from all the tables in my database?
-Perhaps a more important question is to ask _**why**_ you want to do this... It's not that you can't, it just usually indicates a misunderstanding on the purpose of this tool. This add-in is designed to work in connection with a version control system like git to save snapshots of the _design structure_ (not the data) of a database application project. This allows you to track changes and build a copy from any point in the project's development history.
 
-Sometimes there are pieces of data that should be included in a build, such as a table that stores configuration settings. But it can actually be very risky to commit a project's data records to version control, as this could inadvertently expose customer information (PII) or other sensitive data. It is because of this risk, and the huge problems this could cause for a well-meaning developer that we intentionally did not include a "select-all" option to easily export data from all tables.
+This tool targets **schema and application design**, not production data backups. Exporting all table data risks committing PII or sensitive records to Git.
 
-If your underlying need is for a data backup, you might be better off reaching for another tool. (Or you could create a simple VBA script or Macro to automate the process.) If you are one of those rare but legitimate cases where you actually do need to include all the table data in version control, you will just need to go through the list of tables in the Options dialog and select each one and specify the export format. (This selection is saved with the options, and will be used on each subsequent export.) If you have a huge number of tables, you can manually edit the `options.json` file. Just be sure to follow the same format for the new entries.
+For lookup/config tables, select them individually under **Options** → **Table Data**. There is no "select all tables" button by design.
+
+To add many tables manually, edit `vcs-options.json` using the same JSON shape as entries created through the UI (add one table via the UI first as a template).
+
+---
+
+## My queries changed to .sql and .json — is that normal?
+
+Yes for export format 5.0 with **Use Deterministic Query Export** on (default). The `.sql` file holds the SQL text; the `.json` file holds metadata and Design View layout. See [Query Source Files](Query-Source-Files).
+
+---
+
+## How do I upgrade to export format 5.0?
+
+1. Back up your database and `.src` folder.
+2. Install the latest add-in release.
+3. Open **Options** → **Export** → set **Export Format** to **5.0.0**.
+4. Run a full **Export** and review the Git diff.
+5. Commit in a single "migrate to VCS export format 5" changeset.
+
+Details: [Version 5 Overview](Version-5-Overview).
+
+---
+
+## Merge build vs full build — when to use which?
+
+| Situation | Recommendation |
+|-----------|----------------|
+| Daily sync after `git pull` | [Merge build](Merge-Build) |
+| Release candidate / clean-room verify | Full build |
+| First time using VCS on a database | Full export, then full build on another machine to validate |
+| Suspect index or conflict weirdness | Full build, then export |
+
+---
+
+## False conflicts after a full build?
+
+Usually caused by an out-of-sync `vcs-index.idx` or exporting before the database matches source. After a full build, run **Export** once so the index and source align. Do not commit `vcs-index.idx` to Git (default `.gitignore` excludes it).
+
+---
+
+## Where do connection strings go?
+
+In a gitignored `.env` file at the export root, referenced as `env:conn_*` in exported JSON. See [Connections](Connections).
+
+---
+
+## What are @Folder subfolders under modules?
+
+Rubberduck `@Folder("Area.SubArea")` annotations can place modules in subfolders under `modules/` (export format 5.0+). Folders appear only when modules use those annotations.

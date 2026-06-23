@@ -13,10 +13,13 @@ The harness is generic over `IDbComponent`, so the same machinery covers queries
 For each fixture under `Testing/Fixtures/`, the harness:
 
 1. Imports the fixture into the running database under a sandboxed name (`vcs_test_<basename>_<hash>`).
-2. Exports it twice (Pass 1 and Pass 2) into a per-run scratch folder.
-3. Asserts **Pass 2 == Pass 1** (idempotency — hard requirement).
-4. Asserts **Pass 1 == fixture** (drift check — soft requirement, surfaced as a warning when the fixture is intentionally being updated).
-5. Drops the sandboxed object and refreshes the cache (`DBEngine.Idle dbRefreshCache`) before moving on.
+2. For **queries**, validates generated `.qdef` structure:
+   - **`qdef_joins`** — each join row's tables match its `Expression` (Design View structural check).
+   - **`qdef_vs_fixture`** — compares generated `.qdef` to a stored `.qdef` baseline when present.
+3. Exports twice (Pass 1 and Pass 2) into a per-run scratch folder.
+4. Asserts **Pass 2 == Pass 1** (idempotency — hard requirement).
+5. Asserts **Pass 1 == fixture** (drift check — soft requirement; warnings when rebaselining).
+6. Drops the sandboxed object and refreshes the cache (`DBEngine.Idle dbRefreshCache`) before moving on.
 
 Stale sandbox objects from a prior crashed run are detected and cleaned up at the start of every session, so the database does not accumulate cruft over time.
 
@@ -48,7 +51,11 @@ To rebaseline (overwrite fixtures with the actual export when comparisons mismat
 vcs_run_vba(<addin-path>, "MCP_TempFunction = VCS.RunRoundtripTests()")
 ```
 
-This requires the **McpAllowRunVBA** option to be enabled in the add-in's Options form (consistent with how other agent-driven code execution is gated). Inside the add-in's own development VBE, the harness is also callable directly via `?modTestRoundtrip.RunObjectRoundtripTests()` for in-project debugging.
+This requires **Allow Arbitrary VBA Execution** (`McpAllowRunVBA`) under **Options** → **MCP**. See [MCP and Automation](MCP-and-Automation).
+
+For unit tests (not round-trip), use [Testing](Testing) and `VCS.RunTests`.
+
+Inside the add-in's own development VBE, the harness is also callable via `?modTestRoundtrip.RunObjectRoundtripTests()` for in-project debugging.
 
 ## What you get back
 

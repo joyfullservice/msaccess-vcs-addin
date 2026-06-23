@@ -30,7 +30,12 @@ jobs:
     
       - name: Sync wiki folder
         run: |
-          rsync -av --delete --exclude='.git' Wiki/ wiki/
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='README.md' \
+            --exclude='PUBLISH.md' \
+            --exclude='img/CAPTURE_CHECKLIST.md' \
+            Wiki/ wiki/
 
       - name: Commit and push changes
         run: |

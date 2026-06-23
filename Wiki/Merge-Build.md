@@ -36,3 +36,39 @@ While a merge build is a very helpful development tool, a *full build* is the mo
 Like full builds, each merge build makes a backup copy of the current database before applying changes to the database. If something goes wrong in the merge, you can always rename this backup to the original file name to get back to where you started.
 
 See issue [#81](https://github.com/joyfullservice/msaccess-vcs-addin/issues/81) for additional discussion that ultimately led to the implementation of this feature.
+
+---
+
+## Conflict resolution
+
+When source and database both changed the same object, the add-in pauses for your decision:
+
+![Conflict resolution dialog](img/export-conflicts.png)
+
+| Resolution | Effect |
+|------------|--------|
+| **Skip** | Leave the database object unchanged |
+| **Overwrite** | Import from source (source wins) |
+| **Delete** | Remove the database object (when source file was deleted) |
+
+For multi-file objects (queries with `.sql` and `.json`, split forms with `.form` and `.cls`), the conflict UI can show **per-file diffs** so you see which side changed which file.
+
+**Options** → **Build** also provides **Run Sub Before Merge** / **Run Sub After Merge** hooks and **Immediately export object after merge** to re-export merged objects in one step.
+
+Agent/MCP sessions may auto-resolve conflicts when automation is enabled — see [MCP and Automation](MCP-and-Automation).
+
+---
+
+## Index and Git
+
+- Keep `vcs-index.idx` next to the database file; **do not commit** it (default `.gitignore`).
+- Commit only the `.src` tree and `vcs-options.json`.
+- After a full build, run **Export** once so the index matches the database — reduces false conflicts.
+
+---
+
+## Related
+
+- [Documentation](Documentation) — collaborative workflow
+- [Options](Options) — merge hooks
+- [FAQs](FAQs) — merge vs full build
