@@ -22,4 +22,19 @@ The following are either excerpted or differ from the above style guide. Use the
 ||<kbd>[]</kbd>|Use of Square Brackets ([ ]) is desirable, especially within code comments as the \<kbd> tag is not rendered in the VBA IDE, and to disambiguate between combined keystrokes and the <kbd>[+]</kbd> key.<p> *Example in Code:* ` ' To break the execution of this function, Press [Ctrl]+[Break] or [Esc]` <p> *Example Wiki:* To close Access immediately, press <kbd>[Alt]+[F4]</kbd>
 |Text entry in fields||Enclose text entered by users with \` charachter (code formatting). <p> *Example:* Type `Potato` into the **Desired Food** box.
 |Referencing Field|**Bold**|To refer to a field, use **Bold** (Markdown= \**[stuff]**)
-|Action||Generally, the action performed does not need to be highlighted. Instead, highlight the **Field** or the **Menu Item**. <P>*Example:* Goto the **Options > Export** tab. Select desired **Sanitize Level**.
+|Action||Generally, the action performed does not need to be highlighted. Instead, highlight the **Field** or the **Menu Item**. <P>*Example:* Open **Options**, select the **Export** section in the left navigation, and set **Sanitize Level**.
+
+# Version 5 terminology
+
+Use these terms consistently in wiki pages, UI strings (`T()`), and contributor docs:
+
+| Term | Meaning |
+|------|---------|
+| **Export format version** | Numeric setting (`ExportFormatVersion` in `vcs-options.json`) that gates export behavior changes. Import remains backward compatible with older formats. |
+| **Deterministic query export** | Default query export as a `.sql` + `.json` pair reconstructed from MSysQueries (not legacy `.qdef` as the primary artifact). |
+| **Merge build** | Partial import that updates only changed source files into an existing database (not a “new in v4” feature). |
+| **`vcs-index.idx`** | Binary change-tracking index paired with the database file; typically gitignored. |
+| **`env:conn_*`** | Placeholder in exported JSON for connection strings resolved from `.env` at build time. |
+| **MCP session** | Scoped agent automation with optional permission flags (`McpAllowImport`, etc.); all off by default. |
+| **Options sections** | Left-nav areas: General, Export, Build, Table Data, Databases, MCP, Translation, Advanced, Defaults (not legacy tab names only). |
+| **Fast Save** | Export only objects changed since the last export (uses the index). |

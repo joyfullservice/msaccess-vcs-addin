@@ -1,9 +1,9 @@
 We have worked hard to make this add-in as accessible to as many environments as possible, including those that have higher security requirements. It does not require administrative privileges to install or run, and utilizes a trusted location to allow global settings to remain more restrictive.
 
-The entire project with all source code is available on GitHub at: [joyfullservice/msaccess-vcs-integration](https://github.com/joyfullservice/msaccess-vcs-integration) See [LICENSE.txt](https://github.com/joyfullservice/msaccess-vcs-integration/blob/master/LICENSE.txt) for specific terms and disclaimers. (BSD-style license)
+The entire project with all source code is available on GitHub at: [joyfullservice/msaccess-vcs-addin](https://github.com/joyfullservice/msaccess-vcs-addin) See [LICENSE.txt](https://github.com/joyfullservice/msaccess-vcs-addin/blob/main/LICENSE.txt) for specific terms and disclaimers. (BSD-style license)
 
 
-# Minium Security Requirements
+# Minimum Security Requirements
 The following settings need to be allowed in the Security Center for the add-in to be able to interact with databases and function as designed.
 - **Allow Trusted Locations** (Including network locations, if the database is not on the development computer.)
 - **Allow Trusted Documents** - In some environments the add-in file must be trusted as well.
@@ -19,7 +19,7 @@ As with any Microsoft Access add-in, this powerful tool comes with inherent secu
 An existing database can be exported to (primarily) text-based source files that can be committed to a file-based version control system such as Git. While primarily focused on the database *component* objects like forms, queries, table definitions and VBA source code, you can optionally choose to export *data* from tables as well.
 
 Here are a few considerations to think about when exporting to source:
-- Some connection information, such as ODBC connection strings may be present in your exported source files.
+- With **Use .env For Connection Strings**, ODBC strings are replaced by `env:conn_*` in exported JSON; real values belong in a gitignored `.env` file ([Connections](Connections)). If that option is off, raw connection strings may appear in source.
 - Paths to network locations and the database location may be present in some source files.
 - Any table data that is exported could contain PII or other sensitive content, which could then be easily committed to version control.
 - Access to the exported source files should be protected, just like you would protect the database itself.
@@ -91,7 +91,14 @@ In addition to the built-in Microsoft Access references, this add-in also uses t
 - **Microsoft Forms 2.0 Object Library** - For interacting with native VBA forms (different from Microsoft Access forms).
 - **UIAutomationClient** - For interactions with navigation pane objects, such as selecting a single object for export.
 
-# Additions / Updates
-If you have further items that would be helpful to add to this page, please feel free to open an issue or create a pull request!
+## MCP agent automation
 
-Reviewed 4/19/2023 by @joyfullservice
+Optional MCP/API access can import objects, run SQL, and execute VBA. **All permissions default to Off.** See [MCP and Automation](MCP-and-Automation) before enabling in shared or production environments.
+
+## Export-on-save hook DLLs
+
+Optional hook DLLs load into the Access process. See [Export on Save Hook](Export-on-Save-Hook) and Trust Center guidance for COM/native add-ins.
+
+# Additions / Updates
+
+If you have further items that would be helpful to add to this page, open an issue or pull request on [GitHub](https://github.com/joyfullservice/msaccess-vcs-addin).

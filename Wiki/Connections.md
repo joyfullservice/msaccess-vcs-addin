@@ -56,7 +56,7 @@ variants (`.env.*`) while keeping `*.example` templates committed:
 !.env*.example
 ```
 
-Commit templates such as `.env.example` and `.env.offline.example` so other
+Commit templates such as `.env.example` and `.env.dev.example` so other
 developers know which keys to fill in; never commit the real `.env*` files.
 
 Named connections (`EnvConnectionNames` in `vcs-options.json`) let projects use
@@ -71,7 +71,7 @@ source tree, use a selector file plus environment-specific overlays.
 
 1. `.env` — shared base config; set `APP_ENV` here
 2. `.env.local` — developer-local overrides (gitignored)
-3. `.env.{APP_ENV}` — environment-specific values (e.g. `.env.offline`)
+3. `.env.{APP_ENV}` — environment-specific values (e.g. `.env.dev`)
 4. `.env.{APP_ENV}.local` — environment-specific local overrides (gitignored)
 
 `APP_ENV` is read from the OS environment first (`Environ("APP_ENV")`), then from
@@ -82,24 +82,24 @@ the merged base level (`.env` + `.env.local`). If `APP_ENV` is empty, only level
 
 ```
 MyProject.accdb.src/
-  .env                 # APP_ENV=offline + shared keys
+  .env                 # APP_ENV=dev + shared keys
   .env.local           # gitignored — your machine overrides
-  .env.offline         # Purple_Offline connection strings
-  .env.offline.local   # gitignored — offline machine overrides
+  .env.dev             # dev connection strings
+  .env.dev.local       # gitignored — dev machine overrides
   .env.live            # production connection strings
 ```
 
 Base `.env`:
 
 ```
-APP_ENV=offline
+APP_ENV=dev
 # shared non-secret config...
 ```
 
-`.env.offline`:
+`.env.dev`:
 
 ```
-conn_purple=ODBC;DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost;DATABASE=Purple_Offline;Trusted_Connection=Yes;
+conn_dev=ODBC;DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost;DATABASE=dev;Trusted_Connection=Yes;
 ```
 
 ### Switching environments
@@ -143,4 +143,13 @@ against the keys present in your merged `.env` files.
 | `UseEnvForConnections` | `vcs-options.json` | `Auto` / `Always` / `Never` for export sanitization |
 | `EnvConnectionNames` | `vcs-options.json` | Stable named keys (Tier 2 matching) |
 
-See also [Options](Options) and [Export-Import File Types](Export-Import-File-Types).
+## Troubleshooting
+
+| Problem | What to check |
+|---------|----------------|
+| ODBC login on every build | Missing key in `.env`; compare log message `Connection key not found` with `db-connection.json` and `tbldefs`/`queries` `Connect` values |
+| Wrong server after pull | `APP_ENV` set? Layered file `.env.{APP_ENV}` overriding base `.env` |
+| Secrets committed to Git | Ensure `.env`, `.env.local`, `.env.*` are in `.gitignore`; use **Use Git Integration** to refresh template |
+| `env:` visible but build fails | `UseEnvForConnections` in `vcs-options.json`; run export once to regenerate placeholders |
+
+See also [Options](Options), [Export-Import File Types](Export-Import-File-Types), and [FAQs](FAQs).
