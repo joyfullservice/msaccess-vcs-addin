@@ -81,6 +81,369 @@ contradictory guidance.
 
 ---
 
+## 2026-06-19 — Gracefully skip engine-managed DAO properties on import (error 3916)
+
+**Trigger**: Building a database with linked tables that use a newer data type (e.g.
+DateTime2) failed three table imports with `Error 3916: The property 'FCMinWriteVer' can
+only be set or changed by the Microsoft Access database engine`. Access stamps the
+`FCMin*` family (`FCMinDesignVer`/`FCMinReadVer`/`FCMinWriteVer` -- "Feature Compatibility
+minimum version") on objects that use such features. These had been captured into the
+linked-table `.json` (`TableProperties`), and replaying them on import via `SetDAOProperty`
+raised 3916, which aborted the table import and inflated the build's error count -- even
+though the table itself had already been linked successfully.
+
+**Are these properties worth preserving?** No. `FCMin*` are derived, engine-managed version
+stamps: Access regenerates them automatically from the object's actual structure when it is
+recreated, they cannot be set by code at all (that is what 3916 means), and their values are
+build/machine-specific (`16.0.12600.10000`), so storing them only produces noisy,
+non-portable diffs.
+
+**Options explored**:
+- *Name-based skip* (initial fix) — skip the known `FCMin*` names on import and strip them
+  on export. Works, but brittle: any future engine-managed property would reintroduce the
+  same hard failure until its name was added.
+- *Generic tolerance in `SetDAOProperty` (chosen)* — catch error 3916 when applying any
+  property, skip it with a debug note, and re-raise every other error so real failures still
+  surface. This is inherently safe: it only ever skips a property the engine refuses to let
+  us set (i.e. an engine-managed/derived one); every property we can legitimately set is
+  still applied, so nothing meaningful is lost.
+
+**Decision**: `modDatabase.SetDAOProperty` now wraps the property mutation, swallows error
+3916 (debug-note only), and re-raises anything else. This makes all property importers
+resilient -- linked tables (`clsDbTableDef`), document properties (`clsDbDocument`,
+`modLoadSaveText`) -- and removes the need for the name-based import skip, which was reverted.
+As a separate source-cleanliness measure (not a correctness requirement), export still strips
+the `FCMin*` family from linked-table `TableProperties`, gated at `EFV_5_0_0`, via the now-
+public `modDatabase.IsEngineManagedProperty` / `FilterEngineManagedProps` helpers. Import is
+not gated and stays backward compatible with older source that still contains these stamps.
+
+**What this rules out**: We no longer fail an import when a property is engine-managed; the
+trade-off is that a genuinely unsettable property is silently skipped (visible only with
+ShowDebug). Other property-set errors are still surfaced unchanged.
+
+**Relevant files**: `modDatabase.bas` (`SetDAOProperty`, `IsEngineManagedProperty`,
+`FilterEngineManagedProps`), `clsDbTableDef.cls` (export filter; reverted import skips),
+`modConstants.bas` (`EFV_5_0_0` comment), `modTestDatabase.bas` (helper tests).
+
+---
+
+## 2026-06-19 — Never write raw passwords to source files (any mode)
+
+**Trigger**: The 2026-03-17 `.env` design left `UseEnvForConnections = Never` defined as
+"keep complete connection strings in source," which means a SQL-auth password is written
+verbatim into committed source files. A user can pick `Never` (or hit a non-externalized
+path) without realizing credentials will land in a public repo. The risk is amplified as
+AI agents author/edit database projects with less human review in the loop.
+
+**Options explored**:
+- *Warn only* — log a warning when a password is written to source, leave behavior as-is.
+  Surfaces the issue but still ships the secret.
+- *Strip only PWD, keep UID* — removes the secret but leaves the username; simpler but
+  inconsistent with the existing UID/PWD pairing in `SanitizeConnectionString`.
+- *Redefine `Never` to strip credentials; gate at export format 5.0.0 (chosen)* — passwords
+  are never written to source in any mode; `Never` means "connection strings in source,
+  minus credentials." Users who want self-contained source must manage credentials
+  themselves (runtime prompt or their own priming).
+
+**Decision**: New `modConnect.GetSourceSafeConnect` (gated by `EFV_5_0_0`) strips `UID`/`PWD`
+from any connection string written to source when it is not externalized to `.env`, and
+logs one `eelWarning` per distinct connection. It only acts when an actual `PWD` value is
+present (so passwordless AD/integrated connections, which may carry an empty `PWD=`, do not
+trip a false warning). Applied uniformly at all three connection-bearing exporters:
+`clsDbTableDef` (linked tables), `clsDbQuery` (pass-through queries), and `clsDbConnection`
+(`db-connection.json`, inner + outer keys). `clsDbQuery` previously emitted an `env:`
+reference without calling `SaveConnectionToEnv`; that gap is now fixed so the `.env` is
+populated for pass-through queries too. Import is unchanged and remains backward compatible
+with older source that still contains credentials.
+
+**What this rules out**: Self-contained source files with embedded passwords are no longer
+supported at export format 5.0.0+. Existing repos keep the old behavior until they bump
+their `ExportFormatVersion`, so the secret-leak window persists for un-migrated projects
+(mitigated by the warning when stripping occurs). Stripping covers `UID`/`PWD` only — if a
+driver carries a secret under a different key, `StripConnectionCredentials` would need
+extending.
+
+**Testing & accepted risk**: Locked in by unit tests on the single chokepoint —
+`modTestConnect.TestStripConnectionCredentials` (the strip logic across SQL-auth, Access
+back-end, lower-case keys, passwordless AD, and no-credential shapes) and
+`TestGetSourceSafeConnectGating` (the `EFV_5_0_0` gate: passthrough below 5.0.0, strip at/above,
+no-op for empty `PWD=` and credential-free strings). A full end-to-end test (link a
+password-protected back-end table, run the component export to file, grep the output for `PWD=`)
+was considered and deliberately *not* implemented: driving the real export path mutates shared
+state (the live `VCSIndex`, the project export folder, the log) and is flaky inside the unit
+suite, while a temp-linked table without the export-to-file step only re-tests
+`GetSourceSafeConnect` with a live string. Consequence: the unit tests guard the strip/gate
+logic but do **not** catch a refactor that removes a `GetSourceSafeConnect` *call site*. That
+gap is mitigated by an explicit SECURITY reminder comment at each of the three call sites
+(`clsDbTableDef`, `clsDbQuery`, `clsDbConnection`) and is accepted for now.
+
+**Relevant files**: `modConnect.bas` (`GetSourceSafeConnect`, `StripConnectionCredentials`,
+`m_dStrippedConnWarn`), `clsDbTableDef.cls`, `clsDbQuery.cls`, `clsDbConnection.cls`,
+`modConstants.bas` (`EFV_5_0_0` comment), `frmVCSOptionsExport.cls` (help text),
+`modTestConnect.bas` (regression tests).
+
+---
+## 2026-06-20 — Fold unreleased 5.1.0 export gates into format 5.0.0
+
+**Trigger**: Several v5 behaviors — conditional formatting decode-to-JSON, source-safe
+connection strings (no raw passwords in source), and linked-table `FCMin*` export
+filtering — were initially gated behind unreleased `EFV_5_1_0`, but v5 has not shipped
+to the general public yet (only a handful of beta users). Keeping a separate 5.1.0 format
+version would make 5.0.0 an incomplete "first release" snapshot.
+
+**Options explored**:
+- **Keep `EFV_5_1_0` for these behaviors**: Clean separation, but forces the first general
+  release to advertise two format versions when only one meaningful baseline is needed.
+- **Fold into `EFV_5_0_0` (chosen)**: Same precedent as file extension migration
+  (2026-03-10). All unreleased v5 behaviors ship as part of the v5 baseline.
+- **Auto-migrate beta `"5.1.0"` in `clsOptions.Upgrade()`**: Rejected — only one known
+  beta user; manual `vcs-options.json` edit is sufficient.
+
+**Decision**: Remove `EFV_5_1_0` from `eExportFormatVersion`, set `[_Last] = 50000`, and
+retarget all gate sites from `>= EFV_5_1_0` to `>= EFV_5_0_0`:
+- CF decode: `clsSourceParser`, `modLoadSaveText` (the `DecodeConditionalFormatting`
+  option gate is unchanged)
+- Source-safe connections: `modConnect.GetSourceSafeConnect` and its three call sites
+- `FCMin*` export filtering: `clsDbTableDef` via `FilterEngineManagedProps`
+
+No runtime migration for stale `"5.1.0"` values in `vcs-options.json` (50100 still
+satisfies `>= 50000` if left untouched).
+
+**What this rules out**: These behaviors are no longer post-5.0.0 format bumps; they are
+part of the v5 baseline. The `EFV_5_1_0 = 50100` slot is free again for the first
+*post-release* export format change.
+
+**Relevant files**: `modules/Infrastructure/modConstants.bas`, `modules/Core/clsSourceParser.cls`,
+`modules/Core/modLoadSaveText.bas`, `modules/Utility/modConnect.bas`,
+`modules/Components/clsDbTableDef.cls`, `modules/Components/clsDbQuery.cls`,
+`modules/Components/clsDbConnection.cls`, `forms/frmVCSOptionsExport.cls`,
+`modules/Tests/Connect/modTestConnect.bas`, `docs/access-conditional-format.md`.
+
+## 2026-06-18 — Build-time cleanup for duplicate `@Folder` source files
+
+**Trigger**: AI agents repeatedly created a second copy of a VBA module in the wrong
+folder (e.g. `modules/modTestRoundtrip.bas` alongside `modules/Tests/modTestRoundtrip.bas`)
+because file placement is driven by the `'@Folder` comment inside the file, not the folder
+being edited. Build/import scanned both copies recursively and silently last-one-wins; orphan
+cleanup did not remove them because the DB object still existed. Export already deleted
+stale copies per module via `CleanupDuplicateSourceFiles`, but build had no equivalent.
+
+**Options explored**:
+- *Agent guidance only* — document the rule in AGENTS.md and `.cursor/rules`. Cheap but
+  agents still miss it; duplicates persist until someone exports from Access.
+- *Import warning only* — detect duplicates and warn without deleting. Surfaces the problem
+  but still requires manual cleanup and leaves merge-index false positives.
+- *Build-time auto-cleanup + guidance + export warning (chosen)* — before build/merge scan,
+  group module files by basename; parse each file's `@Folder` from text; when exactly one copy
+  sits in its annotation-derived folder, delete the others; ambiguous groups warn and are
+  left alone.
+
+**Decision**: Add `GetFolderAnnotationFromText` (shared with live VBE reader) and
+`RemoveDuplicateComponentFiles` (with module/form/report wrappers), called at the start of
+`modBuild.Build` for the `modules/`, `forms/`, and `reports/` base folders. Duplicate
+detection keys on **distinct folders** per basename (not raw file count), so a form's
+`.form` + `.cls` + `.json` in one folder is not treated as duplicates. For forms/reports,
+`@Folder` is read from the `.cls` code-behind when present. `WarnDuplicate*Basenames`
+runs after export as a safety net. Agent docs updated to require searching the full
+component tree before creating a source file.
+
+**What this rules out**: We do not auto-delete when zero or multiple copies match their
+annotation path (divergent edits or two agents writing different folders). Those cases log
+a warning and keep current last-one-wins import behavior until a human resolves them.
+We do not relocate a lone misplaced instance with no duplicate to compare against — export
+handles moves via `MoveSource` + `CleanupDuplicateSourceFiles`.
+
+**Relevant files**: `modules/Core/modVbeUtility.bas` (`GetFolderAnnotationFromText`,
+`RemoveDuplicateModuleFiles`, `WarnDuplicateModuleBasenames`), `modules/Core/modBuild.bas`,
+`modules/Core/modExport.bas`, `modules/Tests/Core/modTestFolderPlacement.bas`,
+`.cursor/rules/vba-source-files.mdc`, `Version Control.accda.src/AGENTS.md`.
+
+---
+
+## 2026-06-17 — Conditional formatting blocks decoded to companion JSON
+
+> **⚠ Partially superseded** (2026-06-20): Export format gating moved from `EFV_5_1_0`
+> to `EFV_5_0_0` before v5 shipped. Decode/rebuild behavior and the
+> `DecodeConditionalFormatting` option are unchanged. See "Fold unreleased 5.1.0 export
+> gates into format 5.0.0" above.
+
+**Trigger**: The per-control `ConditionalFormat` / `ConditionalFormat14` properties on form
+and report controls export as opaque binary hex blocks. Any formatting change produces a
+large, meaningless hex diff. We wanted the same clean-diff treatment we already give print
+settings (`PrtMip`): strip the binary from source and store decoded, human-readable rules.
+
+**Options explored**:
+- *Raw hex in JSON* — store the hex blocks verbatim in the `.json`. Lossless and trivially
+  byte-exact, but no more readable than leaving them inline. Rejected (defeats the purpose).
+- *Hybrid (decode + raw hex fallback)* — decode for readability, keep raw hex for blocks we
+  can't byte-rebuild. Safe but reintroduces hex noise. Rejected by the maintainer.
+- *Full decode + rebuild (chosen)* — decode both blocks to a rule model, rebuild both on
+  import. Cleanest JSON; relies on rebuild fidelity.
+
+**Decision**: Full decode + rebuild via `clsConditionalFormat`. The **CF14** block is the
+authoritative source and rebuilds **byte-for-byte** for every rule shape (expression,
+field-value/between, focus, data bar), validated by formulas derived from the fixtures
+(non-data-bar body length = `37 + 2·exprUnits`; data bar length = `P + 13`). The **legacy**
+block is single-type and rebuilds byte-exact for single-rule controls (the common case);
+its multi-rule per-rule layout is undocumented, so multi-rule legacy is rebuilt best-effort
+(correct header/flags/colors/expressions). Both blocks are always emitted to stay consistent
+with Access's precedence (legacy wins for overlapping rules). Gated behind export format
+version `EFV_5_1_0` and the `DecodeConditionalFormatting` option (default on); import is
+unconditional and backward compatible.
+
+**What this rules out**: We do not store raw hex, so a control whose CF14 cannot be decoded
+would lose its formatting on rebuild — acceptable because CF14 is the complete, verified
+copy. Multi-rule legacy blocks are not guaranteed byte-identical to Access's original; if a
+future Access version rejects our best-effort legacy layout, revisit by reverse-engineering
+the multi-rule legacy per-rule descriptor bytes (offsets 40–55 in the Text11 fixture) or by
+falling back to the hybrid raw-hex approach. Byte-exactness is enforced by
+`modTestConditionalFormat` (CF14 all shapes; legacy single-rule shapes).
+
+**Relevant files**: `modules/Core/clsConditionalFormat.cls` (new),
+`modules/Core/clsSourceParser.cls` (capture/strip + `MergeConditionalFormat`),
+`modules/Core/modLoadSaveText.bas` (`WriteConditionalFormatting` + pipeline),
+`modules/Infrastructure/modConstants.bas` (`EFV_5_1_0`),
+`modules/Infrastructure/clsOptions.cls` + `forms/frmVCSOptionsExport`
+(`DecodeConditionalFormatting`), `modules/Tests/Core/modTestConditionalFormat.bas`,
+`docs/access-conditional-format.md`.
+## 2026-06-09 — Batch file metadata (date+size) for source property hashing
+
+**Trigger**: Merge-build change detection on a large project (~7,300-file `queries`
+folder) spent ~7.4s in "Get File Property Hash". `GetModifiedSourceFiles` already only
+hashes files that have an index entry, so the cost was not redundant hashing — it was the
+per-file `FSO.GetFile` (DateLastModified + Size) inside `GetSourceFilesPropertyHash`,
+called once per source file/extension.
+
+**Options explored**:
+- **Per-file Win32 stat** (`FindFirstFileW` per file): measured ~400ms vs ~745ms FSO for
+  3,659 files (~1.9x). Rejected — still per-file, ~12x slower than a batch scan.
+- **Batch Win32 scan** (one directory walk capturing date+size): measured ~35ms (~22x
+  faster than FSO). Chosen.
+- **Capture date+size during the existing enumeration walk**: architecturally ideal (zero
+  extra passes) but requires threading metadata through the cached, component-specific
+  `GetFileList` (especially `clsDbQuery`). Deferred — a dedicated metadata walk is ~35ms
+  and far less invasive.
+- **Switch the stored property hash to Win32 UTC ticks** (DST-immune): rejected — changes
+  the hash format, forcing a one-time content re-hash for every existing index.
+
+**Decision**: Add `ScanFolderMetadata` (modFileWinAPI): one Win32 pass returning
+`fullPath -> Array(date, size)` with case-insensitive keys, using the same `FileTimeToDate`
+local conversion FSO uses. `GetModifiedSourceFiles` builds this map once per category and
+passes it to `GetSourceFilesPropertyHash` via a new optional `dMeta` parameter; when `dMeta`
+is omitted (the export-write path, where files are changing) it falls back to per-file FSO.
+Verified empirically on 3,659 files: Win32 dates equal FSO dates (0 mismatches) and the
+resulting property hashes are byte-identical (0 mismatches). Variant array elements must be
+passed to `clsConcat.Add` wrapped in parentheses — `(varMeta(0)), (varMeta(1))` — to force
+ByVal coercion into its `ByRef ... As String` parameters (a bare `varMeta(0)` raises
+"ByRef argument type mismatch").
+
+**What this rules out**: Using `dMeta` on the export path (files change during writes — the
+cache would be stale). Assuming Win32==FSO date equality universally — a file modified
+across a DST boundary on another machine may differ; the existing content-hash fallback in
+`GetModifiedSourceFiles` keeps this safe (a one-time, self-healing re-hash) but not free.
+Revisit the "capture during enumeration" single-walk design only if profiling shows the
+extra metadata walk matters.
+
+**Measured**: Real merge before/after on the ~7,300-file project: `Get File Property Hash`
+7.44s -> 1.01s (the per-file `FSO.GetFile` is gone), at the cost of a single
+`Scan Folder Metadata` batch walk of 3.07s — a net ~3.4s reduction on this run, with
+`Compute SHA256` also dropping 2.84s -> 1.96s. The 3.07s metadata walk (date+size + Array
+allocation over the full tree) is the remaining cost; the "capture during enumeration"
+design would remove even that.
+
+**Relevant files**: `modFileWinAPI.bas` (`ScanFolderMetadata`, `ScanMetadataRecurse`),
+`modContainers.bas` (`GetSourceFilesPropertyHash`), `clsVCSIndex.cls`
+(`GetModifiedSourceFiles`).
+
+---
+
+## 2026-06-09 — Win32 multi-pattern folder enumeration
+
+**Trigger**: Folder scans used `FileSystemObject` `.Files`/`.SubFolders` iteration, whose
+per-item COM overhead dominated "Get File List" (~20s in a merge log on a ~7,300-file
+`queries` folder). Multi-format component types compounded it by scanning the same folder
+once per extension (`clsDbQuery` scanned three times, plus ~3,659 per-file
+`FSO.FileExists` calls to pair `.sql` with `.json`).
+
+**Options explored**:
+- **Push the extension into `FindFirstFileW`** (kernel filter): rejected as the primary
+  mechanism — Win32 masks also match 8.3 short names (`*.sql` would hit a `.sqlite`) and
+  `*.*` matches extension-less files, diverging from VBA `Like`. Kept VBA `Like` on file
+  names for exact, 8.3-safe semantics.
+- **N filtered calls vs one unfiltered scan + classify**: measured — two filtered calls
+  62.8ms vs one scan+classify 33.1ms; three-pattern query case 40.7ms vs 35.3ms. One
+  unfiltered scan wins (fewer directory traversals; per-entry marshaling dominates).
+- **Full enumerate-once refactor of every multi-format component**: rejected — post-Win32
+  the simple components (form/report/module/macro/tabledef) gain ~nothing; only
+  `clsDbQuery` had meaningful cost.
+
+**Decision**: Route `GetFilePathsInFolder`/`GetFilePathsInFolderRecursive` through
+`ScanFolderContents` (Win32) and filter names with VBA `Like`. Extend both to accept a
+`ParamArray` of patterns matched in a single pass; an empty `ParamArray` defaults to `*.*`
+so existing single-pattern/no-pattern callers are unchanged. A `ParamArray` cannot be
+forwarded directly to another procedure ("Invalid ParamArray use") — it is copied to a
+`Variant` first. Collapse the simple components' `Set + MergeDictionary` pairs into one
+multi-pattern call. Refactor `clsDbQuery` to one combined `.qdef/.bas/.sql/.json` scan with
+an in-memory `.json` sibling lookup (a `TextCompare` set matching `FSO.FileExists`'s
+case-insensitivity), eliminating the ~3,659 per-file `FSO.FileExists` calls (~2.3x faster;
+identical file set verified, 0 mismatches).
+
+**What this rules out**: Passing patterns to the Win32 mask (8.3/`*.*` semantics differ
+from VBA `Like`). Two scanning idioms — all multi-extension components now share one
+multi-pattern primitive. `clsDbQuery` keeps a bespoke post-classification block because its
+legacy-priority/`.json`-pairing rules are irreducible.
+
+**Measured**: Real merge before/after on the ~7,300-file project: `Get File List`
+20.04s -> 0.02s and `Get File List Recursive` 3.46s -> 0.00s (both apples-to-apples — the
+full tree is enumerated regardless of whether anything changed).
+
+**Relevant files**: `modFileAccess.bas` (`GetFilePathsInFolder`,
+`GetFilePathsInFolderRecursive`, `GetMatchingFilePaths`, `NormalizePatterns`),
+`modFileWinAPI.bas` (`ScanFolderContents`), `clsDbForm/Report/Module/Macro/TableData/TableDef`
+(`GetFileList`), `clsDbQuery.cls` (`GetFileList`).
+
+---
+
+## 2026-06-09 — Defer pre-merge database reopen until changes are confirmed
+
+**Trigger**: Every merge build unconditionally closed and shift-reopened the current
+database before scanning source files (to unload objects ahead of the destructive merge),
+costing ~23s even when no source files had changed — the common "pull / switch-branch"
+case.
+
+**Options explored**:
+- **Lightweight pre-scan to decide, then the existing flow**: rejected — re-scans on the
+  change path (double the scan cost).
+- **Scan first, reopen later, reuse the scan's component classes**: unsafe —
+  `ShiftOpenDatabase` invalidates the cached database object references held by the scan's
+  `IDbComponent` instances.
+- **Scan first, reopen only when changes exist, rebuild component classes**: chosen.
+
+**Decision**: Run the read-only scan + conflict resolution before the reopen. Only
+close/shift-open when `dCategories.Count > 0` (real changes to merge). After reopening,
+`RefreshContainerClasses` rebuilds the component instances against the reopened database
+while preserving the already-computed file-path lists (plain strings, reopen-safe) and the
+resolved conflicts. `ReleaseDbReferences` is called before the deferred reopen because the
+scan now caches `CurrentDb` (the old pre-scan reopen did not need this). Conflict-detection
+temp-exports run before the reopen — safe, since a normal export already temp-exports
+without a reopen. Full builds are unchanged.
+
+**What this rules out**: Reusing scan-built component-class instances across a reopen (they
+hold stale object references and must be rebuilt). Does not address the post-merge
+shared-mode reopen (~32s), which is dominated by Access re-opening a large database and is a
+separate, still-open question.
+
+**Measured**: On a ~7,300-file project, a no-change merge that previously logged
+`Reopen DB before Merge` = 23.01s now skips it entirely (the deferred reopen never fires
+when `dCategories.Count = 0`). Combined with the enumeration and metadata changes below,
+total no-change merge time fell from 96.3s to 11.8s. The separate ~32s post-merge
+shared-mode reopen did not occur on this run because nothing was imported — it still fires
+on merges that import objects, confirming it as the next (Phase 4) target.
+
+**Relevant files**: `modBuild.bas` (`Build`, `RefreshContainerClasses`).
+
+---
+
 ## 2026-06-02 — Global suite hooks in VCS test runner
 
 **Trigger**: Consumer projects need once-per-run setup/teardown (suite fixtures) around
@@ -420,6 +783,15 @@ explicit file key and timestamp so it no longer depends on `m_Module` /
 ---
 
 ## 2026-04-29 — Replace `Dir()` and FSO folder scanning with Win32 API (`FindFirstFileW`)
+
+> **⚠ Partially superseded** (2026-06-09): This entry's "rules out" note that "FSO remains
+> acceptable for targeted single-file operations (`FSO.FileExists`, `FSO.GetFile`) where COM
+> overhead is negligible" holds for one-off calls but not for hot per-file loops.
+> `GetFilePathsInFolder(Recursive)` now use `ScanFolderContents` (the recursive-glob gap
+> this entry left open is closed), and per-file `FSO.GetFile` date/size lookups during
+> change detection were replaced by a single batched `ScanFolderMetadata` pass. See "Win32
+> multi-pattern folder enumeration" and "Batch file metadata (date+size) for source property
+> hashing" above.
 
 **Trigger**: Export profiling on a large database (`db-sec`, ~3,500 components) showed orphan scanning and file-extension migration checks dominated the "no changes" export time. Two separate problems: (1) `Dir()` does not support Unicode filenames — it silently skips or fails on paths containing non-ASCII characters, which Access databases frequently contain (accented characters, CJK object names). (2) `Scripting.FileSystemObject` (FSO) folder enumeration is correct but slow — each `oFolder.Files` / `oFolder.SubFolders` iteration creates COM proxy objects with per-item round-trip overhead.
 
@@ -1419,6 +1791,7 @@ The ribbon button (`btnStandardizeLetterCasing`) is placed in the Advanced Tools
 **Decision**: Connection strings with credentials are replaced by `env:conn_<hash>` references in exported source files. The full connection string is stored in `{ExportFolder}/.env`, which is excluded from version control. Key design choices:
 
 - **Three-mode option** (`UseEnvForConnections`): `Auto` (default, only when UID/PWD detected), `Always` (all connection strings), `Never` (disabled). Enum uses `uec` prefix per project convention.
+  > **⚠ Partially superseded** (2026-06-19): `Never` no longer keeps *complete* strings in source. As of export format 5.1.0, raw passwords are stripped from source files in every mode (including `Never`); credentials live only in `.env`. See "Never write raw passwords to source files (any mode)" above.
 - **Gated behind `EFV_5_0_0`**: No new export format version needed since v5 hasn't shipped.
 - **Scope**: Linked tables (JSON), pass-through queries (.qdef via `clsSourceParser`), `db-connection.json`. Forms/reports deferred — investigation showed they don't directly embed connection strings.
 - **Auto-population**: First export auto-creates `.env` with header comments explaining multi-developer workflow, and adds a descriptive comment above each entry (`# tblCustomers (linked table)`).

@@ -53,12 +53,17 @@ Private Sub Form_Load()
         For intEnvLevel = uecAuto To eUseEnvConnections.[_Last] - 1
             .AddItem intEnvLevel & ";" & opt.GetUseEnvConnectionsName(intEnvLevel)
         Next intEnvLevel
+        .ControlTipText = T("Auto: export when credentials are present; prompt to save new credentials on build. " & _
+            "Always: store all connections in .env on export and save silently on build. " & _
+            "Never: keep connection strings in source files (without .env). " & _
+            "Passwords are never written to source files in any mode (export format 5.0.0+).")
     End With
 
     ' Populate export format version combo
     With Me.cboExportFormatVersion
         .RowSource = vbNullString
         For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]
+            ' Packed version integers are sparse; whitelist real enum members only.
             Select Case lngFormat
                 Case EFV_4_1_2, EFV_5_0_0
                     If lngFormat = LATEST_EXPORT_FORMAT Then
@@ -118,6 +123,7 @@ Private Sub LoadOptions()
         Me.chkUseDeterministicQueryExport = .UseDeterministicQueryExport
         Me.chkSaveTableSQL = .SaveTableSQL
         Me.chkSavePrintVars = .SavePrintVars
+        Me.chkDecodeConditionalFormatting = .DecodeConditionalFormatting
         Me.chkExtractThemeFiles = .ExtractThemeFiles
         Me.cboUseEnvForConnections = .UseEnvForConnections
 
@@ -165,6 +171,7 @@ Private Sub SaveOptions()
         .UseDeterministicQueryExport = Nz(Me.chkUseDeterministicQueryExport)
         .SaveTableSQL = Nz(Me.chkSaveTableSQL)
         .SavePrintVars = Nz(Me.chkSavePrintVars)
+        .DecodeConditionalFormatting = Nz(Me.chkDecodeConditionalFormatting)
         .ExtractThemeFiles = Nz(Me.chkExtractThemeFiles)
         .UseEnvForConnections = Nz(Me.cboUseEnvForConnections)
 

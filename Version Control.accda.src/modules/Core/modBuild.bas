@@ -52,6 +52,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     CloseCachedConnections
     CloseBackEndConnections
     ClearEnvCache
+    ClearConnState
 
     ' The type of build will be used in various messages and log entries.
     strType = IIf(blnFullBuild, T("Build"), T("Merge"))
@@ -274,9 +275,25 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
     End If
 
+    ' Warm persistent connections to linked Access back-end files before merge
+    ' conflict temp-exports (same as full export operations).
+    CacheBackEndConnections
+
     ' Build collections of files to import/merge
     Log.Add T("Scanning source files...")
     Log.Flush
+
+    ' Remove misplaced duplicate module/form/report copies before scanning (agent/git drift).
+    Dim cModuleCategory As IDbComponent
+    Dim cFormCategory As IDbComponent
+    Dim cReportCategory As IDbComponent
+    Set cModuleCategory = New clsDbModule
+    Set cFormCategory = New clsDbForm
+    Set cReportCategory = New clsDbReport
+    RemoveDuplicateModuleFiles cModuleCategory.BaseFolder
+    RemoveDuplicateFormFiles cFormCategory.BaseFolder
+    RemoveDuplicateReportFiles cReportCategory.BaseFolder
+
     Set dCategories = New Dictionary
     VCSIndex.Conflicts.Initialize dCategories, eatImport
     Perf.OperationStart "Scan Source Files"
@@ -407,6 +424,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     Next varCategory
 
+    If Operation.ErrorLevel <> eelCritical Then PromptAndSaveConnections
+
     ' Check for merge items that might affect other components
     If Not blnFullBuild Then
         ' Check for any object visible in the object navigation pane that might have a description property.
@@ -536,6 +555,7 @@ CleanUp:
     CloseCachedConnections
     CloseBackEndConnections
     ClearEnvCache
+    ClearConnState
 
     ' Add performance data to log file and save file.
     Perf.EndTiming

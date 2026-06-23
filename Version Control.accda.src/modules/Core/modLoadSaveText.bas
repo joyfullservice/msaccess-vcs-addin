@@ -100,6 +100,14 @@ Public Function SaveComponentAsText(intType As AcObjectType _
                     ' Remove any split VBA file
                     If FSO.FileExists(strAltFile) Then DeleteFile strAltFile
                 End If
+
+                ' Extract per-control conditional formatting into the companion JSON.
+                ' (Merges with any existing print settings / metadata in the same file.)
+                If Options.DecodeConditionalFormatting _
+                    And Options.ExportFormatVersion >= EFV_5_0_0 Then
+                    WriteConditionalFormatting strPrintSettingsFile, _
+                        .GetConditionalFormats, strName
+                End If
             End With
 
         Case acQuery, acMacro
@@ -174,6 +182,7 @@ Public Function LoadComponentFromText(intType As AcObjectType _
     Dim strPrefix As String
     Dim strAltFile As String
     Dim strContent As String
+    Dim strJsonContent As String
     Dim blnVbaOverlay As Boolean
     Dim blnConvert As Boolean
 
@@ -194,11 +203,14 @@ RetryImport:
             With New clsSourceParser
                 .LoadString strContent, intType
 
-                ' Check for print settings file
+                ' Check for companion JSON (print settings and conditional formatting)
                 strAltFile = SwapExtension(strFile, "json")
                 If FSO.FileExists(strAltFile) Then
+                    strJsonContent = ReadFile(strAltFile)
                     ' Merge the print settings into the source file content
-                    .MergePrintSettings ReadFile(strAltFile)
+                    .MergePrintSettings strJsonContent
+                    ' Rebuild and reinsert per-control conditional formatting blocks
+                    .MergeConditionalFormat strJsonContent
                 End If
 
                 ' For forms and reports, check for VBA code file that needs to be merged
@@ -579,6 +591,62 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
         ' No metadata and no other content -- remove the file
         If FSO.FileExists(strJsonFile) Then DeleteFile strJsonFile
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteConditionalFormatting
+' Author    : Adam Waller
+' Date      : 6/17/2026
+' Purpose   : Write/update the "ConditionalFormatting" section in the companion .json
+'           : file, keyed by control name. Merges with any existing content (print
+'           : settings, metadata) rather than replacing the whole file. Removes the
+'           : section when empty and deletes the file if no content remains.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteConditionalFormatting(strJsonFile As String, dCF As Dictionary, _
+                                      strObjectName As String)
+
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim dHeader As Dictionary
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Read existing companion JSON (may hold print settings / metadata)
+    If FSO.FileExists(strJsonFile) Then Set dFile = ReadJsonFile(strJsonFile)
+    If dFile Is Nothing Then Set dFile = New Dictionary
+    If dFile.Exists("Items") Then
+        Set dItems = dFile("Items")
+    Else
+        Set dItems = New Dictionary
+        Set dFile("Items") = dItems
+    End If
+
+    ' Replace any prior section
+    If dItems.Exists("ConditionalFormatting") Then dItems.Remove "ConditionalFormatting"
+    If Not dCF Is Nothing Then
+        If dCF.Count > 0 Then dItems.Add "ConditionalFormatting", dCF
+    End If
+
+    ' Write the file if it has content, otherwise clean up
+    If dItems.Count > 0 Then
+        If Not dFile.Exists("Info") Then
+            Set dHeader = New Dictionary
+            dHeader.Add "Class", "clsSourceParser"
+            dHeader.Add "Description", strObjectName & " Conditional Formatting"
+            Set dFile = New Dictionary
+            dFile.Add "Info", dHeader
+            dFile.Add "Items", dItems
+        End If
+        WriteFile ConvertToJson(dFile, JSON_WHITESPACE), strJsonFile
+    Else
+        If FSO.FileExists(strJsonFile) Then DeleteFile strJsonFile
+    End If
+
+    CatchAny eelError, "Error writing conditional formatting for " & strObjectName, _
+        ModuleName & ".WriteConditionalFormatting"
 
 End Sub
 

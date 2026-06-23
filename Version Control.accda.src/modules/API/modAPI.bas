@@ -42,10 +42,12 @@ Public Enum eSanitizeLevel
 End Enum
 
 ' Controls whether connection strings with credentials are stored in a .env file.
+' Export: Auto = only when UID/PWD detected; Always = all connections; Never = keep in source.
+' Build: Auto = prompt to save new credentials; Always = save silently; Never = never write .env.
 Public Enum eUseEnvConnections
-    uecAuto = 0     ' Only use .env when credentials (UID/PWD) are detected.
+    uecAuto = 0     ' Export when credentials detected; build prompts before saving.
     uecAlways = 1   ' Always store connection strings in .env file.
-    uecNever = 2    ' Leave all connection strings in source files.
+    uecNever = 2    ' Leave connection strings in source; never write .env on build.
     [_Last]
 End Enum
 
@@ -208,7 +210,6 @@ End Function
 '
 Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optional varArg1 As Variant, Optional varArg2 As Variant)
 
-    Dim projAddIn As VBProject
     Dim strLibName As String
     Dim strRunCmd As String
 
@@ -220,7 +221,6 @@ Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optio
     ' This means we can't just call `Run "MSAccessVCS.*" because it will run in
     ' the local project instead of the add-in. We can resolve this by using the
     ' full path to the add-in library instead. (#593)
-    Set projAddIn = GetAddInProject
     If RunningOnLocal Then
         strLibName = GetRunCmdAddInFullLibName
     Else

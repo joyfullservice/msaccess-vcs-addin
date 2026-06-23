@@ -23,3 +23,4 @@ Option Explicit
 Dim i           'i
 Dim strSql      'strSql
 Dim lngAs       'lngAs
+Dim strId       'strId

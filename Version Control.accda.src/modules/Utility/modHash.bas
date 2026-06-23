@@ -356,62 +356,22 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : SimpleHash
+' Procedure : UniqueHashSuffix
 ' Author    : Adam Waller
-' Date      : 7/24/2023
-' Purpose   : Return a simple SHA256 hash from a file without any Windows API calls.
-'           : (This function can be ported to VBScript as a worker process)
-'           : Adapted from https://en.wikibooks.org/wiki/Visual_Basic_for_Applications/String_Hashing_in_VBA
-'---------------------------------------------------------------------------------------
-'
-Public Function GetSimpleHash(strText As String) As String
-
-    Dim objEnc As Object
-    Dim objSHA256 As Object
-    Dim objDoc As Object
-    Dim bteText() As Byte
-    Dim bteHash() As Byte
-    Dim strHash As String
-
-    LogUnhandledErrors
-    On Error Resume Next
-
-    ' Create objects
-    Set objEnc = CreateObject("System.Text.UTF8Encoding")
-    Set objSHA256 = CreateObject("System.Security.Cryptography.SHA256Managed")
-
-    ' Compute hash
-    bteText = objEnc.GetBytes_4(strText)
-    bteHash = objSHA256.ComputeHash_2((bteText))
-
-    ' Convert to hex string
-    Set objDoc = CreateObject("MSXML2.DOMDocument")
-    objDoc.LoadXML "<root />"
-    With objDoc.DocumentElement
-        .DataType = "bin.Hex"
-        .nodeTypedValue = bteHash
-        strHash = Replace(.Text, vbLf, vbNullString)
-    End With
-
-    ' Return short hash
-    GetSimpleHash = Left(strHash, 7)
-
-    ' Clear any errors
-    If Err Then Err.Clear
-
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : ShortHash
-' Author    : VCS contributors
 ' Date      : 4/24/2026
-' Purpose   : 8-character hex hash of an arbitrary string. Used to make
+' Purpose   : 7-character hex suffix for an arbitrary string. Used to make
 '           : sandbox object names unique across concurrent / repeated runs.
+'           : Uniqueness comes from Perf.MicroTimer plus a per-call static
+'           : counter (so two calls landing in the same timer tick still differ),
+'           : not from the hash width; 7 chars matches the short-hash convention
+'           : used elsewhere. The counter wraps just below Long.MaxValue to avoid
+'           : overflow; its period far exceeds the calls possible per tick.
 '---------------------------------------------------------------------------------------
 '
-Public Function ShortHash(ByVal s As String) As String
+Public Function UniqueHashSuffix(ByVal s As String) As String
+    Static lngCounter As Long
     Dim strFull As String
-    strFull = GetStringHash(s & ":" & CStr(Perf.MicroTimer))
-    ShortHash = LCase$(Left$(strFull, 8))
+    lngCounter = (lngCounter Mod 2147483646) + 1
+    strFull = GetStringHash(s & ":" & CStr(Perf.MicroTimer) & ":" & CStr(lngCounter))
+    UniqueHashSuffix = LCase$(Left$(strFull, 7))
 End Function

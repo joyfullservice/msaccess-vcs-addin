@@ -525,8 +525,8 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     If m_FileList Is Nothing Then
-        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdTabDelimited))
-        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*." & GetExtByFormat(etdXML))
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, _
+            "*." & GetExtByFormat(etdTabDelimited), "*." & GetExtByFormat(etdXML))
     End If
     Set IDbComponent_GetFileList = m_FileList
 End Function

@@ -43,10 +43,11 @@ Public Sub TestGetDictionaryHash()
 End Sub
 
 
-Public Sub TestGetSimpleHash()
-    Dim strHash As String
-    strHash = GetSimpleHash("hello world")
-    TestAssert Len(strHash) = 7, "returns 7-char short hash"
-    TestAssert GetSimpleHash("hello world") = strHash, "deterministic"
-    TestAssert GetSimpleHash("different") <> strHash, "different inputs differ"
+Public Sub TestUniqueHashSuffix()
+    Dim strSuffix1 As String
+    Dim strSuffix2 As String
+    strSuffix1 = UniqueHashSuffix("same input")
+    strSuffix2 = UniqueHashSuffix("same input")
+    TestAssert Len(strSuffix1) = 7, "returns 7-character suffix"
+    TestAssert strSuffix1 <> strSuffix2, "non-deterministic (same input = different output)"
 End Sub

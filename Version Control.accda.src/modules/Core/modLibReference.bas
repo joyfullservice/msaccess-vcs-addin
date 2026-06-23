@@ -138,9 +138,13 @@ Public Function GetReferencesDictionary() As Dictionary
     ' Loop through all projects
     For Each proj In VBE.VBProjects
 
-        ' Get name of project file, and see if it exists in the parent folder
-        'Debug.Print proj.Name & " (" & proj.FileName & ")"
-        strFile = FSO.GetFileName(proj.FileName)
+        ' Get name of project file, and see if it exists in the parent folder.
+        ' Use a guarded read since the collection may contain non-VBA entries
+        ' (registered type libraries or wizards) that raise an error when the
+        ' .FileName property is accessed. (See GetSafeProjectFileName, #709.)
+        strFile = GetSafeProjectFileName(proj)
+        If Len(strFile) = 0 Then GoTo NextProject
+        strFile = FSO.GetFileName(strFile)
         strPath = strFolder & strFile
         If FSO.FileExists(strPath) Then
 
@@ -183,6 +187,7 @@ Public Function GetReferencesDictionary() As Dictionary
                 End If
             End If
         End If
+NextProject:
     Next proj
 
     ' Return dictionary

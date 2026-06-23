@@ -163,6 +163,20 @@ Public Enum eOperationSource
     eosMCPTool = 2          ' MCP server with callbacks
 End Enum
 
+' Per-connection state during build/import (modConnect)
+Public Enum eConnStatus
+    csUnknown = 0
+    csOK
+    csIgnored
+End Enum
+
+' User response to a failed connection attempt during build/import
+Public Enum eConnFailAction
+    cfaRetry
+    cfaIgnore
+    cfaAbort
+End Enum
+
 ' Options for resolving file conflicts
 Public Enum eResolveConflict
     ercNone
@@ -201,7 +215,7 @@ Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinComm
 ' Used to gate export behavior changes so users can upgrade on their own schedule.
 Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
-    EFV_5_0_0 = 50000
+    EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, etc.
     [_Last] = 50000
 End Enum
 

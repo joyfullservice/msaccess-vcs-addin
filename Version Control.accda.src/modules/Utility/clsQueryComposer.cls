@@ -589,7 +589,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Warnings
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/29/2026
 ' Purpose   : Return warnings captured during the most recent compose/reconstruct run.
 '           : The standard Log still receives these warnings; this collection lets

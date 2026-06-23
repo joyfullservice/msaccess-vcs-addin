@@ -540,27 +540,21 @@ End Function
 ' Procedure : GetFilePathsInFolder
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
-' Purpose   : Returns a collection containing the full paths of files in a folder.
-'           : Wildcards are supported.
+' Purpose   : Returns a dictionary keyed by the full paths of files in a folder whose
+'           : name matches any of the supplied wildcard patterns. One or more patterns
+'           : may be passed (e.g. "*.macro", "*.bas"); with no pattern, all files are
+'           : returned. Multiple patterns are matched in a single folder scan, so
+'           : multi-format component types do not pay for one full scan per extension.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFilePathsInFolder(strFolder As String, Optional strFilePattern As String = "*.*") As Dictionary
-
-    Dim oFile As Scripting.File
-    Dim strBaseFolder As String
-
-    strBaseFolder = StripSlash(strFolder)
-    Set GetFilePathsInFolder = New Dictionary
-
+Public Function GetFilePathsInFolder(strFolder As String, ParamArray varPatterns()) As Dictionary
+    ' A ParamArray cannot be forwarded directly to another procedure; copy it to a
+    ' plain Variant array first (avoids the "Invalid ParamArray use" compile error).
+    Dim varArgs As Variant
+    varArgs = varPatterns
     Perf.OperationStart "Get File List"
-    If FSO.FolderExists(strBaseFolder) Then
-        For Each oFile In FSO.GetFolder(strBaseFolder).Files
-            ' Add files that match the pattern.
-            If oFile.Name Like strFilePattern Then GetFilePathsInFolder.Add oFile.Path, vbNullString
-        Next oFile
-    End If
+    Set GetFilePathsInFolder = GetMatchingFilePaths(strFolder, NormalizePatterns(varArgs), False)
     Perf.OperationEnd
-
 End Function
 
 
@@ -568,39 +562,101 @@ End Function
 ' Procedure : GetFilePathsInFolderRecursive
 ' Author    : Adam Waller
 ' Date      : 3/10/2026
-' Purpose   : Returns a dictionary of full file paths matching the pattern in the
-'           : specified folder and all subfolders. Used for @Folder annotation support
-'           : where source files may be organized into subfolders.
+' Purpose   : Returns a dictionary of full file paths matching any of the supplied
+'           : patterns in the specified folder and all subfolders. Used for @Folder
+'           : annotation support where source files may be organized into subfolders.
+'           : Accepts one or more wildcard patterns (matched in a single scan per folder).
 '---------------------------------------------------------------------------------------
 '
-Public Function GetFilePathsInFolderRecursive(strFolder As String, Optional strFilePattern As String = "*.*") As Dictionary
+Public Function GetFilePathsInFolderRecursive(strFolder As String, ParamArray varPatterns()) As Dictionary
+    ' A ParamArray cannot be forwarded directly to another procedure; copy it to a
+    ' plain Variant array first (avoids the "Invalid ParamArray use" compile error).
+    Dim varArgs As Variant
+    varArgs = varPatterns
+    Perf.OperationStart "Get File List Recursive"
+    Set GetFilePathsInFolderRecursive = GetMatchingFilePaths(strFolder, NormalizePatterns(varArgs), True)
+    Perf.OperationEnd
+End Function
 
-    Dim oFile As Scripting.File
-    Dim oSubFolder As Scripting.Folder
-    Dim strBaseFolder As String
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetMatchingFilePaths
+' Author    : Adam Waller
+' Date      : 6/9/2026
+' Purpose   : Core enumeration shared by GetFilePathsInFolder(Recursive). Performs a
+'           : single Win32 ScanFolderContents pass and returns a dictionary of full file
+'           : paths whose file name matches ANY of the supplied patterns. When
+'           : blnRecursive is True, subfolders from the same pass are walked depth-first.
+'           : Matching uses VBA Like (not the Win32 mask) to preserve exact pattern
+'           : semantics and avoid 8.3 short-name false positives. Accepting multiple
+'           : patterns lets multi-format component types (e.g. forms = .form + .bas)
+'           : enumerate a folder once instead of one full scan per extension.
+'           : varPatterns must be a non-empty array of pattern strings (callers route
+'           : through NormalizePatterns to guarantee this).
+'---------------------------------------------------------------------------------------
+'
+Private Function GetMatchingFilePaths(strFolder As String, varPatterns As Variant, blnRecursive As Boolean) As Dictionary
+
+    Dim colFiles As Collection
+    Dim colSubFolders As Collection
+    Dim varFile As Variant
+    Dim varSubFolder As Variant
+    Dim varPattern As Variant
+    Dim strFile As String
+    Dim strName As String
     Dim dSubResults As Dictionary
     Dim varKey As Variant
 
-    strBaseFolder = StripSlash(strFolder)
-    Set GetFilePathsInFolderRecursive = New Dictionary
+    Set GetMatchingFilePaths = New Dictionary
+    Set colFiles = New Collection
+    Set colSubFolders = New Collection
 
-    Perf.OperationStart "Get File List Recursive"
-    If FSO.FolderExists(strBaseFolder) Then
-        ' Add matching files in this folder
-        For Each oFile In FSO.GetFolder(strBaseFolder).Files
-            If oFile.Name Like strFilePattern Then GetFilePathsInFolderRecursive.Add oFile.Path, vbNullString
-        Next oFile
+    ' Single Win32 pass returns this folder's files and subfolders without COM overhead.
+    ScanFolderContents StripSlash(strFolder), colFiles, colSubFolders
 
-        ' Recurse into subfolders
-        For Each oSubFolder In FSO.GetFolder(strBaseFolder).SubFolders
-            Set dSubResults = GetFilePathsInFolderRecursive(oSubFolder.Path, strFilePattern)
+    ' Add files whose name matches any supplied pattern.
+    For Each varFile In colFiles
+        strFile = varFile
+        strName = Mid$(strFile, InStrRev(strFile, PathSep) + 1)
+        For Each varPattern In varPatterns
+            If strName Like varPattern Then
+                GetMatchingFilePaths.Add strFile, vbNullString
+                Exit For
+            End If
+        Next varPattern
+    Next varFile
+
+    ' Recurse into subfolders when requested.
+    If blnRecursive Then
+        For Each varSubFolder In colSubFolders
+            Set dSubResults = GetMatchingFilePaths(CStr(varSubFolder), varPatterns, True)
             For Each varKey In dSubResults.Keys
-                GetFilePathsInFolderRecursive.Add varKey, vbNullString
+                GetMatchingFilePaths.Add varKey, vbNullString
             Next varKey
-        Next oSubFolder
+        Next varSubFolder
     End If
-    Perf.OperationEnd
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NormalizePatterns
+' Author    : Adam Waller
+' Date      : 6/9/2026
+' Purpose   : Return a usable array of file-name patterns from a ParamArray. An empty
+'           : ParamArray (caller supplied no pattern) defaults to "*.*", preserving the
+'           : previous Optional-parameter default so existing single-pattern and
+'           : no-pattern callers continue to work unchanged.
+'---------------------------------------------------------------------------------------
+'
+Private Function NormalizePatterns(varPatterns As Variant) As Variant
+    If Not IsArray(varPatterns) Then
+        NormalizePatterns = Array("*.*")
+    ElseIf UBound(varPatterns) < LBound(varPatterns) Then
+        NormalizePatterns = Array("*.*")
+    Else
+        NormalizePatterns = varPatterns
+    End If
 End Function
 
 

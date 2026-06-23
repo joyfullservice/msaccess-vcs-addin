@@ -390,7 +390,7 @@ End Property
 
 '---------------------------------------------------------------------------------------
 ' Procedure : KeepProgressVisible
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/29/2026
 ' Purpose   : Keep the form progress bar visible while console output is refreshed.
 '---------------------------------------------------------------------------------------

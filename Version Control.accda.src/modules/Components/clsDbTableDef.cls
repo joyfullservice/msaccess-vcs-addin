@@ -49,6 +49,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim bteLvProp() As Byte
     Dim parser As clsLvPropParser
     Dim dProps As Dictionary
+    Dim dTblProps As Dictionary
     Dim strHash As String
     Dim strContent As String
     Dim strConnect As String
@@ -111,6 +112,15 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             If Len(strEnvKey) Then
                 SaveConnectionToEnv strEnvKey, strConnect, m_Table.Name & " (linked table)"
                 strConnect = "env:" & strEnvKey
+            Else
+                ' SECURITY: a connection kept in source (not externalized to .env) must
+                ' still never carry a raw password (v5.0.0+). GetSourceSafeConnect is the
+                ' single chokepoint that enforces this - do NOT bypass it when refactoring
+                ' this branch, or plaintext credentials can leak into committed source.
+                ' Regression coverage: modTestConnect.TestGetSourceSafeConnectGating /
+                ' TestStripConnectionCredentials. (No end-to-end export-to-file test exists;
+                ' that risk is accepted - see DECISIONS.md 2026-06-19.)
+                strConnect = GetSourceSafeConnect(strConnect, m_Table.Name & " (linked table)")
             End If
             .Add "Connect", strConnect
             .Add "SourceTableName", tdf.SourceTableName
@@ -147,8 +157,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                         End If
                     End If
                     If dProps.Exists("TableProperties") Then
-                        If dProps("TableProperties").Count > 0 Then
-                            dItem.Add "TableProperties", SortDictionaryByKeys(dProps("TableProperties"))
+                        Set dTblProps = dProps("TableProperties")
+                        ' Keep engine-managed version stamps (FCMin*) out of source. They
+                        ' are build/version-specific and churn across machines. (Import
+                        ' already tolerates them via SetDAOProperty; this just keeps the
+                        ' exported .json clean.)
+                        Set dTblProps = FilterEngineManagedProps(dTblProps)
+                        If dTblProps.Count > 0 Then
+                            dItem.Add "TableProperties", SortDictionaryByKeys(dTblProps)
                         End If
                     End If
                 End If
@@ -652,6 +668,13 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
     Dim tdf As DAO.TableDef
     Dim strSql As String
     Dim strConnect As String
+    Dim strEnvKey As String
+    Dim strKey As String
+    Dim dState As Dictionary
+    Dim blnLinked As Boolean
+    Dim lngErrNum As Long
+    Dim strErrDesc As String
+    Dim eAction As eConnFailAction
     Dim dFieldsImport As Dictionary
     Dim dFieldPropsImport As Dictionary
     Dim dTablePropsImport As Dictionary
@@ -669,89 +692,164 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
         ' Link the table
         Set dItem = dTable("Items")
         Set dbs = SharedDb
-        Set tdf = dbs.CreateTableDef(dItem("Name"))
+
         strConnect = dItem("Connect")
+        strEnvKey = vbNullString
         If IsEnvReference(strConnect) Then
+            strEnvKey = Mid$(strConnect, 5)
             strConnect = ResolveEnvConnection(strConnect)
-            If Len(strConnect) = 0 Then
-                ' The resolver already logged a warning on first occurrence.
-                ' Skip the doomed TableDefs.Append to avoid a guaranteed error 3264.
-                Log.Add "  " & T("Skipped {0} (missing .env key)", _
-                    var0:=dItem("Name")), Options.ShowDebug
+        End If
+        strKey = IIf(Len(strEnvKey) > 0, strEnvKey, GetConnectionEnvKey(strConnect))
+        Set dState = GetConnState(strKey)
+
+        If dState("Status") = csIgnored Then
+            Log.Add "  " & T("Skipped {0} (connection ignored)", var0:=dItem("Name")), Options.ShowDebug
+            Exit Function
+        ElseIf dState("Status") = csOK And Len(dState("Completed")) > 0 Then
+            strConnect = dState("Completed")
+        ElseIf Len(strConnect) = 0 Then
+            If Operation.InteractionMode = eimNormal And Options.UseEnvForConnections <> uecNever Then
+                strConnect = "ODBC;"
+            Else
+                Log.Add "  " & T("Skipped {0} (missing .env key)", var0:=dItem("Name")), Options.ShowDebug
                 Exit Function
             End If
         End If
         strConnect = GetFullConnect(strConnect)
-        With tdf
-            .Connect = strConnect
-            .SourceTableName = dItem("SourceTableName")
-            .Attributes = SafeAttributes(dItem("Attributes"))
-        End With
-        dbs.TableDefs.Append tdf
-        If Catch(3011, 3024, 3044) Then
-            Log.Error eelError, "Could not link table '" & dItem("SourceTableName") & "'", _
-            ModuleName(Me) & ".ImportLinkedTable"
-            Log.Add "Linked table object not found in " & strFile, False
-            Log.Add "Connection String: " & strConnect, False
-        ElseIf CatchAny(eelError, vbNullString, ModuleName(Me) & ".ImportLinkedTable") Then
-            ' May have encountered other issue like a missing link specification.
-        Else
-            ' Verify that the connection matches the source file. (Issue #192)
-            If tdf.Connect <> strConnect Then
+
+        blnLinked = False
+        Do
+            Set tdf = dbs.CreateTableDef(dItem("Name"))
+            With tdf
+                .Connect = strConnect
+                .SourceTableName = dItem("SourceTableName")
+                ' Honor the source table's Save-Password flag (in Attributes). When the
+                ' user chose to save the password, the linked table carries the full
+                ' credentials so RecordAuthenticatedConnection can persist them to .env;
+                ' otherwise the password is not stored. The authentication method
+                ' (e.g. Authentication=...) is retained either way, which is enough to
+                ' capture passwordless (AD/trusted) connections.
+                .Attributes = SafeAttributes(dItem("Attributes"))
+            End With
+            dbs.TableDefs.Append tdf
+            lngErrNum = Err.Number
+            strErrDesc = Err.Description
+            If lngErrNum = 0 Then
+                blnLinked = True
+                Exit Do
+            End If
+            If Catch(3011, 3024, 3044) Then
+                Log.Error eelError, "Could not link table '" & dItem("SourceTableName") & "'", _
+                    ModuleName(Me) & ".ImportLinkedTable"
+                Log.Add "Linked table object not found in " & strFile, False
+                Log.Add "Connection String: " & strConnect, False
+                Exit Function
+            ElseIf IsConnectionError(lngErrNum) Then
+                Err.Clear
+                eAction = HandleConnectionFailure(strKey, dItem("Name") & " (linked table)", lngErrNum, strErrDesc)
+                Select Case eAction
+                    Case cfaRetry
+                    Case cfaIgnore
+                        Log.Add "  " & T("Skipped {0} (connection ignored)", var0:=dItem("Name")), Options.ShowDebug
+                        Exit Function
+                    Case cfaAbort
+                        Log.Error eelCritical, _
+                            T("Connection canceled by user. Canceling operation."), _
+                            ModuleName(Me) & ".ImportLinkedTable"
+                        Exit Function
+                End Select
+            Else
+                CatchAny eelError, vbNullString, ModuleName(Me) & ".ImportLinkedTable"
+                Exit Function
+            End If
+        Loop
+
+        If Not blnLinked Then Exit Function
+
+        ' Verify that the connection matches the source file. (Issue #192)
+        If tdf.Connect <> strConnect Then
+            Do
                 tdf.Connect = strConnect
                 tdf.RefreshLink
-                If Catch(3283) Then Log.Add "Encountered error 3283 when refreshing link for " & tdf.Name & ". " & _
-                    "You can probably safely ignore this error. (See issue #484)"
-                CatchAny eelError, "Error refreshing link for " & tdf.Name, ModuleName(Me) & ".ImportLinkedTable"
-            End If
-            dbs.TableDefs.Refresh
-
-            ' Set index on linked table.
-            If InStr(1, tdf.Connect, ";DATABASE=", vbTextCompare) = 1 Then
-                ' Can't create a key on a linked Access database table.
-                ' Presumably this would use the Access index instead of needing the pseudo index
-            Else
-                ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
-                If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
-                    ' Create a pseudo index on the linked table
-                    strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & DblQ(tdf.Name) & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
-                    dbs.Execute strSql, dbFailOnError
-                    dbs.TableDefs.Refresh
+                lngErrNum = Err.Number
+                strErrDesc = Err.Description
+                If lngErrNum = 0 Then Exit Do
+                If Catch(3283) Then
+                    Log.Add "Encountered error 3283 when refreshing link for " & tdf.Name & ". " & _
+                        "You can probably safely ignore this error. (See issue #484)"
+                    Exit Do
                 End If
-            End If
+                If IsConnectionError(lngErrNum) Then
+                    Err.Clear
+                    eAction = HandleConnectionFailure(strKey, dItem("Name") & " (linked table)", lngErrNum, strErrDesc)
+                    Select Case eAction
+                        Case cfaRetry
+                        Case cfaIgnore
+                            Log.Add "  " & T("Skipped {0} (connection ignored)", var0:=dItem("Name")), Options.ShowDebug
+                            Exit Function
+                        Case cfaAbort
+                            Log.Error eelCritical, _
+                                T("Connection canceled by user. Canceling operation."), _
+                                ModuleName(Me) & ".ImportLinkedTable"
+                            Exit Function
+                    End Select
+                Else
+                    CatchAny eelError, "Error refreshing link for " & tdf.Name, ModuleName(Me) & ".ImportLinkedTable"
+                    Exit Function
+                End If
+            Loop
+        End If
+        dbs.TableDefs.Refresh
 
-            ' Restore front-end display properties for fields
-            If dItem.Exists("FieldProperties") Then
-                Perf.OperationStart "Import Linked Field Props"
-                Set dFieldsImport = dItem("FieldProperties")
-                For Each varField In dFieldsImport.Keys
-                    Set dFieldPropsImport = dFieldsImport(varField)
-                    For Each varPropName In dFieldPropsImport.Keys
-                        If TypeOf dFieldPropsImport(varPropName) Is Dictionary Then
-                            Set dProp = dFieldPropsImport(varPropName)
-                            SetDAOProperty tdf.Fields(CStr(varField)), _
-                                dProp("Type"), CStr(varPropName), dProp("Value")
-                        End If
-                    Next varPropName
-                Next varField
-                Perf.OperationEnd
+        ' Set index on linked table.
+        If InStr(1, tdf.Connect, ";DATABASE=", vbTextCompare) = 1 Then
+            ' Can't create a key on a linked Access database table.
+            ' Presumably this would use the Access index instead of needing the pseudo index
+        Else
+            ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
+            If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
+                ' Create a pseudo index on the linked table
+                strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & DblQ(tdf.Name) & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
+                dbs.Execute strSql, dbFailOnError
+                dbs.TableDefs.Refresh
             End If
+        End If
 
-            ' Restore front-end display properties for the table
-            If dItem.Exists("TableProperties") Then
-                Perf.OperationStart "Import Linked Table Props"
-                Set dTablePropsImport = dItem("TableProperties")
-                For Each varPropName In dTablePropsImport.Keys
-                    If TypeOf dTablePropsImport(varPropName) Is Dictionary Then
-                        Set dProp = dTablePropsImport(varPropName)
-                        SetDAOProperty tdf, dProp("Type"), CStr(varPropName), dProp("Value")
+        ' Restore front-end display properties for fields
+        If dItem.Exists("FieldProperties") Then
+            Perf.OperationStart "Import Linked Field Props"
+            Set dFieldsImport = dItem("FieldProperties")
+            For Each varField In dFieldsImport.Keys
+                Set dFieldPropsImport = dFieldsImport(varField)
+                For Each varPropName In dFieldPropsImport.Keys
+                    If TypeOf dFieldPropsImport(varPropName) Is Dictionary Then
+                        Set dProp = dFieldPropsImport(varPropName)
+                        SetDAOProperty tdf.Fields(CStr(varField)), _
+                            dProp("Type"), CStr(varPropName), dProp("Value")
                     End If
                 Next varPropName
-                Perf.OperationEnd
-            End If
-
-            ImportLinkedTable = (Err.Number = 0)
+            Next varField
+            Perf.OperationEnd
         End If
+
+        ' Restore front-end display properties for the table
+        If dItem.Exists("TableProperties") Then
+            Perf.OperationStart "Import Linked Table Props"
+            ' Engine-managed properties (e.g. FCMin* version stamps) that older source
+            ' may still contain are tolerated by SetDAOProperty (error 3916) rather than
+            ' aborting the import, so no name filtering is needed here.
+            Set dTablePropsImport = dItem("TableProperties")
+            For Each varPropName In dTablePropsImport.Keys
+                If TypeOf dTablePropsImport(varPropName) Is Dictionary Then
+                    Set dProp = dTablePropsImport(varPropName)
+                    SetDAOProperty tdf, dProp("Type"), CStr(varPropName), dProp("Value")
+                End If
+            Next varPropName
+            Perf.OperationEnd
+        End If
+
+        RecordAuthenticatedConnection strKey, strEnvKey, tdf.Connect, dItem("Name") & " (linked table)"
+        ImportLinkedTable = (Err.Number = 0)
     End If
 
     ' Report any unhandled errors
@@ -881,8 +979,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     If m_FileList Is Nothing Then
-        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml")
-        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml", "*.json")
     End If
     Set IDbComponent_GetFileList = m_FileList
 End Function

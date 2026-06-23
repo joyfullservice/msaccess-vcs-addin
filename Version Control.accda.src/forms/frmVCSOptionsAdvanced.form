@@ -822,7 +822,7 @@ Begin Form
                     LayoutCachedHeight =1995
                     Begin
                         Begin Label
-                            OverlapFlags =93
+                            OverlapFlags =85
                             Left =420
                             Top =1680
                             Width =1740

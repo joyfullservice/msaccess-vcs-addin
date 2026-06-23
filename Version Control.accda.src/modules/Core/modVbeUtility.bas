@@ -67,14 +67,9 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent, _
 
     Dim cmpItem As VBComponent
     Dim strCode As String
-    Dim strUpper As String
     Dim strVBEName As String
-    Dim lngPos As Long
-    Dim lngStart As Long
-    Dim lngEnd As Long
     Dim strCached As String
 
-    Const TAG As String = "'@FOLDER("
     LogUnhandledErrors
     On Error Resume Next
 
@@ -110,21 +105,53 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent, _
     ' Read all code in a single COM call and prepend vbCrLf so that
     ' a line-1 annotation is found by the same pattern as any other line.
     strCode = vbCrLf & cmpItem.CodeModule.Lines(1, 999999)
+    GetFolderAnnotation = GetFolderAnnotationFromText(strCode, cComponent.BaseFolder, strVBEName)
+
+    CatchAny eelError, "Error reading @Folder annotation for " & strVBEName, ModuleName & ".GetFolderAnnotation"
+
+CleanUp:
+    Perf.OperationEnd
+    If Err Then Err.Clear
+
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetFolderAnnotationFromText
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Parse a Rubberduck-style '@Folder annotation from module source text.
+'           : Dots become path separators; each segment is sanitized. When the
+'           : folder already exists on disk, the returned path uses actual casing.
+'           : strContext is optional (module name) for duplicate-annotation warnings.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFolderAnnotationFromText(ByVal strCode As String, _
+    ByVal strBaseFolder As String, Optional ByVal strContext As String = vbNullString) As String
+
+    Dim strUpper As String
+    Dim lngPos As Long
+    Dim lngStart As Long
+    Dim lngEnd As Long
+
+    Const TAG As String = "'@FOLDER("
+
+    If Len(strCode) = 0 Then Exit Function
+
+    ' Match the VBE reader: prepend vbCrLf so a line-1 annotation is found.
+    If Left$(strCode, 2) <> vbCrLf Then strCode = vbCrLf & strCode
     strUpper = UCase$(strCode)
 
-    ' Look for '@Folder preceded by a line break and single quote (comment line)
     lngPos = InStr(1, strUpper, vbCrLf & TAG)
-    If lngPos = 0 Then GoTo CleanUp
-    lngPos = lngPos + 2 ' Advance past vbCrLf to the quote character
+    If lngPos = 0 Then Exit Function
+    lngPos = lngPos + 2
 
-    ' Warn if a second annotation exists
     If InStr(lngPos + Len(TAG), strUpper, vbCrLf & TAG) > 0 Then
         Log.Add T("WARNING: Multiple @Folder annotations found in {0}. Using first annotation.", _
-            var0:=strVBEName), Options.ShowDebug
+            var0:=IIf(Len(strContext) > 0, strContext, T("module source"))), Options.ShowDebug
     End If
 
-    ' Extract the folder path between the double-quote delimiters,
-    ' sanitizing each segment to prevent illegal filesystem characters.
     lngStart = InStr(lngPos, strCode, """")
     If lngStart > 0 Then
         lngEnd = InStr(lngStart + 1, strCode, """")
@@ -135,18 +162,17 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent, _
             For lngSeg = LBound(varSegments) To UBound(varSegments)
                 varSegments(lngSeg) = GetSafeFileName(CStr(varSegments(lngSeg)))
             Next lngSeg
-            GetFolderAnnotation = Join(varSegments, PathSep) & PathSep
+            GetFolderAnnotationFromText = Join(varSegments, PathSep) & PathSep
         End If
     End If
 
-    ' Resolve annotation folder casing to match actual disk folders
-    If Len(GetFolderAnnotation) > 0 Then
+    If Len(GetFolderAnnotationFromText) > 0 Then
         Dim varParts As Variant
         Dim strResolved As String
         Dim strCheckPath As String
         Dim lngPart As Long
-        varParts = Split(Left$(GetFolderAnnotation, Len(GetFolderAnnotation) - 1), PathSep)
-        strCheckPath = StripSlash(cComponent.BaseFolder)
+        varParts = Split(Left$(GetFolderAnnotationFromText, Len(GetFolderAnnotationFromText) - 1), PathSep)
+        strCheckPath = StripSlash(strBaseFolder)
         For lngPart = LBound(varParts) To UBound(varParts)
             strCheckPath = strCheckPath & PathSep & varParts(lngPart)
             If FSO.FolderExists(strCheckPath) Then
@@ -156,15 +182,384 @@ Public Function GetFolderAnnotation(cComponent As IDbComponent, _
                 strResolved = strResolved & varParts(lngPart) & PathSep
             End If
         Next lngPart
-        GetFolderAnnotation = strResolved
+        GetFolderAnnotationFromText = strResolved
     End If
 
-    CatchAny eelError, "Error reading @Folder annotation for " & strVBEName, ModuleName & ".GetFolderAnnotation"
+End Function
 
-CleanUp:
-    Perf.OperationEnd
-    If Err Then Err.Clear
 
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveDuplicateModuleFiles
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Before build/import, scan the modules tree for duplicate basenames
+'           : (.bas/.cls). When exactly one copy sits in its @Folder-derived path,
+'           : delete the misplaced copies. Ambiguous groups are left in place with
+'           : a warning so import does not silently last-one-wins.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveDuplicateModuleFiles(strBaseFolder As String)
+    RemoveDuplicateComponentFiles strBaseFolder, Array("bas", "cls"), vbNullString, Array("json")
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveDuplicateFormFiles
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Build-time duplicate cleanup for forms. @Folder is read from the .cls
+'           : code-behind when present, otherwise from the primary .form/.bas file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveDuplicateFormFiles(strBaseFolder As String)
+    RemoveDuplicateComponentFiles strBaseFolder, Array("form", "bas"), "cls", Array("cls", "json", "svg")
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveDuplicateReportFiles
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Build-time duplicate cleanup for reports. @Folder is read from the .cls
+'           : code-behind when present, otherwise from the primary .report/.bas file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveDuplicateReportFiles(strBaseFolder As String)
+    RemoveDuplicateComponentFiles strBaseFolder, Array("report", "bas"), "cls", Array("cls", "json", "svg")
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveDuplicateComponentFiles
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Before build/import, scan a component tree for duplicate basenames in
+'           : distinct folders. When exactly one instance sits in its @Folder-derived
+'           : path, delete misplaced copies (primary + companions). Ambiguous groups
+'           : are left in place with a warning so import does not silently last-one-wins.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveDuplicateComponentFiles(strBaseFolder As String, _
+    varPrimaryExts As Variant, strAnnotationExt As String, varCompanionExts As Variant)
+
+    Dim dGroups As Dictionary
+    Dim dInstances As Dictionary
+    Dim varKey As Variant
+
+    If Not FSO.FolderExists(strBaseFolder) Then Exit Sub
+
+    Set dGroups = New Dictionary
+    CollectComponentInstancesForDuplicateScan StripSlash(strBaseFolder), dGroups, varPrimaryExts
+
+    For Each varKey In dGroups.Keys
+        Set dInstances = dGroups(varKey)
+        If dInstances.Count > 1 Then
+            ResolveDuplicateComponentGroup strBaseFolder, CStr(varKey), dInstances, _
+                strAnnotationExt, varCompanionExts
+        End If
+    Next varKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WarnDuplicateModuleBasenames
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Log a warning when duplicate module basenames remain in the tree.
+'           : Used after export as a safety net when per-module cleanup missed a copy.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WarnDuplicateModuleBasenames(strBaseFolder As String)
+    WarnDuplicateComponentBasenames strBaseFolder, Array("bas", "cls"), "module"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WarnDuplicateFormBasenames
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Log a warning when duplicate form basenames remain in the tree.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WarnDuplicateFormBasenames(strBaseFolder As String)
+    WarnDuplicateComponentBasenames strBaseFolder, Array("form", "bas"), "form"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WarnDuplicateReportBasenames
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Log a warning when duplicate report basenames remain in the tree.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WarnDuplicateReportBasenames(strBaseFolder As String)
+    WarnDuplicateComponentBasenames strBaseFolder, Array("report", "bas"), "report"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WarnDuplicateComponentBasenames
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Log a warning when duplicate component basenames remain in distinct folders.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WarnDuplicateComponentBasenames(strBaseFolder As String, _
+    varPrimaryExts As Variant, strComponentLabel As String)
+
+    Dim dGroups As Dictionary
+    Dim dInstances As Dictionary
+    Dim varKey As Variant
+
+    If Not FSO.FolderExists(strBaseFolder) Then Exit Sub
+
+    Set dGroups = New Dictionary
+    CollectComponentInstancesForDuplicateScan StripSlash(strBaseFolder), dGroups, varPrimaryExts
+
+    For Each varKey In dGroups.Keys
+        Set dInstances = dGroups(varKey)
+        If dInstances.Count > 1 Then
+            Log.Add T("WARNING: Duplicate {0} source files for {1}: {2}", _
+                var0:=strComponentLabel, var1:=CStr(varKey), _
+                var2:=JoinDictionaryInstancePaths(dInstances)), Options.ShowDebug
+        End If
+    Next varKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CollectComponentInstancesForDuplicateScan
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Recursively collect primary source files grouped by basename and folder.
+'           : Companion files (.cls/.json/.svg for forms) do not create instances.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CollectComponentInstancesForDuplicateScan(strFolder As String, _
+    dGroups As Dictionary, varPrimaryExts As Variant)
+
+    Dim colFiles As New Collection
+    Dim colSubFolders As New Collection
+    Dim dInstances As Dictionary
+    Dim varItem As Variant
+    Dim strName As String
+    Dim strBaseName As String
+    Dim strInstanceFolder As String
+
+    ScanFolderContents strFolder, colFiles, colSubFolders
+
+    For Each varItem In colFiles
+        strName = FSO.GetFileName(CStr(varItem))
+        If FileMatchesPrimaryExt(strName, varPrimaryExts) Then
+            strBaseName = FSO.GetBaseName(strName)
+            strInstanceFolder = AddSlash(FSO.GetParentFolderName(CStr(varItem)))
+            If dGroups.Exists(strBaseName) Then
+                Set dInstances = dGroups(strBaseName)
+            Else
+                Set dInstances = New Dictionary
+                dGroups.Add strBaseName, dInstances
+            End If
+            If Not dInstances.Exists(strInstanceFolder) Then
+                dInstances.Add strInstanceFolder, CStr(varItem)
+            End If
+        End If
+    Next varItem
+
+    For Each varItem In colSubFolders
+        CollectComponentInstancesForDuplicateScan CStr(varItem), dGroups, varPrimaryExts
+    Next varItem
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : FileMatchesPrimaryExt
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Return True when strFileName ends with one of the primary extensions.
+'---------------------------------------------------------------------------------------
+'
+Private Function FileMatchesPrimaryExt(strFileName As String, varPrimaryExts As Variant) As Boolean
+
+    Dim varExt As Variant
+    For Each varExt In varPrimaryExts
+        If strFileName Like "*." & CStr(varExt) Then
+            FileMatchesPrimaryExt = True
+            Exit Function
+        End If
+    Next varExt
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveDuplicateComponentGroup
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : For one duplicate basename, delete misplaced folder instances when
+'           : exactly one instance is in its @Folder-derived location.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ResolveDuplicateComponentGroup(strBaseFolder As String, _
+    strBaseName As String, dInstances As Dictionary, _
+    strAnnotationExt As String, varCompanionExts As Variant)
+
+    Dim colCanonical As New Collection
+    Dim colMisplaced As New Collection
+    Dim varFolder As Variant
+    Dim strPrimaryFile As String
+    Dim strCode As String
+    Dim strAnnotation As String
+    Dim strExpectedFolder As String
+    Dim strActualFolder As String
+
+    strBaseFolder = AddSlash(StripSlash(strBaseFolder))
+
+    For Each varFolder In dInstances.Keys
+        strPrimaryFile = CStr(dInstances(varFolder))
+        strActualFolder = CStr(varFolder)
+        strCode = ReadComponentAnnotationCode(strActualFolder, strBaseName, _
+            strPrimaryFile, strAnnotationExt)
+        strAnnotation = GetFolderAnnotationFromText(strCode, strBaseFolder, strBaseName)
+        strExpectedFolder = strBaseFolder & strAnnotation
+        If StrComp(strActualFolder, strExpectedFolder, vbTextCompare) = 0 Then
+            colCanonical.Add strPrimaryFile
+        Else
+            colMisplaced.Add strPrimaryFile
+        End If
+    Next varFolder
+
+    If colCanonical.Count = 1 And colMisplaced.Count > 0 Then
+        For Each varFolder In colMisplaced
+            strPrimaryFile = CStr(varFolder)
+            DeleteMisplacedComponentInstance AddSlash(FSO.GetParentFolderName(strPrimaryFile)), _
+                strBaseName, strPrimaryFile, varCompanionExts
+            Log.Add T("Removed duplicate source file: {0}", var0:=strPrimaryFile), Options.ShowDebug
+        Next varFolder
+        RemoveEmptyModuleSubfolders StripSlash(strBaseFolder)
+    ElseIf dInstances.Count > 1 Then
+        Log.Add T("WARNING: Ambiguous duplicate source files for {0}; not auto-deleting. Paths: {1}", _
+            var0:=strBaseName, var1:=JoinDictionaryInstancePaths(dInstances)), Options.ShowDebug
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : ReadComponentAnnotationCode
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Read source text containing @Folder for a component instance. Prefer
+'           : the annotation sidecar (.cls for forms/reports) when present.
+'---------------------------------------------------------------------------------------
+'
+Private Function ReadComponentAnnotationCode(strFolder As String, strBaseName As String, _
+    strPrimaryFile As String, strAnnotationExt As String) As String
+
+    Dim strAnnotationFile As String
+
+    If Len(strAnnotationExt) > 0 Then
+        strAnnotationFile = strFolder & strBaseName & "." & strAnnotationExt
+        If FSO.FileExists(strAnnotationFile) Then
+            ReadComponentAnnotationCode = ReadFile(strAnnotationFile)
+            Exit Function
+        End If
+    End If
+    ReadComponentAnnotationCode = ReadFile(strPrimaryFile)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteMisplacedComponentInstance
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Delete a misplaced component instance: primary file plus companions.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DeleteMisplacedComponentInstance(strFolder As String, strBaseName As String, _
+    strPrimaryFile As String, varCompanionExts As Variant)
+
+    Dim varExt As Variant
+    Dim strCompanion As String
+
+    DeleteFile strPrimaryFile
+    For Each varExt In varCompanionExts
+        strCompanion = strFolder & strBaseName & "." & CStr(varExt)
+        If FSO.FileExists(strCompanion) Then DeleteFile strCompanion
+    Next varExt
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : JoinDictionaryInstancePaths
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Join primary file paths from an instance dictionary for diagnostics.
+'---------------------------------------------------------------------------------------
+'
+Private Function JoinDictionaryInstancePaths(dInstances As Dictionary) As String
+
+    Dim varItem As Variant
+    Dim cOut As New clsConcat
+    For Each varItem In dInstances.Items
+        cOut.Add CStr(varItem), "; "
+    Next varItem
+    JoinDictionaryInstancePaths = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveEmptyModuleSubfolders
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Remove empty subfolders under the modules base folder after duplicate cleanup.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveEmptyModuleSubfolders(strBaseFolder As String)
+
+    Dim colSubFolders As New Collection
+    Dim colFiles As New Collection
+    Dim varItem As Variant
+
+    ScanFolderContents strBaseFolder, colFiles, colSubFolders
+    For Each varItem In colSubFolders
+        RemoveEmptyModuleSubfolders CStr(varItem)
+        If FSO.FolderExists(CStr(varItem)) Then
+            If FSO.GetFolder(CStr(varItem)).Files.Count = 0 _
+                And FSO.GetFolder(CStr(varItem)).SubFolders.Count = 0 Then
+                LogUnhandledErrors
+                On Error Resume Next
+                FSO.DeleteFolder CStr(varItem), True
+                CatchAny eelWarning, "Unable to delete empty folder: " & CStr(varItem), _
+                    ModuleName & ".RemoveEmptyModuleSubfolders"
+            End If
+        End If
+    Next varItem
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : JoinCollectionPaths
+' Author    : Adam Waller
+' Date      : 6/18/2026
+' Purpose   : Join collection items into a semicolon-delimited diagnostic string.
+'---------------------------------------------------------------------------------------
+'
+Private Function JoinCollectionPaths(colItems As Collection) As String
+
+    Dim varItem As Variant
+    Dim cOut As New clsConcat
+    For Each varItem In colItems
+        cOut.Add CStr(varItem), "; "
+    Next varItem
+    JoinCollectionPaths = cOut.GetStr
 
 End Function
 
@@ -436,6 +831,30 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSafeProjectFileName
+' Author    : Adam Waller
+' Date      : 6/9/2026
+' Purpose   : Return the FileName of a VBProject, or an empty string if it cannot be
+'           : read. The VBE.VBProjects collection can contain entries that are not
+'           : true VBA projects (registered type libraries or wizards injected by
+'           : third-party VBE add-ins such as MZ-Tools, VBWatchdog, or VBExtras).
+'           : Reading .FileName on those raises "Requested Type Library or Wizard is
+'           : not a VBA Project" (#709). This guards against that so callers can scan
+'           : the collection safely.
+'           : NOTE: Do NOT short-circuit on Protection here. A locked project (such
+'           : as the compiled .accde add-in) still has a readable .FileName and must
+'           : remain matchable.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSafeProjectFileName(oProj As VBProject) As String
+    LogUnhandledErrors
+    On Error Resume Next
+    GetSafeProjectFileName = oProj.FileName
+    If Err Then Err.Clear
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetAddInProject
 ' Author    : Adam Waller
 ' Date      : 11/10/2020
@@ -444,8 +863,10 @@ End Sub
 '
 Public Function GetAddInProject() As VBProject
     Dim oProj As VBProject
+    Dim strAddInFile As String
+    strAddInFile = GetInstalledAddInFileName
     For Each oProj In VBE.VBProjects
-        If StrComp(oProj.FileName, GetInstalledAddInFileName, vbTextCompare) = 0 Then
+        If StrComp(GetSafeProjectFileName(oProj), strAddInFile, vbTextCompare) = 0 Then
             Set GetAddInProject = oProj
             Exit For
         End If

@@ -344,6 +344,15 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
             Next varKey
 
+            Select Case cCategory.ComponentType
+                Case edbModule
+                    WarnDuplicateModuleBasenames cCategory.BaseFolder
+                Case edbForm
+                    WarnDuplicateFormBasenames cCategory.BaseFolder
+                Case edbReport
+                    WarnDuplicateReportBasenames cCategory.BaseFolder
+            End Select
+
             ' Show category wrap-up.
             If Options.ShowDebug Then
                 Log.Add T("[{0}] {1} processed.", var0:=lngCount, var1:=T(LCase(cCategory.Category)))

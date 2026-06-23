@@ -1,7 +1,7 @@
 ﻿Attribute VB_Name = "modTestQuerySqlBuilder"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestQuerySqlBuilder
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/29/2026
 ' Purpose   : Diagnostic harness that validates the fast MSysQueries SQL builder
 '           : against Access's own QueryDefs.SQL text for the current database.
@@ -29,7 +29,7 @@ Private Const DIFF_MAX_CHARS_FOR_JSON As Long = 4000
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RunQuerySqlBuilderValidation
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/29/2026
 ' Purpose   : Compare reconstructed SQL to Access QueryDefs.SQL for selected
 '           : queries or all queries in the current database. Returns a JSON
@@ -232,7 +232,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : InspectQuerySqlStorage
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/30/2026
 ' Purpose   : Create a sandbox query from SQL and return Access-authored
 '           : QueryDefs.SQL plus MSysObjects/MSysQueries storage rows. This is
@@ -305,7 +305,7 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : CompareSqlBuilderArtifacts
-' Author    : VCS contributors
+' Author    : Adam Waller
 ' Date      : 4/30/2026
 ' Purpose   : Compare SQL builder validation artifacts with DAO row counts and
 '           : field schemas. This runs inside Access so VBA UDFs and linked
@@ -321,7 +321,7 @@ Public Function CompareSqlBuilderArtifacts(ByVal strArtifactRoot As String) As S
     Dim strLedger As String
     Dim fldRoot As Object
     Dim fldArtifact As Object
-    Dim Done As Dictionary
+    Dim dArtifactResult As Dictionary
 
     Set dResult = New Dictionary
     Set dStats = NewArtifactCompareStats()
@@ -347,10 +347,10 @@ Public Function CompareSqlBuilderArtifacts(ByVal strArtifactRoot As String) As S
     For Each fldArtifact In fldRoot.SubFolders
         If FSO.FileExists(fldArtifact.Path & PathSep & "access.sql") And _
            FSO.FileExists(fldArtifact.Path & PathSep & "generated.sql") Then
-            Set Done = CompareOneSqlBuilderArtifact(CStr(fldArtifact.Path))
-            colResults.Add Done
-            IncrementArtifactCompareStats dStats, CStr(Done("status"))
-            strLedger = strLedger & ArtifactCompareLedgerLine(Done)
+            Set dArtifactResult = CompareOneSqlBuilderArtifact(CStr(fldArtifact.Path))
+            colResults.Add dArtifactResult
+            IncrementArtifactCompareStats dStats, CStr(dArtifactResult("status"))
+            strLedger = strLedger & ArtifactCompareLedgerLine(dArtifactResult)
         End If
     Next fldArtifact
 
@@ -513,8 +513,8 @@ Private Function CompareOneSqlBuilderArtifact(ByVal strArtifactFolder As String)
     Set dResult = New Dictionary
     Set dbs = CurrentDb
     strName = FSO.GetFileName(strArtifactFolder)
-    strAccessQueryName = "vcs_cmp_access_" & ShortHash(strArtifactFolder)
-    strGeneratedQueryName = "vcs_cmp_generated_" & ShortHash(strArtifactFolder)
+    strAccessQueryName = "vcs_cmp_access_" & UniqueHashSuffix(strArtifactFolder)
+    strGeneratedQueryName = "vcs_cmp_generated_" & UniqueHashSuffix(strArtifactFolder)
 
     dResult.Add "name", strName
     dResult.Add "artifactFolder", strArtifactFolder

@@ -154,8 +154,7 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     If m_FileList Is Nothing Then
-        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.macro")
-        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.macro", "*.bas")
     End If
     Set IDbComponent_GetFileList = m_FileList
 End Function

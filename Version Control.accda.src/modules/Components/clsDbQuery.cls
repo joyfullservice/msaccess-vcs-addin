@@ -302,9 +302,17 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     If Len(strConnect) > 0 Then
         strEnvKey = ShouldUseEnvForConnection(strConnect)
         If Len(strEnvKey) > 0 Then
+            SaveConnectionToEnv strEnvKey, strConnect, strQueryName & " (pass-through query)"
             dItems.Add "Connect", "env:" & strEnvKey
         Else
-            dItems.Add "Connect", strConnect
+            ' SECURITY: a connection kept in source (not externalized to .env) must
+            ' still never carry a raw password (v5.0.0+). GetSourceSafeConnect is the
+            ' single chokepoint that enforces this - do NOT bypass it when refactoring
+            ' this branch, or plaintext credentials can leak into committed source.
+            ' Regression coverage: modTestConnect.TestGetSourceSafeConnectGating /
+            ' TestStripConnectionCredentials. (No end-to-end export-to-file test exists;
+            ' that risk is accepted - see DECISIONS.md 2026-06-19.)
+            dItems.Add "Connect", GetSourceSafeConnect(strConnect, strQueryName & " (pass-through query)")
         End If
     End If
 
@@ -920,26 +928,52 @@ End Function
 '
 Private Function IDbComponent_GetFileList() As Dictionary
     If m_FileList Is Nothing Then
-        Dim dNewFormat As Dictionary
+        Dim dAll As Dictionary
+        Dim dExists As Dictionary
         Dim varKey As Variant
+        Dim strFile As String
         Dim strQdefEquiv As String
         Dim strBasEquiv As String
         Dim strJsonEquiv As String
 
-        ' Legacy format first: .qdef and .bas files always take priority
-        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.qdef")
-        MergeDictionary m_FileList, GetFilePathsInFolder(IDbComponent_BaseFolder, "*.bas")
+        Set m_FileList = New Dictionary
 
-        ' New format: .sql + .json pairs (only if no legacy .qdef/.bas exists)
-        Set dNewFormat = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.sql")
-        For Each varKey In dNewFormat.Keys
-            strJsonEquiv = SwapExtension(CStr(varKey), "json")
-            strQdefEquiv = SwapExtension(CStr(varKey), "qdef")
-            strBasEquiv = SwapExtension(CStr(varKey), "bas")
-            If FSO.FileExists(strJsonEquiv) _
-                And Not m_FileList.Exists(strQdefEquiv) _
-                And Not m_FileList.Exists(strBasEquiv) Then
-                m_FileList.Add CStr(varKey), dNewFormat(varKey)
+        ' Enumerate the (often large) queries folder once, covering both the legacy
+        ' (.qdef/.bas) and new (.sql/.json) formats in a single Win32 scan rather than
+        ' one full scan per extension. The .json files are included so we can test for
+        ' a .sql file's companion in memory instead of a per-file FSO.FileExists call.
+        Set dAll = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.qdef", "*.bas", "*.sql", "*.json")
+
+        ' Case-insensitive membership set for sibling-file lookups, matching the
+        ' case-insensitive semantics of the FSO.FileExists check it replaces.
+        Set dExists = New Dictionary
+        dExists.CompareMode = TextCompare
+        For Each varKey In dAll.Keys
+            If Not dExists.Exists(CStr(varKey)) Then dExists.Add CStr(varKey), True
+        Next varKey
+
+        ' Legacy format first: .qdef and .bas files always take priority
+        For Each varKey In dAll.Keys
+            strFile = CStr(varKey)
+            Select Case LCase$(FSO.GetExtensionName(strFile))
+                Case "qdef", "bas": m_FileList.Add strFile, dAll(varKey)
+            End Select
+        Next varKey
+
+        ' New format: .sql + .json pairs (only if no legacy .qdef/.bas equivalent exists).
+        ' The .qdef/.bas equivalence check stays case-sensitive (m_FileList default),
+        ' matching the original behavior.
+        For Each varKey In dAll.Keys
+            strFile = CStr(varKey)
+            If LCase$(FSO.GetExtensionName(strFile)) = "sql" Then
+                strJsonEquiv = SwapExtension(strFile, "json")
+                strQdefEquiv = SwapExtension(strFile, "qdef")
+                strBasEquiv = SwapExtension(strFile, "bas")
+                If dExists.Exists(strJsonEquiv) _
+                    And Not m_FileList.Exists(strQdefEquiv) _
+                    And Not m_FileList.Exists(strBasEquiv) Then
+                    m_FileList.Add strFile, dAll(varKey)
+                End If
             End If
         Next varKey
     End If

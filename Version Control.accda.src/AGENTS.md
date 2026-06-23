@@ -58,7 +58,15 @@ End Sub
 
 **Note:** `Option` statements are not required - some codebases omit them entirely.
 
-**`@Folder` annotations:** Starting with export format 5.0.0, the add-in reads Rubberduck-style `'@Folder("Category")` annotations and exports modules into matching subdirectories under `modules/` (e.g., `'@Folder("Core")` exports to `modules/Core/`). Dots become path separators (`'@Folder("Components.ADP")` exports to `modules/Components/ADP/`). During import, subdirectories are scanned recursively. Modules without an `@Folder` annotation remain directly in `modules/`.
+**`@Folder` annotations:** Starting with export format 5.0.0, the add-in reads Rubberduck-style `'@Folder("Category")` annotations and exports modules into matching subdirectories under `modules/` (e.g., `'@Folder("Core")` exports to `modules/Core/`). Dots become path separators (`'@Folder("Components.ADP")` exports to `modules/Components/ADP/`). During import, subdirectories are scanned recursively. Modules without an `@Folder` annotation remain directly in `modules/`. The same subfolder layout applies to forms (`forms/`) and reports (`reports/`).
+
+**Critical for agents — file location follows the annotation, not the folder you are editing in:**
+
+- The `'@Folder("X.Y")` comment inside the file decides where it belongs on disk (`modules/X/Y/<name>.bas`, `forms/X/Y/<name>.form`, etc.).
+- For **modules**, the annotation is in the `.bas` or `.cls` file itself. For **forms and reports**, the annotation lives in the `.cls` code-behind file (not in `.form`/`.report`, `.json`, or `.svg`).
+- Before creating or moving a component, search the **entire** `modules/`, `forms/`, or `reports/` tree for an existing file with the same basename (`Attribute VB_Name` for modules). Edit that file in place; never create a second copy elsewhere.
+- If two copies exist (e.g. `modules/modFoo.bas` and `modules/Tests/modFoo.bas`), build/import processes **both** and the last import silently wins — no error is shown. This is a common source of drift when agents write to the wrong folder.
+- Build now auto-removes misplaced duplicates (modules, forms, and reports) when exactly one copy sits in its annotation-derived folder; ambiguous cases are left in place with a warning. Deleting a duplicate form/report removes the whole source group (`.form`/`.report` + `.cls` + `.json` + `.svg`) together.
 
 ### Class Modules (`.cls` files in `modules/`)
 
@@ -198,6 +206,8 @@ Attribute VB_Name = "Form_frmMyForm"
 - Properties you don't understand (may break layout or cause import errors)
 
 **Important:** The format is largely undocumented. Small, careful changes (like adjusting a text box width) are feasible, but avoid changes that affect control indexing or structural relationships. When in doubt, make layout changes in Access directly.
+
+**Conditional formatting:** When the **Decode conditional formatting to JSON** option is enabled (export format version 5.0.0+), the opaque `ConditionalFormat` / `ConditionalFormat14` binary hex blocks are stripped from each control and stored as decoded, human-readable rules in the companion `.json` file (under `Items.ConditionalFormatting`, keyed by control name). When disabled, the binary blocks remain inline in the source file. Either way the blocks are rebuilt on import. Edit the rules in the `.json` rather than the hex. On import the JSON is authoritative: if a control has a JSON entry, any stale inline block for that control is stripped before the rebuilt block is injected (so JSON wins and re-imports stay idempotent); a control with an inline block but no JSON entry is left untouched. See [docs/access-conditional-format.md](../docs/access-conditional-format.md) for the binary format and the decode/rebuild fidelity boundary (`clsConditionalFormat`).
 
 ---
 

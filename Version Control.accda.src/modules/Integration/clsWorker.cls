@@ -511,6 +511,24 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SafeProjectFileName
+' Author    : Adam Waller
+' Date      : 6/9/2026
+' Purpose   : Guarded read of a VBProject's FileName for the isolated worker script.
+'           : The VBProjects collection can contain non-VBA entries (registered type
+'           : libraries or wizards) that raise an error when .FileName is accessed,
+'           : and the project set can be in flux while the database is reopened
+'           : (e.g. in shared mode). Returns an empty string on failure. (#709)
+'---------------------------------------------------------------------------------------
+'
+Function SafeProjectFileName(objProj)
+    On Error Resume Next
+    SafeProjectFileName = objProj.FileName
+    On Error GoTo 0
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CurrentVBProject
 ' Author    : Adam Waller
 ' Date      : 3/3/2023
@@ -529,10 +547,10 @@ Function CurrentVBProject(objApp)
     ' VBProject filenames are UNC paths
     strUncPath = GetUncPath(objApp.CurrentProject.FullName)
 
-    If StrComp(objApp.VBE.ActiveVBProject.FileName, strUncPath, vbTextCompare) <> 0 Then
+    If StrComp(SafeProjectFileName(objApp.VBE.ActiveVBProject), strUncPath, vbTextCompare) <> 0 Then
         ' Search for project with matching filename.
         For Each objProj In objApp.VBE.VBProjects
-            If StrComp(objProj.FileName, strUncPath, vbTextCompare) = 0 Then
+            If StrComp(SafeProjectFileName(objProj), strUncPath, vbTextCompare) = 0 Then
                 Set CurrentVBProject = objProj
                 Exit For
             End If
@@ -555,6 +573,7 @@ Function GetAddInVBProject(objApp)
     Dim objProj
     Dim strUncPath
     Dim objFSO
+    Dim strProjFile
 
     Set objFSO = CreateObject("Scripting.FileSystemObject")
 
@@ -563,11 +582,14 @@ Function GetAddInVBProject(objApp)
 
     ' Search for project with matching filename.
     For Each objProj In objApp.VBE.VBProjects
-        If StrComp(objFSO.GetBaseName(objProj.FileName), "Version Control", vbTextCompare) = 0 Then
-            ' Check for different file path
-            If StrComp(objProj.FileName, strUncPath, vbTextCompare) <> 0 Then
-                Set GetAddInVBProject = objProj
-                Exit For
+        strProjFile = SafeProjectFileName(objProj)
+        If Len(strProjFile) > 0 Then
+            If StrComp(objFSO.GetBaseName(strProjFile), "Version Control", vbTextCompare) = 0 Then
+                ' Check for different file path
+                If StrComp(strProjFile, strUncPath, vbTextCompare) <> 0 Then
+                    Set GetAddInVBProject = objProj
+                    Exit For
+                End If
             End If
         End If
     Next
