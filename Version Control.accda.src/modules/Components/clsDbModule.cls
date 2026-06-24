@@ -22,6 +22,7 @@ Private m_Module As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_strSourceFile As String
+Private m_colBatchItems As Collection
 
 Private Type udtVbaFileContent
     strContent As String
@@ -111,10 +112,7 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Const cintPublicCreateable As Integer = 5   ' Instancing
-
     Dim FunctionName As String
-
     Dim strName As String
     Dim strTempFile As String
     Dim udtFile As udtVbaFileContent
@@ -149,39 +147,201 @@ Private Sub IDbComponent_Import(strFile As String)
 
     DoEvents
 
-    ' Update instancing for public creatable classes
-    If udtFile.blnPublicCreatable Then
-        CurrentVBProject.VBComponents(strName).Properties("Instancing") = cintPublicCreateable
-        DoCmd.Save acModule, strName
-        If CatchAny(eelError, T("Error saving module instancing: {0}", var0:=strName), FunctionName) Then GoTo ImportCleanUp
+    FinalizeOneModule strFile, strName, udtFile.blnPublicCreatable, FunctionName
+
+ImportCleanUp:
+    DeleteFile strTempFile
+
+    CatchAny eelError, T("Error importing module: {0}", var0:=strName), FunctionName
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportFast
+' Author    : Adam Waller
+' Date      : 6/23/2026
+' Purpose   : Pass 1 of full-build module import: parse and load via VBE only. The
+'           : caller must invoke FinalizeImports once after all files are imported.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ImportFast(strFile As String)
+
+    Dim strName As String
+    Dim strTempFile As String
+    Dim udtFile As udtVbaFileContent
+    Dim dBatch As Dictionary
+    Dim FunctionName As String
+
+    FunctionName = ModuleName(Me) & ".ImportFast"
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
+
+    If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
+
+    strName = GetObjectNameFromFileName(strFile)
+    udtFile = ParseSourceFile(strFile, strName)
+
+    strTempFile = GetTempFile
+    WriteFile udtFile.strContent, strTempFile, GetSystemEncoding
+
+    LoadVbeModuleFromFile strTempFile, strName
+    DeleteFile strTempFile
+
+    If Operation.ErrorLevel >= eelError Then Exit Sub
+
+    If Not VbeModuleExists(strName) Then
+        Log.Error eelError, _
+            T("VBE import did not create module {0}. Check Attribute VB_Name in the source file.", _
+                var0:=strName), FunctionName
+        Exit Sub
     End If
 
-    ' Set reference to object (AllModules can lag briefly after a VBE re-import)
-    Set m_Module = GetAccessModuleObject(strName)
+    Set dBatch = New Dictionary
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    dBatch.Add "PublicCreatable", udtFile.blnPublicCreatable
+    m_colBatchItems.Add dBatch
+
+    CatchAny eelError, T("Error importing module: {0}", var0:=strName), FunctionName
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FinalizeImports
+' Author    : Adam Waller
+' Date      : 6/23/2026
+' Purpose   : Pass 2 of full-build module import: one project save and Documents
+'           : refresh, then resolve, metadata, and index updates per batched file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub FinalizeImports()
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+    Dim FunctionName As String
+
+    FunctionName = ModuleName(Me) & ".FinalizeImports"
+
+    If m_colBatchItems Is Nothing Then Exit Sub
+    If m_colBatchItems.Count = 0 Then
+        Set m_colBatchItems = Nothing
+        Exit Sub
+    End If
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    Set VBE.ActiveVBProject = CurrentVBProject
+
+    ' Apply instancing before saving so a single save pass publishes every module.
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        If dBatch("PublicCreatable") Then
+            CurrentVBProject.VBComponents(CStr(dBatch("Name"))).Properties("Instancing") = 5
+            Err.Clear
+        End If
+    Next varItem
+
+    SaveAllBatchModules FunctionName
+    If Operation.ErrorLevel >= eelCritical Then GoTo FinalizeCleanUp
+
+    Perf.OperationStart "Refresh Documents"
+    SharedDb.Containers("Modules").Documents.Refresh
+    Perf.OperationEnd
+
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        FinalizeOneModule CStr(dBatch("File")), CStr(dBatch("Name")), CBool(dBatch("PublicCreatable")), _
+            FunctionName, blnSkipDocumentsRefresh:=True, blnInstancingAlreadyApplied:=True
+        If Operation.ErrorLevel = eelCritical Then Exit For
+    Next varItem
+
+FinalizeCleanUp:
+    Set m_colBatchItems = Nothing
+
+    CatchAny eelError, T("Error finalizing module imports"), FunctionName
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveAllBatchModules
+' Author    : Adam Waller
+' Date      : 6/24/2026
+' Purpose   : Save each batched module via Access (publishes to AllModules). DoEvents
+'           : before and after the loop lets VBE publish imported modules before Access
+'           : save and lets AllModules catch up afterward.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveAllBatchModules(FunctionName As String)
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+    Dim strName As String
+
+    Set VBE.ActiveVBProject = CurrentVBProject
+    DoEvents
+
+    Perf.OperationStart "Save Modules"
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        strName = CStr(dBatch("Name"))
+        DoCmd.Save acModule, strName
+        If CatchAny(eelError, T("Error saving module: {0}", var0:=strName), FunctionName) Then
+            Perf.OperationEnd
+            Exit Sub
+        End If
+    Next varItem
+    Perf.OperationEnd
+
+    DoEvents
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FinalizeOneModule
+' Author    : Adam Waller
+' Date      : 6/23/2026
+' Purpose   : Resolve AllModules, apply metadata, and update the index for one import.
+'---------------------------------------------------------------------------------------
+'
+Private Sub FinalizeOneModule(strFile As String, strName As String, blnPublicCreatable As Boolean, _
+    FunctionName As String, Optional blnSkipDocumentsRefresh As Boolean = False, _
+    Optional blnInstancingAlreadyApplied As Boolean = False)
+
+    Const cintPublicCreateable As Integer = 5   ' Instancing
+
+    ' Full build reuses one instance; bind this file explicitly for index updates.
+    m_strSourceFile = strFile
+
+    If blnPublicCreatable And Not blnInstancingAlreadyApplied Then
+        CurrentVBProject.VBComponents(strName).Properties("Instancing") = cintPublicCreateable
+        DoCmd.Save acModule, strName
+        If CatchAny(eelError, T("Error saving module instancing: {0}", var0:=strName), FunctionName) Then Exit Sub
+    End If
+
+    Set m_Module = GetAccessModuleObject(strName, IIf(blnInstancingAlreadyApplied, 5, 3))
     If m_Module Is Nothing Then
         Log.Error eelCritical, _
             T("Imported module not found after import: {0}" & vbNewLine & _
                 "Ensure 'Attribute VB_Name = {0}' is found at the start of the file. " & _
                 "Filenames (before prefix) must match the 'Attribute VB_Name' value." _
                 , var0:=strName), FunctionName
-        GoTo ImportCleanUp
+        Exit Sub
     End If
 
-    ' Apply object metadata (doc properties + hidden attribute) from companion .json
-    ImportObjectMetadata SwapExtension(strFile, "json"), "Modules", strName, acModule
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Modules", strName, acModule, _
+        blnSkipDocumentsRefresh:=blnSkipDocumentsRefresh
 
-    ' Save hash, update the index, and remove the temp file.
-    ' Store the source file content hash (FileHash), VBA code hash (OtherHash),
-    ' and metadata hash (MetaHash) so the content-hash fallback in
-    ' GetModifiedSourceFiles works correctly after a merge+import cycle.
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
         GetCodeModuleHash(IDbComponent_ComponentType, strName), _
         strMetaHash:=GetMetadataHash("Modules", strName, acModule)
-
-ImportCleanUp:
-    DeleteFile strTempFile
-
-    CatchAny eelError, T("Error importing module: {0}", var0:=strName), FunctionName
 
 End Sub
 
@@ -335,11 +495,11 @@ End Function
 '           : because AllModules can lag behind VBE after a remove/re-import cycle.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetAccessModuleObject(strName As String) As AccessObject
+Private Function GetAccessModuleObject(strName As String, Optional intMaxTries As Integer = 3) As AccessObject
 
     Dim intTry As Integer
 
-    For intTry = 1 To 3
+    For intTry = 1 To intMaxTries
         LogUnhandledErrors
         On Error Resume Next
         Set GetAccessModuleObject = CurrentProject.AllModules(strName)

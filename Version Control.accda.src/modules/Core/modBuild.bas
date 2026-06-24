@@ -42,6 +42,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Dim blnSuccess As Boolean
     Dim lngCount As Long
     Dim lngCurrent As Long
+    Dim cModule As clsDbModule
 
     Dim strText As String   ' Remove later
 
@@ -389,30 +390,52 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         Log.Flush
 
         ' Loop through each file in this category.
-        For Each varFile In dFiles.Keys
-            ' Import/merge the file
-            lngCurrent = lngCurrent + 1
-            Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
-            Log.Progress lngCurrent, lngCount, FSO.GetFileName(varFile)
-            Operation.Pulse
-            If blnFullBuild Then
-                cCategory.Import CStr(varFile)
-            Else
-                cCategory.Merge CStr(varFile)
-                If Options.ExportAfterMerge Then
-                    ' Merging imports the object, which then makes it available
-                    ' to export from this category/object class.
-                    ' (Forms are exported later after initializing)
-                    If cCategory.ComponentType <> edbForm Then cCategory.Export
-                End If
-            End If
-            CatchAny eelError, T(IIf(blnFullBuild, "Build error in: {0}", "Merge error in: {0}"), _
-                var0:=varFile), FunctionName, True, True
+        If blnFullBuild And cCategory.ComponentType = edbModule Then
 
-            ' Bail out if we hit a critical error.
+            Set cModule = cCategory
+
+            For Each varFile In dFiles.Keys
+                lngCurrent = lngCurrent + 1
+                Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+                Log.Progress lngCurrent, lngCount, FSO.GetFileName(varFile)
+                Operation.Pulse
+                cModule.ImportFast CStr(varFile)
+                CatchAny eelError, T("Build error in: {0}", var0:=varFile), FunctionName, True, True
+                If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+            Next varFile
+
+            cModule.FinalizeImports
+            CatchAny eelError, T("Build error finalizing modules"), FunctionName, True, True
             If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
 
-        Next varFile
+        Else
+
+            For Each varFile In dFiles.Keys
+                ' Import/merge the file
+                lngCurrent = lngCurrent + 1
+                Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+                Log.Progress lngCurrent, lngCount, FSO.GetFileName(varFile)
+                Operation.Pulse
+                If blnFullBuild Then
+                    cCategory.Import CStr(varFile)
+                Else
+                    cCategory.Merge CStr(varFile)
+                    If Options.ExportAfterMerge Then
+                        ' Merging imports the object, which then makes it available
+                        ' to export from this category/object class.
+                        ' (Forms are exported later after initializing)
+                        If cCategory.ComponentType <> edbForm Then cCategory.Export
+                    End If
+                End If
+                CatchAny eelError, T(IIf(blnFullBuild, "Build error in: {0}", "Merge error in: {0}"), _
+                    var0:=varFile), FunctionName, True, True
+
+                ' Bail out if we hit a critical error.
+                If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
+
+            Next varFile
+
+        End If
 
         ' Show category wrap-up.
         If Options.ShowDebug Then

@@ -313,6 +313,48 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestModuleImportFast_IndexesEachFileOnSharedInstance
+' Author    : Adam Waller
+' Date      : 6/23/2026
+' Purpose   : Full-build two-pass import must index each file under its own path on the
+'           : shared clsDbModule instance, matching the per-file Import contract.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestModuleImportFast_IndexesEachFileOnSharedInstance()
+'@Tag("integration")
+
+    Dim cMod As clsDbModule
+    Dim strFile1 As String
+    Dim strFile2 As String
+    Dim strBase As String
+    Dim strRepoRoot As String
+
+    strRepoRoot = Git.GetRepositoryRoot
+    If Len(strRepoRoot) = 0 Then Exit Sub
+    strBase = strRepoRoot & "Testing\Fixtures\modules\"
+    strFile1 = strBase & "vcs_test_import_alpha.bas"
+    strFile2 = strBase & "vcs_test_import_beta.bas"
+    If Not FSO.FileExists(strFile1) Then Exit Sub
+    If Not FSO.FileExists(strFile2) Then Exit Sub
+
+    RemoveTestImportFixtureModule "vcs_test_import_alpha"
+    RemoveTestImportFixtureModule "vcs_test_import_beta"
+
+    Set cMod = New clsDbModule
+    cMod.ImportFast strFile1
+    cMod.ImportFast strFile2
+    cMod.FinalizeImports
+
+    TestAssert VCSIndex.Exists(cMod.Parent, strFile1), "first batch-imported module indexed"
+    TestAssert VCSIndex.Exists(cMod.Parent, strFile2), "second batch-imported module indexed under its own name"
+
+    RemoveTestImportFixtureModule "vcs_test_import_alpha"
+    RemoveTestImportFixtureModule "vcs_test_import_beta"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RemoveTestImportFixtureModule
 ' Author    : Adam Waller
 ' Date      : 5/29/2026

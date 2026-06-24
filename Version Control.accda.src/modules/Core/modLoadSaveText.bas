@@ -657,11 +657,13 @@ End Sub
 ' Date      : 3/12/2026
 ' Purpose   : Reads "Properties" and "Hidden" from a companion .json file and applies
 '           : them to the database object. Called after the object has been created
-'           : via LoadFromText or equivalent.
+'           : via LoadFromText or equivalent. When blnSkipDocumentsRefresh is True,
+'           : the caller has already refreshed the container (batch module import).
 '---------------------------------------------------------------------------------------
 '
 Public Sub ImportObjectMetadata(strJsonFile As String, strContainerName As String, _
-                                strObjectName As String, intObjType As AcObjectType)
+                                strObjectName As String, intObjType As AcObjectType, _
+                                Optional blnSkipDocumentsRefresh As Boolean = False)
 
     Dim dFile As Dictionary
     Dim dItems As Dictionary
@@ -684,9 +686,11 @@ Public Sub ImportObjectMetadata(strJsonFile As String, strContainerName As Strin
 
     ' Apply document properties
     If dItems.Exists("Properties") Then
-        Perf.OperationStart "Refresh Documents"
-        dbs.Containers(strContainerName).Documents.Refresh
-        Perf.OperationEnd
+        If Not blnSkipDocumentsRefresh Then
+            Perf.OperationStart "Refresh Documents"
+            dbs.Containers(strContainerName).Documents.Refresh
+            Perf.OperationEnd
+        End If
         Set dProps = dItems("Properties")
         For Each varProp In dProps.Keys
             If TypeOf dProps(varProp) Is Dictionary Then

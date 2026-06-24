@@ -81,6 +81,54 @@ contradictory guidance.
 
 ---
 
+## 2026-06-23 — Full-build module import: two-pass ImportFast + FinalizeImports
+
+**Trigger**: Full builds on module-heavy projects spend ~85% of the `Modules`
+category time in the per-file tail (save, `DoEvents`, `AllModules` retry,
+metadata, hash, index) rather than the VBE `.Import` itself (~0.4 s for 135
+modules per the 2026-05-29 measurement). The 2026-05-29 decision added
+per-module synchronization for correctness; this entry revisits the deferred
+batch path that decision's "Revisit if" clause anticipated.
+
+**Options explored**:
+- **Keep per-module tail in `IDbComponent_Import` (status quo)** — robust;
+  O(N) interleaved `DoEvents`/`AllModules` retries and per-module
+  `Documents.Refresh` inside `ImportObjectMetadata` limit throughput on large
+  projects.
+- **Add `AfterCategoryImport` to `IDbComponent`** — reusable hook, but forces
+  ~28 empty stubs on every component class for a problem unique to modules.
+- **Add a second interface (`IDbBatchImport`) on `clsDbModule`** — opt-in
+  without universal stubs, but adds a second `Implements` contract to the
+  class for a single consumer.
+- **Public `ImportFast` / `FinalizeImports` on `clsDbModule` + component-type
+  branch in `modBuild` (chosen)** — same pattern as existing special cases
+  (`InitializeForms`, merge skip for `edbTableData`). Full builds call
+  `ImportFast` per file, then `FinalizeImports` once; merge and single-object
+  import keep `IDbComponent_Import` unchanged.
+
+**Decision**: Pass 1 (`ImportFast`) parses and loads via VBE only, recording
+`{sourceFile, moduleName, blnPublicCreatable}` in a batch collection.
+Pass 2 (`FinalizeImports`) runs `DoCmd.Save acModule` for each batched
+module (one `DoEvents` after the loop), one `Documents.Refresh`, then per-file
+resolve (`GetAccessModuleObject` with bounded retry), metadata
+(`ImportObjectMetadata` with optional skip-refresh), and `VCSIndex.Update`.
+`acCmdCompileAndSaveAllModules` was tried first but does not reliably publish
+unsaved VBE imports to `AllModules` when the project does not compile yet.
+`m_strSourceFile` is set explicitly per file in pass 2 so the shared instance
+never indexes under a stale path.
+
+**What this rules out**: Removing bounded `AllModules` retry entirely.
+Deferring metadata/index without pass-2 re-resolve. Applying the batch path
+to merge builds without revisiting export-after-merge and conflict semantics.
+
+**Relevant files**: `clsDbModule.cls` (`ImportFast`, `FinalizeImports`,
+`FinalizeOneModule`), `modBuild.bas` (full-build `edbModule` branch),
+`modLoadSaveText.bas` (`ImportObjectMetadata` optional skip-refresh),
+`modTestConflicts.bas` (`TestModuleImportFast_IndexesEachFileOnSharedInstance`).
+Supersedes the "Revisit if" clause on 2026-05-29 module import sync.
+
+---
+
 ## 2026-06-19 — Gracefully skip engine-managed DAO properties on import (error 3916)
 
 **Trigger**: Building a database with linked tables that use a newer data type (e.g.
@@ -566,7 +614,9 @@ document property writes.
 **Revisit if**: Access offers a reliable "module published to navigation
 container" event or callback; or `VCSIndex.Update` is refactored to accept an
 explicit file key and timestamp so it no longer depends on `m_Module` /
-`DateModified` during import.
+`DateModified` during import. *(Superseded for full builds by 2026-06-23
+two-pass `ImportFast`/`FinalizeImports`; per-file path retained for merge and
+single-object import.)*
 
 **Relevant files**: `clsDbModule.cls` (`IDbComponent_Import`, `GetAccessModuleObject`,
 `VbeModuleExists`, `LoadVbeModuleFromFile`), `modTestConflicts.bas`
