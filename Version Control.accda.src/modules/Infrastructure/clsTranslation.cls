@@ -135,9 +135,7 @@ End Function
 Public Sub ApplyTo(frmObject As Form)
 
     Dim ctl As Control
-    Dim ctl2 As Control
     Dim strReference As String
-    Dim strName As String
     Dim dReferences As Dictionary
 
     Set dReferences = New Dictionary
@@ -149,42 +147,36 @@ Public Sub ApplyTo(frmObject As Form)
         strReference = frmObject.Name & "." & ctl.Name
 
         ' Only check certain types of controls
-        Select Case TypeName(ctl)
-            Case "Label"
+        Select Case ctl.ControlType
+            Case acLabel
 
-                ' Check for associated control
-                ' (It is easier to go from the object to the label, but not
-                '  all labels may have objects, so we loop through other controls
-                LogUnhandledErrors
-                On Error Resume Next
-                For Each ctl2 In frmObject.Controls
-                    strName = vbNullString
-                    strName = ctl2.Controls(0).Name
-                    If strName = ctl.Name Then
-                        ' Found associated label
-                        ' Add extended context
-                        strReference = strReference & "(" & ctl2.Name & ")"
-                        Exit For
-                    End If
-                Next ctl2
-                If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
+                ' Check if this label is attached to a host control.
+                ' Standalone labels have Parent = Form; tab page labels have Parent.ControlType = acPage.
+                If TypeOf ctl.Parent Is Form Then
+                    ' Standalone label — no suffix needed
+                ElseIf ctl.Parent.ControlType = acPage Then
+                    ' Tab page label — not attached to a data control
+                Else
+                    ' Attached to a control — add parent context
+                    strReference = strReference & "(" & ctl.Parent.Name & ")"
+                End If
 
                 ' Translation caption
                 ctl.Caption = T(ctl.Caption, strReference)
 
-            Case "TextBox"
+            Case acTextBox
                 ' Nothing to translate
 
-            Case "CommandButton"
+            Case acCommandButton
                 ctl.Caption = T(ctl.Caption, strReference)
 
-            Case "Page"
+            Case acPage
                 ' Tab control page caption
                 strReference = frmObject.Name & "." & ctl.Parent.Name & "." & ctl.Name
                 ctl.Caption = T(ctl.Caption, strReference)
 
             Case Else
-                'Debug.Print TypeName(ctl)
+                ' No translation needed
 
         End Select
 
