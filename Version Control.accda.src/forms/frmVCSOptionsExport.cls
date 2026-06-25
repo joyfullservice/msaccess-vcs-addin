@@ -53,10 +53,10 @@ Private Sub Form_Load()
         For intEnvLevel = uecAuto To eUseEnvConnections.[_Last] - 1
             .AddItem intEnvLevel & ";" & opt.GetUseEnvConnectionsName(intEnvLevel)
         Next intEnvLevel
-        .ControlTipText = T("Auto: export when credentials are present; prompt to save new credentials on build. " & _
-            "Always: store all connections in .env on export and save silently on build. " & _
-            "Never: keep connection strings in source files (without .env). " & _
-            "Passwords are never written to source files in any mode (export format 5.0.0+).")
+        .ControlTipText = T("Auto: use .env when credentials are present; prompt for new on build. " & _
+            "Always: store all connections in .env; save silently on build. " & _
+            "Never: keep connection strings in source. " & _
+            "Passwords never written to source (export format 5.0.0+).")
     End With
 
     ' Populate export format version combo
