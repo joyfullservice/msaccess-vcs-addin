@@ -172,7 +172,8 @@ End Function
 Public Function LoadComponentFromText(intType As AcObjectType _
                                     , ByRef strName As String _
                                     , ByRef strFile As String _
-                                    , Optional blnSuppressError As Boolean = False) As Boolean
+                                    , Optional blnSuppressError As Boolean = False _
+                                    , Optional strSourceDisplayFile As String = vbNullString) As Boolean
 
     Const FunctionName As String = ModuleName & ".LoadComponentFromText"
 
@@ -185,6 +186,8 @@ Public Function LoadComponentFromText(intType As AcObjectType _
     Dim strJsonContent As String
     Dim blnVbaOverlay As Boolean
     Dim blnConvert As Boolean
+
+    If Len(strSourceDisplayFile) = 0 Then strSourceDisplayFile = strFile
 
     LogUnhandledErrors FunctionName
     On Error GoTo ErrHandler
@@ -308,8 +311,9 @@ ErrHandler:
         Resume CleanUp
     End If
 
-    ' Issue importing form. We need to prompt user to see if we continue on or not.
-    Log.Error eelError, T("Import issue with '{0}'; {1}", var0:=strName, var1:=strErrDescription), FunctionName
+    ' Log import details to the log file only; console gets one summary on Ignore.
+    Log.Add T("Import issue with '{0}'; {1}", var0:=strName, var1:=strErrDescription), False
+    Log.Add T("Source file: {0}", var0:=strSourceDisplayFile), False
 
     Select Case MsgBox2(T("Could not import '{0}'.", var0:=strName) _
             , T("Abort build, retry importing, or skip?") _
@@ -328,10 +332,10 @@ ErrHandler:
         Resume RetryImport
 
     Case Else ' this also includes ignore.
-        ' Clear out strName because we're going to use it to detect if the import failed.
-        Log.Error eelError, T("Skipping import of '{0}'. Your application may not run or complile.", var0:=strName), FunctionName
+        Log.Add T("Skipping import of '{0}'. Your application may not run or complile.", var0:=strName), False
+        Log.Error eelError, T("Failed to import '{0}'.", var0:=strName), FunctionName
         blnErrInFunction = True
-        Resume Next
+        Resume CleanUp
 
     End Select
 

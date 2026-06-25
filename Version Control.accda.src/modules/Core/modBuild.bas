@@ -181,10 +181,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         Perf.OperationEnd
     End If
 
-    ' Reset the LoadFromText state because the path may be now different
-    ' so any cached list of error files may be invalid.
-    modLoadFromText.Reset
-
     ' Launch the GUI form
     DoCmd.OpenForm "frmVCSMain"
     Form_frmVCSMain.StartBuild blnFullBuild
@@ -260,6 +256,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             GoTo CleanUp
         End If
     End If
+
+    ' Reset LoadFromText state now that the target database is open and its folder path is known.
+    modLoadFromText.Reset
 
     ' Now that we have a new database file, we can load the index.
     Set VCSIndex = Nothing
@@ -553,6 +552,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             Log.Add T("{0} warning(s)", var0:=Log.WarningCount), , , strColor, True
         Else
             Log.Add T("{0} error(s)", var0:=Log.ErrorCount), , , strColor, True
+        End If
+        If Log.ErrorCount > 0 Then
+            Log.Add T("See log for details."), , , strColor
         End If
         ' List missing .env keys if any
         Set dMissing = GetMissingEnvKeys

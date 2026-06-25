@@ -693,7 +693,7 @@ Private Sub ImportNewFormat(strSqlFile As String)
 
     ' Attempt to import (suppress errors on Design View so the fallback
     ' to SQL View can happen without showing a dialog for each query)
-    If LoadComponentFromText(acQuery, strQueryName, strTempFile, blnDesignView) = False Then
+    If LoadComponentFromText(acQuery, strQueryName, strTempFile, blnDesignView, strSqlFile) = False Then
         ' Design View import failed -- fall back to SQL View
         If blnDesignView Then
             Log.Error eelWarning, "Design View import failed for '" & strQueryName & _
@@ -701,14 +701,10 @@ Private Sub ImportNewFormat(strSqlFile As String)
                 "clsDbQuery.ImportNewFormat"
             strQdefContent = cComposer.GenerateQdef(False, dProperties, dColumns, , lngOptionFlag)
             WriteFile strQdefContent, strTempFile
-            If LoadComponentFromText(acQuery, strQueryName, strTempFile) = False Then
-                Log.Error eelError, "Failed to import query '" & strQueryName & "'.", _
-                    "clsDbQuery.ImportNewFormat"
+            If LoadComponentFromText(acQuery, strQueryName, strTempFile, False, strSqlFile) = False Then
                 GoTo CleanUp
             End If
         Else
-            Log.Error eelError, "Failed to import query '" & strQueryName & "'.", _
-                "clsDbQuery.ImportNewFormat"
             GoTo CleanUp
         End If
     End If

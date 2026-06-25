@@ -12,7 +12,6 @@ Option Explicit
 
 Private Type udtThis
     IsInitialized As Boolean
-    FSO As FileSystemObject
     ErrorFileList As Dictionary
     LastReadError As String
 End Type
@@ -28,7 +27,7 @@ Private this As udtThis
 '
 Public Sub Reset(Optional DeleteErrorFiles As Boolean = False)
 
-    If DeleteErrorFiles Then
+    If DeleteErrorFiles And DatabaseFileOpen Then
         Dim strProjectPath As String
         Dim dErrorFiles As Dictionary
         Dim strErrorFilePath As Variant
@@ -42,9 +41,7 @@ Public Sub Reset(Optional DeleteErrorFiles As Boolean = False)
         End If
     End If
 
-    Set this.ErrorFileList = New Dictionary
-    this.ErrorFileList.CompareMode = TextCompare
-    this.IsInitialized = True
+    PopulateErrorFileList
 
 End Sub
 
@@ -57,6 +54,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadFromText(ObjectType As AcObjectType, ObjectName As String, FileName As String)
+
+    Dim ErrNumberOriginal As Long
+    Dim ErrSourceOriginal As String
+    Dim ErrDescriptionOriginal As String
+    Dim ErrHelpFileOriginal As String
+    Dim ErrHelpContextOriginal As Long
 
     LogUnhandledErrors
     On Error GoTo ErrHandler
@@ -71,24 +74,22 @@ ExitProc:
     Exit Sub
 
 ErrHandler:
-    If Err.Number = 2128 Then
-        Dim ErrNumberOriginal As Long
-        Dim ErrSourceOriginal As String
-        Dim ErrDescriptionOriginal As String
-        Dim ErrHelpFileOriginal As String
-        Dim ErrHelpContextOriginal As Long
+    ' Access error numbers vary by object type (2128 for forms/reports, etc.).
+    ' Always check for a newly created errors*.txt file.
+    ErrNumberOriginal = Err.Number
+    ErrSourceOriginal = Err.Source
+    ErrDescriptionOriginal = Err.Description
+    ErrHelpFileOriginal = Err.HelpFile
+    ErrHelpContextOriginal = Err.HelpContext
 
-        ErrNumberOriginal = Err.Number
-        ErrSourceOriginal = Err.Source
-        ErrDescriptionOriginal = Err.Description
-        ErrHelpFileOriginal = Err.HelpFile
-        ErrHelpContextOriginal = Err.HelpContext
-
-        ReadErrorFile
-        Err.Raise ErrNumberOriginal, ErrSourceOriginal, ErrDescriptionOriginal & this.LastReadError, ErrHelpFileOriginal, ErrHelpContextOriginal
-    Else
-        Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
+    ' Clear Err before ReadErrorFile; FSO and other helpers call LogUnhandledErrors
+    ' and would otherwise log this error again as "Unhandled".
+    Err.Clear
+    ReadErrorFile
+    If Len(this.LastReadError) > 0 Then
+        ErrDescriptionOriginal = ErrDescriptionOriginal & vbCrLf & this.LastReadError
     End If
+    Err.Raise ErrNumberOriginal, ErrSourceOriginal, ErrDescriptionOriginal, ErrHelpFileOriginal, ErrHelpContextOriginal
     Resume ExitProc
     Resume ' for debugging
 
@@ -107,6 +108,11 @@ Private Sub PopulateErrorFileList()
     Set this.ErrorFileList = New Dictionary
     this.ErrorFileList.CompareMode = TextCompare
 
+    If Not DatabaseFileOpen Then
+        this.IsInitialized = False
+        Exit Sub
+    End If
+
     Dim strProjectPath As String
     Dim dErrorFiles As Dictionary
     Dim strErrorFilePath As Variant
@@ -118,7 +124,6 @@ Private Sub PopulateErrorFileList()
             this.ErrorFileList.Add strErrorFilePath, vbNullString
         Next strErrorFilePath
     End If
-    Set this.FSO = FSO
     this.IsInitialized = True
 
 End Sub
@@ -138,17 +143,22 @@ Private Function ReadErrorFile() As String
     Dim strErrorFilePath As Variant
     Dim txtStream As TextStream
 
+    this.LastReadError = vbNullString
+
+    On Error Resume Next
+
     strProjectPath = ProjectPath
     If Len(strProjectPath) Then
         Set dErrorFiles = GetFileList(strProjectPath, "errors*.txt")
         For Each strErrorFilePath In dErrorFiles.Keys
             If Not this.ErrorFileList.Exists(strErrorFilePath) Then
                 ' It's a new file, so read it.
-                Set txtStream = this.FSO.OpenTextFile(BuildPath2(strProjectPath, strErrorFilePath), ForReading, False)
+                Set txtStream = FSO.OpenTextFile(BuildPath2(strProjectPath, strErrorFilePath), ForReading, False)
                 'Skip the first line
                 txtStream.ReadLine
 
                 this.LastReadError = Trim$(txtStream.ReadAll)
+                txtStream.Close
                 ' Add to the list so it'll be ignored next time.
                 this.ErrorFileList.Add strErrorFilePath, vbNullString
 
@@ -157,5 +167,8 @@ Private Function ReadErrorFile() As String
             End If
         Next strErrorFilePath
     End If
+
+    Err.Clear
+    On Error GoTo 0
 
 End Function
