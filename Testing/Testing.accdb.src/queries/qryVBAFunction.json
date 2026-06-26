@@ -1,0 +1,44 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryVBAFunction"
+  },
+  "Items": {
+    "QueryType": 0,
+    "Columns": {
+      "DatabaseFile": {
+        "ColumnWidth": 8700,
+        "AggregateType": -1
+      }
+    },
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1305,
+        "bottom": 848
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1289,
+        "bottom": 586
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "tblInternal",
+          "Alias": "",
+          "Left": 105,
+          "Top": 99,
+          "Right": 277,
+          "Bottom": 318,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

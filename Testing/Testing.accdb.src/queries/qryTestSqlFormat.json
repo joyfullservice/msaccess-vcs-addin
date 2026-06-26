@@ -1,0 +1,9 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryTestSqlFormat"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

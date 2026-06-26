@@ -11,8 +11,8 @@ Begin Form
     Width =8884
     DatasheetFontHeight =11
     ItemSuffix =1
-    Right =25575
-    Bottom =12555
+    Right =50000
+    Bottom =50000
     RecSrcDt = Begin
         0xef22ea99ebc8e540
     End
@@ -34,8 +34,9 @@ Begin Form
     Begin
         Begin Label
             BackStyle =0
+            TextFontFamily =0
             FontSize =11
-            FontName ="Calibri"
+            FontName ="Franklin Gothic Book"
             ThemeFontIndex =1
             BackThemeColorIndex =1
             BorderThemeColorIndex =0
@@ -60,10 +61,11 @@ Begin Form
         Begin TextBox
             AddColon = NotDefault
             FELineBreak = NotDefault
+            TextFontFamily =0
             BorderLineStyle =0
             LabelX =-1800
             FontSize =11
-            FontName ="Calibri"
+            FontName ="Franklin Gothic Book"
             AsianLineBreak =1
             BackThemeColorIndex =1
             BorderThemeColorIndex =1
@@ -88,10 +90,8 @@ Begin Form
                     Top =2100
                     Width =855
                     Height =855
-                    BorderColor =10921638
                     Name ="ImageObject"
                     ControlSource ="ImageObject"
-                    GridlineColor =10921638
 
                     LayoutCachedLeft =2880
                     LayoutCachedTop =2100
@@ -100,17 +100,12 @@ Begin Form
                     Begin
                         Begin Label
                             OverlapFlags =85
-                            TextFontFamily =0
                             Left =1080
                             Top =2100
                             Width =1260
                             Height =315
-                            BorderColor =8355711
-                            ForeColor =8355711
                             Name ="Label0"
                             Caption ="ImageObject"
-                            FontName ="Franklin Gothic Book"
-                            GridlineColor =10921638
                             LayoutCachedLeft =1080
                             LayoutCachedTop =2100
                             LayoutCachedWidth =2340

@@ -16,21 +16,21 @@
       "GUID": "{0002E157-0000-0000-C000-000000000046}",
       "Version": "5.3"
     },
-    "VBScript_RegExp_55": {
-      "GUID": "{3F4DACA7-160D-11D2-A8E9-00104B365C9F}",
-      "Version": "5.5"
-    },
-    "Scripting": {
-      "GUID": "{420B2830-E718-11CF-893D-00A0C9054228}",
-      "Version": "1.0"
+    "Office": {
+      "GUID": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
+      "Version": "2.8"
     },
     "MSForms": {
       "GUID": "{0D452EE1-E08F-101A-852E-02608C4D0BB4}",
       "Version": "2.0"
     },
-    "Office": {
-      "GUID": "{2DF8D04C-5BFA-101B-BDE5-00AA0044DE52}",
-      "Version": "2.8"
+    "Scripting": {
+      "GUID": "{420B2830-E718-11CF-893D-00A0C9054228}",
+      "Version": "1.0"
+    },
+    "VBScript_RegExp_55": {
+      "GUID": "{3F4DACA7-160D-11D2-A8E9-00104B365C9F}",
+      "Version": "5.5"
     }
   }
 }

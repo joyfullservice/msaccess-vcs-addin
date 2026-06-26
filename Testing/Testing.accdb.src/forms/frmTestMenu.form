@@ -15,10 +15,10 @@ Begin Form
     Width =9900
     DatasheetFontHeight =11
     ItemSuffix =7
-    Left =31980
-    Top =2040
-    Right =-23746
-    Bottom =9585
+    Left =1000
+    Top =1000
+    Right =50000
+    Bottom =50000
     RecSrcDt = Begin
         0x4bb011b6cb1fe640
     End
@@ -40,7 +40,7 @@ Begin Form
         Begin Label
             BackStyle =0
             FontSize =11
-            FontName ="Calibri"
+            FontName ="Franklin Gothic Book"
             ThemeFontIndex =1
             BackThemeColorIndex =1
             BorderThemeColorIndex =0
@@ -53,7 +53,7 @@ Begin Form
         Begin CommandButton
             FontSize =11
             FontWeight =400
-            FontName ="Calibri"
+            FontName ="Franklin Gothic Book"
             ForeThemeColorIndex =0
             ForeTint =75.0
             GridlineThemeColorIndex =1
@@ -78,7 +78,7 @@ Begin Form
         End
         Begin Tab
             FontSize =11
-            FontName ="Calibri"
+            FontName ="Franklin Gothic Medium"
             ThemeFontIndex =0
             GridlineThemeColorIndex =1
             GridlineShade =65.0
@@ -119,12 +119,8 @@ Begin Form
                     Top =840
                     Width =2580
                     Height =645
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label1"
                     Caption ="Click this button to show \015\012the custom Popup Menu."
-                    FontName ="Franklin Gothic Book"
-                    GridlineColor =10921638
                     LayoutCachedLeft =720
                     LayoutCachedTop =840
                     LayoutCachedWidth =3300
@@ -137,12 +133,9 @@ Begin Form
                     Top =1620
                     Width =2340
                     Height =480
-                    ForeColor =4210752
                     Name ="cmdShowMenu"
                     Caption =" Show Menu..."
                     OnClick ="[Event Procedure]"
-                    FontName ="Franklin Gothic Book"
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -185,12 +178,6 @@ Begin Form
                     LayoutCachedWidth =3060
                     LayoutCachedHeight =2100
                     PictureCaptionArrangement =5
-                    BackColor =11710639
-                    BorderColor =11710639
-                    HoverColor =13355721
-                    PressedColor =6249563
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                 End
                 Begin CommandButton
                     OverlapFlags =85
@@ -200,12 +187,9 @@ Begin Form
                     Width =2340
                     Height =480
                     TabIndex =1
-                    ForeColor =4210752
                     Name ="cmdSpecial"
                     Caption =" Show Menu..."
                     OnClick ="[Event Procedure]"
-                    FontName ="Franklin Gothic Book"
-                    GridlineColor =10921638
                     ImageData = Begin
                         0x2800000010000000100000000100200000000000000000000000000000000000 ,
                         0x0000000000000000000000000000000000000000000000000000000000000000 ,
@@ -248,12 +232,6 @@ Begin Form
                     LayoutCachedWidth =7980
                     LayoutCachedHeight =2100
                     PictureCaptionArrangement =5
-                    BackColor =11710639
-                    BorderColor =11710639
-                    HoverColor =13355721
-                    PressedColor =6249563
-                    HoverForeColor =4210752
-                    PressedForeColor =4210752
                 End
                 Begin Label
                     OverlapFlags =85
@@ -262,12 +240,8 @@ Begin Form
                     Top =840
                     Width =2580
                     Height =645
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label6"
                     Caption ="This menu has a name with special characters."
-                    FontName ="Franklin Gothic Book"
-                    GridlineColor =10921638
                     LayoutCachedLeft =5640
                     LayoutCachedTop =840
                     LayoutCachedWidth =8220

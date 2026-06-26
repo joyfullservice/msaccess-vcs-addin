@@ -4,7 +4,6 @@ Begin Report
     LayoutForPrint = NotDefault
     DividingLines = NotDefault
     AllowDesignChanges = NotDefault
-    TabularFamily =0
     DateGrouping =1
     GrpKeepTogether =1
     PictureAlignment =2
@@ -34,7 +33,7 @@ Begin Report
         Begin Label
             BackStyle =0
             FontSize =11
-            FontName ="Calibri"
+            FontName ="Franklin Gothic Book"
             ThemeFontIndex =1
             BackThemeColorIndex =1
             BorderThemeColorIndex =0
@@ -67,12 +66,8 @@ Begin Report
                     Top =240
                     Width =4800
                     Height =420
-                    BorderColor =8355711
-                    ForeColor =8355711
                     Name ="Label0"
-                    Caption ="This report does not have any saved print settings."
-                    FontName ="Franklin Gothic Book"
-                    GridlineColor =10921638
+                    Caption ="This report uses A4 landscape paper size"
                     LayoutCachedLeft =1260
                     LayoutCachedTop =240
                     LayoutCachedWidth =6060
@@ -91,4 +86,4 @@ Begin Report
     End
 End
 CodeBehindForm
-' See "rptDefaultPrinter.cls"
+' See "rptNonDefaultPaperSize.cls"
