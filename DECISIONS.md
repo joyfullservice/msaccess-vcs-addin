@@ -81,6 +81,32 @@ contradictory guidance.
 
 ---
 
+## 2026-06-26 — CF companion JSON colors as RGB(R,G,B) strings
+
+**Trigger**: Conditional formatting rules in the companion `.json` stored colors as raw
+Access Long integers (e.g. `16777215` for white). These values are opaque to humans and
+AI agents editing source files; diffs are meaningless without knowing the
+`R + G*256 + B*65536` formula.
+
+**Options explored**:
+- *Keep numeric Longs* — lossless and trivial, but poor readability. Rejected for the JSON
+  layer (binary blocks still use Longs unchanged).
+- *Hex strings (`#RRGGBB`)* — familiar on the web, but not VBA-native syntax.
+- *RGB(R,G,B) strings (chosen)* — matches VBA's built-in `RGB()` function; agents and
+  developers can read and edit colors directly.
+
+**Decision**: At the JSON dictionary boundary in `clsConditionalFormat`, export converts
+Long color values to `"RGB(R,G,B)"` strings. Access flattens automatic and theme colors to
+literal RGB at save time, so CF binary blocks and JSON values are always in `0..16777215`
+with no sentinel. Import parses `RGB(...)` strings and legacy numeric Longs for backward
+compatibility. No new export format version gate — CF decode-to-JSON has not shipped in a
+release yet.
+
+**Relevant files**: `modules/Core/clsConditionalFormat.cls` (`LongToRGB` / `RGBToLong`),
+`modules/Tests/Core/modTestConditionalFormat.bas`, `docs/access-conditional-format.md`.
+
+---
+
 ## 2026-06-23 — Full-build module import: two-pass ImportFast + FinalizeImports
 
 **Trigger**: Full builds on module-heavy projects spend ~85% of the `Modules`
@@ -231,6 +257,7 @@ gap is mitigated by an explicit SECURITY reminder comment at each of the three c
 `modTestConnect.bas` (regression tests).
 
 ---
+
 ## 2026-06-20 — Fold unreleased 5.1.0 export gates into format 5.0.0
 
 **Trigger**: Several v5 behaviors — conditional formatting decode-to-JSON, source-safe

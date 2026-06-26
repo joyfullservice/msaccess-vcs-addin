@@ -120,6 +120,80 @@ Public Sub TestDecodeExpressionRule()
     TestAssert dRule("Enabled") = True, "rule is enabled"
     TestAssert dRule("FontBold") = False, "rule is not bold"
     TestAssert dRule("Expression1") = "[fraOption]=1", "expression text decoded"
+    TestAssert dRule("ForeColor") = "RGB(0,0,0)", "ForeColor is black"
+    TestAssert dRule("BackColor") = "RGB(255,255,255)", "BackColor is white"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestColorRoundTrip
+' Purpose   : RGB color strings round-trip through decode/rebuild and accept legacy
+'           : numeric Long values on import.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestColorRoundTrip()
+
+    Dim cCF As clsConditionalFormat
+    Dim cCF2 As clsConditionalFormat
+    Dim dControl As Dictionary
+    Dim dRule As Dictionary
+    Dim colRules As Collection
+
+    ' Decode known fixture colors to RGB strings
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex TEXT9_CF14
+    Set dRule = NthRule(cCF, 1)
+    TestAssert dRule("ForeColor") = "RGB(0,0,0)", "LongToRGB black"
+    TestAssert dRule("BackColor") = "RGB(255,255,255)", "LongToRGB white"
+
+    ' RGB string model round-trips byte-for-byte
+    Set dControl = cCF.GetDictionary
+    Set cCF2 = New clsConditionalFormat
+    cCF2.LoadFromDictionary dControl
+    TestAssert cCF2.BuildCF14Hex() = TEXT9_CF14, "RGB model rebuilds byte-exact"
+
+    ' RGB string import round-trips through decode/rebuild
+    Set dRule = New Dictionary
+    dRule.CompareMode = TextCompare
+    dRule.Add "Type", "Expression"
+    dRule.Add "Enabled", True
+    dRule.Add "FontBold", False
+    dRule.Add "FontItalic", False
+    dRule.Add "FontUnderline", False
+    dRule.Add "ForeColor", "RGB(255,0,0)"
+    dRule.Add "BackColor", "RGB(0,128,255)"
+    dRule.Add "Expression1", "[x]=1"
+    Set colRules = New Collection
+    colRules.Add dRule
+    Set dControl = New Dictionary
+    dControl.Add "Rules", colRules
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromDictionary dControl
+    Set cCF2 = New clsConditionalFormat
+    cCF2.LoadFromCF14Hex cCF.BuildCF14Hex()
+    Set dRule = NthRule(cCF2, 1)
+    TestAssert dRule("ForeColor") = "RGB(255,0,0)", "RGB(255,0,0) round-trips"
+    TestAssert dRule("BackColor") = "RGB(0,128,255)", "RGB(0,128,255) round-trips"
+
+    ' Legacy numeric Long values still import
+    Set dRule = New Dictionary
+    dRule.CompareMode = TextCompare
+    dRule.Add "Type", "Expression"
+    dRule.Add "Enabled", True
+    dRule.Add "FontBold", False
+    dRule.Add "FontItalic", False
+    dRule.Add "FontUnderline", False
+    dRule.Add "ForeColor", 0
+    dRule.Add "BackColor", 16777215
+    dRule.Add "Expression1", "[fraOption]=1"
+    Set colRules = New Collection
+    colRules.Add dRule
+    Set dControl = New Dictionary
+    dControl.Add "Rules", colRules
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromDictionary dControl
+    TestAssert cCF.BuildCF14Hex() = TEXT9_CF14, "numeric legacy colors rebuild byte-exact"
 
 End Sub
 

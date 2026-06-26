@@ -69,8 +69,8 @@ Behavior:
             "FontBold": false,
             "FontItalic": false,
             "FontUnderline": false,
-            "ForeColor": 0,
-            "BackColor": 16777215,
+            "ForeColor": "RGB(0,0,0)",
+            "BackColor": "RGB(255,255,255)",
             "Expression1": "[fraOption]=1"
           }
         ]
@@ -88,7 +88,10 @@ Rule field sets by `Type`:
 - `DataBar` — `FillColor`, `BarColor`, `ShowBarOnly`, `ShortestValue`, `ShortestLimit`,
   `LongestValue`, `LongestLimit` (limit values: `automatic`, `number`, `percent`).
 
----
+Color fields (`ForeColor`, `BackColor`, `FillColor`, `BarColor`) use VBA-style
+`RGB(R,G,B)` strings (e.g. `"RGB(255,0,0)"` for red). Access flattens automatic and
+theme colors to literal RGB at save time, so exported values are always in `0..16777215`.
+Import accepts both `RGB(...)` strings and legacy numeric Long values.
 
 ## 1. Overview
 
@@ -116,6 +119,9 @@ keeps both blocks consistent.**
 | Control enabled state | `.Enabled` |
 | Text color | `.ForeColor` (Long; `-1` = automatic) |
 | Background color | `.BackColor` (Long; `-1` = automatic) |
+
+In the companion JSON, colors are stored as `"RGB(R,G,B)"` strings rather than raw Long
+integers.
 
 ---
 
@@ -308,7 +314,7 @@ disabled+bold; `01 00 00 01` enabled+underline; `01 01 01 01` all flags.
 ## 7. Color encoding
 
 Colors are stored as a **4-byte little-endian** value equal to the VBA RGB `Long`
-(`0x00BBGGRR` byte order). The add-in stores them as the VBA `Long` integer in JSON.
+(`0x00BBGGRR` byte order). The companion JSON stores them as `"RGB(R,G,B)"` strings.
 
 | Appearance | Bytes | VBA Long |
 |------------|-------|----------|

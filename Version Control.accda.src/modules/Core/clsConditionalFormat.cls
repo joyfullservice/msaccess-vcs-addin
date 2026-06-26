@@ -153,8 +153,8 @@ Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngT
     dRule.Add "FontBold", CBool(((lngFlags \ &H100) And &HFF) <> 0)
     dRule.Add "FontItalic", CBool(((lngFlags \ &H10000) And &HFF) <> 0)
     dRule.Add "FontUnderline", CBool(((lngFlags \ &H1000000) And &HFF) <> 0)
-    dRule.Add "ForeColor", ReadLong(bteData, lngPos + 4)
-    dRule.Add "BackColor", ReadLong(bteData, lngPos + 8)
+    dRule.Add "ForeColor", LongToRGB(ReadLong(bteData, lngPos + 4))
+    dRule.Add "BackColor", LongToRGB(ReadLong(bteData, lngPos + 8))
 
     ' Expression length and text (focus rules have length 0)
     lngLen1 = ReadLong(bteData, lngPos + 12)
@@ -197,7 +197,7 @@ Private Function ParseDataBarRule(bteData() As Byte, ByRef lngPos As Long) As Di
     dRule.CompareMode = TextCompare
     dRule.Add "Type", TypeToName(CF_TYPE_DATABAR)
 
-    dRule.Add "FillColor", ReadLong(bteData, lngPos + 16)
+    dRule.Add "FillColor", LongToRGB(ReadLong(bteData, lngPos + 16))
     lngShortLen = ReadLong(bteData, lngPos + 20)
     dRule.Add "ShortestValue", ReadUtf16(bteData, lngPos + 24, lngShortLen)
     lngLongLen = ReadLong(bteData, lngPos + 24 + (lngShortLen * 2))
@@ -206,7 +206,7 @@ Private Function ParseDataBarRule(bteData() As Byte, ByRef lngPos As Long) As Di
     ' Trailer position relative to the type marker
     lngP = lngPos + 32 + (2 * (lngShortLen + lngLongLen))
     dRule.Add "ShowBarOnly", CBool(bteData(lngP) <> 0)
-    dRule.Add "BarColor", bteData(lngP + 1) + (bteData(lngP + 2) * &H100&) + (bteData(lngP + 3) * &H10000)
+    dRule.Add "BarColor", LongToRGB(bteData(lngP + 1) + (bteData(lngP + 2) * &H100&) + (bteData(lngP + 3) * &H10000))
     dRule.Add "ShortestLimit", LimitToName(bteData(lngP + 5))
     dRule.Add "LongestLimit", LimitToName(bteData(lngP + 9))
 
@@ -331,7 +331,7 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
         cData.Add WriteLong(0)                      ' reserved
         cData.Add WriteLong(1)                      ' unk1
         cData.Add WriteLong(0)                      ' reserved
-        cData.Add WriteLong(CLngVal(dNZ(dRule, "FillColor", "0")))
+        cData.Add WriteLong(RGBToLong(dNZ(dRule, "FillColor", "0")))
         cData.Add WriteLong(lngLen1)
         cData.Add WriteUtf16(dNZ(dRule, "ShortestValue"))
         cData.Add WriteLong(lngLen2)
@@ -339,7 +339,7 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
         cData.Add WriteLong(1)                      ' unk2
         ' Trailer
         cData.Add WriteByte(IIf(CBool(dNZ(dRule, "ShowBarOnly", "0")), 1, 0))
-        cData.Add WriteColor3(CLngVal(dNZ(dRule, "BarColor", "0")))
+        cData.Add WriteColor3(RGBToLong(dNZ(dRule, "BarColor", "0")))
         cData.Add WriteByte(0)                      ' high byte of bar color
         cData.Add WriteByte(NameToLimit(dNZ(dRule, "ShortestLimit", "automatic")))
         cData.Add WriteZeros(3)
@@ -356,8 +356,8 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
     End If
 
     cData.Add WriteLong(FlagsToLong(dRule))
-    cData.Add WriteLong(CLngVal(dNZ(dRule, "ForeColor", "0")))
-    cData.Add WriteLong(CLngVal(dNZ(dRule, "BackColor", "0")))
+    cData.Add WriteLong(RGBToLong(dNZ(dRule, "ForeColor", "0")))
+    cData.Add WriteLong(RGBToLong(dNZ(dRule, "BackColor", "0")))
 
     Select Case lngType
         Case CF_TYPE_FIELDVALUE
@@ -445,8 +445,8 @@ Public Function BuildLegacyHex() As String
     For lngIndex = 1 To lngCount
         Set dRule = colMatch(lngIndex)
         cBody.Add WriteLong(FlagsToLong(dRule))
-        cBody.Add WriteLong(CLngVal(dNZ(dRule, "ForeColor", "0")))
-        cBody.Add WriteLong(CLngVal(dNZ(dRule, "BackColor", "0")))
+        cBody.Add WriteLong(RGBToLong(dNZ(dRule, "ForeColor", "0")))
+        cBody.Add WriteLong(RGBToLong(dNZ(dRule, "BackColor", "0")))
     Next lngIndex
 
     ' Expression buffer. Verified from the fixtures: expression / focus rules reserve
@@ -704,6 +704,55 @@ End Function
 
 Private Function CLngVal(varValue As Variant) As Long
     If IsNumeric(varValue) Then CLngVal = CLng(varValue)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LongToRGB / RGBToLong
+' Purpose   : Convert between Access Long color values and human-readable RGB(R,G,B)
+'           : strings for the companion JSON. CF binary colors are always 0..16777215.
+'---------------------------------------------------------------------------------------
+'
+Private Function LongToRGB(lngColor As Long) As String
+
+    Dim lngR As Long
+    Dim lngG As Long
+    Dim lngB As Long
+
+    lngR = lngColor And &HFF&
+    lngG = (lngColor \ &H100&) And &HFF&
+    lngB = (lngColor \ &H10000) And &HFF&
+    LongToRGB = "RGB(" & lngR & "," & lngG & "," & lngB & ")"
+
+End Function
+
+Private Function RGBToLong(varValue As Variant) As Long
+
+    Dim strText As String
+    Dim lngR As Long
+    Dim lngG As Long
+    Dim lngB As Long
+    Dim lngComma1 As Long
+    Dim lngComma2 As Long
+
+    If IsNumeric(varValue) Then
+        RGBToLong = CLng(varValue)
+        Exit Function
+    End If
+
+    strText = Trim$(CStr(varValue))
+    If Left$(strText, 4) = "RGB(" And Right$(strText, 1) = ")" Then
+        strText = Mid$(strText, 5, Len(strText) - 5)
+        lngComma1 = InStr(1, strText, ",")
+        lngComma2 = InStr(lngComma1 + 1, strText, ",")
+        If lngComma1 > 0 And lngComma2 > lngComma1 Then
+            lngR = CLng(Left$(strText, lngComma1 - 1))
+            lngG = CLng(Mid$(strText, lngComma1 + 1, lngComma2 - lngComma1 - 1))
+            lngB = CLng(Mid$(strText, lngComma2 + 1))
+            RGBToLong = lngR + (lngG * &H100&) + (lngB * &H10000)
+        End If
+    End If
+
 End Function
 
 
