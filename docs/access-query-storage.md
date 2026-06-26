@@ -315,6 +315,25 @@ The current implementation lives at:
   the multi-condition `ON` shape)
 - `clsDbQuery.ImportNewFormat` — site of the `blnDesignView` decision
 
+**Table-less scalar SELECT in Design View.** Queries such as `SELECT
+Date() AS Today;` (no `FROM` clause) store Attribute 6 output-column
+rows but no Attribute 5 input-table rows. When the `.json` companion
+carries `DesignLayout`, the importer uses the Design View path and must:
+
+1. Parse the field list even when no `FROM` is present (`ParseSelectQuery`
+   calls `ParseFieldList` on the entire post-`SELECT` remainder — same as
+   `ParseInsertQuery` already did for append queries without a source
+   table).
+2. Always emit an empty `Begin InputTables` / `End` block in the generated
+   `.qdef`. Access `SaveAsText` does this for Design View queries;
+   omitting the block causes `LoadFromText` to silently drop
+   `OutputColumns`, producing `SELECT FROM ;` on the next export.
+
+The SQL View path (no `DesignLayout`) stores the raw SQL in `dbMemo "SQL"`
+and is unaffected. Regression fixtures:
+`qryRegressionScalarNoTable` (SQL View) and
+`qryRegressionScalarNoTableDesignView` (Design View).
+
 ## 4. What our parser handles
 
 Each row below has a canonical fixture under `Testing/Fixtures/queries/`.
@@ -349,6 +368,7 @@ contract.
 | Backslash literals in string concat         | [regression/qryRegressionBackslash.sql](../Testing/Fixtures/queries/regression/qryRegressionBackslash.sql)               |
 | `TOP N PERCENT`                             | [regression/qryRegressionTopPercent.sql](../Testing/Fixtures/queries/regression/qryRegressionTopPercent.sql)             |
 | Scalar no-table SELECT                      | [regression/qryRegressionScalarNoTable.sql](../Testing/Fixtures/queries/regression/qryRegressionScalarNoTable.sql)       |
+| Scalar no-table SELECT (Design View)        | [regression/qryRegressionScalarNoTableDesignView.sql](../Testing/Fixtures/queries/regression/qryRegressionScalarNoTableDesignView.sql) |
 | Explicit `table.*` plus all-fields `*`      | [regression/qryRegressionExplicitAndAllFields.sql](../Testing/Fixtures/queries/regression/qryRegressionExplicitAndAllFields.sql) |
 | Make-Table (`SELECT ... INTO`)              | [regression/qryRegressionExternalMakeTable.sql](../Testing/Fixtures/queries/regression/qryRegressionExternalMakeTable.sql) |
 | Query parameters (Attribute 2)               | [regression/qryRegressionParameterizedCrosstab.sql](../Testing/Fixtures/queries/regression/qryRegressionParameterizedCrosstab.sql) |

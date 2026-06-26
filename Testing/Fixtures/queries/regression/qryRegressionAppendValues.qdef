@@ -1,6 +1,8 @@
 ﻿Operation =3
 Name ="tblSettings"
 Option =0
+Begin InputTables
+End
 Begin OutputColumns
     Name ="ID"
     Expression ="11"

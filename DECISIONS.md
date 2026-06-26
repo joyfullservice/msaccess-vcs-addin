@@ -81,6 +81,43 @@ contradictory guidance.
 
 ---
 
+## 2026-06-26 — Table-less Design View SELECT: parse field list and emit empty InputTables
+
+**Trigger**: `qryFormControl` in `Testing.accdb` lost its output columns on
+build-from-source + re-export. The query is a table-less scalar SELECT
+(form-control references, no `FROM`) last saved in Design View. After import
+via the native `.sql`/`.json` pipeline, MSysQueries had Attribute 0/1/3/4
+rows but no Attribute 6 output-column rows; export faithfully reconstructed
+`SELECT FROM ;`.
+
+**Options explored**:
+- **Force SQL View for table-less SELECTs** — guaranteed lossless (raw SQL
+  stored verbatim) but drops Design View fidelity and the trivial layout
+  block; rejected because the user chose to preserve Design View.
+- **Parser fix only** — necessary but insufficient; `EmitDesignViewQdef`
+  skipped the empty `InputTables` block when `m_colInputTables.Count = 0`,
+  and Access `LoadFromText` silently dropped `OutputColumns` without it.
+- **Parser fix + always emit empty InputTables block** — matches Access
+  `SaveAsText` output for Design View queries; chosen.
+
+**Decision**: `ParseSelectQuery` gains an `Else` branch (mirroring
+`ParseInsertQuery`) that calls `ParseFieldList` when no `FROM` keyword is
+present. `EmitDesignViewQdef` always writes `Begin InputTables` / `End`,
+even when the table collection is empty.
+
+**What this rules out**: Assuming SQL View import masks parser gaps for
+table-less queries — `qryRegressionScalarNoTable` passes on SQL View only;
+Design View requires the separate fixture
+`qryRegressionScalarNoTableDesignView`. If `LoadFromText` still drops
+columns after both fixes, fall back to forcing SQL View for this shape.
+
+**Relevant files**: `clsQueryComposer.cls` (`ParseSelectQuery`,
+`EmitDesignViewQdef`); fixture
+`Testing/Fixtures/queries/regression/qryRegressionScalarNoTableDesignView.*`;
+`docs/access-query-storage.md`.
+
+---
+
 ## 2026-06-26 — CF companion JSON colors as RGB(R,G,B) strings
 
 **Trigger**: Conditional formatting rules in the companion `.json` stored colors as raw
@@ -1627,6 +1664,11 @@ closing/reopening it.
 ---
 
 ## 2026-04-03 — CloseCurrentDatabase2 retries internally; ReleaseDbReferences for shared mode reopen
+
+> **⚠ Partially superseded** (2026-06-25): `ReleaseDbReferences` is now also called
+> unconditionally after each import category in `modBuild.Build` and at the start of
+> `CloseCurrentDatabase2` (not only before the shared-mode reopen). See
+> "SharedDb invalidation during build/merge and database close" above.
 
 **Trigger**: After the shared mode reopen at the end of a build, the
 navigation pane was missing and consecutive build operations triggered

@@ -1992,6 +1992,13 @@ Private Sub ParseSelectQuery(strSql As String)
         ' Bare FROM at end of string (table-less query). The trailing semicolon
         ' was already stripped, so "FROM ;" becomes just "FROM".
         ParseFieldList Left$(RTrim$(strRemainder), Len(RTrim$(strRemainder)) - 5)
+    ElseIf UCase$(Trim$(strRemainder)) = "FROM" Then
+        ' Empty SELECT (SELECT FROM ;) -- no output columns; leave field list empty.
+    Else
+        ' No FROM clause at all -- table-less scalar SELECT (form-control
+        ' refs, literal/function expressions). Entire remainder is the
+        ' output field list. Mirrors ParseInsertQuery's no-FROM handling.
+        ParseFieldList strRemainder
     End If
 
     ' Parse PIVOT if present (for crosstab queries already stripped of TRANSFORM)
@@ -3137,17 +3144,18 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     ' the next export crashes BuildJoinChain (no graph root). This bit
     ' affected ~723 queries in db-sec alone, including qryBucketCombineRandUCos
     ' and qdelTempInvByQtrSubMergerAcquisition3.
-    If m_colInputTables.Count > 0 Then
-        cOut.Add "Begin InputTables", vbCrLf
-        Dim dTbl As Dictionary
-        For Each dTbl In m_colInputTables
-            cOut.Add "    Name =""" & CStr(dTbl("name")) & """", vbCrLf
-            If Len(Nz(dTbl("alias"), vbNullString)) > 0 Then
-                cOut.Add "    Alias =""" & CStr(dTbl("alias")) & """", vbCrLf
-            End If
-        Next dTbl
-        cOut.Add "End", vbCrLf
-    End If
+    ' Always emit InputTables block (even when empty). Access SaveAsText does
+    ' the same for Design View queries; omitting the empty block causes
+    ' LoadFromText to silently drop OutputColumns on table-less SELECTs.
+    cOut.Add "Begin InputTables", vbCrLf
+    Dim dTbl As Dictionary
+    For Each dTbl In m_colInputTables
+        cOut.Add "    Name =""" & CStr(dTbl("name")) & """", vbCrLf
+        If Len(Nz(dTbl("alias"), vbNullString)) > 0 Then
+            cOut.Add "    Alias =""" & CStr(dTbl("alias")) & """", vbCrLf
+        End If
+    Next dTbl
+    cOut.Add "End", vbCrLf
 
     ' Output Columns
     If m_colOutputColumns.Count > 0 Then
