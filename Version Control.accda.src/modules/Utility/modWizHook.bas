@@ -25,6 +25,7 @@ Option Explicit
 '
 Public Sub CloseCurrentDatabase2()
     CheckKey
+    ReleaseDbReferences
     WizHook.CloseCurrentDatabase
     DoEvents
     If DatabaseFileOpen Then

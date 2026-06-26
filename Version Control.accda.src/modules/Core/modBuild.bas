@@ -443,6 +443,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             Log.Add "[" & dFiles.Count & "]"
         End If
         Perf.CategoryEnd dFiles.Count
+        ReleaseDbReferences
 
     Next varCategory
 

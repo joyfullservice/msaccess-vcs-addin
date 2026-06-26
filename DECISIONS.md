@@ -107,6 +107,44 @@ release yet.
 
 ---
 
+## 2026-06-25 — SharedDb invalidation during build/merge and database close
+
+**Trigger**: Full build failed when importing table data: `clsDbTableData.ImportTableDataTDF`
+accesses `SharedDb.TableDefs(strTable).Fields` after `clsDbTableDef` created tables via
+`Application.ImportXML`. `IsLocalTable` passed (queries `MSysObjects` directly), but the
+cached `CurrentDb` handle's `TableDefs` collection was stale. Same pattern affects
+`QueryDefs`, `Containers.Documents`, and `Relations` when imports use `Application.*` APIs
+instead of DAO on the cached reference.
+
+**Options explored**:
+- **`TableDefs.Refresh` on the cached handle**: Fixes one collection only; `QueryDefs` and
+  `Containers.Documents` have the same problem. Rejected.
+- **Allowlist of schema-changing component types** (`edbTableDef`, `edbQuery`, etc.):
+  Fragile — most object-creating categories use `Application.LoadFromText` or `ImportXML`;
+  future component types would need manual updates. Rejected.
+- **Unconditional `ReleaseDbReferences` after every import category** (chosen): One
+  `Set this.dbs = Nothing` per category in `modBuild.Build`; next `SharedDb()` obtains
+  fresh `CurrentDb`. Negligible cost; JET page cache lives at engine level, not on the
+  DAO handle.
+- **Also call `ReleaseDbReferences` inside `CloseCurrentDatabase2`**: Covers all close/reopen
+  paths (full build, merge pre-reopen, theme reopen, shared-mode reopen). Explicit call
+  before shared-mode reopen in `modBuild` kept as belt-and-suspenders.
+
+**Decision**: `ReleaseDbReferences` runs unconditionally after each category in the build
+loop and at the start of `CloseCurrentDatabase2` (before `WizHook.CloseCurrentDatabase`).
+
+**What this rules out**: Per-component `TableDefs.Refresh` / collection refresh calls as
+the primary fix. Do not rely on `SharedDb` seeing objects created via `Application.*`
+import APIs within the same category without invalidating between categories. Export perf
+optimization via `SharedDb` is unchanged — invalidation applies only during build/merge and
+close/reopen, not export.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/modObjects.bas`
+(`ReleaseDbReferences`, `SharedDb`), `Version Control.accda.src/modules/Utility/modWizHook.bas`
+(`CloseCurrentDatabase2`), `Version Control.accda.src/modules/Core/modBuild.bas`.
+
+---
+
 ## 2026-06-23 — Full-build module import: two-pass ImportFast + FinalizeImports
 
 **Trigger**: Full builds on module-heavy projects spend ~85% of the `Modules`
