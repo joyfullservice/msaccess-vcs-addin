@@ -153,7 +153,14 @@ End Function
 Public Function MenuHandler(strSource As String)
 
     Select Case strSource
-        Case "CRM Navigation General.Contact": MsgBox "Contact"
+        Case "CRM Navigation General.Contact"
+            MsgBox "Contact"
+        Case "VCS Test Menu.Custom Button"
+            MsgBox "VCS Test Menu: Custom Button clicked", vbInformation, TestMenuName
+        Case "VCS Test Menu.Customized Compact"
+            MsgBox "VCS Test Menu: Customized built-in (Compact and Repair replica path)", vbInformation, TestMenuName
+        Case "VCS Test Menu.More.Sub Custom"
+            MsgBox "VCS Test Menu: More > Sub Custom clicked", vbInformation, TestMenuName
         Case Else
             Debug.Print "Source not defined in MenuHandler: Case """ & strSource & """"
     End Select

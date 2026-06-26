@@ -182,6 +182,73 @@ close/reopen, not export.
 
 ---
 
+## 2026-06-25 — Command bar built-in classification: runtime probe + template copy + replicas
+
+**Trigger**: Menu round-trip work (issues #584, #583) exposed that Access "custom built-in"
+controls — object-openers (Open Table/Query/Form/Report 1835-1838, ADP 3885/3886/3888),
+Edit Hyperlink 3227, etc. — cannot be recreated with `CommandBarControls.Add(Type, Id)`.
+PR #588 handled them by copying from a shipped binary template (`Template/CommandBars.bin`),
+which was fragile when copying into popup parents and unavailable on consecutive add-in builds.
+#584 also reported built-in controls losing their pictures and action parameters on round-trip
+when exported as minimal built-ins.
+
+**Options explored**:
+- **Template copy only (PR #588)**: copy a fixed set of non-addable built-ins from a binary
+  template bar. Rejected as sole strategy: hand-maintained Id list, type-mismatch when copying
+  into popup parents, and no path for controls absent from the template.
+- **Static whitelist ∩ ¬blacklist (tried, replaced)**: classify by `ControlIdToName`
+  membership minus a hand-maintained `IsNonAddableControl` list (`IsBuiltInControlRecreatable`).
+  Rejected: endless whack-a-mole as users hit Ids absent from our small sample, and Id-only
+  keying is provably wrong — `Undo` Id 128 is non-addable as `Type=6` (split-button) but
+  addable as `Type=1` (plain button).
+- **Runtime addability probe + replicas only (tried, partially superseded)**: classify each
+  built-in at export by attempting `Controls.Add(Type, Id)` on a temp bar, cached per
+  `(Type, Id)`. Comprehensive for detection and #584 customized-control replicas, but
+  replicas with empty `OnAction` are inert for intrinsic object-opener wiring.
+- **Hybrid probe + template copy + replica fallback (chosen)**: probe for comprehensive
+  addability detection; template copy on import for non-addable controls present on the
+  shipped template bar (full intrinsic behavior); visual replica fallback when the control
+  is non-addable and absent from the template.
+
+**Decision**: `IsBuiltInControlAddable(Type, Id)` in `modCommandBarNames.bas` wraps
+`ProbeBuiltInControlAddable` with a session-lifetime `(Type, Id)` cache. Export classification
+in `clsDbCommandBar.BuildElementDictionary`: `IsNonAddableControl` manual override -> replica;
+else probe addable + `IsBuiltInControlCustomized` (custom `OnAction`/`Parameter`, or pasted
+face: FaceId=0 with a picture) -> replica (#584); else probe addable + clean -> minimal
+`BuiltIn=true` block; else non-addable + `IsTemplateControl(Id)` -> full-property built-in
+(`BuiltIn=true`, `Id`, all props); else -> replica. Import: `BuiltIn=true` -> `.Add(Type,Id)`;
+on failure -> template copy by `Id` (popup-safe via `objParent.CommandBar`) + `BuildControls`;
+on failure -> `eelError` (visible on build screen). `BuiltIn=false` -> custom build (replicas).
+The template ships in `Template/CommandBars.bin`, baked into the add-in by
+`ImportCommandBarsTemplate` in `AfterBuild`; `m_TemplateCommandBar` is looked up at class init
+and skipped during export enumeration. When the template is not loaded (consecutive builds),
+`IsTemplateControl` returns False and non-addable controls degrade to replicas until the
+add-in is rebuilt. Gated at `EFV_5_0_0` (v5 unreleased).
+
+**What this rules out / caveats**:
+- ADP database diagrams (3887): unsupported even by the template (cannot be built in Access
+  2003 per #588). Stays a documented limitation.
+- Classification reflects the running Access version; a borderline control can serialize as a
+  minimal built-in on one version and a replica on another (accepted).
+- Custom controls added directly into an *addable* built-in popup's submenu are not preserved
+  (native submenu regenerates on import). Extension path: `AddAfter` anchor for custom children.
+- Performance: command bars have no timestamp, so `IDbComponent_IsModified` rebuilds the
+  dictionary each scan; the `(Type, Id)` session cache keeps the probe to one lookup per
+  built-in after warmup.
+
+**Relevant files**:
+- `modCommandBarNames.bas` — `IsBuiltInControlAddable`, `ResetAddableCache`,
+  `IsNonAddableControl` (empty override), `ProbeBuiltInControlAddable`/`DumpNonAddableControls`
+- `clsDbCommandBar.cls` — `BuildElementDictionary` three-way classification,
+  `IsTemplateControl`, `IsBuiltInControlCustomized`, `AddChildControl` template copy,
+  `m_TemplateCommandBar`
+- `modConstants.bas` — `strTemplateCommandBarName`, `EFV_5_0_0`
+- `modVCSUtility.bas` — `ImportCommandBarsTemplate` in `AfterBuild`
+- `Template/CommandBars.bin` — shipped template instances
+- `modTestCommandBarNames.bas` — probe and template-aware tests
+
+---
+
 ## 2026-06-23 — Full-build module import: two-pass ImportFast + FinalizeImports
 
 **Trigger**: Full builds on module-heavy projects spend ~85% of the `Modules`

@@ -215,7 +215,7 @@ Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinComm
 ' Used to gate export behavior changes so users can upgrade on their own schedule.
 Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
-    EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, etc.
+    EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, command bar replica export, etc.
     [_Last] = 50000
 End Enum
 

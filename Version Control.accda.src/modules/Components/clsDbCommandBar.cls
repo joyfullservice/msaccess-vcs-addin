@@ -18,8 +18,8 @@ Option Compare Database
 Option Explicit
 '@Folder("Components")
 
-Private m_TemplateCommandBar As CommandBar
 Private m_CommandBar As CommandBar
+Private m_TemplateCommandBar As CommandBar
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 
@@ -167,7 +167,6 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
     Dim picItem As IPictureDisp
     Dim strBasePath As String
     Dim strPath As String
-    Dim blnCustomBuiltIn As Boolean
 
     LogUnhandledErrors
     On Error Resume Next
@@ -186,41 +185,10 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
                 End If
             End If
         Next
-        ' Now add any nested controls
+        ' Now add any nested controls (built-in handling shared with popups via AddChildControl)
         If dParent.Exists("Controls") Then
             For Each dControl In dParent("Controls")
-                If dControl("BuiltIn") Then
-                    ' We must first determine if it's an Access custom built-in control which requires special handling
-                    Select Case dControl("Id")
-                        Case 1835, 1836, 1837, 1838, 1839, 3885, 3886, 3888
-                            blnCustomBuiltIn = True
-                        Case 3887 ' We don't have diagrams yet. :-(
-                            ' Throw error (it's more of a warning but a warning doesn't show up in build screen and can be overlooked)
-                            Log.Error eelError, "Custom commandbar opening database diagrams are not supported. If you want to support diagrams, please submit a PR including a working command bar with the diagram button.", ModuleName(Me) & ".BuildControls"
-                        Case Else
-                            blnCustomBuiltIn = False
-                    End Select
-
-                    If blnCustomBuiltIn Then
-                        ' It's an Access "custom" built-in control which we cannot use .Add method.
-                        ' We must instead copy from our template command bar into the target command bar.
-
-                        ' Build the custom "built-in" control ourselves
-                        BuildControls dControl, m_TemplateCommandBar.FindControl(ID:=dControl("Id")).Copy(objItem)
-                    Else
-                        ' Insert built-in control
-
-                        ' A built-in control may fail to add. In this case, we need to warn the users
-                        Dim objBuiltIn As CommandBarControl
-                        Set objBuiltIn = objItem.Controls.Add(dControl("Type"), dControl("Id"))
-                        If Not CatchAny(eelError, "Unable to add a built-in control using Id " & dControl("Id"), blnIncludeErrorWithDescription:=True) Then
-                            objBuiltIn.Visible = dControl("Visible")
-                        End If
-                    End If
-                Else
-                    ' Build the control ourselves
-                    BuildControls dControl, objItem.Controls.Add(dControl("Type"))
-                End If
+                AddChildControl dControl, objItem
             Next dControl
         End If
     ElseIf TypeOf objItem Is CommandBarControl Then
@@ -236,9 +204,9 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
             End If
         Next varProp
         If TypeOf objItem Is CommandBarPopup And dParent.Exists("Controls") Then
-            ' Add nested controls
+            ' Add nested controls (built-in controls handled the same as at the top level)
             For Each dControl In dParent("Controls")
-                BuildControls dControl, objItem.Controls.Add(dControl("Type"))
+                AddChildControl dControl, objItem
             Next dControl
         ElseIf TypeOf objItem Is CommandBarComboBox And dParent.Exists("List") Then
             Dim varItem As Variant
@@ -270,6 +238,220 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
         ' Unsupported object type
         Stop
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddChildControl
+' Author    : Adam Waller
+' Date      : 6/22/2026
+' Purpose   : Add a single child control to a parent (CommandBar or CommandBarPopup),
+'           : applying the correct strategy for built-in, Access "custom built-in",
+'           : and fully custom controls. Shared by both nesting levels so built-in
+'           : controls round-trip identically whether at the top level or in a submenu.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddChildControl(dControl As Dictionary, objParent As Object)
+
+    Dim objBuiltIn As CommandBarControl
+    Dim objTemplateCtl As CommandBarControl
+    Dim objDestBar As CommandBar
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    If dControl("BuiltIn") Then
+        Set objBuiltIn = objParent.Controls.Add(dControl("Type"), dControl("Id"))
+        If Catch(438, 440) Or Err.Number <> 0 Then
+            ' Not addable -> recreate from the template command bar and customize.
+            Err.Clear
+            Set objTemplateCtl = Nothing
+            If Not m_TemplateCommandBar Is Nothing Then Set objTemplateCtl = m_TemplateCommandBar.FindControl(ID:=dControl("Id"))
+            If objTemplateCtl Is Nothing Then
+                CatchAny eelNoError, vbNullString
+                Log.Error eelError, "Built-in control Id " & dControl("Id") & " could not be recreated (not addable and not in the template command bar).", ModuleName(Me) & ".AddChildControl"
+            Else
+                ' CommandBarControl.Copy targets a CommandBar; for a popup parent copy into its submenu.
+                If TypeOf objParent Is CommandBar Then
+                    Set objDestBar = objParent
+                Else
+                    Set objDestBar = objParent.CommandBar
+                End If
+                BuildControls dControl, objTemplateCtl.Copy(objDestBar)
+                CatchAny eelError, "Unable to copy built-in control Id " & dControl("Id") & " from the template", ModuleName(Me) & ".AddChildControl", blnIncludeErrorWithDescription:=True
+            End If
+        Else
+            objBuiltIn.Visible = dControl("Visible")
+            If dControl.Exists("BeginGroup") Then objBuiltIn.BeginGroup = dControl("BeginGroup")
+        End If
+    Else
+        ' Fully custom controls and non-addable built-in replicas (BuiltIn=false).
+        BuildControls dControl, objParent.Controls.Add(dControl("Type"))
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetControlFaceId
+' Author    : Adam Waller
+' Date      : 6/23/2026
+' Purpose   : Read FaceId, which only exists on button controls. Combo boxes, edit
+'           : boxes, and popups don't expose it, so we skip the access we know would
+'           : fail rather than triggering and swallowing a 438. The error path is
+'           : reserved for genuine unknowns, flagged as warnings so they get addressed.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetControlFaceId(ctl As CommandBarControl) As Long
+    If Not (TypeOf ctl Is CommandBarButton) Then Exit Function
+    LogUnhandledErrors
+    On Error Resume Next
+    GetControlFaceId = ctl.FaceId
+    CatchAny eelWarning, "Unexpected error reading FaceId for button '" & ctl.Caption & _
+        "' (Id " & ctl.ID & ")", ModuleName(Me) & ".GetControlFaceId"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SkipControlImage
+' Author    : Adam Waller
+' Date      : 6/22/2026
+' Purpose   : Returns true when a control's image should NOT be exported to a file.
+'           : Under export format 5.0.0+, only genuinely custom (pasted) faces are saved
+'           : as images. A non-zero FaceId is a built-in icon that is reconstructed from
+'           : the FaceId on import, so exporting its rendered bitmap only creates churn.
+'---------------------------------------------------------------------------------------
+'
+Private Function SkipControlImage(ctl As CommandBarControl) As Boolean
+    If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Function
+    SkipControlImage = (GetControlFaceId(ctl) <> 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsBuiltInControlCustomized
+' Author    : Adam Waller
+' Date      : 6/25/2026
+' Purpose   : Return true when a built-in control carries customizations that the minimal
+'           : built-in export (Type + Id only) would lose: a custom action (OnAction /
+'           : Parameter) or a custom pasted face (FaceId = 0 with a picture present). Such
+'           : controls must be exported as full replicas so their action parameters and
+'           : pictures survive the round-trip (issue #584). A pristine built-in control
+'           : has an empty OnAction - its behavior is wired to its Id - so a non-empty
+'           : OnAction/Parameter reliably indicates a user customization.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsBuiltInControlCustomized(ctl As CommandBarControl) As Boolean
+
+    Dim picItem As IPictureDisp
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Custom action assigned to the built-in control.
+    If Len(ctl.OnAction) > 0 Then IsBuiltInControlCustomized = True
+    If Len(ctl.Parameter) > 0 Then IsBuiltInControlCustomized = True
+    CatchAny eelNoError, vbNullString
+    If IsBuiltInControlCustomized Then Exit Function
+
+    ' Custom pasted face: a button with no FaceId but a picture present.
+    If TypeOf ctl Is CommandBarButton Then
+        If GetControlFaceId(ctl) = 0 Then
+            Set picItem = ctl.Picture
+            If Catch(438) Then
+                ' No picture available; not a custom face.
+            ElseIf CatchAny(eelNoError, vbNullString) Then
+                ' Unexpected error; treat as not customized.
+            ElseIf Not picItem Is Nothing Then
+                IsBuiltInControlCustomized = True
+            End If
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsTemplateControl
+' Author    : Adam Waller
+' Date      : 6/25/2026
+' Purpose   : Return true when the built-in control Id is present on the add-in's template
+'           : command bar. Non-addable controls in the template are exported as full-property
+'           : built-ins and recreated by template copy on import. When the template is not
+'           : loaded (e.g. consecutive add-in builds), returns False and export degrades to
+'           : a visual replica.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsTemplateControl(lngId As Long) As Boolean
+    If m_TemplateCommandBar Is Nothing Then Exit Function
+    LogUnhandledErrors
+    On Error Resume Next
+    IsTemplateControl = Not (m_TemplateCommandBar.FindControl(ID:=lngId) Is Nothing)
+    CatchAny eelNoError, vbNullString
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddReferenceName
+' Author    : Adam Waller
+' Date      : 6/23/2026
+' Purpose   : Add a read-only, human/agent reference name. Ignored on import. Names
+'           : come from ControlIdToName (never the live Caption) so export stays
+'           : deterministic. Two distinct keys make the meaning explicit:
+'           :  - Built-in controls get "ControlIdName" (keyed off the control Id),
+'           :    which reflects the control's actual identity/purpose.
+'           :  - Custom controls get "FaceIdName" (keyed off the FaceId), which only
+'           :    describes the borrowed icon's appearance, not the control's purpose.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddReferenceName(dParent As Dictionary, objItem As CommandBarControl)
+
+    Dim strName As String
+    Dim lngFaceId As Long
+
+    If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Sub
+
+    If objItem.BuiltIn Then
+        If dParent.Exists("ControlIdName") Then Exit Sub
+        strName = ControlIdToName(objItem.ID)
+        If Len(strName) = 0 Then
+            Log.Add "  Unknown built-in control Id " & objItem.ID & " (caption: '" & objItem.Caption & "')", False
+        Else
+            dParent.Add "ControlIdName", strName
+        End If
+    Else
+        lngFaceId = GetControlFaceId(objItem)
+        If lngFaceId <> 0 Then
+            If dParent.Exists("FaceIdName") Then Exit Sub
+            strName = ControlIdToName(lngFaceId)
+            If Len(strName) > 0 Then dParent.Add "FaceIdName", strName
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddReplicaReferenceName
+' Author    : Adam Waller
+' Date      : 6/24/2026
+' Purpose   : Add a FaceIdName breadcrumb for built-in controls exported as custom
+'           : replicas (EFV_5_0_0+). Uses FaceId when present, otherwise the control Id.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddReplicaReferenceName(dParent As Dictionary, objItem As CommandBarControl)
+
+    Dim lngFaceId As Long
+    Dim strName As String
+
+    If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Sub
+    If dParent.Exists("FaceIdName") Then Exit Sub
+
+    lngFaceId = GetControlFaceId(objItem)
+    If lngFaceId = 0 Then lngFaceId = objItem.ID
+    strName = ControlIdToName(lngFaceId)
+    If Len(strName) > 0 Then dParent.Add "FaceIdName", strName
 
 End Sub
 
@@ -335,6 +517,7 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
     Dim cbcItem As CommandBarComboBox
     Dim colList As Collection
     Dim lngItem As Long
+    Dim blnExportAsReplica As Boolean
 
     LogUnhandledErrors
     On Error Resume Next
@@ -353,6 +536,40 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         Set colItems = New Collection
         dParent.Add "Controls", BuildControlCollection(objItem.Controls)
     ElseIf TypeOf objItem Is CommandBarControl Then
+        blnExportAsReplica = False
+        ' Built-in classification (EFV_5_0_0+): manual override -> replica; addable+clean ->
+        ' minimal block; addable+customized -> replica (#584); non-addable+in-template ->
+        ' full-property built-in (template copy on import); non-addable+not-in-template ->
+        ' visual replica. Addability uses a cached runtime probe keyed on (Type, Id).
+        If objItem.BuiltIn Then
+            If Options.ExportFormatVersion >= EFV_5_0_0 Then
+                If IsNonAddableControl(objItem.ID) Then
+                    blnExportAsReplica = True
+                ElseIf IsBuiltInControlAddable(objItem.Type, objItem.ID) Then
+                    If IsBuiltInControlCustomized(objItem) Then
+                        blnExportAsReplica = True
+                    Else
+                        AddReferenceName dParent, objItem
+                        dParent.Add "BeginGroup", objItem.BeginGroup
+                        dParent.Add "BuiltIn", True
+                        dParent.Add "Type", objItem.Type
+                        dParent.Add "Visible", objItem.Visible
+                        dParent.Add "Id", objItem.ID
+                        Set BuildElementDictionary = dParent
+                        Exit Function
+                    End If
+                ElseIf IsTemplateControl(objItem.ID) Then
+                    ' Non-addable but present on the template bar -> full built-in export.
+                Else
+                    blnExportAsReplica = True
+                End If
+            End If
+        End If
+        If blnExportAsReplica Then
+            AddReplicaReferenceName dParent, objItem
+        ElseIf Options.ExportFormatVersion >= EFV_5_0_0 Then
+            AddReferenceName dParent, objItem
+        End If
         ' Add control properties
         For Each varProp In this.CtlReadProperties
             varValue = Empty ' Clear the value from previous run
@@ -364,8 +581,14 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
                 dParent.Add varProp, varValue
             End If
         Next varProp
-        ' Save the ID for built-in items
-        If objItem.BuiltIn Then
+        If blnExportAsReplica Then
+            If dParent.Exists("BuiltIn") Then
+                dParent("BuiltIn") = False
+            Else
+                dParent.Add "BuiltIn", False
+            End If
+            If dParent.Exists("Id") Then dParent.Remove "Id"
+        ElseIf objItem.BuiltIn Then
             dParent.Add "Id", objItem.ID
         End If
         If TypeOf objItem Is CommandBarComboBox Then
@@ -381,8 +604,15 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
             End If
         End If
         If TypeOf objItem Is CommandBarPopup Then
-            ' Loop through nested controls
-            dParent.Add "Controls", BuildControlCollection(objItem.Controls)
+            ' Addable built-in popups have their native submenus regenerated on import via
+            ' .Add(Type, Id), so serializing their children would create duplicates. But a
+            ' non-addable built-in popup is exported as a replica and rebuilt from source,
+            ' so its children must be serialized. Custom popups always serialize children.
+            If Options.ExportFormatVersion >= EFV_5_0_0 And objItem.BuiltIn And Not blnExportAsReplica Then
+                ' Skip children for addable built-in popups (regenerated on import)
+            Else
+                dParent.Add "Controls", BuildControlCollection(objItem.Controls)
+            End If
         Else
             ' Check for picture
             Set picItem = objItem.Picture
@@ -392,8 +622,9 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
             ElseIf CatchAny(eelNoError, vbNullString) Then
                 ' Log any other error and skip
             Else
-                ' Proceed with picture processing
-                If Not picItem Is Nothing Then
+                ' Proceed with picture processing (only for genuinely custom faces;
+                ' a non-zero FaceId is a built-in icon rebuilt from FaceId on import)
+                If Not picItem Is Nothing And Not SkipControlImage(objItem) Then
                     strPath = BuildPath2(IDbComponent_BaseFolder, GetImagePath(objItem))
                     ' Check path for possible duplicates (menu items with the same name)
                     If this.dImages.Exists(strPath) Then
@@ -421,6 +652,8 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
             ' Remove cached coordinate positions that will change frequently
             If dParent.Exists("Left") Then dParent.Remove "Left"
             If dParent.Exists("Top") Then dParent.Remove "Top"
+            ' RowIndex (docking row) drifts the same way for non-floating bars
+            If dParent.Exists("RowIndex") Then dParent.Remove "RowIndex"
         End If
     End If
 
