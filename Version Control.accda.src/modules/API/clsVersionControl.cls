@@ -661,6 +661,9 @@ Private Sub CreateLetterCasingTemplate()
         T("Add Dim lines for identifiers whose casing you want to standardize, then run this command again."), _
         vbInformation
 
+    ' Save the module in the Access database components before opening
+    DoCmd.Save acModule, cmp.Name
+    DoEvents
     DoCmd.OpenModule "clsStandardLetterCasing"
 
 End Sub
