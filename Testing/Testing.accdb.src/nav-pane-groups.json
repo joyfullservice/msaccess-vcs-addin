@@ -53,6 +53,20 @@
             ]
           },
           {
+            "Name": "Test Forms",
+            "Flags": 0,
+            "Position": 4,
+            "Objects": [
+              {
+                "Name": "frmTestMenu",
+                "Type": -32768,
+                "Flags": 0,
+                "Icon": 0,
+                "Position": 0
+              }
+            ]
+          },
+          {
             "Name": "Unassigned Objects",
             "Flags": 4,
             "Position": 3,

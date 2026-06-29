@@ -61,7 +61,7 @@ Public Sub CreateTestMenu()
     If tmplBar Is Nothing Then
         Debug.Print "CreateTestMenu: template bar not loaded; skipping Open Table (1835)"
     Else
-        Set tmplCtl = tmplBar.FindControl(ID:=IdOpenTable)
+        Set tmplCtl = tmplBar.FindControl(Id:=IdOpenTable)
         If tmplCtl Is Nothing Then
             Debug.Print "CreateTestMenu: Open Table (1835) not on template bar"
         Else
@@ -129,7 +129,7 @@ Public Function FindControlById(bar As CommandBar, lngId As Long) As CommandBarC
     Dim popup As CommandBarPopup
 
     For Each ctl In bar.Controls
-        If ctl.ID = lngId Then
+        If ctl.Id = lngId Then
             Set FindControlById = ctl
             Exit Function
         End If
@@ -147,7 +147,7 @@ Private Function FindControlByIdInControls(ctls As CommandBarControls, lngId As 
     Dim popup As CommandBarPopup
 
     For Each ctl In ctls
-        If ctl.ID = lngId Then
+        If ctl.Id = lngId Then
             Set FindControlByIdInControls = ctl
             Exit Function
         End If

@@ -301,8 +301,3 @@ Private Sub Form_Load()
     imgResult.Picture = vbNullString
     Me.ShortcutMenuBar = TestMenuName
 End Sub
-
-
-Private Sub cmdShowTestMenu_Click()
-    Menu.PopupBelow Me.cmdShowTestMenu, TestMenuName
-End Sub

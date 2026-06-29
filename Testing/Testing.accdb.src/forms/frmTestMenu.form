@@ -7,14 +7,15 @@ Begin Form
     DividingLines = NotDefault
     AllowDesignChanges = NotDefault
     DefaultView =0
+    ScrollBars =0
     BorderStyle =1
     PictureAlignment =2
     DatasheetGridlinesBehavior =3
     GridX =24
     GridY =24
-    Width =9900
+    Width =10080
     DatasheetFontHeight =11
-    ItemSuffix =7
+    ItemSuffix =9
     Left =1000
     Top =1000
     Right =50000
@@ -246,6 +247,39 @@ Begin Form
                     LayoutCachedTop =840
                     LayoutCachedWidth =8220
                     LayoutCachedHeight =1485
+                End
+                Begin Label
+                    OverlapFlags =85
+                    TextFontFamily =0
+                    Left =720
+                    Top =2640
+                    Width =7260
+                    Height =960
+                    Name ="Label7"
+                    Caption ="Hybrid built-in classification fixture: custom, minimal built-in, customized rep"
+                        "lica, template-copy opener, and nested popup. Use the button for popup-form Popu"
+                        "pBelow; right-click frmMain for the shortcut menu bar."
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =2640
+                    LayoutCachedWidth =7980
+                    LayoutCachedHeight =3600
+                End
+                Begin CommandButton
+                    OverlapFlags =85
+                    TextFontFamily =0
+                    Left =720
+                    Top =3720
+                    Width =3600
+                    Height =480
+                    TabIndex =2
+                    Name ="cmdShowTestMenu"
+                    Caption =" Show VCS Test Menu..."
+                    OnClick ="[Event Procedure]"
+
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =3720
+                    LayoutCachedWidth =4320
+                    LayoutCachedHeight =4200
                 End
             End
         End

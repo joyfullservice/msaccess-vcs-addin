@@ -45,7 +45,7 @@
         "FaceIdName": "Compact and Repair Database",
         "BeginGroup": false,
         "BuiltIn": false,
-        "BuiltInFace": true,
+        "BuiltInFace": false,
         "Caption": "&Compact and Repair Database",
         "DescriptionText": "",
         "Enabled": true,

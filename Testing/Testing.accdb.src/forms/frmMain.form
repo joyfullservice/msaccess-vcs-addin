@@ -318,24 +318,7 @@ Begin Form
                     LayoutCachedTop =4860
                     LayoutCachedWidth =8460
                     LayoutCachedHeight =5580
-                    TabIndex =4
-                End
-                Begin CommandButton
-                    OverlapFlags =215
-                    Left =5400
-                    Top =5700
-                    Width =3120
-                    Height =720
                     TabIndex =3
-                    Name ="cmdShowTestMenu"
-                    Caption ="  Show Test Menu"
-                    OnClick ="[Event Procedure]"
-
-                    LayoutCachedLeft =5400
-                    LayoutCachedTop =5700
-                    LayoutCachedWidth =8520
-                    LayoutCachedHeight =6420
-                    Overlaps =1
                 End
             End
         End
