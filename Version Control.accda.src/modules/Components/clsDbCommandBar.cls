@@ -255,7 +255,9 @@ End Sub
 Private Sub AddChildControl(dControl As Dictionary, objParent As Object)
 
     Dim objBuiltIn As CommandBarControl
+    Dim objCustom As CommandBarControl
     Dim objTemplateCtl As CommandBarControl
+    Dim objCopiedCtl As CommandBarControl
     Dim objDestBar As CommandBar
 
     LogUnhandledErrors
@@ -263,32 +265,65 @@ Private Sub AddChildControl(dControl As Dictionary, objParent As Object)
 
     If dControl("BuiltIn") Then
         Set objBuiltIn = objParent.Controls.Add(dControl("Type"), dControl("Id"))
-        If Catch(438, 440) Or Err.Number <> 0 Then
-            ' Not addable -> recreate from the template command bar and customize.
-            Err.Clear
+        If Catch(438, 440, -2147467259) Then
+            ' Expected for non-addable built-ins; recreate from the template command bar.
             Set objTemplateCtl = Nothing
-            If Not m_TemplateCommandBar Is Nothing Then Set objTemplateCtl = m_TemplateCommandBar.FindControl(ID:=dControl("Id"))
-            If objTemplateCtl Is Nothing Then
-                CatchAny eelNoError, vbNullString
-                Log.Error eelError, "Built-in control Id " & dControl("Id") & " could not be recreated (not addable and not in the template command bar).", ModuleName(Me) & ".AddChildControl"
+            Set objCopiedCtl = Nothing
+            If m_TemplateCommandBar Is Nothing Then
+                WarnTemplateCommandBarNotLoaded
             Else
-                ' CommandBarControl.Copy targets a CommandBar; for a popup parent copy into its submenu.
-                If TypeOf objParent Is CommandBar Then
-                    Set objDestBar = objParent
+                Set objTemplateCtl = m_TemplateCommandBar.FindControl(ID:=dControl("Id"))
+                CatchAny eelNoError, vbNullString
+                If objTemplateCtl Is Nothing Then
+                    Log.Error eelError, "Built-in control Id " & dControl("Id") & " could not be recreated (not addable and not in the template command bar).", ModuleName(Me) & ".AddChildControl"
                 Else
-                    Set objDestBar = objParent.CommandBar
+                    ' CommandBarControl.Copy targets a CommandBar; for a popup parent copy into its submenu.
+                    If TypeOf objParent Is CommandBar Then
+                        Set objDestBar = objParent
+                    Else
+                        Set objDestBar = objParent.CommandBar
+                    End If
+                    Set objCopiedCtl = objTemplateCtl.Copy(objDestBar)
+                    If Not CatchAny(eelError, "Unable to copy built-in control Id " & dControl("Id") & " from the template", ModuleName(Me) & ".AddChildControl", blnIncludeErrorWithDescription:=True) Then
+                        If Not objCopiedCtl Is Nothing Then BuildControls dControl, objCopiedCtl
+                    End If
                 End If
-                BuildControls dControl, objTemplateCtl.Copy(objDestBar)
-                CatchAny eelError, "Unable to copy built-in control Id " & dControl("Id") & " from the template", ModuleName(Me) & ".AddChildControl", blnIncludeErrorWithDescription:=True
             End If
+        ElseIf CatchAny(eelError, "Unable to add built-in control Id " & dControl("Id"), ModuleName(Me) & ".AddChildControl", blnIncludeErrorWithDescription:=True) Then
+            ' Unexpected error adding a built-in that should be addable.
         Else
             objBuiltIn.Visible = dControl("Visible")
             If dControl.Exists("BeginGroup") Then objBuiltIn.BeginGroup = dControl("BeginGroup")
         End If
     Else
         ' Fully custom controls and non-addable built-in replicas (BuiltIn=false).
-        BuildControls dControl, objParent.Controls.Add(dControl("Type"))
+        Set objCustom = objParent.Controls.Add(dControl("Type"))
+        If CatchAny(eelError, "Unable to add custom control to command bar", ModuleName(Me) & ".AddChildControl", blnIncludeErrorWithDescription:=True) Then
+            ' Failed to add custom control.
+        Else
+            BuildControls dControl, objCustom
+        End If
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WarnTemplateCommandBarNotLoaded
+' Author    : Adam Waller
+' Date      : 6/30/2026
+' Purpose   : Log once per class instance when the add-in template bar is absent from
+'           : Application.CommandBars (expected after rebuilding the add-in in the same
+'           : session). Avoids per-control errors and raw Err leakage from .Add failures.
+'---------------------------------------------------------------------------------------
+'
+Private Sub WarnTemplateCommandBarNotLoaded()
+
+    Static blnWarned As Boolean
+
+    If blnWarned Then Exit Sub
+    blnWarned = True
+    Log.Error eelWarning, T("The command bar template is not loaded in this Access session (expected after rebuilding the add-in). Restart Access before building databases with non-addable built-in menu controls."), ModuleName(Me) & ".AddChildControl"
 
 End Sub
 

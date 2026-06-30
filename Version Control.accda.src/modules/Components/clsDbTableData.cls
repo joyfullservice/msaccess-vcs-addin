@@ -430,14 +430,14 @@ Private Sub IDbComponent_Import(strFile As String)
     Else
         ' Either not a local table, or it doesn't exist
         If TableExists(strTable) Then
-            Log.Error eelWarning, "Table data may only be imported into local tables", "clsDbTableData.Import"
+            Log.Add T("Skipping table data for linked table '{0}' (data resides in the back-end).", var0:=strTable), False
         Else
             ' Warn user that table does not exist.
             Log.Error eelError, "Table structure not found for '" & strTable & "'.", "clsDbTableData.Import"
             Log.Add "Table definition does not exist for '" & strTable & _
                 "'. This must be created before importing table data.", False
+            Log.Add "Table data from '" & strTable & "' was not imported.", False
         End If
-        Log.Add "Table data from '" & strTable & "' was not imported.", False
     End If
 
 End Sub
