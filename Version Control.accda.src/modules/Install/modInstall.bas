@@ -587,8 +587,9 @@ Public Sub Deploy(Optional ReleaseType As eReleaseType = Same_Version)
     ' List project and new build number
     Debug.Print cstrSpacer
 
-    ' Update project description
-    VBE.ActiveVBProject.Description = "Version " & AppVersion & " deployed on " & Date
+    ' Update project description and save
+    CurrentVBProject.Description = "Version " & AppVersion & " deployed on " & Date
+    DoCmd.RunCommand acCmdCompileAndSaveAllModules
 
     ' Save copy to zip folder
     strBinaryFile = FSO.BuildPath(CodeProject.Path, "Version_Control_v" & AppVersion & ".zip")
