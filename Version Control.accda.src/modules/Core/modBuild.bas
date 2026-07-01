@@ -1229,10 +1229,20 @@ Private Sub OpenFormInCurrentDb(FormName, Optional View As AcFormView = acNormal
 
     Dim strCmd As String
 
-    ' Build out command
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Build out command targeting the current database's OpenForm2 wrapper
     strCmd = CurrentProject.Path & PathSep & FSO.GetBaseName(CurrentProject.Name) & ".OpenForm2"
 
     ' Run in current database, passing in all parameters
     Application.Run strCmd, FormName, View, FilterName, WhereCondition, DataMode, WindowMode, OpenArgs
+
+    ' When the target database predates the OpenForm2 wrapper (cross-version build),
+    ' Application.Run raises error 2517 (procedure not found). In that case, fall back
+    ' to opening the form directly. Any other error is left set for the caller to report.
+    If Catch(2517) Then
+        DoCmd.OpenForm FormName, View, FilterName, WhereCondition, DataMode, WindowMode, OpenArgs
+    End If
 
 End Sub
