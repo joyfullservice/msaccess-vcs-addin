@@ -198,15 +198,19 @@ End Sub
 ' Purpose   : Public method for subforms to request navigation to a different section.
 '           : Finds the toggle button matching the section name and selects it.
 '           : (e.g. "Translations..." link on General navigating to Translation)
+'           : Optional strFocusControl sets focus on a control in the loaded subform.
 '---------------------------------------------------------------------------------------
 '
-Public Sub NavigateTo(strSection As String)
+Public Sub NavigateTo(strSection As String, Optional strFocusControl As String)
     Dim ctl As Access.Control
     For Each ctl In Me.fraNav.Controls
         If ctl.ControlType = acToggleButton Then
             If Mid$(ctl.Name, 4) = strSection Then
                 Me.fraNav = ctl.OptionValue
                 fraNav_AfterUpdate
+                If Len(strFocusControl) > 0 Then
+                    Me.subOptionsDetail.Form.Controls(strFocusControl).SetFocus
+                End If
                 Exit Sub
             End If
         End If

@@ -466,14 +466,23 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : lblFormatUpdate_Click
+' Procedure : cmdFormatUpdate_Click
 ' Author    : Adam Waller
 ' Date      : 3/6/2026
-' Purpose   : Open options dialog when user clicks the format update notification.
+' Purpose   : Open options to the Export Format selection when user clicks the
+'           : format update notification.
 '---------------------------------------------------------------------------------------
 '
-Private Sub lblFormatUpdate_Click()
-    cmdOptions_Click
+Private Sub cmdFormatUpdate_Click()
+    If Not DatabaseFileOpen Then
+        ' The table data subform may crash Access when the options form is closed with no database open.
+        MsgBox2 T("No Database Open"), T("Please open a database file before configuring VCS options."), , vbInformation
+        Exit Sub
+    End If
+    ' Force reload of options from current project before opening the form.
+    Set Options = Nothing
+    Form_frmVCSOptions.Visible = True
+    Form_frmVCSOptions.NavigateTo "Export", "cboExportFormatVersion"
 End Sub
 
 
