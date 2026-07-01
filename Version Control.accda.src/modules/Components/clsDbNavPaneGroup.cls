@@ -358,7 +358,7 @@ Private Function LoadRecord(strTable As String, dCols As Dictionary) As Long
         .Update
         .Bookmark = .LastModified
         ' Return ID from new record.
-        LoadRecord = Nz(!ID, 0)
+        LoadRecord = Nz(!Id, 0)
         .Close
     End With
 

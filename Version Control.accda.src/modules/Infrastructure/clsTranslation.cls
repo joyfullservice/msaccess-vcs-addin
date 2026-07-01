@@ -250,7 +250,7 @@ Public Sub ExportTranslations()
     Set rst = dbs.OpenRecordset("tblLanguages", dbOpenSnapshot)
     With rst
         Do While Not .EOF
-            strLanguage = Nz(!ID)
+            strLanguage = Nz(!Id)
             If Len(strLanguage) And strLanguage <> "en_US" Then
                 ' Build translation work file
                 strFile = FSO.BuildPath(strFolder, strLanguage & ".po")
@@ -492,7 +492,7 @@ Private Function SaveString(strText As String, strReference As String, _
             !Comments = ZN(strComments)
         .Update
         .Bookmark = .LastModified
-        SaveString = !ID
+        SaveString = !Id
         .Close
     End With
 
@@ -555,10 +555,10 @@ Private Sub LoadLanguage(strLanguage As String)
     With rst
         Do While Not .EOF
             strKey = BuildKey(Nz(!context), Nz(!msgid))
-            If Not this.dStrings.Exists(strKey) Then this.dStrings.Add strKey, CStr(!ID)
+            If Not this.dStrings.Exists(strKey) Then this.dStrings.Add strKey, CStr(!Id)
             If Nz(!Translation) <> vbNullString Then
-                If Not this.dTranslation.Exists(CStr(!ID)) Then
-                    this.dTranslation.Add CStr(!ID), Nz(!Translation)
+                If Not this.dTranslation.Exists(CStr(!Id)) Then
+                    this.dTranslation.Add CStr(!Id), Nz(!Translation)
                 End If
             End If
             .MoveNext
@@ -795,7 +795,7 @@ Private Sub SaveStringEntriesToDatabase(colEntries As Collection)
                 .Update
                 ' Save ID to dictionary using key
                 .Bookmark = .LastModified
-                this.dStrings.Add varKey, CLng(!ID)
+                this.dStrings.Add varKey, CLng(!Id)
             End If
         Next lngCnt
         .Close
@@ -891,7 +891,7 @@ Private Sub AddLanguage(strLanguage As String)
     Set rst = dbs.OpenRecordset("tblLanguages")
     With rst
         .AddNew
-            !ID = strLanguage
+            !Id = strLanguage
             !DisplayName = GetLanguageName(strLanguage)
         .Update
         .Close
@@ -1132,9 +1132,9 @@ End Function
 '           : https://learn.microsoft.com/en-us/office/vba/api/Office.MsoLanguageID
 '---------------------------------------------------------------------------------------
 '
-Private Function LanguageIdToString(lngID) As String
+Private Function LanguageIdToString(lngId) As String
 
-    Select Case lngID
+    Select Case lngId
         Case 1078:  LanguageIdToString = "af_ZA" 'South Africa (msoLanguageIDAfrikaans)
         Case 1052:  LanguageIdToString = "sq_AL" 'Albania (msoLanguageIDAlbanian)
         Case 1118:  LanguageIdToString = "am_ET" 'Ethiopia (msoLanguageIDAmharic)

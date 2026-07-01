@@ -24,3 +24,5 @@ Dim i           'i
 Dim strSql      'strSql
 Dim lngAs       'lngAs
 Dim strId       'strId
+Dim lngId       'lngId
+Dim Id          'Id

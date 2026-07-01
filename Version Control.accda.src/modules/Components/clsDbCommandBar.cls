@@ -272,7 +272,7 @@ Private Sub AddChildControl(dControl As Dictionary, objParent As Object)
             If m_TemplateCommandBar Is Nothing Then
                 WarnTemplateCommandBarNotLoaded
             Else
-                Set objTemplateCtl = m_TemplateCommandBar.FindControl(ID:=dControl("Id"))
+                Set objTemplateCtl = m_TemplateCommandBar.FindControl(Id:=dControl("Id"))
                 CatchAny eelNoError, vbNullString
                 If objTemplateCtl Is Nothing Then
                     Log.Error eelError, "Built-in control Id " & dControl("Id") & " could not be recreated (not addable and not in the template command bar).", ModuleName(Me) & ".AddChildControl"
@@ -344,7 +344,7 @@ Private Function GetControlFaceId(ctl As CommandBarControl) As Long
     On Error Resume Next
     GetControlFaceId = ctl.FaceId
     CatchAny eelWarning, "Unexpected error reading FaceId for button '" & ctl.Caption & _
-        "' (Id " & ctl.ID & ")", ModuleName(Me) & ".GetControlFaceId"
+        "' (Id " & ctl.Id & ")", ModuleName(Me) & ".GetControlFaceId"
 End Function
 
 
@@ -422,7 +422,7 @@ Private Function IsTemplateControl(lngId As Long) As Boolean
     If m_TemplateCommandBar Is Nothing Then Exit Function
     LogUnhandledErrors
     On Error Resume Next
-    IsTemplateControl = Not (m_TemplateCommandBar.FindControl(ID:=lngId) Is Nothing)
+    IsTemplateControl = Not (m_TemplateCommandBar.FindControl(Id:=lngId) Is Nothing)
     CatchAny eelNoError, vbNullString
 End Function
 
@@ -449,9 +449,9 @@ Private Sub AddReferenceName(dParent As Dictionary, objItem As CommandBarControl
 
     If objItem.BuiltIn Then
         If dParent.Exists("ControlIdName") Then Exit Sub
-        strName = ControlIdToName(objItem.ID)
+        strName = ControlIdToName(objItem.Id)
         If Len(strName) = 0 Then
-            Log.Add "  Unknown built-in control Id " & objItem.ID & " (caption: '" & objItem.Caption & "')", False
+            Log.Add "  Unknown built-in control Id " & objItem.Id & " (caption: '" & objItem.Caption & "')", False
         Else
             dParent.Add "ControlIdName", strName
         End If
@@ -484,7 +484,7 @@ Private Sub AddReplicaReferenceName(dParent As Dictionary, objItem As CommandBar
     If dParent.Exists("FaceIdName") Then Exit Sub
 
     lngFaceId = GetControlFaceId(objItem)
-    If lngFaceId = 0 Then lngFaceId = objItem.ID
+    If lngFaceId = 0 Then lngFaceId = objItem.Id
     strName = ControlIdToName(lngFaceId)
     If Len(strName) > 0 Then dParent.Add "FaceIdName", strName
 
@@ -578,9 +578,9 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         ' visual replica. Addability uses a cached runtime probe keyed on (Type, Id).
         If objItem.BuiltIn Then
             If Options.ExportFormatVersion >= EFV_5_0_0 Then
-                If IsNonAddableControl(objItem.ID) Then
+                If IsNonAddableControl(objItem.Id) Then
                     blnExportAsReplica = True
-                ElseIf IsBuiltInControlAddable(objItem.Type, objItem.ID) Then
+                ElseIf IsBuiltInControlAddable(objItem.Type, objItem.Id) Then
                     If IsBuiltInControlCustomized(objItem) Then
                         blnExportAsReplica = True
                     Else
@@ -589,11 +589,11 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
                         dParent.Add "BuiltIn", True
                         dParent.Add "Type", objItem.Type
                         dParent.Add "Visible", objItem.Visible
-                        dParent.Add "Id", objItem.ID
+                        dParent.Add "Id", objItem.Id
                         Set BuildElementDictionary = dParent
                         Exit Function
                     End If
-                ElseIf IsTemplateControl(objItem.ID) Then
+                ElseIf IsTemplateControl(objItem.Id) Then
                     ' Non-addable but present on the template bar -> full built-in export.
                 Else
                     blnExportAsReplica = True
@@ -624,7 +624,7 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
             End If
             If dParent.Exists("Id") Then dParent.Remove "Id"
         ElseIf objItem.BuiltIn Then
-            dParent.Add "Id", objItem.ID
+            dParent.Add "Id", objItem.Id
         End If
         If TypeOf objItem Is CommandBarComboBox Then
             If objItem.Type = msoControlDropdown Or objItem.Type = msoControlComboBox Then
@@ -746,7 +746,7 @@ Private Function GetImagePath(ctl As CommandBarControl) As String
             strSegment = Nz2(MultiReplace(ctlTest.Caption, _
                 "&", vbNullString, _
                 "...", vbNullString) _
-                , ctlTest.ID)
+                , ctlTest.Id)
         End If
         If Len(strSegment) Then
             If Len(strName) Then

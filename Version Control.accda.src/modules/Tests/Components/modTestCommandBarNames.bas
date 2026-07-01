@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestCommandBarNames"
+﻿Attribute VB_Name = "modTestCommandBarNames"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestCommandBarNames
 ' Author    : Adam Waller
@@ -79,7 +79,7 @@ Public Sub TestTemplateControlOpenTable()
         Exit Sub
     End If
 
-    TestAssert Not (cbTemplate.FindControl(ID:=1835) Is Nothing), "Open Table (1835) on template bar"
+    TestAssert Not (cbTemplate.FindControl(Id:=1835) Is Nothing), "Open Table (1835) on template bar"
     TestAssert Not IsBuiltInControlAddable(msoControlButton, 1835), "Open Table (1835) not addable"
 End Sub
 

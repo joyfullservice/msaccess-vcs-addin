@@ -805,7 +805,7 @@ Private Function ReadMsysQueryRows(ByVal strQueryName As String, ByVal dMetadata
     If rst.EOF Then Err.Raise vbObjectError + 601, ModuleName, _
         "Query '" & strQueryName & "' not found in MSysObjects."
 
-    lngObjectId = CLng(rst!ID)
+    lngObjectId = CLng(rst!Id)
     dMetadata.Add "Name", strQueryName
     dMetadata.Add "ObjectId", lngObjectId
     dMetadata.Add "Flags", Nz(rst!Flags, 0)

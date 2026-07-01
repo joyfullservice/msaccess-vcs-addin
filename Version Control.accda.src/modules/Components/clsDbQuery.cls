@@ -155,7 +155,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
         GoTo CleanUp
     End If
 
-    lngObjectId = rst!ID
+    lngObjectId = rst!Id
     lngQueryType = Nz(rst!Flags, 0)
     blnIsPassThrough = IsPassThroughQueryType(lngQueryType)
     If Not IsNull(rst!LvProp) Then bteLvProp = rst!LvProp

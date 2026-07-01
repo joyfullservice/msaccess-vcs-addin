@@ -19,7 +19,7 @@ Option Explicit
 '@Folder("Components")
 
 Public Name As String
-Public ID As Long
+Public Id As Long
 
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
@@ -61,7 +61,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim fld As DAO.Field
-    Dim lngID As Long
+    Dim lngId As Long
     Dim varKey As Variant
 
     ' Only import files with the correct extension.
@@ -88,10 +88,10 @@ Private Sub IDbComponent_Import(strFile As String)
             .Update
             ' Save ID from header so we can use it for columns
             .Bookmark = .LastModified
-            lngID = !SpecID
+            lngId = !SpecID
             ' Update class with current ID and name
-            Me.ID = lngID
-            Me.Name = Nz(!SpecName, "Spec " & lngID)
+            Me.Id = lngId
+            Me.Name = Nz(!SpecName, "Spec " & lngId)
         End With
 
         ' Add columns records
@@ -100,7 +100,7 @@ Private Sub IDbComponent_Import(strFile As String)
             For Each varKey In dSpec("Columns").Keys
                 Set dCol = dSpec("Columns")(varKey)
                 .AddNew
-                    !SpecID = lngID
+                    !SpecID = lngId
                     !FieldName = CStr(varKey)
                     For Each fld In .Fields
                         If dCol.Exists(fld.Name) Then
@@ -189,7 +189,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                     ' Add spec name
                     Set cSpec = New clsDbImexSpec
                     cSpec.Name = strName
-                    cSpec.ID = Nz(!SpecID, 0)
+                    cSpec.Id = Nz(!SpecID, 0)
                     If blnNeedAll Then m_Items(False).Add cSpec.Parent.SourceFile, cSpec
                     If blnModifiedOnly Then
                         If cSpec.IDbComponent_IsModified Then m_Items(True).Add cSpec.Parent.SourceFile, cSpec
@@ -241,10 +241,10 @@ Private Function GetDictionary() As Dictionary
     Set dbs = SharedDb
 
     ' Make sure we have an object specified
-    If Me.ID = 0 Then Exit Function
+    If Me.Id = 0 Then Exit Function
 
     ' Build header info first
-    strSql = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.ID
+    strSql = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.Id
     Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
     With rst
         For Each fld In .Fields
@@ -257,7 +257,7 @@ Private Function GetDictionary() As Dictionary
     End With
 
     ' Build list of columns
-    strSql = "SELECT * FROM MSysIMEXColumns WHERE SpecID=" & Me.ID
+    strSql = "SELECT * FROM MSysIMEXColumns WHERE SpecID=" & Me.Id
     Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
     With rst
         Do While Not .EOF
@@ -294,17 +294,17 @@ End Function
 '
 Private Sub DeleteSpecByName(strName As String)
 
-    Dim lngID As Long
+    Dim lngId As Long
 
     ' Skip lookup if we don't even have the corresponding system table.
     If Not TableExists("MSysIMEXSpecs") Then Exit Sub
 
     ' Attempt to look up spec by name
-    lngID = Nz(DLookup("SpecID", "MSysIMEXSpecs", "SpecName=""" & DblQ(strName) & """"))
-    If lngID > 0 Then
+    lngId = Nz(DLookup("SpecID", "MSysIMEXSpecs", "SpecName=""" & DblQ(strName) & """"))
+    If lngId > 0 Then
         ' Remove related records
-        SharedDb.Execute "delete from MSysIMEXColumns where SpecID=" & lngID, dbFailOnError
-        SharedDb.Execute "delete from MSysIMEXSpecs where SpecID=" & lngID, dbFailOnError
+        SharedDb.Execute "delete from MSysIMEXColumns where SpecID=" & lngId, dbFailOnError
+        SharedDb.Execute "delete from MSysIMEXSpecs where SpecID=" & lngId, dbFailOnError
     End If
 
 End Sub
