@@ -479,6 +479,8 @@ Private Sub cmdFormatUpdate_Click()
         MsgBox2 T("No Database Open"), T("Please open a database file before configuring VCS options."), , vbInformation
         Exit Sub
     End If
+    ' Move focus off the hyperlink-style button so it does not keep visited/pressed coloring.
+    cmdClose.SetFocus
     ' Force reload of options from current project before opening the form.
     Set Options = Nothing
     Form_frmVCSOptions.Visible = True

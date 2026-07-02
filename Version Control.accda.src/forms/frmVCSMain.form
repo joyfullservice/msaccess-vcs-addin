@@ -1779,6 +1779,7 @@ Begin Form
                     TabIndex =10
                     Name ="cmdFormatUpdate"
                     Caption ="Upgrade Output Format..."
+                    OnClick ="[Event Procedure]"
                     LeftPadding =135
                     TopPadding =135
                     RightPadding =150
@@ -1806,10 +1807,10 @@ Begin Form
                     HoverTint =100.0
                     PressedThemeColorIndex =10
                     PressedShade =100.0
-                    HoverForeThemeColorIndex =10
-                    HoverForeTint =100.0
-                    PressedForeThemeColorIndex =10
-                    PressedForeTint =100.0
+                    HoverForeThemeColorIndex =7
+                    HoverForeTint =40.0
+                    PressedForeThemeColorIndex =7
+                    PressedForeTint =40.0
                     Overlaps =1
                 End
             End
