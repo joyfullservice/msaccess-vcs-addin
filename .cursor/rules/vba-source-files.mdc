@@ -3,35 +3,16 @@ description: VBA source file editing rules - encoding, structure, and safe modif
 globs:
   - "**/*.bas"
   - "**/*.cls"
+  - "**/*.form"
+  - "**/*.report"
+  - "**/*.qdef"
+  - "**/*.macro"
 alwaysApply: false
 ---
 
 # VBA Source File Rules
 
-When editing VBA source files (`.bas` and `.cls`), follow these critical rules:
-
-## Encoding
-
-- **ALWAYS preserve UTF-8 with BOM encoding** (bytes `EF BB BF` at file start)
-- Encoding errors cause import failures with no clear error message
-
-## REQUIRED: Restore BOM After Every Edit
-
-The StrReplace tool strips the UTF-8 BOM from files. **After EVERY edit to a `.bas` or `.cls` file**, run this PowerShell command to restore the BOM:
-
-```powershell
-$f="path\to\file.bas"; $b=[System.IO.File]::ReadAllBytes($f); if($b[0]-ne0xEF-or$b[1]-ne0xBB-or$b[2]-ne0xBF){[System.IO.File]::WriteAllBytes($f,[byte[]](0xEF,0xBB,0xBF)+$b); "BOM restored: $f"}else{"BOM OK: $f"}
-```
-
-Replace `path\to\file.bas` with the actual file path that was edited.
-
-## Editing Safely
-
-To reduce risk of BOM corruption:
-
-- **Use the smallest possible `old_string`** - include only enough context to uniquely identify the edit location
-- **Never replace entire procedures** when only a few lines change
-- **Break large changes into multiple small edits**
+When editing VBA source files (`.bas`, `.cls`) or Access SaveAsText files (`.form`, `.report`, `.qdef`, `.macro`), follow these rules:
 
 ## File Structure - Do NOT Modify
 
@@ -51,5 +32,23 @@ To reduce risk of BOM corruption:
 - Use `Option Compare Database` and `Option Explicit`
 - Follow naming conventions: `str*`, `lng*`, `bln*`, `d*` (Dictionary), `c*` (class objects)
 - Use `T()` function for translatable strings
+
+## File Placement (`@Folder`)
+
+A component's on-disk folder is determined by the `'@Folder("Category.Sub")` comment **inside** the VBA source file, not by where you think it should live:
+
+- `'@Folder("Tests")` → `modules/Tests/<ModuleName>.bas` (or `forms/Tests/<FormName>.form`, etc.)
+- `'@Folder("Core.Utility")` → `modules/Core/Utility/<ModuleName>.bas`
+- No `@Folder` annotation → root of the component folder (`modules/`, `forms/`, or `reports/`)
+
+For **forms and reports**, the `@Folder` annotation is in the `.cls` code-behind file only — not in `.form`/`.report`, `.json`, or `.svg`.
+
+**Before creating or moving a component:**
+
+1. Search the entire `modules/`, `forms/`, or `reports/` tree for an existing file with the same basename.
+2. Edit that existing file in place — never create a second copy in another folder.
+3. If you need to change folder placement, edit the `'@Folder` annotation and let export relocate the file (or move the whole source group to match the annotation).
+
+Duplicate copies of the same name in different folders cause silent last-one-wins behavior on build and corrupt the change index. Build auto-removes misplaced duplicates when exactly one copy is in its annotation-derived folder.
 
 @Version Control.accda.src/AGENTS.md

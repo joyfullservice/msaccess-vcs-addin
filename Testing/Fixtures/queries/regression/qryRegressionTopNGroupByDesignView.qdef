@@ -1,0 +1,39 @@
+﻿Operation =1
+Option =16
+RowCount ="1"
+Begin InputTables
+    Name ="tblCars"
+    Name ="tblCarsModel"
+End
+Begin OutputColumns
+    Expression ="tblCars.Manufacturer"
+End
+Begin Joins
+    LeftTable ="tblCars"
+    RightTable ="tblCarsModel"
+    Expression ="tblCars.ID = tblCarsModel.ID"
+    Flag =1
+End
+Begin OrderBy
+    Expression ="tblCars.Manufacturer"
+    Flag =0
+End
+Begin Groups
+    Expression ="tblCars.Manufacturer"
+    GroupLevel =0
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblCars.Manufacturer"
+        dbLong "AggregateType" ="-1"
+    End
+End

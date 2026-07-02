@@ -192,6 +192,27 @@ Public Sub cmdRunTests_Click()
     strTest = CommandBars("Special \\..// Popup").Controls(1).Caption
     ShowResult "Special Char Caption", (strTest = "Special \\..// Button")
 
+    ' VCS Test Menu (hybrid command bar classification fixture)
+    Dim barTest As CommandBar
+    Dim ctlTest As CommandBarControl
+    Set barTest = CommandBars(TestMenuName)
+    ShowResult "VCS Test Menu exists", (barTest.Name = TestMenuName)
+    Set ctlTest = FindControlByCaption(barTest, "Custom Button")
+    ShowResult "VCS Test Menu custom button", (Not ctlTest Is Nothing) And (Not ctlTest.BuiltIn)
+    Set ctlTest = FindControlById(barTest, IdPrint)
+    ShowResult "VCS Test Menu Print built-in (Id 4)", (Not ctlTest Is Nothing) And ctlTest.BuiltIn
+    Set ctlTest = FindControlById(barTest, IdCompactRepair)
+    ShowResult "VCS Test Menu customized action (Id 2071)", _
+        (Not ctlTest Is Nothing) And (InStr(ctlTest.OnAction, "Customized Compact") > 0)
+    Set ctlTest = FindControlById(barTest, IdOpenTable)
+    ShowResult "VCS Test Menu Open Table (Id 1835)", Not ctlTest Is Nothing
+    Set ctlTest = FindControlByCaption(barTest, "More")
+    ShowResult "VCS Test Menu More popup", (Not ctlTest Is Nothing) And (TypeOf ctlTest Is CommandBarPopup)
+    If Not ctlTest Is Nothing Then
+        Set ctlTest = FindControlById(barTest, IdClose)
+        ShowResult "VCS Test Menu Close in popup (Id 106)", Not ctlTest Is Nothing
+    End If
+
 
     ' Other
     ShowResult "VCS Options file exists", FSO.FileExists(ExportFolder & "vcs-options.json")
@@ -278,4 +299,5 @@ End Function
 
 Private Sub Form_Load()
     imgResult.Picture = vbNullString
+    Me.ShortcutMenuBar = TestMenuName
 End Sub

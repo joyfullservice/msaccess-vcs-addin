@@ -14,3 +14,7 @@ End Sub
 Private Sub cmdSpecial_Click()
     Menu.PopupBelow cmdSpecial, "Special \\..// Popup"
 End Sub
+
+Private Sub cmdShowTestMenu_Click()
+    Menu.PopupBelow cmdShowTestMenu, TestMenuName
+End Sub

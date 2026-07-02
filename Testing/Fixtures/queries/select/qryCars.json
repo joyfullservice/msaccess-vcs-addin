@@ -1,0 +1,10 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryCars"
+  },
+  "Items": {
+    "QueryType": 0,
+    "OptionFlag": 2
+  }
+}

@@ -1,0 +1,71 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryNavPaneGroups"
+  },
+  "Items": {
+    "QueryType": 0,
+    "Columns": {
+      "GroupName": {
+        "ColumnWidth": 2085,
+        "AggregateType": -1
+      }
+    },
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1094,
+        "bottom": 544
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1078,
+        "bottom": 397
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "MSysNavPaneGroups",
+          "Alias": "",
+          "Left": 251,
+          "Top": 42,
+          "Right": 440,
+          "Bottom": 234,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "MSysNavPaneGroupToObjects",
+          "Alias": "",
+          "Left": 513,
+          "Top": 40,
+          "Right": 752,
+          "Bottom": 247,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "MSysObjects",
+          "Alias": "",
+          "Left": 853,
+          "Top": 40,
+          "Right": 997,
+          "Bottom": 376,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "MSysNavPaneGroupCategories",
+          "Alias": "",
+          "Left": 44,
+          "Top": 44,
+          "Right": 188,
+          "Bottom": 236,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

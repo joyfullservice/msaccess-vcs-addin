@@ -1,0 +1,15 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryCurrencyExchangeINNER"
+  },
+  "Items": {
+    "QueryType": 0,
+    "Columns": {
+      "tblCurrencies.Currency": {
+        "ColumnWidth": 2550,
+        "AggregateType": -1
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionFindDuplicates"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionUnionOrderBy"
+  },
+  "Items": {
+    "QueryType": 128,
+    "OptionFlag": 3
+  }
+}

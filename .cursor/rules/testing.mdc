@@ -1,0 +1,208 @@
+---
+description: VBA testing framework - how to write, discover, and run tests using the VCS test runner
+globs:
+  - "**/modules/Tests/**"
+alwaysApply: false
+---
+# VBA Testing Framework
+
+Use this rule when writing or modifying tests for the VCS add-in or any Access database that uses the VCS test runner.
+
+## Overview
+
+The VCS add-in includes a built-in test runner that discovers and executes tests in the current database project. Tests use `TestAssert` (a drop-in replacement for `Debug.Assert`) for assertions.
+
+## Writing Tests
+
+### Standard Module Tests
+
+Place parameterless `Public Sub` procedures in a module that is identified as a test module:
+
+```vba
+Attribute VB_Name = "modTestMyFeature"
+Option Compare Database
+Option Explicit
+Option Private Module
+'@Folder("Tests")
+
+Public Sub TestSomeBehavior()
+    Dim result As Long
+    result = MyFunction(42)
+    TestAssert result = 84, "MyFunction should double input"
+End Sub
+
+Public Sub TestEdgeCase()
+    TestAssert MyFunction(0) = 0, "Zero input returns zero"
+End Sub
+
+' Helper — not discovered as a test (has parameters)
+Private Sub SetupTempData(strName As String)
+    ' ...
+End Sub
+```
+
+### Class Module Tests (Preferred for New Tests)
+
+Class modules provide built-in setup/teardown via `Class_Initialize` and `Class_Terminate`:
+
+```vba
+VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "clsTestMyFeature"
+Option Compare Database
+Option Explicit
+'@Folder("Tests")
+
+Private m_db As DAO.Database
+
+Private Sub Class_Initialize()
+    ' Setup: runs before each test method (fresh instance per test)
+    Set m_db = CurrentDb
+End Sub
+
+Private Sub Class_Terminate()
+    ' Teardown: runs after each test method
+    Set m_db = Nothing
+End Sub
+
+Public Sub TestInsertRecord()
+    m_db.Execute "INSERT INTO tblTemp VALUES (1, 'test')"
+    TestAssert DCount("*", "tblTemp") > 0, "Record inserted"
+End Sub
+
+Public Function TestQueryResult()
+    Dim rs As DAO.Recordset
+    Set rs = m_db.OpenRecordset("SELECT Count(*) FROM tblItems")
+    TestAssert rs.Fields(0).Value >= 0, "Count is non-negative"
+    rs.Close
+End Function
+```
+
+Each test method gets a **fresh class instance** — `Class_Initialize` fires before the method, `Class_Terminate` fires after. This gives complete test isolation.
+
+## Test Discovery Rules
+
+A module is a **test module** if:
+1. It is a standard module (`vbext_ct_StdModule`) or standalone class module (`vbext_ct_ClassModule`)
+2. AND either:
+   - Has `'@Folder("...Tests...")` annotation (if the project uses `@Folder` anywhere), OR
+   - Its name contains `Test` (case-insensitive fallback)
+
+Within a test module, a procedure is a **test** if:
+- **Standard modules**: `Public Sub` with zero parameters
+- **Class modules**: `Public Sub` or `Public Function` with zero parameters, excluding `Class_Initialize` and `Class_Terminate`
+
+## Making Methods Non-Test
+
+To include helper code in a test module without it being discovered as a test:
+- Make it `Private`
+- Give it one or more parameters (even an unused `Optional` parameter)
+
+## Assertions
+
+Use `TestAssert` for all assertions:
+
+```vba
+TestAssert condition, "optional context description"
+```
+
+- `condition` — Boolean expression to evaluate
+- `context` — Optional string to identify which assertion failed (useful in loops or shared helpers)
+
+When the VCS test runner is active, `TestAssert` reports results back to the add-in. When run standalone (F5 or Immediate Window), it falls back to `Debug.Assert`.
+
+## Running Tests
+
+- **Ribbon**: Tools > Run Tests
+- **Immediate Window**: `?VCS.RunTests`
+- **Filtered**: `?VCS.RunTests("modTestEncoding", "-slow")`
+- **MCP**: `vcs_run_vba(<addin-path>, "MCP_TempFunction = VCS.RunTests()")`
+- **Re-run failures only**: The runner supports `RunFailed` to re-execute only tests that failed or errored
+
+### Filter Syntax
+
+`RunTests` accepts an optional `ParamArray` of filter arguments. Each argument is resolved in priority order:
+
+1. **Module name** — exact match on the module/class name
+2. **Suite/folder** — match against `@Folder` annotation values (exact or final-segment, e.g., `"SQL"` matches `"Tests.SQL"`)
+3. **Procedure name** — match on procedure name or full `Module.Procedure` key
+4. **Tag** — match against `'@Tag("...")` annotations
+
+Prefix any argument with `-` to **exclude** it. Inclusions combine with OR; exclusions combine with AND. If only exclusions are specified, the base set is all tests.
+
+```vba
+?VCS.RunTests                                    ' Run all tests
+?VCS.RunTests("modTestEncoding")                 ' Run one module
+?VCS.RunTests("-slow")                           ' Run all except slow-tagged
+?VCS.RunTests("SQL", "-slow")                    ' Run SQL suite, skip slow
+?VCS.RunTests("TestParseJoinExpression")         ' Run one specific procedure
+?VCS.RunTests("-modTestConnect", "-slow")        ' Exclude a module and a tag
+```
+
+## Tagging Tests
+
+Use `'@Tag("name")` annotations to categorize tests for selective filtering. Tags are case-insensitive.
+
+**Module-level tags** (in the first ~30 lines, before any procedure) apply to all tests in the module:
+
+```vba
+Option Private Module
+'@Folder("Tests")
+'@Tag("slow")
+'@Tag("database")
+```
+
+**Procedure-level tags** go inside the procedure body, at the very top before any executable code:
+
+```vba
+Public Sub TestExpensiveQuery()
+    '@Tag("slow")
+    '@Tag("regression")
+    Dim result As Boolean
+    result = RunExpensiveCheck()
+    TestAssert result, "check passes"
+End Sub
+```
+
+The scanner collects `'@Tag(...)` annotations from comment/blank lines at the start of the body and stops at the first executable line (`Dim`, `Set`, `TestAssert`, etc.). This means tags must appear before any variable declarations or code.
+
+Module-level and procedure-level tags are merged — a test inherits all module-level tags plus any procedure-specific tags.
+
+## Test Results
+
+Results are:
+- Streamed live to the `frmVCSMain` console (color-coded: green PASS, red FAIL/ERROR, gray EMPTY, orange SKIP)
+- Saved as JSON to `<export-folder>/logs/TestResults_<timestamp>.json`
+- Returned as a JSON string from `VCS.RunTests`
+
+Each test entry in the JSON output includes a `"tags"` array listing the tags applied to that test.
+
+## Class Test Factory
+
+When class-based tests are discovered, the runner auto-maintains a `TestClassFactory` function inside `modTestAssert`. This function has a `Select Case` block with one entry per test class. The runner regenerates it during scan if the entries are out of date. Do not manually edit lines between the `BEGIN`/`END` markers.
+
+## Global Suite Hooks
+
+Optional **once-per-run** setup/teardown in the target project's `modTestAssert`:
+
+```vba
+Public Sub GlobalTestSetup()      ' Before first test (when ≥1 test selected)
+Public Sub GlobalTestTeardown()   ' After all tests and results JSON
+```
+
+- Included as empty stubs (with inline comments) in fresh `InstallTestAssertModule` installs
+- Silent skip when absent (backward compatible)
+- Not run when zero tests are discovered or a filter matches nothing
+- Hook errors are non-fatal (console warning only); teardown still runs
+
+Per-class `Class_Initialize` / `Class_Terminate` remain nested inside these hooks.
+
+## Conventions
+
+- Name test modules with `Test` in the name (e.g., `modTestEncoding`, `clsTestQueryParser`)
+- Use `'@Folder("Tests")` for explicit discovery when the project has folder annotations
+- Use `Option Private Module` on standard test modules to keep test subs out of the macro list (they are still callable by the runner)
+- One assertion concept per test method; use the `context` parameter to distinguish assertions within a method
+- Keep tests focused and fast — the runner creates a fresh class instance per test method

@@ -173,7 +173,7 @@ End Sub
 '
 Private Sub cmdSaveAndClose_Click()
     If SaveConnection Then
-        Form_frmVCSOptions.RefreshSchemaList
+        Form_frmVCSOptionsDatabases.RefreshSchemaList
         DoCmd.Close acForm, Me.Name
     End If
 End Sub

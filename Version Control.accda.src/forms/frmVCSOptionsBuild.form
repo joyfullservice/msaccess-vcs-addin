@@ -1,0 +1,599 @@
+﻿Version =20
+VersionRequired =20
+Begin Form
+    RecordSelectors = NotDefault
+    NavigationButtons = NotDefault
+    DividingLines = NotDefault
+    AllowDesignChanges = NotDefault
+    DefaultView =0
+    PictureAlignment =2
+    DatasheetGridlinesBehavior =3
+    GridX =24
+    GridY =24
+    Width =6480
+    DatasheetFontHeight =11
+    ItemSuffix =18
+    Right =50000
+    Bottom =50000
+    RecSrcDt = Begin
+        0x587d60025082e640
+    End
+    DatasheetFontName ="Calibri"
+    OnLoad ="[Event Procedure]"
+    AllowDatasheetView =0
+    FilterOnLoad =0
+    ShowPageMargins =0
+    DisplayOnSharePointSite =1
+    DatasheetAlternateBackColor =15921906
+    DatasheetGridlinesColor12 =0
+    FitToScreen =1
+    DatasheetBackThemeColorIndex =1
+    BorderThemeColorIndex =3
+    ThemeFontIndex =1
+    ForeThemeColorIndex =0
+    AlternateBackThemeColorIndex =1
+    AlternateBackShade =95.0
+    Begin
+        Begin Label
+            BackStyle =0
+            FontSize =11
+            FontName ="Calibri"
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =0
+            BorderTint =50.0
+            ForeThemeColorIndex =0
+            ForeTint =60.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Line
+            BorderLineStyle =0
+            BorderThemeColorIndex =0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin CommandButton
+            FontSize =11
+            FontWeight =400
+            FontName ="Calibri"
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+            UseTheme =1
+            Shape =1
+            Gradient =12
+            BackThemeColorIndex =4
+            BackTint =60.0
+            BorderLineStyle =0
+            BorderThemeColorIndex =4
+            BorderTint =60.0
+            ThemeFontIndex =1
+            HoverThemeColorIndex =4
+            HoverTint =40.0
+            PressedThemeColorIndex =4
+            PressedShade =75.0
+            HoverForeThemeColorIndex =0
+            HoverForeTint =75.0
+            PressedForeThemeColorIndex =0
+            PressedForeTint =75.0
+        End
+        Begin CheckBox
+            BorderLineStyle =0
+            LabelX =230
+            LabelY =-30
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin TextBox
+            AddColon = NotDefault
+            FELineBreak = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AsianLineBreak =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ThemeFontIndex =1
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin ComboBox
+            AddColon = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AllowValueListEdits =1
+            InheritValueList =1
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ForeThemeColorIndex =2
+            ForeShade =50.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Section
+            Height =12000
+            BackColor =15130848
+            Name ="Detail"
+            AlternateBackColor =15130848
+            Begin
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =1440
+                    Width =6420
+                    Name ="Line0"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1440
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =1440
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =1080
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label1"
+                    Caption ="Build Options"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1080
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =1380
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CommandButton
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =60
+                    Top =180
+                    Width =480
+                    Height =480
+                    Name ="cmdIcon"
+                    Caption ="Command2"
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272ff727272541c75e3261c75e3ff1c75e326000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0x727272ff727272ff1c75e3ff000000001c75e3ff00000000000000001c75e326 ,
+                        0x1c75e3ff1c75e32600000000000000000000000072727248727272f6727272ff ,
+                        0x727272fc727272541c75e3261c75e3ff1c75e32600000000000000001c75e3ff ,
+                        0x000000001c75e3ff000000000000000072727248727272f6727272ff727272fc ,
+                        0x727272540000000000000000000000000000000000000000000000001c75e326 ,
+                        0x1c75e3ff1c75e3260000000072727248727272f6727272ff727272fc72727254 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x000000000000000072727248727272f6727272ff727272fc7272725400000000 ,
+                        0x000000000000000000000000000000001c75e3ff000000001c75e3ff00000000 ,
+                        0x0000000072727248727272f6727272ff727272f9727272540000000000000000 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x72727248727272f6727272ff727272f972727254000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272f6ffffffff727272f97272725400000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0xffffffff727272f9727272540000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000000000000000000000000000727272ff727272ff ,
+                        0x727272f972727254000000000000000000000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727254727272ff ,
+                        0x7272725400000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000
+                    End
+                    BackStyle =0
+
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =180
+                    LayoutCachedWidth =540
+                    LayoutCachedHeight =660
+                    Gradient =0
+                    BorderWidth =1
+                    BorderThemeColorIndex =1
+                    BorderTint =100.0
+                    BorderShade =65.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =720
+                    Top =240
+                    Width =5520
+                    Height =420
+                    FontSize =14
+                    ForeColor =5324600
+                    Name ="Label3"
+                    Caption ="Build and merge options"
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =240
+                    LayoutCachedWidth =6240
+                    LayoutCachedHeight =660
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =720
+                    Top =2040
+                    Width =4140
+                    Height =300
+                    FontSize =10
+                    Name ="Label309"
+                    Caption ="(\"Save Query SQL\" option needed when exporting)"
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =2040
+                    LayoutCachedWidth =4860
+                    LayoutCachedHeight =2340
+                    ForeTint =50.0
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =3600
+                    Width =6420
+                    Name ="Line4"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =3600
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =3600
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =3240
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label5"
+                    Caption ="Build Hooks"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =3240
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =3540
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =1675
+                    TabIndex =1
+                    Name ="chkForceImportOriginalQuerySQL"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =1675
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =1915
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =727
+                            Top =1620
+                            Width =5580
+                            Height =315
+                            ForeColor =5324600
+                            Name ="lblForceImportOriginalQuerySQL"
+                            Caption ="Force import of original SQL for queries"
+                            LayoutCachedLeft =727
+                            LayoutCachedTop =1620
+                            LayoutCachedWidth =6307
+                            LayoutCachedHeight =1935
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin TextBox
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =2700
+                    Top =3900
+                    Width =2640
+                    Height =315
+                    TabIndex =3
+                    Name ="txtRunBeforeBuild"
+                    ValidationRule ="Like \"*?.?*\" Or \"\" Or Is Null"
+                    ValidationText ="This value must include both module and sub names joined with a period. For exam"
+                        "ple, use MyModule.Bootstrap to run the Bootstrap sub in MyModule."
+
+                    LayoutCachedLeft =2700
+                    LayoutCachedTop =3900
+                    LayoutCachedWidth =5340
+                    LayoutCachedHeight =4215
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =3900
+                            Width =2085
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label229"
+                            Caption ="Run Sub Before Build:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =3900
+                            LayoutCachedWidth =2505
+                            LayoutCachedHeight =4215
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin TextBox
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =2700
+                    Top =4800
+                    Width =2640
+                    Height =315
+                    TabIndex =4
+                    Name ="txtRunAfterBuild"
+
+                    LayoutCachedLeft =2700
+                    LayoutCachedTop =4800
+                    LayoutCachedWidth =5340
+                    LayoutCachedHeight =5115
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =4800
+                            Width =2055
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label104"
+                            Caption ="Run Sub After Build:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =4800
+                            LayoutCachedWidth =2475
+                            LayoutCachedHeight =5115
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =2700
+                    Top =4320
+                    Width =3120
+                    Height =240
+                    FontSize =10
+                    Name ="Label230"
+                    Caption ="Use \"module.sub\" to specify module"
+                    LayoutCachedLeft =2700
+                    LayoutCachedTop =4320
+                    LayoutCachedWidth =5820
+                    LayoutCachedHeight =4560
+                    ForeTint =50.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =2700
+                    Top =5220
+                    Width =2760
+                    Height =240
+                    FontSize =10
+                    Name ="Label231"
+                    Caption ="(Module name optional)"
+                    LayoutCachedLeft =2700
+                    LayoutCachedTop =5220
+                    LayoutCachedWidth =5460
+                    LayoutCachedHeight =5460
+                    ForeTint =50.0
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =7980
+                    Width =6420
+                    Name ="Line6"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =7980
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =7980
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =7620
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label7"
+                    Caption ="Please Note"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =7620
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =7920
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =420
+                    Top =8280
+                    Width =6000
+                    Height =3483
+                    ForeColor =5324600
+                    Name ="Label105"
+                    Caption ="Building from source will completely rebuild your database project from source f"
+                        "iles. It is very important that you test this carefully in your environment to m"
+                        "ake sure everything you need is being created in your database during the build."
+                        " (A backup copy of your current database will be made as a part of the build pro"
+                        "cess.)\015\012\015\012Please see the online documentation for additional details"
+                        " on the build process. If you encounter a problem, please feel free to open an i"
+                        "ssues on the GitHub project."
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =8280
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =11763
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =2575
+                    TabIndex =2
+                    Name ="chkExportAfterMerge"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =2575
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =2815
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =727
+                            Top =2520
+                            Width =5580
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label9"
+                            Caption ="Immediately export object after merge"
+                            LayoutCachedLeft =727
+                            LayoutCachedTop =2520
+                            LayoutCachedWidth =6307
+                            LayoutCachedHeight =2835
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =6120
+                    Width =6420
+                    Name ="Line10"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =6120
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =6120
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =5760
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label11"
+                    Caption ="Merge Hooks"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =5760
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =6060
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin TextBox
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =2700
+                    Top =6420
+                    Width =2640
+                    Height =315
+                    TabIndex =5
+                    Name ="txtRunBeforeMerge"
+                    ValidationRule ="Like \"*?.?*\" Or \"\" Or Is Null"
+                    ValidationText ="This value must include both module and sub names joined with a period. For exam"
+                        "ple, use MyModule.Bootstrap to run the Bootstrap sub in MyModule."
+
+                    LayoutCachedLeft =2700
+                    LayoutCachedTop =6420
+                    LayoutCachedWidth =5340
+                    LayoutCachedHeight =6735
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =6420
+                            Width =2205
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label13"
+                            Caption ="Run Sub Before Merge:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =6420
+                            LayoutCachedWidth =2625
+                            LayoutCachedHeight =6735
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin TextBox
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =2700
+                    Top =6960
+                    Width =2640
+                    Height =315
+                    TabIndex =6
+                    Name ="txtRunAfterMerge"
+
+                    LayoutCachedLeft =2700
+                    LayoutCachedTop =6960
+                    LayoutCachedWidth =5340
+                    LayoutCachedHeight =7275
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =6960
+                            Width =2055
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label15"
+                            Caption ="Run Sub After Merge:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =6960
+                            LayoutCachedWidth =2475
+                            LayoutCachedHeight =7275
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+            End
+        End
+    End
+End
+CodeBehindForm
+' See "frmVCSOptionsBuild.cls"

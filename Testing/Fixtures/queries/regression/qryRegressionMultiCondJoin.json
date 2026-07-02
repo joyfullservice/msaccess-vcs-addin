@@ -1,0 +1,9 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionMultiCondJoin"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

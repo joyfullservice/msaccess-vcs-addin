@@ -1,0 +1,72 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryUpdateCarsPrice"
+  },
+  "Items": {
+    "QueryType": 48,
+    "OptionFlag": 2,
+    "QueryProperties": {
+      "FailOnError": {
+        "Type": 1,
+        "Value": false
+      }
+    },
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1642,
+        "bottom": 866
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1626,
+        "bottom": 159
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 579,
+      "Tables": [
+        {
+          "Name": "tblCars",
+          "Alias": "",
+          "Left": 48,
+          "Top": 12,
+          "Right": 192,
+          "Bottom": 156,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblCarsColour",
+          "Alias": "",
+          "Left": 491,
+          "Top": 13,
+          "Right": 635,
+          "Bottom": 157,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblCarsModel",
+          "Alias": "",
+          "Left": 263,
+          "Top": 12,
+          "Right": 407,
+          "Bottom": 156,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblCarsPrice",
+          "Alias": "",
+          "Left": 708,
+          "Top": 10,
+          "Right": 852,
+          "Bottom": 154,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

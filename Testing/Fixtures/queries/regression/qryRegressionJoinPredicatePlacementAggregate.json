@@ -1,0 +1,9 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionJoinPredicatePlacementAggregate"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

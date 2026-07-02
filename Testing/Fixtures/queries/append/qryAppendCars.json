@@ -1,0 +1,58 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryAppendCars"
+  },
+  "Items": {
+    "QueryType": 64,
+    "OptionFlag": 2,
+    "QueryProperties": {
+      "ODBCTimeout": {
+        "Type": 3,
+        "Value": 30
+      },
+      "UseTransaction": {
+        "Type": 1,
+        "Value": false
+      }
+    },
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1147,
+        "bottom": 800
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1122,
+        "bottom": 292
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 651,
+      "Tables": [
+        {
+          "Name": "tblVehicles",
+          "Alias": "",
+          "Left": 48,
+          "Top": 12,
+          "Right": 192,
+          "Bottom": 156,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblCars",
+          "Alias": "",
+          "Left": 240,
+          "Top": 12,
+          "Right": 384,
+          "Bottom": 156,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

@@ -170,7 +170,7 @@ Public Sub PopupBelow(ctl As Access.Control, strMenu As String)
     lngOffsetY = lngOffsetY + ctl.Height
 
     ' Add any title bar height for popup forms
-    If objParent.PopUp Then
+    If objParent.popup Then
         Select Case objParent.BorderStyle
             Case 0      ' None
             Case 1, 3   ' Thin, Dialog

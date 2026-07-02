@@ -1,0 +1,18 @@
+﻿dbMemo "SQL" ="DELETE tblCurrencies.*,\015\012tblCurrencyExchange.Currency\015\012FRO"
+    "M\015\012  tblCurrencies\015\012  LEFT JOIN tblCurrencyExchange ON tbl"
+    "Currencies.CurrencyCode = tblCurrencyExchange.Currency\015\012WHERE"
+    "\015\012  (\015\012    (\015\012      (tblCurrencyExchange.Currency) I"
+    "s Null\015\012    )\015\012  );\015\012"
+dbMemo "Connect" =""
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbBoolean "UseTransaction" ="-1"
+dbBoolean "FailOnError" ="0"
+dbByte "Orientation" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblCurrencies.Currency"
+        dbInteger "ColumnWidth" ="2445"
+        dbLong "AggregateType" ="-1"
+    End
+End

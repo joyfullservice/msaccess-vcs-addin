@@ -1,0 +1,39 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionDistinctTopAggregateDesignView"
+  },
+  "Items": {
+    "QueryType": 0,
+    "OptionFlag": 18,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 800,
+        "bottom": 600
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 780,
+        "bottom": 300
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 543,
+      "Tables": [
+        {
+          "Name": "tblCurrencyExchange",
+          "Alias": "",
+          "Left": 60,
+          "Top": 15,
+          "Right": 300,
+          "Bottom": 195,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

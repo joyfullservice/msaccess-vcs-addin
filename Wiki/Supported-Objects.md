@@ -37,7 +37,7 @@ The *Testing* column indicates whether a test item and testing code has been cre
 |Table Data Macros                |✔️|✔️|clsDbTableDataMacro|✔️|tblSaveXML|
 |💼 **QUERIES**
 |Designer Layout                  |✔️|✔️|clsDbQuery||
-|SQL Output                       |✔️|✔️|clsDbQuery||
+|SQL Output (`.sql` + `.json`)    |✔️|✔️|clsDbQuery|✔️|Round-trip fixtures in add-in repo `Testing/Fixtures/queries/`|
 |Pass Through Queries             |✔️|✔️|clsDbQuery||
 |💼 **FORMS**
 |Form objects                     |✔️|✔️|clsDbForm||
@@ -101,7 +101,7 @@ All commandbars can be exported. However, there are known instances of legacy co
 |1836|Open Query
 |1837|Open Form
 |1838|Open Report
-|1839|Run Marco
+|1839|Run Macro
 |3885|Open Access Data Page
 |3886|Open Server View (ADP)
 |~3887~|~Open Database Diagram (ADP)~ 
@@ -109,7 +109,7 @@ All commandbars can be exported. However, there are known instances of legacy co
 
 NOTE: The database diagram command is not included because we were unable to create a custom commandbar with this Id. If anyone has this and wish to support this, submit a PR including the commandbar. 
 
-If your application project contains legacy ocmmandbars that cannot be built becuase they are custom and are not in the list, and you do not wish to lose the functionality, you can make use of the [After Build procedure](https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Options#build) and perform the import. You can call ImportCommandBars routine to perform the import from a template file. For an example of this, refer to the code [here](https://github.com/joyfullservice/msaccess-vcs-addin/blob/5744030b02b5d4e9c7677a05e5016a4c347dea76/Version%20Control.accda.src/modules/modVCSUtility.bas#L1096-L1107) and [here](https://github.com/joyfullservice/msaccess-vcs-addin/blob/5744030b02b5d4e9c7677a05e5016a4c347dea76/Version%20Control.accda.src/modules/modVCSUtility.bas#L1375-L1479). 
+If your application project contains legacy commandbars that cannot be built because they are custom and are not in the list, use the [After Build](Options#build) hook and call `ImportCommandBars` from a template file. Example patterns are in `modVCSUtility` in the [add-in source](https://github.com/joyfullservice/msaccess-vcs-addin/tree/dev/Version%20Control.accda.src/modules). 
 
 
 ## Supported Versions

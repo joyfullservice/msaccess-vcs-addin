@@ -1,0 +1,10 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionExplicitAndAllFields"
+  },
+  "Items": {
+    "QueryType": 0,
+    "OptionFlag": 1
+  }
+}

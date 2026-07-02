@@ -1,0 +1,9 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionParameterTypes"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

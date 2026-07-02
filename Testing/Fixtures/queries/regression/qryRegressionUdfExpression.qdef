@@ -1,0 +1,66 @@
+﻿Operation =1
+Option =0
+Where ="(((tblItems.Flags)<>3) AND ((tblItems.Type)=5))"
+Begin InputTables
+    Name ="tblItems"
+    Name ="tblItemTypes"
+End
+Begin OutputColumns
+    Alias ="ItemName"
+    Expression ="tblItems.Name"
+    Alias ="ItemType"
+    Expression ="tblItemTypes.SubType"
+    Alias ="ComputedA"
+    Expression ="Func1([Name])"
+    Alias ="ComputedB"
+    Expression ="Func2([Name])"
+End
+Begin Joins
+    LeftTable ="tblItems"
+    RightTable ="tblItemTypes"
+    Expression ="tblItems.Flags = tblItemTypes.Flags"
+    Flag =1
+    LeftTable ="tblItems"
+    RightTable ="tblItemTypes"
+    Expression ="tblItems.Type = tblItemTypes.Type"
+    Flag =1
+End
+Begin OrderBy
+    Expression ="tblItems.Name"
+    Flag =0
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="ItemName"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="ItemType"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="ComputedA"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="ComputedB"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblItems.Flags"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblItems.Type"
+        dbLong "AggregateType" ="-1"
+    End
+End

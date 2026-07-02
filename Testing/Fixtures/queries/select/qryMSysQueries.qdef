@@ -1,0 +1,70 @@
+﻿Operation =1
+Option =0
+Where ="(((MSysObjects.Flags)<>3))"
+Begin InputTables
+    Name ="MSysObjects"
+    Name ="MSysQueries"
+End
+Begin OutputColumns
+    Expression ="MSysObjects.Name"
+    Expression ="MSysQueries.Attribute"
+    Expression ="MSysQueries.Flag"
+    Expression ="MSysQueries.Expression"
+    Expression ="MSysQueries.Name1"
+    Expression ="MSysQueries.Name2"
+End
+Begin Joins
+    LeftTable ="MSysObjects"
+    RightTable ="MSysQueries"
+    Expression ="MSysObjects.Id = MSysQueries.ObjectId"
+    Flag =1
+End
+Begin OrderBy
+    Expression ="MSysObjects.Name"
+    Flag =0
+    Expression ="MSysQueries.Attribute"
+    Flag =0
+    Expression ="MSysQueries.Flag"
+    Flag =0
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="MSysObjects.Name"
+        dbInteger "ColumnWidth" ="2415"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysQueries.Attribute"
+        dbInteger "ColumnWidth" ="1275"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysQueries.Expression"
+        dbInteger "ColumnWidth" ="4710"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysQueries.Flag"
+        dbInteger "ColumnWidth" ="795"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysQueries.Name1"
+        dbInteger "ColumnWidth" ="1440"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="MSysQueries.Name2"
+        dbInteger "ColumnWidth" ="2130"
+        dbLong "AggregateType" ="-1"
+    End
+End

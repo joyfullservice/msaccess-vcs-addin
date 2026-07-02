@@ -6,26 +6,22 @@
   "Items": {
     "Databases": {
       "SummaryInfo": {
-        "Author": "Adam Waller",
-        "Hyperlink base": "https://github.com/joyfullservice/msaccess-vcs-integration/",
-        "Subject": "Test functionality of Version Control System",
-        "Title": "VCS Testing"
-      }
-    },
-    "Modules": {
-      "basUtility": {
-        "Description": "My special description on the code module."
-      }
-    },
-    "Tables": {
-      "tblHidden": {
-        "Description": "This table should be hidden."
-      },
-      "tblLinkedCSV": {
-        "Description": "This is simply a test CSV file that were are linking to."
-      },
-      "tblSaveXML": {
-        "Description": "Saved description in XML table."
+        "Author": {
+          "Type": 10,
+          "Value": "Adam Waller"
+        },
+        "Hyperlink base": {
+          "Type": 10,
+          "Value": "https://github.com/joyfullservice/msaccess-vcs-integration/"
+        },
+        "Subject": {
+          "Type": 10,
+          "Value": "Test functionality of Version Control System"
+        },
+        "Title": {
+          "Type": 10,
+          "Value": "VCS Testing"
+        }
       }
     }
   }

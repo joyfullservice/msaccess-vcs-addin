@@ -1,0 +1,53 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryStrings"
+  },
+  "Items": {
+    "QueryType": 0,
+    "Columns": {
+      "tblStrings.msgid": {
+        "ColumnWidth": 3765,
+        "AggregateType": -1
+      }
+    },
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1705,
+        "bottom": 848
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1689,
+        "bottom": 535
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "tblLanguages",
+          "Alias": "",
+          "Left": 145,
+          "Top": 91,
+          "Right": 291,
+          "Bottom": 265,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblStrings",
+          "Alias": "",
+          "Left": 349,
+          "Top": 91,
+          "Right": 503,
+          "Bottom": 263,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

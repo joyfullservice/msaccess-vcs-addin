@@ -1,0 +1,9 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionStrandedAlias"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

@@ -1,0 +1,478 @@
+﻿Version =20
+VersionRequired =20
+Begin Form
+    RecordSelectors = NotDefault
+    NavigationButtons = NotDefault
+    DividingLines = NotDefault
+    AllowDesignChanges = NotDefault
+    DefaultView =0
+    PictureAlignment =2
+    DatasheetGridlinesBehavior =3
+    GridX =24
+    GridY =24
+    Width =6480
+    DatasheetFontHeight =11
+    ItemSuffix =9
+    Right =50000
+    Bottom =50000
+    RecSrcDt = Begin
+        0x587d60025082e640
+    End
+    DatasheetFontName ="Calibri"
+    OnLoad ="[Event Procedure]"
+    AllowDatasheetView =0
+    FilterOnLoad =0
+    ShowPageMargins =0
+    DisplayOnSharePointSite =1
+    DatasheetAlternateBackColor =15921906
+    DatasheetGridlinesColor12 =0
+    FitToScreen =1
+    DatasheetBackThemeColorIndex =1
+    BorderThemeColorIndex =3
+    ThemeFontIndex =1
+    ForeThemeColorIndex =0
+    AlternateBackThemeColorIndex =1
+    AlternateBackShade =95.0
+    Begin
+        Begin Label
+            BackStyle =0
+            FontSize =11
+            FontName ="Calibri"
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =0
+            BorderTint =50.0
+            ForeThemeColorIndex =0
+            ForeTint =60.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Line
+            BorderLineStyle =0
+            BorderThemeColorIndex =0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin CommandButton
+            FontSize =11
+            FontWeight =400
+            FontName ="Calibri"
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+            UseTheme =1
+            Shape =1
+            Gradient =12
+            BackThemeColorIndex =4
+            BackTint =60.0
+            BorderLineStyle =0
+            BorderThemeColorIndex =4
+            BorderTint =60.0
+            ThemeFontIndex =1
+            HoverThemeColorIndex =4
+            HoverTint =40.0
+            PressedThemeColorIndex =4
+            PressedShade =75.0
+            HoverForeThemeColorIndex =0
+            HoverForeTint =75.0
+            PressedForeThemeColorIndex =0
+            PressedForeTint =75.0
+        End
+        Begin CheckBox
+            BorderLineStyle =0
+            LabelX =230
+            LabelY =-30
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin TextBox
+            AddColon = NotDefault
+            FELineBreak = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AsianLineBreak =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ThemeFontIndex =1
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin ComboBox
+            AddColon = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AllowValueListEdits =1
+            InheritValueList =1
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ForeThemeColorIndex =2
+            ForeShade =50.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Section
+            Height =7380
+            BackColor =15130848
+            Name ="Detail"
+            AlternateBackColor =15130848
+            Begin
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =1440
+                    Width =6420
+                    Name ="Line0"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1440
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =1440
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =1080
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label1"
+                    Caption ="Contribute"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1080
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =1380
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CommandButton
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =60
+                    Top =180
+                    Width =480
+                    Height =480
+                    Name ="cmdIcon"
+                    Caption ="Command2"
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272ff727272541c75e3261c75e3ff1c75e326000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0x727272ff727272ff1c75e3ff000000001c75e3ff00000000000000001c75e326 ,
+                        0x1c75e3ff1c75e32600000000000000000000000072727248727272f6727272ff ,
+                        0x727272fc727272541c75e3261c75e3ff1c75e32600000000000000001c75e3ff ,
+                        0x000000001c75e3ff000000000000000072727248727272f6727272ff727272fc ,
+                        0x727272540000000000000000000000000000000000000000000000001c75e326 ,
+                        0x1c75e3ff1c75e3260000000072727248727272f6727272ff727272fc72727254 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x000000000000000072727248727272f6727272ff727272fc7272725400000000 ,
+                        0x000000000000000000000000000000001c75e3ff000000001c75e3ff00000000 ,
+                        0x0000000072727248727272f6727272ff727272f9727272540000000000000000 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x72727248727272f6727272ff727272f972727254000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272f6ffffffff727272f97272725400000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0xffffffff727272f9727272540000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000000000000000000000000000727272ff727272ff ,
+                        0x727272f972727254000000000000000000000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727254727272ff ,
+                        0x7272725400000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000
+                    End
+                    BackStyle =0
+
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =180
+                    LayoutCachedWidth =540
+                    LayoutCachedHeight =660
+                    Gradient =0
+                    BorderWidth =1
+                    BorderThemeColorIndex =1
+                    BorderTint =100.0
+                    BorderShade =65.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =720
+                    Top =240
+                    Width =5520
+                    Height =420
+                    FontSize =14
+                    ForeColor =5324600
+                    Name ="Label3"
+                    Caption ="Contribute to translations"
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =240
+                    LayoutCachedWidth =6240
+                    LayoutCachedHeight =660
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin TextBox
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =2280
+                    Top =4500
+                    Width =3360
+                    Height =315
+                    TabIndex =2
+                    Name ="txtTranslationsPath"
+
+                    LayoutCachedLeft =2280
+                    LayoutCachedTop =4500
+                    LayoutCachedWidth =5640
+                    LayoutCachedHeight =4815
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =4500
+                            Width =1740
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label297"
+                            Caption ="Translations Path: "
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =4500
+                            LayoutCachedWidth =2160
+                            LayoutCachedHeight =4815
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CommandButton
+                    OverlapFlags =85
+                    Left =5700
+                    Top =4500
+                    Width =360
+                    Height =300
+                    TabIndex =3
+                    Name ="cmdBrowseTranslationsPath"
+                    Caption ="..."
+                    OnClick ="[Event Procedure]"
+
+                    LayoutCachedLeft =5700
+                    LayoutCachedTop =4500
+                    LayoutCachedWidth =6060
+                    LayoutCachedHeight =4800
+                End
+                Begin CommandButton
+                    OverlapFlags =85
+                    Left =420
+                    Top =5220
+                    Width =2340
+                    Height =660
+                    TabIndex =4
+                    Name ="cmdSyncTranslations"
+                    Caption =" Sync Files"
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    HorizontalAnchor =1
+                    VerticalAnchor =1
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x000000000000000000000000000000000000000000000000a08070ff604830ff ,
+                        0x604830ff604830ff604830ff604830ff604830ff604830ff604830ff604830ff ,
+                        0x604830ff000000000000000000000000a08070ff604830ffa08070ffffffffff ,
+                        0xb0a090ffb0a090ffb0a090ffb0a090ffb0a090ffb0a090ffb0a090ffb0a090ff ,
+                        0x604830ff00000000a08070ff604830ffa08070ffffffffffa08070ffffffffff ,
+                        0xfffffffffff8fffff0f0f0fff0e8e0fff0e0d0ffe0d0d0ffe0c8c0ffb0a090ff ,
+                        0x604830ff00000000a08070ffffffffffa08070ffffffffffa08070ffffffffff ,
+                        0xffffffffd0f0e0ff106850fff0f0f0fff0e0e0fff0d8d0ffe0d0c0ffb0a090ff ,
+                        0x604830ff00000000a08070ffffffffffa08070ffffffffffa08070ffffffffff ,
+                        0xffffffff209870ff209870ff209870ff209870ffc0c8c0ffe0d8d0ffb0a090ff ,
+                        0x604830ff00000000a08070ffffffffffa08070ffffffffffa08870ffffffffff ,
+                        0xffffffffe0f0f0ff209870fffff8f0ffc0e0d0ff209870fff0d8d0ffb0a090ff ,
+                        0x604830ff00000000a08070ffffffffffa08870ffffffffffa08880ffffffffff ,
+                        0xfffffffffffffffffffffffffffffffffff8f0ff209870fff0e0e0ffb0a090ff ,
+                        0x604830ff00000000a08870ffffffffffa08880ffffffffffb09080ffffffffff ,
+                        0xffffffff209870fffffffffffffffffffff8fffff0f0f0fff0e8e0ffb0a090ff ,
+                        0x604830ff00000000a08880ffffffffffb09080ffffffffffb09080ffffffffff ,
+                        0xffffffff209870ffb0d8c0ffffffffff107850ffd0e0e0fff0f0f0ffb0a090ff ,
+                        0x604830ff00000000b09080ffffffffffb09080ffffffffffb09880ffffffffff ,
+                        0xffffffffd0e8e0ff209870ff209870ff209870ff107850ffd0b8b0ffb0a090ff ,
+                        0x604830ff00000000b09080ffffffffffb09880ffffffffffb09880ffffffffff ,
+                        0xffffffffffffffffffffffffffffffff209870ffd0d8d0ffa09080ff605040ff ,
+                        0x604830ff00000000b09880ffffffffffb09880ffffffffffb0a090ffffffffff ,
+                        0xffffffffffffffffffffffffffffffffffffffffd0b8b0ffd0c8c0ff604830ff ,
+                        0xd0b0a09000000000b09880ffffffffffb0a090ffffffffffc0a090ffffffffff ,
+                        0xffffffffffffffffffffffffffffffffffffffffc0a8a0ff604830ffd0b0a090 ,
+                        0x0000000000000000b0a090ffffffffffc0a090ffffffffffc0a090ffd0c0b0ff ,
+                        0xd0c0b0ffd0c0b0ffd0b8b0ffd0b8a0ffc0b0a0ffc0a090ffd0b0a09000000000 ,
+                        0x0000000000000000c0a090ffffffffffc0a090ffe0c8b0ffe0c8c0ffe0d0c0ff ,
+                        0xe0d0c0ffe0d0c0ffe0d0c0ffd0b8b0ffd0b0a090000000000000000000000000 ,
+                        0x0000000000000000b09890ffd0c0b0ffd0c0b0ffd0c0b0ffd0c0b0ffd0c0b0ff ,
+                        0xd0b8b0ffc0b0a0ffd0b0a0900000000000000000000000000000000000000000 ,
+                        0x0000000000000000
+                    End
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =5220
+                    LayoutCachedWidth =2760
+                    LayoutCachedHeight =5880
+                    PictureCaptionArrangement =5
+                    BackColor =14262935
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverColor =15321539
+                    HoverThemeColorIndex =-1
+                    HoverTint =100.0
+                    PressedColor =13072231
+                    PressedThemeColorIndex =-1
+                    PressedShade =100.0
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =6120
+                            Width =5580
+                            Height =1095
+                            ForeColor =5324600
+                            Name ="Label303"
+                            Caption ="Click the \"Sync Files\" button to load the updated translations into the add-in"
+                                ", and then update the master template and language files with the latest strings"
+                                " from the database."
+                            HorizontalAnchor =2
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =6120
+                            LayoutCachedWidth =6000
+                            LayoutCachedHeight =7215
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =420
+                    Top =4020
+                    Width =6000
+                    Height =300
+                    ForeColor =5324600
+                    Name ="lblWorkingPathExplanation"
+                    Caption ="Specify the path for the working language files."
+                    HorizontalAnchor =2
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =4020
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =4320
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =3780
+                    Width =6420
+                    Name ="Line6"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =3780
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =3780
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =3420
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label7"
+                    Caption ="Language Files"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =3420
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =3720
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =1680
+                    TabIndex =1
+                    Name ="chkContributeTranslations"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =1680
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =1920
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =1620
+                            Width =3540
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label251"
+                            Caption ="Contribute to translations"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =1620
+                            LayoutCachedWidth =4260
+                            LayoutCachedHeight =1935
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =360
+                    Top =2160
+                    Width =5580
+                    Height =1095
+                    ForeColor =5324600
+                    Name ="Label8"
+                    Caption ="If you would like to help translate this add-in interface into your local langua"
+                        "ge, please check this box and check out the details in the documentation."
+                    HorizontalAnchor =2
+                    LayoutCachedLeft =360
+                    LayoutCachedTop =2160
+                    LayoutCachedWidth =5940
+                    LayoutCachedHeight =3255
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+            End
+        End
+    End
+End
+CodeBehindForm
+' See "frmVCSOptionsTranslation.cls"

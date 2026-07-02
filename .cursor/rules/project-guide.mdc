@@ -15,7 +15,6 @@ For comprehensive guidance on working with this codebase, read these files:
 
 ## Quick Reference
 
-- All VBA source files use **UTF-8 with BOM** encoding - this is critical for import
 - New component types implement the `IDbComponent` interface
 - Use the `T()` function for all user-facing strings (translation support)
 - Error handling: use `DebugMode(True)`, `LogUnhandledErrors`, and `CatchAny` patterns

@@ -1,0 +1,29 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionNonEquiJoin"
+  },
+  "Items": {
+    "QueryType": 0,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 39,
+        "top": 498,
+        "right": 1313,
+        "bottom": 866
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1250,
+        "bottom": 171
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 2587,
+      "Tables": [
+      ]
+    }
+  }
+}

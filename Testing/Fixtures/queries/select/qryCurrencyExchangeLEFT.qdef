@@ -1,0 +1,62 @@
+﻿Operation =1
+Option =0
+Where ="(((tblCurrencyExchange.Base)=\"GBP\"))"
+Begin InputTables
+    Name ="tblCurrencies"
+    Name ="tblCurrencyExchange"
+End
+Begin OutputColumns
+    Expression ="tblCurrencies.CurrencyCode"
+    Expression ="tblCurrencies.Currency"
+    Expression ="tblCurrencyExchange.Base"
+    Expression ="tblCurrencyExchange.Date"
+    Expression ="tblCurrencyExchange.Currency"
+    Expression ="tblCurrencyExchange.Rate"
+End
+Begin Joins
+    LeftTable ="tblCurrencies"
+    RightTable ="tblCurrencyExchange"
+    Expression ="tblCurrencies.CurrencyCode = tblCurrencyExchange.Currency"
+    Flag =2
+End
+Begin OrderBy
+    Expression ="tblCurrencies.CurrencyCode"
+    Flag =0
+    Expression ="tblCurrencyExchange.Date"
+    Flag =1
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblCurrencies.CurrencyCode"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCurrencies.Currency"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCurrencyExchange.Base"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCurrencyExchange.Date"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCurrencyExchange.Currency"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCurrencyExchange.Rate"
+        dbLong "AggregateType" ="-1"
+    End
+End

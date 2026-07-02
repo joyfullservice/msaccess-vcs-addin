@@ -1,0 +1,15 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionDeleteWithSubquery"
+  },
+  "Items": {
+    "QueryType": 32,
+    "QueryProperties": {
+      "FailOnError": {
+        "Type": 1,
+        "Value": false
+      }
+    }
+  }
+}

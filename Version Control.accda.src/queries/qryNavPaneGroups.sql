@@ -31,7 +31,7 @@ WHERE
     AND (
       (
         MSysNavPaneGroupCategories.Type
-      )= 4
+      ) = 4
     )
   )
 ORDER BY

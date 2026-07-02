@@ -1,0 +1,14 @@
+root = true
+
+[*]
+end_of_line = crlf
+charset = utf-8
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = false
+insert_final_newline = false
+
+# The VCS add-in requires UTF-8 with BOM and CRLF line endings for all source files.
+[*.{bas,cls,form,report,qdef,macro,sql,frm,json,xml,txt}]
+charset = utf-8-bom
+end_of_line = crlf

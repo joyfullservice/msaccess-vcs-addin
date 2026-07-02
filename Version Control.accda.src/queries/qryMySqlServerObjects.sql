@@ -2,7 +2,7 @@
 
 -- Tables
 SELECT 
-	`TABLE_SCHEMA` AS `schema`,
+`TABLE_SCHEMA` AS `schema`,
     `TABLE_NAME` AS `name`,
     coalesce(`UPDATE_TIME`, `CREATE_TIME`) AS `last_modified`,
     'tables' as `folder`,
@@ -13,7 +13,7 @@ and TABLE_SCHEMA NOT IN ('information_schema', 'mysql', 'performance_schema')
 
 -- Views
 UNION SELECT
-	`TABLE_SCHEMA` AS `schema`,
+`TABLE_SCHEMA` AS `schema`,
     `TABLE_NAME` AS `name`,
     null AS `last_modified`,
     'views' as `folder`,
@@ -24,7 +24,7 @@ and TABLE_SCHEMA NOT IN ('mysql')
 
 -- Functions
 UNION SELECT
-	`ROUTINE_SCHEMA` AS `schema`,
+`ROUTINE_SCHEMA` AS `schema`,
     `ROUTINE_NAME` AS `name`,
     coalesce(`LAST_ALTERED`, `CREATED`) AS `last_modified`,
     'functions' as `folder`,
@@ -35,7 +35,7 @@ and ROUTINE_SCHEMA NOT IN ('mysql')
 
 -- Stored Procedures
 UNION SELECT
-	`ROUTINE_SCHEMA` AS `schema`,
+`ROUTINE_SCHEMA` AS `schema`,
     `ROUTINE_NAME` AS `name`,
     coalesce(`LAST_ALTERED`, `CREATED`) AS `last_modified`,
     'procedures' as `folder`,
@@ -46,7 +46,7 @@ and ROUTINE_SCHEMA NOT IN ('mysql')
 
 -- Triggers
 UNION SELECT
-	`TRIGGER_SCHEMA` AS `schema`,
+`TRIGGER_SCHEMA` AS `schema`,
     `TRIGGER_NAME` AS `name`,
     `CREATED` AS `last_modified`,
     'triggers' as `folder`,

@@ -52,11 +52,11 @@ This repository contains the **MSAccess Version Control System (VCS) Add-in** - 
                                        ▼
                           ┌────────────────────────┐
                           │   Source Files (.src)  │
-                          │   - forms/*.bas, *.cls │
+                          │   - forms/*.form,*.cls │
                           │   - modules/*.bas,*.cls│
-                          │   - queries/*.bas,*.sql│
+                          │   - queries/*.sql,*.json│
                           │   - vcs-options.json   │
-                          │   - vcs-index.json     │
+                          │   - vcs-index.idx      │
                           └────────────────────────┘
 ```
 
@@ -68,7 +68,7 @@ This repository contains the **MSAccess Version Control System (VCS) Add-in** - 
 
 3. **Two Types of Build**: Full builds create a new database from source; merge builds update existing databases with changed files only.
 
-4. **Index-Based Change Detection**: `vcs-index.json` tracks file hashes and timestamps to detect changes and enable "fast save" exports.
+4. **Index-Based Change Detection**: `vcs-index.idx` (binary format) tracks file hashes and timestamps to detect changes and enable "fast save" exports.
 
 ---
 
@@ -219,6 +219,34 @@ End Sub
 - `CatchAny()` - Log error if one exists, optionally clear it
 - `Catch()` - Check for specific error numbers
 
+### Understanding `LogUnhandledErrors` in Log Files
+
+VBA's `On Error` statements silently clear the current `Err` object. To avoid losing error information, `LogUnhandledErrors` is called *just before* an `On Error` directive to capture any leftover error before it gets wiped. `DebugMode(True)` calls `LogUnhandledErrors` internally, so the same behavior applies at the top of functions that use the `DebugMode` pattern.
+
+**The error did NOT originate where it was logged.** When you see a log entry like:
+
+```
+ERROR: Unhandled error, likely before `On Error` directive
+```
+
+This entry means the exact origin is not known — `LogUnhandledErrors` detected a leftover error but has no information about which function raised it. The error came from whatever code ran immediately *before* the `LogUnhandledErrors` call. To find the real source, look at the surrounding log context (the operation in progress, the objects being processed) and find the `LogUnhandledErrors` call site in the source code, then look at what executed before it.
+
+Some call sites pass a `CallingFunction` parameter, which narrows the search to a specific function (e.g., `Source: modBuild.Build.Unknown.LogUnhandledErrors`). Even then, the error did not originate in that function — it came from code that ran before the call. For example:
+
+```vba
+Public Sub Build()
+    ' ... earlier code calls helper functions ...
+    SomeHelperFunction   ' <-- If this raises an error internally and doesn't handle it,
+                         '     the error persists in the Err object after it returns.
+
+    LogUnhandledErrors   ' <-- Catches the leftover error from SomeHelperFunction
+    On Error Resume Next ' <-- Would have silently cleared it without the line above
+    ' ... more code ...
+End Sub
+```
+
+In this example, the actual source of the error is `SomeHelperFunction`, not `Build`.
+
 ### Option Statements
 
 Always include at the top of modules:
@@ -228,6 +256,10 @@ Option Compare Database  ' Use database collation for string comparison
 Option Explicit          ' Require variable declaration
 Option Private Module    ' For internal modules (not exposed via add-in API)
 ```
+
+### Library Constants
+
+All modules in the VBA project share the same library references (DAO, VBE, Scripting, etc.). Use the library-defined constants (e.g., `dbQSQLPassThrough`, `acQuery`, `vbTextCompare`) rather than hard-coding their numeric values. Magic numbers obscure intent and bypass compile-time checking.
 
 ### Translation Support
 
@@ -241,6 +273,16 @@ Log.Add T("Beginning Export of Source Files")
 Log.Add T("Error in file: {0}", var0:=strFileName)
 MsgBox2 T("VCS Version {0}", var0:=GetVCSVersion), ...
 ```
+
+### File System Operations
+
+**Never use the VBA `Dir()` function.** `Dir()` does not support Unicode filenames and will silently skip or fail on paths containing non-ASCII characters. Access databases frequently contain objects with Unicode names (accented characters, CJK, etc.).
+
+Instead, use:
+- **`Scripting.FileSystemObject`** (FSO) for general file operations — supports Unicode natively
+- **Win32 API** (`FindFirstFileW`/`FindNextFileW` in `modFileWinAPI`) for performance-critical scans or existence checks
+- **`FilePatternExists()`** in `modFileWinAPI` for quick wildcard existence checks (O(1) when no match)
+- **`ScanFolderContents()`** in `modFileWinAPI` for enumerating files and subfolders in a single pass
 
 ---
 
@@ -276,7 +318,8 @@ eelCritical  ' Cancels current operation
 eotExport = 1  ' Exporting source files
 eotBuild = 2   ' Full build from source
 eotMerge = 3   ' Merge build
-eotOther = 4   ' Other operations
+eotTestRun = 4 ' VCS.RunTests / clsTestRunner suite
+eotOther = 9   ' Other / catch-all operations
 ```
 
 ---
@@ -296,6 +339,30 @@ eotOther = 4   ' Other operations
 - Import logic: `modImportExport.Build()`
 - Single object operations: Individual `clsDb*.Export()` and `clsDb*.Import()` methods
 
+**Export Format Versioning:** Any change that alters the content or structure of exported source files (sanitization rules, property stripping, file layout, JSON structure, etc.) **must** be gated behind an export format version check. This allows users to upgrade the add-in without being forced to adopt new export formatting until they choose to.
+
+How to gate a new export behavior change:
+
+1. Add a new member to the `eExportFormatVersion` enum in `modConstants.bas` (e.g., `EFV_5_1_0 = 50100`) and update `[_Last]`
+2. Wrap the new behavior: `If Options.ExportFormatVersion >= EFV_5_1_0 Then`
+
+`LATEST_EXPORT_FORMAT` is derived automatically from `eExportFormatVersion.[_Last]`.
+
+Import logic does **not** need gating — it must remain backwards compatible with all prior export formats.
+
+### Modifying the Query Parser
+
+The query parser (`clsQueryComposer.cls` + `clsDbQuery.cls`) carries hard-won decisions in places that are not always obvious from a casual read. Before modifying either class, read these in order:
+
+Do not look in `Testing.accdb.src` for query regression fixtures; the shipped round-trip corpus is `Testing/Fixtures/queries/`.
+
+- **[docs/access-query-storage.md](docs/access-query-storage.md)** — in-repo reference for how Access stores queries, what shapes our parser handles (with the canonical fixture for each), known gaps where behaviour is unverified, and findings unique to our pipeline (`Application.LoadFromText` / `Application.SaveAsText` asymmetries).
+- **[DECISIONS.md](DECISIONS.md)** — search for entries mentioning `clsQueryComposer` or `clsDbQuery` (e.g. `rg "clsQueryComposer" DECISIONS.md -A 30`). Captures the rationale and rejected alternatives behind each choice.
+- **`Testing/Fixtures/queries/regression/*.notes.md`** — each one pins a specific SQL shape and explains what would re-break if a careful decision were reverted.
+- **Procedure-header comments** on the functions you're modifying — `RequiresDesignView`, `IsDesignerCompatible`, `HasTopLevelBoolean`, `ParseJoinExpression`, `SafeBreak`, `EmitDbMemoSql` carry constraints in their headers that the body alone does not convey.
+
+When you discover a new invariant or edge case worth preserving, follow the four-layer documentation pattern at [Testing/Fixtures/README.md § Documenting parser invariants and edge cases](Testing/Fixtures/README.md).
+
 ### Adding Options
 
 1. Add public property to `clsOptions`
@@ -308,6 +375,232 @@ eotOther = 4   ' Other operations
 1. Use `Testing.accdb.src` to test import/export
 2. Run `Deploy` in the immediate window to increment version and export
 3. Test with a variety of database objects
+
+---
+
+## Debugging RunVBA Failures
+
+`clsVersionControl.RunVBA` (exposed to agents via the `vcs_run_vba` MCP tool) wraps caller-supplied VBA code in a temporary module, compiles it, runs it, and returns a JSON result. Two debugging affordances make iteration on agent-authored snippets much faster:
+
+### 1. Auto-injected line numbers and `errorLine`
+
+Before the wrapper is built, `RunVBA` runs the submitted code through the private helper `AddVbaLineNumbers` (in the same class). That helper prepends sequential 1-based VBA line numbers to every executable statement. The number value equals the 1-based ordinal of the line within the original `code` string (the counter advances on every physical input line, blanks/comments/continuations included), so when a runtime error fires, the JSON result contains an `errorLine` field that maps directly back to the caller's source.
+
+```json
+{
+  "success": false,
+  "error": "Type mismatch",
+  "errorNumber": 13,
+  "errorLine": 7
+}
+```
+
+`errorLine: 7` literally means "line 7 of what I submitted" — no offset math required. The field is omitted when no `Erl` value is available (e.g., the wrapper itself failed to compile, or the error fired before any numbered line ran).
+
+Lines that cannot legally carry a VBA line number — blank lines, pure comments, continuations of a prior `_`-terminated line, and lines the caller already pre-numbered — are passed through unchanged. The counter still advances over them so the line numbers remain in sync with the original text.
+
+### 2. Concise multi-error test procedures
+
+The default wrapper uses `On Error Resume Next` and reports the **last** runtime error. When you want a test to keep going past the first failure and report every problem in a single round-trip, write your own handler that exploits the auto-injected line numbers:
+
+```vba
+Dim col As New Collection
+On Error GoTo H
+CurrentDb.Execute "DELETE * FROM tblA"
+CurrentDb.Execute "INSERT INTO tblB SELECT * FROM nope"
+CurrentDb.Execute "UPDATE tblC SET x = 1"
+MCP_TempFunction = "errors=" & col.Count & " | " & Join(CollectionToArray(col), "; ")
+Exit Function
+H: col.Add Erl & ": " & Err.Number & " " & Err.Description
+Resume Next
+```
+
+Each `Erl` value collected inside the `H:` label is meaningful because the wrapper auto-numbered every line for you. You don't need to write `10`, `20`, `30` yourself — the line numbers are already there by the time your code runs.
+
+The decision between the default single-error capture and an explicit multi-error handler is per-test: pick whichever shape best matches what the test is trying to verify.
+
+### VBA error-handler state: `Err.Clear` is not enough
+
+When execution is inside an active `On Error GoTo Handler` block, `Err.Clear`
+clears the error object but does **not** reset the active exception/handler
+state. Expected cleanup errors inside that handler can still break or poison
+the wrapper if you only write `On Error Resume Next`.
+
+Use this pattern before any expected-error cleanup inside a handler:
+
+```vba
+Handler:
+    strMsg = Err.Description
+    Err.Clear
+    On Error GoTo -1      ' clear active handler state
+    On Error Resume Next  ' now expected cleanup errors are safe
+    CurrentDb.QueryDefs.Delete "__temp_query__"
+    Err.Clear
+    On Error GoTo 0
+    GoTo ContinueAfterHandler
+```
+
+Do not use `Resume` after `On Error GoTo -1`; jump to a continuation label
+instead. Prefer explicit existence checks over expected-error cleanup when the
+code is simple enough.
+
+---
+
+## Testing Strategy
+
+The add-in benefits from three distinct testing layers, each catching a different bug class. Keeping them as separate layers (rather than one giant test database) is deliberate — each layer trades scope for fidelity.
+
+| Layer | What it tests | Lives in |
+|---|---|---|
+| **1. VBA logic tests** | "Given inputs, does this function return the right output?" | `modTestSuite.bas` (formerly `modUnitTesting.bas`) |
+| **2. Object round-trip tests** | "Does this database object survive a serialize/deserialize cycle unchanged?" | `modTestRoundtrip.bas` + `Testing/Fixtures/` |
+| **3. Whole-database integration** | "Does building an entire database from source produce a working database?" | `Testing/Testing.accdb.src` |
+
+**Log files are gitignored.** All `logs/` directories and `*.log` files are excluded by `.gitignore`. Agent tools that respect `.gitignore` (Glob, Grep, semantic search) will silently skip them. Use shell commands to find and read log files:
+
+```powershell
+# Find log files (run from repository root)
+Get-ChildItem -Recurse -Include "*.log","*.json" | Where-Object { $_.DirectoryName -like "*logs*" }
+```
+
+Key log locations:
+- `Version Control.accda.src/logs/` — build, export, merge, and **test result** logs (`TestResults_*.json`, `TestRun_*.log`)
+- `Testing/Fixtures/logs/` — object round-trip test logs (`ObjectRoundtrip_*.log`)
+
+Important location distinction: the canonical object round-trip fixture corpus
+is `Testing/Fixtures/` as plain text files. Query fixtures live under
+`Testing/Fixtures/queries/` as `.sql` + `.json` pairs, with optional
+`.notes.md` files for regression context. `Testing/Testing.accdb.src` is the
+sample/integration database used for full build/export flows; do not look there
+for the primary `VCS.RunRoundtripTests` fixture corpus. `MSysQueriesExamples`
+and `db-analysis-tools` are useful sources or validation projects for query
+shapes, but they are not the add-in's canonical regression fixture store.
+
+### `modTest*` naming convention
+
+All test-infrastructure modules use the `modTest*` family prefix. This matches the existing family-grouping conventions already used in the codebase (`clsDb*` for component classes, `clsLv*` for ListView property parsers) and gives "Test" maximum prominence for developer and agent discoverability.
+
+- `modTestSuite` — heterogeneous unit tests (encoding, JSON, sanitization, formatter, hashing, IDbComponent invariants).
+- `modTestRoundtrip` — generalized object round-trip regression harness.
+- Future siblings (e.g., `modTestPerf`, `modTestFixtures`, `modTestEncoding`) should adopt the same prefix automatically.
+
+### Object round-trip harness (`modTestRoundtrip`)
+
+The Layer 2 harness is generic over `IDbComponent`. v1 ships query support; forms, reports, modules, and table data follow the same pattern by adding a per-type helper.
+
+When adding regression fixtures from a user or production database, sanitize
+the fixture and its `.notes.md` file. Do not include source database names,
+source query names, table/field names, business concepts, file paths, customer
+names, or server names. Use generic parser-shape language such as "production
+validation exposed a cross-subtree join predicate placement bug."
+
+For each fixture under `Testing/Fixtures/`, the harness:
+
+1. Imports the fixture into the running database under a sandboxed name (`vcs_test_<basename>_<hash>`).
+2. Validates the emitter's `.qdef` output:
+   - `qdef_joins` — structural check: each join row's `LeftTable`/`RightTable` matches its `Expression` (Design View only).
+   - `qdef_vs_fixture` — drift check: compares generated `.qdef` against stored `.qdef` baseline (if present).
+3. Exports it twice (Pass 1 and Pass 2), into a per-run scratch folder.
+4. Asserts Pass 2 == Pass 1 (idempotency, hard requirement).
+5. Asserts Pass 1 == fixture (drift check, soft requirement).
+6. Drops the sandboxed object and moves on.
+
+Output goes to three coordinated channels:
+
+- **`frmVCSMain` console** — live progress (one line per fixture).
+- **Per-session log file** — `Testing/Fixtures/logs/ObjectRoundtrip_<opId>.log`, with full unified diffs for any failures.
+- **JSON return value** — machine-parseable summary suitable for `vcs_run_vba` callers and CI.
+
+All external invocations go through the public API method `VCS.RunRoundtripTests`. The implementation in `modTestRoundtrip.bas` uses `Option Private Module` so test internals stay hidden from cross-project `Application.Run` lookups, matching the rest of the add-in.
+
+Run it from the VBA Immediate Window:
+
+```vba
+?VCS.RunRoundtripTests
+```
+
+Or via MCP (requires `McpAllowRunVBA` to be enabled, same as any other agent-driven code execution):
+
+```
+vcs_run_vba(<addin-path>, "MCP_TempFunction = VCS.RunRoundtripTests()")
+```
+
+End users can point the same harness at their own fixture corpus:
+
+```vba
+?VCS.RunRoundtripTests("C:\path\to\my-fixtures\")
+```
+
+Pass `True` as the second argument to rebaseline mismatched fixtures (review the resulting git diff before committing). When working inside the add-in's own VBE — e.g., debugging the harness itself — the in-project entry point `?modTestRoundtrip.RunObjectRoundtripTests()` is also available, since `Option Private Module` only blocks cross-project callers, not in-project ones.
+
+### Bug-as-fixture: the contribution workflow
+
+The harness was designed to support a specific contribution workflow that is uniquely enabled by the add-in's text-source format. When a user hits an edge case where an object fails to round-trip:
+
+1. They reproduce the bug in their own database.
+2. They sanitize the failing object's `.sql` + `.json` pair (strip business-sensitive names, replace `Connect` strings with `env:` references, remove embedded data).
+3. They drop the pair into `Testing/Fixtures/queries/regression/` (or the appropriate category) on a branch.
+4. They optionally add a sibling `<name>.notes.md` describing what the bug was and linking to the issue.
+5. They open a PR against the add-in.
+
+The fixture becomes a permanent regression test against every future change. The user's bug report and the regression test are literally the same artifact.
+
+See `Testing/Fixtures/README.md` for the full workflow, the `_scaffold/` convention (for fixtures with shared dependencies), and a sanitization checklist.
+
+### Adding new test modules
+
+When adding a new test module, follow the `modTest*` prefix convention and place it under `Version Control.accda.src/modules/Tests/`. If the module wraps an existing concept (encoding, hashing, sanitization), prefer extracting it from `modTestSuite` into a focused `modTest<Topic>` module rather than letting `modTestSuite` grow indefinitely.
+
+### Running and filtering tests
+
+`VCS.RunTests` accepts an optional `ParamArray` of filter arguments. Each argument is resolved in priority order:
+
+1. **Module name** — exact match on the module/class name
+2. **Suite/folder** — match against `@Folder` annotation values (exact or final-segment, e.g., `"SQL"` matches `"Tests.SQL"`)
+3. **Procedure name** — match on procedure name or full `Module.Procedure` key
+4. **Tag** — match against `'@Tag("...")` annotations
+
+Prefix any argument with `-` to **exclude** it. Inclusions combine with OR; exclusions combine with AND. If only exclusions are specified, the base set is all tests.
+
+```vba
+?VCS.RunTests                                    ' Run all tests
+?VCS.RunTests("modTestEncoding")                 ' Run one module
+?VCS.RunTests("-slow")                           ' Run all except slow-tagged tests
+?VCS.RunTests("SQL", "-slow")                    ' Run SQL suite, skip slow tests
+?VCS.RunTests("TestParseJoinExpression")         ' Run one specific procedure
+?VCS.RunTests("-modTestConnect", "-slow")        ' Exclude a module and a tag
+```
+
+### Global suite hooks
+
+Optional once-per-run `GlobalTestSetup` / `GlobalTestTeardown` in `modTestAssert`. See [`.cursor/rules/testing.mdc`](.cursor/rules/testing.mdc) (Global Suite Hooks) for the full contract when working in this repository.
+
+### Tagging tests
+
+Use `'@Tag("name")` annotations to categorize tests. Tags are case-insensitive.
+
+**Module-level tags** (in the first ~30 lines, before any procedure) apply to all tests in the module:
+
+```vba
+Option Private Module
+'@Folder("Tests")
+'@Tag("slow")
+'@Tag("database")
+```
+
+**Procedure-level tags** go inside the procedure body (first lines, before any executable code):
+
+```vba
+Public Sub TestExpensiveQuery()
+    '@Tag("slow")
+    '@Tag("regression")
+    TestAssert RunExpensiveCheck(), "check passes"
+End Sub
+```
+
+Tags must appear at the very top of the body (before `Dim` statements or code). The scanner stops at the first non-comment, non-blank line. Module-level and procedure-level tags are merged — a test inherits all module-level tags plus its own.
+
+Tags are included in the JSON test results under a `"tags"` array per test entry.
 
 ---
 
@@ -344,7 +637,7 @@ The `Version Control.accda.src/` folder contains the add-in's own exported sourc
 **[Version Control.accda.src/AGENTS.md](Version%20Control.accda.src/AGENTS.md)**
 
 This companion file explains:
-- Source file formats (`.bas`, `.cls`, `.sql`, etc.)
+- Source file formats (`.bas`, `.cls`, `.form`, `.report`, `.macro`, `.sql`, `.json`, etc.)
 - UTF-8 BOM encoding requirements
 - VBA file structure and attributes
 - Safe editing guidelines
@@ -383,7 +676,7 @@ Releases are created from the `master` branch. The add-in is self-installing - u
 | File | Purpose |
 |------|---------|
 | `vcs-options.json` | Per-project configuration (export folder, options, etc.) |
-| `vcs-index.json` | Change tracking index (do not edit manually) |
+| `vcs-index.idx` | Change tracking index, binary format (do not edit manually). Use `VCSIndex.DumpToJson` for a human-readable dump. |
 | `project.json` | Database file format version |
 | `vbe-references.json` | VBA library references |
 | `dbs-properties.json` | Database properties |

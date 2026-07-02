@@ -1,0 +1,477 @@
+﻿Version =20
+VersionRequired =20
+Begin Form
+    RecordSelectors = NotDefault
+    NavigationButtons = NotDefault
+    DividingLines = NotDefault
+    AllowDesignChanges = NotDefault
+    DefaultView =0
+    PictureAlignment =2
+    DatasheetGridlinesBehavior =3
+    GridX =24
+    GridY =24
+    Width =6480
+    DatasheetFontHeight =11
+    ItemSuffix =6
+    Right =50000
+    Bottom =50000
+    RecSrcDt = Begin
+        0x587d60025082e640
+    End
+    DatasheetFontName ="Calibri"
+    OnLoad ="[Event Procedure]"
+    AllowDatasheetView =0
+    FilterOnLoad =0
+    ShowPageMargins =0
+    DisplayOnSharePointSite =1
+    DatasheetAlternateBackColor =15921906
+    DatasheetGridlinesColor12 =0
+    FitToScreen =1
+    DatasheetBackThemeColorIndex =1
+    BorderThemeColorIndex =3
+    ThemeFontIndex =1
+    ForeThemeColorIndex =0
+    AlternateBackThemeColorIndex =1
+    AlternateBackShade =95.0
+    Begin
+        Begin Label
+            BackStyle =0
+            FontSize =11
+            FontName ="Calibri"
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =0
+            BorderTint =50.0
+            ForeThemeColorIndex =0
+            ForeTint =60.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Line
+            BorderLineStyle =0
+            BorderThemeColorIndex =0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin CommandButton
+            FontSize =11
+            FontWeight =400
+            FontName ="Calibri"
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+            UseTheme =1
+            Shape =1
+            Gradient =12
+            BackThemeColorIndex =4
+            BackTint =60.0
+            BorderLineStyle =0
+            BorderThemeColorIndex =4
+            BorderTint =60.0
+            ThemeFontIndex =1
+            HoverThemeColorIndex =4
+            HoverTint =40.0
+            PressedThemeColorIndex =4
+            PressedShade =75.0
+            HoverForeThemeColorIndex =0
+            HoverForeTint =75.0
+            PressedForeThemeColorIndex =0
+            PressedForeTint =75.0
+        End
+        Begin TextBox
+            AddColon = NotDefault
+            FELineBreak = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AsianLineBreak =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ThemeFontIndex =1
+            ForeThemeColorIndex =0
+            ForeTint =75.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin ComboBox
+            AddColon = NotDefault
+            BorderLineStyle =0
+            LabelX =-1800
+            FontSize =11
+            FontName ="Calibri"
+            AllowValueListEdits =1
+            InheritValueList =1
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            ForeThemeColorIndex =2
+            ForeShade =50.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Section
+            Height =4815
+            BackColor =15130848
+            Name ="Detail"
+            AlternateBackColor =15130848
+            Begin
+                Begin TextBox
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =1920
+                    Top =1620
+                    Width =4080
+                    Height =315
+                    TabIndex =1
+                    Name ="txtExportFolder"
+                    BeforeUpdate ="[Event Procedure]"
+
+                    LayoutCachedLeft =1920
+                    LayoutCachedTop =1620
+                    LayoutCachedWidth =6000
+                    LayoutCachedHeight =1935
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =1620
+                            Width =1380
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label31"
+                            Caption ="Export Folder:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =1620
+                            LayoutCachedWidth =1800
+                            LayoutCachedHeight =1935
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =1440
+                    Width =6420
+                    Name ="Line0"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1440
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =1440
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =1080
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label1"
+                    Caption ="Project"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =1080
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =1380
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin CommandButton
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =60
+                    Top =180
+                    Width =480
+                    Height =480
+                    Name ="cmdIcon"
+                    Caption ="Command2"
+                    ImageData = Begin
+                        0x2800000010000000100000000100200000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000505050ff505050ff00000000505050ff505050ff ,
+                        0x00000000505050ff505050ff0000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272ff727272541c75e3261c75e3ff1c75e326000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0x727272ff727272ff1c75e3ff000000001c75e3ff00000000000000001c75e326 ,
+                        0x1c75e3ff1c75e32600000000000000000000000072727248727272f6727272ff ,
+                        0x727272fc727272541c75e3261c75e3ff1c75e32600000000000000001c75e3ff ,
+                        0x000000001c75e3ff000000000000000072727248727272f6727272ff727272fc ,
+                        0x727272540000000000000000000000000000000000000000000000001c75e326 ,
+                        0x1c75e3ff1c75e3260000000072727248727272f6727272ff727272fc72727254 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x000000000000000072727248727272f6727272ff727272fc7272725400000000 ,
+                        0x000000000000000000000000000000001c75e3ff000000001c75e3ff00000000 ,
+                        0x0000000072727248727272f6727272ff727272f9727272540000000000000000 ,
+                        0x000000000000000000000000000000001c75e3261c75e3ff1c75e32600000000 ,
+                        0x72727248727272f6727272ff727272f972727254000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000072727248 ,
+                        0x727272f6ffffffff727272f97272725400000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727248727272f6 ,
+                        0xffffffff727272f9727272540000000000000000000000000000000000000000 ,
+                        0x000000000000000000000000000000000000000000000000727272ff727272ff ,
+                        0x727272f972727254000000000000000000000000000000000000000000000000 ,
+                        0x00000000000000000000000000000000000000000000000072727254727272ff ,
+                        0x7272725400000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000000000000000000000000000000000000000000000000000 ,
+                        0x0000000000000000
+                    End
+                    BackStyle =0
+
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =180
+                    LayoutCachedWidth =540
+                    LayoutCachedHeight =660
+                    Gradient =0
+                    BorderWidth =1
+                    BorderThemeColorIndex =1
+                    BorderTint =100.0
+                    BorderShade =65.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =720
+                    Top =240
+                    Width =5520
+                    Height =420
+                    FontSize =14
+                    ForeColor =5324600
+                    Name ="Label3"
+                    Caption ="General options for the VCS Add-in"
+                    LayoutCachedLeft =720
+                    LayoutCachedTop =240
+                    LayoutCachedWidth =6240
+                    LayoutCachedHeight =660
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =1920
+                    Top =2040
+                    Width =4140
+                    Height =300
+                    FontSize =10
+                    Name ="Label309"
+                    Caption ="(leave blank for default)"
+                    LayoutCachedLeft =1920
+                    LayoutCachedTop =2040
+                    LayoutCachedWidth =6060
+                    LayoutCachedHeight =2340
+                    ForeTint =50.0
+                End
+                Begin Line
+                    BorderWidth =1
+                    OverlapFlags =85
+                    Left =60
+                    Top =3120
+                    Width =6420
+                    Name ="Line4"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =3120
+                    LayoutCachedWidth =6480
+                    LayoutCachedHeight =3120
+                    BorderThemeColorIndex =1
+                    BorderShade =75.0
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =60
+                    Top =2760
+                    Width =6360
+                    Height =300
+                    FontWeight =700
+                    ForeColor =5324600
+                    Name ="Label5"
+                    Caption ="Tools (this machine only)"
+                    LayoutCachedLeft =60
+                    LayoutCachedTop =2760
+                    LayoutCachedWidth =6420
+                    LayoutCachedHeight =3060
+                    ForeThemeColorIndex =-1
+                    ForeTint =100.0
+                End
+                Begin ComboBox
+                    RowSourceTypeInt =1
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    ListWidth =1440
+                    Left =2460
+                    Top =3420
+                    Width =1740
+                    Height =315
+                    TabIndex =2
+                    Name ="cboDiffTool"
+                    RowSourceType ="Value List"
+                    RowSource ="\"WinMerge\";\"VSCode\";\"TortoiseGitDiff\""
+                    AllowValueListEdits =0
+
+                    LayoutCachedLeft =2460
+                    LayoutCachedTop =3420
+                    LayoutCachedWidth =4200
+                    LayoutCachedHeight =3735
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =3420
+                            Width =1980
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label239"
+                            Caption ="File Diff Tool:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =3420
+                            LayoutCachedWidth =2400
+                            LayoutCachedHeight =3735
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin ComboBox
+                    LimitToList = NotDefault
+                    RowSourceTypeInt =1
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    ColumnCount =2
+                    ListWidth =1440
+                    Left =2460
+                    Top =3900
+                    Width =1740
+                    Height =315
+                    TabIndex =3
+                    Name ="cboOpenRepository"
+                    RowSourceType ="Value List"
+                    RowSource ="0;\"\";1;\"Github Desktop\";2;\"VSCode\";3;\"Sourcetree\";4;\"Tortoise Git\""
+                    ColumnWidths ="0"
+                    AllowValueListEdits =0
+
+                    LayoutCachedLeft =2460
+                    LayoutCachedTop =3900
+                    LayoutCachedWidth =4200
+                    LayoutCachedHeight =4215
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =3900
+                            Width =1980
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label305"
+                            Caption ="Open Repository:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =3900
+                            LayoutCachedWidth =2400
+                            LayoutCachedHeight =4215
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin ComboBox
+                    LimitToList = NotDefault
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    ColumnCount =2
+                    ListWidth =2880
+                    Left =2460
+                    Top =4380
+                    Width =1740
+                    Height =315
+                    TabIndex =4
+                    Name ="cboLanguage"
+                    RowSourceType ="Table/Query"
+                    RowSource ="SELECT tblLanguages.ID, tblLanguages.DisplayName FROM tblLanguages; "
+                    ColumnWidths ="0"
+                    DefaultValue ="\"en_US\""
+                    OnClick ="[Event Procedure]"
+                    AllowValueListEdits =0
+
+                    LayoutCachedLeft =2460
+                    LayoutCachedTop =4380
+                    LayoutCachedWidth =4200
+                    LayoutCachedHeight =4695
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =4380
+                            Width =1980
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label252"
+                            Caption ="Language:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =4380
+                            LayoutCachedWidth =2400
+                            LayoutCachedHeight =4695
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CommandButton
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =85
+                    Left =4500
+                    Top =4440
+                    Width =1500
+                    Height =240
+                    FontSize =10
+                    TabIndex =5
+                    Name ="cmdTranslations"
+                    Caption ="Translations..."
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    BackStyle =0
+
+                    CursorOnHover =1
+                    LayoutCachedLeft =4500
+                    LayoutCachedTop =4440
+                    LayoutCachedWidth =6000
+                    LayoutCachedHeight =4680
+                    Alignment =3
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =5324600
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverThemeColorIndex =10
+                    HoverTint =100.0
+                    PressedThemeColorIndex =10
+                    PressedShade =100.0
+                    HoverForeThemeColorIndex =10
+                    HoverForeTint =100.0
+                    PressedForeThemeColorIndex =10
+                    PressedForeTint =100.0
+                End
+            End
+        End
+    End
+End
+CodeBehindForm
+' See "frmVCSOptionsGeneral.cls"

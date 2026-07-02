@@ -1,0 +1,47 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionUdfExpression"
+  },
+  "Items": {
+    "QueryType": 0,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 206,
+        "top": 61,
+        "right": 996,
+        "bottom": 693
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 766,
+        "bottom": 215
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 2587,
+      "Tables": [
+        {
+          "Name": "tblItems",
+          "Alias": "",
+          "Left": 79,
+          "Top": 22,
+          "Right": 223,
+          "Bottom": 178,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblItemTypes",
+          "Alias": "",
+          "Left": 338,
+          "Top": 29,
+          "Right": 482,
+          "Bottom": 173,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

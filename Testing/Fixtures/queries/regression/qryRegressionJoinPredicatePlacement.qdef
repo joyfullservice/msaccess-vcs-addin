@@ -1,0 +1,64 @@
+﻿Operation =1
+Option =0
+Begin InputTables
+    Name ="tblCars"
+    Name ="tblCarsModel"
+    Name ="tblCarsColour"
+    Name ="tblCarsPrice"
+    Name ="tblVehicles"
+End
+Begin OutputColumns
+    Expression ="tblCars.Manufacturer"
+    Expression ="tblCarsModel.Model"
+    Expression ="tblCarsPrice.Price"
+    Expression ="tblVehicles.VehicleType"
+End
+Begin Joins
+    LeftTable ="tblCarsModel"
+    RightTable ="tblCarsColour"
+    Expression ="tblCarsModel.ID = tblCarsColour.ID"
+    Flag =1
+    LeftTable ="tblCarsModel"
+    RightTable ="tblCarsPrice"
+    Expression ="tblCarsModel.ModelID = tblCarsPrice.ID"
+    Flag =1
+    LeftTable ="tblCars"
+    RightTable ="tblCarsModel"
+    Expression ="tblCars.ID = tblCarsModel.ID"
+    Flag =1
+    LeftTable ="tblCars"
+    RightTable ="tblCarsPrice"
+    Expression ="tblCars.Year = tblCarsPrice.Year"
+    Flag =1
+    LeftTable ="tblCars"
+    RightTable ="tblVehicles"
+    Expression ="tblCars.ID = tblVehicles.ID"
+    Flag =1
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblCars.Manufacturer"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCarsModel.Model"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCarsPrice.Price"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblVehicles.VehicleType"
+        dbLong "AggregateType" ="-1"
+    End
+End

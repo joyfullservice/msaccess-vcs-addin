@@ -1,0 +1,45 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryCarColoursCount"
+  },
+  "Items": {
+    "QueryType": 0,
+    "OptionFlag": 2,
+    "Columns": {
+      "qryCars.Model": {
+        "ColumnWidth": 1710,
+        "AggregateType": -1
+      }
+    },
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1642,
+        "bottom": 866
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1626,
+        "bottom": 520
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 543,
+      "Tables": [
+        {
+          "Name": "qryCars",
+          "Alias": "",
+          "Left": 325,
+          "Top": 122,
+          "Right": 469,
+          "Bottom": 266,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

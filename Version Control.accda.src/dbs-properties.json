@@ -41,7 +41,7 @@
       "Type": 10
     },
     "AppVersion": {
-      "Value": "4.1.7",
+      "Value": "5.0.0",
       "Type": 10
     },
     "Auto Compact": {
@@ -73,6 +73,10 @@
       "Type": 12
     },
     "Continuous Form Navigation Keys": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Continuous Form Record Navigation Keys": {
       "Value": 0,
       "Type": 4
     },
@@ -113,7 +117,7 @@
       "Type": 4
     },
     "NavPane Width": {
-      "Value": 421,
+      "Value": 215,
       "Type": 4
     },
     "Never Cache": {
@@ -195,6 +199,14 @@
     "Updatable": {
       "Value": true,
       "Type": 1
+    },
+    "Use BigInt for linking and importing data": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Use DateTime2 for linking and importing data": {
+      "Value": 0,
+      "Type": 4
     },
     "Use Microsoft Access 2007 compatible cache": {
       "Value": 0,

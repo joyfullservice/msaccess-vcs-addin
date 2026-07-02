@@ -643,6 +643,10 @@ msgstr "OPEN INSTALL FOLDER"
 msgid "Open Log File..."
 msgstr "OPEN LOG FILE..."
 
+#: frmVCSMain.cmdCopyPath
+msgid "Copy Path..."
+msgstr "COPY PATH..."
+
 #: Ribbon.btnShow.Supertip
 msgid ""
 "Open the main form for the add-in. From the main form you can run an "
