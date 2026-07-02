@@ -22,6 +22,14 @@
 *.sql text eol=crlf
 # Forms 2.0 form definitions (rarely used)
 *.frm text eol=crlf
+# Form definitions (export format 5.0.0+)
+*.form text eol=crlf
+# Report definitions (export format 5.0.0+)
+*.report text eol=crlf
+# Query definitions (export format 5.0.0+)
+*.qdef text eol=crlf
+# Macro definitions (export format 5.0.0+)
+*.macro text eol=crlf
 # Common source file
 *.json text eol=crlf
 

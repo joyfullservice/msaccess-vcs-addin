@@ -1,0 +1,66 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryCarsFiltered"
+  },
+  "Items": {
+    "QueryType": 0,
+    "OptionFlag": 2,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1642,
+        "bottom": 866
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1626,
+        "bottom": 344
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "tblCars",
+          "Alias": "",
+          "Left": 48,
+          "Top": 12,
+          "Right": 192,
+          "Bottom": 156,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblCarsColour",
+          "Alias": "",
+          "Left": 586,
+          "Top": 56,
+          "Right": 730,
+          "Bottom": 200,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblCarsModel",
+          "Alias": "",
+          "Left": 285,
+          "Top": 41,
+          "Right": 429,
+          "Bottom": 185,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblCarsPrice",
+          "Alias": "",
+          "Left": 827,
+          "Top": 60,
+          "Right": 971,
+          "Bottom": 204,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

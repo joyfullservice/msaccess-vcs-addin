@@ -91,7 +91,7 @@ End Sub
 Private Sub cmdChangeInstallFolder_Click()
 
     ' See if the add-in is already installed
-    If FSO.FileExists(GetAddInFileName) Then
+    If FSO.FileExists(GetInstalledAddInFileName) Then
         MsgBox2 T("Please Uninstall First"), _
             T("Please uninstall (and delete) the add-in, then reinstall to the new location. " & _
             "If you have already uninstalled, delete the addin file. " & _
@@ -147,6 +147,7 @@ Private Sub Form_Load()
         chkAddTrustedLocation = .blnTrustAddInFolder
         chkOpenAfterInstall = .blnOpenAfterInstall
         chkUseRibbon = .blnUseRibbonAddIn
+        chkCreateCompiledVersion = .blnUseCompiledAddIn
         With txtInstallFolder
             .Value = GetInstallSettings.strInstallFolder
             .Locked = True ' Only enable this text box if not installed.

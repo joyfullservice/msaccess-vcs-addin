@@ -1,0 +1,1273 @@
+﻿VERSION 1.0 CLASS
+BEGIN
+  MultiUse = -1  'True
+END
+Attribute VB_Name = "clsOptions"
+Attribute VB_GlobalNameSpace = False
+Attribute VB_Creatable = False
+Attribute VB_PredeclaredId = False
+Attribute VB_Exposed = True
+Option Compare Database
+Option Explicit
+'@Folder("Infrastructure")
+
+' Note, this class could be described as Options, Settings or Preferences. After some
+' deliberation and review, I chose to go with Options because it is most widely used
+' in Microsoft products (Office, Visual Studio, VBA IDE, etc...)
+' Further reading: https://english.stackexchange.com/questions/59058/
+
+Private Const cstrOptionsFilename As String = "vcs-options.json"
+Private Const cstrSourcePathProperty As String = "VCS Source Path"
+Private Const cstrBuildPathProperty As String = "VCS Build Path"
+Private Const cstrOverridesSubfolder As String = "mcp"
+Private Const cstrOverridesPrefix As String = "options-"
+Private Const STALE_OVERRIDE_DAYS As Long = 30
+
+' General
+Public ExportFolder As String
+
+' Export
+Public UseFastSave As Boolean
+Public SplitLayoutFromVBA As Boolean
+Public ExportFormatVersion As Long      ' Packed integer from eExportFormatVersion enum
+Public RunBeforeExport As String
+Public RunAfterExport As String
+Public SanitizeLevel As eSanitizeLevel
+Public SanitizeColors As eSanitizeLevel
+Public SaveQuerySQL As Boolean
+Public FormatSQL As Boolean
+Public UseDeterministicQueryExport As Boolean
+Public SaveTableSQL As Boolean
+Public SavePrintVars As Boolean
+Public DecodeConditionalFormatting As Boolean
+Public ExtractThemeFiles As Boolean
+Public UseEnvForConnections As eUseEnvConnections ' Export: store creds in .env; Build: save new creds per policy
+Public EnvConnectionNames As Collection ' User-defined named connection keys for .env
+Public ExportPrintSettings As Dictionary
+Public ExportLayoutSvg As Boolean
+Public LayoutSvgImageEmbed As String    ' "None", "Small", "Medium", "All"
+Public LayoutSvgScaleMode As String     ' "Universal", "Screenshot"
+
+' Build
+Public ExportAfterMerge As Boolean
+Public ForceImportOriginalQuerySQL As Boolean
+Public UseMergeBuild As Boolean
+Public RunBeforeBuild As String
+Public RunAfterBuild As String
+Public RunBeforeMerge As String
+Public RunAfterMerge As String
+Public GitSettings As Dictionary
+
+' Table Data
+Public TablesToExportData As Dictionary
+
+' External Databases
+Public SchemaExports As Dictionary
+
+' MCP Security
+Public McpAllowImport As Boolean        ' Allow vcs_import_object to load from source (default: True)
+Public McpAllowCallVBA As Boolean       ' Allow vcs_call_vba to call existing functions (default: True)
+Public McpAllowExecuteSQL As Boolean    ' Allow vcs_execute_sql read-only queries (default: True)
+Public McpAllowRunVBA As Boolean        ' Allow vcs_run_vba temp module execution (default: False)
+
+' Advanced
+Public DefaultTestFilter As String      ' Comma-separated test filter applied by ribbon Run Tests
+Public ShowDebug As Boolean
+Public BreakOnError As Boolean
+Public MaxLogFiles As Long              ' Default: 20 (per operation type), 0 = keep all
+Public StripPublishOption As Boolean
+Public PreserveRubberDuckID As Boolean
+Public SaveAllDocumentProperties As Boolean
+Public SaveLinkedTableDef As Boolean
+Public HashAlgorithm As String
+Public UseShortHash As Boolean
+Public UseGitIntegration As Boolean
+Public ShowVCSLegacy As Boolean
+
+' Enum to compare loaded version to installed version.
+Public Enum eVersionCompare
+    evcUnknown
+    evcOlderVersion
+    evcSameVersion
+    evcNewerVersion
+End Enum
+
+' Private collections for options and enum values.
+Private m_colOptions As Collection
+Private m_dEnum As Dictionary
+Private m_strOptionsFilePath As String
+Private m_strLoadedVersion As String
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadDefaults
+' Author    : Adam Waller
+' Date      : 2/12/2020
+' Purpose   : Loads the default values. Define system defaults here.
+'           : (Some values not defined here when they initialize to the default state.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadDefaults()
+
+    With Me
+        ' General
+        .ExportFolder = vbNullString
+
+        ' Export
+        .UseFastSave = True
+        .SplitLayoutFromVBA = True
+        .ExportFormatVersion = LATEST_EXPORT_FORMAT
+        .SanitizeLevel = eslStandard
+        .SanitizeColors = eslMinimal
+        .SaveQuerySQL = True
+        .FormatSQL = True
+        .UseDeterministicQueryExport = True
+        .SaveTableSQL = True
+        .SavePrintVars = True
+        .DecodeConditionalFormatting = True
+        .UseEnvForConnections = uecAuto
+        Set .EnvConnectionNames = New Collection
+        .ExportLayoutSvg = False
+        .LayoutSvgImageEmbed = "Small"
+        .LayoutSvgScaleMode = "Universal"
+        Set .ExportPrintSettings = New Dictionary
+        With .ExportPrintSettings
+            .CompareMode = TextCompare
+            .Add "Orientation", True
+            .Add "PaperSize", True
+            .Add "Duplex", False
+            .Add "PrintQuality", False
+            .Add "DisplayFrequency", False
+            .Add "Collate", False
+            .Add "Resolution", False
+            .Add "DisplayFlags", False
+            .Add "Color", False
+            .Add "Copies", False
+            .Add "ICMMethod", False
+            .Add "DefaultSource", False
+            .Add "Scale", False
+            .Add "ICMIntent", False
+            .Add "FormName", False
+            .Add "PaperLength", False
+            .Add "DitherType", False
+            .Add "MediaType", False
+            .Add "PaperWidth", False
+            .Add "TTOption", False
+        End With
+
+        ' Build
+        .ExportAfterMerge = False
+        .ForceImportOriginalQuerySQL = False
+        .UseMergeBuild = False
+        Set .GitSettings = New Dictionary
+        With .GitSettings
+            .CompareMode = TextCompare
+            .Add "MergeUntrackedFiles", True
+            .Add "ImportTableData", False
+            .Add "MergeQuerySQL", False
+            .Add "MergeConflicts", "Cancel Merge"
+            .Add "RunBeforeMerge", vbNullString
+            .Add "RunAfterMerge", vbNullString
+            .Add "InspectSharedImages", False
+            .Add "InspectThemeFiles", False
+        End With
+
+        ' Table Data
+        Set .TablesToExportData = New Dictionary
+        .TablesToExportData.CompareMode = vbTextCompare
+        AddTableToExportData "USysRegInfo", etdTabDelimited
+        AddTableToExportData "USysRibbons", etdTabDelimited
+
+        ' External Databases
+        Set .SchemaExports = New Dictionary
+        .SchemaExports.CompareMode = TextCompare
+
+        ' MCP Security
+        .McpAllowImport = True
+        .McpAllowCallVBA = True
+        .McpAllowExecuteSQL = True
+        .McpAllowRunVBA = False
+
+        ' Advanced
+        .DefaultTestFilter = vbNullString
+        .ShowDebug = False
+        .BreakOnError = False
+        .MaxLogFiles = 20
+        .StripPublishOption = True
+        .PreserveRubberDuckID = False
+        .SaveAllDocumentProperties = False
+        .SaveLinkedTableDef = False
+        .HashAlgorithm = DefaultHashAlgorithm
+        .UseShortHash = True
+        .UseGitIntegration = False
+        .ShowVCSLegacy = True
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddTableToExportData
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Add a table to the list of saved tables
+'---------------------------------------------------------------------------------------
+'
+Public Sub AddTableToExportData(strName As String, intExportFormat As eTableDataExportFormat)
+
+    Dim strFormat(etdTabDelimited To etdXML) As String
+    Dim dTable As Dictionary
+
+    Set dTable = New Dictionary
+
+    strFormat(etdTabDelimited) = "TabDelimited"
+    strFormat(etdXML) = "XMLFormat"
+    With Me.TablesToExportData
+        Set .Item(strName) = dTable
+        .Item(strName)("Format") = GetTableExportFormatName(intExportFormat)
+        ' Could add ExcludeColumns here later...
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveOptionsToFile
+' Author    : Adam Waller
+' Date      : 2/12/2020
+' Purpose   : Save the loaded Options to a file in JSON format
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveOptionsToFile(strPath As String)
+    WriteFile modJsonConverter.ConvertToJson(SerializeOptions, JSON_WHITESPACE) & vbCrLf, strPath
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveOptionsAsDefault
+' Author    : Adam Waller
+' Date      : 4/14/2020
+' Purpose   : Save these options as default for projects.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveOptionsAsDefault()
+    Me.SaveOptionsToFile GetDefaultOptionsFilePath
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveOptionsForProject
+' Author    : Adam Waller
+' Date      : 4/14/2020
+' Purpose   : Save these options for this particular project.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveOptionsForProject()
+    ' Save source path option in current database.
+    SavedSourcePath = Me.ExportFolder
+    ' Set the build path, if needed.
+    SetBuildPath
+    ' Save options to the export folder location
+    Me.SaveOptionsToFile Me.GetExportFolder & cstrOptionsFilename
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadOptionsFromFile
+' Author    : Adam Waller
+' Date      : 4/14/2020
+' Purpose   : Load matching options from json file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadOptionsFromFile(strFile As String)
+
+    Dim dFile As Dictionary
+    Dim dOptions As Dictionary
+    Dim varOption As Variant
+    Dim strKey As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Save file path, in case we need to use it to determine
+    ' the export folder location with no database open.
+    m_strOptionsFilePath = strFile
+
+    ' Read in the options from the json file.
+    Set dFile = ReadJsonFile(strFile)
+    If Not dFile Is Nothing Then
+        ' Get version of loaded file
+        m_strLoadedVersion = dNZ(dFile, "Info\AddinVersion")
+        If dFile.Exists("Options") Then
+            Set dOptions = dFile("Options")
+            ' Perform any relevant option upgrades
+            Upgrade dOptions
+            ' Attempt to set any matching options in this class.
+            For Each varOption In m_colOptions
+                strKey = CStr(varOption)
+                If dOptions.Exists(strKey) Then
+                    ' Set class property with value read from file.
+                    Select Case strKey
+                        Case "ExportPrintSettings"
+                            Set Me.ExportPrintSettings = dOptions(strKey)
+                        Case "TablesToExportData"
+                            Set Me.TablesToExportData = CloneDictionary(dOptions(strKey), ecmTextCompare)
+                        Case "SchemaExports"
+                            Set Me.SchemaExports = CloneDictionary(dOptions(strKey), ecmTextCompare)
+                        Case "EnvConnectionNames"
+                            If IsObject(dOptions(strKey)) Then
+                                Set Me.EnvConnectionNames = dOptions(strKey)
+                            End If
+                        Case "ExportFormatVersion"
+                            Me.ExportFormatVersion = VersionToExportFormat(CStr(dOptions(strKey)))
+                        Case Else
+                            ' Regular top-level properties
+                            CallByName Me, strKey, VbLet, dOptions(strKey)
+                    End Select
+                End If
+            Next varOption
+        End If
+    End If
+
+    ' Set the build path property when loading options
+    SetBuildPath
+
+    CatchAny eelError, "Loading options from " & strFile, ModuleName(Me) & ".LoadOptionsFromFile"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLoadedVersion
+' Author    : Adam Waller
+' Date      : 11/21/2023
+' Purpose   : Return the VCS version that was loaded for this project.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLoadedVersion() As String
+    GetLoadedVersion = m_strLoadedVersion
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadedVersion
+' Author    : Adam Waller
+' Date      : 11/21/2023
+' Purpose   : Compares the loaded version to the currently installed version of the
+'           : add-in.
+'---------------------------------------------------------------------------------------
+'
+Public Function CompareLoadedVersion() As eVersionCompare
+
+    Dim strLoaded As String
+    Dim strInstalled As String
+
+    ' Build comparison strings
+    strLoaded = BuildVersionCompareString(m_strLoadedVersion)
+    strInstalled = BuildVersionCompareString(GetVCSVersion)
+
+    If Len(strLoaded) And Len(strInstalled) Then
+        If strLoaded < strInstalled Then CompareLoadedVersion = evcOlderVersion
+        If strLoaded = strInstalled Then CompareLoadedVersion = evcSameVersion
+        If strLoaded > strInstalled Then CompareLoadedVersion = evcNewerVersion
+    Else
+        CompareLoadedVersion = evcUnknown
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildVersionCompareString
+' Author    : Adam Waller
+' Date      : 11/21/2023
+' Purpose   : Reformat the string to a padded string that can be used to compare
+'           : versions.  I.e. "4.1.345" becomes "000040000100345"
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildVersionCompareString(strVersion As String) As String
+
+    Dim varParts As Variant
+
+    ' Build version strings to compare
+    varParts = Split(strVersion, ".")
+    If UBound(varParts) = 2 Then
+        BuildVersionCompareString = _
+            Format(varParts(0), "00000") & _
+            Format(varParts(1), "00000") & _
+            Format(varParts(2), "00000")
+    Else
+        ' Unable to parse version
+        BuildVersionCompareString = strVersion
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Upgrade
+' Author    : Adam Waller
+' Date      : 11/21/2023
+' Purpose   :
+'---------------------------------------------------------------------------------------
+'
+Private Sub Upgrade(ByRef dOptions As Dictionary)
+
+    Dim varKey As Variant
+    Dim dItem As Dictionary
+    Dim varItems As Variant
+    Dim colItems As Collection
+    Dim varLine As Variant
+
+    ' 6/16/2021
+    ' Aggressive sanitize to sanitize levels
+    If dOptions.Exists("AggressiveSanitize") Then
+        If Not dOptions.Exists("SanitizeLevel") Then
+            ' Check for non-default level
+            If Not dOptions("AggressiveSanitize") Then
+                ' Set to basic level
+                dOptions.Add "SanitizeLevel", eslMinimal
+            End If
+        End If
+    End If
+
+    ' 11/3/2023
+    ' Check option to split VBA from object layout
+    If Not dOptions.Exists("SplitLayoutFromVBA") Then
+        ' The existing options file does not have this option defined.
+        ' See if we have any source files from previous exports.
+        If HasUnifiedLayoutFilesInGit(Me.GetExportFolder) Then
+            ' Set the option as false by default, and let the user
+            ' turn it on explicitly for this project.
+            ' (That way they are not forced to make a decision immediately)
+            Me.SplitLayoutFromVBA = False
+        Else
+            ' If we already have split files, or if this project is
+            ' being exported for the first time, leave the option at
+            ' the default setting.
+        End If
+    End If
+
+    ' 1/9/2024 (4.0.31)
+    ' Use collection to store schema filter entries
+    If dOptions.Exists("SchemaExports") Then
+        If dOptions("SchemaExports").Count > 0 Then
+            For Each varKey In dOptions("SchemaExports").Keys
+                Set dItem = dOptions("SchemaExports").Item(varKey)
+                If dItem.Exists("Filter") Then
+                    ' If this is a string value, upgrade it to a collection
+                    If Not IsObject(dItem("Filter")) Then
+                        Set colItems = New Collection
+                        varItems = Split(dItem("Filter"), "\r\n")
+                        Set dItem("Filter") = New Collection
+                        ' Build collection items
+                        For Each varLine In varItems
+                            colItems.Add CStr(varLine)
+                        Next varLine
+                        Set dItem("Filter") = colItems
+                    End If
+                End If
+            Next varKey
+        End If
+    End If
+
+    ' 2/8/2025 (4.0.39)
+    ' Remove UI option for SanitizeLevel = None (#554)
+    If dOptions.Exists("SanitizeLevel") Then
+        If dOptions("SanitizeLevel") = eSanitizeLevel.eslNone Then
+            dOptions("SanitizeLevel") = eSanitizeLevel.eslMinimal
+        End If
+    End If
+
+    ' 3/2026 (5.0.0)
+    ' Existing projects without an export format version default to the
+    ' 4.1.2 baseline (last v4 release) so upgrades don't change export output.
+    ' New projects (no options file) get LATEST_EXPORT_FORMAT via LoadDefaults.
+    If Not dOptions.Exists("ExportFormatVersion") Then
+        dOptions.Add "ExportFormatVersion", "4.1.2"
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasUnifiedLayoutFilesInGit
+' Author    : Adam Waller
+' Date      : 11/3/2023
+' Purpose   : Returns true if the current project seems to have existing form or report
+'           : source files AND appears to be in a .git repository.
+'           : (This function is used when determining the default for splitting VBA
+'           :  from layout files in new projects.)
+'           : For performance reasons this is not a fully comprehensive check of every
+'           : possible source file, but should be a pretty good indication of whether
+'           : existing source files need to be split in git to preserve the history in
+'           : both source files.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasUnifiedLayoutFilesInGit(strExportPath As String) As Boolean
+
+    Dim blnHasFiles As Boolean
+
+    ' See if we have any layout files, but no corresponding ".cls" files in the
+    ' forms and reports export folders.
+    ' Hard-coding the folder names to avoid calling options.
+    If GetFileList(BuildPath2(strExportPath, "forms"), "*.form").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "forms"), "*.cls").Count = 0)
+    ElseIf GetFileList(BuildPath2(strExportPath, "forms"), "*.bas").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "forms"), "*.cls").Count = 0)
+    ElseIf GetFileList(BuildPath2(strExportPath, "reports"), "*.report").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "reports"), "*.cls").Count = 0)
+    ElseIf GetFileList(BuildPath2(strExportPath, "reports"), "*.bas").Count > 0 Then
+        blnHasFiles = (GetFileList(BuildPath2(strExportPath, "reports"), "*.cls").Count = 0)
+    End If
+
+    If blnHasFiles Then
+        ' Check to see if this folder is in a git repository
+        If Git.Installed Then
+            ' Check export path
+            Git.WorkingFolder = strExportPath
+            HasUnifiedLayoutFilesInGit = Git.IsInsideRepository
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadProjectOptions
+' Author    : Adam Waller
+' Date      : 4/14/2020
+' Purpose   : Loads the project options from a saved file. (If any)
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadProjectOptions()
+
+    Dim strSaved As String
+
+    ' We can only load the options for the current project if we
+    ' have a database file open.
+    If Not DatabaseFileOpen Then Exit Sub
+
+    ' Get saved path from database (if defined)
+    strSaved = SavedSourcePath
+
+    ' Attempt to load the project options file.
+    If strSaved <> vbNullString Then Me.ExportFolder = strSaved
+    LoadOptionsFromFile Me.GetExportFolder & cstrOptionsFilename
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadDefaultOptions
+' Author    : Adam Waller
+' Date      : 4/14/2020
+' Purpose   : Load in the default options from the saved json file in the addin path.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadDefaultOptions()
+    LoadOptionsFromFile GetDefaultOptionsFilePath
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDefaultOptionsFilePath
+' Author    : Adam Waller
+' Date      : 5/7/2021
+' Purpose   : Return the full path of the default options file
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDefaultOptionsFilePath() As String
+    GetDefaultOptionsFilePath = FSO.BuildPath(CodeProject.Path, cstrOptionsFilename)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrintOptionsToDebugWindow
+' Author    : Adam Waller
+' Date      : 4/14/2020
+' Purpose   : Output the current options.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PrintOptionsToDebugWindow()
+    Debug.Print modJsonConverter.ConvertToJson(SerializeOptions, JSON_WHITESPACE)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetExportFolder
+' Author    : Adam Waller
+' Date      : 4/14/2020
+' Purpose   : Returns the actual export folder path from the ExportFolder option.
+'           : NOTE: We cannot return a relative export folder path without an open
+'           : database file.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetExportFolder() As String
+
+    Dim strFullPath As String
+
+    If Me.ExportFolder = vbNullString Then
+        If DatabaseFileOpen Then
+            ' Build default path using project file name
+            strFullPath = CurrentProject.FullName & ".src" & PathSep
+        Else
+            ' Check options file path
+            If Len(m_strOptionsFilePath) Then
+                strFullPath = FSO.GetParentFolderName(m_strOptionsFilePath)
+            End If
+        End If
+    Else
+        If Left$(Me.ExportFolder, 2) = PathSep & PathSep Then
+            ' UNC path
+            strFullPath = Me.ExportFolder
+        ElseIf Left$(Me.ExportFolder, 1) = PathSep Then
+            ' Relative path (from database file location)
+            strFullPath = CurrentProject.Path & Me.ExportFolder
+        Else
+            ' Other absolute path (i.e. c:\myfiles\)
+            strFullPath = Me.ExportFolder
+        End If
+        ' Environment variable replacements
+        If InStr(1, strFullPath, "%") > 0 Then
+            strFullPath = ExpandEnvironmentVariables(strFullPath)
+            ' Other placeholder replacements
+            If InStr(1, strFullPath, "%dbName%", vbTextCompare) > 0 Then
+                strFullPath = Replace(strFullPath, "%dbName%", CurrentProject.Name, , , vbTextCompare)
+            End If
+        End If
+    End If
+
+    ' Check to make sure we have built a valid path.
+    Select Case strFullPath
+        Case PathSep & PathSep, PathSep, ".src" & PathSep, vbNullString
+            ' Invalid paths
+            MsgBox2 "Cannot determine export path", _
+                "A database file must be open to return a relative export path.", _
+                "This is probably due to a problem in the build sequence logic.", vbExclamation
+            Log.Add "ERROR: Cannot build relative export folder path without an open database file."
+            GetExportFolder = vbNullString
+        Case Else
+            ' Return export path with a trailing slash
+            GetExportFolder = StripSlash(strFullPath) & PathSep
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SerializeOptions
+' Author    : Adam Waller
+' Date      : 2/12/2020
+' Purpose   : Serializes Options into a dictionary array for saving to file as JSON.
+'---------------------------------------------------------------------------------------
+'
+Private Function SerializeOptions() As Dictionary
+
+    Dim dOptions As Dictionary
+    Dim dInfo As Dictionary
+    Dim dWrapper As Dictionary
+    Dim varOption As Variant
+    Dim strBit As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Set dOptions = New Dictionary
+    Set dInfo = New Dictionary
+    Set dWrapper = New Dictionary
+
+    ' Add some header information (For debugging or upgrading)
+    #If Win64 Then
+        strBit = " 64-bit"
+    #Else
+        strBit = " 32-bit"
+    #End If
+    dInfo.Add "AddinVersion", AppVersion
+    dInfo.Add "AccessVersion", Application.Version & strBit
+
+    ' Loop through options
+    For Each varOption In m_colOptions
+        Select Case CStr(varOption)
+            Case "ExportFormatVersion"
+                dOptions.Add CStr(varOption), ExportFormatToVersion(Me.ExportFormatVersion)
+            Case "EnvConnectionNames"
+                ' Only serialize when entries are defined
+                If Me.EnvConnectionNames.Count > 0 Then
+                    dOptions.Add CStr(varOption), Me.EnvConnectionNames
+                End If
+            Case Else
+                dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
+        End Select
+    Next varOption
+
+    'Set SerializeOptions = new Dictionary
+    Set dWrapper("Info") = dInfo
+    Set dWrapper("Options") = dOptions
+    Set SerializeOptions = dWrapper
+
+    CatchAny eelError, "Serializing options", ModuleName(Me) & ".SerializeOptions"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetHash
+' Author    : Adam Waller
+' Date      : 2/16/2021
+' Purpose   : Return a single combined hash of export-affecting options.
+'           : Derived from per-category hashes for backward compatibility.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetHash() As String
+    GetHash = GetDictionaryHash(GetCategoryHashes)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetCategoryHashes
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Return a dictionary of per-category option hashes. Each key is a
+'           : component category name (matching IDbComponent.Category) and each value
+'           : is a hash of the options that affect that category's export output.
+'           : The "_Global" key holds a hash of options that affect ALL categories
+'           : (ExportFormatVersion, major Access version).
+'           : Categories not listed here are only affected by global options.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetCategoryHashes() As Dictionary
+
+    Dim dOptions As Dictionary
+    Dim dCats As Dictionary
+    Dim dGlobal As Dictionary
+    Dim dResult As Dictionary
+    Dim dMerged As Dictionary
+    Dim varKey As Variant
+
+    Set dOptions = CloneDictionary(SerializeOptions)
+    Set dCats = New Dictionary
+    Set dGlobal = New Dictionary
+    Set dResult = New Dictionary
+
+    ' Global: major Access version (e.g. "16" from "16.0")
+    dGlobal.Add "AccessVersion", CStr(Val(Application.Version))
+
+    ' Classify each option by the categories it affects
+    For Each varKey In dOptions("Options").Keys
+        Select Case CStr(varKey)
+
+            ' --- Forms and Reports ---
+            Case "SavePrintVars", "ExportPrintSettings", "DecodeConditionalFormatting", _
+                 "SplitLayoutFromVBA", "SanitizeColors", _
+                 "ExportLayoutSvg", "LayoutSvgImageEmbed", "LayoutSvgScaleMode"
+                AddToCat dCats, "Forms", varKey, dOptions("Options")
+                AddToCat dCats, "Reports", varKey, dOptions("Options")
+
+            ' --- Queries ---
+            Case "SaveQuerySQL", "FormatSQL", "UseDeterministicQueryExport"
+                AddToCat dCats, "Queries", varKey, dOptions("Options")
+
+            ' --- Table Definitions ---
+            Case "SaveTableSQL", "SaveLinkedTableDef"
+                AddToCat dCats, "Tables", varKey, dOptions("Options")
+
+            ' --- Themes ---
+            Case "ExtractThemeFiles"
+                AddToCat dCats, "Themes", varKey, dOptions("Options")
+
+            ' --- VBE Project ---
+            Case "PreserveRubberDuckID"
+                AddToCat dCats, "VB Project", varKey, dOptions("Options")
+
+            ' --- Multiple categories ---
+            Case "SanitizeLevel", "StripPublishOption"
+                AddToCat dCats, "Forms", varKey, dOptions("Options")
+                AddToCat dCats, "Reports", varKey, dOptions("Options")
+                AddToCat dCats, "Queries", varKey, dOptions("Options")
+                AddToCat dCats, "Macros", varKey, dOptions("Options")
+                AddToCat dCats, "Tables", varKey, dOptions("Options")
+                AddToCat dCats, "Table Data Macros", varKey, dOptions("Options")
+
+            ' --- Connections (Tables, Queries, DB Connections) ---
+            Case "UseEnvForConnections", "EnvConnectionNames"
+                AddToCat dCats, "Tables", varKey, dOptions("Options")
+                AddToCat dCats, "Queries", varKey, dOptions("Options")
+                AddToCat dCats, "DB Connections", varKey, dOptions("Options")
+
+            ' --- Doc Properties ---
+            Case "SaveAllDocumentProperties"
+                AddToCat dCats, "Doc Properties", varKey, dOptions("Options")
+
+            ' --- Global (all categories) ---
+            Case "ExportFormatVersion"
+                dGlobal.Add CStr(varKey), dOptions("Options")(CStr(varKey))
+
+            ' --- Non-export options (skip) ---
+            Case "ExportFolder", "ShowDebug", "UseFastSave", _
+                 "UseMergeBuild", "ExportAfterMerge", "UseGitIntegration", _
+                 "ForceImportOriginalQuerySQL", _
+                 "RunBeforeExport", "RunAfterExport", _
+                 "RunBeforeBuild", "RunAfterBuild", _
+                 "RunBeforeMerge", "RunAfterMerge", _
+                 "ShowVCSLegacy", "BreakOnError", "MaxLogFiles", _
+                 "HashAlgorithm", "UseShortHash", "SchemaExports", _
+                 "TablesToExportData", "DefaultTestFilter", _
+                 "McpAllowRunVBA", "McpAllowExecuteSQL", _
+                 "McpAllowCallVBA", "McpAllowImport"
+                ' Not included in hash
+
+            Case Else
+                Debug.Print "WARNING: Option '" & varKey & _
+                    "' is not classified in GetCategoryHashes. " & _
+                    "Please add it to the appropriate category or non-export list."
+        End Select
+    Next varKey
+
+    ' Build hashes: global hash + per-category hashes (each includes global options)
+    dResult.Add "_Global", GetDictionaryHash(dGlobal)
+    For Each varKey In dCats.Keys
+        Set dMerged = CloneDictionary(dGlobal)
+        MergeDictionary dMerged, dCats(CStr(varKey))
+        dResult.Add CStr(varKey), GetDictionaryHash(dMerged)
+    Next varKey
+
+    Set GetCategoryHashes = dResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddToCat
+' Author    : Adam Waller
+' Date      : 3/10/2026
+' Purpose   : Add an option value to a category dictionary for hashing.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddToCat(dCats As Dictionary, strCategory As String, _
+    varKey As Variant, dSource As Dictionary)
+    If Not dCats.Exists(strCategory) Then
+        Set dCats(strCategory) = New Dictionary
+    End If
+    Dim strKey As String
+    strKey = CStr(varKey)
+    If IsObject(dSource(strKey)) Then
+        Set dCats(strCategory)(strKey) = dSource(strKey)
+    Else
+        dCats(strCategory).Add strKey, dSource(strKey)
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSanitizeLevelName
+' Author    : Hecon5 (as adapted from Adam Waller's below)
+' Date      : 6/09/2021
+' Purpose   : Return the name used to read and write to the JSON options files.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSanitizeLevelName(intSanitizeLevel As eSanitizeLevel) As String
+    Select Case intSanitizeLevel
+        Case eslNone:           GetSanitizeLevelName = "None (Off)"
+        Case eslMinimal:        GetSanitizeLevelName = "Minimal"
+        Case eslStandard:       GetSanitizeLevelName = "Standard"
+        Case eslExtended:       GetSanitizeLevelName = "Extended"
+        Case Else:              GetSanitizeLevelName = vbNullString
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSanitizeLevel
+' Author    : Hecon5 (as adapted from Adam Waller's below)
+' Date      : 4/17/2020
+' Purpose   : Translate the table export format key to the corresponding enum value.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSanitizeLevel(strKey As String) As eSanitizeLevel
+    Dim intSanitizeLevel As eSanitizeLevel
+    Dim strName As String
+    For intSanitizeLevel = eslNone To eSanitizeLevel.[_Last]
+        strName = Me.GetSanitizeLevelName(intSanitizeLevel)
+        If strName = strKey Then
+            GetSanitizeLevel = intSanitizeLevel
+            Exit For
+        End If
+    Next intSanitizeLevel
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTableExportFormatName
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Return the name used to read and write to the JSON options files.
+'---------------------------------------------------------------------------------------
+'
+'---------------------------------------------------------------------------------------
+' Procedure : GetUseEnvConnectionsName
+' Author    : Adam Waller
+' Date      : 03/17/2026
+' Purpose   : Return the display name for the UseEnvForConnections option value.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetUseEnvConnectionsName(intLevel As eUseEnvConnections) As String
+    Select Case intLevel
+        Case uecAuto:       GetUseEnvConnectionsName = "Auto"
+        Case uecAlways:     GetUseEnvConnectionsName = "Always"
+        Case uecNever:      GetUseEnvConnectionsName = "Never"
+        Case Else:          GetUseEnvConnectionsName = vbNullString
+    End Select
+End Function
+
+
+Public Function GetTableExportFormatName(intFormat As eTableDataExportFormat) As String
+    Select Case intFormat
+        Case etdTabDelimited:   GetTableExportFormatName = "Tab Delimited"
+        Case etdXML:            GetTableExportFormatName = "XML Format"
+        Case Else:              GetTableExportFormatName = vbNullString
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTableExportFormat
+' Author    : Adam Waller
+' Date      : 4/17/2020
+' Purpose   : Translate the table export format key to the corresponding enum value.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableExportFormat(strKey As String) As eTableDataExportFormat
+    Dim intFormat As eTableDataExportFormat
+    Dim strName As String
+    For intFormat = etdNoData To eTableDataExportFormat.[_Last] - 1
+        strName = Me.GetTableExportFormatName(intFormat)
+        If strName = strKey Then
+            GetTableExportFormat = intFormat
+            Exit For
+        End If
+    Next intFormat
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Initialize
+' Author    : Adam Waller
+' Date      : 2/12/2020
+' Purpose   : Load default values when creating class
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Initialize()
+
+    ' Initialize the options collection
+    Set m_colOptions = New Collection
+
+    ' Load enum values
+    Set m_dEnum = New Dictionary
+
+    ' Load list of property names for reflection type behavior.
+    With m_colOptions
+        ' General
+        .Add "ExportFolder"
+        ' Export
+        .Add "UseFastSave"
+        .Add "SplitLayoutFromVBA"
+        .Add "ExportFormatVersion"
+        .Add "RunBeforeExport"
+        .Add "RunAfterExport"
+        .Add "SanitizeLevel"
+        .Add "SanitizeColors"
+        .Add "SaveQuerySQL"
+        .Add "FormatSQL"
+        .Add "UseDeterministicQueryExport"
+        .Add "SaveTableSQL"
+        .Add "SavePrintVars"
+        .Add "DecodeConditionalFormatting"
+        .Add "ExtractThemeFiles"
+        .Add "UseEnvForConnections"
+        .Add "EnvConnectionNames"
+        .Add "ExportPrintSettings"
+        .Add "ExportLayoutSvg"
+        .Add "LayoutSvgImageEmbed"
+        .Add "LayoutSvgScaleMode"
+        ' Build
+        .Add "ExportAfterMerge"
+        .Add "ForceImportOriginalQuerySQL"
+        .Add "UseMergeBuild"
+        .Add "RunBeforeBuild"
+        .Add "RunAfterBuild"
+        .Add "RunBeforeMerge"
+        .Add "RunAfterMerge"
+        ' Table Data
+        .Add "TablesToExportData"
+        ' External Databases
+        .Add "SchemaExports"
+        ' MCP Security
+        .Add "McpAllowImport"
+        .Add "McpAllowCallVBA"
+        .Add "McpAllowExecuteSQL"
+        .Add "McpAllowRunVBA"
+        ' Advanced
+        .Add "DefaultTestFilter"
+        .Add "ShowDebug"
+        .Add "BreakOnError"
+        .Add "MaxLogFiles"
+        .Add "StripPublishOption"
+        .Add "PreserveRubberDuckID"
+        .Add "SaveAllDocumentProperties"
+        .Add "SaveLinkedTableDef"
+        .Add "HashAlgorithm"
+        .Add "UseShortHash"
+        .Add "UseGitIntegration"
+        .Add "ShowVCSLegacy"
+    End With
+
+    ' Load default values
+    Me.LoadDefaults
+
+    ' Load saved defaults
+    LoadDefaultOptions
+
+    ' Other run-time options
+    JsonOptions.AllowUnicodeChars = True
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetBuildPath
+' Author    : Adam Waller
+' Date      : 10/28/2021
+' Purpose   : Set a build path property value if the export folder is not relative
+'           : to the current database path.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetBuildPath()
+
+    Dim prp As AccessObjectProperty
+    Dim proj As CurrentProject
+
+    Set proj = CurrentProject
+    Set prp = GetPropertyByName(cstrBuildPathProperty)
+
+    ' This should only be done on an open database/project
+    If DatabaseFileOpen Then
+        ' Check the export folder option
+        If Me.ExportFolder = vbNullString Or IsRelativePathValue(Me.ExportFolder) Then
+            ' When using the default of a blank export path, we don't need
+            ' to store the build folder location. (It will be different on
+            ' different computers, and not needed for a relative export path.)
+            If Not prp Is Nothing Then proj.Properties.Remove prp.Name
+        Else
+            If prp Is Nothing Then
+                ' Create the property
+                proj.Properties.Add cstrBuildPathProperty, proj.Path
+            Else
+                ' Update the value.
+                If prp.Value <> proj.Path Then prp.Value = proj.Path
+            End If
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsRelativePathProperty
+' Author    : Josef Poetzl
+' Date      : 5/9/2025
+' Purpose   : Checks if the path property starts with '\' but is not a UNC path.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsRelativePathValue(ByVal strPathToCheck As String) As Boolean
+   If Left(strPathToCheck, 1) = PathSep Then
+      If Mid(strPathToCheck, 2, 1) <> PathSep Then
+         IsRelativePathValue = True
+      End If
+   End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SavedSourcePath
+' Author    : Adam Waller
+' Date      : 7/13/2020
+' Purpose   : Get any saved path for VCS source files. (In case we are using a
+'           : different location for the files.) This is stored as a property
+'           : under the currentproject. (Works for both ADP and MDB)
+'---------------------------------------------------------------------------------------
+'
+Private Property Get SavedSourcePath() As String
+    Dim prp As AccessObjectProperty
+    Set prp = GetPropertyByName(cstrSourcePathProperty)
+    If Not prp Is Nothing Then SavedSourcePath = prp.Value
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SavedSourcePath
+' Author    : Adam Waller
+' Date      : 7/14/2020
+' Purpose   : Save the source path as a property in the current database.
+'---------------------------------------------------------------------------------------
+'
+Private Property Let SavedSourcePath(strPath As String)
+
+    Dim prp As AccessObjectProperty
+    Dim proj As CurrentProject
+
+    Set proj = CurrentProject
+    Set prp = GetPropertyByName(cstrSourcePathProperty)
+
+    If strPath = vbNullString Then
+        ' Remove the property when no longer used.
+        If Not prp Is Nothing Then proj.Properties.Remove prp.Name
+    Else
+        If prp Is Nothing Then
+            ' Create the property
+            proj.Properties.Add cstrSourcePathProperty, strPath
+        Else
+            ' Update the value.
+            prp.Value = strPath
+        End If
+    End If
+
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadOptionOverrides
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Scan the mcp/ subfolder for session override files and merge their
+'           : options on top of the current project options. Only called when
+'           : Operation.Source indicates an API/MCP caller. Stale files (>30 days)
+'           : are cleaned up automatically.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadOptionOverrides()
+
+    Dim strFolder As String
+    Dim dFiles As Dictionary
+    Dim varFile As Variant
+
+    strFolder = Me.GetExportFolder & cstrOverridesSubfolder & PathSep
+    If Not FSO.FolderExists(strFolder) Then Exit Sub
+
+    Set dFiles = GetFileList(strFolder, cstrOverridesPrefix & "*.json")
+    If dFiles.Count = 0 Then Exit Sub
+
+    ' Clean up stale files first
+    CleanupStaleOverrides strFolder, dFiles
+
+    ' Merge remaining override files
+    For Each varFile In dFiles.Keys
+        MergeOverrideFile strFolder & varFile
+    Next varFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeOverrideFile
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Read a single override JSON file and apply its Options entries to the
+'           : current clsOptions instance via CallByName. Unknown keys are skipped
+'           : with a log warning.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MergeOverrideFile(strFile As String)
+
+    Dim dFile As Dictionary
+    Dim dOptions As Dictionary
+    Dim varKey As Variant
+    Dim lngApplied As Long
+
+    Set dFile = ReadJsonFile(strFile)
+    If dFile Is Nothing Then Exit Sub
+    If Not dFile.Exists("Options") Then Exit Sub
+
+    Set dOptions = dFile("Options")
+    For Each varKey In dOptions.Keys
+        LogUnhandledErrors
+        On Error Resume Next
+        CallByName Me, CStr(varKey), VbLet, dOptions(varKey)
+        If Err.Number <> 0 Then
+            Log.Add T("Skipping unknown option override: {0}", var0:=CStr(varKey)), False
+            Err.Clear
+        Else
+            lngApplied = lngApplied + 1
+        End If
+        On Error GoTo 0
+    Next varKey
+
+    If lngApplied > 0 Then
+        Log.Add T("Applied {0} option override(s) from {1}", _
+            var0:=lngApplied, var1:=FSO.GetFileName(strFile)), False
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CleanupStaleOverrides
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Delete override files whose Info.Modified timestamp is older than
+'           : STALE_OVERRIDE_DAYS. Removes items from dFiles so the caller skips them.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CleanupStaleOverrides(strFolder As String, dFiles As Dictionary)
+
+    Dim varFile As Variant
+    Dim dFile As Dictionary
+    Dim dtModified As Date
+    Dim colToRemove As Collection
+
+    Set colToRemove = New Collection
+
+    For Each varFile In dFiles.Keys
+        Set dFile = ReadJsonFile(strFolder & varFile)
+        If Not dFile Is Nothing Then
+            If dFile.Exists("Info") Then
+                If dFile("Info").Exists("Modified") Then
+                    dtModified = CDate(dFile("Info")("Modified"))
+                    If DateDiff("d", dtModified, Now) > STALE_OVERRIDE_DAYS Then
+                        DeleteFile strFolder & varFile
+                        colToRemove.Add varFile
+                    End If
+                End If
+            End If
+        End If
+    Next varFile
+
+    ' Remove cleaned-up files from the dictionary
+    For Each varFile In colToRemove
+        dFiles.Remove varFile
+    Next varFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetPropertyByName
+' Author    : Adam Waller
+' Date      : 10/28/2021
+' Purpose   : Return a project property
+'---------------------------------------------------------------------------------------
+'
+Private Function GetPropertyByName(strName As String) As AccessObjectProperty
+
+    Dim prp As AccessObjectProperty
+    Dim proj As CurrentProject
+
+    If DatabaseFileOpen Then
+        Set proj = CurrentProject
+        For Each prp In proj.Properties
+            If prp.Name = strName Then
+                Set GetPropertyByName = prp
+                Exit For
+            End If
+        Next prp
+    End If
+
+End Function

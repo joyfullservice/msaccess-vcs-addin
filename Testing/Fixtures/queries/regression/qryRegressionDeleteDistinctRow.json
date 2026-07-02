@@ -1,0 +1,16 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionDeleteDistinctRow"
+  },
+  "Items": {
+    "QueryType": 32,
+    "OptionFlag": 8,
+    "QueryProperties": {
+      "FailOnError": {
+        "Type": 1,
+        "Value": false
+      }
+    }
+  }
+}

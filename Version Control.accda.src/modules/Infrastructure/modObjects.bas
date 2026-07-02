@@ -1,0 +1,360 @@
+﻿Attribute VB_Name = "modObjects"
+'---------------------------------------------------------------------------------------
+' Module    : modObjects
+' Author    : Adam Waller
+' Date      : 12/4/2020
+' Purpose   : Wrapper functions for classes and other objects available globally.
+'---------------------------------------------------------------------------------------
+Option Compare Database
+Option Private Module
+Option Explicit
+'@Folder("Infrastructure")
+
+Private Const ModuleName = "modObjects"
+
+
+' Manage outside "this" since we will use the operation class to release the other objects.
+Private m_Operation As clsOperation
+
+' Session ID for MCP/API option overrides. Stored outside the UDT so it survives
+' ReleaseObjects teardown. Set via RegisterSession API, used by SaveOptionOverride.
+Private m_strSessionId As String
+
+' Use a private type to manage instances of object classes
+Private Type udtObjects
+    Perf As clsPerformance
+    Log As clsLog
+    Options As clsOptions
+    VCSIndex As clsVCSIndex
+    Worker As clsWorker
+    Git As clsGitIntegration
+    Translation As clsTranslation
+    MCP As clsMCP
+    TestRunner As clsTestRunner
+
+    ' Keep a persistent reference to file system object after initializing version control.
+    ' This way we don't have to recreate this object dozens of times while using VCS.
+    FSO As Scripting.FileSystemObject
+
+    ' Shared DAO database reference. Reusing a single CurrentDb reference across all
+    ' component classes allows the JET engine's page-level cache to stay warm, avoiding
+    ' repeated ~20s cold I/O penalties on large databases.
+    dbs As DAO.Database
+End Type
+Private this As udtObjects
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseDbReferences
+' Author    : Adam Waller
+' Date      : 4/3/2026
+' Purpose   : Release references bound to the current database (e.g. cached CurrentDb)
+'           : without tearing down infrastructure singletons (Log, Perf, Operation) that
+'           : must survive a close/reopen cycle. Stale DAO handles left alive across a
+'           : WizHook.CloseCurrentDatabase + ShiftOpenDatabase cause Error 5 and nav pane
+'           : issues on the next operation. Singletons cleared here are lazily re-created
+'           : on next access.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseDbReferences()
+    Set this.dbs = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseObjects
+' Author    : Adam Waller
+' Date      : 3/28/2022
+' Purpose   : Release references to objects for a clean exit.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseObjects()
+
+    Set this.Perf = Nothing
+    Set this.Log = Nothing
+    Set this.Options = Nothing
+    Set this.VCSIndex = Nothing
+    Set this.Worker = Nothing
+    Set this.Git = Nothing
+    Set this.FSO = Nothing
+    Set this.Translation = Nothing
+    Set this.MCP = Nothing
+    Set this.TestRunner = Nothing
+    Set this.dbs = Nothing
+
+    Dim udtEmpty As udtObjects
+    ' Reassign "this" to blank, clearing any saved data.
+    LSet this = udtEmpty
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadOptions
+' Author    : Adam Waller
+' Date      : 4/15/2020
+' Purpose   : Loads the current options from defaults and this project.
+'---------------------------------------------------------------------------------------
+'
+Public Function LoadOptions() As clsOptions
+    Dim Options As clsOptions
+    Set Options = New clsOptions
+    Options.LoadProjectOptions
+    Set LoadOptions = Options
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Options
+' Author    : Adam Waller
+' Date      : 5/2/2020
+' Purpose   : A global property to access options from anywhere in code.
+'           : (Avoiding a global state is better OO programming, but this approach keeps
+'           :  the coding simpler when you don't have to tie everything back to the
+'           :  primary object.)
+'           : To clear the current set of options, simply set the property to nothing.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Options() As clsOptions
+    If this.Options Is Nothing Then
+        Set this.Options = LoadOptions
+    End If
+    Set Options = this.Options
+End Property
+Public Property Set Options(cNewOptions As clsOptions)
+    Set this.Options = cNewOptions
+    ' DebugMode() now reads Options.BreakOnError directly via OptionsLoaded guard
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OptionsLoaded
+' Author    : Adam Waller
+' Date      : 5/13/2023
+' Purpose   : Return true if the options object has been loaded. (It is loaded on first
+'           : access, but in some cases we might want to avoid loading the options if
+'           : they are not already loaded.)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get OptionsLoaded() As Boolean
+    OptionsLoaded = (Not this.Options Is Nothing)
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Perf
+' Author    : Adam Waller
+' Date      : 11/3/2020
+' Purpose   : Wrapper for performance logging class
+'---------------------------------------------------------------------------------------
+'
+Public Function Perf() As clsPerformance
+    If this.Perf Is Nothing Then Set this.Perf = New clsPerformance
+    Set Perf = this.Perf
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Translation
+' Author    : Adam Waller
+' Date      : 5/19/2021
+' Purpose   : Expose translation class
+'---------------------------------------------------------------------------------------
+'
+Public Function Translation() As clsTranslation
+    If this.Translation Is Nothing Then Set this.Translation = New clsTranslation
+    Set Translation = this.Translation
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : T
+' Author    : Adam Waller
+' Date      : 3/19/2024
+' Purpose   : Wrapper function to translate to current language
+'---------------------------------------------------------------------------------------
+'
+Public Function T(strText As String, Optional strReference As String, _
+    Optional strContext As String, Optional strComments As String, _
+    Optional var0, Optional var1, Optional var2, Optional var3, Optional var4, _
+    Optional var5, Optional var6, Optional var7, Optional var8, Optional var9)
+    T = Translation.T(strText, strReference, strContext, strComments, _
+        var0, var1, var2, var3, var4, var5, var6, var7, var8, var9)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Log
+' Author    : Adam Waller
+' Date      : 4/28/2020
+' Purpose   : Wrapper for log file class
+'---------------------------------------------------------------------------------------
+'
+Public Function Log(Optional blnCreateInstance As Boolean = True) As clsLog
+    If this.Log Is Nothing Then If blnCreateInstance Then Set this.Log = New clsLog
+    Set Log = this.Log
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FSO
+' Author    : Adam Waller, hecon5
+' Date      : 1/18/2019, 10/24/2024
+' Purpose   : Wrapper for file system object. A property allows us to clear the object
+'           : reference when we have completed an export or import operation.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get FSO() As Scripting.FileSystemObject
+
+    Const FunctionName As String = ModuleName & ".FSO"
+    Dim RetryCount As Long
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+Retry:
+    If this.FSO Is Nothing Then Set this.FSO = New Scripting.FileSystemObject
+    Set FSO = this.FSO
+    If CatchAny(eelError, "Retry FSO Check", FunctionName, False, True) And RetryCount < 2 Then
+        ' Some machines in some environments may fail to generate the FileSystemObject the first time.
+        ' 99% of retries the second attempt will work. This may be due to a race condition in the OS.
+        ' RetryCount prevents a permanent loop if for some reason the second attempt fails out, and in
+        ' those cases additional tries are also likely to fail.
+        RetryCount = RetryCount + 1
+        GoTo Retry
+    End If
+    CatchAny eelCritical, "Unable to create Scripting.FileSystemObject", FunctionName
+
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VSCIndex
+' Author    : Adam Waller
+' Date      : 12/1/2020
+' Purpose   : Reference to the VCS Index class (saved state from vcs-index.idx)
+'---------------------------------------------------------------------------------------
+'
+Public Property Get VCSIndex() As clsVCSIndex
+    If this.VCSIndex Is Nothing Then
+        Set this.VCSIndex = New clsVCSIndex
+        this.VCSIndex.LoadFromFile
+    End If
+    Set VCSIndex = this.VCSIndex
+End Property
+Public Property Set VCSIndex(cIndex As clsVCSIndex)
+    Set this.VCSIndex = cIndex
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Worker
+' Author    : Adam Waller
+' Date      : 3/2/2023
+' Purpose   : Expose worker class
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Worker() As clsWorker
+    If this.Worker Is Nothing Then Set this.Worker = New clsWorker
+    Set Worker = this.Worker
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Diff
+' Author    : Adam Waller
+' Date      : 2/23/2022
+' Purpose   : Wrapper for class to view diff between string and file content
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Diff() As clsViewDiff
+    Static cDiff As clsViewDiff
+    If cDiff Is Nothing Then Set cDiff = New clsViewDiff
+    Set Diff = cDiff
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Git
+' Author    : Adam Waller
+' Date      : 3/10/2023
+' Purpose   : Return Git integration class
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Git() As clsGitIntegration
+    If this.Git Is Nothing Then Set this.Git = New clsGitIntegration
+    Set Git = this.Git
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Operation
+' Author    : Adam Waller
+' Date      : 5/9/2025
+' Purpose   : Wrapper for operation state management
+'---------------------------------------------------------------------------------------
+'
+Public Property Get Operation() As clsOperation
+    If m_Operation Is Nothing Then Set m_Operation = New clsOperation
+    Set Operation = m_Operation
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MCP
+' Author    : Adam Waller
+' Date      : 1/23/2026
+' Purpose   : Wrapper for MCP callback class
+'---------------------------------------------------------------------------------------
+'
+Public Function MCP() As clsMCP
+    If this.MCP Is Nothing Then Set this.MCP = New clsMCP
+    Set MCP = this.MCP
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SessionId
+' Author    : Adam Waller
+' Date      : 4/15/2026
+' Purpose   : Session identifier for MCP/API option overrides. Set by RegisterSession
+'           : and used by SaveOptionOverride to determine the override filename.
+'           : Stored as a module-level variable (not in udtObjects) so it survives
+'           : ReleaseObjects teardown between operations.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SessionId() As String
+    SessionId = m_strSessionId
+End Property
+Public Property Let SessionId(strValue As String)
+    m_strSessionId = strValue
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestRunner
+' Author    : Adam Waller
+' Date      : 5/7/2026
+' Purpose   : Singleton accessor for the test runner engine.
+'---------------------------------------------------------------------------------------
+'
+Public Function TestRunner() As clsTestRunner
+    If this.TestRunner Is Nothing Then Set this.TestRunner = New clsTestRunner
+    Set TestRunner = this.TestRunner
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SharedDb
+' Author    : Adam Waller
+' Date      : 3/11/2026
+' Purpose   : Returns a shared DAO.Database reference (CurrentDb) that persists for the
+'           : duration of an operation. Reusing a single reference allows the JET engine's
+'           : page-level buffer cache to stay warm across all component classes, avoiding
+'           : repeated cold I/O penalties (~20s each on large databases).
+'---------------------------------------------------------------------------------------
+'
+Public Function SharedDb() As DAO.Database
+    If this.dbs Is Nothing Then Set this.dbs = CurrentDb
+    Set SharedDb = this.dbs
+End Function

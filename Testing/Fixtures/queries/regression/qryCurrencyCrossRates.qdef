@@ -1,0 +1,80 @@
+﻿Operation =1
+Option =0
+Where ="(((a.Currency)<[b].[Currency]))"
+Begin InputTables
+    Name ="tblCurrencyExchange"
+    Alias ="a"
+    Name ="tblCurrencyExchange"
+    Alias ="b"
+End
+Begin OutputColumns
+    Expression ="a.Date"
+    Expression ="a.Base"
+    Alias ="Currency1"
+    Expression ="a.Currency"
+    Alias ="Rate1"
+    Expression ="a.Rate"
+    Alias ="Currency2"
+    Expression ="b.Currency"
+    Alias ="Rate2"
+    Expression ="b.Rate"
+    Alias ="CrossRate"
+    Expression ="(b.Rate/a.Rate)"
+End
+Begin Joins
+    LeftTable ="a"
+    RightTable ="b"
+    Expression ="a.Base = b.Base"
+    Flag =1
+    LeftTable ="a"
+    RightTable ="b"
+    Expression ="a.[Date] = b.[Date]"
+    Flag =1
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="a.Date"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="a.Base"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="Currency1"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="Rate1"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="Currency2"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="Rate2"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="CrossRate"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="a.Currency"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="[b].[Currency]"
+        dbLong "AggregateType" ="-1"
+    End
+End

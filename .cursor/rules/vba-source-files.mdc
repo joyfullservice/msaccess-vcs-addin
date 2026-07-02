@@ -1,0 +1,54 @@
+---
+description: VBA source file editing rules - encoding, structure, and safe modification guidelines
+globs:
+  - "**/*.bas"
+  - "**/*.cls"
+  - "**/*.form"
+  - "**/*.report"
+  - "**/*.qdef"
+  - "**/*.macro"
+alwaysApply: false
+---
+
+# VBA Source File Rules
+
+When editing VBA source files (`.bas`, `.cls`) or Access SaveAsText files (`.form`, `.report`, `.qdef`, `.macro`), follow these rules:
+
+## File Structure - Do NOT Modify
+
+- `Attribute VB_Name` line - must match filename without extension
+- `VERSION 1.0 CLASS` / `BEGIN` / `END` blocks in class files
+- Module-level `Attribute VB_*` lines
+
+## Safe to Modify
+
+- VBA code (procedures, functions, properties)
+- Comment headers and documentation
+- Member attribute descriptions (text in quotes)
+
+## Coding Standards
+
+- Include procedure headers with Author, Date, Purpose
+- Use `Option Compare Database` and `Option Explicit`
+- Follow naming conventions: `str*`, `lng*`, `bln*`, `d*` (Dictionary), `c*` (class objects)
+- Use `T()` function for translatable strings
+
+## File Placement (`@Folder`)
+
+A component's on-disk folder is determined by the `'@Folder("Category.Sub")` comment **inside** the VBA source file, not by where you think it should live:
+
+- `'@Folder("Tests")` → `modules/Tests/<ModuleName>.bas` (or `forms/Tests/<FormName>.form`, etc.)
+- `'@Folder("Core.Utility")` → `modules/Core/Utility/<ModuleName>.bas`
+- No `@Folder` annotation → root of the component folder (`modules/`, `forms/`, or `reports/`)
+
+For **forms and reports**, the `@Folder` annotation is in the `.cls` code-behind file only — not in `.form`/`.report`, `.json`, or `.svg`.
+
+**Before creating or moving a component:**
+
+1. Search the entire `modules/`, `forms/`, or `reports/` tree for an existing file with the same basename.
+2. Edit that existing file in place — never create a second copy in another folder.
+3. If you need to change folder placement, edit the `'@Folder` annotation and let export relocate the file (or move the whole source group to match the annotation).
+
+Duplicate copies of the same name in different folders cause silent last-one-wins behavior on build and corrupt the change index. Build auto-removes misplaced duplicates when exactly one copy is in its annotation-derived folder.
+
+@Version Control.accda.src/AGENTS.md

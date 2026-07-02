@@ -1,0 +1,39 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionDualStarDesignView"
+  },
+  "Items": {
+    "QueryType": 0,
+    "OptionFlag": 1,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 800,
+        "bottom": 600
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 780,
+        "bottom": 300
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "tblCars",
+          "Alias": "",
+          "Left": 60,
+          "Top": 15,
+          "Right": 240,
+          "Bottom": 195,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

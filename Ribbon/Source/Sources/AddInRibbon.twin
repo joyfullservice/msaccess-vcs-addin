@@ -17,8 +17,6 @@ Class AddInRibbon
 		Without it, events will not fire.
 	*/
     
-    ' This corresponds to the name of the Access Add-in Project
-    Const PROJECT_NAME As String = "MSAccessVCS"
  
 	' Cached copy of the ribbon XML as loaded from the Ribbon.xml file.
 	Private strRibbonXML As String
@@ -143,10 +141,7 @@ Class AddInRibbon
 	Private Function VerifyAccessAddinProject() As Boolean
 
 		Dim strAddInLib As String
-		Dim proj As Object      	' VBProject
-		Dim addInProject As Object	' VBProject
-		Dim strName As String
-		Dim strTempDbPath As String = App.Path & "Temp.accdb"
+		Dim strTempDbPath As String = App.Path & "\Temp.accdb"
 		
 		' Get relative path to Access add-in library (Should be in same folder as this dll)
 		strAddInLib = App.Path & "\Version Control"
@@ -206,9 +201,33 @@ Class AddInRibbon
 	Public Sub OnActionButton(control As IRibbonControl)
 		If VerifyAccessAddinProject Then
 			' Pass the control ID to the handler function
+            On Error Resume Next
 			applicationObject.Run App.Path & "\Version Control.HandleRibbonCommand", control.Id
+            If Err Then
+                MsgBox "Failed to run ribbon command for " & control.Id & vbCrLf & vbCrLf & _
+                    Err.Number & ": " & Err.Description, vbExclamation
+                Err.Clear()
+            End If
+            SetActiveRibbonTab "tabVersionControl"
 		End If
 	End Sub
+    
+    
+    /*
+        Set the ribbon tab active again, in case the application switches back to 
+        the home tab in newer versions of Access
+    */
+    Public Sub SetActiveRibbonTab(tabId As String)
+        If Not activeRibbon Is Nothing Then
+            ' Note that attempting to activate a ribbon tab may crash
+            ' Access version 2010. Hence the version gate.
+            If CLng(applicationObject.Version) >= 15 Then
+                ' Attempt to make the specified tab active
+                On Error Resume Next
+                activeRibbon.ActivateTab tabId
+            End If
+        End If
+    End Sub
 	
     /*
 		Functions to dynamically load labels and descriptions

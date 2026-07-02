@@ -14,11 +14,15 @@ Because this isn't a built-in feature in .git, we need to implement a bit of a c
 
 You will need to run this process from a **clean branch**. If you have any outstanding changes, please commit or discard them before splitting files. Be aware that this will create **two additional commits** in your repository, so it can be helpful to do this for batches of files, rather than individually for each file.
 
+# Splitting One File Into Multiple Files
+
+If you need to split a single source file into multiple destination files (for example, refactoring a large module into several smaller ones), you can list the same source file multiple times with different destinations. The tool will automatically group these entries into the minimum number of batches needed, where each batch contains at most one entry per source file. You will be prompted to confirm before proceeding, since each batch creates two additional commits to preserve history.
+
 # Select and Split Layout from VBA
 
 On the VCS ribbon, click Open the **Advanced Tools > Split Files** to open the following dialog.
 
-![split-files-dialog](img/split-files-dialog.jpg)
+![split-files-dialog](img/split-files-dialog.png)
 
 Click the *Add Forms and Reports...* link to automatically load in the source files for the forms and reports in the current project and create the corresponding `*.cls` files.
 
@@ -26,4 +30,4 @@ Click the button to Split Files. This will begin the automated process of splitt
 
 With the files now split, turn on the VCS option to **Split Layout from VBA** and run an export. At this point you should see both source files modified for each object as the layout is removed from the class file, and the VBA is removed from the layout file.
 
-That's it! Now the VBA code changes can be tracked in the `*.cls` file, and the layout in the `*.bas` file.
+That's it! With **export format 5.0**, layout lives in `*.form` / `*.report` (or legacy `*.bas`) and code in `*.cls`. See [Version 5 Overview](Version-5-Overview).

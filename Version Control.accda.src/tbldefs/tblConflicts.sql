@@ -4,7 +4,7 @@
   [ItemKey] VARCHAR (255),
   [FileName] VARCHAR (255),
   [ObjectDate] DATETIME,
-  [IndexDate] DATETIME,
+  [SyncDate] DATETIME,
   [FileDate] DATETIME,
   [Suggestion] LONG,
   [Resolution] LONG,

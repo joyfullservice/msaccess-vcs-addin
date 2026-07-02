@@ -1,0 +1,89 @@
+﻿Operation =1
+Option =0
+Where ="(((A.MeterFK)<=1) AND ((B.Estimate)=False) AND ((A.Estimate)=False))"
+Begin InputTables
+    Name ="tblMeterReadings"
+    Alias ="A"
+    Name ="tblMeterReadings"
+    Alias ="B"
+End
+Begin OutputColumns
+    Expression ="A.MeterFK"
+    Expression ="A.ReadingDate"
+    Expression ="A.Reading"
+    Expression ="B.ReadingDate"
+    Expression ="B.Reading"
+    Alias ="days"
+    Expression ="[a].[readingdate]-[b].[readingdate]"
+    Alias ="used"
+    Expression ="[A].[reading]-[b].[reading]-(100000*([a].[readingdate]=#11/12/2020#))"
+    Alias ="perday"
+    Expression ="[used]/[days]"
+End
+Begin Joins
+    LeftTable ="A"
+    RightTable ="B"
+    Expression ="A.MeterFK = B.MeterFK"
+    Flag =1
+    LeftTable ="A"
+    RightTable ="B"
+    Expression ="A.Reading > B.ReadingDate"
+    Flag =1
+End
+Begin OrderBy
+    Expression ="A.MeterFK"
+    Flag =0
+    Expression ="A.ReadingDate"
+    Flag =0
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="A.MeterFK"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="A.ReadingDate"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="A.Reading"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="B.ReadingDate"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="B.Reading"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="days"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="used"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="perday"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="B.Estimate"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="A.Estimate"
+        dbLong "AggregateType" ="-1"
+    End
+End

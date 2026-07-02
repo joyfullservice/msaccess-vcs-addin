@@ -1,0 +1,38 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionSelectStar"
+  },
+  "Items": {
+    "QueryType": 0,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 143,
+        "top": 62,
+        "right": 619,
+        "bottom": 396
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 452,
+        "bottom": 129
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "tblCars",
+          "Alias": "",
+          "Left": 309,
+          "Top": 25,
+          "Right": 453,
+          "Bottom": 169,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

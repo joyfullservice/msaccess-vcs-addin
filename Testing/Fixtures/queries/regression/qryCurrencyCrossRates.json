@@ -1,0 +1,59 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryCurrencyCrossRates"
+  },
+  "Items": {
+    "QueryType": 0,
+    "QueryProperties": {
+      "Description": {
+        "Type": 10,
+        "Value": "Self-join regression fixture: tblCurrencyExchange aliased to a/b for cross-rate pairs. Verifies that aliased input tables round-trip with their Alias = lines preserved in .qdef. Without the alias, MSysQueries Attribute 7 collapses leftTable == rightTable and BuildJoinChain crashes on re-export."
+      }
+    },
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1023,
+        "bottom": 992
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 998,
+        "bottom": 621
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "a",
+          "Alias": "",
+          "Left": 72,
+          "Top": 18,
+          "Right": 288,
+          "Bottom": 234,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "b",
+          "Alias": "",
+          "Left": 360,
+          "Top": 18,
+          "Right": 576,
+          "Bottom": 234,
+          "ScrollTop": 0
+        }
+      ]
+    },
+    "Properties": {
+      "Description": {
+        "Type": 10,
+        "Value": "Self-join regression fixture: tblCurrencyExchange aliased to a/b for cross-rate pairs. Verifies that aliased input tables round-trip with their Alias = lines preserved in .qdef. Without the alias, MSysQueries Attribute 7 collapses leftTable == rightTable and BuildJoinChain crashes on re-export."
+      }
+    }
+  }
+}

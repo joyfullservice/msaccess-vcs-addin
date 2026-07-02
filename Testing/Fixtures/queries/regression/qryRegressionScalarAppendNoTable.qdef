@@ -1,0 +1,8 @@
+﻿dbMemo "SQL" ="INSERT INTO tblSettings (ID, ItemName, ItemValue)\015\012SELECT\015"
+    "\012  12 AS Expr1,\015\012  \"GeneratedAt\" AS Expr2,\015\012  CStr("
+    "\015\012    Date()\015\012  ) AS Expr3;\015\012"
+dbMemo "Connect" =""
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbBoolean "UseTransaction" ="-1"
+dbByte "Orientation" ="0"

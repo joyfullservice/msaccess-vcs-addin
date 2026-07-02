@@ -1,36 +1,80 @@
-So, you like the Addin. And you want to contribute more. Hurrah!
+# Editing and Contributing
 
-# BLUF:
-1. Make Pull Requests (PRs) on the `Dev` branch: it's the in use / development branch. Master / Stable is not actively worked on, and is used to provide a "stable" base while we work out any kinks in the `dev` branch.
-2. If you can, do not pull directly from your `dev` fork: make a working branch in your repository. This will help ensure reduced conflicts, and to ensure we know what the scope of your PR is more easily. 
-3. Keep scope of PRs within a single area of focus: if you fixed two bugs, please keep them to separated PRs. Using specific work branches will help. This will ensure we don't get co-mingled issues, and is a lot cleaner to ensure we don't introduce new bugs from fixing others.
+Thank you for helping improve the MSAccess VCS Add-in. This page summarizes how to set up a development environment, submit changes, and update documentation.
 
-# Details:
-If you directly edit Access Add-ins (such as this one) within the "opening" Access file, changes will not be saved. 
-This is a double edged sword: it allows easy debugging, and trying things out which might otherwise ruin files. Downside is that once you close the session, it will discard any settings or changes you made. 
+For policy details see [CONTRIBUTING.md](https://github.com/joyfullservice/msaccess-vcs-addin/blob/dev/CONTRIBUTING.md) in the repository.
 
-This is a nice  way to load "extras" for users and ensure they don't break things for everyone else. 
+---
 
-If you want to make changes to this Add-In (and contribute them!), do this:
-1. Fork this [MS Access Add-In Repository](https://github.com/joyfullservice/msaccess-vcs-integration) into your GitHub account repos.
-![image](https://user-images.githubusercontent.com/54177882/117137254-6d378280-ad77-11eb-923e-a7a876611fed.png)
-2. Clone your fork to a local repository alongside your other Access dev repos on your machine. 
-3. Some put theirs alongside some other Access repositories they utilize.
-![image](https://user-images.githubusercontent.com/54177882/117137620-f353c900-ad77-11eb-9680-047cabd002da.png)
+## Quick rules
 
-3. Switch to `Dev` Branch: We suggest renaming YOUR `dev` branch to something local to you, especially if you still use some of the legacyVCS tools. I named my local fork of this branch to `dev-addin`.
-4. Connect a second remote to the `joyfullservice/msaccess-vcs-integration` (upstream) repository. This way you can track progress on the upstream ( joyfullservice/msaccess-vcs-integration) repository. There may be changes you don't want to pull into yours, or you may want customization not present on the upstream (in some environments, users have specific changes required to ensure proper integration in their security environment and/or configurations that shouldn't be default for everyone).
-![image](https://user-images.githubusercontent.com/54177882/117138802-84776f80-ad79-11eb-97f0-e55e62f59c38.png)
+1. **Pull requests target `dev`** — active development branch.
+2. **One focus per PR** — separate bug fixes from unrelated features when possible.
+3. **Use a feature branch** on your fork (`feature/my-fix`), not direct commits to your fork's `dev`.
+4. **Wiki changes** — edit files under `Wiki/` in the repo; they publish to GitHub Wiki when merged to **`main`** (see below).
 
-5. Go into your new local repo, and launch the Addin directly.
+---
 
-6. Make changes, use the add-in to export the add-in code, and commit/push/pull request just like any other repository.
-![image](https://user-images.githubusercontent.com/54177882/117139316-197a6880-ad7a-11eb-95ca-1cb3c12a712f.png)
+## Fork and clone
 
-7. To edit the VCS, click the "x" button instead of the "install" on the loading form.
-![image](https://user-images.githubusercontent.com/54177882/117144981-990b3600-ad80-11eb-8413-db75258dc9ca.png)
+1. Fork [joyfullservice/msaccess-vcs-addin](https://github.com/joyfullservice/msaccess-vcs-addin).
+2. Clone your fork locally.
+3. Add upstream: `git remote add upstream https://github.com/joyfullservice/msaccess-vcs-addin.git`
+4. Branch from `dev`: `git checkout dev` → `git pull upstream dev` → `git checkout -b feature/my-change`
 
-8. To edit forms for the VCS, open in "Design View"; their loading code / functions won't run.
-![image](https://user-images.githubusercontent.com/54177882/117144997-9c9ebd00-ad80-11eb-8c31-a56ed881fc18.png)
+---
 
-9. See above for PR guidelines.
+## Build the add-in from source
+
+You need a recent **released** add-in installed first (to run **Build From Source**).
+
+1. Clone the repository and open the `dev` branch.
+2. In Access, **Build From Source** pointing at `Version Control.accda.src`.
+3. Run the built `Version Control.accda` to install the development build.
+4. To edit the add-in database itself, open the dev `.accda` and click **Cancel** on the install prompt, then work with the modules and forms directly.
+
+### Development workflow
+
+After making changes (in source files or in the add-in's own VBA project):
+
+1. **Check for compile errors** in the VBA project (**Debug → Compile**).
+2. Click **Rebuild Add-In** on the ribbon (or run `VCS.RebuildAddIn`). This rebuilds the add-in from source and installs it locally. Access closes and reopens as part of the rebuild.
+3. Click **Run Tests** on the ribbon to run the unit-test suite. The full suite runs quickly, so there is no need to filter it down.
+4. If everything passes, click **Export** to write your changes back to `Version Control.accda.src`.
+5. Commit **only intentional source changes** (avoid unrelated generated noise) with a clear commit message.
+6. Push and open a pull request to **`dev`**.
+
+---
+
+## Testing before you PR
+
+| Layer | Command |
+|-------|---------|
+| Unit tests | `?VCS.RunTests` or filtered — see [Testing](Testing) |
+| Query round-trip | `?VCS.RunRoundtripTests` — see [Regression Testing](Regression-Testing) |
+| Export/import change | Relevant `RunTests` modules + round-trip fixtures |
+
+---
+
+## Updating the wiki
+
+1. Edit markdown in the repository `Wiki/` folder (same content as [GitHub Wiki](https://github.com/joyfullservice/msaccess-vcs-addin/wiki)).
+2. Open a PR to `dev` (or `main` if wiki-only).
+3. After merge to **`main`**, the [Update Wiki](https://github.com/joyfullservice/msaccess-vcs-addin/blob/main/.github/workflows/update-wiki.yml) workflow syncs to the live wiki.
+
+See `Wiki/README.md` in the repo for what belongs in wiki vs `docs/` vs `AGENTS.md`.
+
+---
+
+## Scope and design decisions
+
+- [Project Scope](Project-Scope) — what we accept
+- [DECISIONS.md](https://github.com/joyfullservice/msaccess-vcs-addin/blob/dev/DECISIONS.md) — architectural journal (repository only)
+
+---
+
+## Related
+
+- [Issues](https://github.com/joyfullservice/msaccess-vcs-addin/issues)
+- [Pull requests](https://github.com/joyfullservice/msaccess-vcs-addin/pulls)
+- [AGENTS.md](https://github.com/joyfullservice/msaccess-vcs-addin/blob/dev/AGENTS.md) — agent/MCP and coding standards

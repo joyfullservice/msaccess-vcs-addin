@@ -7,6 +7,26 @@ Option Explicit
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : cboResolution_AfterUpdate
+' Author    : Adam Waller
+' Date      : 5/5/2026
+' Purpose   : When the user sets a resolution on one file row, propagate it to all
+'           : rows for the same component (same ItemKey). This keeps resolution
+'           : atomic at the component level while allowing per-file diff visibility.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cboResolution_AfterUpdate()
+    Dim strKey As String
+    strKey = Nz(Me!ItemKey)
+    If Len(strKey) > 0 And Not IsNull(Me.cboResolution) Then
+        CodeDb.Execute "UPDATE tblConflicts SET Resolution = " & Nz(Me.cboResolution, 0) & _
+            " WHERE ItemKey = """ & Replace(strKey, """", """""") & """", dbFailOnError
+        Me.Requery
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : txtDiff_Click
 ' Author    : Adam Waller
 ' Date      : 5/27/2021
@@ -54,8 +74,8 @@ Private Sub txtDiff_Click()
                     If cCont.SingleFile Then
                         Set cItem = cCont
                     Else
-                        If dItems.Exists(strFileName) Then
-                            Set cItem = dItems(strFileName)
+                        If dItems.Exists(strSourceFile) Then
+                            Set cItem = dItems(strSourceFile)
                         End If
                     End If
                     ' Build new export file name and export
@@ -73,7 +93,7 @@ Private Sub txtDiff_Click()
                 MsgBox2 "Source File Not Found", "Could not find the source file needed to diff this object:", strSourceFile, vbExclamation
             Else
                 ' Now that we have both files, diff the files for the user
-                If Log.OperationType = eotExport Then
+                If Operation.OperationType = eotExport Then
                     ' Show the database object as the modified version
                     modObjects.Diff.Files strSourceFile, strTempFile
                 Else

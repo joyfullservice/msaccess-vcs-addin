@@ -1,0 +1,47 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryCurrencyExchangeLEFT"
+  },
+  "Items": {
+    "QueryType": 0,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1642,
+        "bottom": 866
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1626,
+        "bottom": 159
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "tblCurrencies",
+          "Alias": "",
+          "Left": 48,
+          "Top": 12,
+          "Right": 192,
+          "Bottom": 156,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblCurrencyExchange",
+          "Alias": "",
+          "Left": 240,
+          "Top": 12,
+          "Right": 384,
+          "Bottom": 156,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

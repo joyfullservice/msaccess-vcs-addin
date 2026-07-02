@@ -1,4 +1,4 @@
-# Version Control Add-in Binaries
+﻿# Version Control Add-in Binaries
 # (This should be built from source and not committed to version control)
 *.mdb
 *.accda
@@ -8,15 +8,27 @@
 # Database lock files
 *.laccdb
 
-# Comment out the following line if you wish to include the log files in git.
+# Ignore VCS log files (stored in logs/ subfolder of source folder)
+# Comment out the following lines if you wish to include log files in git.
+logs/
 *.log
 
 # The local VCS index file is paired with the database and should not
-# be comitted to version control.
-vcs-index.json
+# be committed to version control.
+vcs-index.*
 
-# Ignore any dotenv files (used for external database connections)
+# MCP/API session option overrides (transient, per-developer)
+mcp/
+
+# Ignore any dotenv files (used for external database connections).
+# Includes layered/per-environment variants (.env.local, .env.<APP_ENV>, etc.).
+# Templates (*.example) are kept under version control.
 *.env
+.env.*
+!.env*.example
 
 # TwinBasic ribbon project packages
 Ribbon/Source/Packages
+
+# VSCode settings
+/.vscode

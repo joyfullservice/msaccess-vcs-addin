@@ -21,7 +21,7 @@ WHERE
     AND (
       (
         MSysNavPaneGroups.GroupCategoryID
-      )= 3
+      ) = 3
     )
   )
 ORDER BY

@@ -68,6 +68,10 @@
       "Value": "",
       "Type": 12
     },
+    "Continuous Form Record Navigation Keys": {
+      "Value": 0,
+      "Type": 4
+    },
     "DAOProperty": {
       "Value": "DAO",
       "Type": 10
@@ -75,6 +79,10 @@
     "Date stored as Text": {
       "Value": "11/17/2023 2:15:08 PM",
       "Type": 10
+    },
+    "Default Zoom Level": {
+      "Value": 100,
+      "Type": 4
     },
     "DesignMasterID": {
       "Value": "",
@@ -120,12 +128,16 @@
       "Value": 0,
       "Type": 4
     },
+    "Option to enable Monaco SQL Editor": {
+      "Value": 1,
+      "Type": 4
+    },
     "Picture Property Storage Format": {
       "Value": 0,
       "Type": 4
     },
     "ProjVer": {
-      "Value": 119,
+      "Value": 142,
       "Type": 3
     },
     "QueryTimeout": {
@@ -191,6 +203,14 @@
     "Updatable": {
       "Value": true,
       "Type": 1
+    },
+    "Use BigInt for linking and importing data": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Use DateTime2 for linking and importing data": {
+      "Value": 0,
+      "Type": 4
     },
     "Use Microsoft Access 2007 compatible cache": {
       "Value": 0,

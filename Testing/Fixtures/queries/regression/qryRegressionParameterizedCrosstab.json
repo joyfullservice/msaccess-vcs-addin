@@ -1,0 +1,9 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionParameterizedCrosstab"
+  },
+  "Items": {
+    "QueryType": 16
+  }
+}

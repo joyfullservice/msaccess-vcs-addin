@@ -1,0 +1,29 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionScalarNoTableDesignView"
+  },
+  "Items": {
+    "QueryType": 0,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1368,
+        "bottom": 856
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1352,
+        "bottom": 577
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+      ]
+    }
+  }
+}

@@ -137,7 +137,7 @@
             </xsd:appinfo>
           </xsd:annotation>
         </xsd:element>
-        <xsd:element name="IndexDate" minOccurs="0" od:jetType="datetime" od:sqlSType="datetime" type="xsd:dateTime">
+        <xsd:element name="SyncDate" minOccurs="0" od:jetType="datetime" od:sqlSType="datetime" type="xsd:dateTime">
           <xsd:annotation>
             <xsd:appinfo>
               <od:fieldProperty name="ColumnWidth" type="3" value="-1"></od:fieldProperty>

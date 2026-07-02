@@ -1,0 +1,73 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryMSysQueries"
+  },
+  "Items": {
+    "QueryType": 0,
+    "Columns": {
+      "MSysObjects.Name": {
+        "ColumnWidth": 2415,
+        "AggregateType": -1
+      },
+      "MSysQueries.Attribute": {
+        "ColumnWidth": 1275,
+        "AggregateType": -1
+      },
+      "MSysQueries.Expression": {
+        "ColumnWidth": 4710,
+        "AggregateType": -1
+      },
+      "MSysQueries.Flag": {
+        "ColumnWidth": 795,
+        "AggregateType": -1
+      },
+      "MSysQueries.Name1": {
+        "ColumnWidth": 1440,
+        "AggregateType": -1
+      },
+      "MSysQueries.Name2": {
+        "ColumnWidth": 2130,
+        "AggregateType": -1
+      }
+    },
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1642,
+        "bottom": 866
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1626,
+        "bottom": 109
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "MSysObjects",
+          "Alias": "",
+          "Left": 48,
+          "Top": 12,
+          "Right": 192,
+          "Bottom": 156,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "MSysQueries",
+          "Alias": "",
+          "Left": 240,
+          "Top": 12,
+          "Right": 384,
+          "Bottom": 156,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

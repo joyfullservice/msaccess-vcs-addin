@@ -1,15 +1,14 @@
+The add-in can translate **its own UI** (not your application database). Coverage is **partial** — strings wrapped in `T()` translate; others remain English until updated.
 
-The most recent version of this tool can provide translation support in the AddIn interface (not for your application).
+**Shipped locales:** English, Brazilian Portuguese (`pt_BR`), plus English (Localization Testing) for QA.
 
-
-See [Translations Issue](https://github.com/joyfullservice/msaccess-vcs-integration/issues/87) for more details.
-
+See [issue #87](https://github.com/joyfullservice/msaccess-vcs-addin/issues/87) for history and contribution discussion.
 
 # Options Translation Tab 
 
 **Note:** This tab is normally hidden.
 
-![General Options Tab](img/options-Translation.jpg)
+![General Options Tab](img/options-translation.png)
 
 |Setting <img width = 175> |**Default** <p> *(Setting)*|Description
 |-|:-:|:-
