@@ -321,10 +321,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function ConfirmCancel() As Boolean
+    Dim eimPrior As eInteractionMode
+    eimPrior = Operation.InteractionMode
+    Operation.InteractionMode = eimNormal
     ConfirmCancel = MsgBox2(T("Cancel Current Operation?"), _
         T("You are in the midst of a running process. Are you sure you want to cancel?"), _
         T("Click [Yes] to cancel the process, or [No] to resume."), _
         vbYesNo + vbDefaultButton2 + vbExclamation, , vbYes) = vbYes
+    Operation.InteractionMode = eimPrior
 End Function
 
 
