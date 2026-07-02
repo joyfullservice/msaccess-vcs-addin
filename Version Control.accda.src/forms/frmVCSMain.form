@@ -1641,7 +1641,6 @@ Begin Form
                     End
                 End
                 Begin TextBox
-                    Locked = NotDefault
                     Visible = NotDefault
                     Locked = NotDefault
                     EnterKeyBehavior = NotDefault
