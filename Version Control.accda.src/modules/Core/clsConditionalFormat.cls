@@ -46,6 +46,9 @@ Private Const RULE_PREFIX_LEN As Long = 8
 ' Verified across the single-rule fixtures (expression, focus, between).
 Private Const LEGACY_EXPR_OFFSET As Long = 96
 
+' Access 2007 legacy format caps at 3 rules per block.
+Private Const LEGACY_RULE_CAP As Long = 3
+
 ' Decoded rule model. Each item is a Dictionary describing one format rule.
 Private m_colRules As Collection
 Private m_lngVersion As Long
@@ -143,6 +146,8 @@ Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngT
     Dim lngLen1 As Long
     Dim lngLen2 As Long
     Dim lngUnits As Long
+    Dim lngTrailPos As Long
+    Dim lngEcho As Long
 
     Set dRule = New Dictionary
     dRule.CompareMode = TextCompare
@@ -168,6 +173,18 @@ Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngT
         lngUnits = lngLen1 + lngLen2
     ElseIf lngType = CF_TYPE_EXPRESSION Then
         dRule.Add "Expression1", ReadUtf16(bteData, lngPos + 16, lngLen1)
+    End If
+
+    ' Read the CF14 trailer BackColor echo (3 bytes at trailing offset +9)
+    If lngType = CF_TYPE_FIELDVALUE Then
+        lngTrailPos = lngPos + 20 + (lngUnits * 2)
+    Else
+        lngTrailPos = lngPos + 16 + (lngUnits * 2)
+    End If
+    If lngTrailPos + 11 <= UBound(bteData) Then
+        lngEcho = bteData(lngTrailPos + 9) + (bteData(lngTrailPos + 10) * &H100&) + _
+            (bteData(lngTrailPos + 11) * &H10000)
+        If lngEcho <> 0 Then dRule.Add "TrailerColor", LongToRGB(lngEcho)
     End If
 
     ' Advance past the full body (base size plus 2 bytes per expression code unit)
@@ -318,7 +335,7 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
     Dim lngLen1 As Long
     Dim lngLen2 As Long
     Dim lngUnits As Long
-    Dim lngP As Long
+    Dim lngTrailLen As Long
 
     Set cData = New clsConcat
     lngType = NameToType(dRule("Type"))
@@ -378,13 +395,17 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
             lngUnits = 0
     End Select
 
-    ' Pad the body out to the verified base size + expression bytes
-    lngP = Len(cData.GetStr) \ 2     ' bytes emitted so far in this body
-    ' Compute target body length (excluding the optional prefix)
-    Dim lngTarget As Long
-    lngTarget = BASE_BODY + (lngUnits * 2)
-    If Not blnFirst Then lngTarget = lngTarget + RULE_PREFIX_LEN
-    If lngTarget > lngP Then cData.Add WriteZeros(lngTarget - lngP)
+    ' Emit the explicit trailing region: 9 zero bytes, 3-byte BackColor echo, then
+    ' zeros to fill the remaining body. Trailing is 21 bytes for expression/focus,
+    ' 17 bytes for field-value (between).
+    If lngType = CF_TYPE_FIELDVALUE Then lngTrailLen = 17 Else lngTrailLen = 21
+    cData.Add WriteZeros(9)
+    If dRule.Exists("TrailerColor") Then
+        cData.Add WriteColor3(RGBToLong(CStr(dRule("TrailerColor"))))
+    Else
+        cData.Add WriteZeros(3)
+    End If
+    cData.Add WriteZeros(lngTrailLen - 12)
 
     EmitRuleCF14 = cData.GetStr
 
@@ -413,6 +434,9 @@ Public Function BuildLegacyHex() As String
     Dim lngCapacity As Long
     Dim lngBlockSize As Long
     Dim lngHeaderBytes As Long
+    Dim lngOffset24 As Long
+    Dim lngNextStart As Long
+    Dim lngExprLen As Long
     Dim colMatch As Collection
 
     If m_colRules.Count = 0 Then Exit Function
@@ -428,50 +452,71 @@ Public Function BuildLegacyHex() As String
         lngType = NameToType(dRule("Type"))
         If lngType = lngHeaderType And lngType <> CF_TYPE_DATABAR Then
             colMatch.Add dRule
-            ' Capacity is the largest expression code-unit count plus one (for the null)
             lngCapacity = MaxLong(lngCapacity, Utf16Units(dNZ(dRule, "Expression1")) + 1)
             If lngType = CF_TYPE_FIELDVALUE Then
                 lngCapacity = MaxLong(lngCapacity, Utf16Units(dNZ(dRule, "Expression2")) + 1)
             End If
         End If
     Next lngIndex
+
+    ' Cap at the Access 2007 legacy limit
+    Do While colMatch.Count > LEGACY_RULE_CAP
+        colMatch.Remove colMatch.Count
+    Loop
     lngCount = colMatch.Count
     If lngCount = 0 Then Exit Function
 
-    ' Per-rule fixed sections (format flags + colors).
+    ' Compute offset 24 (end unit index of the first expression window for
+    ' expression/focus rules, or the slot capacity for between rules).
+    If lngHeaderType = CF_TYPE_FIELDVALUE Then
+        lngOffset24 = lngCapacity
+    Else
+        lngOffset24 = Utf16Units(dNZ(colMatch(1), "Expression1")) + 1
+    End If
+
+    ' Build per-rule body records and expression buffer.
     Set cBody = New clsConcat
     Set cExpr = New clsConcat
+
+    ' Track the running expression-window position for descriptor dwords.
+    lngNextStart = Utf16Units(dNZ(colMatch(1), "Expression1")) + 2
 
     For lngIndex = 1 To lngCount
         Set dRule = colMatch(lngIndex)
         cBody.Add WriteLong(FlagsToLong(dRule))
         cBody.Add WriteLong(RGBToLong(dNZ(dRule, "ForeColor", "0")))
         cBody.Add WriteLong(RGBToLong(dNZ(dRule, "BackColor", "0")))
-    Next lngIndex
 
-    ' Expression buffer. Verified from the fixtures: expression / focus rules reserve
-    ' one slot of (capacity + 1) code units; field-value (between) rules reserve two
-    ' slots of (capacity) code units each.
-    For lngIndex = 1 To lngCount
-        Set dRule = colMatch(lngIndex)
         If lngHeaderType = CF_TYPE_FIELDVALUE Then
+            ' Between: capacity-based padded slots (verified for single rules)
             cExpr.Add WriteUtf16Padded(dNZ(dRule, "Expression1"), lngCapacity)
             cExpr.Add WriteUtf16Padded(dNZ(dRule, "Expression2"), lngCapacity)
         Else
-            cExpr.Add WriteUtf16Padded(dNZ(dRule, "Expression1"), lngCapacity + 1)
+            ' Expression/focus: tight window (text + 2 null UTF-16 units)
+            cExpr.Add WriteUtf16(dNZ(dRule, "Expression1"))
+            cExpr.Add WriteZeros(4)
+
+            If lngIndex < lngCount Then
+                ' Non-last rule: append descriptor dwords (28-byte record)
+                lngExprLen = Utf16Units(dNZ(colMatch(lngIndex + 1), "Expression1"))
+                cBody.Add WriteLong(1)
+                cBody.Add WriteLong(0)
+                cBody.Add WriteLong(lngNextStart)
+                cBody.Add WriteLong(lngNextStart + lngExprLen + 1)
+                lngNextStart = lngNextStart + lngExprLen + 2
+            End If
         End If
     Next lngIndex
 
-    ' Assemble: header (20) + reserved(4) + capacity(4) + per-rule body + reserved
-    ' region (the expression buffer begins at offset 96) + expression buffer.
+    ' Assemble: header (28 bytes) + per-rule body + padding to offset 96 + expressions.
     Set cData = New clsConcat
-    cData.Add WriteLong(1)                          ' version
-    cData.Add WriteLong(0)                          ' block size placeholder (patched below)
-    cData.Add WriteLong(lngCount)                   ' rule count (of this type)
-    cData.Add WriteLong(lngHeaderType)              ' conditionType
+    cData.Add WriteLong(1)                              ' version
+    cData.Add WriteLong(0)                              ' blockSize placeholder
+    cData.Add WriteLong(lngCount)                       ' ruleCount
+    cData.Add WriteLong(lngHeaderType)                  ' conditionType
     cData.Add WriteLong(LegacyOperator(lngHeaderType))  ' operator
-    cData.Add WriteLong(0)                          ' reserved
-    cData.Add WriteLong(lngCapacity)                ' expression slot capacity
+    cData.Add WriteLong(0)                              ' reserved
+    cData.Add WriteLong(lngOffset24)                    ' expression window end / capacity
     cData.Add cBody.GetStr
     lngHeaderBytes = Len(cData.GetStr) \ 2
     If LEGACY_EXPR_OFFSET > lngHeaderBytes Then cData.Add WriteZeros(LEGACY_EXPR_OFFSET - lngHeaderBytes)

@@ -44,15 +44,17 @@ Behavior:
 **Round-trip fidelity boundary (important):**
 
 - **CF14 is the authoritative block** and rebuilds **byte-for-byte** for every rule shape
-  (expression, field-value/between, field-has-focus, data bar). This is the complete copy
-  and the source of truth for decoding.
-- The **legacy `ConditionalFormat` block** rebuilds **byte-for-byte for single-rule
-  controls** (the common case). Its **multi-rule** per-rule layout is not fully documented
-  (§14), so multi-rule legacy blocks are rebuilt best-effort (correct header, flags,
-  colors, and expressions) but may not be byte-identical to Access's original.
+  (expression, field-value/between, field-has-focus, data bar), including the per-rule
+  trailer BackColor echo (§4.2). This is the complete copy and the source of truth for
+  decoding.
+- The **legacy `ConditionalFormat` block** rebuilds **byte-for-byte** for both single-rule
+  and multi-rule expression/focus controls. The multi-rule layout (28-byte non-last
+  records with descriptor dwords, 12-byte last record, expression-window chaining, and
+  the Access 2007 3-rule cap) is fully decoded from the AlertText fixture (§5.2).
+  Multi-rule between/field-value legacy blocks remain unverified.
 - Validated by [`modTestConditionalFormat.bas`](../Version%20Control.accda.src/modules/Tests/Core/modTestConditionalFormat.bas):
-  byte-exact CF14 for all shapes, byte-exact legacy for single-rule shapes, and semantic
-  round-trip stability for the rest.
+  byte-exact CF14 and legacy for all exercised shapes (single expression, single between,
+  2-rule expression, 3-rule expression with 3-rule cap, and trailer echo colors).
 
 ### Companion JSON schema
 
@@ -82,11 +84,16 @@ Behavior:
 
 Rule field sets by `Type`:
 
-- `Expression` — font flags, colors, `Expression1`.
+- `Expression` — font flags, colors, `Expression1`. May include `TrailerColor`.
 - `FieldValue` — adds `Operator` ("Between") and `Expression2`.
 - `FieldHasFocus` — font flags and colors only (no expression).
 - `DataBar` — `FillColor`, `BarColor`, `ShowBarOnly`, `ShortestValue`, `ShortestLimit`,
   `LongestValue`, `LongestLimit` (limit values: `automatic`, `number`, `percent`).
+
+`TrailerColor` is an optional `"RGB(R,G,B)"` string present when the CF14 trailing region
+contains a non-zero BackColor echo (§4.2). Absent for white BackColors (echo is zero) and
+for rules that exist only in CF14 (not also in the legacy block). Import produces zeros when
+absent (safe; Access tolerates it).
 
 Color fields (`ForeColor`, `BackColor`, `FillColor`, `BarColor`) use VBA-style
 `RGB(R,G,B)` strings (e.g. `"RGB(255,0,0)"` for red). Access flattens automatic and
@@ -210,8 +217,17 @@ read from each rule record's 8-byte prefix, not from the header.
 **Verified body-length rule:** a non-data-bar rule body is
 `37 + 2 × (total UTF-16 code units across its expression fields)` bytes (excluding the
 optional 8-byte prefix). This holds for expression (one length field), focus (zero-length),
-and field-value (two length fields) rules. The rebuilder uses this to emit exact trailing
-padding.
+and field-value (two length fields) rules.
+
+**Trailing region layout:** after the expression data, each rule body has a fixed trailing
+region (21 bytes for expression/focus, 17 bytes for field-value). Within this region, bytes
+at offset +9 (relative to trailing start) contain a **3-byte BackColor echo** — the low 3
+bytes of the rule's BackColor in BGR byte order. This echo is non-zero only for rules that
+also appear in the legacy block (i.e., the first 3 rules of the block's primary type). Rules
+that exist only in CF14 (e.g., the 4th expression rule, or data bars) have zeros at this
+position. Access tolerates zeros here on import, so the echo is a fidelity detail, not a
+correctness requirement. The companion JSON stores this as `"TrailerColor": "RGB(R,G,B)"`
+when non-zero.
 
 **Multi-rule blocks:** rule 0 starts at offset 14 and its type comes from the header. Each
 subsequent rule is preceded by an **8-byte prefix** (a per-rule `conditionType` dword + a
@@ -279,21 +295,74 @@ The trailer starts at **`P = 32 + 2·(shortestLen + longestLen)`** and the recor
 stores only the rules matching its header type and omits the rest; CF14 holds the complete
 set. (Text11: 2 of 3 rules; Text38: 2 of 10 rules.)
 
-### 5.2 Rule body (as rebuilt by this add-in)
+### 5.2 Rule body (fully decoded)
 
-After the 20-byte header:
+After the 20-byte header, offset 20 onward:
 
-- `reserved` dword (`0`), then `exprCapacity` dword — the expression slot capacity in
-  UTF-16 code units (longest expression + 1 for the null).
-- Per-rule `formatFlags` + `foreColor` + `backColor` dwords.
-- A reserved region of zeros so the concatenated expression buffer begins at **offset 96**.
-- Expression buffer. **Verified slot sizing:** expression / focus rules reserve one slot of
-  `(capacity + 1)` code units; field-value (between) rules reserve two slots of `capacity`
-  code units each.
+| Offset | Size | Field | Description |
+|--------|------|-------|-------------|
+| 20 | 4 | `reserved` | Always `0` |
+| 24 | 4 | `offset24` | End unit index of the first expression window (= `exprLen[0] + 1` for expression/focus; `capacity` for between) |
+| 28 | variable | rule records | Per-rule format records (see below) |
+| … | variable | padding | Zero bytes so expression buffer begins at offset 96 |
+| 96 | variable | expression buffer | Concatenated expression windows |
+
+**3-rule cap.** The legacy block stores at most 3 rules (the Access 2007 limit). A control
+with 4+ same-type rules stores only the first 3 in the legacy block; the rest survive in
+CF14 only. Verified from AlertText (4 expression rules, legacy `ruleCount = 3`).
+
+**Per-rule records.** The record size depends on position:
+
+- **Non-last rules** use 28-byte records (7 dwords):
+
+  | Offset (rel.) | Size | Field | Description |
+  |---------------|------|-------|-------------|
+  | 0 | 4 | `formatFlags` | Font and enabled flags (§6) |
+  | 4 | 4 | `foreColor` | BGR color |
+  | 8 | 4 | `backColor` | BGR color |
+  | 12 | 4 | `constant` | Always `1` |
+  | 16 | 4 | `constant` | Always `0` |
+  | 20 | 4 | `nextExprStart` | Start unit index of the *next* rule's expression window |
+  | 24 | 4 | `nextExprEnd` | End unit index (inclusive) of the *next* rule's expression window |
+
+- The **last rule** uses a 12-byte record (3 dwords):
+
+  | Offset (rel.) | Size | Field |
+  |---------------|------|-------|
+  | 0 | 4 | `formatFlags` |
+  | 4 | 4 | `foreColor` |
+  | 8 | 4 | `backColor` |
+
+**Expression-window chaining.** Each expression/focus rule's expression occupies a tight
+window of `exprLen + 2` UTF-16 code units (expression text + 2 null units). Windows are
+chained sequentially from unit 0. The descriptor dwords on non-last rules point to the
+*next* rule's window:
+
+```
+Window 0: units 0 .. (exprLen[0]+1)     ← offset24 = exprLen[0]+1
+Window 1: units (W0 size) .. (W0+W1-1)  ← nextExprStart/End from rule 0
+Window 2: units (W0+W1) .. (W0+W1+W2-1) ← nextExprStart/End from rule 1
+```
+
+**Verified from AlertText** (3 rules, each exprLen = 29):
+
+| Rule | Record size | nextExprStart | nextExprEnd |
+|------|-------------|---------------|-------------|
+| 0 (non-last) | 28 | 31 | 61 |
+| 1 (non-last) | 28 | 62 | 92 |
+| 2 (last) | 12 | — | — |
+
+Header + body = 28 + 28 + 28 + 12 = 96 (= `LEGACY_EXPR_OFFSET`, no padding needed).
+Expression buffer = 3 × 31 × 2 = 186 bytes. `blockSize` = 96 + 186 = 282. ✓
+
+**Between rules.** Field-value (between) rules use capacity-based padded slots instead of
+tight windows: two slots of `capacity` code units each per rule (where `capacity` =
+`max(exprLen) + 1`). `offset24` = `capacity`. Verified for single-rule (Text25 = 124 bytes).
+Multi-rule between layout is unverified.
 
 The rebuilder reproduces single-rule blocks byte-for-byte (Text9 = 126, Text23 = 100,
-Text25 = 124 bytes). Multi-rule legacy blocks insert additional per-rule descriptor bytes
-that are not fully decoded (§14); the rebuilder approximates them.
+Text25 = 124 bytes) and multi-rule expression blocks byte-for-byte (Text11 = 156,
+AlertText = 282 bytes).
 
 ---
 
@@ -336,19 +405,30 @@ on white background. There is no `-1` sentinel in the fixtures.
 
 ---
 
-## 9. Remaining unknowns
+## 9. Verified fixtures
 
-- Exact trailing padding inside each CF14 rule record is derived from the verified
-  `37 + 2·units` formula; the underlying meaning of the constant is not documented.
-- Full legacy per-rule header bytes between `operator` and the color dwords (multi-rule
-  legacy layout) — the reason multi-rule legacy rebuild is best-effort, not byte-exact.
+| Control | Source | Rules | Key properties |
+|---------|--------|-------|----------------|
+| Text9 | frmMain | 1 expression | Baseline single-rule expression (bold removed) |
+| Text11 | frmMain | 2 expression + 1 focus | 2-rule multi-rule legacy; focus dropped |
+| Text23 | frmMain | 1 focus | Single-rule focus |
+| Text25 | frmMain | 1 between | Single-rule field-value |
+| Text38 | frmMain | 2 expression + 8 data bar | Mixed-type; data bars CF14-only |
+| **AlertText** | rAlertList | **4 expression** | Non-white BackColors (`RGB(219,219,183)`), 3-rule legacy cap, 28-byte non-last records, trailer BackColor echo |
+
+## 10. Remaining unknowns
+
+- CF14 trailing region: the 21-byte trailing is partially decoded (BackColor echo at +9);
+  the purpose of the other bytes is unknown. Reproduced verbatim (echo + zeros).
 - Data bar `unk1`/`unk2` dwords (both always `1`) and the `fillColor` field — purpose
   unconfirmed; reproduced verbatim.
+- Multi-rule legacy layout for between/field-value rules (unverified; uses capacity-based
+  slots, which is correct for single-rule).
 - Whether the legacy block alone imports cleanly when no data bars are present.
 
 ---
 
-## 10. References
+## 11. References
 
 - [FormatCondition object (Access)](https://learn.microsoft.com/en-us/office/vba/api/access.formatcondition)
 - [AcFormatConditionType](https://learn.microsoft.com/en-us/office/vba/api/access.acformatconditiontype)
