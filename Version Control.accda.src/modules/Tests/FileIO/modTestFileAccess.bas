@@ -50,6 +50,22 @@ Public Sub TestPathFunctions()
 End Sub
 
 
+Public Sub TestGetUncPathEnvironmentVariables()
+
+    Dim strExpanded As String
+    Dim strResult As String
+    Const cstrMissingVar As String = "%NONEXISTENT_VCS_TEST_VAR%\foo"
+
+    strExpanded = ExpandEnvironmentVariables("%TEMP%\foo")
+    strResult = GetUncPath("%TEMP%\foo")
+    TestAssert InStr(1, strResult, FSO.GetDriveName(strExpanded), vbTextCompare) > 0, _
+        "GetUncPath expands %TEMP%"
+    TestAssert GetUncPath(cstrMissingVar) = cstrMissingVar, _
+        "GetUncPath returns unchanged path when env var unset"
+
+End Sub
+
+
 Public Sub TestBuildPath2()
     TestAssert BuildPath2("\\server\share\root\", "menus", "name_Images") = _
         "\\server\share\root\menus\name_Images", "UNC prefix preserved"
