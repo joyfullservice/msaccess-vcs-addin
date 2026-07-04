@@ -436,7 +436,9 @@ End Sub
 '           : create the folder (and all subfolders) if it does not.
 '           : Added in additional error handling and logging.
 ' ----------------------------------------------------------------
-Public Function VerifyPath(PathToCheck As String, Optional EnableLongPath As Boolean = True) As Boolean
+Public Function VerifyPath(PathToCheck As String, _
+                         Optional EnableLongPath As Boolean = True, _
+                         Optional ExpandEnvironmentVariablesInPath As Boolean = True) As Boolean
 
     Const FunctionName As String = ModuleName & ".VerifyPath"
 
@@ -462,6 +464,10 @@ Public Function VerifyPath(PathToCheck As String, Optional EnableLongPath As Boo
 
     If PathToCheck = vbNullString Then GoTo Exit_Here
 
+    If ExpandEnvironmentVariablesInPath Then
+        PathToCheck = ExpandEnvironmentVariables(PathToCheck)
+    End If
+
     If Right$(PathToCheck, 1) = PathSep Then
         ' Folder name. (Folder names can contain periods)
         strFolder = Left$(PathToCheck, Len(PathToCheck) - 1)
@@ -469,9 +475,6 @@ Public Function VerifyPath(PathToCheck As String, Optional EnableLongPath As Boo
         ' File name
         strFolder = FSO.GetParentFolderName(PathToCheck)
     End If
-
-    ' Expand any environment variables
-    If InStr(2, strFolder, "%") > 0 Then strFolder = ExpandEnvironmentVariables(strFolder)
 
     ' Because enabling long paths disables automatic folder expansion (i.e. "\..\") we don't want to use this
     ' unless we are actually dealing with a path that exceeds the normal MAX_PATH limit. See issue #612
@@ -896,17 +899,21 @@ Public Function GetUncPath(ByRef PathIn As String)
     On Error Resume Next
 
     Perf.OperationStart FunctionName
-    UNCPath = PathIn
+    UNCPath = ExpandEnvironmentVariables(PathIn)
 
 Retry:
-    DriveLetter = FSO.GetDriveName(PathIn)
+    DriveLetter = FSO.GetDriveName(UNCPath)
     If Catch(68) Then GoTo HandleDriveLoss
     CatchAny eelError, "Issue getting drive paths.", FunctionName
+    If Len(DriveLetter) = 0 Then
+        GetUncPath = UNCPath
+        GoTo Exit_Here
+    End If
     With FSO.GetDrive(DriveLetter)
         If Catch(68) Then GoTo HandleDriveLoss
         If .DriveType = Remote Then
             If .IsReady Then
-                UNCPath = Replace(PathIn, DriveLetter, .ShareName, , 1, vbTextCompare)
+                UNCPath = Replace(UNCPath, DriveLetter, .ShareName, , 1, vbTextCompare)
             Else
                 GoTo HandleDriveLoss
             End If

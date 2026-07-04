@@ -3,14 +3,12 @@
 ' Module    : modTestConditionalFormat
 ' Author    : Adam Waller
 ' Date      : 6/17/2026
-' Purpose   : Round-trip tests for clsConditionalFormat. The CF14 block is the
-'           : authoritative copy and must rebuild byte-for-byte for every rule shape.
-'           : The legacy ConditionalFormat block rebuilds byte-for-byte for single-rule
-'           : shapes (the common case); multi-rule legacy is asserted semantically only,
-'           : because its per-rule layout is not fully documented (see docs).
+' Purpose   : Round-trip tests for clsConditionalFormat. Both the CF14 and legacy
+'           : ConditionalFormat blocks must rebuild byte-for-byte for every exercised
+'           : rule shape, including multi-rule legacy (decoded from AlertText).
 '           :
 '           : Fixtures are the exact hex blocks emitted by Access SaveAsText for the
-'           : controls in the conditional-formatting sample form.
+'           : controls in the conditional-formatting sample form and report.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -50,6 +48,47 @@ Private Const TEXT25_LEGACY As String = _
     "00000000ffffff00000000000000000000000000000000000000000000000000" & _
     "0000000000000000000000000000000000000000000000000000000000000000" & _
     "22005400450053005400220000002200540045005300540022000000"
+
+' --- Text11 legacy: 2 expression rules (focus rule dropped from legacy) ---
+' Computed from the decoded multi-rule layout and verified against the documented
+' blockSize of 156 bytes (from the frmMain fixture catalog).
+Private Const TEXT11_LEGACY As String = _
+    "010000009c000000020000000100000000000000000000000e00000001010000" & _
+    "00000000ffffff0001000000000000000f0000001d00000001000000" & _
+    "00000000ffffff00" & _
+    "00000000000000000000000000000000000000000000000000000000" & _
+    "5b006600720061004f007000740069006f006e005d003d00310000000000" & _
+    "5b006600720061004f007000740069006f006e005d003d00320000000000"
+
+' --- AlertText: 4 expression rules, non-white BackColors (from rAlertList report) ---
+Private Const ALERTTEXT_CF14 As String = _
+    "010004000000010000000000000001010000ff804000dbdbb7001d0000004900" & _
+    "6e0053007400720028005b0041006c0065007200740050006100720061006d00" & _
+    "73005d002c0027005b0021005d003b00270029003e003000000000000000" & _
+    "000000dbdbb700000000000000000001000000000000000100010000000000" & _
+    "dbdbb7001d00000049006e0053007400720028005b0041006c006500720074" & _
+    "00500061" & _
+    "00720061006d0073005d002c0027005b0069005d003b00270029003e00300000" & _
+    "0000000000000000dbdbb70000000000000000000100000000000000" & _
+    "0101000000000000dbdbb7001d00000049006e0053007400720028005b004100" & _
+    "6c00650072007400500061" & _
+    "00720061006d0073005d002c0027005b0062005d003b00270029003e00300000" & _
+    "0000000000000000dbdbb70000000000000000000100000000000000" & _
+    "01010000ffffff00ba1419001f00000049006e0053007400720028005b004100" & _
+    "6c00650072007400500061" & _
+    "00720061006d0073005d002c0027005b002100210021005d003b002700290" & _
+    "03e003000000000000000000000000000000000000000000000"
+Private Const ALERTTEXT_LEGACY As String = _
+    "010000001a010000030000000100000000000000000000001e00000001010000" & _
+    "ff804000dbdbb70001000000000000001f0000003d00000001000100000000" & _
+    "00dbdbb70001000000000000003e0000005c000000010100000000000" & _
+    "0dbdbb700" & _
+    "49006e0053007400720028005b0041006c006500720074005000610072006100" & _
+    "6d0073005d002c0027005b0021005d003b00270029003e003000000000004900" & _
+    "6e0053007400720028005b0041006c0065007200740050006100720061006d00" & _
+    "73005d002c0027005b0069005d003b00270029003e003000000000004900" & _
+    "6e0053007400720028005b0041006c0065007200740050006100720061006d00" & _
+    "73005d002c0027005b0062005d003b00270029003e00300000000000"
 
 
 '---------------------------------------------------------------------------------------
@@ -99,6 +138,39 @@ End Sub
 '
 Public Sub TestLegacyByteExactBetween()
     TestAssert RebuildLegacy(TEXT25_CF14) = TEXT25_LEGACY, "Text25 legacy byte-exact"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestLegacyByteExactMultiRule
+' Purpose   : The legacy block rebuilds byte-for-byte for a 2-rule expression block
+'           : (exercises 28-byte non-last records and expression-window chaining).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestLegacyByteExactMultiRule()
+    TestAssert RebuildLegacy(TEXT11_CF14) = TEXT11_LEGACY, "Text11 legacy byte-exact"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCF14ByteExactAlertText
+' Purpose   : CF14 with trailer BackColor echo bytes rebuilds byte-for-byte.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCF14ByteExactAlertText()
+    TestAssert RebuildCF14(ALERTTEXT_CF14) = ALERTTEXT_CF14, "AlertText CF14 byte-exact"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestLegacyByteExactAlertText
+' Purpose   : A 4-rule model rebuilds the 3-rule, 282-byte legacy block byte-for-byte
+'           : (exercises the 3-rule cap, 28-byte non-last records, and expression-window
+'           : chaining with same-length expressions).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestLegacyByteExactAlertText()
+    TestAssert RebuildLegacy(ALERTTEXT_CF14) = ALERTTEXT_LEGACY, "AlertText legacy byte-exact"
 End Sub
 
 
@@ -241,8 +313,7 @@ End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : TestSemanticRoundTrip
-' Purpose   : Decoding a rebuilt CF14 block yields the same model (stable round-trip),
-'           : including the multi-rule case where bytes need not match exactly.
+' Purpose   : Decoding a rebuilt CF14 block yields the same model (stable round-trip).
 '---------------------------------------------------------------------------------------
 '
 Public Sub TestSemanticRoundTrip()
@@ -250,6 +321,39 @@ Public Sub TestSemanticRoundTrip()
         "Text11 model is stable across rebuild"
     TestAssert ModelSignature(TEXT25_CF14) = ModelSignature(RebuildCF14(TEXT25_CF14)), _
         "Text25 model is stable across rebuild"
+    TestAssert ModelSignature(ALERTTEXT_CF14) = ModelSignature(RebuildCF14(ALERTTEXT_CF14)), _
+        "AlertText model is stable across rebuild"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTrailerColorRoundTrip
+' Purpose   : The TrailerColor field survives a decode/JSON/rebuild round-trip, producing
+'           : byte-exact CF14 output including non-zero trailer echo bytes.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTrailerColorRoundTrip()
+
+    Dim cCF As clsConditionalFormat
+    Dim cCF2 As clsConditionalFormat
+    Dim dModel As Dictionary
+    Dim dRule As Dictionary
+
+    ' Decode AlertText and verify TrailerColor was parsed
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex ALERTTEXT_CF14
+    Set dRule = NthRule(cCF, 1)
+    TestAssert dRule.Exists("TrailerColor"), "rule 0 has TrailerColor"
+    TestAssert dRule("TrailerColor") = "RGB(219,219,183)", "rule 0 TrailerColor value"
+    Set dRule = NthRule(cCF, 4)
+    TestAssert Not dRule.Exists("TrailerColor"), "rule 3 (CF14-only) has no TrailerColor"
+
+    ' Round-trip through the dictionary model (simulates JSON save/load)
+    Set dModel = cCF.GetDictionary
+    Set cCF2 = New clsConditionalFormat
+    cCF2.LoadFromDictionary dModel
+    TestAssert cCF2.BuildCF14Hex() = ALERTTEXT_CF14, "AlertText CF14 byte-exact after JSON round-trip"
+
 End Sub
 
 

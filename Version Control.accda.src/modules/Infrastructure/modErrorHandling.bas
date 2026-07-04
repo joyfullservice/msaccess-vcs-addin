@@ -47,7 +47,7 @@ End Function
 '           : option is currently set. (Run this before any ON ERROR directive which
 '           : will siently reset any current VBA error condition.)
 '
-' Example   : See Sub `CatchTest` for example use.
+' Example   : See Sub `TestCatch` for example use.
 '
 '---------------------------------------------------------------------------------------
 '
