@@ -795,6 +795,39 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ResetCurrentVBProjectState
+' Author    : Adam Waller
+' Date      : 7/6/2026
+' Purpose   : Reset the current database VBA project via the VBE Reset command,
+'           : clearing any lingering run-state (module-level/global/Static vars)
+'           : without closing the database. This prevents "This action will reset
+'           : your project" prompts (and intermittent module-import failures) that
+'           : occur when VBComponents are modified while the project holds run-state.
+'           : Acts on the active project only; it does NOT reset library/add-in
+'           : projects, so the add-in's own singletons remain intact.
+'           : Returns True if the Reset control was found and executed without error.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResetCurrentVBProjectState() As Boolean
+
+    Const VBE_CMD_RESET_ID As Long = 228   ' VBE Standard toolbar Reset (language-independent)
+    Dim ctl As CommandBarControl
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set VBE.ActiveVBProject = CurrentVBProject
+    Set ctl = Application.VBE.CommandBars.FindControl(, VBE_CMD_RESET_ID)
+    If Not ctl Is Nothing Then
+        ctl.Execute
+        If Err.Number = 0 Then ResetCurrentVBProjectState = True
+    End If
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : MinimizeVBEWindow
 ' Author    : Adam Waller
 ' Date      : 4/9/2026

@@ -1211,6 +1211,7 @@ Public Function RunVBA(ByVal strCode As String) As String
         strProjPrefix = FSO.GetParentFolderName(CurrentVBProject.FileName) & "\" & _
             FSO.GetBaseName(CurrentVBProject.FileName) & "."
     End If
+    ResetCurrentVBProjectState
     varReturn = Application.Run(strProjPrefix & "MCP_TempFunction")
 
     ' Check for runtime errors captured by the wrapper (Err is cleared
@@ -1252,6 +1253,7 @@ CleanUp:
         CurrentVBProject.VBComponents.Remove CurrentVBProject.VBComponents(strModuleName)
         On Error GoTo 0
     End If
+    ResetCurrentVBProjectState
     RunVBA = ConvertToJson(dResult)
     Exit Function
 

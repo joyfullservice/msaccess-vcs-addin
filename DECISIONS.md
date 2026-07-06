@@ -81,6 +81,75 @@ contradictory guidance.
 
 ---
 
+## 2026-07-06 — Surgical VBE reset in RunVBA; rejected for merge (crashes)
+
+**Trigger**: Agents driving `vcs_run_vba` (and repeated add/remove of modules
+via MCP) intermittently hit the modal "This action will reset your project,
+proceed anyway?" prompt, which blocks the automation thread until a human
+clicks it. Root cause: modifying a VBA project's `VBComponents` (add/remove a
+module) while that project holds in-memory run-state raises the prompt. It is
+raised by the VBA/VBE engine, not the Access action layer, so
+`DoCmd.SetWarnings`, `Application.Echo`, and `Application.SetOption` do not
+suppress it, and there is no documented flag to turn it off — you can only
+avoid triggering it or dismiss the modal after the fact.
+
+**Options explored**:
+- **`DoCmd.SetWarnings False`**: rejected. Only gates Access action-query/UI
+  confirmations, not the VBE engine's project-reset prompt.
+- **Auto-dismiss the modal (SendKeys / UI Automation watcher)**: not pursued.
+  The dialog is modal and blocks the thread that raised it, so it needs a
+  pre-queued keystroke or an external watcher; agent VBA is user-monitored, so
+  forcing the dialog closed was deemed unnecessary.
+- **`End` before running / before build**: rejected as primary. `End` is
+  global — it resets every loaded project (including the add-in's singletons)
+  and cannot "End then continue" in one call. Usable only as an external,
+  between-calls action.
+- **`DoCmd.RunCommand acCmdReset` (AcCommand 124)**: viable but its scope
+  (global/abortive vs. active-project) was uncertain. Kept only as a
+  documented fallback.
+- **VBE Standard toolbar Reset control, resolved by language-independent ID
+  228 (`Application.VBE.CommandBars.FindControl(, 228).Execute`)**: chosen for
+  `RunVBA`. Confirmed (IDE and programmatically via MCP) to reset only the
+  *active* project — never the library add-in. `RunVBA` sets
+  `VBE.ActiveVBProject = CurrentVBProject` first, resets before running agent
+  code and again after removing the temp module. Validated with an
+  `OptionsLoaded` sentinel (add-in `Options` singleton stayed loaded) across
+  basic, DB-access, and runtime-error probes, plus repeated add/remove cycles.
+- **Surfaced `McpResetProjectForRunVBA` option to toggle the reset**: added,
+  then removed (YAGNI) — the reset is now unconditional in `RunVBA`.
+- **Reuse the same reset for merge, replacing `CloseCurrentDatabase2` +
+  `ShiftOpenDatabase` with `CloseDatabaseObjects()` + reset (shift-reopen kept
+  as fallback)**: **rejected — crashes Access.** Plain version and a variant
+  with `DoEvents` between close and reset both crashed on merge in the Testing
+  database (full build was unaffected). Cause: unlike `RunVBA` (reset → run one
+  function → return), merge continues heavy, sustained work against the same
+  project after the reset (deleting/re-importing many `VBComponents`,
+  `DoCmd.Close/Save`, DAO refreshes) while holding cached references
+  (`CurrentVBProject`/`VBComponents`, `SharedDb`, DAO handles) that the reset
+  invalidates. Merge reverted to the stable shift-reopen.
+
+**Decision**: Use the VBE Reset control (id 228) via
+`modVbeUtility.ResetCurrentVBProjectState()` in `clsVersionControl.RunVBA`
+only. Merge and full build remain on the close/shift-reopen path unchanged.
+
+**What this rules out**: Do not drop an in-place VBE reset into the merge (or
+build) sequence — it corrupts the long-lived cached references those flows
+depend on and hard-crashes Access. Revisiting the merge performance win
+(avoiding the physical close/reopen) requires a different shape: either
+re-acquire all target-DB/VBE handles after the reset, or stage → reset/`End` →
+resume on a fresh stack via the existing `SetTimer`/`APIAsyncOperation`
+pattern. `acCmdReset` and the surfaced toggle remain deliberately unused.
+
+**Relevant files**: `Version Control.accda.src/modules/Core/modVbeUtility.bas`
+(new `ResetCurrentVBProjectState`), `Version
+Control.accda.src/modules/API/clsVersionControl.cls` (`RunVBA` calls it before
+run and after temp-module removal). Reverted: `Version
+Control.accda.src/modules/Core/modBuild.bas` (merge stays on shift-reopen).
+`Version Control.accda.src/modules/Infrastructure/clsOptions.cls` unchanged
+(surfaced option added then removed).
+
+---
+
 ## 2026-06-26 — Table-less Design View SELECT: parse field list and emit empty InputTables
 
 **Trigger**: `qryFormControl` in `Testing.accdb` lost its output columns on
