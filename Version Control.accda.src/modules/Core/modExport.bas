@@ -214,7 +214,17 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     CacheBackEndConnections
 
     ' Enforce any supplied letter casing rules
-    StandardizeLetterCasing
+    Dim colCasingChanges As Collection
+    Dim varChange As Variant
+    Set colCasingChanges = StandardizeLetterCasing
+    If Not colCasingChanges Is Nothing Then
+        If colCasingChanges.Count > 0 Then
+            Log.Add T("{0} letter casing correction(s) applied:", var0:=colCasingChanges.Count)
+            For Each varChange In colCasingChanges
+                Log.Add "  " & varChange
+            Next varChange
+        End If
+    End If
 
     ' Export any external database schemas
     ExportSchemas blnFullExport

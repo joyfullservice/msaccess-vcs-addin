@@ -61,12 +61,39 @@ If drift continues, check **Use Deterministic Query Export** or temporarily use 
 <details>
 <summary><b>Case changes in VBA code</b></summary>
 
-The VBA editor may normalize identifier casing. Tips: Pascal case for procedures; Hungarian-style prefixes for variables (`lngTotal`, `strCaption`).
+The VBA editor may normalize identifier casing when you compile or edit code. Tips: Pascal case for procedures; Hungarian-style prefixes for variables (`lngTotal`, `strCaption`).
 
 ```diff
 -    cancel = True
 +    Cancel = True
 ```
+
+### Standardize Letter Casing
+
+The add-in can enforce consistent casing automatically during **export**, **build/merge**, or from the ribbon command **Standardize Letter Casing**. Add a `clsStandardLetterCasing` class module to your project with `Dim` lines that define the canonical casing for each identifier:
+
+```vba
+Dim strSQL 'strSQL
+Dim lngID 'lngID
+```
+
+The trailing comment is the authority; the identifier before it is updated to match when casing drifts.
+
+When corrections are applied, the add-in shows each change (for example, `strSql -> strSQL`) and logs them during export/build. After corrections, the VBA project is saved automatically so normalized casing persists across modules.
+
+### Persistent casing drift (form and report controls)
+
+If the same correction keeps appearing on every export, a **form or report control Name** with different casing is often the cause. VBA treats control names as implicit class members. On compile, the control's Name property can override project-wide identifier casing and revert the `clsStandardLetterCasing` Dim lines.
+
+**How to fix it:**
+
+1. **Rename the control** in the form or report designer to match your desired casing (preferred fix).
+2. **Find and replace** stale references in the VBA editor (Edit > Find) or in exported `.bas`/`.cls` source files, then rebuild.
+3. Run a full **export** after fixing so source files reflect the stable state.
+
+**Example:** A text box named `txtUserid` on a form causes `Dim txtUserID` to revert to `Dim txtUserid` on every compile, and Standardize Letter Casing reports the same correction repeatedly. Rename the control to `txtUserID` in the designer, save the form, compile, and export.
+
+Bracketed references such as `Me![txtUserid]` are normalized along with unbracketed references when a casing correction is applied; the underlying issue is usually the control Name or stale saved code, not the brackets themselves.
 </details>
 
 <details>

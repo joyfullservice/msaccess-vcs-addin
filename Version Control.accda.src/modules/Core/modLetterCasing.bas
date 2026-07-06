@@ -14,13 +14,11 @@ Option Explicit
 '               as a workaround for VBA's case-changing "feature."
 '  5/23/25  : Add "PtrSafe" to avoid compile errors in 64-bit VBA.
 ' 10/29/25  : Implement in VCS Add-In (Adam Waller)
+'  7/06/26  : Return Collection of before/after change strings (Adam Waller)
 ' ----------------------------------------------------------------
-Function StandardizeLetterCasing() As Long
+Public Function StandardizeLetterCasing() As Collection
 
     Const StandardLetterCasingModuleName As String = "clsStandardLetterCasing"
-
-    ' Default to -1 (module not found)
-    StandardizeLetterCasing = -1
 
     'Get the Standard Letter Casing class module
     Dim Comp As VBIDE.VBComponent
@@ -32,10 +30,11 @@ Function StandardizeLetterCasing() As Long
     If cm Is Nothing Then Exit Function
     If cm.Name <> StandardLetterCasingModuleName Then Exit Function
 
+    Dim colChanges As New Collection
+
     'Loop through each line of code and replace the identifier name with its
     '   canonical form in the trailing comment if casing is different
     Dim i As Long
-    Dim lngCorrections As Long
     For i = 1 To cm.CountOfLines
         Dim OrigLine As String
         Dim LineOfCode As String
@@ -61,7 +60,7 @@ Function StandardizeLetterCasing() As Long
                     If posIdent > 0 Then
                         Mid$(OrigLine, posIdent, Len(CurrentCasing)) = CanonicalCasing
                         cm.ReplaceLine i, OrigLine
-                        lngCorrections = lngCorrections + 1
+                        colChanges.Add CurrentCasing & " -> " & CanonicalCasing
                     End If
                 End If
             Else
@@ -83,7 +82,7 @@ Function StandardizeLetterCasing() As Long
                 If CasingDiffers Then
                     cm.ReplaceLine i, "Private Declare PtrSafe Function zzz_" & Replace(CanonicalCasing, ".", "_") & _
                                       " Lib """ & CanonicalCasing & """ '" & CanonicalCasing
-                    lngCorrections = lngCorrections + 1
+                    colChanges.Add CurrentCasing & " -> " & CanonicalCasing
                 End If
             Else
                 Debug.Print "Identifier mismatch on line " & i & " of " & _
@@ -93,6 +92,18 @@ Function StandardizeLetterCasing() As Long
         End If
     Next i
 
-    StandardizeLetterCasing = lngCorrections
+    Set StandardizeLetterCasing = colChanges
+
+    ' Persist the corrections so the VBA project isn't left with unsaved
+    ' changes that prompt a save when Access is closed. Correcting the casing
+    ' in clsStandardLetterCasing propagates canonical casing project-wide via
+    ' VBA (dirtying other modules too); saving one module saves the whole project.
+    If colChanges.Count > 0 Then
+        LogUnhandledErrors
+        On Error Resume Next
+        DoCmd.Save acModule, StandardLetterCasingModuleName
+        If Err Then Err.Clear
+        On Error GoTo 0
+    End If
 
 End Function

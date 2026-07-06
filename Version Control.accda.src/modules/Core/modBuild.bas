@@ -504,7 +504,17 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     End If
 
     ' Enforce any supplied letter casing rules
-    StandardizeLetterCasing
+    Dim colCasingChanges As Collection
+    Dim varChange As Variant
+    Set colCasingChanges = StandardizeLetterCasing
+    If Not colCasingChanges Is Nothing Then
+        If colCasingChanges.Count > 0 Then
+            Log.Add T("{0} letter casing correction(s) applied:", var0:=colCasingChanges.Count)
+            For Each varChange In colCasingChanges
+                Log.Add "  " & varChange
+            Next varChange
+        End If
+    End If
 
     ' Log any errors after build/merge
     CatchAny eelError, T("Error running {0}", var0:=CallByName(Options, "RunAfter" & strType, VbGet)), FunctionName, True, True
