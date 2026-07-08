@@ -21,6 +21,7 @@ This repository contains the **MSAccess Version Control System (VCS) Add-in** - 
 | `Version Control.accda.src/` | **Core add-in source code** - Exported VBA modules, classes, forms, and queries |
 | `Ribbon/` | **COM Add-in for ribbon UI** - twinBASIC project providing 64-bit ribbon toolbar support |
 | `Hook/` | **Export-on-save hook DLLs** - External library for automatic export when saving objects |
+| `TestRunner/` | **Web test runner HTML** - Packaging assets embedded at build (e.g. `runner.html`); not part of the Access export tree |
 | `Testing/` | **Test database** - Sample database (`Testing.accdb.src`) for testing import/export functionality |
 | `Translation/` | **Localization files** - `.pot` and `.po` files for UI translation support |
 | `Wiki/` | **Documentation** - Markdown files synced to GitHub Wiki |
@@ -464,7 +465,8 @@ Get-ChildItem -Recurse -Include "*.log","*.json" | Where-Object { $_.DirectoryNa
 ```
 
 Key log locations:
-- `Version Control.accda.src/logs/` — build, export, merge, and **test result** logs (`TestResults_*.json`, `TestRun_*.log`)
+- `Version Control.accda.src/logs/` — build, export, merge, and **ephemeral test run** logs (`TestResults_*.json`, `TestRun_*.log`)
+- `Version Control.accda.src/test-results/` — **durable test state** (`test-state.json`), **JUnit XML** (`test-results.xml`), and **HTML report** (`test-results.html`); gitignored
 - `Testing/Fixtures/logs/` — object round-trip test logs (`ObjectRoundtrip_*.log`)
 
 Important location distinction: the canonical object round-trip fixture corpus
@@ -550,6 +552,84 @@ See `Testing/Fixtures/README.md` for the full workflow, the `_scaffold/` convent
 ### Adding new test modules
 
 When adding a new test module, follow the `modTest*` prefix convention and place it under `Version Control.accda.src/modules/Tests/`. If the module wraps an existing concept (encoding, hashing, sanitization), prefer extracting it from `modTestSuite` into a focused `modTest<Topic>` module rather than letting `modTestSuite` grow indefinitely.
+
+### Web test runner UI
+
+On Microsoft 365 builds with the Edge browser control (file build ≥ 16327) and
+with the `UseWebTestRunner` option enabled (default **on**), `VCS.RunTests` /
+ribbon **Run Tests** open `frmVCSTestRunner`, merge-scan for tests, and publish the
+test tree to `TestRunner/runner.html` via `modTestRunnerUI` (`ExecuteJavascript` →
+`window.TestUI.*`). Tests are **not** auto-run; the user clicks the primary **Run**
+button (label reflects scope: all, suite, tag, or failed) or a per-suite/per-test
+▶ when ready. When the option is off (or the build is older), it falls back to
+the `frmVCSMain` console unchanged.
+
+- **HTML**: [`TestRunner/runner.html`](TestRunner/runner.html) (repo-root packaging
+  asset, embedded at build like `Ribbon.xml`; extracted to a temp cache at runtime)
+- **Entry points**: `VCS.RunTests` (show + deferred scan; user clicks Run),
+  `VCS.OpenTestRunner` (open to view last results — rehydrates from singleton or
+  `test-state.json` on standalone opens)
+- **Option**: `Options.UseWebTestRunner` (Advanced options → Automated Testing;
+  default True) gates the whole routing in `clsVersionControl.ExecuteTests`.
+- **Inbound bridge**: outbox **polling** — JS enqueues commands in
+  `window.__vbaOutbox`, the form timer drains them via `RetrieveJavascriptValue`
+  (no navigation; see the `frmVCSTestRunner` header and DECISIONS.md 2026-07-08).
+  Allowlisted callbacks: `RunAll,RunSelected,RunFailed,Cancel,OpenTestSource,RefreshTests,OpenResultsReport`.
+- **Form lifecycle**: opens as a **pop-up** window (`PopUp=1`). Closing via the
+  X button or Escape **hides** the form (timer disabled, WebView2 stays warm);
+  re-opening **reuses** the hidden instance without reloading the page when healthy
+  (see `open.reuse.warm` in the diag log). A forced reload replays completed results.
+  Programmatic `CloseWebTestRunner` sets `AllowClose` and issues `DoCmd.Close` for
+  a real unload.
+- **Tree refresh**: after show (or on **Refresh** in the toolbar), VBA runs
+  `ScanMergingPriorResults` — rediscovers tests while preserving pass/fail for
+  unchanged `Module.Proc` keys — and republishes the tree only.
+- **Quiet mode**: while the web runner hosts a run, `Log.SuppressDebugOutput` is
+  set so per-test results are not echoed to the Immediate window (the UI shows
+  them; the log file is unaffected).
+- **State persistence**: durable merged state in `<export-folder>/test-results/test-state.json`
+  (survives Access restarts; partial runs update only executed tests and mark others
+  `stale`). The in-memory `clsTestRunner` singleton is still used within a session;
+  `VCS.OpenTestRunner` reloads from `test-state.json` when the singleton is empty.
+- **JUnit export**: `Options.ExportTestResultsJUnit` (default **on**) writes
+  `<export-folder>/test-results/test-results.xml` after each run as a projection of
+  the durable state. `VCS.ExportTestResultsJUnit` regenerates it on demand without
+  re-running tests.
+- **HTML report**: `Options.ExportTestResultsHtml` (default **on**) writes
+  `<export-folder>/test-results/test-results.html` after each run — a self-contained
+  dashboard with inlined `test-state.json` (opens offline via double-click,
+  **Open report** in the web runner toolbar, or **Open Test Results...** on
+  `frmVCSMain` after a console test run). `VCS.ExportTestResultsHtml`
+  regenerates it on demand. The console logs the report file path (plain text).
+- **UI affordances**: sidebar has **All tests** / **Failed tests (N)** focus
+  entries; the stats bar shows PHPUnit-style **tests** and **assertions** totals;
+  primary Run executes the **visible scope** (suite, tag, failed focus, or all);
+  per-test/per-suite ▶ run buttons; clicking a location opens the VBE at the proc.
+- **Late binding**: the Edge control is referenced as `As Object` only so the
+  add-in still compiles on older Access.
+
+See `DECISIONS.md` (2026-07-07 and 2026-07-08 — Web test runner) for rationale.
+
+#### Diagnostic trace log (debugging the bridge)
+
+`modTestRunnerDiag` writes a single agent-readable trace of the real
+bridge/lifecycle flow to **`<ExportFolder>\logs\TestRunnerDiag.log`** (the
+resolved path is printed in the log header; falls back to a temp folder when
+Options aren't loaded). It is truncated at the start of each session
+(`DiagStart`, called from `OpenWebTestRunner`). Each line is
+`[+elapsed ms] TAG | detail`.
+
+Key tags: `form.load` / `form.unload` / `form.hide` / `form.show` (form
+lifecycle), `navigate.url` / `navigate.call` (what URL the control was given),
+`documentcomplete` (page finished loading — the gap from `navigate.call` is the
+WebView2 load/cold-start time), `wait.ready` / `wait.timeout` (readiness-wait
+outcome), `beforenavigate` (proves the JS→VBA event bridge fired, with fn+id),
+`defer.exec` → `dispatch.begin`/`dispatch.end` (deferred command execution),
+`resolve` / `reject`, `push` / `push.dropped` (VBA→JS streaming), and `js.*`
+(JS-side breadcrumbs drained from `window.__diag`: `js.call`, `js.signal`,
+`js.resolve`, `js.timeout`, `js.onReady`, `js.onTestComplete`, etc.). Read this
+file first when the page doesn't load or a call times out — it shows exactly
+where the flow diverged.
 
 ### Running and filtering tests
 

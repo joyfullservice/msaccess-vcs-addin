@@ -1767,6 +1767,53 @@ Begin Form
                 End
                 Begin CommandButton
                     Visible = NotDefault
+                    FontUnderline = NotDefault
+                    TabStop = NotDefault
+                    OverlapFlags =215
+                    Left =6720
+                    Top =5640
+                    Width =2400
+                    Height =240
+                    FontSize =10
+                    TabIndex =12
+                    Name ="cmdOpenTestResults"
+                    Caption ="Open Test Results..."
+                    OnClick ="[Event Procedure]"
+                    LeftPadding =135
+                    TopPadding =135
+                    RightPadding =150
+                    BottomPadding =150
+                    VerticalAnchor =1
+                    BackStyle =0
+
+                    CursorOnHover =1
+                    LayoutCachedLeft =6720
+                    LayoutCachedTop =5640
+                    LayoutCachedWidth =9120
+                    LayoutCachedHeight =5880
+                    Alignment =1
+                    ForeThemeColorIndex =10
+                    ForeTint =100.0
+                    Gradient =0
+                    BackColor =5324600
+                    BackThemeColorIndex =-1
+                    BackTint =100.0
+                    OldBorderStyle =0
+                    BorderColor =15321539
+                    BorderThemeColorIndex =-1
+                    BorderTint =100.0
+                    HoverThemeColorIndex =10
+                    HoverTint =100.0
+                    PressedThemeColorIndex =10
+                    PressedShade =100.0
+                    HoverForeThemeColorIndex =10
+                    HoverForeTint =100.0
+                    PressedForeThemeColorIndex =10
+                    PressedForeTint =100.0
+                    Overlaps =1
+                End
+                Begin CommandButton
+                    Visible = NotDefault
                     FontItalic = NotDefault
                     FontUnderline = NotDefault
                     TabStop = NotDefault

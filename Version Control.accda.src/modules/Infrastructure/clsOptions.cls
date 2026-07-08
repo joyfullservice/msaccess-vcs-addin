@@ -83,6 +83,9 @@ Public HashAlgorithm As String
 Public UseShortHash As Boolean
 Public UseGitIntegration As Boolean
 Public ShowVCSLegacy As Boolean
+Public UseWebTestRunner As Boolean      ' Use the HTML/Edge test runner UI (default: True)
+Public ExportTestResultsJUnit As Boolean ' Write test-results/test-results.xml after each run (default: True)
+Public ExportTestResultsHtml As Boolean  ' Write test-results/test-results.html after each run (default: True)
 
 ' Enum to compare loaded version to installed version.
 Public Enum eVersionCompare
@@ -201,6 +204,9 @@ Public Sub LoadDefaults()
         .UseShortHash = True
         .UseGitIntegration = False
         .ShowVCSLegacy = True
+        .UseWebTestRunner = True
+        .ExportTestResultsJUnit = True
+        .ExportTestResultsHtml = True
     End With
 
 End Sub
@@ -812,7 +818,8 @@ Public Function GetCategoryHashes() As Dictionary
                  "HashAlgorithm", "UseShortHash", "SchemaExports", _
                  "TablesToExportData", "DefaultTestFilter", _
                  "McpAllowRunVBA", "McpAllowExecuteSQL", _
-                 "McpAllowCallVBA", "McpAllowImport"
+                 "McpAllowCallVBA", "McpAllowImport", "UseWebTestRunner", _
+                 "ExportTestResultsJUnit", "ExportTestResultsHtml"
                 ' Not included in hash
 
             Case Else
@@ -1018,6 +1025,9 @@ Private Sub Class_Initialize()
         .Add "UseShortHash"
         .Add "UseGitIntegration"
         .Add "ShowVCSLegacy"
+        .Add "UseWebTestRunner"
+        .Add "ExportTestResultsJUnit"
+        .Add "ExportTestResultsHtml"
     End With
 
     ' Load default values

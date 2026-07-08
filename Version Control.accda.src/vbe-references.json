@@ -47,6 +47,10 @@
     "UIAutomationClient": {
       "GUID": "{944DE083-8FB8-45CF-BCB7-C477ACB2F897}",
       "Version": "1.0"
+    },
+    "SHDocVw": {
+      "GUID": "{EAB22AC0-30C1-11CF-A7EB-0000C05BAE0B}",
+      "Version": "1.1"
     }
   }
 }

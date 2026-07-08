@@ -36,6 +36,13 @@ Public Sub VerifyResources()
     ' AGENTS.md file for AI agent assistance
     VerifyResource "AGENTS.md", "\Version Control.accda.src\AGENTS.md"
 
+    ' Web test runner HTML (repo-root packaging asset; embedded at build like
+    ' Ribbon.xml; extracted to a temp folder at runtime — not the install folder).
+    VerifyResource "Test Runner HTML", "\TestRunner\runner.html"
+
+    ' Standalone test-results dashboard (inlined snapshot for file:// viewing).
+    VerifyResource "Test Results HTML", "\TestRunner\results.html"
+
 End Sub
 
 

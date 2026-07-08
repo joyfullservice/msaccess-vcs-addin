@@ -2043,6 +2043,69 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : OpenTestRunner
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Open the web test runner to VIEW the last run's results without running.
+'           : The UI rehydrates from the in-memory results (failed set ready to re-run).
+'           : Requires the web runner to be enabled and supported on this Access build.
+'---------------------------------------------------------------------------------------
+'
+Public Sub OpenTestRunner()
+    If Not Options.UseWebTestRunner Or Not modTestRunnerUI.EdgeTestRunnerSupported() Then
+        MsgBox2 T("Web Test Runner Unavailable"), _
+            T("The HTML test runner is disabled or not supported on this Access build."), _
+            T("Enable it in Options, or use Run Tests for the console runner."), vbInformation
+        Exit Sub
+    End If
+    modTestRunnerUI.OpenTestRunnerForResults
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportTestResultsJUnit
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Generate JUnit XML from the durable test-state.json without running tests.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportTestResultsJUnit(Optional ByVal strPath As String = vbNullString)
+
+    Dim strResult As String
+
+    strResult = modTestJUnit.ExportFromState(strPath)
+    If Len(strResult) = 0 Then
+        MsgBox2 T("No Test State"), _
+            T("No durable test state file was found to export."), _
+            T("Run tests first, or check the test-results folder."), vbInformation
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportTestResultsHtml
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Generate the HTML test-results report from durable test-state.json
+'           : without running tests.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportTestResultsHtml(Optional ByVal strPath As String = vbNullString)
+
+    Dim strResult As String
+
+    strResult = modTestReport.ExportResultsHtml(strPath)
+    If Len(strResult) = 0 Then
+        MsgBox2 T("No Test State"), _
+            T("No durable test state file was found to export."), _
+            T("Run tests first, or check the test-results folder."), vbInformation
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ExecuteTests
 ' Author    : Adam Waller
 ' Date      : 5/21/2026
@@ -2062,6 +2125,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     Dim strFilter As String
     Dim eimPriorMode As eInteractionMode
     Dim blnLogWasActive As Boolean
+    Dim blnUseWebRunner As Boolean
 
     If Not DatabaseFileOpen Then
         MsgBox2 T("No Database Open"), _
@@ -2103,7 +2167,21 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     Log.Active = True
     Log.ClearErrorJournal
 
-    ' Open the main form and set up the console
+    blnUseWebRunner = Options.UseWebTestRunner And modTestRunnerUI.EdgeTestRunnerSupported()
+
+    ' Web runner path: open the form, scan for tests, publish the tree, and return.
+    ' The user clicks Run in the UI, which triggers the bridge callbacks to handle
+    ' the actual test execution and operation lifecycle.
+    If blnUseWebRunner Then
+        Log.Active = blnLogWasActive
+        Operation.InteractionMode = eimPriorMode
+        Operation.Finish eorSuccess
+
+        modTestRunnerUI.OpenWebTestRunner
+        modTestRunnerUI.WaitForWebRunnerReady
+        Exit Function
+    End If
+
     PrepareTestConsole
 
     ' Build filter description for log heading
@@ -2138,6 +2216,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
         Log.Add T("No test subs found in the current project.")
         FinalizeTestConsole True
         Log.Active = blnLogWasActive
+        Log.SuppressDebugOutput = False
         Operation.InteractionMode = eimPriorMode
         Operation.Finish eorSuccess
         Exit Function
@@ -2150,6 +2229,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
             Log.Add T("No tests found matching filter: {0}", var0:=strFilter)
             FinalizeTestConsole True
             Log.Active = blnLogWasActive
+            Log.SuppressDebugOutput = False
             Operation.InteractionMode = eimPriorMode
             Operation.Finish eorSuccess
             Exit Function
@@ -2172,6 +2252,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     End If
     Dim strJsonPath As String
     strJsonPath = TestRunner.SaveResults
+    modTestState.PersistAfterRun
 
     ' Detect cancellation (before computing summary, so "all passed" is not
     ' incorrectly reported when only a subset ran before the user canceled)
@@ -2201,6 +2282,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     TestRunner.InvokeGlobalTestTeardown
 
     Log.Active = blnLogWasActive
+    Log.SuppressDebugOutput = False
     Operation.InteractionMode = eimPriorMode
     Operation.Finish IIf(blnCanceled, eorCanceled, IIf(blnAllPassed, eorSuccess, eorFailed))
 
@@ -2241,6 +2323,9 @@ Private Sub FinalizeTestConsole(blnAllPassed As Boolean, _
     Optional ByVal strLogPath As String = vbNullString, _
     Optional ByVal blnCanceled As Boolean = False, _
     Optional ByVal strCopyPath As String = vbNullString)
+
+    Dim strReportPath As String
+
     On Error Resume Next
     With Form_frmVCSMain
         .txtLog.ScrollBars = 2
@@ -2248,6 +2333,15 @@ Private Sub FinalizeTestConsole(blnAllPassed As Boolean, _
         .cmdOpenLogFile.Visible = (Len(strLogPath) > 0)
         .cmdCopyPath.Visible = .cmdOpenLogFile.Visible
         .strCopyToClipboardPath = IIf(Len(strCopyPath) > 0, strCopyPath, strLogPath)
+        .strLastTestResultsPath = vbNullString
+        .cmdOpenTestResults.Visible = False
+        If Options.ExportTestResultsHtml Then
+            strReportPath = modTestState.GetTestResultsFolder() & "test-results.html"
+            If FSO.FileExists(strReportPath) Then
+                .strLastTestResultsPath = strReportPath
+                .cmdOpenTestResults.Visible = True
+            End If
+        End If
         If blnCanceled Then
             .SetStatusText T("Canceled"), T("Tests Canceled"), _
                 T("The test run was canceled. Partial results are available in the log file.")

@@ -28,6 +28,9 @@ Public strLastLogFilePath As String
 ' Path to copy to clipboard (may differ from log path, e.g. JSON results for tests)
 Public strCopyToClipboardPath As String
 
+' Path to test-results.html after a console test run (when HTML export is enabled)
+Public strLastTestResultsPath As String
+
 ' Use this property to set the path to the source files (such as a build triggered from the API)
 Public strSourcePath As String
 
@@ -395,8 +398,10 @@ Public Sub ResetForOperation()
     Me.TimerInterval = 0
     cmdOpenLogFile.Visible = False
     cmdCopyPath.Visible = False
+    cmdOpenTestResults.Visible = False
     strLastLogFilePath = vbNullString
     strCopyToClipboardPath = vbNullString
+    strLastTestResultsPath = vbNullString
 
     cmdClose.SetFocus
     HideActionButtons
@@ -713,5 +718,20 @@ End Sub
 Private Sub cmdCopyPath_Click()
     If Len(strCopyToClipboardPath) > 0 Then
         SetClipboardText strCopyToClipboardPath
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdOpenTestResults_Click
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Open the HTML test results report after a console test run.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdOpenTestResults_Click()
+    cmdClose.SetFocus
+    If FSO.FileExists(strLastTestResultsPath) Then
+        CreateObject("Shell.Application").Open (strLastTestResultsPath)
     End If
 End Sub

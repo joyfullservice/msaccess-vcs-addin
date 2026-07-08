@@ -81,6 +81,455 @@ contradictory guidance.
 
 ---
 
+## 2026-07-08 — Test runner HTML: repo-root `TestRunner/` packaging folder
+
+**Trigger**: `runner.html` lived under `Version Control.accda.src/TestRunner/`, which
+reads like an exported Access object folder but is actually an embedded packaging
+asset (like `Ribbon.xml`). A dedicated repo-root folder also leaves room for future
+test HTML (e.g. `test-results.html`).
+
+**Options explored**:
+- **Keep under `.accda.src/`** — works but misleads contributors; couples HTML to the
+  export tree.
+- **Install-folder extraction like `Ribbon.xml`** — rejected: no external consumer
+  reads the file from `App.Path`; the Edge control needs a space-free temp path for
+  `https://msaccess/` navigation anyway.
+- **Repo-root `TestRunner/` + build-time embed + temp-cache runtime (chosen)** —
+  same build-time `modResource.VerifyResources` path as `Ribbon.xml`; runtime
+  extraction stays in `GetTempFolder` via `ResolveRunnerHtmlPath`.
+
+**Decision**: Author `TestRunner/runner.html` at the repository root (parallel to
+`Ribbon/` and `Hook/`). Embed with `VerifyResource "Test Runner HTML",
+"\TestRunner\runner.html"`. Dev live-edit copies from `CodeProject.Path\TestRunner\`.
+Reserve the folder for additional embedded test HTML assets.
+
+**What this rules out**: Treating `TestRunner/` as part of the Access export tree;
+install-folder deployment of runner HTML.
+
+**Relevant files**: `TestRunner/runner.html`, `modResource.bas`, `modTestRunnerUI.bas`,
+`AGENTS.md`, `.cursor/rules/testing.mdc`.
+
+---
+
+## 2026-07-08 — Standalone HTML test-results report (embedded snapshot)
+
+**Trigger**: Users need a shareable, double-clickable test results view outside
+Access (after closing the database, on builds without the Edge web runner, or for
+emailing/archiving). Dynamic `fetch()` of sibling `test-state.json` fails under
+`file://` due to browser CORS restrictions.
+
+**Options explored**:
+- **JS sidecar loaded via `<script src>`** — works on `file://` but still two
+  files; awkward when emailing a single artifact.
+- **Dynamic fetch of `test-state.json` / `test-results.xml`** — rejected for
+  double-click use: blocked on `file://` in modern browsers.
+- **Self-contained HTML with inlined JSON snapshot (chosen)** — add-in reads
+  `test-state.json`, escapes `<` as `\u003c`, injects into embedded
+  `TestRunner/results.html` template, writes `test-results/test-results.html`.
+
+**Decision**:
+- Report scope mirrors durable merged state (fresh + stale + pending), not just
+  the last run — consistent with `test-state.json` and `test-results.xml`.
+- Template at repo-root `TestRunner/results.html`, embedded via
+  `VerifyResource "Test Results HTML", "\TestRunner\results.html"`.
+- `modTestReport.ExportResultsHtml` called from `modTestState.PersistAfterRun`
+  when `Options.ExportTestResultsHtml` is on (default); on-demand via
+  `VCS.ExportTestResultsHtml`.
+- Surfaced via plain console log path after generation, **Open Test Results...**
+  on `frmVCSMain` after console test runs, and **Open report** toolbar button in
+  the web runner (`OpenResultsReport` bridge → `FollowHyperlink`).
+
+**Relevant files**: `TestRunner/results.html`, `modTestReport.bas`, `modTestState.bas`,
+`modResource.bas`, `modTestRunnerUI.bas`, `clsOptions.cls`, `clsVersionControl.cls`,
+`frmVCSMain`, `frmVCSOptionsAdvanced`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Test results persistence: three-tier artifacts, durable state, JUnit export
+
+**Trigger**: Need to reload the last test run when reopening the web runner after an
+Access restart or VBA state reset; need a single file reflecting current status
+across full and partial runs; need JUnit XML for CI without committing noisy
+per-run artifacts.
+
+**Options explored**:
+- **JUnit XML as the persistence format** — rejected: JUnit lacks per-assertion
+  detail, tags, logged errors, and source location fields the web runner needs.
+- **Keep everything in `logs/`** — rejected: `logs/` is wholesale gitignored and
+  semantically ephemeral/timestamped; durable state and CI export are different
+  lifecycle tiers.
+- **Dedicated `test-results/` folder with custom JSON + JUnit projection (chosen)** —
+  three tiers: ephemeral per-run history in `logs/`, durable merged state in
+  `test-results/test-state.json`, JUnit XML as an optional projection of state.
+
+**Decision**:
+- `modTestState.MergeAndSave` merges each run into `test-state.json`: executed
+  tests get a fresh `lastRunAt`; non-executed tests keep prior status and are
+  flagged `stale`.
+- `modTestJUnit.ExportFromState` projects state to `test-results.xml` (on by default
+  via `Options.ExportTestResultsJUnit`; regeneratable via `VCS.ExportTestResultsJUnit`).
+- `RehydrateWebRunner` loads from disk when the singleton is empty.
+- Both `test-results/` artifacts are gitignored (local working state / CI input).
+
+**Relevant files**: `modTestState.bas`, `modTestJUnit.bas`, `clsTestRunner.cls`,
+`modTestRunnerUI.bas`, `clsVersionControl.cls`, `clsOptions.cls`,
+`frmVCSOptionsAdvanced`, `.gitignore`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Web test runner: status filters, clear filter, nested folders, cancel poll, focus restore
+
+**Trigger**: UX feedback — stats-bar status counts should filter the list; a single
+control should clear any active filter; `@Folder` paths should nest in the sidebar
+(not flat dotted headers); **Stop** had no effect mid-run; pre-run compile stole
+focus to the VBE when it was already open.
+
+**Decision**:
+
+- **Status filters**: passed / failed / errored / skipped counts in the stats bar
+  are clickable (toggle off to All). Reuses `#test-list[data-filter]` CSS; failed
+  includes assertion failures and runtime errors; errored is errors only.
+- **Clear filter**: a **Clear filter** chip (and Esc when a filter is active)
+  resets suite/tag/failed focus and status filter via `clearAllFilters()`.
+- **Nested folders**: sidebar splits `suite.folder` on `.` into nested
+  `.folder-group` nodes; full path strings in headers/tooltips use `/`.
+- **Cancel poll**: `Form_Timer` cannot re-enter while a run started from
+  `DrainOutbox` is still on the stack, so Cancel sat in `__vbaOutbox` until the
+  suite finished. `RunSelected` now calls `PollBridgeCancel` after each `DoEvents`;
+  the form exposes `DrainCancelOutbox` to splice Cancel commands without disturbing
+  other queued bridge calls. `BridgeCancel` sets `CancelRequested` only (no eager
+  `StreamRunCancelled`); the run loop streams cancelled when it actually exits.
+  Cooperative cancel: the in-flight test still finishes.
+- **Focus restore**: after `acCmdCompileAllModules`, and again at the end of
+  `EndInteractiveBridgeRun` (after teardown / `ActiveVBProject` switches that can
+  re-steal focus), `RefocusWebRunner` calls `BringAccessToForeground` and
+  `ShowRunner` when the web runner is active so the run finishes on the form.
+- **Default window size**: form design size raised from ~1320×768 to ~1600×900
+  (24000×13500 twips) so the main column is usable on 1080p with sidebar + detail
+  panes open; users can still resize.
+
+**Relevant files**: `TestRunner/runner.html`, `frmVCSTestRunner.cls`,
+`frmVCSTestRunner.form`, `modTestRunnerUI.bas`, `clsTestRunner.cls`,
+`modVCSUtility.bas`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Web test runner: run scope matches visible selection
+
+**Trigger**: UX feedback — the primary **Run all** button did not match what the
+list showed when a suite or tag was selected (suite focus ran the whole project;
+only tag focus was scoped). Progress bar, header, and completion toast used
+project-wide totals after partial runs (e.g. re-running one test toasts "All 10
+tests passed" after a prior suite run).
+
+**Decision**: **What you see is what the primary Run button runs.**
+
+- Primary Run resolves `getVisibleTestKeys()` (tag/failed focus → those keys;
+  suite selected → that suite; otherwise all tests) and always calls
+  `RunSelected` — never `RunAll` with a cleared selection.
+- Button label is dynamic: **Run all (N)**, **Run suite (N)**, **Run tag (N)**,
+  **Run failed (N)**.
+- Header always shows project total; appends `showing N (scope)` when filtered;
+  last-run summary uses outcomes from the most recent run only (`lastRunOutcome`).
+- Progress bar during a run sizes to `runKeys.length`; idle bar remains
+  project-wide health. Duration shows `completed / total · elapsed` while running.
+- Completion toast counts only tests in the current run.
+
+**Relevant files**: `TestRunner/runner.html`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Web test runner: hide-on-close, no auto-run, Escape key
+
+**Trigger**: UX feedback — closing the test runner form with the X button destroys
+the WebView2 control (expensive cold-start on reopen), and the web runner was
+auto-running tests immediately on open rather than letting the user click Run.
+
+**Options explored**:
+- **Hide vs unload** — considered keeping the old unload-on-X behavior. The
+  WebView2 control's cold start takes 5–15+ seconds on first init; hiding the
+  form keeps it warm and instant on reopen. The trade-off is a hidden form using
+  some memory, but the WebView2 process is small and the warm control is worth it.
+- **QueryClose vs Unload** — Access forms do not expose `Form_QueryClose` with
+  `CloseMode` the way Excel/UserForms do. Used `Form_Unload` with an
+  `m_blnAllowClose` flag instead: user X-click and Escape always cancel the unload
+  and call `HideRunner`; programmatic `CloseWebTestRunner` sets `AllowClose = True`
+  before `DoCmd.Close`, allowing the real unload to proceed for Access shutdown.
+- **Auto-run** — the previous `ExecuteTests` scanned, opened the web runner, and
+  immediately ran all tests in the same call. This made the UI feel like it was
+  doing something behind the scenes before the user could see what was happening.
+  Now `ExecuteTests` (web runner path) finishes the operation early after publishing
+  the test tree; bridge callbacks (`BridgeRunAll`, `BridgeRunSelected`,
+  `BridgeRunFailed`) handle the full operation lifecycle when the user clicks Run.
+
+**What this rules out**: The web runner form cannot be programmatically unloaded
+without setting `AllowClose` first — any new code paths that need to close it
+must go through `CloseWebTestRunner` or set the flag manually. If Access shutdown
+hangs because the flag isn't set, that's a bug (would need an emergency fallback
+in `Form_Unload` based on `Application.Quit` detection).
+
+**Relevant files**: `frmVCSTestRunner.cls`, `frmVCSTestRunner.form`,
+`modTestRunnerUI.bas`, `clsVersionControl.cls`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Web test runner: option toggle, pop-up host, quiet mode, state rehydration
+
+**Trigger**: Follow-up polish on the web test runner. Requests: don't echo results
+to the Immediate window when the HTML runner is showing them; make the runner
+opt-out-able (legacy console fallback); make the Edge control fill the window and
+open as a stand-alone window rather than a docked tab; preserve results so the
+runner can be reopened to see/re-run the failed set; add an "All tests" / "Failed
+tests (N)" focus affordance and surface assertion totals.
+
+**Options explored**:
+- **Suppress console noise** — considered skipping the per-test `Log.Add` calls in
+  `clsTestRunner` (would also drop them from the TestRun log file). Chose instead a
+  `Log.SuppressDebugOutput` flag that only gates the `Debug.Print` echo in
+  `clsLog.Add` (fires when no GUI console is bound, i.e. the web-runner case). The
+  log file and console buffer are unaffected. Set/cleared around the run in
+  `ExecuteTests`.
+- **Fill the form** — the Edge control has no design-time anchoring, so a
+  `Form_Resize` handler sizes it to `InsideWidth/InsideHeight` (called once from
+  `Form_Load` too). `OnResize` is a standard form event token (unlike the Edge
+  control's `OnBeforeNavigation`/`OnDocumentComplete`, which had to be wired via
+  the Property Sheet), so hand-authoring it in the `.form` imported cleanly.
+- **Stand-alone window** — set the form `PopUp=1` so it opens as an overlapping
+  window instead of a tabbed document. Cheapest reliable way to "pop out".
+- **State persistence** — rejected keeping the form alive across close (reverted
+  earlier: it blocks Access shutdown). Chose to rehydrate on open from the
+  `clsTestRunner` singleton's `this.Tests` (tree + per-test `StreamTestComplete`),
+  driven by a new standalone open path (`VCS.OpenTestRunner` → `m_blnStandalone`
+  → rehydrate in `NotifyDocumentReady`). In-memory only; a VBA state reset clears
+  it. A file-based rehydrate (from the saved `TestResults_*.json`) is the escalation
+  if cross-restart persistence is needed.
+- **Assertion numbering** — followed the PHPUnit "Tests: N, Assertions: N" convention
+  (added `tests` and `assertions` totals to the stats bar) rather than inventing a
+  coverage metric.
+
+**Decision**: Gate the whole web-runner routing behind `Options.UseWebTestRunner`
+(default True, Advanced options → Automated Testing). Keep the runner a pop-up whose
+Edge control fills the window; suppress Immediate-window echo during web runs; and
+rehydrate last results on a view-only reopen.
+
+**What this rules out**: Results do not survive a VBA state reset or Access restart
+(would need the file-based rehydrate). The runner is a single shared pop-up, not
+multiple concurrent windows.
+
+**Relevant files**: `clsOptions.cls` (option), `clsVersionControl.cls`
+(`ExecuteTests` routing, `OpenTestRunner`), `clsLog.cls` (`SuppressDebugOutput`),
+`modTestRunnerUI.bas` (`OpenTestRunnerForResults`, `RehydrateWebRunner`),
+`frmVCSTestRunner.form`/`.cls` (`PopUp`, `Form_Resize`), `frmVCSOptionsAdvanced.*`
+(checkbox), `TestRunner/runner.html` (Failed-tests focus entry, assertion totals,
+focus-preserving filter).
+
+---
+
+## 2026-07-08 — Web test runner: warm reuse without page reload + merge-scan refresh
+
+**Trigger**: Reopening the hidden test runner briefly showed prior run data, then
+wiped it a few seconds later. Root cause: every reuse path called `ReloadRunnerHtml`
+(full WebView2 navigate), and `RunTests` called destructive `Scan` before open.
+
+**Options explored**:
+- **Always reload on reuse** — rejected. Defeats hide-to-keep-warm; the multi-second
+  navigate is what users perceived as a mysterious refresh.
+- **Never rescan on reuse** — rejected. New/renamed/retagged tests would be stale in
+  the sidebar until Access restart.
+- **Destructive `Scan` on every open** — rejected for warm reuse. Wipes in-memory
+  pass/fail even when the page is still loaded.
+- **Show warm page + deferred `ScanMergingPriorResults`** — chosen. `ShowRunner`
+  paints cached UI immediately; `DoEvents` then merge-scan republishes the tree
+  only (`onReady` leaves `state.results` intact). `ReloadRunnerHtml` is fallback
+  when `window.TestUI` is missing. Forced reloads replay completed results via
+  `StreamCompletedTestResults` (not standalone-only).
+- **Manual Refresh** — toolbar button + `RefreshTests` bridge callback runs the same
+  merge-scan path for agents/users who added tests while the runner stayed open.
+
+**Decision**: Warm reuse skips navigate when the document is healthy. Tree refresh
+uses merge-scan; result rehydrate streams after any page wipe. `VCS.RunTests` no
+longer calls blocking `Scan` before open — discovery is owned by the deferred refresh.
+
+**Relevant files**: `modTestRunnerUI.bas` (`ReuseOrReloadRunner`,
+`RefreshWebTestTreeDeferred`, `BridgeRefreshTests`), `clsTestRunner.cls`
+(`ScanMergingPriorResults`), `clsVersionControl.cls` (`ExecuteTests` web path),
+`frmVCSTestRunner.cls` (`RetrieveRunnerJsValue`), `TestRunner/runner.html`
+(Refresh button).
+
+---
+
+## 2026-07-07 — Web test runner: EdgeBrowserControl + BeforeNavigate bridge
+
+**Trigger**: Add a modern HTML/JS test-runner UI on Microsoft 365 while keeping
+the existing `frmVCSMain` log console as the fallback on older Access builds.
+
+**Options explored**:
+- **Classic WebBrowser (IE) control**: rejected. Cannot run Promise-based bridge
+  code; CSS/JS would require emulation downgrades.
+- **Rebuild handoff VCSTest framework**: rejected. `clsTestRunner`, `TestAssert`,
+  and `VCS.RunTests` already exist and are mature; only the UI shell was missing.
+- **JS→VBA via `BeforeNavigate` + `vba://` iframe (primary)**: chosen. JS
+  `VBA.call()` navigates a hidden iframe; VBA cancels navigation, pulls JSON
+  payload via `RetrieveJavascriptValue`, replies with `ExecuteJavascript`.
+- **Timer polling `__vbaOutbox` via `RetrieveJavascriptValue` (fallback)**: kept
+  as opt-in via `EnableBridgePollingFallback` if `BeforeNavigate` interception
+  fails on a given build.
+
+**Decision**: Ship `frmVCSTestRunner` with a late-bound `webTestRunner` Edge
+control (`As Object` everywhere), host `TestRunner/runner.html` via
+`https://msaccess/` (space-free path, copy-to-cache when needed), stream run
+events from `clsTestRunner` through `modTestRunnerUI`, and route
+`ExecuteTests` to the web UI when `EdgeTestRunnerSupported()` (Access file
+build ≥ 16327 / M365 2304+). Allowlisted inbound callbacks only:
+`RunAll`, `RunSelected`, `RunFailed`, `Cancel`, `OpenTestSource`.
+
+**What this rules out**: Early-bound `As Access.Edge` references (breaks compile
+on older Access); `Application.Run` with page-supplied procedure names;
+`RetrieveJavascriptValue` on the streaming hot path; static HTML report files
+as a third UI mode.
+
+**Relevant files**: `frmVCSTestRunner.*`, `modTestRunnerUI.bas`,
+`clsTestRunner.cls`, `clsVersionControl.cls`, `TestRunner/runner.html`.
+
+> **⚠ Implementation note** (2026-07-07): The Edge control's event property
+> tokens are **`OnBeforeNavigation`** and **`OnDocumentComplete`** — note the
+> first is `OnBeforeNavigation`, *not* `OnBeforeNavigate`. Using the wrong name
+> is what makes `LoadFromText` fail ("This property does not apply to this
+> control"); with the correct tokens the events round-trip through the `.form`
+> normally. Wire them in the Access designer (Property Sheet → Event; Code
+> Builder on this control crashes Access) and export. The event-handler subs are
+> `webTestRunner_BeforeNavigate(Cancel As Integer, URL As String)` and
+> `webTestRunner_DocumentComplete(URL As Variant)` — Access normalizes `Cancel`
+> to `Integer` (not `Boolean`). `DocumentComplete` drives readiness and
+> `BeforeNavigate` is the primary inbound bridge. `RetrieveJavascriptValue` is
+> latency-prone and must NOT be polled continuously (an early
+> `document.readyState` poll timed out and raised a modal warning), so there is
+> no automatic readyState/outbox polling — the timer is off unless
+> `EnableBridgePollingFallback` is called (last-resort `__vbaOutbox` drain). A
+> request-id dedup guard ensures a call delivered via both channels runs only
+> once. The exported `.form` must retain the `CodeBehindForm` marker so
+> `MergeVBA` can splice the `.cls` on import.
+
+> **⚠ Superseded** (2026-07-08): Authoring path moved to repo-root `TestRunner/`
+> (see "Test runner HTML: repo-root `TestRunner/` packaging folder" above).
+> Build-time embed and temp-cache runtime are unchanged.
+>
+> **⚠ HTML delivery** (2026-07-07): `runner.html` lives in the source tree
+> (`Version Control.accda.src\TestRunner\`) but is NOT co-located with the
+> compiled/installed add-in, so `CodeProject.Path\TestRunner\...` does not exist
+> at runtime (grey/blank control). It is delivered like `Ribbon.xml`: embedded
+> in `tblResources` via `modResource.VerifyResources` at build time and extracted
+> at runtime with `ExtractResource` into a per-session temp folder
+> (`GetTempFolder`). A dev fallback copies from the source tree, and re-copies
+> when the source is newer (live HTML edits without a rebuild). The extraction
+> folder must be space-free — the Edge control silently fails to load
+> `https://msaccess/` URLs containing spaces — so `ResolveRunnerNavigateUrl`
+> converts any path with a space to its 8.3 short form via `GetShortPath`
+> (`GetShortPathNameW`, added to `modFileWinAPI`).
+
+> **⚠ Final inbound decision: outbox polling** (2026-07-08): After exhaustively
+> testing every navigation-based inbound signal (captured in the diagnostic
+> trace), the JS->VBA bridge uses **lightweight polling**, not events:
+> - JS `VBA.call()` enqueues `{id, fn, params}` in `window.__vbaOutbox` and does
+>   NOT navigate.
+> - The form timer (`POLL_INTERVAL_MS = 500`) drains the outbox via one
+>   `RetrieveJavascriptValue` and dispatches each command; a `Cancel` is
+>   dispatched even mid-run (the timer re-enters during the run's `DoEvents`),
+>   other commands only when idle; request-id dedup prevents double-runs.
+> - VBA->JS (streaming + `__vbaResolve`/`__vbaReject`) stays on `ExecuteJavascript`.
+>
+> Why not event-driven (the ruling-out, all confirmed by `beforenavigate.raw`
+> logging): (a) `vba://` custom scheme — WebView2 swallows it, no `BeforeNavigate`;
+> (b) hidden **iframe** to any URL — sub-frame navigations never reach the Access
+> control's `BeforeNavigate`; (c) **top-level** navigation to `https://msaccess/` —
+> `BeforeNavigate` fires, but `Cancel=True` does not cleanly abort a scripted
+> main-frame navigation, so the control tries to load the URL, times out (~5-7s),
+> and reloads the whole page. Polling is the only inbound path that never reloads
+> the page. Also note: `RetrieveJavascriptValue` must be called only from the form
+> timer / VBA flow, never from inside a control navigation event (it times out
+> there). `DocumentComplete` is still used for readiness + cold-start re-navigate.
+> The historical event-driven analysis below is retained for context.
+
+> **⚠ Superseded by diagnostics** (2026-07-07, same day): The diagnostic trace
+> (`beforenavigate.raw` logging + JS breadcrumbs) resolved the bridge questions
+> empirically, replacing the deferred-dispatch/polling machinery below:
+> 1. **`BeforeNavigate` DOES fire** for main-frame navigations (logged for both
+>    `about:blank` and the runner URL), so the inbound bridge is event-driven —
+>    no timer, no polling. Dispatch happens inline in `BeforeNavigate`; the whole
+>    timer/`m_strPendingFn`/`DrainOutbox`/`EnableBridgePollingFallback` layer was
+>    removed.
+> 2. The JS signal must be a **top-level navigation to an `https://msaccess/`
+>    URL** (`window.location.href = 'https://msaccess/__vba__/<fn>/<id>'`), which
+>    VBA cancels in `BeforeNavigate`. Two things that do NOT work, both confirmed
+>    by the trace (no `beforenavigate.raw` line appears for them): (a) a hidden
+>    **iframe** — WebView2 raises the navigation event for the main frame only,
+>    not sub-frames; (b) a **custom `vba://` scheme** — WebView2 swallows/bounces
+>    unknown-scheme navigations without raising `BeforeNavigate` (and the page
+>    reloads). The `https://msaccess/` host is the same one the runner HTML is
+>    served from, so `BeforeNavigate` fires for it reliably; the `/__vba__/` path
+>    marker distinguishes a bridge signal from the page load.
+> 3. **Cold-start grey screen**: the control's `ControlSource ="about:blank"`
+>    loads `about:blank` when the (cold) WebView2 finishes initializing, AFTER
+>    Form_Load's `Navigate` was lost — so about:blank won. Fix: `DocumentComplete`
+>    only treats the `https://msaccess/...` runner URL as ready; any other landing
+>    (about:blank or stray) triggers a re-`Navigate` to the runner. This doubles
+>    as the reliable "control is now initialized" trigger. Event-driven, no timer.
+>
+> The original deferred-dispatch reasoning (kept below for history):
+
+> **⚠ Deferred bridge dispatch** (2026-07-07): Page-initiated bridge commands
+> (Run all / Rerun failed) must NOT run the test suite synchronously inside the
+> `BeforeNavigate` handler. `ExecuteJavascript` calls issued while a navigation
+> callback is executing (both the per-test streaming pushes and the final
+> promise-resolve) do not run until the handler returns, so a full run started
+> inline leaves the JS promise unresolved until it times out (~30s). Fix:
+> `BeforeNavigate` handles only `Cancel` inline (fast, must interrupt a running
+> suite) and defers every other command to the form timer via `m_strPendingFn`/
+> `m_strPendingId`; the timer executes it OUTSIDE the callback (guarded by
+> `m_blnDispatchBusy` against re-entrancy from the run's own `DoEvents`), where
+> streaming and resolve work. The ribbon path is unaffected because it drives the
+> run directly from VBA, not from a navigation event. GENERAL RULE (confirmed by
+> the diagnostic trace: a `RetrieveJavascriptValue` call inside `DocumentComplete`
+> logged `js.drain.timeout` and delayed readiness ~1s): never call the Edge
+> control's JS methods (`ExecuteJavascript` OR `RetrieveJavascriptValue`) from
+> inside its own `BeforeNavigate`/`DocumentComplete` event handlers — WebView2
+> needs the message pump that the blocked callback is holding, so the call hits
+> its internal timeout. Do such calls from the timer, run flow, or other
+> VBA-driven context. Also: the readiness wait
+> (`WaitForWebRunnerReady`) default was raised to 30s because a cold WebView2
+> first-init can exceed 15s, which otherwise starts the run against a blank page.
+
+> **⚠ Warm-singleton lifecycle** (2026-07-07): The WebView2 cold-start (first
+> control init per Access session) is the dominant startup cost. The form is a warm
+> singleton **only while open** — `OpenWebTestRunner` reuses it if already open (no
+> cold-start), so back-to-back runs are instant as long as the window stays open.
+>
+> > **⚠ Superseded** (2026-07-07, same day): An earlier version HID the form on
+> > close (`Form_Unload` set `Me.Visible = False` + `Cancel = True`) to keep the
+> > control warm across closes. This **blocked Access from shutting down** — the
+> > host's quit unloads forms, and the cancelled unload aborts the quit — and left
+> > `msedgewebview2.exe` processes alive. There is no reliable way to distinguish a
+> > user form-close from an app quit in `Form_Unload`, so hide-on-close was removed.
+> > `Form_Unload` now always tears down cleanly (navigates the control to
+> > `about:blank`, releases refs) so WebView2 exits with the form. Cost: closing the
+> > window means the next run re-initializes (cold). Do NOT reintroduce
+> > `Cancel = True` in this form's unload.
+
+> **⚠ Diagnostic trace log** (2026-07-07): Debugging the bridge by round-tripping
+> rebuilds is slow because the actual VBA↔JS flow is invisible. `modTestRunnerDiag`
+> closes the loop: it writes a single agent-readable trace
+> (`<ExportFolder>\logs\TestRunnerDiag.log`, truncated per session by `DiagStart`)
+> interleaving VBA lifecycle/bridge events with JS breadcrumbs drained from
+> `window.__diag` via a single `RetrieveJavascriptValue` at checkpoints
+> (DocumentComplete, after each deferred dispatch). The `navigate.call` →
+> `documentcomplete` gap reveals WebView2 load/cold-start time; `beforenavigate`
+> presence proves the JS→VBA event bridge fired; `wait.ready`/`wait.timeout`,
+> `resolve`/`reject`, and `push.dropped` pinpoint where a run stalls. Diagnostics
+> must never perturb the observed flow: `Diag` no-ops when disabled and never
+> raises.
+
+---
+
 ## 2026-07-06 — Surgical VBE reset in RunVBA; rejected for merge (crashes)
 
 **Trigger**: Agents driving `vcs_run_vba` (and repeated add/remove of modules

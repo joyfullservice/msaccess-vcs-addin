@@ -1,0 +1,86 @@
+﻿Version =20
+VersionRequired =20
+Begin Form
+    PopUp = NotDefault
+    RecordSelectors = NotDefault
+    AutoCenter = NotDefault
+    NavigationButtons = NotDefault
+    DividingLines = NotDefault
+    KeyPreview = NotDefault
+    AllowDesignChanges = NotDefault
+    DefaultView =0
+    ScrollBars =0
+    PictureAlignment =2
+    DatasheetGridlinesBehavior =3
+    GridX =24
+    GridY =24
+    Width =24000
+    DatasheetFontHeight =11
+    ItemSuffix =5
+    Left =1000
+    Top =1000
+    Right =50000
+    Bottom =50000
+    OnUnload ="[Event Procedure]"
+    RecSrcDt = Begin
+        0x3ac1fd134e90e640
+    End
+    Caption ="VCS Test Runner"
+    DatasheetFontName ="Calibri"
+    OnKeyDown ="[Event Procedure]"
+    OnTimer ="[Event Procedure]"
+    OnLoad ="[Event Procedure]"
+    AllowDatasheetView =0
+    FilterOnLoad =0
+    ShowPageMargins =0
+    DisplayOnSharePointSite =1
+    DatasheetAlternateBackColor =15921906
+    DatasheetGridlinesColor12 =0
+    FitToScreen =1
+    DatasheetBackThemeColorIndex =1
+    BorderThemeColorIndex =3
+    ThemeFontIndex =1
+    ForeThemeColorIndex =0
+    AlternateBackThemeColorIndex =1
+    AlternateBackShade =95.0
+    Begin
+        Begin EmptyCell
+            Height =240
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Edge
+            OldBorderStyle =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =1
+            BorderShade =65.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
+        Begin Section
+            Height =13500
+            Name ="Detail"
+            AlternateBackThemeColorIndex =1
+            AlternateBackShade =95.0
+            BackThemeColorIndex =1
+            Begin
+                Begin Edge
+                    OverlapFlags =85
+                    Width =24000
+                    Height =13500
+                    Name ="webTestRunner"
+                    HorizontalAnchor =2
+                    VerticalAnchor =2
+
+                    LayoutCachedWidth =24000
+                    LayoutCachedHeight =13500
+                    ControlSource ="=\"about:blank\""
+                    OnBeforeNavigation ="[Event Procedure]"
+                    OnDocumentComplete ="[Event Procedure]"
+                End
+            End
+        End
+    End
+End
+CodeBehindForm
+' See "frmVCSTestRunner.cls"

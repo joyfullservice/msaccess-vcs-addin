@@ -40,6 +40,12 @@ Private Declare PtrSafe Function CreateFileW Lib "kernel32" ( _
     ByVal dwFlagsAndAttributes As Long, _
     ByVal hTemplateFile As LongPtr) As LongPtr
 
+' Convert a long path to its 8.3 short form (used to obtain a space-free path)
+Private Declare PtrSafe Function GetShortPathNameW Lib "kernel32" ( _
+    ByVal lpszLongPath As LongPtr, _
+    ByVal lpszShortPath As LongPtr, _
+    ByVal cchBuffer As Long) As Long
+
 ' Time zone conversions
 Private Declare PtrSafe Function GetTimeZoneInformation Lib "kernel32" (lpTimeZoneInformation As TIME_ZONE_INFORMATION) As Long
 Private Declare PtrSafe Function FileTimeToSystemTime Lib "kernel32" (lpFileTime As FILETIME, lpSystemTime As SYSTEMTIME) As Long
@@ -132,6 +138,30 @@ Private Type WIN32_FIND_DATA
     cFileName        As String * MAX_PATH
     cAlternate       As String * ALTERNATE
 End Type
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetShortPath
+' Author    : Adam Waller
+' Date      : 7/7/2026
+' Purpose   : Return the 8.3 short form of an existing path (no spaces). Falls back to
+'           : the original path if the volume has 8.3 name creation disabled or the
+'           : path does not exist. The path must exist for a short name to be produced.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetShortPath(strPath As String) As String
+
+    Dim strBuffer As String
+    Dim lngLen As Long
+
+    GetShortPath = strPath
+    If Len(strPath) = 0 Then Exit Function
+
+    strBuffer = String$(1024, vbNullChar)
+    lngLen = GetShortPathNameW(StrPtr(strPath), StrPtr(strBuffer), 1024)
+    If lngLen > 0 And lngLen <= 1024 Then GetShortPath = Left$(strBuffer, lngLen)
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

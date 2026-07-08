@@ -123,7 +123,7 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Section
-            Height =14955
+            Height =15915
             BackColor =15130848
             Name ="Detail"
             AlternateBackColor =15130848
@@ -132,20 +132,20 @@ Begin Form
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =3540
+                    Top =4980
                     Width =6420
                     Name ="Line0"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =3540
+                    LayoutCachedTop =4980
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =3540
+                    LayoutCachedHeight =4980
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =3180
+                    Top =4620
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -153,9 +153,9 @@ Begin Form
                     Name ="Label1"
                     Caption ="Debug and Logging"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =3180
+                    LayoutCachedTop =4620
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =3480
+                    LayoutCachedHeight =4920
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -237,20 +237,20 @@ Begin Form
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =11220
+                    Top =12360
                     Width =6420
                     Name ="Line4"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =11220
+                    LayoutCachedTop =12360
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =11220
+                    LayoutCachedHeight =12360
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =10860
+                    Top =12000
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -258,37 +258,37 @@ Begin Form
                     Name ="Label5"
                     Caption ="Translation"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =10860
+                    LayoutCachedTop =12000
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =11160
+                    LayoutCachedHeight =12300
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =11635
-                    TabIndex =10
+                    Top =12775
+                    TabIndex =13
                     Name ="chkContributeTranslations"
 
                     LayoutCachedLeft =420
-                    LayoutCachedTop =11635
+                    LayoutCachedTop =12775
                     LayoutCachedWidth =680
-                    LayoutCachedHeight =11875
+                    LayoutCachedHeight =13015
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =11580
+                            Top =12720
                             Width =5580
                             Height =360
                             ForeColor =5324600
                             Name ="Label256"
                             Caption ="Contribute to Translations"
                             LayoutCachedLeft =720
-                            LayoutCachedTop =11580
+                            LayoutCachedTop =12720
                             LayoutCachedWidth =6300
-                            LayoutCachedHeight =11940
+                            LayoutCachedHeight =13080
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -297,7 +297,7 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =720
-                    Top =12060
+                    Top =13200
                     Width =5580
                     Height =480
                     FontSize =10
@@ -305,29 +305,29 @@ Begin Form
                     Caption ="Check this box if you would like to help improve the translations."
                     HorizontalAnchor =2
                     LayoutCachedLeft =720
-                    LayoutCachedTop =12060
+                    LayoutCachedTop =13200
                     LayoutCachedWidth =6300
-                    LayoutCachedHeight =12540
+                    LayoutCachedHeight =13680
                     ForeTint =50.0
                 End
                 Begin Line
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =13260
+                    Top =14400
                     Width =6420
                     Name ="Line6"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =13260
+                    LayoutCachedTop =14400
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =13260
+                    LayoutCachedHeight =14400
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =12900
+                    Top =14040
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -335,9 +335,9 @@ Begin Form
                     Name ="Label7"
                     Caption ="Legacy Settings"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =12900
+                    LayoutCachedTop =14040
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =13200
+                    LayoutCachedHeight =14340
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -345,30 +345,30 @@ Begin Form
                     OverlapFlags =87
                     IMESentenceMode =3
                     Left =1920
-                    Top =4440
+                    Top =5880
                     Width =1260
                     Height =315
-                    TabIndex =3
+                    TabIndex =6
                     Name ="txtMaxLogFiles"
 
                     LayoutCachedLeft =1920
-                    LayoutCachedTop =4440
+                    LayoutCachedTop =5880
                     LayoutCachedWidth =3180
-                    LayoutCachedHeight =4755
+                    LayoutCachedHeight =6195
                     Begin
                         Begin Label
                             OverlapFlags =93
                             Left =420
-                            Top =4440
+                            Top =5880
                             Width =1500
                             Height =315
                             ForeColor =5324600
                             Name ="Label9"
                             Caption ="Max Log Files:"
                             LayoutCachedLeft =420
-                            LayoutCachedTop =4440
+                            LayoutCachedTop =5880
                             LayoutCachedWidth =1920
-                            LayoutCachedHeight =4755
+                            LayoutCachedHeight =6195
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -377,43 +377,43 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =420
-                    Top =4860
+                    Top =6300
                     Width =4140
                     Height =300
                     FontSize =10
                     Name ="Label10"
                     Caption ="Enter 0 to keep all log files"
                     LayoutCachedLeft =420
-                    LayoutCachedTop =4860
+                    LayoutCachedTop =6300
                     LayoutCachedWidth =4560
-                    LayoutCachedHeight =5160
+                    LayoutCachedHeight =6600
                     ForeTint =50.0
                 End
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =3900
-                    TabIndex =2
+                    Top =5340
+                    TabIndex =5
                     Name ="chkBreakOnError"
 
                     LayoutCachedLeft =420
-                    LayoutCachedTop =3900
+                    LayoutCachedTop =5340
                     LayoutCachedWidth =680
-                    LayoutCachedHeight =4140
+                    LayoutCachedHeight =5580
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =3840
+                            Top =5280
                             Width =2640
                             Height =315
                             ForeColor =5324600
                             Name ="Label219"
                             Caption ="Debug VBA Errors"
                             LayoutCachedLeft =720
-                            LayoutCachedTop =3840
+                            LayoutCachedTop =5280
                             LayoutCachedWidth =3360
-                            LayoutCachedHeight =4155
+                            LayoutCachedHeight =5595
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -422,28 +422,28 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =13500
-                    TabIndex =11
+                    Top =14640
+                    TabIndex =14
                     Name ="chkShowVCSLegacy"
 
                     LayoutCachedLeft =420
-                    LayoutCachedTop =13500
+                    LayoutCachedTop =14640
                     LayoutCachedWidth =680
-                    LayoutCachedHeight =13740
+                    LayoutCachedHeight =14880
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =13440
+                            Top =14580
                             Width =2640
                             Height =315
                             ForeColor =5324600
                             Name ="Label215"
                             Caption ="Show Legacy Prompts"
                             LayoutCachedLeft =720
-                            LayoutCachedTop =13440
+                            LayoutCachedTop =14580
                             LayoutCachedWidth =3360
-                            LayoutCachedHeight =13755
+                            LayoutCachedHeight =14895
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -453,20 +453,20 @@ Begin Form
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =5880
+                    Top =7320
                     Width =6420
                     Name ="Line11"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =5880
+                    LayoutCachedTop =7320
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =5880
+                    LayoutCachedHeight =7320
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =5520
+                    Top =6960
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -474,108 +474,18 @@ Begin Form
                     Name ="Label12"
                     Caption ="Export Tweaks"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =5520
+                    LayoutCachedTop =6960
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =5820
+                    LayoutCachedHeight =7260
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =6120
-                    TabIndex =4
-                    Name ="chkStripPublishOption"
-
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =6120
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =6360
-                    Begin
-                        Begin Label
-                            OverlapFlags =85
-                            Left =720
-                            Top =6060
-                            Width =2640
-                            Height =315
-                            ForeColor =5324600
-                            Name ="Label14"
-                            Caption ="Strip Publish Option"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =6060
-                            LayoutCachedWidth =3360
-                            LayoutCachedHeight =6375
-                            ForeThemeColorIndex =-1
-                            ForeTint =100.0
-                        End
-                    End
-                End
-                Begin CheckBox
-                    OverlapFlags =85
-                    Left =420
-                    Top =6600
-                    TabIndex =5
-                    Name ="chkPreserveRubberDuckID"
-
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =6600
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =6840
-                    Begin
-                        Begin Label
-                            OverlapFlags =85
-                            Left =720
-                            Top =6540
-                            Width =2640
-                            Height =315
-                            ForeColor =5324600
-                            Name ="Label16"
-                            Caption ="Preserve RubberDuck ID"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =6540
-                            LayoutCachedWidth =3360
-                            LayoutCachedHeight =6855
-                            ForeThemeColorIndex =-1
-                            ForeTint =100.0
-                        End
-                    End
-                End
-                Begin CheckBox
-                    OverlapFlags =85
-                    Left =420
-                    Top =7080
-                    TabIndex =6
-                    Name ="chkSaveAllDocumentProperties"
-
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =7080
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =7320
-                    Begin
-                        Begin Label
-                            OverlapFlags =85
-                            Left =720
-                            Top =7020
-                            Width =2835
-                            Height =315
-                            ForeColor =5324600
-                            Name ="Label18"
-                            Caption ="Save All Document Properties"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =7020
-                            LayoutCachedWidth =3555
-                            LayoutCachedHeight =7335
-                            ForeThemeColorIndex =-1
-                            ForeTint =100.0
-                        End
-                    End
-                End
-                Begin CheckBox
-                    OverlapFlags =85
-                    Left =420
                     Top =7560
                     TabIndex =7
-                    Name ="chkSaveLinkedTableDef"
+                    Name ="chkStripPublishOption"
 
                     LayoutCachedLeft =420
                     LayoutCachedTop =7560
@@ -586,14 +496,14 @@ Begin Form
                             OverlapFlags =85
                             Left =720
                             Top =7500
-                            Width =2805
+                            Width =2640
                             Height =315
                             ForeColor =5324600
-                            Name ="Label20"
-                            Caption ="Save Linked Table Definitions"
+                            Name ="Label14"
+                            Caption ="Strip Publish Option"
                             LayoutCachedLeft =720
                             LayoutCachedTop =7500
-                            LayoutCachedWidth =3525
+                            LayoutCachedWidth =3360
                             LayoutCachedHeight =7815
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
@@ -603,28 +513,28 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =13980
-                    TabIndex =12
-                    Name ="chkShowDebug"
+                    Top =8040
+                    TabIndex =8
+                    Name ="chkPreserveRubberDuckID"
 
                     LayoutCachedLeft =420
-                    LayoutCachedTop =13980
+                    LayoutCachedTop =8040
                     LayoutCachedWidth =680
-                    LayoutCachedHeight =14220
+                    LayoutCachedHeight =8280
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =13920
+                            Top =7980
                             Width =2640
                             Height =315
                             ForeColor =5324600
-                            Name ="Label23"
-                            Caption ="Show Detailed Output"
+                            Name ="Label16"
+                            Caption ="Preserve RubberDuck ID"
                             LayoutCachedLeft =720
-                            LayoutCachedTop =13920
+                            LayoutCachedTop =7980
                             LayoutCachedWidth =3360
-                            LayoutCachedHeight =14235
+                            LayoutCachedHeight =8295
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -633,28 +543,118 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =14460
-                    TabIndex =13
-                    Name ="chkUseShortHash"
+                    Top =8520
+                    TabIndex =9
+                    Name ="chkSaveAllDocumentProperties"
 
                     LayoutCachedLeft =420
-                    LayoutCachedTop =14460
+                    LayoutCachedTop =8520
                     LayoutCachedWidth =680
-                    LayoutCachedHeight =14700
+                    LayoutCachedHeight =8760
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =14400
+                            Top =8460
+                            Width =2835
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label18"
+                            Caption ="Save All Document Properties"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =8460
+                            LayoutCachedWidth =3555
+                            LayoutCachedHeight =8775
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =9000
+                    TabIndex =10
+                    Name ="chkSaveLinkedTableDef"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =9000
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =9240
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =8940
+                            Width =2805
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label20"
+                            Caption ="Save Linked Table Definitions"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =8940
+                            LayoutCachedWidth =3525
+                            LayoutCachedHeight =9255
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =15120
+                    TabIndex =15
+                    Name ="chkShowDebug"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =15120
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =15360
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =15060
+                            Width =2640
+                            Height =315
+                            ForeColor =5324600
+                            Name ="Label23"
+                            Caption ="Show Detailed Output"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =15060
+                            LayoutCachedWidth =3360
+                            LayoutCachedHeight =15375
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =15600
+                    TabIndex =16
+                    Name ="chkUseShortHash"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =15600
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =15840
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =15540
                             Width =2640
                             Height =315
                             ForeColor =5324600
                             Name ="Label223"
                             Caption ="Use short hashes in index"
                             LayoutCachedLeft =720
-                            LayoutCachedTop =14400
+                            LayoutCachedTop =15540
                             LayoutCachedWidth =3360
-                            LayoutCachedHeight =14715
+                            LayoutCachedHeight =15855
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -664,20 +664,20 @@ Begin Form
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =9000
+                    Top =10140
                     Width =6420
                     Name ="Line21"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =9000
+                    LayoutCachedTop =10140
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =9000
+                    LayoutCachedHeight =10140
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =8640
+                    Top =9780
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -685,9 +685,9 @@ Begin Form
                     Name ="Label22"
                     Caption ="System"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =8640
+                    LayoutCachedTop =9780
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =8940
+                    LayoutCachedHeight =10080
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -697,33 +697,33 @@ Begin Form
                     IMESentenceMode =3
                     ListWidth =1440
                     Left =2100
-                    Top =9240
+                    Top =10380
                     Width =1560
                     Height =315
-                    TabIndex =8
+                    TabIndex =11
                     Name ="cboHashAlgorithm"
                     RowSourceType ="Value List"
                     RowSource ="\"SHA1\";\"SHA256\";\"SHA512\""
                     AllowValueListEdits =0
 
                     LayoutCachedLeft =2100
-                    LayoutCachedTop =9240
+                    LayoutCachedTop =10380
                     LayoutCachedWidth =3660
-                    LayoutCachedHeight =9555
+                    LayoutCachedHeight =10695
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =420
-                            Top =9240
+                            Top =10380
                             Width =1560
                             Height =315
                             ForeColor =5324600
                             Name ="Label221"
                             Caption ="Hash Algorithm:"
                             LayoutCachedLeft =420
-                            LayoutCachedTop =9240
+                            LayoutCachedTop =10380
                             LayoutCachedWidth =1980
-                            LayoutCachedHeight =9555
+                            LayoutCachedHeight =10695
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -732,44 +732,44 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =420
-                    Top =9660
+                    Top =10800
                     Width =5820
                     Height =360
                     FontSize =10
                     Name ="Label24"
                     Caption ="Some regulatory environments may restrict hash algorithms"
                     LayoutCachedLeft =420
-                    LayoutCachedTop =9660
+                    LayoutCachedTop =10800
                     LayoutCachedWidth =6240
-                    LayoutCachedHeight =10020
+                    LayoutCachedHeight =11160
                     ForeTint =50.0
                 End
                 Begin CheckBox
                     Visible = NotDefault
                     OverlapFlags =85
                     Left =420
-                    Top =10260
-                    TabIndex =9
+                    Top =11400
+                    TabIndex =12
                     Name ="chkUseGitIntegration"
 
                     LayoutCachedLeft =420
-                    LayoutCachedTop =10260
+                    LayoutCachedTop =11400
                     LayoutCachedWidth =680
-                    LayoutCachedHeight =10500
+                    LayoutCachedHeight =11640
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =10200
+                            Top =11340
                             Width =2640
                             Height =315
                             ForeColor =5324600
                             Name ="Label163"
                             Caption ="Use Git Integration"
                             LayoutCachedLeft =720
-                            LayoutCachedTop =10200
+                            LayoutCachedTop =11340
                             LayoutCachedWidth =3360
-                            LayoutCachedHeight =10515
+                            LayoutCachedHeight =11655
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -855,6 +855,96 @@ Begin Form
                     LayoutCachedWidth =5805
                     LayoutCachedHeight =2880
                     ForeTint =50.0
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =3060
+                    TabIndex =2
+                    Name ="chkUseWebTestRunner"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =3060
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =3300
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =3060
+                            Width =5460
+                            Height =315
+                            ForeColor =5324600
+                            Name ="lblUseWebTestRunner"
+                            Caption ="Use HTML test runner (else legacy console)"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =3060
+                            LayoutCachedWidth =6180
+                            LayoutCachedHeight =3375
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =3480
+                    TabIndex =3
+                    Name ="chkExportTestResultsJUnit"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =3480
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =3720
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =3480
+                            Width =5460
+                            Height =300
+                            ForeColor =5324600
+                            Name ="lblExportTestResultsJUnit"
+                            Caption ="Export JUnit XML test results (for CI)"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =3480
+                            LayoutCachedWidth =6180
+                            LayoutCachedHeight =3780
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =3900
+                    TabIndex =4
+                    Name ="chkExportTestResultsHtml"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =3900
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =4140
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =3900
+                            Width =5460
+                            Height =300
+                            ForeColor =5324600
+                            Name ="lblExportTestResultsHtml"
+                            Caption ="Export HTML test results report (double-click to view)"
+                            LayoutCachedLeft =720
+                            LayoutCachedTop =3900
+                            LayoutCachedWidth =6180
+                            LayoutCachedHeight =4200
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
                 End
             End
         End

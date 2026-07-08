@@ -19,6 +19,11 @@ Public SourcePath As String
 ' how error messages are reported to the user outside of operations.
 Public Active As Boolean
 
+' When True, suppress the Debug.Print echo to the Immediate window. Used by the web
+' test runner (which shows results in its own UI) so a run does not flood the
+' Immediate window. The log file and console buffer are unaffected.
+Public SuppressDebugOutput As Boolean
+
 Private Const cstrSpacer As String = "-------------------------------------"
 
 ' Throttle interval for Log.Increment. The visible bar work and DoEvents are
@@ -200,7 +205,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
         m_blnConsoleDirty = True
 
         ' Run debug output
-        If m_RichText Is Nothing Then
+        If m_RichText Is Nothing And Not Me.SuppressDebugOutput Then
             ' Only print debug output if not running from the GUI.
             If blnNextOutputOnNewLine Then
                 ' Create new line

@@ -75,6 +75,9 @@ Private Sub LoadOptions()
 
         ' Automated Testing
         Me.txtDefaultTestFilter = .DefaultTestFilter
+        Me.chkUseWebTestRunner = .UseWebTestRunner
+        Me.chkExportTestResultsJUnit = .ExportTestResultsJUnit
+        Me.chkExportTestResultsHtml = .ExportTestResultsHtml
     End With
 
 End Sub
@@ -113,6 +116,9 @@ Private Sub SaveOptions()
 
         ' Automated Testing
         .DefaultTestFilter = Nz(Me.txtDefaultTestFilter, vbNullString)
+        .UseWebTestRunner = Nz(Me.chkUseWebTestRunner, 0)
+        .ExportTestResultsJUnit = Nz(Me.chkExportTestResultsJUnit, 0)
+        .ExportTestResultsHtml = Nz(Me.chkExportTestResultsHtml, 0)
     End With
 
 End Sub

@@ -115,11 +115,25 @@ When the VCS test runner is active, `TestAssert` reports results back to the add
 
 ## Running Tests
 
-- **Ribbon**: Tools > Run Tests
+- **Ribbon**: Tools > Run Tests (opens the web runner on Microsoft 365 builds with the Edge control; otherwise the `frmVCSMain` log console)
 - **Immediate Window**: `?VCS.RunTests`
 - **Filtered**: `?VCS.RunTests("modTestEncoding", "-slow")`
 - **MCP**: `vcs_run_vba(<addin-path>, "MCP_TempFunction = VCS.RunTests()")`
-- **Re-run failures only**: The runner supports `RunFailed` to re-execute only tests that failed or errored
+- **Re-run failures only**: Use **Rerun failed** in the web UI, or the runner's `RunFailed` API
+
+### Web runner vs console fallback
+
+On capable Access (M365 build ≥ 2304), `ExecuteTests` opens `frmVCSTestRunner`
+and streams progress via `ExecuteJavascript` → `window.TestUI.*`. Older Access
+uses the unchanged `frmVCSMain` console path. HTML is loaded from the repo-root
+[`TestRunner/`](TestRunner/) folder (embedded at build, extracted to a temp cache at
+runtime) using the `https://msaccess/` prefix; paths containing spaces are copied
+to a temp cache folder automatically.
+
+Inbound UI actions use an allowlisted bridge (`RunAll`, `RunSelected`,
+`RunFailed`, `Cancel`, `OpenTestSource`, `RefreshTests`, `OpenResultsReport`). Primary mechanism:
+`BeforeNavigate` on `vba://` iframe URLs. Fallback:
+`EnableBridgePollingFallback` (timer + `__vbaOutbox`) if interception fails.
 
 ### Filter Syntax
 
@@ -174,8 +188,13 @@ Module-level and procedure-level tags are merged — a test inherits all module-
 
 Results are:
 - Streamed live to the `frmVCSMain` console (color-coded: green PASS, red FAIL/ERROR, gray EMPTY, orange SKIP)
-- Saved as JSON to `<export-folder>/logs/TestResults_<timestamp>.json`
+- Saved as JSON to `<export-folder>/logs/TestResults_<timestamp>.json` (ephemeral per-run history)
+- Merged into `<export-folder>/test-results/test-state.json` (single durable current state)
+- Optionally exported as JUnit XML to `<export-folder>/test-results/test-results.xml` when `Options.ExportTestResultsJUnit` is enabled (default on)
+- Optionally exported as a self-contained HTML report to `<export-folder>/test-results/test-results.html` when `Options.ExportTestResultsHtml` is enabled (default on)
 - Returned as a JSON string from `VCS.RunTests`
+
+`test-results/` and `logs/` are gitignored. Use `VCS.ExportTestResultsJUnit` to regenerate JUnit XML from the current state without running tests. Use `VCS.ExportTestResultsHtml` to regenerate the HTML report on demand.
 
 Each test entry in the JSON output includes a `"tags"` array listing the tags applied to that test.
 

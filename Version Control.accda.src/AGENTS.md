@@ -413,17 +413,21 @@ Public Sub GlobalTestTeardown() ' After all tests; results JSON already built
 
 ### Test Logs
 
-After a test run, two log files are written to the `logs/` subfolder inside the export folder:
+After a test run, ephemeral history is written to the `logs/` subfolder and durable state to `test-results/`:
 
 | File | Contents |
 |------|----------|
-| `TestResults_<timestamp>.json` | Machine-readable results with per-assertion detail |
-| `TestRun_<timestamp>.log` | Full console output including timing |
+| `logs/TestResults_<timestamp>.json` | Per-run machine-readable results with per-assertion detail |
+| `logs/TestRun_<timestamp>.log` | Full console output including timing |
+| `test-results/test-state.json` | Single merged current state (partial runs update executed tests only; others flagged `stale`) |
+| `test-results/test-results.xml` | JUnit XML projection of `test-state.json` (when `ExportTestResultsJUnit` is on) |
+| `test-results/test-results.html` | Self-contained HTML dashboard (inlined snapshot of `test-state.json`; when `ExportTestResultsHtml` is on) |
 
-**Log files are gitignored.** Agent search tools (Glob, Grep, semantic search) will not find them. Use shell commands instead:
+**Log and test-results files are gitignored.** Agent search tools (Glob, Grep, semantic search) will not find them. Use shell commands instead:
 
 ```powershell
 Get-ChildItem -Path "<export-folder>\logs" -Filter "TestR*" | Sort-Object LastWriteTime -Descending | Select-Object -First 2
+Get-ChildItem -Path "<export-folder>\test-results"
 ```
 
 ### Conventions
@@ -484,14 +488,25 @@ Operation logs are stored in the `logs/` subfolder with timestamped filenames:
 |---------|---------|
 | `Export_YYYYMMDD_HHMMSS_mmm.log` | Export operation logs |
 | `Build_YYYYMMDD_HHMMSS_mmm.log` | Build/merge operation logs |
-| `TestResults_YYYYMMDD_HHMMSS_mmm.json` | Test runner results (JSON) |
+| `TestResults_YYYYMMDD_HHMMSS_mmm.json` | Ephemeral per-run test results (JSON) |
 | `TestRun_YYYYMMDD_HHMMSS_mmm.log` | Test runner console output |
 
-**Important: Log files are gitignored.** The `.gitignore` excludes `logs/` directories and `*.log` files. This means agent tools that respect `.gitignore` (such as Glob, Grep, and semantic search) will **not** find these files. To locate and read log files, use shell commands instead:
+### Test Results Folder
+
+Durable test artifacts live in the `test-results/` subfolder (sibling to `logs/`):
+
+| File | Purpose |
+|------|---------|
+| `test-state.json` | Single merged current state across full and partial runs |
+| `test-results.xml` | JUnit XML for CI (GitLab native; GitHub via reporter actions) |
+| `test-results.html` | Self-contained HTML dashboard (double-click to view; inlined snapshot of state) |
+
+**Important: Log and test-results files are gitignored.** The `.gitignore` excludes `logs/` and `test-results/` directories and `*.log` files. This means agent tools that respect `.gitignore` (such as Glob, Grep, and semantic search) will **not** find these files. To locate and read them, use shell commands instead:
 
 ```powershell
 # List log files (run from repository root or source folder)
 Get-ChildItem -Recurse -Include "*.log","*.json" | Where-Object { $_.DirectoryName -like "*logs*" }
+Get-ChildItem -Path "<export-folder>\test-results"
 ```
 
 The same applies to `Testing/Fixtures/logs/` (round-trip test logs).

@@ -558,6 +558,24 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BringAccessToForeground
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Raise the Access main window so a pop-up form can take focus after an
+'           : operation (e.g. compile) that foregrounded the VBE.
+'---------------------------------------------------------------------------------------
+'
+Public Sub BringAccessToForeground()
+
+    On Error Resume Next
+    SetForegroundWindow Application.hWndAccessApp
+    SetFocus Application.hWndAccessApp
+    If Err Then Err.Clear
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetSchemaParams
 ' Author    : Adam Waller
 ' Date      : 7/21/2023
