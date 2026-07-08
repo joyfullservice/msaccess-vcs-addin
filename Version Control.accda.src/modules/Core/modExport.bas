@@ -219,9 +219,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Set colCasingChanges = StandardizeLetterCasing
     If Not colCasingChanges Is Nothing Then
         If colCasingChanges.Count > 0 Then
-            Log.Add T("{0} letter casing correction(s) applied:", var0:=colCasingChanges.Count)
+            Log.Add T("{0} letter casing correction(s) applied:", var0:=colCasingChanges.Count), False
             For Each varChange In colCasingChanges
-                Log.Add "  " & varChange
+                Log.Add "  " & varChange, False
             Next varChange
         End If
     End If
