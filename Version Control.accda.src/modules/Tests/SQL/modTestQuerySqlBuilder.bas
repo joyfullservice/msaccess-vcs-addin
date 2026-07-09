@@ -384,6 +384,13 @@ End Function
 Private Sub UpdateValidationConsoleComplete(ByVal strLogPath As String, ByVal strArtifactRoot As String, _
     ByVal blnCanceled As Boolean, ByVal dResult As Dictionary)
 
+    Dim blnSuccess As Boolean
+
+    blnSuccess = False
+    If Not dResult Is Nothing Then
+        If dResult.Exists("success") Then blnSuccess = dResult("success")
+    End If
+
     On Error Resume Next
     With Form_frmVCSMain
         .txtLog.ScrollBars = 2
@@ -394,7 +401,7 @@ Private Sub UpdateValidationConsoleComplete(ByVal strLogPath As String, ByVal st
         If blnCanceled Then
             .SetStatusText T("Canceled"), T("Validation Canceled"), _
                 T("The SQL builder validation was canceled. Partial results are available in the log file.")
-        ElseIf Not dResult Is Nothing And dResult.Exists("success") And dResult("success") Then
+        ElseIf blnSuccess Then
             .SetStatusText T("Finished"), T("SQL Builder Validation Passed"), _
                 T("All validated queries passed. Click the log button to view the full results.")
         Else

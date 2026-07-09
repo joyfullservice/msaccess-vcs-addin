@@ -106,14 +106,16 @@ Public Sub MergeAndSave()
 
         If blnExecuted Then
             Set dOut = SerializeTestRecord(strKey, dTest, strSessionRunAt, False)
-            Set dTestsOut(strKey) = dOut
-        ElseIf Not dOldTests Is Nothing And dOldTests.Exists(strKey) Then
-            Set dOut = CopyStateEntry(dOldTests(strKey), True)
-            Set dTestsOut(strKey) = dOut
+        ElseIf Not dOldTests Is Nothing Then
+            If dOldTests.Exists(strKey) Then
+                Set dOut = CopyStateEntry(dOldTests(strKey), True)
+            Else
+                Set dOut = SerializePendingRecord(strKey, dTest)
+            End If
         Else
             Set dOut = SerializePendingRecord(strKey, dTest)
-            Set dTestsOut(strKey) = dOut
         End If
+        Set dTestsOut(strKey) = dOut
     Next varKey
 
     Set dSummary = BuildSummaryFromState(dTestsOut)
