@@ -304,6 +304,12 @@ Public Sub RunSelected(colTestKeys As Collection)
         GoTo CleanUp
     End If
 
+    ' Form timer may have set CancelRequested during DoEvents above (or earlier).
+    If this.CancelRequested Or (Operation.Status <> eosRunning) Then
+        this.State = etrsCancelled
+        GoTo AfterTestLoop
+    End If
+
     ' Set up progress bar (absent when hosted in the web runner, where frmVCSMain
     ' and its progress control are never opened).
     lngTotal = colTestKeys.Count

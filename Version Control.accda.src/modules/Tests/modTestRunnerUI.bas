@@ -895,7 +895,10 @@ End Sub
 '
 Public Function BridgeCancel(ByVal strPayloadJson As String) As String
 
-    If TestRunner.State = etrsRunning Then TestRunner.Cancel
+    If (Operation.Status = eosRunning And Operation.OperationType = eotTestRun) _
+        Or TestRunner.State = etrsRunning Then
+        TestRunner.Cancel
+    End If
     BridgeCancel = "{""ok"":true}"
 
 End Function

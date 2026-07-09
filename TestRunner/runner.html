@@ -2675,6 +2675,13 @@ function setRunPending(on, btn) {
   $('btn-refresh').disabled = on;
   document.querySelectorAll('.btn.pending').forEach(b => b.classList.remove('pending'));
   if (on && btn) btn.classList.add('pending');
+  if (on) {
+    state.cancelling = false;
+    $('btn-cancel').style.display = 'inline-flex';
+    $('btn-cancel').disabled = false;
+  } else if (!state.running) {
+    $('btn-cancel').style.display = 'none';
+  }
 }
 
 function clearRunStartWatchdog() {
@@ -2993,6 +3000,7 @@ window.TestUI = {
     $('btn-rerun-failed').disabled = true;
     $('btn-refresh').disabled = true;
     $('btn-cancel').style.display = 'inline-flex';
+    $('btn-cancel').disabled = false;
     
     startDurationTimer();
     updateStats();
@@ -3055,6 +3063,7 @@ window.TestUI = {
     $('btn-rerun-failed').disabled = (state.counts.failed + state.counts.errored) === 0;
     $('btn-refresh').disabled = false;
     $('btn-cancel').style.display = 'none';
+    $('btn-cancel').disabled = false;
     updateStats();
     updatePageHeader();
     

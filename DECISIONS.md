@@ -261,6 +261,13 @@ focus to the VBE when it was already open.
   other queued bridge calls. `BridgeCancel` sets `CancelRequested` only (no eager
   `StreamRunCancelled`); the run loop streams cancelled when it actually exits.
   Cooperative cancel: the in-flight test still finishes.
+- **Stop button window (2026-07-09)**: `#btn-cancel` is shown and enabled for the
+  full in-flight window (`pendingRun` through `running`), not only after
+  `onRunStart`. `onRunComplete` resets `disabled` so a prior cancel cannot leave
+  Stop greyed out on the next run. `BridgeCancel` honors cancel whenever a test
+  `Operation` is active (covers `GlobalTestSetup` / compile before
+  `etrsRunning`); the form timer sets `CancelRequested`, and `RunSelected`
+  aborts before `StreamRunStart` when that flag is already set.
 - **Focus restore**: after `acCmdCompileAllModules`, and again at the end of
   `EndInteractiveBridgeRun` (after teardown / `ActiveVBProject` switches that can
   re-steal focus), `RefocusWebRunner` calls `BringAccessToForeground` and
