@@ -278,18 +278,11 @@ Public Sub RunSelected(colTestKeys As Collection)
     Perf.OperationStart "Run Tests"
     this.RunStartTime = Perf.MicroTimer
 
-    ' Suppress debugger breaks so tests that intentionally raise errors don't halt
-    ' in the debugger. EXCEPTION: when the developer is debugging the add-in itself
-    ' (Options.BreakOnError enabled), leave the current VBE Error Trapping mode
-    ' (e.g. "Break in Class Modules") and BreakOnError intact so runtime errors in
-    ' the runner/bridge break at their actual source line instead of being masked
-    ' by "Break on Unhandled Errors".
+    ' Disable break-on-error so test errors don't stop in the debugger
     intErrorTrapping = Application.GetOption("Error Trapping")
+    Application.SetOption "Error Trapping", 2  ' Break on Unhandled Errors
     blnBreakOnError = Options.BreakOnError
-    If Not blnBreakOnError Then
-        Application.SetOption "Error Trapping", 2  ' Break on Unhandled Errors
-        Options.BreakOnError = False
-    End If
+    Options.BreakOnError = False
 
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
