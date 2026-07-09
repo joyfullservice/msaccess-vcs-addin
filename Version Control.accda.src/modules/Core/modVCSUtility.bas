@@ -281,6 +281,13 @@ Public Sub CheckGitFiles()
         End If
     End If
 
+    ' Ensure test-results/ is excluded (durable test state and CI projections)
+    If FSO.FileExists(strFile) Then
+        If EnsureGitignoreLineRespectComment(strFile, "test-results/", "logs/") Then
+            Log.Add T("Added test-results/ to .gitignore"), , , "blue"
+        End If
+    End If
+
     ' gitattributes file
     strFile = strPath & ".gitattributes"
     If Not FSO.FileExists(strFile) Then

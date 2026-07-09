@@ -81,6 +81,32 @@ contradictory guidance.
 
 ---
 
+## 2026-07-09 — Ship test-results/ gitignore to user projects
+
+**Trigger**: Review of test-results persistence found the add-in repo's `.gitignore`
+includes `test-results/`, but the shipped `.gitignore.default` template and
+`CheckGitFiles` upgrade path did not. Existing user projects could commit durable
+test artifacts (`test-state.json`, `test-results.xml`, `test-results.html`) after
+running tests with default export options.
+
+**Options explored**:
+- **Document-only** — rejected: docs already claimed test-results were gitignored;
+  users would still commit artifacts until they edited `.gitignore` manually.
+- **Template + CheckGitFiles upgrade (chosen)** — mirror the existing `logs/` pattern:
+  add `test-results/` to `.gitignore.default` and ensure it on export via
+  `EnsureGitignoreLineRespectComment` (respects deliberately commented-out lines).
+
+**Decision**: New projects get `test-results/` from the default template. Existing
+projects with Git Integration pick it up on the next export when `CheckGitFiles` runs.
+Already-committed files are not auto-untracked.
+
+**What this rules out**: Auto-removing tracked `test-results/` from Git history; users
+who committed those files still need `git rm -r --cached test-results/` once.
+
+**Relevant files**: `.gitignore.default`, `modVCSUtility.bas` (`CheckGitFiles`).
+
+---
+
 ## 2026-07-09 — TestResults JSON retention uses MaxLogFiles
 
 **Trigger**: `clsTestRunner.SaveResults` pruned ephemeral `TestResults_*.json` dumps
