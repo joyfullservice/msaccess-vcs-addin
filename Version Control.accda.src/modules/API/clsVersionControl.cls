@@ -2180,30 +2180,37 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
         End If
     End If
 
-    If Not Operation.Begin(eotTestRun) Then Exit Function
-
     ' Match the round-trip harness: log to file and suppress blocking MsgBox dialogs
     ' so import/build errors surface in the test console and TestRun_*.log instead.
     eimPriorMode = Operation.InteractionMode
-    Operation.InteractionMode = eimSilent
     blnLogWasActive = Log.Active
-    Log.Active = True
-    Log.ClearErrorJournal
 
     blnUseWebRunner = Options.UseWebTestRunner And modTestRunnerUI.EdgeTestRunnerSupported()
 
-    ' Web runner path: open the form, scan for tests, publish the tree, and return.
-    ' The user clicks Run in the UI, which triggers the bridge callbacks to handle
-    ' the actual test execution and operation lifecycle.
+    ' Web runner path: open the form only. Do NOT begin an Operation here — bridge
+    ' callbacks own the operation lifecycle when the user clicks Run. Beginning here
+    ' left eosRunning stuck after hide/reopen and blocked the next Run Tests click.
     If blnUseWebRunner Then
-        Log.Active = blnLogWasActive
-        Operation.InteractionMode = eimPriorMode
-        Operation.Finish eorSuccess
+        If blnFiltered Then
+            For lngIdx = LBound(varFilters) To UBound(varFilters)
+                If Len(strFilter) > 0 Then strFilter = strFilter & ", "
+                strFilter = strFilter & Trim$(CStr(varFilters(lngIdx)))
+            Next lngIdx
+            modTestRunnerUI.SetWebRunnerDefaultFilter strFilter
+        Else
+            modTestRunnerUI.SetWebRunnerDefaultFilter vbNullString
+        End If
 
         modTestRunnerUI.OpenWebTestRunner
         modTestRunnerUI.WaitForWebRunnerReady
         Exit Function
     End If
+
+    If Not Operation.Begin(eotTestRun) Then Exit Function
+
+    Operation.InteractionMode = eimSilent
+    Log.Active = True
+    Log.ClearErrorJournal
 
     PrepareTestConsole
 

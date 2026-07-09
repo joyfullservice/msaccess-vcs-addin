@@ -184,18 +184,41 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    cursor: pointer;
     user-select: none;
   }
   
   .folder-header:hover { color: var(--text-primary); }
+  
+  .folder-header.active {
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+  }
   
   .folder-chevron {
     display: inline-block;
     width: 10px;
     transition: transform 0.15s;
     font-size: 9px;
+    cursor: pointer;
+    flex-shrink: 0;
   }
+  
+  .folder-name {
+    flex: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .folder-header .run-btn {
+    opacity: 0;
+    margin-left: auto;
+  }
+  
+  .folder-header:hover .run-btn { opacity: 1; }
   
   .folder-group.collapsed .folder-chevron { transform: rotate(-90deg); }
   .folder-group.collapsed .folder-content { display: none; }
@@ -326,6 +349,21 @@
     font-weight: 500;
     color: var(--text-primary);
   }
+  
+  .suite-item-tag.tag-include {
+    border-left: 2px solid var(--accent);
+    background: var(--bg-primary);
+  }
+  
+  .suite-item-tag.tag-exclude {
+    border-left: 2px solid var(--text-secondary);
+    background: var(--bg-tertiary);
+  }
+  
+  .suite-item-tag.tag-exclude .suite-name {
+    text-decoration: line-through;
+    opacity: 0.75;
+  }
 
   .badge.tag {
     background: var(--bg-tertiary);
@@ -359,6 +397,17 @@
   .tag-chip:hover {
     background: var(--running-bg);
     color: var(--running-fg);
+  }
+  
+  .tag-chip.tag-include {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  
+  .tag-chip.tag-exclude {
+    opacity: 0.75;
+    text-decoration: line-through;
   }
 
   .detail-tags {
@@ -751,9 +800,21 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
+    min-height: 0;
+  }
+
+  #detail-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
   
   .detail-empty {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     padding: 28px 22px;
     color: var(--text-tertiary);
     font-size: 12px;
@@ -947,12 +1008,16 @@
     transform: translateY(0);
   }
   
-  .scrollable::-webkit-scrollbar { width: 8px; height: 8px; }
-  .scrollable::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
-  .scrollable::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
-  .scrollable::-webkit-scrollbar-track { background: transparent; }
+  .scrollable::-webkit-scrollbar,
+  .detail-empty::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scrollable::-webkit-scrollbar-thumb,
+  .detail-empty::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+  .scrollable::-webkit-scrollbar-thumb:hover,
+  .detail-empty::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+  .scrollable::-webkit-scrollbar-track,
+  .detail-empty::-webkit-scrollbar-track { background: transparent; }
   
-  .suite-tree, .test-list, .detail-body { scrollbar-width: thin; }
+  .suite-tree, .test-list, .detail-body, .detail-empty { scrollbar-width: thin; }
 
   /* Inline run buttons (per-suite and per-test). Subtle; brighten on hover. */
   .run-btn {
@@ -981,7 +1046,7 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-title">Test suites</div>
-      <input type="text" class="search-input" id="suite-search" placeholder="Filter suites...">
+      <input type="text" class="search-input" id="filter-text" placeholder="Filter tests: SQL -slow" title="Same syntax as VCS.RunTests (module, folder, procedure, tag; prefix - to exclude)">
       <button type="button" class="clear-filter-chip" id="btn-clear-filter" title="Clear all filters (Esc)">&#10005; Clear filter</button>
     </div>
     <nav class="suite-tree scrollable" id="suite-tree"></nav>
@@ -1137,10 +1202,12 @@ const state = {
   testTree: {},
   results: new Map(),
   selectedSuite: null,
+  selectedFolder: null,   // dotted @Folder path (e.g. Tests.SQL)
   selectedTest: null,
-  focusKeys: null,   // when set, the list shows only these test keys (e.g. failed or tag)
-  focusKind: null,   // null | 'failed' | 'tag'
-  focusTag: null,
+  filterText: '',
+  pendingDefaultFilter: null,
+  focusKeys: null,   // when set, failed-focus navigation base
+  focusKind: null,   // null | 'failed'
   tagIndex: {},
   running: false,
   startTime: 0,
@@ -1239,10 +1306,76 @@ window.addEventListener('unhandledrejection', e => {
 });
 
 // =============================================================================
-// Sidebar navigation prefs (last focus + recent; localStorage only)
+// Sidebar navigation prefs (last focus + recent; localStorage only).
+// Recent entries are full filter snapshots so folder + exclusions restore together.
 // =============================================================================
 const NAV_STORAGE_KEY = 'vcs-test-runner-nav';
 const RECENT_MAX = 5;
+
+function captureFilterSnapshot() {
+  const snap = {
+    folder: state.selectedFolder || null,
+    suite: state.selectedSuite || null,
+    filterText: (state.filterText || '').trim()
+  };
+  if (!snap.folder && !snap.suite && !snap.filterText) return null;
+  return snap;
+}
+
+function snapshotIdentity(snap) {
+  if (!snap) return '';
+  return [
+    snap.folder || '',
+    snap.suite || '',
+    (snap.filterText || '').trim().toLowerCase()
+  ].join('\0');
+}
+
+function snapshotLabel(snap) {
+  if (!snap) return '';
+  const parts = [];
+  if (snap.folder) parts.push(formatFolderPath(snap.folder));
+  if (snap.suite && state.testTree[snap.suite]) parts.push(state.testTree[snap.suite].name);
+  else if (snap.suite) parts.push(snap.suite);
+  if (snap.filterText) parts.push(snap.filterText);
+  return parts.join(' · ') || 'Filter';
+}
+
+function snapshotIsValid(snap, tree) {
+  if (!snap) return false;
+  if (snap.suite && !(tree && tree[snap.suite])) return false;
+  if (snap.folder && keysForFolder(snap.folder).length === 0) return false;
+  if (snap.filterText) {
+    const tokens = parseFilterText(snap.filterText);
+    // Keep entries that still resolve to at least one known tag/module/folder token,
+    // or that are pure exclusions (e.g. "-slow") against the current tree.
+    if (!tokens.length) return false;
+  }
+  return !!(snap.folder || snap.suite || snap.filterText);
+}
+
+function normalizeRecentEntry(entry) {
+  if (!entry) return null;
+  // New snapshot shape
+  if (entry.folder || entry.suite || entry.filterText) {
+    return {
+      folder: entry.folder || null,
+      suite: entry.suite || null,
+      filterText: entry.filterText || ''
+    };
+  }
+  // Legacy {kind,key} shape
+  if (entry.kind === 'suite' && entry.key) {
+    return { folder: null, suite: entry.key, filterText: '' };
+  }
+  if (entry.kind === 'folder' && entry.key) {
+    return { folder: entry.key, suite: null, filterText: '' };
+  }
+  if (entry.kind === 'tag' && entry.key) {
+    return { folder: null, suite: null, filterText: entry.key };
+  }
+  return null;
+}
 
 function loadNavPrefs() {
   try {
@@ -1250,9 +1383,9 @@ function loadNavPrefs() {
     if (!raw) return { last: null, recent: [] };
     const saved = JSON.parse(raw);
     const recent = Array.isArray(saved.recent)
-      ? saved.recent.filter(e => e && (e.kind === 'suite' || e.kind === 'tag') && e.key)
+      ? saved.recent.map(normalizeRecentEntry).filter(Boolean)
       : [];
-    const last = saved && saved.last && saved.last.kind && saved.last.key ? saved.last : null;
+    const last = normalizeRecentEntry(saved && saved.last);
     return { last: last, recent: recent };
   } catch (e) {
     return { last: null, recent: [] };
@@ -1265,15 +1398,21 @@ function saveNavPrefs(prefs) {
   } catch (e) { /* private mode / quota */ }
 }
 
-function recordNavSelection(kind, key) {
-  if (!kind || !key) return;
+function recordFilterSnapshot(opts) {
+  const snap = captureFilterSnapshot();
+  if (!snap) {
+    clearNavLast();
+    return;
+  }
   const prefs = loadNavPrefs();
-  prefs.last = { kind: kind, key: key };
-  const entry = { kind: kind, key: key };
-  const deduped = [entry].concat(
-    prefs.recent.filter(e => !(e.kind === kind && e.key === key))
-  );
-  prefs.recent = deduped.slice(0, RECENT_MAX);
+  prefs.last = snap;
+  if (!opts || opts.recent !== false) {
+    const id = snapshotIdentity(snap);
+    const deduped = [snap].concat(
+      prefs.recent.filter(e => snapshotIdentity(e) !== id)
+    );
+    prefs.recent = deduped.slice(0, RECENT_MAX);
+  }
   saveNavPrefs(prefs);
 }
 
@@ -1283,19 +1422,29 @@ function clearNavLast() {
   saveNavPrefs(prefs);
 }
 
+function applyFilterSnapshot(snap, opts) {
+  if (!snap) return false;
+  const persist = !opts || opts.persist !== false;
+  state.selectedFolder = snap.folder || null;
+  state.selectedSuite = snap.suite || null;
+  clearFocusView();
+  $('test-list').dataset.filter = 'all';
+  syncStatusFilterUI('all');
+  state.filterText = snap.filterText || '';
+  syncFilterInput();
+  if (persist) recordFilterSnapshot();
+  updateSidebarActive();
+  renderTestList();
+  updateRunButton();
+  updatePageHeader();
+  updateClearFilterChip();
+  return true;
+}
+
 function restoreLastSelection() {
   const prefs = loadNavPrefs();
-  if (!prefs.last) return false;
-  const kind = prefs.last.kind;
-  const key = prefs.last.key;
-  if (kind === 'tag') {
-    return focusTag(key, { persist: false });
-  }
-  if (kind === 'suite' && state.testTree[key]) {
-    setSuiteSelection(key, { persist: false });
-    return true;
-  }
-  return false;
+  if (!prefs.last || !snapshotIsValid(prefs.last, state.testTree)) return false;
+  return applyFilterSnapshot(prefs.last, { persist: false });
 }
 
 // =============================================================================
@@ -1317,7 +1466,196 @@ function buildTagIndex(tree) {
 function clearFocusView() {
   state.focusKeys = null;
   state.focusKind = null;
-  state.focusTag = null;
+}
+
+function allTestKeys() {
+  const keys = [];
+  for (const sk in state.testTree) {
+    for (const t of (state.testTree[sk].tests || [])) keys.push(t.key);
+  }
+  return keys;
+}
+
+function keysForFolder(path) {
+  if (!path) return [];
+  const keys = [];
+  for (const sk in state.testTree) {
+    const folder = state.testTree[sk].folder || 'Tests';
+    if (folder === path || folder.startsWith(path + '.')) {
+      for (const t of (state.testTree[sk].tests || [])) keys.push(t.key);
+    }
+  }
+  return keys;
+}
+
+function isFailedFocus() {
+  return state.focusKind === 'failed' && !!(state.focusKeys && state.focusKeys.length);
+}
+
+function hasNavigationBase() {
+  return !!(state.selectedSuite || state.selectedFolder || isFailedFocus());
+}
+
+function parseFilterText(text) {
+  if (!text) return [];
+  return String(text)
+    .split(/[\s,]+/)
+    .map(t => t.trim())
+    .filter(Boolean);
+}
+
+function buildSuiteFolderMap() {
+  const map = {};
+  for (const sk in state.testTree) {
+    const folder = state.testTree[sk].folder || 'Tests';
+    if (!map[folder]) map[folder] = [];
+    for (const t of (state.testTree[sk].tests || [])) map[folder].push(t.key);
+  }
+  return map;
+}
+
+function iterAllTests() {
+  const out = [];
+  for (const sk in state.testTree) {
+    for (const t of (state.testTree[sk].tests || [])) {
+      out.push({ ...t, suiteKey: sk, suite: state.testTree[sk] });
+    }
+  }
+  return out;
+}
+
+function resolveOneFilter(value) {
+  const val = String(value || '').trim();
+  const keys = [];
+  if (!val) return keys;
+
+  if (state.testTree[val]) {
+    return state.testTree[val].tests.map(t => t.key);
+  }
+
+  const folderMap = buildSuiteFolderMap();
+  for (const folderPath of Object.keys(folderMap)) {
+    if (folderPath.toLowerCase() === val.toLowerCase()) {
+      keys.push(...folderMap[folderPath]);
+      continue;
+    }
+    const segments = folderPath.split('.');
+    if (segments[segments.length - 1].toLowerCase() === val.toLowerCase()) {
+      keys.push(...folderMap[folderPath]);
+    }
+  }
+  if (keys.length) return [...new Set(keys)];
+
+  for (const t of iterAllTests()) {
+    if (t.name.toLowerCase() === val.toLowerCase() || t.key.toLowerCase() === val.toLowerCase()) {
+      keys.push(t.key);
+    }
+  }
+  if (keys.length) return [...new Set(keys)];
+
+  for (const t of iterAllTests()) {
+    for (const tag of (t.tags || [])) {
+      if (tag.toLowerCase() === val.toLowerCase()) keys.push(t.key);
+    }
+  }
+  return [...new Set(keys)];
+}
+
+function resolveFilterTokensToKeys(tokens, baseKeys) {
+  const includes = [];
+  const excludes = [];
+  for (const raw of tokens) {
+    if (raw.startsWith('-')) excludes.push(raw.slice(1));
+    else includes.push(raw);
+  }
+
+  const navNarrowed = hasNavigationBase();
+
+  if (includes.length) {
+    const matched = new Set();
+    for (const inc of includes) {
+      for (const k of resolveOneFilter(inc)) matched.add(k);
+    }
+    let result = [...matched];
+    if (navNarrowed) {
+      const baseSet = new Set(baseKeys);
+      result = result.filter(k => baseSet.has(k));
+    }
+    for (const exc of excludes) {
+      const excSet = new Set(resolveOneFilter(exc));
+      result = result.filter(k => !excSet.has(k));
+    }
+    return result;
+  }
+
+  if (excludes.length) {
+    let result = baseKeys.slice();
+    for (const exc of excludes) {
+      const excSet = new Set(resolveOneFilter(exc));
+      result = result.filter(k => !excSet.has(k));
+    }
+    return result;
+  }
+
+  return baseKeys.slice();
+}
+
+function getNavigationBaseKeys() {
+  if (isFailedFocus()) return state.focusKeys.slice();
+  if (state.selectedSuite && state.testTree[state.selectedSuite]) {
+    return state.testTree[state.selectedSuite].tests.map(t => t.key);
+  }
+  if (state.selectedFolder) return keysForFolder(state.selectedFolder);
+  return allTestKeys();
+}
+
+function getVisibleTestKeys() {
+  const baseKeys = getNavigationBaseKeys();
+  const tokens = parseFilterText(state.filterText);
+  if (!tokens.length) return baseKeys;
+  return resolveFilterTokensToKeys(tokens, baseKeys);
+}
+
+function getTagTokenState(tag) {
+  const lower = tag.toLowerCase();
+  for (const t of parseFilterText(state.filterText)) {
+    if (t.startsWith('-') && t.slice(1).toLowerCase() === lower) return 'exclude';
+    if (!t.startsWith('-') && t.toLowerCase() === lower) return 'include';
+  }
+  return 'off';
+}
+
+function syncFilterInput() {
+  const input = $('filter-text');
+  if (input && input.value !== state.filterText) input.value = state.filterText;
+}
+
+function applyFilterText(text, opts) {
+  state.filterText = String(text || '');
+  syncFilterInput();
+  if (!opts || opts.persist !== false) recordFilterSnapshot();
+  updateSidebarActive();
+  renderTestList();
+  updateRunButton();
+  updatePageHeader();
+  updateClearFilterChip();
+}
+
+function setTagFilterState(tag, mode, opts) {
+  let tokens = parseFilterText(state.filterText).filter(t => {
+    const bare = t.startsWith('-') ? t.slice(1) : t;
+    return bare.toLowerCase() !== tag.toLowerCase();
+  });
+  if (mode === 'include') tokens.push(tag);
+  else if (mode === 'exclude') tokens.push('-' + tag);
+  applyFilterText(tokens.join(' '), opts);
+  return mode !== 'off';
+}
+
+function cycleTagFilter(tag) {
+  const cur = getTagTokenState(tag);
+  const next = cur === 'off' ? 'include' : (cur === 'include' ? 'exclude' : 'off');
+  setTagFilterState(tag, next);
 }
 
 // Display @Folder paths with forward slashes (Tests.SQL -> Tests/SQL).
@@ -1333,7 +1671,9 @@ function getActiveStatusFilter() {
 function isAnyFilterActive() {
   if (getActiveStatusFilter() !== 'all') return true;
   if (state.selectedSuite) return true;
-  if (state.focusKeys && state.focusKeys.length) return true;
+  if (state.selectedFolder) return true;
+  if (isFailedFocus()) return true;
+  if (state.filterText.trim()) return true;
   return false;
 }
 
@@ -1365,13 +1705,11 @@ function clearAllFilters() {
   $('test-list').dataset.filter = 'all';
   syncStatusFilterUI('all');
   state.selectedSuite = null;
+  state.selectedFolder = null;
+  state.filterText = '';
   clearFocusView();
   clearNavLast();
-  const search = $('suite-search');
-  if (search && search.value) {
-    search.value = '';
-    filterSidebarSearch('');
-  }
+  syncFilterInput();
   updateSidebarActive();
   renderTestList();
   updateRunButton();
@@ -1382,9 +1720,7 @@ function clearAllFilters() {
 function updateClearFilterChip() {
   const btn = $('btn-clear-filter');
   if (!btn) return;
-  const search = $('suite-search');
-  const hasSearchText = !!(search && search.value);
-  btn.classList.toggle('visible', isAnyFilterActive() || hasSearchText);
+  btn.classList.toggle('visible', isAnyFilterActive());
 }
 
 function renderTagChips(tags, opts) {
@@ -1394,13 +1730,16 @@ function renderTagChips(tags, opts) {
   });
   const sorted = [...tags].sort();
   for (const tag of sorted) {
+    const mode = getTagTokenState(tag);
     container.appendChild(el('button', {
-      className: 'tag-chip',
+      className: 'tag-chip' +
+        (mode === 'include' ? ' tag-include' : '') +
+        (mode === 'exclude' ? ' tag-exclude' : ''),
       type: 'button',
-      text: tag,
+      text: mode === 'exclude' ? '-' + tag : tag,
       onclick: e => {
         e.stopPropagation();
-        focusTag(tag);
+        cycleTagFilter(tag);
       }
     }));
   }
@@ -1408,79 +1747,47 @@ function renderTagChips(tags, opts) {
 }
 
 function focusTag(tag, opts) {
-  const keys = state.tagIndex[tag];
-  if (!keys || !keys.length) return false;
-  state.focusKeys = keys.slice();
-  state.focusKind = 'tag';
-  state.focusTag = tag;
-  state.selectedSuite = null;
-  // Reset the status filter UI without clearing the focus we just set (applyStatusFilter
-  // would call clearFocusView when focusKeys is present).
-  $('test-list').dataset.filter = 'all';
-  syncStatusFilterUI('all');
-  if (!opts || opts.persist !== false) recordNavSelection('tag', tag);
-  updateSidebarActive();
-  renderTestList();
-  updateRunButton();
-  updatePageHeader();
-  updateClearFilterChip();
-  return true;
+  return setTagFilterState(tag, 'include', opts);
 }
 
 function updateTagEntries() {
   for (const item of document.querySelectorAll('.suite-item-tag')) {
     const tag = item.dataset.tag;
-    item.classList.toggle('active', state.focusKind === 'tag' && state.focusTag === tag);
+    const mode = getTagTokenState(tag);
+    item.classList.toggle('tag-include', mode === 'include');
+    item.classList.toggle('tag-exclude', mode === 'exclude');
+    item.classList.toggle('active', mode !== 'off');
+    const nameEl = item.querySelector('.suite-name');
+    if (nameEl) nameEl.textContent = mode === 'exclude' ? '-' + tag : tag;
   }
 }
 
 function updateRecentEntries() {
-  const focusing = !!(state.focusKeys && state.focusKeys.length);
+  const currentId = snapshotIdentity(captureFilterSnapshot());
   for (const item of document.querySelectorAll('.suite-item-recent')) {
-    const kind = item.dataset.navKind;
-    const key = item.dataset.navKey;
-    let active = false;
-    if (kind === 'tag') {
-      active = state.focusKind === 'tag' && state.focusTag === key;
-    } else if (kind === 'suite') {
-      active = !focusing && state.selectedSuite === key;
-    }
-    item.classList.toggle('active', active);
+    const id = item.dataset.snapId || '';
+    item.classList.toggle('active', !!currentId && id === currentId);
   }
 }
 
 function renderRecentSection(tree, root) {
   const prefs = loadNavPrefs();
-  const items = prefs.recent.filter(entry => {
-    if (entry.kind === 'tag') return state.tagIndex[entry.key];
-    if (entry.kind === 'suite') return tree[entry.key];
-    return false;
-  });
+  const items = prefs.recent.filter(entry => snapshotIsValid(entry, tree));
   if (!items.length) return;
 
   const section = el('div', { className: 'recent-section' });
   section.appendChild(el('div', { className: 'recent-section-header', text: 'Recent' }));
   for (const entry of items) {
-    if (entry.kind === 'tag') {
-      section.appendChild(el('div', {
-        className: 'suite-item suite-item-recent suite-item-recent-tag',
-        dataset: { navKind: 'tag', navKey: entry.key },
-        onclick: () => focusTag(entry.key)
-      }, [
-        el('span', { className: 'suite-name', text: entry.key }),
-        el('span', { className: 'badge tag', text: String(state.tagIndex[entry.key].length) })
-      ]));
-    } else {
-      const suite = tree[entry.key];
-      section.appendChild(el('div', {
-        className: 'suite-item suite-item-recent',
-        dataset: { navKind: 'suite', navKey: entry.key, suiteKey: entry.key },
-        onclick: () => selectSuite(entry.key)
-      }, [
-        el('span', { className: 'suite-name', text: suite.name }),
-        renderSuiteBadge(entry.key, suite)
-      ]));
-    }
+    const label = snapshotLabel(entry);
+    const isTagOnly = !entry.folder && !entry.suite && !!entry.filterText;
+    section.appendChild(el('div', {
+      className: 'suite-item suite-item-recent' + (isTagOnly ? ' suite-item-recent-tag' : ''),
+      dataset: { snapId: snapshotIdentity(entry) },
+      title: label,
+      onclick: () => applyFilterSnapshot(entry)
+    }, [
+      el('span', { className: 'suite-name', text: label })
+    ]));
   }
   root.appendChild(section);
 }
@@ -1503,23 +1810,44 @@ function buildFolderTree(tree) {
   return root;
 }
 
-function renderFolderTreeNode(node, parentEl) {
+function renderFolderTreeNode(node, parentEl, parentPath) {
   const folderNames = Object.keys(node.children).sort();
   for (const folderName of folderNames) {
     const child = node.children[folderName];
+    const fullPath = parentPath ? parentPath + '.' + folderName : folderName;
     const group = el('div', { className: 'folder-group', dataset: { folderSegment: folderName } });
+    const folderKeys = keysForFolder(fullPath);
 
     const header = el('div', {
-      className: 'folder-header',
-      onclick: () => group.classList.toggle('collapsed')
-    }, [
-      el('span', { className: 'folder-chevron', text: '▼' }),
-      document.createTextNode(folderName)
-    ]);
+      className: 'folder-header' + (state.selectedFolder === fullPath ? ' active' : ''),
+      dataset: { folderPath: fullPath }
+    });
+
+    const chevron = el('span', {
+      className: 'folder-chevron',
+      text: '▼',
+      onclick: e => { e.stopPropagation(); group.classList.toggle('collapsed'); }
+    });
+    const nameSpan = el('span', {
+      className: 'folder-name',
+      text: folderName,
+      title: formatFolderPath(fullPath),
+      onclick: e => { e.stopPropagation(); selectFolder(fullPath); }
+    });
+    const runBtn = el('button', {
+      className: 'run-btn run-btn-folder',
+      title: 'Run folder (' + folderKeys.length + ' test' + (folderKeys.length === 1 ? '' : 's') + ')',
+      html: '&#9654;',
+      onclick: e => { e.stopPropagation(); runTests(folderKeys); }
+    });
+
+    header.appendChild(chevron);
+    header.appendChild(nameSpan);
+    header.appendChild(runBtn);
     group.appendChild(header);
 
     const content = el('div', { className: 'folder-content' });
-    renderFolderTreeNode(child, content);
+    renderFolderTreeNode(child, content, fullPath);
 
     child.suites.sort((a, b) => a.suite.name.localeCompare(b.suite.name));
     for (const { key, suite } of child.suites) {
@@ -1548,7 +1876,8 @@ function renderSidebar(tree) {
   
   // "All tests" entry clears any suite filter and shows the full list.
   root.appendChild(el('div', {
-    className: 'suite-item suite-item-all' + (state.selectedSuite || state.focusKeys ? '' : ' active'),
+    className: 'suite-item suite-item-all' +
+      (!state.selectedSuite && !state.selectedFolder && !isFailedFocus() && !state.filterText.trim() ? ' active' : ''),
     onclick: () => showAllSuites()
   }, [
     el('span', { className: 'suite-name', text: 'All tests' })
@@ -1571,12 +1900,15 @@ function renderSidebar(tree) {
     const section = el('div', { className: 'tag-section' });
     section.appendChild(el('div', { className: 'tag-section-header', text: 'Tags' }));
     for (const tag of tagNames) {
+      const mode = getTagTokenState(tag);
       section.appendChild(el('div', {
-        className: 'suite-item suite-item-tag',
+        className: 'suite-item suite-item-tag' +
+          (mode === 'include' ? ' tag-include' : '') +
+          (mode === 'exclude' ? ' tag-exclude' : ''),
         dataset: { tag },
-        onclick: () => focusTag(tag)
+        onclick: () => cycleTagFilter(tag)
       }, [
-        el('span', { className: 'suite-name', text: tag }),
+        el('span', { className: 'suite-name', text: mode === 'exclude' ? '-' + tag : tag }),
         el('span', { className: 'badge tag', text: String(state.tagIndex[tag].length) })
       ]));
     }
@@ -1584,7 +1916,7 @@ function renderSidebar(tree) {
   }
 
   const folders = buildFolderTree(tree);
-  renderFolderTreeNode(folders, root);
+  renderFolderTreeNode(folders, root, '');
   
   if (Object.keys(tree).length === 0) {
     root.appendChild(el('div', { className: 'empty-state' }, [
@@ -1674,16 +2006,40 @@ function selectSuite(key) {
 }
 
 function showAllSuites() {
-  setSuiteSelection(null);
+  state.selectedFolder = null;
+  state.selectedSuite = null;
+  state.filterText = '';
+  clearFocusView();
+  syncFilterInput();
+  clearNavLast();
+  updateSidebarActive();
+  renderTestList();
+  updateRunButton();
+  updatePageHeader();
+  updateClearFilterChip();
+}
+
+function selectFolder(path, opts) {
+  const next = state.selectedFolder === path ? null : path;
+  state.selectedFolder = next;
+  state.selectedSuite = null;
+  clearFocusView();
+  $('test-list').dataset.filter = 'all';
+  syncStatusFilterUI('all');
+  if (!opts || opts.persist !== false) recordFilterSnapshot();
+  updateSidebarActive();
+  renderTestList();
+  updateRunButton();
+  updatePageHeader();
+  updateClearFilterChip();
+  return !!next;
 }
 
 function setSuiteSelection(key, opts) {
   state.selectedSuite = key || null;
+  state.selectedFolder = null;
   clearFocusView();
-  if (!opts || opts.persist !== false) {
-    if (key) recordNavSelection('suite', key);
-    else clearNavLast();
-  }
+  if (!opts || opts.persist !== false) recordFilterSnapshot();
   updateSidebarActive();
   renderTestList();
   updateRunButton();
@@ -1702,8 +2058,8 @@ function focusFailedTests() {
   if (keys.length === 0) return false;
   state.focusKeys = keys;
   state.focusKind = 'failed';
-  state.focusTag = null;
   state.selectedSuite = null;
+  state.selectedFolder = null;
   // Reset the status filter UI without clearing the focus we just set.
   $('test-list').dataset.filter = 'all';
   syncStatusFilterUI('all');
@@ -1716,23 +2072,25 @@ function focusFailedTests() {
 }
 
 function updateSidebarActive() {
-  // A real suite item carries data-suite-key; the "All tests"/"Failed tests"/tag items do
-  // not. When a focus set is active, only the matching focus entry is highlighted;
-  // otherwise the item matching the selected suite (or "All tests" for null) is.
-  const focusing = !!(state.focusKeys && state.focusKeys.length);
+  const hasBase = hasNavigationBase();
   for (const item of document.querySelectorAll('.suite-item')) {
     if (item.classList.contains('suite-item-failed') ||
         item.classList.contains('suite-item-tag') ||
         item.classList.contains('suite-item-recent')) continue;
     if (item.classList.contains('suite-item-all')) {
-      item.classList.toggle('active', !focusing && !state.selectedSuite);
+      item.classList.toggle('active', !hasBase && !state.filterText.trim());
       continue;
     }
     const k = item.dataset.suiteKey || null;
-    item.classList.toggle('active', !focusing && k === state.selectedSuite);
+    item.classList.toggle('active', !hasBase && k === state.selectedSuite);
+  }
+  for (const header of document.querySelectorAll('.folder-header')) {
+    const path = header.dataset.folderPath;
+    header.classList.toggle('active', path === state.selectedFolder);
   }
   updateFailedEntry();
   updateRecentEntries();
+  updateTagEntries();
 }
 
 // =============================================================================
@@ -1741,25 +2099,25 @@ function updateSidebarActive() {
 function renderTestList() {
   const list = $('test-list');
   list.innerHTML = '';
-  
-  let suitesToShow;
-  if (state.selectedSuite) {
-    const s = state.testTree[state.selectedSuite];
-    suitesToShow = s ? [{ key: state.selectedSuite, suite: s }] : [];
-  } else {
-    suitesToShow = Object.keys(state.testTree)
-      .map(k => ({ key: k, suite: state.testTree[k] }));
+
+  const visible = new Set(getVisibleTestKeys());
+  if (!visible.size) {
+    list.appendChild(el('div', { className: 'empty-state' }, [
+      el('div', { className: 'empty-state-title', text: 'No tests match filter' }),
+      el('div', { text: 'Adjust the folder, suite, or filter settings.' })
+    ]));
+    return;
   }
-  
-  // Focus set (e.g. "rerun failed"): show only those tests, kept visible regardless of
-  // their live status so you can watch them transition pending -> running -> result.
-  const focus = (state.focusKeys && state.focusKeys.length) ? new Set(state.focusKeys) : null;
-  if (focus) {
-    suitesToShow = suitesToShow
-      .map(({ key, suite }) => ({ key, suite, tests: suite.tests.filter(t => focus.has(t.key)) }))
-      .filter(x => x.tests.length > 0);
-  }
-  
+
+  const suitesToShow = Object.keys(state.testTree)
+    .map(k => ({ key: k, suite: state.testTree[k] }))
+    .map(({ key, suite }) => ({
+      key,
+      suite,
+      tests: suite.tests.filter(t => visible.has(t.key))
+    }))
+    .filter(x => x.tests.length > 0);
+
   if (suitesToShow.length === 0) {
     list.appendChild(el('div', { className: 'empty-state' }, [
       el('div', { className: 'empty-state-title', text: 'Select a suite' }),
@@ -1767,9 +2125,9 @@ function renderTestList() {
     ]));
     return;
   }
-  
+
   for (const { key, suite, tests } of suitesToShow) {
-    list.appendChild(renderSuiteGroup(key, suite, tests || suite.tests));
+    list.appendChild(renderSuiteGroup(key, suite, tests));
   }
 }
 
@@ -2116,39 +2474,40 @@ function countAllTests() {
 }
 
 // Keys for the current list scope — what the primary Run button executes.
-function getVisibleTestKeys() {
-  if (state.focusKeys && state.focusKeys.length) {
-    return state.focusKeys.slice();
-  }
-  if (state.selectedSuite && state.testTree[state.selectedSuite]) {
-    return state.testTree[state.selectedSuite].tests.map(t => t.key);
-  }
-  const keys = [];
-  for (const sk in state.testTree) {
-    for (const t of (state.testTree[sk].tests || [])) {
-      keys.push(t.key);
-    }
-  }
-  return keys;
-}
-
 function getRunScopeInfo() {
   const keys = getVisibleTestKeys();
   const n = keys.length;
-  if (state.focusKind === 'tag' && state.focusTag) {
-    return { label: 'Run tag', count: n, scope: 'tag: ' + state.focusTag };
-  }
-  if (state.focusKind === 'failed') {
-    return { label: 'Run failed', count: n, scope: 'failed tests' };
-  }
-  if (state.selectedSuite && state.testTree[state.selectedSuite]) {
+  let label = 'Run all';
+  let scope = null;
+
+  if (isFailedFocus()) {
+    label = 'Run failed';
+    scope = 'failed tests';
+  } else if (state.selectedFolder) {
+    label = 'Run folder';
+    scope = formatFolderPath(state.selectedFolder);
+  } else if (state.selectedSuite && state.testTree[state.selectedSuite]) {
     const suite = state.testTree[state.selectedSuite];
-    const scope = suite.folder
+    label = 'Run suite';
+    scope = suite.folder
       ? formatFolderPath(suite.folder) + '/' + suite.name
       : suite.name;
-    return { label: 'Run suite', count: n, scope: scope };
   }
-  return { label: 'Run all', count: n, scope: null };
+
+  const tokens = parseFilterText(state.filterText);
+  if (tokens.length) {
+    const excludes = tokens.filter(t => t.startsWith('-')).map(t => t.slice(1));
+    const includes = tokens.filter(t => !t.startsWith('-'));
+    if (scope) {
+      if (includes.length) scope += ' + ' + includes.join(', ');
+      if (excludes.length) scope += ', excluding ' + excludes.join(', ');
+    } else {
+      if (includes.length && !excludes.length) label = 'Run filter';
+      scope = tokens.join(' ');
+    }
+  }
+
+  return { label, count: n, scope };
 }
 
 function updateRunButton() {
@@ -2331,6 +2690,7 @@ window.TestUI = {
 
   setContext: guardTestUI('setContext', function (ctx) {
     if (ctx && ctx.projectName) state.projectName = ctx.projectName;
+    if (ctx && ctx.defaultFilter) state.pendingDefaultFilter = ctx.defaultFilter;
     updatePageHeader();
   }),
   
@@ -2338,7 +2698,13 @@ window.TestUI = {
     window.diag('onReady', 'suites=' + Object.keys(testTree || {}).length);
     state.testTree = testTree || {};
     renderSidebar(state.testTree);
-    if (!restoreLastSelection()) renderTestList();
+    const hadDefault = !!(state.pendingDefaultFilter && String(state.pendingDefaultFilter).trim());
+    if (hadDefault) {
+      applyFilterText(state.pendingDefaultFilter, { persist: false });
+      state.pendingDefaultFilter = null;
+    } else if (!restoreLastSelection()) {
+      renderTestList();
+    }
     recomputeCounts();
     updateRunButton();
     updatePageHeader();
@@ -2545,34 +2911,27 @@ for (const stat of document.querySelectorAll('.stats-bar .stat[data-filter]')) {
   });
 }
 
-function filterSidebarSearch(query) {
-  const q = query.toLowerCase().trim();
-  for (const group of document.querySelectorAll('.folder-group')) {
-    let groupMatch = false;
-    const header = group.querySelector('.folder-header');
-    if (header && header.textContent.toLowerCase().includes(q)) groupMatch = true;
+$('filter-text').addEventListener('input', e => {
+  applyFilterText(e.target.value, { persist: false });
+});
 
-    for (const item of group.querySelectorAll('.suite-item[data-suite-key]')) {
-      const name = item.querySelector('.suite-name').textContent.toLowerCase();
-      const folderPath = item.dataset.folderPath || '';
-      const match = !q || name.includes(q) || folderPath.includes(q) || groupMatch;
-      item.style.display = match ? '' : 'none';
-      if (match) groupMatch = true;
-    }
+$('filter-text').addEventListener('change', () => {
+  recordFilterSnapshot();
+});
 
-    group.style.display = (!q || groupMatch) ? '' : 'none';
-    if (q && groupMatch) group.classList.remove('collapsed');
+$('filter-text').addEventListener('blur', () => {
+  recordFilterSnapshot();
+});
+
+$('filter-text').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    recordFilterSnapshot();
   }
-}
-
-$('suite-search').addEventListener('input', e => {
-  filterSidebarSearch(e.target.value);
-  updateClearFilterChip();
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && !state.running &&
-      (isAnyFilterActive() || ($('suite-search') && $('suite-search').value))) {
+  if (e.key === 'Escape' && !state.running && isAnyFilterActive()) {
     e.preventDefault();
     clearAllFilters();
   }

@@ -22,6 +22,7 @@ Private m_blnDocumentReady As Boolean
 Private m_blnTreePublished As Boolean
 Private m_blnStandalone As Boolean      ' opened to view last results (not a fresh run)
 Private m_strPendingTreeJson As String
+Private m_strPendingDefaultFilter As String
 Private m_varEdgeBuildCached As Variant
 Private m_strHtmlCacheFolder As String
 
@@ -151,6 +152,10 @@ Public Sub OpenWebTestRunner()
     DoCmd.Hourglass True
     DoEvents
 
+    ' Clear any leftover test-run Operation from a previous hide/cancel so reopen
+    ' (and the next Run click) are not blocked by "Another Operation Already Running".
+    ClearOrphanedTestOperation
+
     m_blnWebRunnerActive = True
     m_blnStandalone = False
 
@@ -174,6 +179,29 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedTestOperation
+' Author    : Adam Waller
+' Date      : 7/9/2026
+' Purpose   : Finish a leftover eotTestRun Operation when no test run is actually in
+'           : progress. Hide-on-close can leave Operation.Status = eosRunning if the
+'           : user closed mid-run (Cancel is cooperative) or if an earlier open path
+'           : began an Operation without finishing it.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearOrphanedTestOperation()
+
+    If TestRunner.State = etrsRunning Then Exit Sub
+    If Operation.Status <> eosRunning Then Exit Sub
+    If Operation.OperationType <> eotTestRun Then Exit Sub
+
+    modTestRunnerDiag.Diag "op.clear_orphan", "state=" & TestRunner.State
+    Log.SuppressDebugOutput = False
+    Operation.Finish eorCanceled
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : OpenTestRunnerForResults
 ' Author    : Adam Waller
 ' Date      : 7/8/2026
@@ -190,8 +218,11 @@ Public Sub OpenTestRunnerForResults()
     DoCmd.Hourglass True
     DoEvents
 
+    ClearOrphanedTestOperation
+
     m_blnWebRunnerActive = True
     m_blnStandalone = True
+    m_strPendingDefaultFilter = vbNullString
 
     Set frm = RunnerForm()
     modTestRunnerDiag.DiagStart "OpenTestRunnerForResults reuse=" & (Not frm Is Nothing)
@@ -266,7 +297,21 @@ Public Sub ResetWebRunnerHostState()
     m_blnDocumentReady = False
     m_blnTreePublished = False
     m_strPendingTreeJson = vbNullString
+    m_strPendingDefaultFilter = vbNullString
     m_blnStandalone = False
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetWebRunnerDefaultFilter
+' Author    : Adam Waller
+' Date      : 7/9/2026
+' Purpose   : Seed the web test runner filter box when opening from VCS.RunTests or the
+'           : ribbon (DefaultTestFilter). Cleared when the filter string is empty.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetWebRunnerDefaultFilter(ByVal strFilter As String)
+    m_strPendingDefaultFilter = Trim$(strFilter)
 End Sub
 
 
@@ -1194,6 +1239,9 @@ Private Function GetRunnerContextJson() As String
 
     Set dCtx = New Dictionary
     dCtx.Add "projectName", RunnerProjectDisplayName()
+    If Len(m_strPendingDefaultFilter) > 0 Then
+        dCtx.Add "defaultFilter", m_strPendingDefaultFilter
+    End If
     GetRunnerContextJson = ConvertToJson(dCtx)
 
 End Function
@@ -1233,31 +1281,24 @@ End Function
 
 Private Function GetAccessFileBuild() As Long
 
-    Const FunctionName As String = ModuleName & ".GetAccessFileBuild"
-
     Dim strExe As String
-    Dim objWmi As Object
-    Dim colFiles As Object
-    Dim objFile As Object
+    Dim strVersion As String
     Dim varParts As Variant
 
     On Error GoTo CleanUp
 
     strExe = SysCmd(acSysCmdAccessDir) & "MSACCESS.EXE"
-    strExe = Replace(strExe, "\", "\\")
-
-    Set objWmi = GetObject("winmgmts:\\.\root\cimv2")
-    Set colFiles = objWmi.ExecQuery("SELECT FileVersion FROM CIM_DataFile WHERE Name='" & strExe & "'")
-    For Each objFile In colFiles
-        varParts = Split(CStr(objFile.FileVersion), ".")
+    strVersion = FSO.GetFileVersion(strExe)
+    If Len(strVersion) > 0 Then
+        varParts = Split(strVersion, ".")
         If UBound(varParts) >= 2 Then
             GetAccessFileBuild = CLng(varParts(2))
-            Exit For
         End If
-    Next objFile
+    End If
 
 CleanUp:
-    CatchAny eelWarning, vbNullString, FunctionName
+    ' Fail-open: return 0 on error; do not warn (WMI path raised a one-shot dialog).
+    CatchAny eelNoError, vbNullString, vbNullString, False, True
 
 End Function
 
@@ -1270,6 +1311,8 @@ Private Sub BeginInteractiveBridgeRun()
 
     ' Suppress Immediate window output while the web runner hosts the run.
     Log.SuppressDebugOutput = True
+
+    ClearOrphanedTestOperation
 
     If Operation.Status <> eosRunning Then
         If Not Operation.Begin(eotTestRun) Then

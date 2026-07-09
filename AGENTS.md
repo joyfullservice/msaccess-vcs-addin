@@ -560,7 +560,7 @@ with the `UseWebTestRunner` option enabled (default **on**), `VCS.RunTests` /
 ribbon **Run Tests** open `frmVCSTestRunner`, merge-scan for tests, and publish the
 test tree to `TestRunner/runner.html` via `modTestRunnerUI` (`ExecuteJavascript` →
 `window.TestUI.*`). Tests are **not** auto-run; the user clicks the primary **Run**
-button (label reflects scope: all, suite, tag, or failed) or a per-suite/per-test
+button (label reflects scope: all, folder, suite, filter, or failed) or a per-suite/per-test
 ▶ when ready. When the option is off (or the build is older), it falls back to
 the `frmVCSMain` console unchanged.
 
@@ -602,13 +602,21 @@ the `frmVCSMain` console unchanged.
   `frmVCSMain` after a console test run). `VCS.ExportTestResultsHtml`
   regenerates it on demand. The console logs the report file path (plain text).
 - **UI affordances**: sidebar has **All tests** / **Failed tests (N)** focus
-  entries; the stats bar shows PHPUnit-style **tests** and **assertions** totals;
-  primary Run executes the **visible scope** (suite, tag, failed focus, or all);
-  per-test/per-suite ▶ run buttons; clicking a location opens the VBE at the proc.
+  entries; nested **@Folder** tree with folder select (click name) and ▶ run;
+  **Tags** section with include/exclude cycle; a single filter box using
+  `VCS.RunTests` token syntax (`SQL -slow`) that scopes the test list and Run
+  (sidebar tree is navigation-only, not a second filter); **Recent** stores full
+  `{folder, suite, filterText}` snapshots so combinations restore on click; the
+  stats bar shows PHPUnit-style **tests** and **assertions** totals; primary Run
+  executes the **visible scope** (composed navigation + filter); per-test/per-suite/
+  folder ▶ run buttons; clicking a location opens the VBE at the proc.
+  `VCS.RunTests(...)` / ribbon `DefaultTestFilter` prefill the filter box when the
+  web runner opens (no auto-run). Opening the web runner does not begin an
+  `Operation` — bridge Run callbacks do.
 - **Late binding**: the Edge control is referenced as `As Object` only so the
   add-in still compiles on older Access.
 
-See `DECISIONS.md` (2026-07-07 and 2026-07-08 — Web test runner) for rationale.
+See `DECISIONS.md` (2026-07-07 through 2026-07-09 — Web test runner) for rationale.
 
 #### Diagnostic trace log (debugging the bridge)
 

@@ -177,6 +177,46 @@ per-run artifacts.
 
 ---
 
+## 2026-07-09 — Web test runner: folder run scope and VCS.RunTests-style filters
+
+**Trigger**: UX feedback — folder headers only expand/collapse with no way to run all
+tests under a folder; exclusions like `-slow` work in `VCS.RunTests` but not in the
+web UI; the primary Run button should respect composed navigation + filter scope.
+
+**Decision**:
+
+- **Folder select + run**: chevron toggles collapse; clicking the folder name selects
+  that `@Folder` path (toggle off to clear). Descendant suites are included (e.g.
+  `Tests` includes `Tests.SQL`). A ▶ on the folder header runs that folder immediately
+  without changing selection. Primary Run label becomes **Run folder (N)**.
+- **Tag include/exclude**: sidebar Tags cycle off → include → exclude (`-tag`) → off.
+  Multiple tags compose like `ResolveFilters` (includes OR, exclusions AND-subtract).
+- **Filter text box**: single sidebar input (no separate suite search) accepts the same
+  token syntax as `VCS.RunTests` (module, folder/suite, procedure, tag; `-` prefix
+  excludes). Composes with folder/suite/failed navigation base; drives the main list,
+  Run scope, and tag chips. Sidebar tree is navigation-only (click folder/suite/tag).
+- **Run scope**: `getVisibleTestKeys()` resolves navigation base then filter tokens;
+  primary Run always calls `RunSelected` with that key set.
+- **DefaultTestFilter seed**: when opening via `VCS.RunTests(...)` or ribbon
+  `RunFilteredTests`, non-empty filters are passed through `setContext.defaultFilter`
+  and prefill the filter box (editable, not auto-run).
+- **Recent snapshots**: Recent entries store `{folder, suite, filterText}` (not a single
+  kind/key) so combinations like `Tests.SQL` + `-slow` restore together. Legacy
+  `{kind,key}` entries are migrated on load. Filter-box typing persists on blur/Enter
+  (not every keystroke).
+- **No Operation on web open**: `ExecuteTests` no longer calls `Operation.Begin` before
+  opening the web runner (bridge runs own the lifecycle). `ClearOrphanedTestOperation`
+  finishes a leftover `eotTestRun` when reopening/hiding if no test is actually running,
+  fixing "Another Operation Already Running" after hide-and-reopen.
+- **Access build probe**: `GetAccessFileBuild` uses `FSO.GetFileVersion` on
+  `MSACCESS.EXE` instead of WMI `CIM_DataFile` (WMI often raised a one-shot Automation
+  error dialog on first ribbon open despite fail-open support detection).
+
+**Relevant files**: `TestRunner/runner.html`, `modTestRunnerUI.bas`,
+`clsVersionControl.cls`, `frmVCSTestRunner.cls`, `AGENTS.md`.
+
+---
+
 ## 2026-07-08 — Web test runner: status filters, clear filter, nested folders, cancel poll, focus restore
 
 **Trigger**: UX feedback — stats-bar status counts should filter the list; a single

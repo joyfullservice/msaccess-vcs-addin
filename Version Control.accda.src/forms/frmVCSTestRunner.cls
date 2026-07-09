@@ -179,6 +179,9 @@ End Property
 Public Sub HideRunner()
 
     If TestRunner.State = etrsRunning Then TestRunner.Cancel
+    ' If a prior bridge run left Operation stuck (e.g. hide mid-run before Finish),
+    ' clear it so the next Run Tests / Run click is not blocked.
+    modTestRunnerUI.ClearOrphanedTestOperation
     modTestRunnerDiag.Diag "form.hide"
     Me.TimerInterval = 0
     Me.Visible = False
