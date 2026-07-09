@@ -567,7 +567,7 @@ the `frmVCSMain` console unchanged.
 - **HTML**: [`TestRunner/runner.html`](TestRunner/runner.html) (repo-root packaging
   asset, embedded at build like `Ribbon.xml`; extracted to a stable
   `TestRunnerCache\` folder under the add-in install path so WebView2
-  `localStorage` — Recent filters, column widths — persists across sessions)
+  `localStorage` — Recent filters, column widths, theme — persists across sessions)
 - **Entry points**: `VCS.RunTests` (show + deferred scan; user clicks Run),
   `VCS.OpenTestRunner` (open to view last results — rehydrates from singleton or
   `test-state.json` on standalone opens)

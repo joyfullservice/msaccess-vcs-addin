@@ -3,6 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <title>VCS Test Runner</title>
+<script>
+(function () {
+  try {
+    var theme = localStorage.getItem('vcs-test-runner-theme');
+    if (theme === 'light' || theme === 'dark') {
+      document.documentElement.dataset.theme = theme;
+    }
+  } catch (e) { /* private mode / blocked storage */ }
+})();
+</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   
@@ -47,10 +57,46 @@
     --sidebar-w: 260px;
     --detail-w: 320px;
     --splitter-w: 5px;
+
+    color-scheme: light;
   }
-  
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    --bg-primary: #1f1f1d;
+    --bg-secondary: #262624;
+    --bg-tertiary: #2c2c2a;
+    --text-primary: #e8e8e3;
+    --text-secondary: #b0b0a8;
+    --text-tertiary: #80807a;
+    --border: rgba(255,255,255,0.1);
+    --border-strong: rgba(255,255,255,0.18);
+
+    --pass-bg: #1f3010;
+    --pass-fg: #97c459;
+    --pass-dot: #97c459;
+    --fail-bg: #3a1313;
+    --fail-bg-row: #2a1818;
+    --fail-fg: #f09595;
+    --fail-dot: #f09595;
+    --skip-bg: #2c2c2a;
+    --skip-fg: #b4b2a9;
+    --skip-dot: #b4b2a9;
+    --error-bg: #3a2510;
+    --error-fg: #ef9f27;
+    --error-dot: #ef9f27;
+    --running-bg: #0c2840;
+    --running-fg: #85b7eb;
+    --running-dot: #85b7eb;
+
+    color-scheme: dark;
+  }
+
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg-primary: #1f1f1d;
       --bg-secondary: #262624;
       --bg-tertiary: #2c2c2a;
@@ -59,18 +105,25 @@
       --text-tertiary: #80807a;
       --border: rgba(255,255,255,0.1);
       --border-strong: rgba(255,255,255,0.18);
-      
+
       --pass-bg: #1f3010;
       --pass-fg: #97c459;
+      --pass-dot: #97c459;
       --fail-bg: #3a1313;
       --fail-bg-row: #2a1818;
       --fail-fg: #f09595;
+      --fail-dot: #f09595;
       --skip-bg: #2c2c2a;
       --skip-fg: #b4b2a9;
+      --skip-dot: #b4b2a9;
       --error-bg: #3a2510;
       --error-fg: #ef9f27;
+      --error-dot: #ef9f27;
       --running-bg: #0c2840;
       --running-fg: #85b7eb;
+      --running-dot: #85b7eb;
+
+      color-scheme: dark;
     }
   }
   
@@ -866,6 +919,59 @@
     color: var(--text-primary);
     font-weight: 500;
   }
+
+  .detail-theme-pref {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .detail-theme-label {
+    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .detail-theme-segments {
+    display: inline-flex;
+    gap: 2px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 2px;
+  }
+
+  .detail-theme-seg {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border: none;
+    background: none;
+    font-family: inherit;
+  }
+
+  .detail-theme-seg:hover {
+    color: var(--text-primary);
+  }
+
+  .detail-theme-seg.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+
+  .detail-theme-icon {
+    font-size: 13px;
+    line-height: 1;
+  }
   
   .detail-header {
     padding: 14px;
@@ -1116,6 +1222,20 @@
           <li>Click a test's module/line to open it in the VBE.</li>
           <li>After a run, use <strong>Failed</strong> or <strong>Rerun failed</strong>.</li>
         </ul>
+        <div class="detail-theme-pref">
+          <div class="detail-theme-label">Color theme</div>
+          <div class="detail-theme-segments" role="group" aria-label="Color theme">
+            <button type="button" class="detail-theme-seg active" data-theme-mode="system" aria-pressed="true">
+              <span class="detail-theme-icon">&#9680;</span> System
+            </button>
+            <button type="button" class="detail-theme-seg" data-theme-mode="light" aria-pressed="false">
+              <span class="detail-theme-icon">&#9728;</span> Light
+            </button>
+            <button type="button" class="detail-theme-seg" data-theme-mode="dark" aria-pressed="false">
+              <span class="detail-theme-icon">&#9789;</span> Dark
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </aside>
@@ -1398,6 +1518,50 @@ function saveNavPrefs(prefs) {
   try {
     localStorage.setItem(NAV_STORAGE_KEY, JSON.stringify(prefs));
   } catch (e) { /* private mode / quota */ }
+}
+
+// =============================================================================
+// Color theme preference (localStorage only).
+// =============================================================================
+const THEME_STORAGE_KEY = 'vcs-test-runner-theme';
+const THEME_MODES = ['system', 'light', 'dark'];
+const THEME_LABELS = { system: 'System', light: 'Light', dark: 'Dark' };
+const THEME_ICONS = { system: '\u25D0', light: '\u2600', dark: '\u263E' };
+
+function loadThemePref() {
+  try {
+    const v = localStorage.getItem(THEME_STORAGE_KEY);
+    if (v === 'light' || v === 'dark' || v === 'system') return v;
+  } catch (e) { /* private mode / blocked storage */ }
+  return 'system';
+}
+
+function saveThemePref(mode) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, mode);
+  } catch (e) { /* private mode / quota */ }
+}
+
+function updateThemeControl(mode) {
+  for (const btn of document.querySelectorAll('[data-theme-mode]')) {
+    const active = btn.dataset.themeMode === mode;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+}
+
+function applyTheme(mode) {
+  const root = document.documentElement;
+  if (mode === 'light' || mode === 'dark') {
+    root.dataset.theme = mode;
+  } else {
+    delete root.dataset.theme;
+  }
+  updateThemeControl(mode);
+}
+
+function initTheme() {
+  applyTheme(loadThemePref());
 }
 
 function recordFilterSnapshot(opts) {
@@ -2358,6 +2522,29 @@ function selectTest(testKey) {
 // =============================================================================
 // Detail pane
 // =============================================================================
+function renderThemeSegment(mode, activeMode) {
+  const active = mode === activeMode;
+  return el('button', {
+    type: 'button',
+    className: 'detail-theme-seg' + (active ? ' active' : ''),
+    'data-theme-mode': mode,
+    'aria-pressed': active ? 'true' : 'false'
+  }, [
+    el('span', { className: 'detail-theme-icon', text: THEME_ICONS[mode] }),
+    ' ' + THEME_LABELS[mode]
+  ]);
+}
+
+function renderThemePrefControl() {
+  const mode = loadThemePref();
+  return el('div', { className: 'detail-theme-pref' }, [
+    el('div', { className: 'detail-theme-label', text: 'Color theme' }),
+    el('div', { className: 'detail-theme-segments', role: 'group', 'aria-label': 'Color theme' },
+      THEME_MODES.map(m => renderThemeSegment(m, mode))
+    )
+  ]);
+}
+
 function renderDetailEmptyState() {
   return el('div', { className: 'detail-empty' }, [
     el('div', { className: 'empty-state-title', text: 'Getting started' }),
@@ -2375,7 +2562,8 @@ function renderDetailEmptyState() {
         el('strong', { text: 'Rerun failed' }),
         '.'
       ])
-    ])
+    ]),
+    renderThemePrefControl()
   ]);
 }
 
@@ -2954,6 +3142,15 @@ $('btn-open-report').addEventListener('click', () => {
     .catch(err => toast('Could not open report: ' + (err && err.message ? err.message : err)));
 });
 
+$('detail-content').addEventListener('click', e => {
+  const btn = e.target.closest('[data-theme-mode]');
+  if (!btn) return;
+  const mode = btn.dataset.themeMode;
+  if (mode === loadThemePref()) return;
+  saveThemePref(mode);
+  applyTheme(mode);
+});
+
 // Keyboard navigation: arrows move through visible suite headers and test rows,
 // Enter selects (or toggles a suite group), Ctrl+Enter runs the focused test,
 // Left/Right collapse/expand the containing group.
@@ -3067,6 +3264,7 @@ document.addEventListener('keydown', e => {
 window.diag('loaded', 'runner.html DOM ready');
 document.addEventListener('DOMContentLoaded', function () {
   window.diag('domcontentloaded');
+  initTheme();
   initColumnSplitters();
   updateRunButton();
   updateClearFilterChip();
