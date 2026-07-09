@@ -455,7 +455,7 @@ Public Sub SaveFile(Optional strAlternatePath As String)
         Case eotTestRun:  strBase = "TestRun"
         Case Else:        strBase = "Other"
     End Select
-    CleanupOldLogs strLogsFolder, strBase, Options.MaxLogFiles
+    CleanupOldLogs strLogsFolder, strBase & "_*.log", Options.MaxLogFiles
 End Sub
 
 
@@ -625,28 +625,41 @@ End Sub
 ' Procedure : CleanupOldLogs
 ' Author    : Adam Waller
 ' Date      : 1/26/2026
-' Purpose   : Delete oldest log files when count exceeds maximum.
+' Purpose   : Delete oldest matching files when count exceeds MaxLogFiles.
+'           : strPattern is a Like expression (e.g. "Export_*.log", "TestResults_*.json").
+'           : Enumerates via ScanFolderContents (Win32); filters with VBA Like.
+'           : Timestamped names sort chronologically; 0 = keep all.
 '---------------------------------------------------------------------------------------
 '
-Private Sub CleanupOldLogs(strFolder As String, strBase As String, lngMaxFiles As Long)
+Public Sub CleanupOldLogs(strFolder As String, strPattern As String, lngMaxFiles As Long)
 
-    Dim oFolder As Object
-    Dim oFile As Object
+    Dim colAll As New Collection
+    Dim colSub As New Collection
     Dim colFiles As Collection
+    Dim varFile As Variant
+    Dim lngIdx As Long
+    Dim strName As String
 
     ' 0 = keep all logs (no cleanup)
     If lngMaxFiles <= 0 Then Exit Sub
 
     Set colFiles = New Collection
-    Set oFolder = FSO.GetFolder(strFolder)
 
-    ' Collect matching archived log files
-    ' (Timestamp naming means alphabetical sort = chronological sort)
-    For Each oFile In oFolder.Files
-        If oFile.Name Like strBase & "_*.log" Then
-            colFiles.Add oFile.Path
+    ' Single Win32 pass; filter with VBA Like (not Win32 mask) for exact semantics
+    ScanFolderContents strFolder, colAll, colSub
+    For Each varFile In colAll
+        strName = FSO.GetFileName(CStr(varFile))
+        If strName Like strPattern Then
+            For lngIdx = 1 To colFiles.Count
+                If StrComp(strName, FSO.GetFileName(colFiles(lngIdx)), vbTextCompare) < 0 Then Exit For
+            Next lngIdx
+            If lngIdx > colFiles.Count Then
+                colFiles.Add CStr(varFile)
+            Else
+                colFiles.Add CStr(varFile), Before:=lngIdx
+            End If
         End If
-    Next oFile
+    Next varFile
 
     ' Delete oldest files if over limit
     Do While colFiles.Count > lngMaxFiles

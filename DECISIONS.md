@@ -81,6 +81,35 @@ contradictory guidance.
 
 ---
 
+## 2026-07-09 — TestResults JSON retention uses MaxLogFiles
+
+**Trigger**: `clsTestRunner.SaveResults` pruned ephemeral `TestResults_*.json` dumps
+with a hard-coded keep-10 constant and a private `PruneResultDumps` helper, while
+`TestRun_*.log` files in the same `logs/` folder already honor `Options.MaxLogFiles`
+via `clsLog.CleanupOldLogs`.
+
+**Options explored**:
+- **Separate `MaxTestResultFiles` option** — rejected: duplicates Advanced options UI
+  and splits retention policy for artifacts that live in the same folder.
+- **Parallel prune helper with MaxLogFiles** — rejected: duplicates `CleanupOldLogs`.
+- **Reuse `Log.CleanupOldLogs` + `MaxLogFiles` (chosen)** — generalize the existing
+  helper to accept a `Like` pattern; one code path and one knob for both
+  `TestRun_*.log` and `TestResults_*.json`; `0` keeps all.
+
+**Decision**: `SaveResults` calls `Log.CleanupOldLogs` with `"TestResults_*.json"`.
+`CleanupOldLogs` is public, pattern-based, and sorts by name so oldest timestamped
+files are deleted first. Enumeration uses `ScanFolderContents` (Win32) with VBA
+`Like` filtering — same pattern as `GetMatchingFilePaths`. Durable `test-results/`
+artifacts are unchanged.
+
+**What this rules out**: Per-artifact retention counts or a second prune
+implementation for test run history in `logs/`. Revisit only if JSON dumps and
+console logs need different lifetimes.
+
+**Relevant files**: `clsLog.cls` (`CleanupOldLogs`), `clsTestRunner.cls` (`SaveResults`)
+
+---
+
 ## 2026-07-09 — Bridge run commands resolve at acceptance, not completion
 
 **Trigger**: Any web-runner test run longer than 30 seconds toasted "Run failed: VBA call timed out: RunSelected" even while the run kept streaming results. The JS promise for `RunSelected`/`RunAll`/`RunFailed` was only resolved after the entire synchronous VBA run finished, but every `VBA.call` arms a 30 s timeout. A compile-error abort was worse: it skipped all stream events, leaving the page silent until the timeout fired.

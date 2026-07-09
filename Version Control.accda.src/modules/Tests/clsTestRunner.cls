@@ -1014,12 +1014,10 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Write test results to a timestamped JSON file in the logs folder.
+'           : Retention follows Options.MaxLogFiles via Log.CleanupOldLogs.
 '---------------------------------------------------------------------------------------
 '
 Public Function SaveResults() As String
-
-    ' Number of per-run TestResults_*.json dumps to retain in the logs folder.
-    Const TEST_RESULTS_KEEP As Long = 10
 
     Dim strFolder As String
     Dim strFile As String
@@ -1033,55 +1031,9 @@ Public Function SaveResults() As String
     WriteFile GetResultsAsJson, strFile
     SaveResults = strFile
 
-    PruneResultDumps strFolder, TEST_RESULTS_KEEP
+    Log.CleanupOldLogs strFolder, "TestResults_*.json", Options.MaxLogFiles
 
 End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : PruneResultDumps
-' Author    : Adam Waller
-' Date      : 7/9/2026
-' Purpose   : Keep only the newest N TestResults_*.json dumps in the logs folder.
-'           : The timestamped names sort chronologically, so no date parsing needed.
-'           : (Keep-N is safe here: the export folder has a single writer.)
-'---------------------------------------------------------------------------------------
-'
-Private Sub PruneResultDumps(ByVal strFolder As String, ByVal lngKeep As Long)
-
-    Dim oFile As Scripting.File
-    Dim colNames As New Collection
-    Dim varName As Variant
-    Dim lngIdx As Long
-    Dim lngDelete As Long
-
-    LogUnhandledErrors
-    On Error Resume Next
-
-    ' Collect matching names in sorted (chronological) order
-    For Each oFile In FSO.GetFolder(strFolder).Files
-        If oFile.Name Like "TestResults_*.json" Then
-            For lngIdx = 1 To colNames.Count
-                If StrComp(oFile.Name, colNames(lngIdx), vbTextCompare) < 0 Then Exit For
-            Next lngIdx
-            If lngIdx > colNames.Count Then
-                colNames.Add oFile.Name
-            Else
-                colNames.Add oFile.Name, Before:=lngIdx
-            End If
-        End If
-    Next oFile
-
-    ' Delete the oldest beyond the retention count
-    lngDelete = colNames.Count - lngKeep
-    For lngIdx = 1 To lngDelete
-        DeleteFile strFolder & colNames(lngIdx)
-    Next lngIdx
-
-    ' Locked files are not worth surfacing; fail quietly.
-    CatchAny eelNoError, vbNullString, ModuleName & ".PruneResultDumps", False, True
-
-End Sub
 
 
 '---------------------------------------------------------------------------------------
