@@ -216,6 +216,7 @@ Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinComm
 Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
     EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, command bar replica export, etc.
+    EFV_5_1_0 = 50100      ' Sidecar Info.Class names owning IDbComponent; not yet [_Last] (dormant).
     [_Last] = 50000
 End Enum
 

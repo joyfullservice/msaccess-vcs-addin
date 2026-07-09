@@ -196,7 +196,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Linked tables already have metadata included in their primary .json above.
     If Not IsLinkedTable Then
         ExportObjectMetadata strExportFolder & GetSafeFileName(m_Table.Name) & ".json", _
-            "Tables", m_Table.Name, acTable
+            "Tables", m_Table.Name, Me
     End If
 
     ' Remove any alternate source file in case we have switched formats

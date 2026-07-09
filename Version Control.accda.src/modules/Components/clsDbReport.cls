@@ -59,7 +59,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Export object metadata (doc properties + hidden attribute) into companion .json
     If strAlternatePath = vbNullString Then
-        ExportObjectMetadata SwapExtension(IDbComponent_SourceFile, "json"), "Reports", m_Report.Name, acReport
+        ExportObjectMetadata SwapExtension(IDbComponent_SourceFile, "json"), "Reports", m_Report.Name, Me
     End If
 
     ' Generate layout SVG if enabled

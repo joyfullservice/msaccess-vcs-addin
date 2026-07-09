@@ -70,7 +70,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Produced for both normal and alternate-path (temp) exports so that conflict
     ' detection can compare all files and the conflict dialog can offer per-file diffs.
     ExportObjectMetadata FSO.GetParentFolderName(Nz2(strAlternatePath, IDbComponent_SourceFile)) & PathSep _
-        & strSafeName & ".json", "Modules", m_Module.Name, acModule
+        & strSafeName & ".json", "Modules", m_Module.Name, Me
 
     ' Clean up stale files only during normal exports (not alternate/temp exports)
     If strAlternatePath = vbNullString Then

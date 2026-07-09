@@ -38,12 +38,12 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
-    strHash = SaveComponentAsText(acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
+    strHash = SaveComponentAsText(acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
 
     ' Export object metadata (doc properties + hidden attribute) into companion .json
     If strAlternatePath = vbNullString Then
         ExportObjectMetadata IDbComponent_BaseFolder & GetSafeFileName(m_Macro.Name) & ".json", _
-            "Scripts", m_Macro.Name, acMacro
+            "Scripts", m_Macro.Name, Me
     End If
 
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, _

@@ -29,7 +29,7 @@ Private Const ModuleName = "modLoadSaveText"
 Public Function SaveComponentAsText(intType As AcObjectType _
                                     , strName As String _
                                     , strFile As String _
-                                    , Optional cDbObjectClass As IDbComponent = Nothing) As String
+                                    , cDbObjectClass As IDbComponent) As String
 
     Const FunctionName As String = ModuleName & ".SaveComponentAsText"
 
@@ -106,7 +106,7 @@ Public Function SaveComponentAsText(intType As AcObjectType _
                 If Options.DecodeConditionalFormatting _
                     And Options.ExportFormatVersion >= EFV_5_0_0 Then
                     WriteConditionalFormatting strPrintSettingsFile, _
-                        .GetConditionalFormats, strName
+                        .GetConditionalFormats, strName, TypeName(cDbObjectClass)
                 End If
             End With
 
@@ -549,14 +549,28 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As String, _
-                                strObjectName As String, intObjType As AcObjectType)
+                                strObjectName As String, cDbObjectClass As IDbComponent)
 
     Dim dFile As Dictionary
     Dim dItems As Dictionary
     Dim dHeader As Dictionary
+    Dim strClass As String
+    Dim intObjType As AcObjectType
 
     ' Gate behind export format version
     If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Sub
+
+    ' The Access object type is derived from the component (edb* enum members
+    ' equal their AcObjectType counterparts for these standard object types).
+    intObjType = cDbObjectClass.ComponentType
+
+    ' The owning component class (e.g. clsDbForm) is recorded in Info.Class for
+    ' EFV_5_1_0+; earlier formats leave it empty for backward-compatible bytes.
+    If Options.ExportFormatVersion >= EFV_5_1_0 Then
+        strClass = TypeName(cDbObjectClass)
+    Else
+        strClass = vbNullString
+    End If
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -583,12 +597,15 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
         ' existing files like linked tables already have one and it is preserved)
         If Not dFile.Exists("Info") Then
             Set dHeader = New Dictionary
-            dHeader.Add "Class", vbNullString
+            dHeader.Add "Class", strClass
             dHeader.Add "Description", strObjectName & " Metadata"
             ' Build new dictionary with Info before Items for correct JSON key order
             Set dFile = New Dictionary
             dFile.Add "Info", dHeader
             dFile.Add "Items", dItems
+        ElseIf Options.ExportFormatVersion >= EFV_5_1_0 Then
+            Set dHeader = dFile("Info")
+            dHeader("Class") = strClass
         End If
         WriteFile ConvertToJson(dFile, JSON_WHITESPACE), strJsonFile
     Else
@@ -610,11 +627,20 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub WriteConditionalFormatting(strJsonFile As String, dCF As Dictionary, _
-                                      strObjectName As String)
+                                      strObjectName As String, strComponentClass As String)
 
     Dim dFile As Dictionary
     Dim dItems As Dictionary
     Dim dHeader As Dictionary
+    Dim strClass As String
+
+    ' Use the owning component class (e.g. clsDbForm) for EFV_5_1_0+; earlier
+    ' formats keep the legacy "clsSourceParser" value for backward-compatible bytes.
+    If Options.ExportFormatVersion >= EFV_5_1_0 And Len(strComponentClass) > 0 Then
+        strClass = strComponentClass
+    Else
+        strClass = "clsSourceParser"
+    End If
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -638,11 +664,14 @@ Public Sub WriteConditionalFormatting(strJsonFile As String, dCF As Dictionary, 
     If dItems.Count > 0 Then
         If Not dFile.Exists("Info") Then
             Set dHeader = New Dictionary
-            dHeader.Add "Class", "clsSourceParser"
+            dHeader.Add "Class", strClass
             dHeader.Add "Description", strObjectName & " Conditional Formatting"
             Set dFile = New Dictionary
             dFile.Add "Info", dHeader
             dFile.Add "Items", dItems
+        ElseIf Options.ExportFormatVersion >= EFV_5_1_0 Then
+            Set dHeader = dFile("Info")
+            dHeader("Class") = strClass
         End If
         WriteFile ConvertToJson(dFile, JSON_WHITESPACE), strJsonFile
     Else

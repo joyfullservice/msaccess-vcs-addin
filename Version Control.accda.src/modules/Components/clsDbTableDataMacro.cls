@@ -52,7 +52,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' doesn't, we have some error handling built into the export function below.
 
     ' Save structure in XML format
-    strHash = SaveComponentAsText(acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
+    strHash = SaveComponentAsText(acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
 
     ' Save index if we found an item to export
     If strHash <> vbNullString Then

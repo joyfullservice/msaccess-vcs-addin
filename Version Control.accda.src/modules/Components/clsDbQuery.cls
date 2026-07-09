@@ -495,7 +495,7 @@ Private Sub ExportLegacy(strFile As String, Optional blnAlternate As Boolean = F
     ' those are guarded by IDbComponent_Export, the only public caller.
     If Not m_Query Is Nothing Then strQueryName = m_Query.Name
 
-    strHash = SaveComponentAsText(acQuery, m_Query.Name, strFile)
+    strHash = SaveComponentAsText(acQuery, m_Query.Name, strFile, Me)
 
     If blnAlternate Then
         VCSIndex.Update Me, eatAltExport, strHash, _
