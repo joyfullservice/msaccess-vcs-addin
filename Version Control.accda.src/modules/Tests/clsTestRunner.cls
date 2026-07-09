@@ -296,6 +296,10 @@ Public Sub RunSelected(colTestKeys As Collection)
     If Not Application.IsCompiled Then
         modTestRunnerDiag.Diag "run.skip", "not compiled"
         Log.Add T("Project has compile errors. Please resolve before running tests."), , , "red"
+        ' Notify the web runner (no-op in console mode); this path exits before the
+        ' normal StreamRunCancelled/StreamRunComplete events, so without it the page
+        ' gets no feedback at all.
+        modTestRunnerUI.StreamRunError T("Project has compile errors. Please resolve before running tests.")
         this.State = etrsCancelled
         GoTo CleanUp
     End If
@@ -502,6 +506,31 @@ Public Sub RunFailed()
     If colKeys.Count > 0 Then RunSelected colKeys
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasFailedTests
+' Author    : Adam Waller
+' Date      : 7/9/2026
+' Purpose   : True when any discovered test is currently failed or errored (including
+'           : statuses reloaded from durable state).
+'---------------------------------------------------------------------------------------
+'
+Public Function HasFailedTests() As Boolean
+
+    Dim varKey As Variant
+    Dim dTest As Dictionary
+
+    If this.Tests Is Nothing Then Exit Function
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        If dTest("status") = etsFailed Or dTest("status") = etsErrored Then
+            HasFailedTests = True
+            Exit Function
+        End If
+    Next varKey
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -775,9 +804,12 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Serialize the current test results to a JSON string for persistence.
+'           : Optional artifact paths are included for automation callers (CI parses
+'           : the returned JSON to locate the JUnit XML and durable state files).
 '---------------------------------------------------------------------------------------
 '
-Public Function GetResultsAsJson() As String
+Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullString, _
+    Optional ByVal strStatePath As String = vbNullString) As String
 
     Dim dRoot As Dictionary
     Dim dSummary As Dictionary
@@ -799,6 +831,11 @@ Public Function GetResultsAsJson() As String
     dRoot.Add "databasePath", CurrentProject.FullName
     dRoot.Add "addinVersion", GetVCSVersion
     dRoot.Add "durationMs", RunDurationMs
+    dRoot.Add "cancelled", (this.State = etrsCancelled)
+    dRoot.Add "allPassed", (this.State <> etrsCancelled) And _
+        (this.FailedCount = 0 And this.ErroredCount = 0 And this.PassedCount > 0)
+    If Len(strJUnitPath) > 0 Then dRoot.Add "junitPath", strJUnitPath
+    If Len(strStatePath) > 0 Then dRoot.Add "statePath", strStatePath
 
     dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
     dSummary.Add "assertions", this.TotalAssertions
@@ -975,6 +1012,9 @@ End Function
 '
 Public Function SaveResults() As String
 
+    ' Number of per-run TestResults_*.json dumps to retain in the logs folder.
+    Const TEST_RESULTS_KEEP As Long = 10
+
     Dim strFolder As String
     Dim strFile As String
 
@@ -987,7 +1027,55 @@ Public Function SaveResults() As String
     WriteFile GetResultsAsJson, strFile
     SaveResults = strFile
 
+    PruneResultDumps strFolder, TEST_RESULTS_KEEP
+
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PruneResultDumps
+' Author    : Adam Waller
+' Date      : 7/9/2026
+' Purpose   : Keep only the newest N TestResults_*.json dumps in the logs folder.
+'           : The timestamped names sort chronologically, so no date parsing needed.
+'           : (Keep-N is safe here: the export folder has a single writer.)
+'---------------------------------------------------------------------------------------
+'
+Private Sub PruneResultDumps(ByVal strFolder As String, ByVal lngKeep As Long)
+
+    Dim oFile As Scripting.File
+    Dim colNames As New Collection
+    Dim varName As Variant
+    Dim lngIdx As Long
+    Dim lngDelete As Long
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Collect matching names in sorted (chronological) order
+    For Each oFile In FSO.GetFolder(strFolder).Files
+        If oFile.Name Like "TestResults_*.json" Then
+            For lngIdx = 1 To colNames.Count
+                If StrComp(oFile.Name, colNames(lngIdx), vbTextCompare) < 0 Then Exit For
+            Next lngIdx
+            If lngIdx > colNames.Count Then
+                colNames.Add oFile.Name
+            Else
+                colNames.Add oFile.Name, Before:=lngIdx
+            End If
+        End If
+    Next oFile
+
+    ' Delete the oldest beyond the retention count
+    lngDelete = colNames.Count - lngKeep
+    For lngIdx = 1 To lngDelete
+        DeleteFile strFolder & colNames(lngIdx)
+    Next lngIdx
+
+    ' Locked files are not worth surfacing; fail quietly.
+    CatchAny eelNoError, vbNullString, ModuleName & ".PruneResultDumps", False, True
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -2301,14 +2389,6 @@ Private Function CloneAssertionResults(ByVal colSrc As Collection) As Collection
             If Len(CStr(dA("context"))) > 0 Then
                 dCopy.Add "context", CStr(dA("context"))
             End If
-        End If
-        If dA.Exists("sourceText") Then
-            If Len(CStr(dA("sourceText"))) > 0 Then
-                dCopy.Add "sourceText", CStr(dA("sourceText"))
-            End If
-        End If
-        If dA.Exists("lineNumber") Then
-            dCopy.Add "lineNumber", CLng(Nz(dA("lineNumber"), 0))
         End If
         colOut.Add dCopy
     Next i

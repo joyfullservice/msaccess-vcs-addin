@@ -456,8 +456,18 @@ Private Sub DispatchRequest(ByVal strFnName As String, ByVal strRequestId As Str
     modTestRunnerDiag.Diag "dispatch", strFnName & " id=" & strRequestId
 
     On Error GoTo DispatchErr
-    strResult = modTestRunnerUI.DispatchBridgeCall(strFnName, strRequestId, strPayloadJson)
-    ResolveBridgeCall strRequestId, strResult
+    If modTestRunnerUI.IsRunCommand(strFnName) Then
+        ' Run commands block for the whole run, so resolve the JS promise with an
+        ' acceptance ack BEFORE executing; completion streams via onRunComplete /
+        ' onRunCancelled / onRunError. A raise from AcceptBridgeRun (validation
+        ' failure) still rejects the promise below.
+        strResult = modTestRunnerUI.AcceptBridgeRun(strFnName, strPayloadJson)
+        ResolveBridgeCall strRequestId, strResult
+        modTestRunnerUI.ExecutePendingBridgeRun
+    Else
+        strResult = modTestRunnerUI.DispatchBridgeCall(strFnName, strRequestId, strPayloadJson)
+        ResolveBridgeCall strRequestId, strResult
+    End If
     Exit Sub
 
 DispatchErr:
@@ -484,7 +494,9 @@ Private Sub DrainOutbox()
     Const FunctionName As String = ModuleName & ".DrainOutbox"
 
     Dim strJson As String
+    Dim strExpr As String
     Dim colQueue As Collection
+    Dim dRoot As Dictionary
     Dim dItem As Dictionary
     Dim i As Long
     Dim strFn As String
@@ -493,26 +505,51 @@ Private Sub DrainOutbox()
 
     Dim curStart As Currency
     Dim blnRetrieveErr As Boolean
+    Dim blnDiagEnabled As Boolean
 
     If m_ctlWeb Is Nothing Then Exit Sub
     If Not modTestRunnerUI.WebRunnerActive() Then Exit Sub
     If Not modTestRunnerUI.WebRunnerDocumentReady() Then Exit Sub
 
+    blnDiagEnabled = modTestRunnerDiag.DiagEnabled
+    If blnDiagEnabled Then
+        strExpr = "JSON.stringify({o:(window.__vbaOutbox||[]).splice(0,20)," & _
+            "d:(window.__diag?window.__diag.splice(0):[])})"
+    Else
+        strExpr = "JSON.stringify((window.__vbaOutbox || []).splice(0, 20))"
+    End If
+
     ' Time the drain's RetrieveJavascriptValue (the expensive part) even when it fails,
     ' so a timeout -- the slowest case -- is still recorded in the poll stats.
     curStart = Perf.MicroTimer
     On Error Resume Next
-    strJson = modTestRunnerUI.RetrieveJsValue(m_ctlWeb, _
-        "JSON.stringify((window.__vbaOutbox || []).splice(0, 20))")
+    strJson = modTestRunnerUI.RetrieveJsValue(m_ctlWeb, strExpr)
     blnRetrieveErr = (Err.Number <> 0)
     Err.Clear
     On Error GoTo CleanUp
 
     MonitorPoll (Perf.MicroTimer - curStart) * 1000, blnRetrieveErr
     If blnRetrieveErr Then GoTo CleanUp
-    If Len(strJson) = 0 Or strJson = "[]" Then GoTo CleanUp
+    If Len(strJson) = 0 Then GoTo CleanUp
 
-    Set colQueue = ParseJson(strJson)
+    If blnDiagEnabled Then
+        Set dRoot = ParseJson(strJson)
+        If TypeName(dRoot) <> "Dictionary" Then GoTo CleanUp
+        If dRoot.Exists("d") Then
+            If TypeName(dRoot("d")) = "Collection" Then
+                modTestRunnerDiag.DiagAppendItems dRoot("d")
+            End If
+        End If
+        If Not dRoot.Exists("o") Then GoTo CleanUp
+        If TypeName(dRoot("o")) <> "Collection" Then GoTo CleanUp
+        Set colQueue = dRoot("o")
+    Else
+        If strJson = "[]" Then GoTo CleanUp
+        Set colQueue = ParseJson(strJson)
+    End If
+
+    If colQueue.Count = 0 Then GoTo CleanUp
+
     For i = 1 To colQueue.Count
         Set dItem = colQueue(i)
         strFn = CStr(dItem("fn"))
@@ -533,7 +570,6 @@ Private Sub DrainOutbox()
     Next i
 
 CleanUp:
-    DrainDiag
     CatchAny eelWarning, vbNullString, FunctionName
 
 End Sub

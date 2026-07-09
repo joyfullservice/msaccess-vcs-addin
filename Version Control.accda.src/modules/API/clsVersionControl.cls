@@ -2036,6 +2036,33 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RunTestsHeadless
+' Author    : Adam Waller
+' Date      : 7/9/2026
+' Purpose   : Automation/CI entry point. Runs tests with no forms and no prompts
+'           : (missing modTestAssert is installed silently), always exports JUnit
+'           : XML, and returns a machine-readable JSON summary including allPassed,
+'           : cancelled, junitPath, and statePath. Same filter syntax as RunTests.
+'           : Example (COM automation):
+'           :   ?VCS.RunTestsHeadless("SQL", "-slow")
+'---------------------------------------------------------------------------------------
+'
+Public Function RunTestsHeadless(ParamArray varFilters() As Variant) As String
+
+    Dim blnFiltered As Boolean
+
+    blnFiltered = (UBound(varFilters) >= LBound(varFilters))
+
+    If blnFiltered Then
+        RunTestsHeadless = ExecuteTests(CVar(varFilters), True, blnHeadless:=True)
+    Else
+        RunTestsHeadless = ExecuteTests(Empty, False, blnHeadless:=True)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunFilteredTests
 ' Author    : Adam Waller
 ' Date      : 5/21/2026
@@ -2132,11 +2159,14 @@ End Sub
 ' Procedure : ExecuteTests
 ' Author    : Adam Waller
 ' Date      : 5/21/2026
-' Purpose   : Shared implementation for RunTests and RunFilteredTests. Scans for tests,
-'           : optionally applies filters, runs the suite, and returns a JSON summary.
+' Purpose   : Shared implementation for RunTests, RunFilteredTests, and
+'           : RunTestsHeadless. Scans for tests, optionally applies filters, runs the
+'           : suite, and returns a JSON summary. Headless mode is for automation/CI:
+'           : no forms, no prompts, console path forced, JUnit always exported.
 '---------------------------------------------------------------------------------------
 '
-Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As String
+Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
+    Optional ByVal blnHeadless As Boolean = False) As String
 
     Dim blnAllPassed As Boolean
     Dim lngPassed As Long
@@ -2149,17 +2179,25 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     Dim eimPriorMode As eInteractionMode
     Dim blnLogWasActive As Boolean
     Dim blnUseWebRunner As Boolean
+    Dim strJUnitPath As String
 
     If Not DatabaseFileOpen Then
-        MsgBox2 T("No Database Open"), _
-            T("Please open a database file before running tests."), _
-            , vbInformation
+        If blnHeadless Then
+            ExecuteTests = "{""error"":""No database open""}"
+        Else
+            MsgBox2 T("No Database Open"), _
+                T("Please open a database file before running tests."), _
+                , vbInformation
+        End If
         Exit Function
     End If
 
-    ' Ensure modTestAssert is present
+    ' Ensure modTestAssert is present (installed silently in headless mode; an
+    ' automation session has no one to answer a prompt)
     If Not TestAssertModuleExists Then
-        If vbYes = MsgBox2(T("Test Helper Not Found"), _
+        If blnHeadless Then
+            InstallTestAssertModule
+        ElseIf vbYes = MsgBox2(T("Test Helper Not Found"), _
             T("The modTestAssert module was not found in the current project."), _
             T("Would you like to install it now?"), _
             vbYesNo + vbQuestion) Then
@@ -2170,7 +2208,8 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     End If
 
     ' Offer to migrate if no module (other than modTestAssert) uses TestAssert yet
-    If Not TestAssertInUse Then
+    ' (skipped in headless mode)
+    If Not TestAssertInUse And Not blnHeadless Then
         If vbYes = MsgBox2(T("TestAssert Not In Use"), _
             T("No test modules are using TestAssert yet. Would you like to migrate " & _
               "Debug.Assert calls to TestAssert in your test modules?"), _
@@ -2185,7 +2224,8 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     eimPriorMode = Operation.InteractionMode
     blnLogWasActive = Log.Active
 
-    blnUseWebRunner = Options.UseWebTestRunner And modTestRunnerUI.EdgeTestRunnerSupported()
+    blnUseWebRunner = Options.UseWebTestRunner And modTestRunnerUI.EdgeTestRunnerSupported() _
+        And Not blnHeadless
 
     ' Web runner path: open the form only. Do NOT begin an Operation here — bridge
     ' callbacks own the operation lifecycle when the user clicks Run. Beginning here
@@ -2212,7 +2252,8 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     Log.Active = True
     Log.ClearErrorJournal
 
-    PrepareTestConsole
+    ' No console form in headless mode (automation sessions have no UI to update)
+    If Not blnHeadless Then PrepareTestConsole
 
     ' Build filter description for log heading
     If blnFiltered Then
@@ -2244,7 +2285,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
 
     If TestRunner.Tests.Count = 0 Then
         Log.Add T("No test subs found in the current project.")
-        FinalizeTestConsole True
+        If Not blnHeadless Then FinalizeTestConsole True
         Log.Active = blnLogWasActive
         Log.SuppressDebugOutput = False
         Operation.InteractionMode = eimPriorMode
@@ -2257,7 +2298,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
         Set colKeys = TestRunner.ResolveFilters(varFilters)
         If colKeys.Count = 0 Then
             Log.Add T("No tests found matching filter: {0}", var0:=strFilter)
-            FinalizeTestConsole True
+            If Not blnHeadless Then FinalizeTestConsole True
             Log.Active = blnLogWasActive
             Log.SuppressDebugOutput = False
             Operation.InteractionMode = eimPriorMode
@@ -2284,6 +2325,9 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
     strJsonPath = TestRunner.SaveResults
     modTestState.PersistAfterRun
 
+    ' CI must always get the JUnit XML, regardless of the export option
+    If blnHeadless Then strJUnitPath = modTestJUnit.ExportFromState()
+
     ' Detect cancellation (before computing summary, so "all passed" is not
     ' incorrectly reported when only a subset ran before the user canceled)
     Dim blnCanceled As Boolean
@@ -2306,8 +2350,12 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean) As 
         .SaveFile
     End With
 
-    FinalizeTestConsole blnAllPassed, Log.LogFilePath, blnCanceled, strJsonPath
-    ExecuteTests = TestRunner.GetResultsAsJson
+    If blnHeadless Then
+        ExecuteTests = TestRunner.GetResultsAsJson(strJUnitPath, modTestState.GetStateFilePath)
+    Else
+        FinalizeTestConsole blnAllPassed, Log.LogFilePath, blnCanceled, strJsonPath
+        ExecuteTests = TestRunner.GetResultsAsJson
+    End If
 
     TestRunner.InvokeGlobalTestTeardown
 

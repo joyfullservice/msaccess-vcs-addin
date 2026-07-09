@@ -15,7 +15,11 @@ Private Const ModuleName As String = "modTestRunnerUI"
 Private Const ALLOWED_CALLBACKS As String = "RunAll,RunSelected,RunFailed,Cancel,OpenTestSource,ReportJsError,RefreshTests,OpenResultsReport"
 Private Const JS_RETRIEVE_TIMEOUT_SENTINEL As String = "RetrieveJavascriptValue timed out"
 Private Const MIN_EDGE_BUILD As Long = 16327
-Private Const WEB_RUNNER_CACHE_PREFIX As String = "MSAccessVCS_TestRunner"
+Private Const WEB_RUNNER_CACHE_FOLDER As String = "TestRunnerCache"
+
+' Keep aligned with VBA_CALL_TIMEOUT_MS in runner.html (values cannot be shared
+' across the JS/VBA boundary).
+Public Const WEB_RUNNER_READY_TIMEOUT_MS As Long = 30000
 
 Private m_blnWebRunnerActive As Boolean
 Private m_blnDocumentReady As Boolean
@@ -25,6 +29,11 @@ Private m_strPendingTreeJson As String
 Private m_strPendingDefaultFilter As String
 Private m_varEdgeBuildCached As Variant
 Private m_strHtmlCacheFolder As String
+
+' Run command accepted (ack sent to JS) and awaiting execution on the timer stack.
+Private m_strPendingRunFn As String
+Private m_colPendingRunKeys As Collection
+Private m_blnPendingRunSetup As Boolean ' a new Operation was begun; invoke global setup hook
 
 
 '---------------------------------------------------------------------------------------
@@ -340,7 +349,7 @@ End Sub
 '           : results into a blank page.
 '---------------------------------------------------------------------------------------
 '
-Public Sub WaitForWebRunnerReady(Optional ByVal lngTimeoutMs As Long = 30000)
+Public Sub WaitForWebRunnerReady(Optional ByVal lngTimeoutMs As Long = WEB_RUNNER_READY_TIMEOUT_MS)
 
     Dim curStart As Currency
     Dim curLimit As Currency
@@ -516,6 +525,29 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : StreamRunError
+' Author    : Adam Waller
+' Date      : 7/9/2026
+' Purpose   : Push TestUI.onRunError when a run fails before or outside the normal
+'           : completion path (compile errors, failures after the acceptance ack).
+'           : No-ops in console mode.
+'---------------------------------------------------------------------------------------
+'
+Public Sub StreamRunError(ByVal strMessage As String)
+
+    Dim dPayload As Dictionary
+
+    If Not WebRunnerReady() Then Exit Sub
+
+    Set dPayload = New Dictionary
+    dPayload.Add "message", strMessage
+    PushTestUI "onRunError", ConvertToJson(dPayload)
+    DoEvents
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : PushTestUI
 ' Author    : Adam Waller
 ' Date      : 7/7/2026
@@ -547,13 +579,15 @@ End Sub
 ' Procedure : ResolveRunnerHtmlPath
 ' Author    : Adam Waller
 ' Date      : 7/7/2026
-' Purpose   : Return a space-free local path to the runner HTML. The HTML is not
-'           : co-located with the compiled add-in, so it is delivered as an embedded
-'           : resource (tblResources) and extracted to a per-session temp folder. A
-'           : dev fallback copies straight from the source tree when the resource has
-'           : not been embedded yet. The temp folder is used because the Edge control
-'           : silently fails to load https://msaccess/ URLs that contain spaces (and
-'           : the source path under "Version Control.accda.src" has one).
+' Purpose   : Return a local path to the runner HTML. The HTML is not co-located with
+'           : the compiled add-in, so it is delivered as an embedded resource
+'           : (tblResources) and extracted to a stable subfolder under the add-in
+'           : install path (CodeProject.Path\TestRunnerCache\). A dev fallback copies
+'           : straight from the source tree when the resource has not been embedded
+'           : yet. A stable path keeps the https://msaccess/ navigate URL constant
+'           : across sessions so WebView2 localStorage (Recent filters, column widths)
+'           : persists. ResolveRunnerNavigateUrl applies GetShortPath when the path
+'           : contains spaces.
 '---------------------------------------------------------------------------------------
 '
 Public Function ResolveRunnerHtmlPath() As String
@@ -568,9 +602,9 @@ Public Function ResolveRunnerHtmlPath() As String
     strFileName = "runner.html"
     strKey = "Test Runner HTML"
 
-    ' Stable, space-free extraction folder for the life of the session
+    ' Stable extraction folder under the add-in install path (constant navigate URL).
     If Len(m_strHtmlCacheFolder) = 0 Or Not FSO.FolderExists(m_strHtmlCacheFolder) Then
-        m_strHtmlCacheFolder = GetTempFolder(WEB_RUNNER_CACHE_PREFIX) & PathSep
+        m_strHtmlCacheFolder = CodeProject.Path & PathSep & WEB_RUNNER_CACHE_FOLDER & PathSep
         VerifyPath m_strHtmlCacheFolder & "placeholder"
     End If
     strTarget = m_strHtmlCacheFolder & strFileName
@@ -651,13 +685,10 @@ Public Function DispatchBridgeCall(ByVal strFnName As String, ByVal strRequestId
         Err.Raise vbObjectError + 513, FunctionName, "Unknown or disallowed function: " & strFnName
     End If
 
+    ' Run commands (RunAll/RunSelected/RunFailed) are dispatched via AcceptBridgeRun /
+    ' ExecutePendingBridgeRun so the JS promise is resolved at acceptance, not after
+    ' the (long, blocking) run completes. See frmVCSTestRunner.DispatchRequest.
     Select Case strFnName
-        Case "RunAll"
-            DispatchBridgeCall = BridgeRunAll(strPayloadJson)
-        Case "RunSelected"
-            DispatchBridgeCall = BridgeRunSelected(strPayloadJson)
-        Case "RunFailed"
-            DispatchBridgeCall = BridgeRunFailed(strPayloadJson)
         Case "Cancel"
             DispatchBridgeCall = BridgeCancel(strPayloadJson)
         Case "OpenTestSource"
@@ -710,69 +741,149 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : BridgeRunAll
+' Procedure : IsRunCommand
 ' Author    : Adam Waller
-' Date      : 7/7/2026
-' Purpose   : Re-run all discovered tests from the web UI.
+' Date      : 7/9/2026
+' Purpose   : True for bridge commands that start a (long, blocking) test run. These
+'           : are acknowledged at acceptance rather than resolved after completion.
 '---------------------------------------------------------------------------------------
 '
-Public Function BridgeRunAll(ByVal strPayloadJson As String) As String
-    ExecuteBridgeRun Nothing
-    BridgeRunAll = "{""ok"":true}"
+Public Function IsRunCommand(ByVal strFnName As String) As Boolean
+    Select Case strFnName
+        Case "RunAll", "RunSelected", "RunFailed"
+            IsRunCommand = True
+    End Select
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : BridgeRunSelected
+' Procedure : AcceptBridgeRun
 ' Author    : Adam Waller
-' Date      : 7/7/2026
-' Purpose   : Run an explicit list of test keys supplied by the web UI.
+' Date      : 7/9/2026
+' Purpose   : Validate and accept a run command from the web UI, returning the ack JSON
+'           : that resolves the JS promise BEFORE the run executes. Raises (-> promise
+'           : reject) on validation failure. Only the fast part of run startup happens
+'           : here; the global test setup hook (unbounded user code) is deferred to
+'           : ExecutePendingBridgeRun so the ack cannot time out.
 '---------------------------------------------------------------------------------------
 '
-Public Function BridgeRunSelected(ByVal strPayloadJson As String) As String
+Public Function AcceptBridgeRun(ByVal strFnName As String, ByVal strPayloadJson As String) As String
+
+    Const FunctionName As String = ModuleName & ".AcceptBridgeRun"
 
     Dim dPayload As Dictionary
     Dim colKeys As Collection
     Dim varItem As Variant
 
-    Set dPayload = ParseJson(IIf(Len(strPayloadJson) > 0, strPayloadJson, "{}"))
-    Set colKeys = New Collection
+    If TestRunner.State = etrsRunning Then
+        Err.Raise vbObjectError + 515, FunctionName, T("Tests are already running")
+    End If
 
-    If TypeName(dPayload) = "Dictionary" Then
-        If dPayload.Exists("testKeys") Then
-            If TypeName(dPayload("testKeys")) = "Collection" Then
-                For Each varItem In dPayload("testKeys")
-                    colKeys.Add CStr(varItem)
-                Next varItem
+    ' Validate the request before accepting it
+    Select Case strFnName
+        Case "RunSelected"
+            Set dPayload = ParseJson(IIf(Len(strPayloadJson) > 0, strPayloadJson, "{}"))
+            Set colKeys = New Collection
+            If TypeName(dPayload) = "Dictionary" Then
+                If dPayload.Exists("testKeys") Then
+                    If TypeName(dPayload("testKeys")) = "Collection" Then
+                        For Each varItem In dPayload("testKeys")
+                            colKeys.Add CStr(varItem)
+                        Next varItem
+                    End If
+                End If
             End If
+            If colKeys.Count = 0 Then
+                Err.Raise vbObjectError + 514, FunctionName, T("No test keys supplied")
+            End If
+        Case "RunFailed"
+            If Not TestRunner.HasFailedTests Then
+                Err.Raise vbObjectError + 514, FunctionName, T("No failed tests to run")
+            End If
+    End Select
+
+    ' Suppress Immediate window output while the web runner hosts the run.
+    Log.SuppressDebugOutput = True
+
+    ClearOrphanedTestOperation
+
+    m_blnPendingRunSetup = False
+    If Operation.Status <> eosRunning Then
+        If Not Operation.Begin(eotTestRun) Then
+            Log.SuppressDebugOutput = False
+            Err.Raise vbObjectError + 515, FunctionName, T("Could not begin test operation")
         End If
+        Log.Active = True
+        m_blnPendingRunSetup = True
     End If
 
-    If colKeys.Count = 0 Then
-        Err.Raise vbObjectError + 514, ModuleName & ".BridgeRunSelected", "No test keys supplied"
-    End If
+    m_strPendingRunFn = strFnName
+    Set m_colPendingRunKeys = colKeys
 
-    ExecuteBridgeRun colKeys
-    BridgeRunSelected = "{""ok"":true}"
+    modTestRunnerDiag.Diag "run.accept", strFnName
+    AcceptBridgeRun = "{""ok"":true,""accepted"":true}"
 
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : BridgeRunFailed
+' Procedure : ExecutePendingBridgeRun
 ' Author    : Adam Waller
-' Date      : 7/7/2026
-' Purpose   : Re-run failed/errored tests from the web UI.
+' Date      : 7/9/2026
+' Purpose   : Execute the run accepted by AcceptBridgeRun. The JS promise was already
+'           : resolved with the acceptance ack, so failures from here on are streamed
+'           : to the page as onRunError (never raised back through the bridge), and
+'           : teardown is guaranteed so the next run is not blocked by an orphaned
+'           : operation.
 '---------------------------------------------------------------------------------------
 '
-Public Function BridgeRunFailed(ByVal strPayloadJson As String) As String
+Public Sub ExecutePendingBridgeRun()
 
-    BeginInteractiveBridgeRun
-    TestRunner.RunFailed
+    Const FunctionName As String = ModuleName & ".ExecutePendingBridgeRun"
+
+    Dim strFnName As String
+    Dim colKeys As Collection
+    Dim blnInvokeSetup As Boolean
+    Dim strErrMsg As String
+
+    If Len(m_strPendingRunFn) = 0 Then Exit Sub
+
+    ' Copy and clear the pending state up front so a failure cannot leave a stale run.
+    strFnName = m_strPendingRunFn
+    Set colKeys = m_colPendingRunKeys
+    blnInvokeSetup = m_blnPendingRunSetup
+    m_strPendingRunFn = vbNullString
+    Set m_colPendingRunKeys = Nothing
+    m_blnPendingRunSetup = False
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    If blnInvokeSetup Then TestRunner.InvokeGlobalTestSetup
+
+    Select Case strFnName
+        Case "RunAll"
+            TestRunner.RunAll
+        Case "RunSelected"
+            TestRunner.RunSelected colKeys
+        Case "RunFailed"
+            TestRunner.RunFailed
+    End Select
+
     EndInteractiveBridgeRun
-    BridgeRunFailed = "{""ok"":true}"
+    Exit Sub
 
-End Function
+ErrHandler:
+    strErrMsg = Err.Description
+    CatchAny eelError, T("Test run failed"), FunctionName
+    On Error Resume Next
+    modTestRunnerDiag.Diag "run.execute.error", strFnName & " | " & strErrMsg
+    StreamRunError strErrMsg
+    If Operation.Status = eosRunning Then Operation.Finish eorFailed
+    Log.SuppressDebugOutput = False
+    Err.Clear
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -1303,29 +1414,6 @@ CleanUp:
 End Function
 
 
-Private Sub BeginInteractiveBridgeRun()
-
-    If TestRunner.State = etrsRunning Then
-        Err.Raise vbObjectError + 515, ModuleName & ".BeginInteractiveBridgeRun", T("Tests are already running")
-    End If
-
-    ' Suppress Immediate window output while the web runner hosts the run.
-    Log.SuppressDebugOutput = True
-
-    ClearOrphanedTestOperation
-
-    If Operation.Status <> eosRunning Then
-        If Not Operation.Begin(eotTestRun) Then
-            Log.SuppressDebugOutput = False
-            Err.Raise vbObjectError + 515, ModuleName & ".BeginInteractiveBridgeRun", T("Could not begin test operation")
-        End If
-        Log.Active = True
-        TestRunner.InvokeGlobalTestSetup
-    End If
-
-End Sub
-
-
 Private Sub EndInteractiveBridgeRun()
 
     If Operation.Status = eosRunning Then
@@ -1340,20 +1428,5 @@ Private Sub EndInteractiveBridgeRun()
     ' Teardown (and ActiveVBProject switches during the run) can leave the VBE in
     ' the foreground when it was already open. Return focus to the runner form.
     RefocusWebRunner
-
-End Sub
-
-
-Private Sub ExecuteBridgeRun(ByVal colKeys As Collection)
-
-    BeginInteractiveBridgeRun
-
-    If colKeys Is Nothing Then
-        TestRunner.RunAll
-    Else
-        TestRunner.RunSelected colKeys
-    End If
-
-    EndInteractiveBridgeRun
 
 End Sub

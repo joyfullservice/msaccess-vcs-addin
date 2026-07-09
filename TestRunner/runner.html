@@ -748,6 +748,28 @@
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
+
+  /* Keyboard focus indicator for list/sidebar navigation */
+  .test-row:focus-visible,
+  .suite-group-header:focus-visible,
+  .suite-item:focus-visible,
+  .folder-header:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  /* Run command dispatched, onRunStart not yet received: swap the glyph for a
+     spinner. font-size: 0 collapses the glyph text; the border keeps the button's
+     text color via the element's own color. */
+  .btn.pending .btn-icon {
+    width: 11px;
+    height: 11px;
+    font-size: 0;
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
   
   .test-name {
     flex: 1;
@@ -929,39 +951,12 @@
     color: var(--text-secondary);
   }
   
-  .assertion-line {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    background: var(--bg-tertiary);
-    padding: 1px 5px;
-    border-radius: 3px;
-    cursor: pointer;
-  }
-  
-  .assertion-line:hover { color: var(--accent); }
-  
   .assertion-source {
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-primary);
     word-break: break-all;
     line-height: 1.5;
-  }
-  
-  .assertion-context {
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid var(--border);
-    font-size: 11px;
-    color: var(--text-secondary);
-  }
-  
-  .assertion-context-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-tertiary);
-    margin-right: 6px;
   }
   
   .error-block {
@@ -1148,6 +1143,15 @@ window.diag = function(t, m) {
   } catch (e) {}
 };
 
+// Keep aligned with WEB_RUNNER_READY_TIMEOUT_MS in modTestRunnerUI.bas (values
+// cannot be shared across the JS/VBA boundary). Applies to request/response calls
+// only -- run commands resolve at acceptance (see dispatchRun) so a long run can
+// never trip this.
+const VBA_CALL_TIMEOUT_MS = 30000;
+// Time allowed between the acceptance ack and onRunStart before the pending UI
+// resets. Generous: VBA compiles all modules before streaming onRunStart.
+const RUN_START_WATCHDOG_MS = 60000;
+
 window.VBA = {
   _pending: new Map(),
   _connected: false,
@@ -1170,7 +1174,7 @@ window.VBA = {
           this._pending.get(id).reject(new Error('VBA call timed out: ' + fnName));
           this._pending.delete(id);
         }
-      }, 30000);
+      }, VBA_CALL_TIMEOUT_MS);
     });
   }
 };
@@ -1210,6 +1214,8 @@ const state = {
   focusKind: null,   // null | 'failed'
   tagIndex: {},
   running: false,
+  pendingRun: false,       // run command dispatched, onRunStart not yet received
+  runStartWatchdog: null,  // timer handle guarding the ack -> onRunStart gap
   startTime: 0,
   durationTimer: null,
   projectName: '',
@@ -1250,10 +1256,6 @@ const el = (tag, props, children) => {
   }
   return e;
 };
-
-const escapeHtml = s => String(s || '').replace(/[&<>"']/g, c => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-}[c]));
 
 const toast = (msg, ms) => {
   const t = $('toast');
@@ -1925,6 +1927,12 @@ function renderSidebar(tree) {
     ]));
   }
   
+  // Keyboard access: sidebar entries activate with Enter/Space (see keydown
+  // handler in the wire-up section).
+  for (const n of root.querySelectorAll('.suite-item, .folder-header')) {
+    n.tabIndex = 0;
+  }
+
   updateSidebarActive();
   updateClearFilterChip();
 }
@@ -2129,6 +2137,30 @@ function renderTestList() {
   for (const { key, suite, tests } of suitesToShow) {
     list.appendChild(renderSuiteGroup(key, suite, tests));
   }
+  initListRovingFocus();
+}
+
+// =============================================================================
+// Keyboard navigation (test list)
+// =============================================================================
+// Roving tabindex: exactly one list item (suite header or test row) is tabbable;
+// arrows move focus, Enter selects, Ctrl+Enter runs, Left/Right collapse/expand.
+function getListNavItems() {
+  return Array.from(document.querySelectorAll(
+    '#test-list .suite-group-header, #test-list .test-row'
+  )).filter(n => n.offsetParent !== null); // skip collapsed/status-filtered items
+}
+
+function initListRovingFocus() {
+  const first = getListNavItems()[0];
+  if (first) first.tabIndex = 0;
+}
+
+function setListFocus(item) {
+  if (!item) return;
+  for (const n of getListNavItems()) n.tabIndex = -1;
+  item.tabIndex = 0;
+  item.focus();
 }
 
 function renderSuiteGroup(suiteKey, suite, tests) {
@@ -2145,6 +2177,7 @@ function renderSuiteGroup(suiteKey, suite, tests) {
   
   const header = el('div', {
     className: 'suite-group-header',
+    tabIndex: -1,
     onclick: () => group.classList.toggle('collapsed')
   }, [
     el('span', { className: 'suite-group-chevron', text: '▼' }),
@@ -2175,6 +2208,7 @@ function renderTestRow(test) {
   const row = el('div', {
     className: 'test-row ' + status,
     dataset: { testKey: test.key },
+    tabIndex: -1,
     onclick: () => selectTest(test.key)
   });
   
@@ -2280,7 +2314,11 @@ function updateTestRow(testKey) {
   if (!test) return;
   
   const newRow = renderTestRow(test);
+  // Preserve keyboard focus across the surgical row replacement.
+  const hadFocus = document.activeElement === oldRow;
+  newRow.tabIndex = oldRow.tabIndex;
   oldRow.replaceWith(newRow);
+  if (hadFocus) newRow.focus();
   
   const group = newRow.closest('.suite-group');
   if (group) {
@@ -2408,48 +2446,29 @@ function renderDetailPane() {
 }
 
 function renderAssertionBlock(a, test) {
+  // Contract per assertion: seq (1-based), passed (bool), context (optional string).
+  // Same fields as test-state.json and results.html — VBA cannot capture call-site
+  // source/line info (assertions arrive via Application.Run), so no sourceText here.
   const block = el('div', {
     className: 'assertion-block ' + (a.passed ? 'pass' : 'fail')
   });
-  
+
   const header = el('div', { className: 'assertion-header' });
   const status = el('span', {
     className: 'status-icon ' + (a.passed ? 'pass' : 'fail'),
     text: a.passed ? '✓' : '✗'
   });
   header.appendChild(status);
-  header.appendChild(document.createTextNode('Assertion ' + a.sequenceIndex));
-  if (a.lineNumber) {
-    header.appendChild(el('span', {
-      className: 'assertion-line',
-      text: 'line ' + a.lineNumber,
-      onclick: e => {
-        e.stopPropagation();
-        openSource(test.module, test.procName, a.lineNumber);
-      }
+  header.appendChild(document.createTextNode('Assertion ' + a.seq));
+  block.appendChild(header);
+
+  if (a.context && a.context.length > 0) {
+    block.appendChild(el('div', {
+      className: 'assertion-source',
+      text: a.context
     }));
   }
-  block.appendChild(header);
-  
-  block.appendChild(el('div', {
-    className: 'assertion-source',
-    text: a.sourceText || '(source unavailable)'
-  }));
-  
-  if (a.context && a.context.length > 0) {
-    block.appendChild(el('div', { className: 'assertion-context' }, [
-      el('span', { className: 'assertion-context-label', text: 'context' }),
-      document.createTextNode(a.context)
-    ]));
-  }
-  
-  if (!a.passed && a.message) {
-    block.appendChild(el('div', { className: 'assertion-context' }, [
-      el('span', { className: 'assertion-context-label', text: 'message' }),
-      document.createTextNode(a.message)
-    ]));
-  }
-  
+
   return block;
 }
 
@@ -2459,12 +2478,50 @@ function openSource(module, procName, lineNumber) {
     .catch(err => toast('Could not open source: ' + (err && err.message ? err.message : err)));
 }
 
+// Toggle the in-flight state between a run command's dispatch and onRunStart.
+function setRunPending(on, btn) {
+  state.pendingRun = on;
+  $('btn-run-all').disabled = on;
+  $('btn-rerun-failed').disabled = on ||
+    (state.counts.failed + state.counts.errored) === 0;
+  $('btn-refresh').disabled = on;
+  document.querySelectorAll('.btn.pending').forEach(b => b.classList.remove('pending'));
+  if (on && btn) btn.classList.add('pending');
+}
+
+function clearRunStartWatchdog() {
+  if (state.runStartWatchdog) {
+    clearTimeout(state.runStartWatchdog);
+    state.runStartWatchdog = null;
+  }
+}
+
+// Dispatch a run command. The promise resolves at VBA's acceptance ack (before the
+// run executes); the run lifecycle then arrives via onRunStart / onRunComplete /
+// onRunCancelled / onRunError. Rejection means the run was refused before starting.
+function dispatchRun(fnName, params, btn) {
+  if (state.running || state.pendingRun) { toast('A run is already in progress'); return; }
+  setRunPending(true, btn);
+  clearRunStartWatchdog();
+  state.runStartWatchdog = setTimeout(() => {
+    if (state.pendingRun && !state.running) {
+      setRunPending(false);
+      toast('Run did not start — see the diagnostic trace log');
+    }
+  }, RUN_START_WATCHDOG_MS);
+  VBA.call(fnName, params)
+    .then(() => { /* accepted; onRunStart will arrive */ })
+    .catch(err => {
+      clearRunStartWatchdog();
+      setRunPending(false);
+      toast('Run failed: ' + (err && err.message ? err.message : err));
+    });
+}
+
 // Run a specific set of tests (a single test or a whole suite) on demand.
-function runTests(testKeys) {
-  if (state.running) { toast('A run is already in progress'); return; }
+function runTests(testKeys, btn) {
   if (!testKeys || !testKeys.length) return;
-  VBA.call('RunSelected', { testKeys: testKeys })
-    .catch(err => toast('Run failed: ' + (err && err.message ? err.message : err)));
+  dispatchRun('RunSelected', { testKeys: testKeys }, btn);
 }
 
 function countAllTests() {
@@ -2723,6 +2780,8 @@ window.TestUI = {
     const isPartial = keys.length > 0 && keys.length < total;
     window.diag('onRunStart', 'keys=' + keys.length + ' total=' + total + ' partial=' + isPartial);
     
+    clearRunStartWatchdog();
+    setRunPending(false);
     state.running = true;
     state.cancelling = false;
     state.runKeys = keys.slice();
@@ -2766,23 +2825,11 @@ window.TestUI = {
     scrollSuiteIntoView(test.module);
   }),
   
-  onAssertionResult: guardTestUI('onAssertionResult', function (assertion) {
-    const r = state.results.get(assertion.testKey);
-    if (!r) return;
-    if (!r.assertions) r.assertions = [];
-    r.assertions.push(assertion);
-    
-    if (state.selectedTest === assertion.testKey) {
-      renderDetailPane();
-    }
-  }),
-  
   onTestComplete: guardTestUI('onTestComplete', function (result) {
     window.diag('onTestComplete', (result && result.testKey) + ' ' + (result && result.status));
-    const existing = state.results.get(result.testKey) || {};
     state.results.set(result.testKey, {
       status: result.status,
-      assertions: result.assertions || existing.assertions || [],
+      assertions: result.assertions || [],
       durationMs: result.durationMs,
       errorMessage: result.errorMessage
     });
@@ -2799,6 +2846,8 @@ window.TestUI = {
   
   onRunComplete: guardTestUI('onRunComplete', function (summary) {
     window.diag('onRunComplete', 'totalMs=' + (summary && summary.totalMs));
+    clearRunStartWatchdog();
+    setRunPending(false);
     const keys = state.runKeys || [];
     const rc = computeRunCounts(keys);
     state.lastRunKeys = keys.slice();
@@ -2825,6 +2874,8 @@ window.TestUI = {
   }),
   
   onRunCancelled: guardTestUI('onRunCancelled', function () {
+    clearRunStartWatchdog();
+    setRunPending(false);
     state.running = false;
     state.cancelling = false;
     state.runKeys = null;
@@ -2836,6 +2887,27 @@ window.TestUI = {
     $('btn-cancel').disabled = false;
     updatePageHeader();
     toast('Run cancelled');
+  }),
+
+  // A run failed before/outside the normal completion path (compile errors, a
+  // failure after the acceptance ack). Reset the run UI and surface the message.
+  onRunError: guardTestUI('onRunError', function (payload) {
+    const msg = (payload && payload.message) ? payload.message : 'Run failed';
+    window.diag('onRunError', msg);
+    clearRunStartWatchdog();
+    setRunPending(false);
+    state.running = false;
+    state.cancelling = false;
+    state.runKeys = null;
+    stopDurationTimer();
+    updateStats();
+    $('btn-run-all').disabled = false;
+    $('btn-rerun-failed').disabled = (state.counts.failed + state.counts.errored) === 0;
+    $('btn-refresh').disabled = false;
+    $('btn-cancel').style.display = 'none';
+    $('btn-cancel').disabled = false;
+    updatePageHeader();
+    toast('Run failed: ' + msg, 6000);
   }),
   
   onJsError(entry) {
@@ -2854,23 +2926,23 @@ window.TestUI = {
 // Wire up controls
 // =============================================================================
 $('btn-run-all').addEventListener('click', () => {
-  if (state.running) return;
+  if (state.running || state.pendingRun) return;
   const keys = getVisibleTestKeys();
   if (!keys.length) {
     toast('No tests to run');
     return;
   }
-  runTests(keys);
+  runTests(keys, $('btn-run-all'));
 });
 
 $('btn-rerun-failed').addEventListener('click', () => {
-  if (state.running) return;
+  if (state.running || state.pendingRun) return;
   focusFailedTests();   // filter the list to the failed set so we watch it re-run
-  VBA.call('RunFailed').catch(err => toast('Rerun failed: ' + err.message));
+  dispatchRun('RunFailed', {}, $('btn-rerun-failed'));
 });
 
 $('btn-refresh').addEventListener('click', () => {
-  if (state.running) return;
+  if (state.running || state.pendingRun) return;
   VBA.call('RefreshTests')
     .then(() => toast('Test list refreshed'))
     .catch(err => toast('Refresh failed: ' + err.message));
@@ -2880,6 +2952,60 @@ $('btn-open-report').addEventListener('click', () => {
   VBA.call('OpenResultsReport')
     .then(() => toast('Opened test results report'))
     .catch(err => toast('Could not open report: ' + (err && err.message ? err.message : err)));
+});
+
+// Keyboard navigation: arrows move through visible suite headers and test rows,
+// Enter selects (or toggles a suite group), Ctrl+Enter runs the focused test,
+// Left/Right collapse/expand the containing group.
+$('test-list').addEventListener('keydown', e => {
+  const t = e.target;
+  const isRow = t.classList && t.classList.contains('test-row');
+  const isHeader = t.classList && t.classList.contains('suite-group-header');
+  if (!isRow && !isHeader) return;
+
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const items = getListNavItems();
+    const idx = items.indexOf(t);
+    if (idx < 0) return;
+    setListFocus(items[idx + (e.key === 'ArrowDown' ? 1 : -1)] || t);
+  } else if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    if (isRow && e.ctrlKey) {
+      runTests([t.dataset.testKey]);
+    } else if (isRow) {
+      selectTest(t.dataset.testKey);
+    } else {
+      t.closest('.suite-group').classList.toggle('collapsed');
+    }
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    const group = t.closest('.suite-group');
+    if (!group) return;
+    e.preventDefault();
+    if (isHeader) {
+      group.classList.toggle('collapsed', e.key === 'ArrowLeft');
+    } else if (e.key === 'ArrowLeft') {
+      setListFocus(group.querySelector('.suite-group-header'));
+    }
+  }
+});
+
+// Sidebar: Enter/Space activates the focused entry; Left/Right collapse/expand
+// folder groups.
+$('suite-tree').addEventListener('keydown', e => {
+  const t = e.target;
+  if (!t.classList) return;
+  const isFolder = t.classList.contains('folder-header');
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    // A folder header's click targets live on its children; activate the name.
+    const target = isFolder ? t.querySelector('.folder-name') : t;
+    if (target) target.click();
+  } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && isFolder) {
+    e.preventDefault();
+    const group = t.closest('.folder-group');
+    if (group) group.classList.toggle('collapsed', e.key === 'ArrowLeft');
+  }
 });
 
 $('btn-cancel').addEventListener('click', () => {

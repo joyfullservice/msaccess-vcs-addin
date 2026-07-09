@@ -26,6 +26,21 @@ Filter examples:
 
 Tags use `'@Tag("name")` in module or procedure headers. Prefix `-` to exclude.
 
+### Headless (CI / automation)
+
+`VCS.RunTestsHeadless` accepts the same filter arguments but runs with no forms and no prompts: the web runner is bypassed, a missing `modTestAssert` module is installed silently, and JUnit XML is always exported. The returned JSON includes `allPassed`, `cancelled`, `junitPath`, and `statePath` for machine consumption.
+
+```powershell
+$addin = "$env:AppData\MSAccessVCS\Version Control.API"
+$access = New-Object -ComObject Access.Application
+$access.OpenCurrentDatabase("C:\path\to\Database.accdb")
+$json = $access.Run($addin, "RunTestsHeadless", "-slow")
+$access.Quit()
+if (-not ($json | ConvertFrom-Json).allPassed) { exit 1 }
+```
+
+CI can assert on the returned JSON or collect `test-results\test-results.xml` (JUnit) from the export folder.
+
 ### Ribbon
 
 Set **Default Test Filter** under **Options** → **Advanced**, then click **Run Tests** on the ribbon. Leave blank to run all tests.

@@ -565,7 +565,9 @@ button (label reflects scope: all, folder, suite, filter, or failed) or a per-su
 the `frmVCSMain` console unchanged.
 
 - **HTML**: [`TestRunner/runner.html`](TestRunner/runner.html) (repo-root packaging
-  asset, embedded at build like `Ribbon.xml`; extracted to a temp cache at runtime)
+  asset, embedded at build like `Ribbon.xml`; extracted to a stable
+  `TestRunnerCache\` folder under the add-in install path so WebView2
+  `localStorage` — Recent filters, column widths — persists across sessions)
 - **Entry points**: `VCS.RunTests` (show + deferred scan; user clicks Run),
   `VCS.OpenTestRunner` (open to view last results — rehydrates from singleton or
   `test-state.json` on standalone opens)
@@ -575,6 +577,13 @@ the `frmVCSMain` console unchanged.
   `window.__vbaOutbox`, the form timer drains them via `RetrieveJavascriptValue`
   (no navigation; see the `frmVCSTestRunner` header and DECISIONS.md 2026-07-08).
   Allowlisted callbacks: `RunAll,RunSelected,RunFailed,Cancel,OpenTestSource,RefreshTests,OpenResultsReport`.
+- **Run command protocol**: run commands (`RunAll`/`RunSelected`/`RunFailed`)
+  resolve the JS promise with an **acceptance ack** (`AcceptBridgeRun`) *before*
+  the blocking run executes (`ExecutePendingBridgeRun`); completion arrives via
+  streamed `onRunComplete` / `onRunCancelled` / `onRunError`. This is why long
+  runs never trip the JS `VBA_CALL_TIMEOUT_MS` (30 s, request/response calls
+  only). A promise rejection means the run was refused before starting (already
+  running, no matching keys, `Operation.Begin` failed).
 - **Form lifecycle**: opens as a **pop-up** window (`PopUp=1`). Closing via the
   X button or Escape **hides** the form (timer disabled, WebView2 stays warm);
   re-opening **reuses** the hidden instance without reloading the page when healthy
@@ -621,11 +630,10 @@ See `DECISIONS.md` (2026-07-07 through 2026-07-09 — Web test runner) for ratio
 #### Diagnostic trace log (debugging the bridge)
 
 `modTestRunnerDiag` writes a single agent-readable trace of the real
-bridge/lifecycle flow to **`<ExportFolder>\logs\TestRunnerDiag.log`** (the
-resolved path is printed in the log header; falls back to a temp folder when
-Options aren't loaded). It is truncated at the start of each session
-(`DiagStart`, called from `OpenWebTestRunner`). Each line is
-`[+elapsed ms] TAG | detail`.
+bridge/lifecycle flow to **`<ExportFolder>\logs\TestRunnerDiag_<timestamp>.log`**
+(falls back to a temp folder when Options aren't loaded). Tracing is **off by
+default**; set `modTestRunnerDiag.DiagEnabled = True` in the Immediate Window
+and reopen the runner to capture a session. Each line is `[+elapsed ms] TAG | detail`.
 
 Key tags: `form.load` / `form.unload` / `form.hide` / `form.show` (form
 lifecycle), `navigate.url` / `navigate.call` (what URL the control was given),
@@ -658,6 +666,34 @@ Prefix any argument with `-` to **exclude** it. Inclusions combine with OR; excl
 ?VCS.RunTests("TestParseJoinExpression")         ' Run one specific procedure
 ?VCS.RunTests("-modTestConnect", "-slow")        ' Exclude a module and a tag
 ```
+
+### Headless runs (CI / automation)
+
+`VCS.RunTestsHeadless` takes the same filter arguments but is designed for
+unattended sessions: no forms are opened, no prompts are raised (a missing
+`modTestAssert` is installed silently), the web runner is bypassed, and JUnit XML
+is always exported regardless of the `ExportTestResultsJUnit` option. The
+returned JSON includes `allPassed`, `cancelled`, `junitPath`, and `statePath` in
+the root so a pipeline can assert the outcome without parsing per-test detail.
+
+```powershell
+# Drive from PowerShell via COM automation (Access stays invisible).
+# Application.Run on the add-in's public API function loads the add-in library
+# and routes the call to clsVersionControl (see modAPI.bas `API`); up to three
+# filter arguments are supported through this route.
+$addin = "$env:AppData\MSAccessVCS\Version Control.API"
+$access = New-Object -ComObject Access.Application
+$access.OpenCurrentDatabase("C:\path\to\Database.accdb")
+$json = $access.Run($addin, "RunTestsHeadless", "-slow")
+$access.Quit()
+$result = $json | ConvertFrom-Json
+if (-not $result.allPassed) { exit 1 }
+```
+
+The durable artifacts (`test-state.json`, `test-results.xml`) land in the export
+folder's `test-results\` subfolder, so CI can also collect the JUnit file
+directly. From an MCP session, `MCP_TempFunction = VCS.RunTestsHeadless()` via
+`vcs_run_vba` works the same way.
 
 ### Global suite hooks
 

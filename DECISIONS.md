@@ -81,6 +81,27 @@ contradictory guidance.
 
 ---
 
+## 2026-07-09 — Bridge run commands resolve at acceptance, not completion
+
+**Trigger**: Any web-runner test run longer than 30 seconds toasted "Run failed: VBA call timed out: RunSelected" even while the run kept streaming results. The JS promise for `RunSelected`/`RunAll`/`RunFailed` was only resolved after the entire synchronous VBA run finished, but every `VBA.call` arms a 30 s timeout. A compile-error abort was worse: it skipped all stream events, leaving the page silent until the timeout fired.
+
+**Options explored**:
+- **Raise the JS timeout for run commands** — rejected: any fixed value just moves the false-failure threshold; a full suite with slow-tagged tests has no meaningful upper bound.
+- **Suppress the timeout entirely for run commands** — rejected: a genuinely lost dispatch (stalled `RetrieveJavascriptValue`) would leave the UI waiting forever with no feedback.
+- **Resolve at acceptance (chosen)** — VBA validates the request (`AcceptBridgeRun`: not already running, keys present, `Operation.Begin` succeeds), resolves the promise with `{"ok":true,"accepted":true}`, then executes the blocking run (`ExecutePendingBridgeRun`). Completion arrives via the streamed `onRunComplete` / `onRunCancelled` / new `onRunError` events the page already consumes. A JS watchdog (`RUN_START_WATCHDOG_MS`, 60 s) covers the pathological accepted-but-never-started case.
+
+**Decision**: Run commands are ack-then-stream; request/response calls (`Cancel`, `RefreshTests`, `OpenTestSource`, `OpenResultsReport`, `ReportJsError`) keep resolve-with-result under the 30 s `VBA_CALL_TIMEOUT_MS`. `TestRunner.InvokeGlobalTestSetup` (unbounded user hook) moved from the accept phase to the execute phase so the ack itself cannot stall. The compile-error abort in `RunSelected` now streams `onRunError` before bailing. Post-ack failures never reject the promise (it is already consumed) — they stream `onRunError` and guarantee `Operation.Finish` so the next run is not blocked.
+
+**What this rules out**: The `.then()` of a run-command `VBA.call` no longer means "run finished" — UI state transitions must key off streamed events only. Any new long-running bridge command should follow the same accept/execute split rather than raising the shared timeout. Live per-assertion streaming (`onAssertionResult`) was also evaluated and removed: one `ExecuteJavascript` round-trip per assertion (suites run thousands) for no visible gain, since `onTestComplete` already carries the full assertion list; the per-assertion contract is `seq`/`passed`/`context` — VBA cannot capture call-site source text or line numbers through `Application.Run`.
+
+**Relevant files**:
+- `modTestRunnerUI.bas` — `IsRunCommand`, `AcceptBridgeRun`, `ExecutePendingBridgeRun`, `StreamRunError`; `BridgeRun*`/`ExecuteBridgeRun`/`BeginInteractiveBridgeRun` removed
+- `frmVCSTestRunner.cls` — `DispatchRequest` branches run commands to ack-then-execute
+- `clsTestRunner.cls` — compile-error branch streams `onRunError`; `HasFailedTests`
+- `TestRunner/runner.html` — `dispatchRun` wrapper, `onRunError` handler, pending-button state, named timeout constants
+
+---
+
 ## 2026-07-08 — Test runner HTML: repo-root `TestRunner/` packaging folder
 
 **Trigger**: `runner.html` lived under `Version Control.accda.src/TestRunner/`, which
@@ -280,6 +301,13 @@ tests passed" after a prior suite run).
 ---
 
 ## 2026-07-08 — Web test runner: hide-on-close, no auto-run, Escape key
+
+> **⚠ Partially superseded** (2026-07-09): The `BridgeRunAll`/`BridgeRunSelected`/
+> `BridgeRunFailed` callbacks were replaced by the `AcceptBridgeRun` /
+> `ExecutePendingBridgeRun` split so the JS promise resolves at acceptance rather
+> than after the blocking run. The operation lifecycle is still owned by the
+> bridge run path (not by `ExecuteTests`), as decided here. See "Bridge run
+> commands resolve at acceptance, not completion" above.
 
 **Trigger**: UX feedback — closing the test runner form with the X button destroys
 the WebView2 control (expensive cold-start on reopen), and the web runner was

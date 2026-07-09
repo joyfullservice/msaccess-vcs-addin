@@ -15,6 +15,10 @@ Option Private Module
 '           : feedback loop: when the page fails to load or a call times out, the log
 '           : shows exactly where the flow diverged.
 '           :
+'           : Tracing is OFF by default (DiagEnabled = False). Set DiagEnabled = True in
+'           : the Immediate Window and reopen the runner to capture a session. All Diag
+'           : / window.diag call sites remain in place for future debugging.
+'           :
 '           : Location: <ExportFolder>\logs\TestRunnerDiag_<timestamp>.log (falls back
 '           : to a temp folder when Options are not loaded). Each session gets its own
 '           : timestamped file, matching the other logs' naming; the resolved path is
@@ -24,15 +28,11 @@ Option Private Module
 Private Const ModuleName As String = "modTestRunnerDiag"
 Private Const DIAG_PREFIX As String = "TestRunnerDiag_"
 Private Const ForAppending As Long = 8
-Private Const JS_RETRIEVE_TIMEOUT_SENTINEL As String = "RetrieveJavascriptValue timed out"
 
 Private Const MAX_LONG As Double = 2147483647#
 
-' Explicit off-switch (default False = ACTIVE). Deliberately not an "enabled" flag:
-' a VBA state reset zeroes module variables, and we want the log to keep working after
-' a reset (a reset must not silently turn logging off). Diag self-initializes a session
-' on first use, so tracing survives resets while the test runner form is open.
-Private m_blnDisabled As Boolean
+' Default False = tracing off. VBA initializes Boolean module variables to False.
+Private m_blnEnabled As Boolean
 Private m_curStart As Currency
 Private m_strPath As String
 
@@ -41,14 +41,14 @@ Private m_strPath As String
 ' Procedure : DiagEnabled
 ' Author    : Adam Waller
 ' Date      : 7/7/2026
-' Purpose   : Whether diagnostic tracing is active (active by default; survives resets).
+' Purpose   : Whether diagnostic tracing is active (off by default).
 '---------------------------------------------------------------------------------------
 '
 Public Property Get DiagEnabled() As Boolean
-    DiagEnabled = Not m_blnDisabled
+    DiagEnabled = m_blnEnabled
 End Property
 Public Property Let DiagEnabled(ByVal blnValue As Boolean)
-    m_blnDisabled = Not blnValue
+    m_blnEnabled = blnValue
 End Property
 
 
@@ -70,14 +70,17 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 7/7/2026
 ' Purpose   : Begin a FRESH diagnostic session (new timestamped file + header). Called
-'           : when the runner form opens; Diag also lazily starts one if needed.
+'           : when the runner form opens; no-ops when tracing is disabled.
 '---------------------------------------------------------------------------------------
 '
 Public Sub DiagStart(ByVal strContext As String)
-    m_blnDisabled = False
+
+    If Not m_blnEnabled Then Exit Sub
+
     m_curStart = Perf.MicroTimer
     m_strPath = ResolveDiagFolder() & DIAG_PREFIX & Format$(Now, "yyyymmdd\_hhnnss") & ".log"
     WriteHeader strContext
+
 End Sub
 
 
@@ -86,15 +89,17 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 7/7/2026
 ' Purpose   : Lazily start a session if none is active (e.g. after a VBA state reset
-'           : cleared the module variables). Keeps button-click tracing alive without an
-'           : explicit DiagStart.
+'           : cleared the module variables). Only runs when tracing is enabled.
 '---------------------------------------------------------------------------------------
 '
 Private Sub EnsureSession()
+
+    If Not m_blnEnabled Then Exit Sub
     If Len(m_strPath) > 0 Then Exit Sub
     m_curStart = Perf.MicroTimer
     m_strPath = ResolveDiagFolder() & DIAG_PREFIX & Format$(Now, "yyyymmdd\_hhnnss") & ".log"
     WriteHeader "auto-started (no explicit DiagStart, or VBA state was reset)"
+
 End Sub
 
 
@@ -128,7 +133,7 @@ Public Sub Diag(ByVal strTag As String, Optional ByVal strDetail As String = vbN
     Dim dblMs As Double
     Dim strLine As String
 
-    If m_blnDisabled Then Exit Sub
+    If Not m_blnEnabled Then Exit Sub
 
     On Error Resume Next
     EnsureSession
@@ -145,37 +150,58 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : DiagAppendItems
+' Author    : Adam Waller
+' Date      : 7/9/2026
+' Purpose   : Fold already-parsed JS-side breadcrumbs (from the combined outbox/diag
+'           : poll) into the trace file. Avoids a second RetrieveJavascriptValue per
+'           : timer tick.
+'---------------------------------------------------------------------------------------
+'
+Public Sub DiagAppendItems(ByVal colItems As Collection)
+
+    Dim dItem As Dictionary
+    Dim i As Long
+
+    If Not m_blnEnabled Then Exit Sub
+    If colItems Is Nothing Then Exit Sub
+    If colItems.Count = 0 Then Exit Sub
+
+    On Error Resume Next
+    For i = 1 To colItems.Count
+        Set dItem = colItems(i)
+        Diag "js." & CStr(dItem("t")), CStr(Nz(dItem("m"), vbNullString))
+    Next i
+    Err.Clear
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DiagDrainJs
 ' Author    : Adam Waller
 ' Date      : 7/7/2026
 ' Purpose   : Pull queued JS-side breadcrumbs from window.__diag and fold them into the
-'           : same trace file, so the VBA and JS timelines are interleaved. A single
-'           : RetrieveJavascriptValue per drain (kept off the per-event hot path); a
-'           : timeout here is itself logged (it is diagnostic).
+'           : same trace file. Prefer DiagAppendItems when the poll already retrieved
+'           : __diag in the same RetrieveJavascriptValue as the outbox.
 '---------------------------------------------------------------------------------------
 '
 Public Sub DiagDrainJs(ByVal ctl As Object)
 
-    If m_blnDisabled Then Exit Sub
-    If ctl Is Nothing Then Exit Sub
-
     Dim strJson As String
     Dim colItems As Collection
-    Dim dItem As Dictionary
-    Dim i As Long
+
+    If Not m_blnEnabled Then Exit Sub
+    If ctl Is Nothing Then Exit Sub
 
     On Error GoTo Bail
-    ' Uses the retrying wrapper (raises on repeated timeout, handled by Bail).
     strJson = modTestRunnerUI.RetrieveJsValue(ctl, _
         "JSON.stringify(window.__diag ? window.__diag.splice(0) : [])")
 
     If Len(strJson) = 0 Or strJson = "[]" Then Exit Sub
 
     Set colItems = ParseJson(strJson)
-    For i = 1 To colItems.Count
-        Set dItem = colItems(i)
-        Diag "js." & CStr(dItem("t")), CStr(Nz(dItem("m"), vbNullString))
-    Next i
+    DiagAppendItems colItems
     Exit Sub
 
 Bail:
