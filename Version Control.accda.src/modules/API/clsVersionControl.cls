@@ -2059,6 +2059,7 @@ Public Sub OpenTestRunner()
         Exit Sub
     End If
     modTestRunnerUI.OpenTestRunnerForResults
+    modTestRunnerUI.WaitForWebRunnerReady
 End Sub
 
 

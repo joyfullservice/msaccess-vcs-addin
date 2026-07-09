@@ -65,6 +65,8 @@ Private Sub Form_Load()
     ' Start the inbound poll. It no-ops until the runner document is ready (guarded in
     ' DrainOutbox), so it is safe to run from load through the about:blank cold-start.
     Me.TimerInterval = POLL_INTERVAL_MS
+    ' OpenForm clears the hourglass; keep it on until DocumentComplete / WaitForWebRunnerReady.
+    DoCmd.Hourglass True
 
 End Sub
 
@@ -334,6 +336,7 @@ Private Sub NavigateRunnerHtml()
     strUrl = modTestRunnerUI.ResolveRunnerNavigateUrl()
     If Len(strUrl) = 0 Then
         modTestRunnerDiag.Diag "navigate.abort", "empty URL (HTML not resolved)"
+        DoCmd.Hourglass False
         Exit Sub
     End If
 

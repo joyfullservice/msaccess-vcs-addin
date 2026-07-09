@@ -148,6 +148,9 @@ Public Sub OpenWebTestRunner()
 
     Dim frm As Object
 
+    DoCmd.Hourglass True
+    DoEvents
+
     m_blnWebRunnerActive = True
     m_blnStandalone = False
 
@@ -161,6 +164,8 @@ Public Sub OpenWebTestRunner()
         m_strPendingTreeJson = vbNullString
         modTestRunnerDiag.Diag "open.new"
         DoCmd.OpenForm "frmVCSTestRunner", , , , , acNormal
+        ' OpenForm resets the hourglass; keep it on until the Edge page is ready.
+        DoCmd.Hourglass True
     Else
         ReuseOrReloadRunner frm, False
     End If
@@ -182,6 +187,9 @@ Public Sub OpenTestRunnerForResults()
 
     Dim frm As Object
 
+    DoCmd.Hourglass True
+    DoEvents
+
     m_blnWebRunnerActive = True
     m_blnStandalone = True
 
@@ -193,6 +201,8 @@ Public Sub OpenTestRunnerForResults()
         m_blnTreePublished = False
         m_strPendingTreeJson = vbNullString
         DoCmd.OpenForm "frmVCSTestRunner", , , , , acNormal
+        ' OpenForm resets the hourglass; keep it on until the Edge page is ready.
+        DoCmd.Hourglass True
     Else
         ReuseOrReloadRunner frm, True
     End If
@@ -251,6 +261,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ResetWebRunnerHostState()
+    DoCmd.Hourglass False
     m_blnWebRunnerActive = False
     m_blnDocumentReady = False
     m_blnTreePublished = False
@@ -295,6 +306,8 @@ Public Sub WaitForWebRunnerReady(Optional ByVal lngTimeoutMs As Long = 30000)
     modTestRunnerDiag.Diag "wait.begin", "timeoutMs=" & lngTimeoutMs
 
     Do While Not m_blnDocumentReady
+        ' Access clears the hourglass on OpenForm / DoEvents; re-assert while waiting.
+        DoCmd.Hourglass True
         DoEvents
         If Perf.MicroTimer > curLimit Then Exit Do
         If Not IsLoaded(acForm, "frmVCSTestRunner", False) Then Exit Do
@@ -310,6 +323,7 @@ Public Sub WaitForWebRunnerReady(Optional ByVal lngTimeoutMs As Long = 30000)
     End If
 
     TryPublishPendingTree
+    DoCmd.Hourglass False
 
 End Sub
 
@@ -333,6 +347,7 @@ Public Sub NotifyDocumentReady()
     TryPublishPendingTree
     RefreshWebTestTreeDeferred
     If HasCompletedTests() Then StreamCompletedTestResults
+    DoCmd.Hourglass False
 End Sub
 
 
@@ -1010,6 +1025,7 @@ Private Sub ReuseOrReloadRunner(ByVal frm As Object, ByVal blnStandalone As Bool
 
     If WebRunnerPageHealthy() Then
         modTestRunnerDiag.Diag "open.reuse.warm"
+        DoCmd.Hourglass False
         RefreshWebTestTreeDeferred
         If blnStandalone And HasCompletedTests() Then StreamCompletedTestResults
     Else
@@ -1017,6 +1033,7 @@ Private Sub ReuseOrReloadRunner(ByVal frm As Object, ByVal blnStandalone As Bool
         m_blnDocumentReady = False
         m_blnTreePublished = False
         frm.ReloadRunnerHtml
+        DoCmd.Hourglass True
     End If
 
 End Sub
