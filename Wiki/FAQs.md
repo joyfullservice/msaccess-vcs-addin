@@ -79,6 +79,8 @@ Dim lngID 'lngID
 
 The trailing comment is the authority; the identifier before it is updated to match when casing drifts.
 
+Each `Dim` line must include the trailing comment (for example, `Dim myTestValue 'myTestValue`). Lines that are missing the comment or have mismatched identifier/comment names are skipped and logged as warnings during export/build. When run from the ribbon, invalid entries are also shown in a message box.
+
 When corrections are applied, the add-in shows each change (for example, `strSql -> strSQL`) and logs them during export/build. After corrections, the VBA project is saved automatically so normalized casing persists across modules.
 
 ### Persistent casing drift (form and report controls)

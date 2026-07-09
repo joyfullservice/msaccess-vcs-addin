@@ -595,14 +595,16 @@ End Sub
 Public Sub StandardizeLetterCasing()
 
     Dim colResult As Collection
+    Dim colIssues As New Collection
     Dim varChange As Variant
     Dim strDetails As String
+    Dim strIssueDetails As String
     Dim lngShown As Long
     Const MaxDetailLines As Long = 10
 
     If Not Operation.Begin(eotOther) Then Exit Sub
 
-    Set colResult = modLetterCasing.StandardizeLetterCasing
+    Set colResult = modLetterCasing.StandardizeLetterCasing(colIssues)
 
     If colResult Is Nothing Then
         If vbYes = MsgBox2(T("Module Not Found"), _
@@ -611,26 +613,46 @@ Public Sub StandardizeLetterCasing()
             vbYesNo + vbQuestion) Then
             CreateLetterCasingTemplate
         End If
-    ElseIf colResult.Count > 0 Then
-        lngShown = 0
-        For Each varChange In colResult
-            lngShown = lngShown + 1
-            If lngShown <= MaxDetailLines Then
-                If Len(strDetails) > 0 Then strDetails = strDetails & vbCrLf
-                strDetails = strDetails & varChange
-            End If
-        Next varChange
-        If colResult.Count > MaxDetailLines Then
-            strDetails = strDetails & vbCrLf & T("... and {0} more (see export log for full list)", _
-                var0:=colResult.Count - MaxDetailLines)
-        End If
-        MsgBox2 T("Letter Casing Standardized"), _
-            T("{0} correction(s) applied to VBA identifiers.", var0:=colResult.Count), _
-            strDetails, vbInformation
     Else
-        MsgBox2 T("Letter Casing Consistent"), _
-            T("All VBA identifiers already match the standard letter casing rules."), _
-            , vbInformation
+        If colResult.Count > 0 Then
+            lngShown = 0
+            For Each varChange In colResult
+                lngShown = lngShown + 1
+                If lngShown <= MaxDetailLines Then
+                    If Len(strDetails) > 0 Then strDetails = strDetails & vbCrLf
+                    strDetails = strDetails & varChange
+                End If
+            Next varChange
+            If colResult.Count > MaxDetailLines Then
+                strDetails = strDetails & vbCrLf & T("... and {0} more (see export log for full list)", _
+                    var0:=colResult.Count - MaxDetailLines)
+            End If
+            MsgBox2 T("Letter Casing Standardized"), _
+                T("{0} correction(s) applied to VBA identifiers.", var0:=colResult.Count), _
+                strDetails, vbInformation
+        End If
+        If colIssues.Count > 0 Then
+            lngShown = 0
+            For Each varChange In colIssues
+                lngShown = lngShown + 1
+                If lngShown <= MaxDetailLines Then
+                    If Len(strIssueDetails) > 0 Then strIssueDetails = strIssueDetails & vbCrLf
+                    strIssueDetails = strIssueDetails & varChange
+                End If
+            Next varChange
+            If colIssues.Count > MaxDetailLines Then
+                strIssueDetails = strIssueDetails & vbCrLf & T("... and {0} more (see export log for full list)", _
+                    var0:=colIssues.Count - MaxDetailLines)
+            End If
+            MsgBox2 T("Invalid Letter Casing Entries"), _
+                T("{0} invalid entry/entries found in clsStandardLetterCasing. Correct the module and run again.", _
+                    var0:=colIssues.Count), _
+                strIssueDetails, vbExclamation
+        ElseIf colResult.Count = 0 Then
+            MsgBox2 T("Letter Casing Consistent"), _
+                T("All VBA identifiers already match the standard letter casing rules."), _
+                , vbInformation
+        End If
     End If
 
     Operation.Finish
