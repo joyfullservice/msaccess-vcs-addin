@@ -54,6 +54,8 @@ After making changes (in source files or in the add-in's own VBA project):
 | Query round-trip | `?VCS.RunRoundtripTests` — see [Regression Testing](Regression-Testing) |
 | Export/import change | Relevant `RunTests` modules + round-trip fixtures |
 
+For the rules that decide what counts as a test, see [Testing — How tests are discovered](Testing#how-tests-are-discovered).
+
 ---
 
 ## Updating the wiki
