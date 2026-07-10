@@ -1101,6 +1101,21 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function AdaptTestResultJson(ByVal strTestKey As String, ByVal dTest As Dictionary) As String
+    AdaptTestResultJson = ConvertToJson(AdaptTestResult(strTestKey, dTest))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AdaptTestResult
+' Author    : Adam Waller
+' Date      : 7/10/2026
+' Purpose   : Build the web-shaped result Dictionary for a single test (testKey, status,
+'           : durationMs, optional errorMessage, assertions). Returned as an object so
+'           : callers can either serialize it alone (AdaptTestResultJson) or collect many
+'           : and serialize once for a batch replay (StreamCompletedTestResults).
+'---------------------------------------------------------------------------------------
+'
+Private Function AdaptTestResult(ByVal strTestKey As String, ByVal dTest As Dictionary) As Dictionary
 
     Dim dOut As Dictionary
     Dim colAssertions As Collection
@@ -1136,7 +1151,7 @@ Public Function AdaptTestResultJson(ByVal strTestKey As String, ByVal dTest As D
     End If
     Set dOut("assertions") = colOut
 
-    AdaptTestResultJson = ConvertToJson(dOut)
+    Set AdaptTestResult = dOut
 
 End Function
 
@@ -1318,21 +1333,36 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 7/8/2026
 ' Purpose   : Replay completed test results to the web UI without republishing the tree.
+'           : Pushed as a SINGLE onResultsBatch payload rather than one onTestComplete
+'           : per test: the reopen/reload replay of a full run (~187 results) was ~187
+'           : synchronous ExecuteJavascript round-trips, each forcing a full re-render,
+'           : which spiked the WebView2 and stalled the next bridge poll (a 2s
+'           : poll.timeout in the diagnostic trace). One call, one re-render.
 '---------------------------------------------------------------------------------------
 '
 Private Sub StreamCompletedTestResults()
 
     Dim varKey As Variant
     Dim dTest As Dictionary
+    Dim colResults As Collection
+    Dim dPayload As Dictionary
 
     If Not EnsureRunnerHasTests() Then Exit Sub
+    If Not WebRunnerReady() Then Exit Sub
 
+    Set colResults = New Collection
     For Each varKey In TestRunner.Tests.Keys
         Set dTest = TestRunner.Tests(CStr(varKey))
         If CLng(Nz(dTest("status"), etsPending)) <> etsPending Then
-            StreamTestComplete CStr(varKey), dTest
+            colResults.Add AdaptTestResult(CStr(varKey), dTest)
         End If
     Next varKey
+
+    If colResults.Count = 0 Then Exit Sub
+
+    Set dPayload = New Dictionary
+    Set dPayload("results") = colResults
+    PushTestUI "onResultsBatch", ConvertToJson(dPayload)
 
 End Sub
 

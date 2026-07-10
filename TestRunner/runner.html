@@ -3041,6 +3041,31 @@ window.TestUI = {
     if (state.selectedTest === result.testKey) renderDetailPane();
   }),
   
+  // Bulk-apply completed results in a single call. Used for the reopen/reload
+  // "hydration replay" of a prior run: VBA pushes every completed test in one
+  // payload instead of one onTestComplete round-trip per test (which spiked the
+  // WebView2 and stalled the bridge poll). Re-render the list/stats/sidebar ONCE
+  // at the end rather than per row.
+  onResultsBatch: guardTestUI('onResultsBatch', function (payload) {
+    const results = (payload && payload.results) || [];
+    window.diag('onResultsBatch', 'n=' + results.length);
+    for (const result of results) {
+      if (!result || !result.testKey) continue;
+      state.results.set(result.testKey, {
+        status: result.status,
+        assertions: result.assertions || [],
+        durationMs: result.durationMs,
+        errorMessage: result.errorMessage
+      });
+    }
+    recomputeCounts();
+    updateStats();
+    updatePageHeader();
+    renderTestList();
+    refreshSidebarBadges();
+    if (state.selectedTest) renderDetailPane();
+  }),
+  
   onRunComplete: guardTestUI('onRunComplete', function (summary) {
     window.diag('onRunComplete', 'totalMs=' + (summary && summary.totalMs));
     clearRunStartWatchdog();
