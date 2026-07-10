@@ -21,6 +21,9 @@ Attribute VB_Exposed = False
 '           : operations asynchrously. (For example, scanning through a large number of
 '           : source files can be slow, but this gives us the ability to scan multiple
 '           : folders at the same time which should improve performance on SSD drives.)
+'           :
+'           : Code below the ' *** BEGIN WORKER SCRIPT *** marker is extracted verbatim
+'           : into Worker.vbs and runs as VBScript, not VBA. See that banner for rules.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -424,6 +427,15 @@ End Function
 '---------------------------------------------------------------------------------------
 ' *** BEGIN WORKER SCRIPT ***
 '---------------------------------------------------------------------------------------
+' WARNING: Everything below this marker is extracted verbatim by GetWorkerScriptContent
+' and deployed as Worker.vbs (Windows Script Host), NOT VBA. It only compiles in the
+' VBA IDE because of placeholder objects (e.g. Private WScript As Object).
+'
+' VBScript compatibility rules:
+'   - Never skip optional arguments with ", ," (e.g. Replace(a, b, c, , 1) crashes in
+'     VBScript with type mismatch 13; pass start/count explicitly). See issue #722.
+'   - Do not use VBA-only constants or intrinsics that VBScript does not define.
+'---------------------------------------------------------------------------------------
 ' Procedure : Main
 ' Author    : Adam Waller
 ' Date      : 3/2/2023
@@ -617,7 +629,8 @@ Function GetUncPath(strPath)
     If strDrive <> vbNullString Then
         With objFSO.GetDrive(strDrive)
             If .DriveType = 3 Then  ' Remote
-                strUNC = Replace(strPath, strDrive, .ShareName, , 1, vbTextCompare)
+                ' VBScript requires start; VBA allows ", ," (issue #722).
+                strUNC = Replace(strPath, strDrive, .ShareName, 1, 1, vbTextCompare)
             End If
         End With
     End If
@@ -647,9 +660,9 @@ Function UninstallAddIn(objApp, strAddInFile)
     objApp.Quit
     Set objApp = Nothing
 
-    ' Build lock file name from add-in name
-    strLockFile = Replace(strAddInFile, ".accda", ".laccda")
-    strLockFile = Replace(strAddInFile, ".accde", ".laccda")
+    ' Build lock file name from add-in name (.laccdb, not .laccda)
+    strLockFile = Replace(strAddInFile, ".accda", ".laccdb", 1, 1, vbTextCompare)
+    strLockFile = Replace(strLockFile, ".accde", ".laccdb", 1, 1, vbTextCompare)
 
     ' Resume next on any errors while attempting to delete the file.
     On Error Resume Next
