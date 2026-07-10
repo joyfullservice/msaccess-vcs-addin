@@ -192,6 +192,22 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RefreshDatabaseSchemaList
+' Author    : Adam Waller
+' Date      : 7/9/2026
+' Purpose   : Refresh the External Databases list on the loaded subform instance.
+'           : frmVCSDatabase must not call Form_frmVCSOptionsDatabases directly — that
+'           : default instance is not the subform embedded in subOptionsDetail.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RefreshDatabaseSchemaList()
+    If InStr(1, Nz(Me.subOptionsDetail.SourceObject), "frmVCSOptionsDatabases", vbTextCompare) > 0 Then
+        Me.subOptionsDetail.Form.RefreshSchemaList
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : NavigateTo
 ' Author    : Adam Waller
 ' Date      : 3/17/2026
