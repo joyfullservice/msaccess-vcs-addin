@@ -1285,7 +1285,7 @@ window.VBA = {
       // timer. This is the only inbound path that never reloads the page (every
       // navigation-based signal on this control either fails to fire BeforeNavigate
       // -- iframe / vba:// -- or reloads the page -- top-level).
-      window.__vbaOutbox.push({ id: id, fn: fnName, params: params });
+      window.__vbaOutbox.push({ id: id, fn: fnName, params: params, ts: Date.now() });
       window.diag('call', fnName + ' id=' + id);
       
       setTimeout(() => {
@@ -1405,7 +1405,8 @@ function reportJsError(kind, message, detail) {
     window.__vbaOutbox.push({
       id: 'err-' + Date.now(),
       fn: 'ReportJsError',
-      params: { kind: kind, message: message, detail: detail || '' }
+      params: { kind: kind, message: message, detail: detail || '' },
+      ts: Date.now()
     });
   } catch (e) {}
 }

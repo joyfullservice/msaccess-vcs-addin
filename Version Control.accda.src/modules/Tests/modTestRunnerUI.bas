@@ -29,6 +29,10 @@ Private m_strPendingTreeJson As String
 Private m_strPendingDefaultFilter As String
 Private m_varEdgeBuildCached As Variant
 Private m_strHtmlCacheFolder As String
+Private m_curLastCancelPoll As Currency
+
+' Throttle mid-run Cancel reads (PollBridgeCancel is called once per test).
+Private Const CANCEL_POLL_MS As Long = 1000
 
 ' Run command accepted (ack sent to JS) and awaiting execution on the timer stack.
 Private m_strPendingRunFn As String
@@ -86,16 +90,25 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 7/8/2026
 ' Purpose   : Drain Cancel commands from the JS outbox during a test run. The form
-'           : timer cannot re-enter while a run started from DrainOutbox is on the
-'           : stack, so the run loop polls cooperatively after each DoEvents.
+'           : timer is suspended while a run started from DrainOutbox is on the stack,
+'           : so this is the sole mid-run cancel path. Throttled to CANCEL_POLL_MS so
+'           : fast test bursts do not issue one RetrieveJavascriptValue per test.
 '---------------------------------------------------------------------------------------
 '
 Public Sub PollBridgeCancel()
 
     Dim frm As Object
+    Dim dblElapsedMs As Double
 
     If Not WebRunnerActive() Then Exit Sub
     If Not WebRunnerDocumentReady() Then Exit Sub
+
+    If m_curLastCancelPoll <> 0 Then
+        dblElapsedMs = (Perf.MicroTimer - m_curLastCancelPoll) * 1000
+        If dblElapsedMs >= 0 And dblElapsedMs < CANCEL_POLL_MS Then Exit Sub
+    End If
+
+    m_curLastCancelPoll = Perf.MicroTimer
     Set frm = RunnerForm()
     If frm Is Nothing Then Exit Sub
     frm.DrainCancelOutbox
@@ -821,6 +834,7 @@ Public Function AcceptBridgeRun(ByVal strFnName As String, ByVal strPayloadJson 
     Set m_colPendingRunKeys = colKeys
 
     modTestRunnerDiag.Diag "run.accept", strFnName
+    m_curLastCancelPoll = 0
     AcceptBridgeRun = "{""ok"":true,""accepted"":true}"
 
 End Function

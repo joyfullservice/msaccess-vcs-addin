@@ -9,8 +9,15 @@ Attribute VB_Exposed = False
 ' Purpose   : EdgeBrowserControl host for the web test runner UI and JS<->VBA bridge.
 '           : INBOUND (JS->VBA) is a lightweight poll: JS enqueues commands in
 '           : window.__vbaOutbox (no navigation), and this form's timer drains the queue
-'           : via RetrieveJavascriptValue every POLL_INTERVAL_MS and dispatches them.
+'           : via RetrieveJavascriptValue on an adaptive interval and dispatches them.
 '           : OUTBOUND (VBA->JS) and replies use ExecuteJavascript.
+'           :
+'           : Poll cadence: adaptive when idle (100ms floor, backs off with measured
+'           : read cost up to 2000ms); fixed 1000ms while etrsRunning (mostly moot --
+'           : the timer is suspended for the duration of a run dispatched from DrainOutbox
+'           : because Access will not re-enter Form_Timer while its handler is on the
+'           : stack). Mid-run Cancel is handled by modTestRunnerUI.PollBridgeCancel from
+'           : the clsTestRunner loop (throttled to 1s), not by this timer.
 '           :
 '           : Why polling, not events: exhaustive testing showed the only inbound signal
 '           : that reaches this control's BeforeNavigate is a MAIN-FRAME navigation
@@ -28,7 +35,11 @@ Option Compare Database
 Option Explicit
 
 Private Const ModuleName As String = "Form_frmVCSTestRunner"
-Private Const POLL_INTERVAL_MS As Long = 500
+Private Const RUN_POLL_MS As Long = 1000          ' fixed interval while a run is active
+Private Const IDLE_MIN_MS As Long = 100           ' fastest idle poll (button responsiveness)
+Private Const IDLE_MAX_MS As Long = 2000          ' slowest idle poll (heavy interaction)
+Private Const IDLE_INTERVAL_FACTOR As Long = 10   ' interval = readEwma x factor (clamped)
+Private Const EWMA_ALPHA As Double = 0.3          ' smoothing for measured read cost
 
 ' Legacy inbound bridge marker (https://msaccess/__vba__/<fn>/<id>). The navigation-
 ' based inbound path was replaced by outbox polling (see header); BeforeNavigate now
@@ -48,6 +59,16 @@ Private Const POLL_REPORT_EVERY As Long = 20        ' emit a poll.stats summary 
 Private m_lngPollCount As Long
 Private m_dblPollTotalMs As Double
 Private m_dblPollMaxMs As Double
+Private m_lngDrainDepth As Long        ' >1 means a drain re-entered via DoEvents
+Private m_lngPollSeq As Long           ' monotonically increasing tick counter
+Private m_curLastDrainEnd As Currency  ' Perf.MicroTimer at end of previous drain
+Private m_dblGapTotalMs As Double
+Private m_dblGapMaxMs As Double
+Private m_lngQueueMax As Long
+Private m_lngReentrantCount As Long    ' drains in the current poll.stats window where depth>1
+Private m_dblEwmaReadMs As Double    ' EWMA of RetrieveJavascriptValue drain cost (ms)
+Private m_lngLastInterval As Long      ' last Me.TimerInterval set by DrainOutbox
+Private m_blnEwmaInited As Boolean
 
 
 '---------------------------------------------------------------------------------------
@@ -64,7 +85,7 @@ Private Sub Form_Load()
     NavigateRunnerHtml
     ' Start the inbound poll. It no-ops until the runner document is ready (guarded in
     ' DrainOutbox), so it is safe to run from load through the about:blank cold-start.
-    Me.TimerInterval = POLL_INTERVAL_MS
+    Me.TimerInterval = IDLE_MIN_MS
     ' OpenForm clears the hourglass; keep it on until DocumentComplete / WaitForWebRunnerReady.
     DoCmd.Hourglass True
 
@@ -97,7 +118,42 @@ End Sub
 Private Sub EnsureInit()
     If m_dHandledRequests Is Nothing Then Set m_dHandledRequests = CreateObject("Scripting.Dictionary")
     If m_ctlWeb Is Nothing Then Set m_ctlWeb = Me.webTestRunner
+    If Not m_blnEwmaInited Then
+        m_dblEwmaReadMs = EwmaSeedMs()
+        m_blnEwmaInited = True
+    End If
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EwmaSeedMs
+' Purpose   : Initial EWMA read-cost estimate (yields IDLE_MIN_MS when clamped).
+'---------------------------------------------------------------------------------------
+'
+Private Function EwmaSeedMs() As Double
+    EwmaSeedMs = IDLE_MIN_MS / IDLE_INTERVAL_FACTOR
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ComputeNextPollInterval
+' Purpose   : Next form-timer interval: fixed during a run, adaptive when idle.
+'---------------------------------------------------------------------------------------
+'
+Private Function ComputeNextPollInterval() As Long
+
+    Dim dblInterval As Double
+
+    If TestRunner.State = etrsRunning Then
+        ComputeNextPollInterval = RUN_POLL_MS
+    Else
+        dblInterval = m_dblEwmaReadMs * IDLE_INTERVAL_FACTOR
+        If dblInterval < IDLE_MIN_MS Then dblInterval = IDLE_MIN_MS
+        If dblInterval > IDLE_MAX_MS Then dblInterval = IDLE_MAX_MS
+        ComputeNextPollInterval = CLng(dblInterval)
+    End If
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -200,7 +256,7 @@ Public Sub ShowRunner()
 
     modTestRunnerDiag.Diag "form.show"
     Me.Visible = True
-    Me.TimerInterval = POLL_INTERVAL_MS
+    Me.TimerInterval = IDLE_MIN_MS
     Me.SetFocus
 
 End Sub
@@ -211,8 +267,9 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 7/8/2026
 ' Purpose   : Pull Cancel commands from window.__vbaOutbox without disturbing other
-'           : queued commands. Callable from the test run loop (Form_Timer cannot
-'           : re-enter while a run started from the timer is still on the stack).
+'           : queued commands. Called from modTestRunnerUI.PollBridgeCancel during a
+'           : test run (the form timer is suspended while a run started from DrainOutbox
+'           : is on the stack, so this is the sole mid-run cancel path).
 '---------------------------------------------------------------------------------------
 '
 Public Sub DrainCancelOutbox()
@@ -484,8 +541,8 @@ End Sub
 ' Date      : 7/8/2026
 ' Purpose   : Pull queued commands from window.__vbaOutbox and dispatch them. Runs on the
 '           : form timer (NOT a control event), so RetrieveJavascriptValue works here.
-'           : A Cancel is dispatched even while a run is in progress (this timer tick can
-'           : re-enter during the run's DoEvents) so Stop interrupts immediately; other
+'           : While a run is executing on the timer stack, Access does not re-enter
+'           : Form_Timer; mid-run Cancel is handled by PollBridgeCancel instead. Other
 '           : commands only dispatch when idle. Request-id dedup prevents double-runs.
 '---------------------------------------------------------------------------------------
 '
@@ -495,6 +552,7 @@ Private Sub DrainOutbox()
 
     Dim strJson As String
     Dim strExpr As String
+    Dim strOutboxSplice As String
     Dim colQueue As Collection
     Dim dRoot As Dictionary
     Dim dItem As Dictionary
@@ -502,53 +560,85 @@ Private Sub DrainOutbox()
     Dim strFn As String
     Dim strId As String
     Dim strPayload As String
+    Dim lngQueueCount As Long
+    Dim lngAgeMs As Long
 
     Dim curStart As Currency
+    Dim dblDrainMs As Double
+    Dim dblGapMs As Double
     Dim blnRetrieveErr As Boolean
     Dim blnDiagEnabled As Boolean
+    Dim blnReentrant As Boolean
+    Dim blnDidDrain As Boolean
 
     If m_ctlWeb Is Nothing Then Exit Sub
     If Not modTestRunnerUI.WebRunnerActive() Then Exit Sub
     If Not modTestRunnerUI.WebRunnerDocumentReady() Then Exit Sub
 
+    m_lngPollSeq = m_lngPollSeq + 1
+    m_lngDrainDepth = m_lngDrainDepth + 1
+    blnReentrant = (m_lngDrainDepth > 1)
+    If blnReentrant Then
+        modTestRunnerDiag.Diag "poll.reentrant", "depth=" & m_lngDrainDepth & " seq=" & m_lngPollSeq
+        GoTo CleanUp
+    End If
+
     blnDiagEnabled = modTestRunnerDiag.DiagEnabled
+    ' Stamp each drained item with age (ms in JS clock) so queue latency is visible in the trace.
+    strOutboxSplice = "(function(){var a=window.__vbaOutbox||[],b=a.splice(0,20);" & _
+        "return b.map(function(o){var c=Object.assign({},o);" & _
+        "c.age=Date.now()-(o.ts||Date.now());return c;});})()"
     If blnDiagEnabled Then
-        strExpr = "JSON.stringify({o:(window.__vbaOutbox||[]).splice(0,20)," & _
-            "d:(window.__diag?window.__diag.splice(0):[])})"
+        strExpr = "JSON.stringify({o:" & strOutboxSplice & _
+            ",d:(window.__diag?window.__diag.splice(0):[])})"
     Else
-        strExpr = "JSON.stringify((window.__vbaOutbox || []).splice(0, 20))"
+        strExpr = "JSON.stringify(" & strOutboxSplice & ")"
     End If
 
     ' Time the drain's RetrieveJavascriptValue (the expensive part) even when it fails,
     ' so a timeout -- the slowest case -- is still recorded in the poll stats.
     curStart = Perf.MicroTimer
+    If m_curLastDrainEnd <> 0 Then dblGapMs = (curStart - m_curLastDrainEnd) * 1000
+    If dblGapMs < 0 Then dblGapMs = 0
+
     On Error Resume Next
     strJson = modTestRunnerUI.RetrieveJsValue(m_ctlWeb, strExpr)
     blnRetrieveErr = (Err.Number <> 0)
     Err.Clear
     On Error GoTo CleanUp
 
-    MonitorPoll (Perf.MicroTimer - curStart) * 1000, blnRetrieveErr
-    If blnRetrieveErr Then GoTo CleanUp
-    If Len(strJson) = 0 Then GoTo CleanUp
+    dblDrainMs = (Perf.MicroTimer - curStart) * 1000
+    If dblDrainMs < 0 Then dblDrainMs = 0
+    blnDidDrain = True
 
-    If blnDiagEnabled Then
-        Set dRoot = ParseJson(strJson)
-        If TypeName(dRoot) <> "Dictionary" Then GoTo CleanUp
-        If dRoot.Exists("d") Then
-            If TypeName(dRoot("d")) = "Collection" Then
-                modTestRunnerDiag.DiagAppendItems dRoot("d")
+    If Not blnRetrieveErr And Len(strJson) > 0 Then
+        If blnDiagEnabled Then
+            Set dRoot = ParseJson(strJson)
+            If TypeName(dRoot) = "Dictionary" Then
+                If dRoot.Exists("d") Then
+                    If TypeName(dRoot("d")) = "Collection" Then
+                        modTestRunnerDiag.DiagAppendItems dRoot("d")
+                    End If
+                End If
+                If dRoot.Exists("o") Then
+                    If TypeName(dRoot("o")) = "Collection" Then Set colQueue = dRoot("o")
+                End If
             End If
+        ElseIf strJson <> "[]" Then
+            Set colQueue = ParseJson(strJson)
         End If
-        If Not dRoot.Exists("o") Then GoTo CleanUp
-        If TypeName(dRoot("o")) <> "Collection" Then GoTo CleanUp
-        Set colQueue = dRoot("o")
-    Else
-        If strJson = "[]" Then GoTo CleanUp
-        Set colQueue = ParseJson(strJson)
     End If
 
-    If colQueue.Count = 0 Then GoTo CleanUp
+    If colQueue Is Nothing Then
+        lngQueueCount = 0
+    Else
+        lngQueueCount = colQueue.Count
+    End If
+
+    MonitorPoll dblDrainMs, dblGapMs, lngQueueCount, blnRetrieveErr, blnReentrant
+
+    If blnRetrieveErr Then GoTo CleanUp
+    If lngQueueCount = 0 Then GoTo CleanUp
 
     For i = 1 To colQueue.Count
         Set dItem = colQueue(i)
@@ -556,6 +646,13 @@ Private Sub DrainOutbox()
         strId = CStr(dItem("id"))
         strPayload = "{}"
         If dItem.Exists("params") Then strPayload = ConvertToJson(dItem("params"))
+
+        If dItem.Exists("age") Then
+            lngAgeMs = CLng(dItem("age"))
+            If lngAgeMs > POLL_SLOW_MS Then
+                modTestRunnerDiag.Diag "outbox.age", strFn & " id=" & strId & " age=" & lngAgeMs & "ms"
+            End If
+        End If
 
         If StrComp(strFn, "Cancel", vbTextCompare) = 0 _
             Or StrComp(strFn, "ReportJsError", vbTextCompare) = 0 Then
@@ -570,6 +667,17 @@ Private Sub DrainOutbox()
     Next i
 
 CleanUp:
+    If blnDidDrain Then
+        If TestRunner.State <> etrsRunning And m_lngLastInterval = RUN_POLL_MS Then
+            m_dblEwmaReadMs = EwmaSeedMs()
+        Else
+            m_dblEwmaReadMs = (EWMA_ALPHA * dblDrainMs) + ((1 - EWMA_ALPHA) * m_dblEwmaReadMs)
+        End If
+    End If
+    m_lngLastInterval = ComputeNextPollInterval()
+    Me.TimerInterval = m_lngLastInterval
+    m_curLastDrainEnd = Perf.MicroTimer
+    m_lngDrainDepth = m_lngDrainDepth - 1
     CatchAny eelWarning, vbNullString, FunctionName
 
 End Sub
@@ -626,34 +734,53 @@ End Function
 ' Procedure : MonitorPoll
 ' Author    : Adam Waller
 ' Date      : 7/8/2026
-' Purpose   : Track the per-drain RetrieveJavascriptValue cost. Emits an immediate
-'           : "poll.slow" line for outliers and a rolling "poll.stats" summary every
-'           : POLL_REPORT_EVERY drains, so the polling overhead is visible in the trace
-'           : without a line per (500ms) tick. Aggregate totals also appear in the Perf
+' Purpose   : Track the per-drain RetrieveJavascriptValue cost, inter-drain idle gap,
+'           : queue depth, and re-entrancy. Emits an immediate "poll.slow" line for
+'           : outliers and a rolling "poll.stats" summary every POLL_REPORT_EVERY drains,
+'           : without a line per tick. Aggregate totals also appear in the Perf
 '           : report via the "RetrieveJavascriptValue" operation.
 '---------------------------------------------------------------------------------------
 '
-Private Sub MonitorPoll(ByVal dblMs As Double, ByVal blnTimedOut As Boolean)
+Private Sub MonitorPoll(ByVal dblDrainMs As Double, ByVal dblGapMs As Double, _
+    ByVal lngQueueCount As Long, ByVal blnTimedOut As Boolean, ByVal blnReentrant As Boolean)
 
-    If dblMs < 0 Then dblMs = 0
+    Dim strDetail As String
+
+    If dblDrainMs < 0 Then dblDrainMs = 0
+    If dblGapMs < 0 Then dblGapMs = 0
 
     m_lngPollCount = m_lngPollCount + 1
-    m_dblPollTotalMs = m_dblPollTotalMs + dblMs
-    If dblMs > m_dblPollMaxMs Then m_dblPollMaxMs = dblMs
+    m_dblPollTotalMs = m_dblPollTotalMs + dblDrainMs
+    If dblDrainMs > m_dblPollMaxMs Then m_dblPollMaxMs = dblDrainMs
+    m_dblGapTotalMs = m_dblGapTotalMs + dblGapMs
+    If dblGapMs > m_dblGapMaxMs Then m_dblGapMaxMs = dblGapMs
+    If lngQueueCount > m_lngQueueMax Then m_lngQueueMax = lngQueueCount
+    If blnReentrant Then m_lngReentrantCount = m_lngReentrantCount + 1
+
+    strDetail = Format$(CLng(dblDrainMs), "0") & "ms gap=" & Format$(CLng(dblGapMs), "0") & _
+        "ms q=" & lngQueueCount
 
     If blnTimedOut Then
-        modTestRunnerDiag.Diag "poll.timeout", Format$(CLng(dblMs), "0") & "ms"
-    ElseIf dblMs > POLL_SLOW_MS Then
-        modTestRunnerDiag.Diag "poll.slow", Format$(CLng(dblMs), "0") & "ms"
+        modTestRunnerDiag.Diag "poll.timeout", strDetail
+    ElseIf dblDrainMs > POLL_SLOW_MS Then
+        modTestRunnerDiag.Diag "poll.slow", strDetail
     End If
 
     If m_lngPollCount >= POLL_REPORT_EVERY Then
         modTestRunnerDiag.Diag "poll.stats", "n=" & m_lngPollCount & _
             " avg=" & Format$(m_dblPollTotalMs / m_lngPollCount, "0.0") & "ms" & _
-            " max=" & Format$(m_dblPollMaxMs, "0") & "ms"
+            " max=" & Format$(m_dblPollMaxMs, "0") & "ms" & _
+            " gap.avg=" & Format$(m_dblGapTotalMs / m_lngPollCount, "0.0") & "ms" & _
+            " gap.max=" & Format$(m_dblGapMaxMs, "0") & "ms" & _
+            " qmax=" & m_lngQueueMax & " reentrant=" & m_lngReentrantCount & _
+            " int=" & m_lngLastInterval & "ms"
         m_lngPollCount = 0
         m_dblPollTotalMs = 0
         m_dblPollMaxMs = 0
+        m_dblGapTotalMs = 0
+        m_dblGapMaxMs = 0
+        m_lngQueueMax = 0
+        m_lngReentrantCount = 0
     End If
 
 End Sub
