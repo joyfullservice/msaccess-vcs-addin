@@ -102,10 +102,11 @@ Private Sub ScanFolderForOrphans(cType As IDbComponent, strFolder As String, _
     ' Single-pass Win32 API scan for files and subfolders
     ScanFolderContents strFolder, colFiles, colSubFolders
 
-    ' Process files in this folder
+    ' Process files in this folder. This disk scan is near-instant and is intentionally
+    ' excluded from the scan progress bar (see modExport - the bar is sized to the object
+    ' count only), so we do not increment progress here.
     For Each varItem In colFiles
         CompareToIndex cType, CStr(varItem), dExtensions, dBaseNames
-        Log.Increment
     Next varItem
 
     ' Recurse into subfolders

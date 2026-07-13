@@ -16,6 +16,10 @@ Option Explicit
 
 Private Const ModuleName = "modLoadSaveText"
 
+' Batched query Description cache (query name -> Description from MSysObjects.LvProp).
+' Active only for the duration of a change-detection scan; see BuildQueryDescriptionCache.
+Private m_dQueryDescCache As Dictionary
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SaveComponentAsText
@@ -419,6 +423,7 @@ Public Function GetMetadataHash(strContainerName As String, _
 
     LogUnhandledErrors
     On Error Resume Next
+    Perf.OperationStart "Meta: Read Description"
     Set doc = dbs.Containers(strContainerName).Documents(strObjectName)
     If Err.Number = 0 Then
         strDesc = CStr(doc.Properties("Description").Value)
@@ -429,15 +434,221 @@ Public Function GetMetadataHash(strContainerName As String, _
     Else
         Err.Clear
     End If
+    Perf.OperationEnd
 
+    Perf.OperationStart "Meta: Hidden Attribute"
+    Err.Clear
     blnHidden = Application.GetHiddenAttribute(intObjType, strObjectName)
+    If Err.Number <> 0 Then
+        blnHidden = False
+        Err.Clear
+    End If
+    Perf.OperationEnd
+    On Error GoTo 0
+
+    GetMetadataHash = HashMetadataValues(strDesc, blnHidden)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HashMetadataValues
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Single source of truth for the metadata hash formula. Both the generic
+'           : per-object path (GetMetadataHash) and the batched query fast path
+'           : (GetQueryMetadataHash) must produce identical hashes for the same inputs,
+'           : otherwise unmodified objects would be flagged as changed.
+'---------------------------------------------------------------------------------------
+'
+Public Function HashMetadataValues(strDesc As String, blnHidden As Boolean) As String
+    HashMetadataValues = GetStringHash(strDesc & "|" & CStr(blnHidden), True)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetQueryMetadataHash
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Fast-path metadata hash for queries used during change-detection scans.
+'           : When a batch Description cache is active (built by
+'           : BuildQueryDescriptionCache), the Description is read from the cached
+'           : MSysObjects.LvProp values instead of a per-object DAO/COM call. On a
+'           : database with thousands of queries the per-object DAO Description read
+'           : dominated fast-save export time (~82% in one profile); a single batched
+'           : recordset read eliminates that cost. The hidden attribute stays a direct
+'           : GetHiddenAttribute call (negligibly fast). When no cache is active this
+'           : falls back to the standard per-object path, so correctness is unchanged
+'           : for callers outside the batch loop.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetQueryMetadataHash(strQueryName As String) As String
+
+    Dim strDesc As String
+    Dim blnHidden As Boolean
+
+    If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Function
+
+    ' No batch cache active - use the standard per-object path (identical result).
+    If m_dQueryDescCache Is Nothing Then
+        GetQueryMetadataHash = GetMetadataHash("Tables", strQueryName, acQuery)
+        Exit Function
+    End If
+
+    If m_dQueryDescCache.Exists(strQueryName) Then strDesc = m_dQueryDescCache(strQueryName)
+
+    LogUnhandledErrors
+    On Error Resume Next
+    blnHidden = Application.GetHiddenAttribute(acQuery, strQueryName)
     If Err.Number <> 0 Then
         blnHidden = False
         Err.Clear
     End If
     On Error GoTo 0
 
-    GetMetadataHash = GetStringHash(strDesc & "|" & CStr(blnHidden), True)
+    GetQueryMetadataHash = HashMetadataValues(strDesc, blnHidden)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildQueryDescriptionCache
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Batch-load every query Description from MSysObjects.LvProp into a module
+'           : cache in a single recordset pass, replacing thousands of per-object DAO
+'           : Description reads during a fast-save scan. Always rebuilds fresh so a
+'           : cache from a prior operation can never go stale (a missed clear on an
+'           : error path is harmless). Auto-generated "~sq_*" system queries are
+'           : skipped - they are not enumerated by CurrentData.AllQueries. LvProp
+'           : Description values were verified byte-for-byte equal to the DAO document
+'           : property (see DECISIONS.md 2026-07-13 - Fast-save query metadata scan).
+'---------------------------------------------------------------------------------------
+'
+Public Sub BuildQueryDescriptionCache()
+
+    Dim dbs As Database
+    Dim rst As DAO.Recordset
+    Dim strName As String
+    Dim strDesc As String
+    Dim bteLvProp() As Byte
+
+    Perf.OperationStart "Build Query Desc Cache"
+
+    Set m_dQueryDescCache = New Dictionary
+    m_dQueryDescCache.CompareMode = TextCompare
+
+    If DebugMode(True) Then On Error GoTo Err_Handler Else On Error Resume Next
+
+    Set dbs = SharedDb
+    Set rst = dbs.OpenRecordset( _
+        "SELECT Name, LvProp FROM MSysObjects WHERE Type=5", _
+        dbOpenSnapshot, dbReadOnly)
+    If rst Is Nothing Then GoTo Err_Handler
+
+    Do While Not rst.EOF
+        strName = Nz(rst!Name, vbNullString)
+        ' Skip auto-generated system queries (not in CurrentData.AllQueries).
+        If Len(strName) > 0 Then
+            If Left$(strName, 1) <> "~" Then
+                Erase bteLvProp
+                If Not IsNull(rst!LvProp) Then
+                    bteLvProp = rst!LvProp
+                    strDesc = ParseLvPropDescription(bteLvProp)
+                Else
+                    strDesc = vbNullString
+                End If
+                m_dQueryDescCache(strName) = strDesc
+            End If
+        End If
+        rst.MoveNext
+    Loop
+    rst.Close
+
+    ' Clear any benign leftover error so the failure handler only fires on real faults.
+    Err.Clear
+    On Error GoTo 0
+    GoTo Cleanup
+
+Err_Handler:
+    On Error Resume Next
+    ' On any failure, drop the (possibly partial) cache so IsModified falls back to the
+    ' reliable per-object Description read rather than trusting incomplete data.
+    CatchAny eelWarning, "Error building query Description cache", _
+        ModuleName & ".BuildQueryDescriptionCache", True, True
+    Set m_dQueryDescCache = Nothing
+
+Cleanup:
+    Set rst = Nothing
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearQueryDescriptionCache
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Release the batched query Description cache after a scan completes. Safe
+'           : to call when no cache is active.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearQueryDescriptionCache()
+    Set m_dQueryDescCache = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseLvPropDescription
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Extract the table-level Description property value from an LvProp blob.
+'           : Returns an empty string when the blob is absent or carries no Description.
+'---------------------------------------------------------------------------------------
+'
+Private Function ParseLvPropDescription(bteLvProp() As Byte) As String
+
+    Dim dParsed As Dictionary
+    Dim dTableProps As Dictionary
+    Dim dDesc As Dictionary
+    Dim cParser As clsLvPropParser
+    Dim intSanitize As eSanitizeLevel
+
+    If Not HasByteArrayDim(bteLvProp) Then Exit Function
+
+    If OptionsLoaded Then intSanitize = Options.SanitizeLevel Else intSanitize = eslStandard
+
+    Set cParser = New clsLvPropParser
+    Set dParsed = cParser.ParseLvProp(bteLvProp, intSanitize)
+    If dParsed Is Nothing Then Exit Function
+    If Not dParsed.Exists("TableProperties") Then Exit Function
+
+    Set dTableProps = dParsed("TableProperties")
+    If Not dTableProps.Exists("Description") Then Exit Function
+
+    Set dDesc = dTableProps("Description")
+    ParseLvPropDescription = Nz(dDesc("Value"), vbNullString)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasByteArrayDim
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Returns true when a Byte array has been dimensioned (has elements).
+'---------------------------------------------------------------------------------------
+'
+Private Function HasByteArrayDim(bteData() As Byte) As Boolean
+
+    LogUnhandledErrors
+    On Error Resume Next
+    HasByteArrayDim = (UBound(bteData) >= LBound(bteData))
+    If Err.Number <> 0 Then
+        HasByteArrayDim = False
+        Err.Clear
+    End If
+    On Error GoTo 0
 
 End Function
 

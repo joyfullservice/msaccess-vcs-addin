@@ -93,18 +93,25 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim objView As AccessObject
     Dim cView As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentData.AllViews.Count
+            sngStart = Timer
+        End If
         For Each objView In CurrentData.AllViews
             Set cView = New clsAdpServerView
             Set cView.DbObject = objView
             If blnNeedAll Then m_Items(False).Add cView.SourceFile, cView
             If blnModifiedOnly Then
                 If cView.IsModified Then m_Items(True).Add cView.SourceFile, cView
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Views"
             End If
         Next objView
     End If

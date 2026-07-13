@@ -160,18 +160,25 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim rpt As AccessObject
     Dim cReport As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentProject.AllReports.Count
+            sngStart = Timer
+        End If
         For Each rpt In CurrentProject.AllReports
             Set cReport = New clsDbReport
             Set cReport.DbObject = rpt
             If blnNeedAll Then m_Items(False).Add cReport.SourceFile, cReport
             If blnModifiedOnly Then
                 If cReport.IsModified Then m_Items(True).Add cReport.SourceFile, cReport
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Reports"
             End If
         Next rpt
     End If

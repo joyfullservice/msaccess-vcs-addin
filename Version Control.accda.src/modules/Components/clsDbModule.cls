@@ -556,6 +556,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cModule As IDbComponent
     Dim proj As VBProject
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -563,12 +565,17 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         Set proj = CurrentVBProject
+        If blnModifiedOnly Then
+            lngScanCount = CurrentProject.AllModules.Count
+            sngStart = Timer
+        End If
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
             Set cModule.DbObject = oMod
             If blnNeedAll Then m_Items(False).Add cModule.SourceFile, cModule
             If blnModifiedOnly Then
                 If cModule.IsModified Then m_Items(True).Add cModule.SourceFile, cModule
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Modules"
             End If
         Next oMod
     End If

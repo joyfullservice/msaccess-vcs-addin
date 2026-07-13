@@ -100,6 +100,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim rst As ADODB.Recordset
     Dim strSql As String
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -111,6 +113,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' Build list of triggers in database (from sysobjects)
         strSql = "SELECT [name],object_name(parent_object_id) AS parent_name, schema_name([schema_id]) AS [schema_name], modify_date FROM sys.objects WHERE type='TR'"
         Set rst = New ADODB.Recordset
+        If blnModifiedOnly Then sngStart = Timer
         With rst
             .Open strSql, CurrentProject.Connection, adOpenForwardOnly, adLockReadOnly
             Do While Not .EOF
@@ -125,6 +128,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 If blnNeedAll Then m_Items(False).Add cComponent.SourceFile, cComponent
                 If blnModifiedOnly Then
                     If cComponent.IsModified Then m_Items(True).Add cComponent.SourceFile, cComponent
+                    lngScanCount = lngScanCount + 1
+                    Log.IncrementObjectScanProgress sngStart, lngScanCount, "Triggers"
                 End If
                 .MoveNext
             Loop

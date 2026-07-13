@@ -552,6 +552,28 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IncrementObjectScanProgress
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Throttled progress bar increment during GetAllFromDB change-detection
+'           : scans. After 1 second, show one console breadcrumb naming the category.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IncrementObjectScanProgress(ByRef sngStart As Single, _
+    lngCount As Long, strCategory As String)
+
+    Increment
+    If sngStart > 0 Then
+        If Timer - sngStart > 1 Then
+            Me.Add " - Scanning " & lngCount & " " & LCase(strCategory) & "...", , , , , True
+            sngStart = 0
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ApplyPendingIncrements
 ' Author    : Adam Waller
 ' Date      : 4/24/2026

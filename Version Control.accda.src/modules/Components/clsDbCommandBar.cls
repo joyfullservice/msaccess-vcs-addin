@@ -813,6 +813,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cCmdBar As IDbComponent
     Dim bar As CommandBar
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -826,6 +828,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = Application.CommandBars.Count
+            sngStart = Timer
+        End If
         For Each bar In Application.CommandBars
             If bar.BuiltIn Then
                 ' Skip
@@ -837,6 +843,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 If blnNeedAll Then m_Items(False).Add cCmdBar.SourceFile, cCmdBar
                 If blnModifiedOnly Then
                     If cCmdBar.IsModified Then m_Items(True).Add cCmdBar.SourceFile, cCmdBar
+                    Log.IncrementObjectScanProgress sngStart, lngScanCount, "CommandBars"
                 End If
             End If
         Next bar

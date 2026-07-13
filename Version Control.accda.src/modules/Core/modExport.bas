@@ -244,7 +244,12 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Set up progress bar to show status on large projects
     Set colCategories = GetContainers(intFilter)
     Log.ProgressBar.Reset
-    Log.ProgressBar.Max = GetQuickObjectCount(colCategories) + GetQuickFileCount(colCategories)
+    ' Size the scan progress bar to the object count only. Change detection cost is
+    ' dominated by the per-object GetAllFromDB scan; orphaned-file cleanup is a near-
+    ' instant disk enumeration, so including the (much larger) file count made the bar
+    ' crawl through the real work then leap in bulk bursts as each category's files were
+    ' scanned. Keeping only the object count makes bar motion track wall-clock time.
+    Log.ProgressBar.Max = GetQuickObjectCount(colCategories)
 
     ' Scan database objects for changes
     Set dCategories = New Dictionary

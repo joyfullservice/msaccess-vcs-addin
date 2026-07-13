@@ -81,6 +81,29 @@ contradictory guidance.
 
 ---
 
+## 2026-07-13 — Fast-save query metadata scan via MSysObjects.LvProp
+
+**Trigger**: On a production database with ~3,675 queries, a fast-save export sat at 1% for nearly a minute during "Scanning for changes...". Profiling (`Perf` ops added to `clsDbQuery.IDbComponent_IsModified` and `GetMetadataHash`) showed `Meta: Read Description` consuming ~38s — ~82% of the ~46s export. Each query's metadata hash read its `Description` via `dbs.Containers("Tables").Documents(name).Properties("Description")`, and that DAO/COM access forced Access to lazily materialize each query definition. Two symptoms: no progress feedback during the scan, and the scan itself being dominated by per-object Description reads.
+
+**Options explored**:
+- **Leave as-is, add progress only** — surfaces the stall but leaves the 38s cost. Rejected: treats the symptom, not the cause.
+- **Cache Descriptions per `clsDbQuery` instance** — useless: each query is a fresh instance, so no sharing across the scan.
+- **Batched `MSysObjects.LvProp` read (chosen)** — one snapshot recordset of `Name, LvProp` for all `Type=5` rows, parse the table-level `Description` from each `LvProp` blob (`clsLvPropParser`), cache by name for the duration of one scan. `GetHiddenAttribute` stays a per-object call (negligibly fast). Verified byte-for-byte equal to the DAO Description across all query rows (0 mismatches) with a throwaway `modScanDiagnostics.VerifyQueryMetadataSource` diagnostic. Batched read cost ~0.8s vs ~38s; total export ~46s → ~10s.
+
+**Decision**: Added `BuildQueryDescriptionCache`/`ClearQueryDescriptionCache`/`GetQueryMetadataHash` to `modLoadSaveText.bas`; `clsDbQuery` builds the cache before the modified-scan loop and clears it after. The scan-time metadata hash uses the shared `HashMetadataValues` formula so the cached fast path and the generic `GetMetadataHash` produce identical hashes (unmodified queries are never falsely re-exported); when no cache is active, `GetQueryMetadataHash` falls back to the per-object DAO read. The cache always rebuilds fresh and drops itself on any build error, so it can never serve stale/partial data. Auto-generated `~sq_*` queries (present in `MSysObjects` but not `CurrentData.AllQueries`) are skipped. Separately, progress feedback was added: `Log.IncrementObjectScanProgress` increments once per object in every component's `GetAllFromDB`, the scan bar is sized to `GetQuickObjectCount` only, and `ClearOrphanedSourceFiles` no longer advances the bar (its near-instant per-file increments made the bar leap in bulk bursts). The one-time `modScanDiagnostics.VerifyQueryMetadataSource` verifier is dropped rather than carried forward — it was never committed, so its finding (LvProp == DAO, 0 mismatches) is recorded here; the verifier is simple enough to reconstruct from this entry if ever needed.
+
+**What this rules out**: The fast path trusts that `LvProp`'s table-level `Description` equals the DAO document `Description`. If a future Access version diverges, only the metadata hash (Description/Hidden) is affected — a query's SQL change is still caught by `DateModified`, so the worst case is a missed description/hidden-only change or a harmless extra export, not data loss. That low severity is why no permanent CI guard was added; re-run the git-history diagnostic (or add a targeted `modTest*` check) if the invariant is ever suspected. The per-object scan increment only fires on the fast-save path, so a full export's scan phase shows a static bar briefly before the export loop reports progress.
+
+**Relevant files**:
+- `modLoadSaveText.bas` — `BuildQueryDescriptionCache`, `ClearQueryDescriptionCache`, `GetQueryMetadataHash`, `HashMetadataValues`, `ParseLvPropDescription`
+- `clsDbQuery.cls` — batch cache around the modified-scan loop; `IsModified` uses `GetQueryMetadataHash` + `Perf` split
+- `clsLog.cls` — `IncrementObjectScanProgress`
+- `modExport.bas` — scan bar sized to `GetQuickObjectCount` only
+- `modOrphaned.bas` — orphan-file scan no longer increments the bar
+- `clsDbForm/Report/Module/Macro/TableDef/…` and `clsAdp*` — per-object scan progress increments
+
+---
+
 ## 2026-07-13 — Oracle ODBC connectivity probe SQL
 
 **Trigger**: Issue #723 — `CacheConnection` used `SELECT 1;` for all ODBC probes. Oracle rejects that syntax (requires `SELECT 1 FROM DUAL;`), causing ODBC error 3146 and a false Retry/Ignore/Abort dialog during build. A second bug: `clsDbConnection.Import` read `Err.Description` after `CacheConnection` had cleared `Err`, so the failure dialog showed no detail.

@@ -123,18 +123,25 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim oMac As AccessObject
     Dim cMac As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentProject.AllMacros.Count
+            sngStart = Timer
+        End If
         For Each oMac In CurrentProject.AllMacros
             Set cMac = New clsDbMacro
             Set cMac.DbObject = oMac
             If blnNeedAll Then m_Items(False).Add cMac.SourceFile, cMac
             If blnModifiedOnly Then
                 If cMac.IsModified Then m_Items(True).Add cMac.SourceFile, cMac
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Macros"
             End If
         Next oMac
     End If

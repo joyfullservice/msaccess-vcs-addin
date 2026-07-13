@@ -892,20 +892,31 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim qry As AccessObject
     Dim cQuery As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentData.AllQueries.Count
+            sngStart = Timer
+            ' Batch-load query Descriptions from MSysObjects.LvProp once, so per-query
+            ' IsModified checks avoid thousands of slow DAO Description reads.
+            BuildQueryDescriptionCache
+        End If
         For Each qry In CurrentData.AllQueries
             Set cQuery = New clsDbQuery
             Set cQuery.DbObject = qry
             If blnNeedAll Then m_Items(False).Add cQuery.SourceFile, cQuery
             If blnModifiedOnly Then
                 If cQuery.IsModified Then m_Items(True).Add cQuery.SourceFile, cQuery
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Queries"
             End If
         Next qry
+        If blnModifiedOnly Then ClearQueryDescriptionCache
     End If
 
     ' Return cached collection
@@ -986,12 +997,16 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
+    Perf.OperationStart "IsModified: Date Check"
     IDbComponent_IsModified = (DateTruncToSeconds(m_Query.DateModified) <> VCSIndex.Item(Me).ObjectDate)
+    Perf.OperationEnd
 
     ' Check metadata (Description/Hidden) which don't update DateModified
     If Not IDbComponent_IsModified Then
+        Perf.OperationStart "IsModified: Meta Hash"
         IDbComponent_IsModified = VCSIndex.Item(Me).MetaHash <> _
-            GetMetadataHash("Tables", m_Query.Name, acQuery)
+            GetQueryMetadataHash(m_Query.Name)
+        Perf.OperationEnd
     End If
 End Function
 
