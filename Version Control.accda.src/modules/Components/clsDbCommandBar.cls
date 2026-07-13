@@ -385,9 +385,20 @@ Private Function IsBuiltInControlCustomized(ctl As CommandBarControl) As Boolean
     On Error Resume Next
 
     ' Custom action assigned to the built-in control.
+    ' Some control types do not expose OnAction/Parameter (438/440); that is not a
+    ' customization and must not be logged during IsModified/GetSource scans.
     If Len(ctl.OnAction) > 0 Then IsBuiltInControlCustomized = True
+    If Catch(438, 440) Then
+        ' Property not supported on this control type.
+    ElseIf CatchAny(eelNoError, vbNullString) Then
+        ' Unexpected error; keep any True already set from a prior successful read.
+    End If
     If Len(ctl.Parameter) > 0 Then IsBuiltInControlCustomized = True
-    CatchAny eelNoError, vbNullString
+    If Catch(438, 440) Then
+        ' Property not supported on this control type.
+    ElseIf CatchAny(eelNoError, vbNullString) Then
+        ' Unexpected error; keep any True already set from a prior successful read.
+    End If
     If IsBuiltInControlCustomized Then Exit Function
 
     ' Custom pasted face: a button with no FaceId but a picture present.
@@ -563,7 +574,9 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         ' Add command bar properties
         For Each varProp In this.BarProperties
             varValue = CallByName(objItem, varProp, VbGet)
-            If Not CatchAny(eelNoError, vbNullString) Then
+            ' No point in logging those 2 errors.
+            If Catch(438, 440) Then
+            ElseIf Not CatchAny(eelNoError, vbNullString) Then
                 dParent.Add varProp, varValue
             End If
         Next varProp
