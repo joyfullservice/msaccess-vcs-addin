@@ -231,6 +231,35 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IsOracleOdbcConnect
+' Author    : Adam Waller
+' Date      : 07/13/2026
+' Purpose   : Returns True when an ODBC connection string names an Oracle driver.
+'           : DSN-only strings without DRIVER= are not detected (see DECISIONS.md).
+'---------------------------------------------------------------------------------------
+'
+Public Function IsOracleOdbcConnect(strConnect As String) As Boolean
+    IsOracleOdbcConnect = (InStr(1, GetConnectPart(strConnect, "DRIVER"), "Oracle", vbTextCompare) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConnectivityProbeSql
+' Author    : Adam Waller
+' Date      : 07/13/2026
+' Purpose   : Lightweight SQL for ODBC connectivity probes. Oracle requires FROM DUAL.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetConnectivityProbeSql(strConnect As String) As String
+    If IsOracleOdbcConnect(strConnect) Then
+        GetConnectivityProbeSql = "SELECT 1 FROM DUAL;"
+    Else
+        GetConnectivityProbeSql = "SELECT 1;"
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : HandleConnectionFailure
 ' Author    : Adam Waller
 ' Date      : 06/19/2026
@@ -389,12 +418,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Function CacheConnection(strConnect As String, _
-    Optional ByRef strCompletedConnect As String, Optional ByRef lngErr As Long) As Boolean
+    ByRef strCompletedConnect As String, ByRef lngErr As Long, _
+    ByRef strErrDesc As String) As Boolean
 
     Dim qdf As DAO.QueryDef
 
     lngErr = 0
     strCompletedConnect = vbNullString
+    strErrDesc = vbNullString
 
     If Not (Left$(strConnect, 5) = "ODBC;") Then
         Exit Function
@@ -418,14 +449,14 @@ Public Function CacheConnection(strConnect As String, _
         ' string will avoid the bug.
         qdf.Name = ""
 
-        ' We must provide a SQL statement. Every database engine understand this, right?
-        qdf.SQL = "SELECT 1;"
+        qdf.SQL = GetConnectivityProbeSql(strConnect)
         qdf.Connect = strConnect
 
         LogUnhandledErrors
         On Error Resume Next
         qdf.OpenRecordset
         lngErr = Err.Number
+        strErrDesc = Err.Description
         On Error GoTo 0
 
         If lngErr Then
@@ -688,7 +719,7 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 03/11/2026
 ' Purpose   : Perform a lightweight server-level connection test for non-Access
-'           : connections (ODBC, etc.) by creating a temp QueryDef with SELECT 1.
+'           : connections (ODBC, etc.) via GetConnectivityProbeSql.
 '           : Returns True if the server responds. Used to distinguish "server down"
 '           : from "single table missing" when a linked table fails TableExists.
 '---------------------------------------------------------------------------------------
@@ -728,7 +759,7 @@ Public Function TestBackEndConnection(strConnect As String) As Boolean
 
     Set qdf = CurrentDb.CreateQueryDef("")
     qdf.Connect = strConnect
-    qdf.SQL = "SELECT 1;"
+    qdf.SQL = GetConnectivityProbeSql(strConnect)
     qdf.OpenRecordset
     TestBackEndConnection = (Err.Number = 0)
 

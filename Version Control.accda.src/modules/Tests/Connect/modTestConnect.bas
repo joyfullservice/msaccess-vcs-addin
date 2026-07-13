@@ -155,6 +155,37 @@ Public Sub TestGetConnectionEnvKey()
 End Sub
 
 
+Public Sub TestIsOracleOdbcConnect()
+    TestAssert IsOracleOdbcConnect( _
+        "ODBC;DRIVER={Oracle ODBC Driver};SERVER=ora;UID=u;PWD=p"), _
+        "Oracle ODBC Driver detected"
+    TestAssert IsOracleOdbcConnect( _
+        "ODBC;DRIVER={Oracle in OraClient11g_home1};DBQ=tns;UID=u"), _
+        "Oracle in OraClient detected"
+    TestAssert IsOracleOdbcConnect( _
+        "ODBC;DRIVER={Microsoft ODBC for Oracle};SERVER=ora"), _
+        "Microsoft ODBC for Oracle detected"
+    TestAssert Not IsOracleOdbcConnect( _
+        "ODBC;DRIVER={SQL Server};SERVER=svr;DATABASE=db"), _
+        "SQL Server not Oracle"
+    TestAssert Not IsOracleOdbcConnect("ODBC;DSN=MyOracle;UID=u"), _
+        "DSN-only without DRIVER not detected"
+    TestAssert Not IsOracleOdbcConnect(vbNullString), "empty string not Oracle"
+End Sub
+
+
+Public Sub TestGetConnectivityProbeSql()
+    TestAssert GetConnectivityProbeSql( _
+        "ODBC;DRIVER={Oracle ODBC Driver};SERVER=ora") = "SELECT 1 FROM DUAL;", _
+        "Oracle uses FROM DUAL"
+    TestAssert GetConnectivityProbeSql( _
+        "ODBC;DRIVER={SQL Server};SERVER=svr") = "SELECT 1;", _
+        "non-Oracle uses SELECT 1"
+    TestAssert GetConnectivityProbeSql("ODBC;DSN=MyOracle;UID=u") = "SELECT 1;", _
+        "DSN-only keeps SELECT 1"
+End Sub
+
+
 Public Sub TestResolveEnvReferencesInText()
     ' When no env: references exist, text should pass through unchanged
     Dim strInput As String

@@ -81,6 +81,26 @@ contradictory guidance.
 
 ---
 
+## 2026-07-13 — Oracle ODBC connectivity probe SQL
+
+**Trigger**: Issue #723 — `CacheConnection` used `SELECT 1;` for all ODBC probes. Oracle rejects that syntax (requires `SELECT 1 FROM DUAL;`), causing ODBC error 3146 and a false Retry/Ignore/Abort dialog during build. A second bug: `clsDbConnection.Import` read `Err.Description` after `CacheConnection` had cleared `Err`, so the failure dialog showed no detail.
+
+**Options explored**:
+- **Reactive 3146 fallback** — retry with `FROM DUAL` when `OpenRecordset` fails. Rejected: 3146 is a generic ODBC wrapper that also covers auth and server failures, so retry conflates SQL syntax errors with real connection problems.
+- **Registry DSN→driver lookup** for DSN-only strings without `DRIVER=`. Rejected for now: bitness-sensitive, heavier, and DSN-only Oracle links are rare with Access.
+- **Proactive DRIVER-based detection (chosen)** — if `GetConnectPart(strConnect, "DRIVER")` contains `"Oracle"` (case-insensitive), use `SELECT 1 FROM DUAL;`; otherwise `SELECT 1;`. Covers DSN-less strings Access stores after linking.
+
+**Decision**: Added `IsOracleOdbcConnect` and `GetConnectivityProbeSql` to `modConnect.bas`. `CacheConnection` and `TestBackEndConnection` call `GetConnectivityProbeSql` before `OpenRecordset`. `CacheConnection` now returns `strErrDesc` via ByRef (required parameter) so `HandleConnectionFailure` shows the real ODBC message.
+
+**What this rules out**: DSN-only Oracle connections (`ODBC;DSN=...` without `DRIVER=`) still use `SELECT 1;` — same as before, not a regression. Registry lookup or reactive fallback can be added later if reported.
+
+**Relevant files**:
+- `modConnect.bas` — `IsOracleOdbcConnect`, `GetConnectivityProbeSql`, `CacheConnection`, `TestBackEndConnection`
+- `clsDbConnection.cls` — pass `strErrDesc` from `CacheConnection` to `HandleConnectionFailure`
+- `modTestConnect.bas` — unit tests for detection and probe SQL
+
+---
+
 ## 2026-07-09 — Ship test-results/ gitignore to user projects
 
 **Trigger**: Review of test-results persistence found the add-in repo's `.gitignore`
