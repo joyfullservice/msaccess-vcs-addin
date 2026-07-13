@@ -13,6 +13,9 @@ Option Explicit
 
 Private Const ModuleName As String = "modDatabase"
 
+' Batched table Type cache (table name -> MSysObjects.Type for local/linked tables).
+Private m_dTableTypeCache As Dictionary
+
 ' UDTs for reinterpreting a Long bit pattern as IEEE 754 Single (used by LongToSingle)
 Private Type typLong
     Value As Long
@@ -753,6 +756,97 @@ End Function
 Public Function IsLocalTable(strName As String) As Boolean
     IsLocalTable = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type = 1") = 0)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetCachedTableType
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Return the cached MSysObjects.Type for a table name when a batch cache is
+'           : active. Returns 0 when no cache is active or the name is not cached.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetCachedTableType(strName As String) As Long
+
+    If m_dTableTypeCache Is Nothing Then Exit Function
+    If Not m_dTableTypeCache.Exists(strName) Then Exit Function
+    GetCachedTableType = m_dTableTypeCache(strName)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildTableTypeCache
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Batch-load every local/linked table Type from MSysObjects into a module
+'           : cache in a single recordset pass, replacing hundreds of per-table Type
+'           : lookups during a table scan. Always rebuilds fresh so a cache from a
+'           : prior operation can never go stale. System and temporary tables are
+'           : skipped to match clsDbTableDef.GetAllFromDB enumeration.
+'---------------------------------------------------------------------------------------
+'
+Public Sub BuildTableTypeCache()
+
+    Dim dbs As Database
+    Dim rst As DAO.Recordset
+    Dim strName As String
+
+    Perf.OperationStart "Build Table Type Cache"
+
+    Set m_dTableTypeCache = New Dictionary
+    m_dTableTypeCache.CompareMode = TextCompare
+
+    If DebugMode(True) Then On Error GoTo Err_Handler Else On Error Resume Next
+
+    Set dbs = SharedDb
+    Set rst = dbs.OpenRecordset( _
+        "SELECT Name, Type FROM MSysObjects WHERE Type IN (1,4,6)", _
+        dbOpenSnapshot, dbReadOnly)
+    If rst Is Nothing Then GoTo Err_Handler
+
+    Do While Not rst.EOF
+        strName = Nz(rst!Name, vbNullString)
+        If Len(strName) > 0 Then
+            If Not (strName Like "MSys*" Or strName Like "~*") Then
+                m_dTableTypeCache(strName) = Nz(rst!Type, 1)
+            End If
+        End If
+        rst.MoveNext
+    Loop
+    rst.Close
+
+    ' Clear any benign leftover error so the failure handler only fires on real faults.
+    Err.Clear
+    On Error GoTo 0
+    GoTo Cleanup
+
+Err_Handler:
+    On Error Resume Next
+    ' On any failure, drop the (possibly partial) cache so IsLinkedTable falls back to the
+    ' reliable per-table Type read rather than trusting incomplete data.
+    CatchAny eelWarning, "Error building table Type cache", _
+        ModuleName & ".BuildTableTypeCache", True, True
+    Set m_dTableTypeCache = Nothing
+
+Cleanup:
+    Set rst = Nothing
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearTableTypeCache
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Release the batched table Type cache after a scan completes. Safe to call
+'           : when no cache is active.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearTableTypeCache()
+    Set m_dTableTypeCache = Nothing
+End Sub
 
 
 '---------------------------------------------------------------------------------------

@@ -956,6 +956,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             lngScanCount = CurrentData.AllTables.Count
             sngStart = Timer
         End If
+        ' Batch-load table Types from MSysObjects once, so per-table SourceFile /
+        ' IsLinkedTable checks avoid hundreds of slow single-row Type lookups.
+        BuildTableTypeCache
         For Each tdf In CurrentData.AllTables
             If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
                 ' Skip system and temporary tables
@@ -969,6 +972,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 End If
             End If
         Next tdf
+        ClearTableTypeCache
     End If
 
     ' Return cached collection
@@ -1107,6 +1111,13 @@ Private Property Get IsLinkedTable() As Boolean
     If m_Table Is Nothing Then Exit Property
 
     ' Use cached value if possible (per table object on this instance)
+    If m_lngTableType > 0 Then
+        IsLinkedTable = (m_lngTableType <> 1)
+        Exit Property
+    End If
+
+    ' Use module-level batch cache when active (built by GetAllFromDB).
+    m_lngTableType = GetCachedTableType(m_Table.Name)
     If m_lngTableType > 0 Then
         IsLinkedTable = (m_lngTableType <> 1)
         Exit Property
