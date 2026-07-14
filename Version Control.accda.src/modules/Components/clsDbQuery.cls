@@ -135,6 +135,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     Dim strConnect As String
     Dim strEnvKey As String
     Dim lngQueryType As Long
+    Dim lngAttr1Flag As Long
     Dim blnIsPassThrough As Boolean
 
     strQueryName = m_Query.Name
@@ -191,14 +192,26 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     strSql = cComposer.ReconstructSQL(colRows)
     Perf.OperationEnd
 
-    ' Step 4: Get the connection string for pass-through queries
+    ' Step 4: Pass-through connect and ReturnsRecords metadata from MSysQueries.
+    ' Attribute 1 Flag 8/10 store SQL in Expression and connect in Name1.
+    ' Attribute 4 may also carry connect for some pass-through layouts.
     strConnect = vbNullString
+    lngAttr1Flag = 0
     Dim dR As Dictionary
     For Each dR In colRows
-        If CLng(dR("Attribute")) = 4 Then
-            strConnect = CStr(dR("Expression"))
-            If Len(strConnect) > 0 Then blnIsPassThrough = True
-            Exit For
+        If CLng(dR("Attribute")) = 1 Then
+            lngAttr1Flag = CLng(dR("Flag"))
+            If lngAttr1Flag = 8 Or lngAttr1Flag = 10 Then
+                blnIsPassThrough = True
+                If Len(Nz(dR("Name1"), vbNullString)) > 0 Then
+                    strConnect = CStr(dR("Name1"))
+                End If
+            End If
+        ElseIf CLng(dR("Attribute")) = 4 Then
+            If Len(strConnect) = 0 Then
+                strConnect = CStr(dR("Expression"))
+                If Len(strConnect) > 0 Then blnIsPassThrough = True
+            End If
         End If
     Next dR
     If blnIsPassThrough And Len(strConnect) = 0 Then
@@ -314,6 +327,15 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
             ' that risk is accepted - see DECISIONS.md 2026-06-19.)
             dItems.Add "Connect", GetSourceSafeConnect(strConnect, strQueryName & " (pass-through query)")
         End If
+    End If
+
+    ' ReturnsRecords is not stored in LvProp; derive from Attribute 1 Flag
+    ' (10 = pass-through with no records). Import defaults to Yes when absent.
+    If lngAttr1Flag = 10 Then
+        Set dPropEntry = New Dictionary
+        dPropEntry.Add "Type", 1
+        dPropEntry.Add "Value", False
+        dJsonProps.Add "ReturnsRecords", dPropEntry
     End If
 
     ' Query properties from LvProp (ODBCTimeout, UseTransaction, etc.)

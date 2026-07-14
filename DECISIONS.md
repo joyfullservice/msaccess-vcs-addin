@@ -1729,20 +1729,20 @@ single-object import.)*
 
 ---
 
-## 2026-05-01 — Pass-through queries bypass SQL formatter and composer entirely
+## 2026-05-01 — Pass-through queries bypass SQL formatter; SQL sourced from MSysQueries
 
 **Trigger**: Exporting a database containing `dbQSQLPassThrough` queries crashed `clsSqlFormatter` with "Unable to parse SQL after position N" — the formatter's tokenizer is designed for Access SQL syntax and cannot handle T-SQL, PL/SQL, or other server-side dialects that pass-through queries may contain.
 
 **Options explored**:
 - **Teach the formatter about T-SQL/PL-SQL**: rejected. Scope explosion — every server dialect has its own syntax, reserved words, quoting rules, and comment styles. The formatter would become a multi-dialect parser with no clear boundary.
 - **Format only the SELECT-like subset** (heuristic detection of "looks like Access SQL"): rejected. Fragile — any heuristic would produce false positives on server SQL that happens to resemble Access SQL, silently corrupting the stored query text.
-- **Detect and bypass entirely** (chosen): Check `QueryDef.Type` for `dbQSQLPassThrough` (112) and `dbQSPTBulk` (144) early in `clsDbQuery.ExportNewFormat`. Store the SQL verbatim — no formatting, no decomposition through `clsQueryComposer`, no MSysQueries reconstruction. The `Connect` string is captured via `QueryDef.Connect` with an `ODBC;` placeholder fallback.
+- **Detect and bypass formatter; reconstruct SQL from MSysQueries** (chosen): Check `MSysObjects.Flags` for `dbQSQLPassThrough` (112) and `dbQSPTBulk` (144), or MSysQueries Attribute 1 Flag 8/10. `clsQueryComposer.ReconstructSQL` returns the verbatim Attribute 1 `Expression` for Flag 7 (DDL), 8 (pass-through, returns records), and 10 (pass-through, no records). Connect comes from Attribute 1 `Name1` (or Attribute 4 `Expression` when present). `clsSqlFormatter` is skipped for pass-through types.
 
-**Decision**: Pass-through query types are detected at the top of the export path and routed to a verbatim-storage branch. SQL is written as-is to the `.sql` file. The `.json` metadata includes `QueryType` so the import path knows to skip `LoadFromText` qdef generation and use `CreateQueryDef` directly. `clsSqlFormatter` and `clsQueryComposer` are never invoked for these query types.
+**Decision**: Pass-through export reads SQL and connect from the system tables only (no `QueryDef.SQL` / `QueryDef.Connect` round-trip on the hot path). `ReturnsRecords` is not in `LvProp`; when Attribute 1 Flag = 10, export writes `QueryProperties.ReturnsRecords = false` to the `.json` companion (issue #724). Import generates a `.qdef` via `clsQueryComposer` and `LoadFromText`, which honors `dbBoolean "ReturnsRecords" ="0"`.
 
-**What this rules out**: Future attempts to "fix" the formatter or composer for non-Access SQL dialects — pass-through SQL must always be stored verbatim. If a future need arises to pretty-print server SQL (e.g. for diff readability), it must be a separate, opt-in formatter that does not share code paths with the Access SQL formatter.
+**What this rules out**: Future attempts to "fix" the formatter or composer for non-Access SQL dialects — pass-through SQL must always be stored verbatim from MSysQueries. If a future need arises to pretty-print server SQL (e.g. for diff readability), it must be a separate, opt-in formatter that does not share code paths with the Access SQL formatter.
 
-**Relevant files**: `Version Control.accda.src/modules/Components/clsDbQuery.cls` (type detection and verbatim export/import), `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` (`ConnectString` property for SQL View qdef emission), `Testing/Fixtures/queries/passthrough/qryPassThroughNoConnect.*` (regression fixture).
+**Relevant files**: `Version Control.accda.src/modules/Components/clsDbQuery.cls` (export/import), `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` (`ReconstructSQL`, `ConnectString`, `EmitAllProperties`), `Testing/Fixtures/queries/passthrough/` (round-trip fixtures including `qryPassThroughNoRecords` for Flag 10).
 
 ---
 

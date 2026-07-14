@@ -78,7 +78,8 @@ The parser handles every value below:
 | 5    | DELETE                    | —                                                      |
 | 6    | TRANSFORM (Crosstab)      | —                                                      |
 | 7    | Data Definition (DDL)     | Expression = full DDL statement                        |
-| 8    | Pass-through              | Expression = SQL command; Name1 = ODBC connect string  |
+| 8    | Pass-through (returns records) | Expression = SQL command; Name1 = ODBC connect string  |
+| 10   | Pass-through (no records)        | Expression = SQL command; Name1 = ODBC connect string  |
 | 9    | UNION                     | —                                                      |
 
 Flag 2 (Make-Table / `SELECT INTO`) is in the upstream reference but has no
@@ -216,10 +217,13 @@ Both are `OLE Object` columns; only one (`LvProp`) is always present for
 queries:
 
 - **`LvProp`** — MR2 binary format (same as linked tables). Carries query
-  properties (`ReturnsRecords`, `ODBCTimeout`, `RecordsetType`,
-  `DefaultView`, `Orientation`, etc.) and per-column metadata (`Name`,
-  `AggregateType`, `ColumnWidth`, `ColumnHidden`). Parsed by
-  `clsLvExtraParser` and similar. Always present.
+  properties (`ODBCTimeout`, `RecordsetType`, `DefaultView`, `Orientation`,
+  `LogMessages`, etc.) and per-column metadata (`Name`, `AggregateType`,
+  `ColumnWidth`, `ColumnHidden`). Parsed by `clsLvPropParser`. Always
+  present. **`ReturnsRecords` is not stored in `LvProp`** for pass-through
+  queries; export derives it from MSysQueries Attribute 1 Flag (`10` = no
+  records) and writes it to the `.json` `QueryProperties` block when
+  non-default.
 - **`LvExtra`** — present only for queries last saved in Design View.
   Carries the design layout: window position, designer pane dimensions,
   table positions. Total size = 68 + (tableCount + 1) × 284 bytes. We
@@ -403,7 +407,7 @@ contribute a fixture (see the bug-as-fixture workflow in
 | Long-text version-history references               | No fixture. Attribute 12 Flag = 1. Likely out of scope (version history is an Access-managed feature).                         |
 | TEMP queries (`MSysObjects.Flags = 3`)             | Intentionally not exported. Access auto-creates these (`~sq_*` names) for form/report record sources; they're regenerated on demand. The `clsDbQuery.GetAllFromDB` enumerator filters them out. |
 | Deleted-query tombstones (`~TMPCLP*`)              | Intentionally not exported. Access marks recently-deleted queries this way; they're permanently removed on compact.            |
-| Pass-through queries                               | `passthrough/` folder reserved (`.gitkeep` only); no fixture. Connect string handling is the main unknown — `Connect` already supports `env:` references for sanitization, but no end-to-end verification of `LoadFromText` for pass-through `.qdef` text. |
+| Pass-through queries                               | Covered by `passthrough/qryPassThroughNoConnect`, `qryPassThroughReturnsRecords` (Attribute 1 Flag 8), and `qryPassThroughNoRecords` (Flag 10 / `ReturnsRecords=false`, issue #724). SQL is the verbatim Attribute 1 `Expression`; connect is Attribute 1 `Name1` (or Attribute 4 when present). |
 | Scalar `SELECT 1 ... AS X` subqueries in projection | No fixture. Riddington Part 1 § 27 example uses `Exists (SELECT 1 ...)` inside a DELETE; only the outer DELETE shape is currently exercised. |
 | `INSERT INTO ... VALUES (...)` (literal append)    | No fixture. Differs structurally from `INSERT INTO ... SELECT` (uses Attribute 6 Flag = -32768 for VALUES literals).           |
 | Non-equi joins (`A.x > B.y`)                       | No fixture. Cannot be displayed in Design View — would be SQL-View-only and may need to land alongside the multi-cond `ON` asymmetry in § 6. |

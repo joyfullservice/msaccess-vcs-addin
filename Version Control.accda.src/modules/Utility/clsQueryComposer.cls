@@ -138,8 +138,9 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 strTarget = strN1
                 strTargetDatabase = strN2
                 blnHasAttr1 = True
-                ' DDL (Flag=7) and Pass-through (Flag=8) store raw SQL in Expression
-                If lngFlag = 7 Or lngFlag = 8 Then
+                ' DDL (Flag=7) and pass-through (Flag=8=returns records,
+                ' Flag=10=no records) store raw SQL in Expression
+                If lngFlag = 7 Or lngFlag = 8 Or lngFlag = 10 Then
                     strRawSql = strExpr
                     blnHasRawSql = True
                 End If

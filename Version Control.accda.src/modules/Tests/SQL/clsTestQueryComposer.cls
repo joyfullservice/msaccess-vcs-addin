@@ -71,6 +71,33 @@ Public Sub TestIsPassThrough()
 End Sub
 
 
+Public Sub TestReconstructSQL_PassThroughNoRecords()
+    Dim colRows As New Collection
+    Dim dRow As Dictionary
+    Dim strResult As String
+
+    Set dRow = New Dictionary
+    dRow.Add "Attribute", 1
+    dRow.Add "Flag", 10
+    dRow.Add "Expression", "UPDATE tblX SET Col1 = 'x' WHERE 1 = 0"
+    dRow.Add "Name1", "ODBC;"
+    dRow.Add "Name2", vbNullString
+    colRows.Add dRow
+
+    Set dRow = New Dictionary
+    dRow.Add "Attribute", 255
+    dRow.Add "Flag", 0
+    dRow.Add "Expression", vbNullString
+    dRow.Add "Name1", vbNullString
+    dRow.Add "Name2", vbNullString
+    colRows.Add dRow
+
+    strResult = m_qc.ReconstructSQL(colRows)
+    TestAssert strResult = "UPDATE tblX SET Col1 = 'x' WHERE 1 = 0", _
+        "Attribute 1 Flag 10 preserves raw pass-through SQL"
+End Sub
+
+
 Public Sub TestRawSQL_Property()
     m_qc.RawSQL = "SELECT 42"
     TestAssert m_qc.RawSQL = "SELECT 42", "RawSQL round trip"
