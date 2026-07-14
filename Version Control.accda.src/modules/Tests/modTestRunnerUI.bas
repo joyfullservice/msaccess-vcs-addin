@@ -38,6 +38,7 @@ Private Const CANCEL_POLL_MS As Long = 1000
 Private m_strPendingRunFn As String
 Private m_colPendingRunKeys As Collection
 Private m_blnPendingRunSetup As Boolean ' a new Operation was begun; invoke global setup hook
+Private m_eimPriorMode As eInteractionMode ' cached before bridge run; restored on teardown
 
 
 '---------------------------------------------------------------------------------------
@@ -218,6 +219,7 @@ Public Sub ClearOrphanedTestOperation()
 
     modTestRunnerDiag.Diag "op.clear_orphan", "state=" & TestRunner.State
     Log.SuppressDebugOutput = False
+    Operation.InteractionMode = m_eimPriorMode
     Operation.Finish eorCanceled
 
 End Sub
@@ -827,6 +829,9 @@ Public Function AcceptBridgeRun(ByVal strFnName As String, ByVal strPayloadJson 
             Err.Raise vbObjectError + 515, FunctionName, T("Could not begin test operation")
         End If
         Log.Active = True
+        m_eimPriorMode = Operation.InteractionMode
+        Operation.InteractionMode = eimSilent
+        Log.ClearErrorJournal
         m_blnPendingRunSetup = True
     End If
 
@@ -895,6 +900,7 @@ ErrHandler:
     StreamRunError strErrMsg
     If Operation.Status = eosRunning Then Operation.Finish eorFailed
     Log.SuppressDebugOutput = False
+    Operation.InteractionMode = m_eimPriorMode
     Err.Clear
 
 End Sub
@@ -1471,6 +1477,7 @@ Private Sub EndInteractiveBridgeRun()
     End If
 
     Log.SuppressDebugOutput = False
+    Operation.InteractionMode = m_eimPriorMode
 
     ' Teardown (and ActiveVBProject switches during the run) can leave the VBE in
     ' the foreground when it was already open. Return focus to the runner form.
