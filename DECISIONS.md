@@ -81,6 +81,60 @@ contradictory guidance.
 
 ---
 
+## 2026-07-14 — Conditional formatting field-value operator decode (issue #725)
+
+**Trigger**: Issue #725 — exporting a form with conditional formatting decoded every
+field-value rule to `"Operator": "Between"` in the companion JSON, regardless of the real
+operator (Equal, GreaterThan, etc.). `clsConditionalFormat.ParseStandardRule` hardcoded
+`dRule.Add "Operator", "Between"`, and `LegacyOperator` always returned `0`. The original
+#725 analysis correctly identified the hardcode but did not know where the operator lived
+in the binary blocks, because the only field-value fixture (Text25) used operator `Between`
+(value 0) and a white BackColor (zero trailer echo), so nothing exercised the difference.
+
+**Empirical method**: Against a sample DB (`frmExample.txtFormatted`), drove
+`FormatConditions.Add` through all eight `AcFormatConditionOperator` values plus a mixed
+three-rule case, ran `Application.SaveAsText`, and diffed the exported `ConditionalFormat14`
+/ `ConditionalFormat` hex with an authoritative byte dump. Findings:
+- CF14 operator for rule 0 is a 2-byte LE value at header **offset 10** (previously labeled
+  "reserved"); for later rules it is the **second dword of the 8-byte per-rule prefix**
+  (previously labeled "reserved").
+- Legacy operator is the dword at **offset 16** (location was already documented; the value
+  was just never read/written as anything but 0).
+- Bonus bug: the field-value CF14 trailer BackColor echo sits at **+5**, not +9. The echo is
+  always `trailingLen - 12` into the trailer (+9 for the 21-byte expression/focus trailer,
+  +5 for the 17-byte field-value trailer). Never caught because Text25 is white.
+
+**Options explored**:
+- **Gate behind a new `eExportFormatVersion`** (per the export-format-change rule): rejected.
+  The JSON *structure* is unchanged — the `Operator` key already exists; only its value is
+  corrected. Gating would leave existing 5.0.0 users exporting and building wrong operators
+  until they opt into a new format. This is a correctness fix inside the already-5.0.0-gated
+  `DecodeConditionalFormatting` feature, not a new formatting behavior.
+- **Fix decode only** (populate JSON correctly, leave rebuild hardcoded): rejected — import
+  round-trip would still rebuild Between, so a build from source would lose the operator.
+
+**Decision**: Read the operator on decode (header offset 10 for rule 0, prefix+4 for later
+rules) and map it to a name via new `OperatorToName`/`NameToOperator`; write it back on
+rebuild in the CF14 header, the CF14 per-rule prefix, and the legacy header (offset 16).
+Also corrected the field-value trailer echo offset in both decode and emit. Not gated behind
+a new export format version (correctness fix to existing 5.0.0 output). Re-exporting a
+project with non-Between conditional formatting will produce a one-time JSON diff (correct
+operator, plus `TrailerColor` for colored field-value rules).
+
+**What this rules out**: The CF14 header/prefix "reserved" bytes at offsets 10 and prefix+4
+are no longer free — future format probing must not reuse them. Multi-rule *legacy*
+field-value blocks embed per-rule operators in their descriptors and remain best-effort;
+CF14 stays the authoritative decode source. Since the add-in cannot be rebuilt via MCP, the
+byte-exact fixtures added to `modTestConditionalFormat` (all eight operators + a mixed
+three-rule block, captured from real SaveAsText output) must be verified by running the test
+suite after a manual add-in rebuild.
+
+**Relevant files**: `modules/Core/clsConditionalFormat.cls` (decode/rebuild + operator
+maps), `modules/Tests/Core/modTestConditionalFormat.bas` (operator + trailer-echo fixtures
+and tests), `docs/access-conditional-format.md` (§4.1, §4.2, §4.3, §5.1, §10).
+
+---
+
 ## 2026-07-13 — Fast-save query metadata scan via MSysObjects.LvProp
 
 **Trigger**: On a production database with ~3,675 queries, a fast-save export sat at 1% for nearly a minute during "Scanning for changes...". Profiling (`Perf` ops added to `clsDbQuery.IDbComponent_IsModified` and `GetMetadataHash`) showed `Meta: Read Description` consuming ~38s — ~82% of the ~46s export. Each query's metadata hash read its `Description` via `dbs.Containers("Tables").Documents(name).Properties("Description")`, and that DAO/COM access forced Access to lazily materialize each query definition. Two symptoms: no progress feedback during the scan, and the scan itself being dominated by per-object Description reads.

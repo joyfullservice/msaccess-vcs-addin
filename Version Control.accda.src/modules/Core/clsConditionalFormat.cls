@@ -89,6 +89,7 @@ Public Sub LoadFromCF14Hex(strHex As String)
     Dim lngRuleCount As Long
     Dim lngFirstType As Long
     Dim lngType As Long
+    Dim lngOperator As Long
     Dim lngRule As Long
     Dim dRule As Dictionary
 
@@ -105,13 +106,18 @@ Public Sub LoadFromCF14Hex(strHex As String)
 
     For lngRule = 0 To lngRuleCount - 1
 
-        ' Rules after the first carry an 8-byte type prefix (type dword + reserved).
-        ' Data bar records embed their own type dword at the same position, so the
-        ' prefix and the data bar header coincide; read the type either way.
+        ' Rules after the first carry an 8-byte type prefix (type dword + operator
+        ' dword). Data bar records embed their own type dword at the same position, so
+        ' the prefix and the data bar header coincide; read the type either way.
+        ' For the first rule the type comes from the header (offset 6) and the
+        ' field-value operator from offset 10 (docs section 4.1). For later rules the
+        ' operator is the second dword of the prefix (offset lngPos + 4).
         If lngRule = 0 Then
             lngType = lngFirstType
+            lngOperator = ReadInt(bteData, 10)
         Else
             lngType = ReadLong(bteData, lngPos)
+            lngOperator = ReadLong(bteData, lngPos + 4)
         End If
 
         Select Case lngType
@@ -120,7 +126,7 @@ Public Sub LoadFromCF14Hex(strHex As String)
             Case Else
                 ' Skip the prefix for subsequent non-data-bar rules
                 If lngRule > 0 Then lngPos = lngPos + RULE_PREFIX_LEN
-                Set dRule = ParseStandardRule(bteData, lngPos, lngType)
+                Set dRule = ParseStandardRule(bteData, lngPos, lngType, lngOperator)
         End Select
 
         If dRule Is Nothing Then Exit For
@@ -139,7 +145,8 @@ End Sub
 '           : padding) so the caller can read the next rule.
 '---------------------------------------------------------------------------------------
 '
-Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngType As Long) As Dictionary
+Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngType As Long, _
+    Optional lngOperator As Long = 0) As Dictionary
 
     Dim dRule As Dictionary
     Dim lngFlags As Long
@@ -147,6 +154,7 @@ Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngT
     Dim lngLen2 As Long
     Dim lngUnits As Long
     Dim lngTrailPos As Long
+    Dim lngTrailEcho As Long
     Dim lngEcho As Long
 
     Set dRule = New Dictionary
@@ -165,8 +173,9 @@ Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngT
     lngLen1 = ReadLong(bteData, lngPos + 12)
     lngUnits = lngLen1
     If lngType = CF_TYPE_FIELDVALUE Then
-        ' Both bounds stored inline, each length-prefixed
-        dRule.Add "Operator", "Between"
+        ' Both bounds stored inline, each length-prefixed. Expression2 is only
+        ' meaningful for Between / NotBetween; single-value operators leave it empty.
+        dRule.Add "Operator", OperatorToName(lngOperator)
         dRule.Add "Expression1", ReadUtf16(bteData, lngPos + 16, lngLen1)
         lngLen2 = ReadLong(bteData, lngPos + 16 + (lngLen1 * 2))
         dRule.Add "Expression2", ReadUtf16(bteData, lngPos + 20 + (lngLen1 * 2), lngLen2)
@@ -175,15 +184,21 @@ Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngT
         dRule.Add "Expression1", ReadUtf16(bteData, lngPos + 16, lngLen1)
     End If
 
-    ' Read the CF14 trailer BackColor echo (3 bytes at trailing offset +9)
+    ' Read the CF14 trailer BackColor echo (3 bytes). The echo sits (trailerLen - 12)
+    ' bytes into the trailing region, i.e. +9 for the 21-byte expression/focus trailer
+    ' and +5 for the 17-byte field-value trailer (verified empirically against colored
+    ' field-value rules; docs section 4.2).
     If lngType = CF_TYPE_FIELDVALUE Then
         lngTrailPos = lngPos + 20 + (lngUnits * 2)
+        lngTrailEcho = 5
     Else
         lngTrailPos = lngPos + 16 + (lngUnits * 2)
+        lngTrailEcho = 9
     End If
-    If lngTrailPos + 11 <= UBound(bteData) Then
-        lngEcho = bteData(lngTrailPos + 9) + (bteData(lngTrailPos + 10) * &H100&) + _
-            (bteData(lngTrailPos + 11) * &H10000)
+    If lngTrailPos + lngTrailEcho + 2 <= UBound(bteData) Then
+        lngEcho = bteData(lngTrailPos + lngTrailEcho) + _
+            (bteData(lngTrailPos + lngTrailEcho + 1) * &H100&) + _
+            (bteData(lngTrailPos + lngTrailEcho + 2) * &H10000)
         If lngEcho <> 0 Then dRule.Add "TrailerColor", LongToRGB(lngEcho)
     End If
 
@@ -296,19 +311,26 @@ Public Function BuildCF14Hex() As String
     Dim lngIndex As Long
     Dim dRule As Dictionary
     Dim lngFirstType As Long
+    Dim lngFirstOperator As Long
 
     If m_colRules.Count = 0 Then Exit Function
 
-    ' First rule type populates the header discriminant
+    ' First rule type populates the header discriminant. Its operator (field-value
+    ' rules only) is stored at header offset 10; Access ignores it for other types.
     lngFirstType = NameToType(m_colRules(1)("Type"))
+    If lngFirstType = CF_TYPE_FIELDVALUE Then
+        lngFirstOperator = NameToOperator(dNZ(m_colRules(1), "Operator", "Between"))
+    End If
 
     Set cData = New clsConcat
-    ' Header: version(2) ruleCount(2) reserved(2) firstType(2) reserved(6)
+    ' Header: version(2) ruleCount(2) reserved(2) firstType(2) reserved(2) operator(2) reserved(2)
     cData.Add WriteInt(m_lngVersion)
     cData.Add WriteInt(m_colRules.Count)
     cData.Add WriteInt(0)
     cData.Add WriteInt(lngFirstType)
-    cData.Add WriteZeros(6)
+    cData.Add WriteInt(0)
+    cData.Add WriteInt(lngFirstOperator)
+    cData.Add WriteInt(0)
 
     For lngIndex = 1 To m_colRules.Count
         Set dRule = m_colRules(lngIndex)
@@ -369,7 +391,11 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
     ' Standard rule (expression / field-value / focus)
     If Not blnFirst Then
         cData.Add WriteLong(lngType)                ' type prefix
-        cData.Add WriteLong(0)                      ' reserved
+        If lngType = CF_TYPE_FIELDVALUE Then
+            cData.Add WriteLong(NameToOperator(dNZ(dRule, "Operator", "Between")))
+        Else
+            cData.Add WriteLong(0)                  ' operator (ignored for non field-value)
+        End If
     End If
 
     cData.Add WriteLong(FlagsToLong(dRule))
@@ -395,17 +421,18 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
             lngUnits = 0
     End Select
 
-    ' Emit the explicit trailing region: 9 zero bytes, 3-byte BackColor echo, then
-    ' zeros to fill the remaining body. Trailing is 21 bytes for expression/focus,
-    ' 17 bytes for field-value (between).
+    ' Emit the explicit trailing region: (trailerLen - 12) lead zeros, a 3-byte
+    ' BackColor echo, then 9 trailing zero bytes. This places the echo at +9 for the
+    ' 21-byte expression/focus trailer and at +5 for the 17-byte field-value trailer
+    ' (verified empirically against colored field-value rules; docs section 4.2).
     If lngType = CF_TYPE_FIELDVALUE Then lngTrailLen = 17 Else lngTrailLen = 21
-    cData.Add WriteZeros(9)
+    cData.Add WriteZeros(lngTrailLen - 12)
     If dRule.Exists("TrailerColor") Then
         cData.Add WriteColor3(RGBToLong(CStr(dRule("TrailerColor"))))
     Else
         cData.Add WriteZeros(3)
     End If
-    cData.Add WriteZeros(lngTrailLen - 12)
+    cData.Add WriteZeros(9)
 
     EmitRuleCF14 = cData.GetStr
 
@@ -514,7 +541,7 @@ Public Function BuildLegacyHex() As String
     cData.Add WriteLong(0)                              ' blockSize placeholder
     cData.Add WriteLong(lngCount)                       ' ruleCount
     cData.Add WriteLong(lngHeaderType)                  ' conditionType
-    cData.Add WriteLong(LegacyOperator(lngHeaderType))  ' operator
+    cData.Add WriteLong(LegacyOperator(lngHeaderType, colMatch(1)))  ' operator (offset 16)
     cData.Add WriteLong(0)                              ' reserved
     cData.Add WriteLong(lngOffset24)                    ' expression window end / capacity
     cData.Add cBody.GetStr
@@ -713,6 +740,42 @@ Private Function NameToType(varName As Variant) As Long
     End Select
 End Function
 
+'---------------------------------------------------------------------------------------
+' Procedure : OperatorToName / NameToOperator
+' Purpose   : Map the AcFormatConditionOperator enum (stored in the binary blocks for
+'           : field-value rules) to and from a human-readable name for the companion
+'           : .json. Values verified empirically against SaveAsText output for all eight
+'           : operators (docs/access-conditional-format.md section 4.3).
+'---------------------------------------------------------------------------------------
+'
+Private Function OperatorToName(lngOperator As Long) As String
+    Select Case lngOperator
+        Case 0:     OperatorToName = "Between"
+        Case 1:     OperatorToName = "NotBetween"
+        Case 2:     OperatorToName = "Equal"
+        Case 3:     OperatorToName = "NotEqual"
+        Case 4:     OperatorToName = "GreaterThan"
+        Case 5:     OperatorToName = "LessThan"
+        Case 6:     OperatorToName = "GreaterThanOrEqual"
+        Case 7:     OperatorToName = "LessThanOrEqual"
+        Case Else:  OperatorToName = "Between"
+    End Select
+End Function
+
+Private Function NameToOperator(varName As Variant) As Long
+    Select Case LCase$(CStr(varName))
+        Case "between":             NameToOperator = 0
+        Case "notbetween":          NameToOperator = 1
+        Case "equal":               NameToOperator = 2
+        Case "notequal":            NameToOperator = 3
+        Case "greaterthan":         NameToOperator = 4
+        Case "lessthan":            NameToOperator = 5
+        Case "greaterthanorequal":  NameToOperator = 6
+        Case "lessthanorequal":     NameToOperator = 7
+        Case Else:                  NameToOperator = 0
+    End Select
+End Function
+
 Private Function LimitToName(bteValue As Byte) As String
     Select Case bteValue
         Case 1:     LimitToName = "number"
@@ -729,9 +792,12 @@ Private Function NameToLimit(varName As Variant) As Long
     End Select
 End Function
 
-Private Function LegacyOperator(lngType As Long) As Long
-    ' Between is the only operator exercised; expression/focus use 0.
-    LegacyOperator = 0
+Private Function LegacyOperator(lngType As Long, dFirstRule As Dictionary) As Long
+    ' The legacy header operator (offset 16) carries the first rule's operator for
+    ' field-value blocks; expression/focus blocks store 0 (operator is ignored).
+    If lngType = CF_TYPE_FIELDVALUE Then
+        LegacyOperator = NameToOperator(dNZ(dFirstRule, "Operator", "Between"))
+    End If
 End Function
 
 

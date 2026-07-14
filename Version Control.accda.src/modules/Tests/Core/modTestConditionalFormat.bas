@@ -90,6 +90,60 @@ Private Const ALERTTEXT_LEGACY As String = _
     "6e0053007400720028005b0041006c0065007200740050006100720061006d00" & _
     "73005d002c0027005b0062005d003b00270029003e00300000000000"
 
+' --- Field-value operator fixtures (issue #725) ---
+' Captured from Access SaveAsText for a single field-value rule on one text box, one
+' capture per AcFormatConditionOperator. BackColor = red RGB(255,0,0), Expression1 = "1"
+' throughout; Between/NotBetween add Expression2 = "2" (single-value operators leave it
+' empty). The operator is the 2-byte value at CF14 offset 10 and the legacy dword at
+' offset 16. See docs/access-conditional-format.md section 4.3.
+Private Const OP_BETWEEN_CF14 As String = _
+    "01000100000000000000000000000100000000000000ff000000010000003100" & _
+    "0100000032000000000000ff0000000000000000000000"
+Private Const OP_NOTBETWEEN_CF14 As String = _
+    "01000100000000000000010000000100000000000000ff000000010000003100" & _
+    "0100000032000000000000ff0000000000000000000000"
+Private Const OP_EQUAL_CF14 As String = _
+    "01000100000000000000020000000100000000000000ff000000010000003100" & _
+    "000000000000000000ff0000000000000000000000"
+Private Const OP_NOTEQUAL_CF14 As String = _
+    "01000100000000000000030000000100000000000000ff000000010000003100" & _
+    "000000000000000000ff0000000000000000000000"
+Private Const OP_GREATERTHAN_CF14 As String = _
+    "01000100000000000000040000000100000000000000ff000000010000003100" & _
+    "000000000000000000ff0000000000000000000000"
+Private Const OP_LESSTHAN_CF14 As String = _
+    "01000100000000000000050000000100000000000000ff000000010000003100" & _
+    "000000000000000000ff0000000000000000000000"
+Private Const OP_GREATERTHANOREQUAL_CF14 As String = _
+    "01000100000000000000060000000100000000000000ff000000010000003100" & _
+    "000000000000000000ff0000000000000000000000"
+Private Const OP_LESSTHANOREQUAL_CF14 As String = _
+    "01000100000000000000070000000100000000000000ff000000010000003100" & _
+    "000000000000000000ff0000000000000000000000"
+
+' Legacy blocks for the "equal" single-value capture (operator at offset 16, empty
+' Expression2 slot) and the "between" capture (both slots filled).
+Private Const OP_BETWEEN_LEGACY As String = _
+    "0100000068000000010000000000000000000000000000000200000001000000" & _
+    "00000000ff000000000000000000000000000000000000000000000000000000" & _
+    "0000000000000000000000000000000000000000000000000000000000000000" & _
+    "3100000032000000"
+Private Const OP_EQUAL_LEGACY As String = _
+    "0100000068000000010000000000000002000000000000000200000001000000" & _
+    "00000000ff000000000000000000000000000000000000000000000000000000" & _
+    "0000000000000000000000000000000000000000000000000000000000000000" & _
+    "3100000000000000"
+
+' --- Multi-rule field-value block with mixed operators (issue #725 real-world shape) ---
+' Three field-value rules: Between "11".."22" (red), Equal "55" (green), GreaterThan "99"
+' (blue). Each later rule's operator is the second dword of its 8-byte prefix.
+Private Const MULTI_OP_CF14 As String = _
+    "01000300000000000000000000000100000000000000ff000000020000003100" & _
+    "310002000000320032000000000000ff00000000000000000000000000000002" & _
+    "000000010000000000000000ff00000200000035003500000000000000000000" & _
+    "00ff00000000000000000000000000000400000001000000000000000000ff00" & _
+    "02000000390039000000000000000000000000ff000000000000000000"
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : TestCF14ByteExactExpression
@@ -292,6 +346,141 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestDecodeAllOperators
+' Purpose   : Every AcFormatConditionOperator on a field-value rule decodes to the correct
+'           : operator name (issue #725: operators other than Between were hardcoded).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDecodeAllOperators()
+
+    TestAssert OperatorOf(OP_BETWEEN_CF14) = "Between", "operator 0 = Between"
+    TestAssert OperatorOf(OP_NOTBETWEEN_CF14) = "NotBetween", "operator 1 = NotBetween"
+    TestAssert OperatorOf(OP_EQUAL_CF14) = "Equal", "operator 2 = Equal"
+    TestAssert OperatorOf(OP_NOTEQUAL_CF14) = "NotEqual", "operator 3 = NotEqual"
+    TestAssert OperatorOf(OP_GREATERTHAN_CF14) = "GreaterThan", "operator 4 = GreaterThan"
+    TestAssert OperatorOf(OP_LESSTHAN_CF14) = "LessThan", "operator 5 = LessThan"
+    TestAssert OperatorOf(OP_GREATERTHANOREQUAL_CF14) = "GreaterThanOrEqual", "operator 6 = GreaterThanOrEqual"
+    TestAssert OperatorOf(OP_LESSTHANOREQUAL_CF14) = "LessThanOrEqual", "operator 7 = LessThanOrEqual"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestSingleValueOperatorHasEmptyExpression2
+' Purpose   : Single-value operators (Equal, GreaterThan, ...) decode with an empty
+'           : Expression2, while Between keeps both bounds.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestSingleValueOperatorHasEmptyExpression2()
+
+    Dim cCF As clsConditionalFormat
+
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex OP_EQUAL_CF14
+    TestAssert NthRule(cCF, 1)("Expression1") = "1", "Equal keeps Expression1"
+    TestAssert NthRule(cCF, 1)("Expression2") = "", "Equal has empty Expression2"
+
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex OP_BETWEEN_CF14
+    TestAssert NthRule(cCF, 1)("Expression2") = "2", "Between keeps Expression2"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCF14ByteExactAllOperators
+' Purpose   : The authoritative CF14 block rebuilds byte-for-byte for every operator,
+'           : proving the operator (header offset 10) survives decode/rebuild.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCF14ByteExactAllOperators()
+
+    TestAssert RebuildCF14(OP_BETWEEN_CF14) = OP_BETWEEN_CF14, "Between CF14 byte-exact"
+    TestAssert RebuildCF14(OP_NOTBETWEEN_CF14) = OP_NOTBETWEEN_CF14, "NotBetween CF14 byte-exact"
+    TestAssert RebuildCF14(OP_EQUAL_CF14) = OP_EQUAL_CF14, "Equal CF14 byte-exact"
+    TestAssert RebuildCF14(OP_NOTEQUAL_CF14) = OP_NOTEQUAL_CF14, "NotEqual CF14 byte-exact"
+    TestAssert RebuildCF14(OP_GREATERTHAN_CF14) = OP_GREATERTHAN_CF14, "GreaterThan CF14 byte-exact"
+    TestAssert RebuildCF14(OP_LESSTHAN_CF14) = OP_LESSTHAN_CF14, "LessThan CF14 byte-exact"
+    TestAssert RebuildCF14(OP_GREATERTHANOREQUAL_CF14) = OP_GREATERTHANOREQUAL_CF14, "GreaterThanOrEqual CF14 byte-exact"
+    TestAssert RebuildCF14(OP_LESSTHANOREQUAL_CF14) = OP_LESSTHANOREQUAL_CF14, "LessThanOrEqual CF14 byte-exact"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestLegacyByteExactOperator
+' Purpose   : The legacy block rebuilds byte-for-byte with the operator at offset 16, for
+'           : both a two-bound Between rule and a single-value Equal rule.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestLegacyByteExactOperator()
+    TestAssert RebuildLegacy(OP_BETWEEN_CF14) = OP_BETWEEN_LEGACY, "Between legacy byte-exact"
+    TestAssert RebuildLegacy(OP_EQUAL_CF14) = OP_EQUAL_LEGACY, "Equal legacy byte-exact"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestFieldValueTrailerEcho
+' Purpose   : A colored field-value rule decodes its trailer BackColor echo (at trailer
+'           : offset +5, not +9) and rebuilds it byte-for-byte.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestFieldValueTrailerEcho()
+
+    Dim cCF As clsConditionalFormat
+
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex OP_EQUAL_CF14
+    TestAssert NthRule(cCF, 1)("BackColor") = "RGB(255,0,0)", "field-value BackColor decoded"
+    TestAssert NthRule(cCF, 1)("TrailerColor") = "RGB(255,0,0)", "field-value trailer echo at +5 decoded"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestDecodeMultiOperatorRules
+' Purpose   : A three-rule field-value block with mixed operators decodes each rule's
+'           : operator, expression, and color (issue #725 real-world shape). Rule 0's
+'           : operator lives in the header; later rules' operators live in their prefix.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDecodeMultiOperatorRules()
+
+    Dim cCF As clsConditionalFormat
+
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex MULTI_OP_CF14
+    TestAssert RuleCount(cCF) = 3, "three field-value rules"
+
+    TestAssert NthRule(cCF, 1)("Operator") = "Between", "rule 1 operator (header) = Between"
+    TestAssert NthRule(cCF, 1)("Expression1") = "11", "rule 1 Expression1"
+    TestAssert NthRule(cCF, 1)("Expression2") = "22", "rule 1 Expression2"
+    TestAssert NthRule(cCF, 1)("BackColor") = "RGB(255,0,0)", "rule 1 red"
+
+    TestAssert NthRule(cCF, 2)("Operator") = "Equal", "rule 2 operator (prefix) = Equal"
+    TestAssert NthRule(cCF, 2)("Expression1") = "55", "rule 2 Expression1"
+    TestAssert NthRule(cCF, 2)("Expression2") = "", "rule 2 Expression2 empty"
+    TestAssert NthRule(cCF, 2)("BackColor") = "RGB(0,255,0)", "rule 2 green"
+
+    TestAssert NthRule(cCF, 3)("Operator") = "GreaterThan", "rule 3 operator (prefix) = GreaterThan"
+    TestAssert NthRule(cCF, 3)("Expression1") = "99", "rule 3 Expression1"
+    TestAssert NthRule(cCF, 3)("BackColor") = "RGB(0,0,255)", "rule 3 blue"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCF14ByteExactMultiOperator
+' Purpose   : The mixed-operator multi-rule CF14 block rebuilds byte-for-byte (proves the
+'           : per-rule prefix operator dword survives decode/rebuild).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCF14ByteExactMultiOperator()
+    TestAssert RebuildCF14(MULTI_OP_CF14) = MULTI_OP_CF14, "multi-operator CF14 byte-exact"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : TestDecodeMultiRule
 ' Purpose   : A three-rule block decodes to the expected rule types in order.
 '---------------------------------------------------------------------------------------
@@ -471,6 +660,13 @@ Private Function RuleCount(cCF As clsConditionalFormat) As Long
     Dim dModel As Dictionary
     Set dModel = cCF.GetDictionary
     RuleCount = dModel("Rules").Count
+End Function
+
+Private Function OperatorOf(strCF14Hex As String) As String
+    Dim cCF As clsConditionalFormat
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex strCF14Hex
+    OperatorOf = NthRule(cCF, 1)("Operator")
 End Function
 
 Private Function NthRule(cCF As clsConditionalFormat, lngIndex As Long) As Dictionary
