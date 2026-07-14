@@ -355,6 +355,57 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestTableDefGetFileList_ExcludesMetadataSidecar
+' Author    : Adam Waller
+' Date      : 7/14/2026
+' Purpose   : Local tables export schema as .xml and metadata as a sibling .json sidecar.
+'           : GetFileList must not treat the sidecar as a linked-table definition.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDefGetFileList_ExcludesMetadataSidecar()
+
+    Dim strSavedExport As String
+    Dim strRoot As String
+    Dim strTblDefs As String
+    Dim cTable As IDbComponent
+    Dim dFiles As Dictionary
+    Dim strLocalXml As String
+    Dim strLocalJson As String
+    Dim strLinkedJson As String
+
+    strSavedExport = Options.ExportFolder
+    strRoot = GetTempFolder("vcs_tbldef_sidecar") & PathSep
+    strTblDefs = strRoot & "tbldefs" & PathSep
+    VerifyPath strTblDefs
+
+    strLocalXml = strTblDefs & "tblLocalSidecar.xml"
+    strLocalJson = strTblDefs & "tblLocalSidecar.json"
+    strLinkedJson = strTblDefs & "tblLinkedOnly.json"
+
+    WriteFile "<?xml version=""1.0""?><root/>", strLocalXml
+    WriteFile "{""Info"":{""Description"":""metadata""},""Items"":{""Properties"":{}}}", strLocalJson
+    WriteFile "{""Info"":{""Class"":""clsDbTableDef""},""Items"":{" & _
+        """Connect"":""ODBC;DSN=test"",""Name"":""tblLinkedOnly""," & _
+        """SourceTableName"":""tblLinkedOnly"",""Attributes"":0}}", strLinkedJson
+
+    Options.ExportFolder = strRoot
+    Set cTable = New clsDbTableDef
+    Set dFiles = cTable.GetFileList
+
+    TestAssert dFiles.Exists(strLocalXml), "local table .xml included in file list"
+    TestAssert Not dFiles.Exists(strLocalJson), "metadata sidecar .json excluded from file list"
+    TestAssert dFiles.Exists(strLinkedJson), "linked table .json included in file list"
+
+    Options.ExportFolder = strSavedExport
+    LogUnhandledErrors
+    On Error Resume Next
+    If FSO.FolderExists(strRoot) Then FSO.DeleteFolder StripSlash(strRoot), True
+    Err.Clear
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RemoveTestImportFixtureModule
 ' Author    : Adam Waller
 ' Date      : 5/29/2026

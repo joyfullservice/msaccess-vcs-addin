@@ -691,6 +691,12 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
 
         ' Link the table
         Set dItem = dTable("Items")
+
+        ' A tbldefs .json is a linked-table definition only when it carries Connect.
+        ' Without Connect it is a local-table metadata sidecar (schema is in the .xml;
+        ' metadata is applied when that .xml imports).
+        If Not dItem.Exists("Connect") Then Exit Function
+
         Set dbs = SharedDb
 
         strConnect = dItem("Connect")
@@ -701,6 +707,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
         End If
         strKey = IIf(Len(strEnvKey) > 0, strEnvKey, GetConnectionEnvKey(strConnect))
         Set dState = GetConnState(strKey)
+        If dState Is Nothing Then Exit Function
 
         If dState("Status") = csIgnored Then
             Log.Add "  " & T("Skipped {0} (connection ignored)", var0:=dItem("Name")), Options.ShowDebug
@@ -986,13 +993,41 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return a list of file names to import for this component type.
+'           : Local tables export schema as .xml and metadata as a sibling .json sidecar;
+'           : only .json files without a matching .xml are linked-table definitions.
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
+
+    Dim dAll As Dictionary
+    Dim dXmlBaseNames As Dictionary
+    Dim varKey As Variant
+    Dim strExt As String
+
     If m_FileList Is Nothing Then
-        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml", "*.json")
+        Set dAll = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml", "*.json")
+        Set dXmlBaseNames = New Dictionary
+        For Each varKey In dAll.Keys
+            If LCase$(FSO.GetExtensionName(CStr(varKey))) = "xml" Then
+                dXmlBaseNames.Add FSO.GetBaseName(CStr(varKey)), vbNullString
+            End If
+        Next varKey
+        Set m_FileList = New Dictionary
+        For Each varKey In dAll.Keys
+            strExt = LCase$(FSO.GetExtensionName(CStr(varKey)))
+            If strExt = "json" Then
+                If dXmlBaseNames.Exists(FSO.GetBaseName(CStr(varKey))) Then
+                    ' Metadata sidecar for a local table; schema imports from the .xml.
+                Else
+                    m_FileList.Add varKey, vbNullString
+                End If
+            Else
+                m_FileList.Add varKey, vbNullString
+            End If
+        Next varKey
     End If
     Set IDbComponent_GetFileList = m_FileList
+
 End Function
 
 
