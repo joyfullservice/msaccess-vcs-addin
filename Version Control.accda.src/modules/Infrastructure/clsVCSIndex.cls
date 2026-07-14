@@ -358,8 +358,13 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
     Dim cEntry As clsVCSIndexItem
     Dim strSection As String
 
-    ' Exit if we have disabled the index functionality
-    If Me.Disabled Then Exit Function
+    ' Return an empty item when disabled so callers can safely set properties
+    ' (e.g. .FolderAnnotation) on the result. The entry is not tracked, matching the
+    ' behavior of Me.Item, which also returns an empty item when disabled.
+    If Me.Disabled Then
+        Set Update = New clsVCSIndexItem
+        Exit Function
+    End If
 
     ' Determine section
     If intAction = eatAltExport Then
