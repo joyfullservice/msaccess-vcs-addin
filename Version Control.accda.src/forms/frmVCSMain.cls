@@ -271,6 +271,11 @@ Public Sub FinishBuild(blnFullBuild As Boolean _
     Me.strLastLogFilePath = Log.LogFilePath
     Me.strCopyToClipboardPath = Log.LogFilePath
 
+    ' Auto-close in silent/unattended mode
+    If Operation.InteractionMode = eimSilent Then
+        cmdClose_Click
+    End If
+
 End Sub
 
 
