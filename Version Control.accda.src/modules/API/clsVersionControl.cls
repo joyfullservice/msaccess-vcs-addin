@@ -2534,7 +2534,10 @@ End Sub
 ' Purpose   : Scoped migration tool: replace Debug.Assert with TestAssert in test
 '           : modules only. Uses @Folder("Tests") discovery when folder annotations
 '           : exist in the project, otherwise falls back to *Test* in the module name.
-'           : Shows a preview and requires confirmation before applying changes.
+'           : The module that defines TestAssert itself is skipped (detected by
+'           : procedure signature, so a renamed helper is still excluded) -- its
+'           : Debug.Assert is the intentional fallback when the add-in is not
+'           : driving the run. Shows a preview and requires confirmation.
 '---------------------------------------------------------------------------------------
 '
 Public Sub MigrateDebugAssert()
@@ -2615,11 +2618,19 @@ Public Sub MigrateDebugAssert()
 
         If Not blnIsTest Then GoTo NextModule
 
-        ' Scan this module for Debug.Assert
+        ' Scan this module for Debug.Assert. If the module defines TestAssert
+        ' itself, skip it entirely -- its Debug.Assert is the intentional
+        ' fallback for when the add-in is not driving the run. Detected by
+        ' procedure signature (not module name) so a renamed helper is still
+        ' excluded.
         Set colLines = New Collection
         On Error Resume Next
         For lngLine = 1 To cmp.CodeModule.CountOfLines
             strLine = Trim$(cmp.CodeModule.Lines(lngLine, 1))
+            If InStr(1, strLine, "Public Sub TestAssert(", vbTextCompare) > 0 Then
+                On Error GoTo 0
+                GoTo NextModule
+            End If
             If InStr(1, strLine, "Debug.Assert ", vbTextCompare) > 0 Or _
                InStr(1, strLine, "Debug.Assert(", vbTextCompare) > 0 Then
                 colLines.Add lngLine
