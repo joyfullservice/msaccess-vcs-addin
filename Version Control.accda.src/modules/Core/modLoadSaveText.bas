@@ -963,6 +963,31 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : FormSourceRequiresEdgeControl
+' Author    : Adam Waller
+' Date      : 7/16/2026
+' Purpose   : True when a form source file contains an Edge browser control block.
+'---------------------------------------------------------------------------------------
+'
+Public Function FormSourceRequiresEdgeControl(strFile As String) As Boolean
+
+    Dim varLine As Variant
+    Dim strTrimmed As String
+
+    If Not FSO.FileExists(strFile) Then Exit Function
+
+    For Each varLine In Split(ReadFile(strFile), vbCrLf)
+        strTrimmed = Trim$(CStr(varLine))
+        If strTrimmed = "Begin Edge" Then
+            FormSourceRequiresEdgeControl = True
+            Exit Function
+        End If
+    Next varLine
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : HasNonMetadataKeys
 ' Author    : Adam Waller
 ' Date      : 3/12/2026

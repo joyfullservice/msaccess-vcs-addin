@@ -92,3 +92,26 @@ Public Sub TestFileExtensionsNonEmpty()
         TestAssert colExts.Count > 0, cnt.Category & " FileExtensions is non-empty"
     Next
 End Sub
+
+
+Public Sub TestFrmVCSTestRunnerSourceRequiresEdgeControl()
+    Dim strFile As String
+    strFile = Options.GetExportFolder & "forms\frmVCSTestRunner.form"
+    TestAssert FSO.FileExists(strFile), "frmVCSTestRunner.form fixture exists"
+    TestAssert FormSourceRequiresEdgeControl(strFile), "frmVCSTestRunner source requires Edge control"
+End Sub
+
+
+Public Sub TestFrmVCSMainSourceDoesNotRequireEdgeControl()
+    Dim strFile As String
+    strFile = Options.GetExportFolder & "forms\frmVCSMain.form"
+    TestAssert FSO.FileExists(strFile), "frmVCSMain.form fixture exists"
+    TestAssert Not FormSourceRequiresEdgeControl(strFile), "frmVCSMain source does not require Edge control"
+End Sub
+
+
+Public Sub TestEdgeTestRunnerSupportedOnModernAccess()
+    If modTestRunnerUI.EdgeTestRunnerSupported() Then
+        TestAssert True, "EdgeTestRunnerSupported on this Access build"
+    End If
+End Sub

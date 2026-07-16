@@ -103,6 +103,15 @@ Private Sub IDbComponent_Import(strFile As String)
 
     strName = GetObjectNameFromFileName(strFile)
 
+    ' Skip Edge-based forms on Access builds that lack the Edge browser control.
+    If Not modTestRunnerUI.EdgeTestRunnerSupported() Then
+        If FormSourceRequiresEdgeControl(strFile) Then
+            Log.Error eelWarning, T("Skipped importing form '{0}': this Access version lacks the Edge browser control it requires. Test-runner UI will be unavailable.", var0:=strName), _
+                ModuleName(Me) & ".Import"
+            Exit Sub
+        End If
+    End If
+
     ' We can't import a form with the same name as a running form, even though
     ' it is technically in a different database.
     If strName = "frmVCSMain" Then
