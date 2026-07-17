@@ -794,6 +794,10 @@ Function BuildAndInstall(objApp, strSourcePath)
     End If
     On Error GoTo 0
 
+    ' Stage error trapping so expected On Error Resume Next blocks are not interrupted.
+    ' eetBreakInClassModule = 1
+    objNewAccess.SetOption "Error Trapping", 1
+
     objNewAccess.Visible = True
     objNewAccess.OpenCurrentDatabase strRepoAddinPath
 

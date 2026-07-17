@@ -131,6 +131,13 @@ Public Enum eCompareMethod2
     ecmSourceMethod = 3
 End Enum
 
+' VBE Tools > Options > General > Error Trapping
+Public Enum eVbeErrorTrapping
+    eetBreakOnAllErrors = 0
+    eetBreakInClassModule = 1
+    eetBreakOnUnhandledErrors = 2
+End Enum
+
 ' Type of operation in progress
 Public Enum eOperationType
     eotExport = 1

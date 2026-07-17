@@ -139,3 +139,83 @@ Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Option
         CatchAny = True
     End If
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveUserErrorTrapping
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Return the current VBE error trapping setting for later restore.
+'---------------------------------------------------------------------------------------
+'
+Public Function SaveUserErrorTrapping() As eVbeErrorTrapping
+    SaveUserErrorTrapping = Application.GetOption("Error Trapping")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveUserErrorTrappingOnApp
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Return the current VBE error trapping setting on another Access instance.
+'---------------------------------------------------------------------------------------
+'
+Public Function SaveUserErrorTrappingOnApp(objAccess As Access.Application) As eVbeErrorTrapping
+    SaveUserErrorTrappingOnApp = objAccess.GetOption("Error Trapping")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyUserErrorTrapping
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Set the VBE error trapping mode on the current Access instance.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ApplyUserErrorTrapping(intMode As eVbeErrorTrapping)
+    If Application.GetOption("Error Trapping") <> intMode Then
+        Application.SetOption "Error Trapping", intMode
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyUserErrorTrappingOnApp
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Set the VBE error trapping mode on another Access instance.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ApplyUserErrorTrappingOnApp(objAccess As Access.Application, intMode As eVbeErrorTrapping)
+    If objAccess.GetOption("Error Trapping") <> intMode Then
+        objAccess.SetOption "Error Trapping", intMode
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreUserErrorTrapping
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Restore a previously saved VBE error trapping setting.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RestoreUserErrorTrapping(intSaved As eVbeErrorTrapping)
+    If intSaved <> Application.GetOption("Error Trapping") Then
+        Application.SetOption "Error Trapping", intSaved
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreUserErrorTrappingOnApp
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Restore a previously saved VBE error trapping setting on another instance.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RestoreUserErrorTrappingOnApp(objAccess As Access.Application, intSaved As eVbeErrorTrapping)
+    If intSaved <> objAccess.GetOption("Error Trapping") Then
+        objAccess.SetOption "Error Trapping", intSaved
+    End If
+End Sub

@@ -47,6 +47,9 @@ Private Sub cmdInstall_Click()
     DoCmd.Hourglass True
     DoEvents
 
+    EnterInstallErrorTrapping
+    On Error GoTo CleanExit
+
     ' Validate the folder path
     strFolder = StripSlash(Nz(txtInstallFolder))
     If StrComp(GetInstallSettings.strInstallFolder, strFolder, vbTextCompare) <> 0 Then
@@ -61,22 +64,27 @@ Private Sub cmdInstall_Click()
             WriteFile "Test", strFile
             CatchAny eelNoError, vbNullString
             If ReadFile(strFile) <> "Test" & vbCrLf Then strMsg = T("Unable to write to folder: {0}", var0:=strFolder)
+            On Error GoTo CleanExit
         End If
     End If
 
-    ' Resume normal error handling
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-
     ' Bail out if we have a problem with the install.
-    If strMsg <> vbNullString Then
-        DoCmd.Hourglass False
-        MsgBox2 T("Unable to Install"), strMsg, , vbExclamation
-        Exit Sub
-    End If
+    If strMsg <> vbNullString Then GoTo CleanExit
 
     ' Run the installer
     modInstall.InstallVCSAddin chkAddTrustedLocation, chkUseRibbon, chkOpenAfterInstall, txtInstallFolder, chkCreateCompiledVersion
     DoCmd.Hourglass False
+    Exit Sub
+
+CleanExit:
+    DoCmd.Hourglass False
+    LeaveInstallErrorTrapping
+    If strMsg <> vbNullString Then
+        MsgBox2 T("Unable to Install"), strMsg, , vbExclamation
+    ElseIf Err.Number <> 0 Then
+        MsgBox2 T("Unable to Install"), Err.Description, , vbExclamation
+        Err.Clear
+    End If
 
 End Sub
 

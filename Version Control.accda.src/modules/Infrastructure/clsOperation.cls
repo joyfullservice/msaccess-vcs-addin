@@ -56,7 +56,7 @@ Private Type udtThis
     AppHwnd As Long
 
     ' Other variables we are caching
-    ErrorTrapping As Integer
+    ErrorTrapping As eVbeErrorTrapping
 End Type
 Private this As udtThis
 
@@ -377,8 +377,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub SetErrorTrapping()
-    this.ErrorTrapping = Application.GetOption("Error Trapping")
-    If this.ErrorTrapping <> 1 Then Application.SetOption "Error Trapping", 1
+    this.ErrorTrapping = SaveUserErrorTrapping()
+    ApplyUserErrorTrapping eetBreakInClassModule
 End Sub
 
 
@@ -390,9 +390,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub RestoreUserErrorTrapping()
-    If this.ErrorTrapping <> Application.GetOption("Error Trapping") Then
-        Application.SetOption "Error Trapping", this.ErrorTrapping
-    End If
+    modErrorHandling.RestoreUserErrorTrapping this.ErrorTrapping
 End Sub
 
 

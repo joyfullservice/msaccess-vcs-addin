@@ -38,6 +38,40 @@ Public Type udtInstallSettings
 End Type
 Private this As udtInstallSettings
 
+Private m_blnInstallErrorTrappingActive As Boolean
+Private m_intSavedInstallErrorTrapping As eVbeErrorTrapping
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EnterInstallErrorTrapping
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Stage VBE error trapping for install/uninstall automation. Idempotent.
+'---------------------------------------------------------------------------------------
+'
+Public Sub EnterInstallErrorTrapping()
+    If Not m_blnInstallErrorTrappingActive Then
+        m_intSavedInstallErrorTrapping = SaveUserErrorTrapping()
+        ApplyUserErrorTrapping eetBreakInClassModule
+        m_blnInstallErrorTrappingActive = True
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LeaveInstallErrorTrapping
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Restore the user's VBE error trapping setting after install automation.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LeaveInstallErrorTrapping()
+    If m_blnInstallErrorTrappingActive Then
+        RestoreUserErrorTrapping m_intSavedInstallErrorTrapping
+        m_blnInstallErrorTrappingActive = False
+    End If
+End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : AutoRun
@@ -106,7 +140,8 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
     Dim strSource As String
     Dim strDest As String
 
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    EnterInstallErrorTrapping
+    On Error GoTo CleanExit
 
     ' Verify the add-in file has the required name
     If StrComp(FSO.GetBaseName(CodeProject.Name), ADDIN_BASENAME, vbTextCompare) <> 0 Then
@@ -114,7 +149,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
             T("The add-in file must be named ""{0}.accda"" to install correctly.", _
                 var0:=ADDIN_BASENAME), _
             T("Please rename the file and try again."), vbExclamation
-        Exit Sub
+        GoTo CleanExit
     End If
 
     ' Load install settings from registry, then update with parameter values
@@ -144,7 +179,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
     If strSource = strDest Then
         MsgBox2 "Unable to Install", "You can't install the add-in over itself.", _
             "Please run from a different location to update.", , vbExclamation
-        Exit Sub
+        GoTo CleanExit
     End If
 
     ' Check default database open mode.
@@ -157,7 +192,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
             MsgBox2 "Default Option Changed", _
                 "Please restart Microsoft Access and run the install again.", , vbInformation
         End If
-        Exit Sub
+        GoTo CleanExit
     End If
 
     ' Run any applicable upgrades
@@ -167,7 +202,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
     If this.blnTrustAddInFolder Then VerifyTrustedLocation
 
     ' Copy the add-in file
-    If Not UpdateAddInFile(blnCreateCompiledVersion) Then Exit Sub
+    If Not UpdateAddInFile(blnCreateCompiledVersion) Then GoTo CleanExit
 
     ' Install the ribbon
     If this.blnUseRibbonAddIn Then
@@ -197,8 +232,19 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
     ' Open add-in from installed location if required.
     If this.blnOpenAfterInstall Then OpenAddinFile GetAddInFileName, CodeProject.FullName
 
+    ' Restore before quit so the user's setting is not left staged in the registry.
+    LeaveInstallErrorTrapping
+
     ' Close Access after installation is complete.
     DoCmd.Quit
+    Exit Sub
+
+CleanExit:
+    LeaveInstallErrorTrapping
+    If Err.Number <> 0 Then
+        MsgBox2 T("Unable to Install"), Err.Description, , vbExclamation
+        Err.Clear
+    End If
 
 End Sub
 
@@ -216,13 +262,16 @@ Public Sub UninstallVCSAddin()
     Dim intResponse As VbMsgBoxResult
     Dim blnSaveSettings As Boolean
 
+    EnterInstallErrorTrapping
+    On Error GoTo CleanExit
+
     ' Ask the user if they want to preserve their user settings.
     intResponse = MsgBox2("Save User Settings", "Would you like your user settings/options preserved?", _
         "Click YES to save these items so they can be used if you reinstall the add-in," & vbCrLf & _
         "Or click NO to remove all settings related to this add-on.", vbQuestion + vbYesNoCancel)
 
     ' Allow user to cancel if they are not sure how to answer the above prompt.
-    If intResponse = vbCancel Then Exit Sub
+    If intResponse = vbCancel Then GoTo CleanExit
 
     ' Note if the user wants to save/migrate their existing settings.
     If intResponse = vbYes Then blnSaveSettings = True
@@ -255,7 +304,7 @@ Public Sub UninstallVCSAddin()
     End If
 
     ' Resume normal error handling
-    If DebugMode(False) Then On Error GoTo 0 Else On Error Resume Next
+    If DebugMode(False) Then On Error GoTo CleanExit Else On Error Resume Next
 
     ' Remove trusted location added by this add-in. (if found)
     RemoveTrustedLocation
@@ -271,9 +320,19 @@ Public Sub UninstallVCSAddin()
         "Microsoft Access will be closed to remove the remaining files.", _
         vbInformation
 
+    LeaveInstallErrorTrapping
+
     ' Use the worker script to actually remove the add-in files.
     ' (They cannot be removed when they are in use, such as when procesing the uninstall.)
     Worker.Run_UninstallAddin
+    Exit Sub
+
+CleanExit:
+    LeaveInstallErrorTrapping
+    If Err.Number <> 0 Then
+        MsgBox2 T("Unable to Uninstall"), Err.Description, , vbExclamation
+        Err.Clear
+    End If
 
 End Sub
 
@@ -344,18 +403,34 @@ Private Sub CreateAccde(ByVal strSourceFilePath As String, ByVal strDestFilePath
 
     Const acSysCmdCompile As Long = 603 ' Added in later versions of Access
     Dim strFileToCompile As String
+    Dim objAccess As Access.Application
+    Dim intSavedErrorTrapping As eVbeErrorTrapping
+    Dim lngErr As Long
+    Dim strErrDesc As String
 
     strFileToCompile = strDestFilePath & ".accdb"
     FSO.CopyFile strSourceFilePath, strFileToCompile, True
 
     ' use new Access instance to create accde
-    With New Access.Application
-        .Visible = True
-        .SysCmd acSysCmdCompile, strFileToCompile, strDestFilePath
-    End With
+    Set objAccess = New Access.Application
+    intSavedErrorTrapping = SaveUserErrorTrappingOnApp(objAccess)
+    ApplyUserErrorTrappingOnApp objAccess, eetBreakInClassModule
+    On Error GoTo CreateAccdeErr
+    objAccess.Visible = True
+    objAccess.SysCmd acSysCmdCompile, strFileToCompile, strDestFilePath
+    GoTo CreateAccdeExit
 
-    ' Delete temporary file
+CreateAccdeErr:
+    lngErr = Err.Number
+    strErrDesc = Err.Description
+
+CreateAccdeExit:
+    On Error Resume Next
+    RestoreUserErrorTrappingOnApp objAccess, intSavedErrorTrapping
+    If Not objAccess Is Nothing Then objAccess.Quit
+    Set objAccess = Nothing
     FSO.DeleteFile strFileToCompile, True
+    If lngErr <> 0 Then Err.Raise lngErr, , strErrDesc
 
 End Sub
 
