@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestJUnit"
+﻿Attribute VB_Name = "modTestJUnit"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestJUnit
 ' Author    : Adam Waller

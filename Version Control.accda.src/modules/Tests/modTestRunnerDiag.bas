@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestRunnerDiag"
+﻿Attribute VB_Name = "modTestRunnerDiag"
 Option Compare Database
 Option Explicit
 Option Private Module

@@ -568,7 +568,7 @@ Public Sub BuildQueryDescriptionCache()
     ' Clear any benign leftover error so the failure handler only fires on real faults.
     Err.Clear
     On Error GoTo 0
-    GoTo Cleanup
+    GoTo CleanUp
 
 Err_Handler:
     On Error Resume Next
@@ -578,7 +578,7 @@ Err_Handler:
         ModuleName & ".BuildQueryDescriptionCache", True, True
     Set m_dQueryDescCache = Nothing
 
-Cleanup:
+CleanUp:
     Set rst = Nothing
     Perf.OperationEnd
 

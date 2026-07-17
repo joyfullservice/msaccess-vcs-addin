@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestState"
+﻿Attribute VB_Name = "modTestState"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestState
 ' Author    : Adam Waller

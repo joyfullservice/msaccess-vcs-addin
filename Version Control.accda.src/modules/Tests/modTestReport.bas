@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestReport"
+﻿Attribute VB_Name = "modTestReport"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestReport
 ' Author    : Adam Waller

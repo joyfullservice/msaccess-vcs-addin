@@ -1234,7 +1234,7 @@ Private Function SanitizeXML() As String
 
     Dim curStart As Currency
     Dim cData As clsConcat
-    Dim strXML As String
+    Dim strXml As String
     Dim rxLine As VBScript_RegExp_55.RegExp
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -1245,7 +1245,7 @@ Private Function SanitizeXML() As String
 
     Perf.OperationStart "Sanitize XML"
     curStart = Perf.MicroTimer
-    strXML = this.strInput
+    strXml = this.strInput
 
     ' Exporting Table Def as XML does not properly encode ampersand character (See #314)
     ' Most likely if any ampersands are encoded correctly, all of them will be.
@@ -1254,9 +1254,9 @@ Private Function SanitizeXML() As String
         .Global = True
         ' Match &amp; &quot; &gt; &lt; etc...
         .Pattern = "&[A-z]{2,6};"
-        If Not .Test(strXML) Then
+        If Not .Test(strXml) Then
             ' Properly encode any embedded ampersand characters to make valid XML
-            strXML = Replace(strXML, "&", "&amp;")
+            strXml = Replace(strXml, "&", "&amp;")
         End If
     End With
 
@@ -1267,7 +1267,7 @@ Private Function SanitizeXML() As String
         Set objXml = New MSXML2.DOMDocument60
     End If
 
-    If objXml.LoadXML(strXML) = False Then
+    If objXml.LoadXML(strXml) = False Then
         Log.Error eelError, _
             "Unable to parse the XML for file '" & Nz2(this.strFilePath, Me.ObjectName) & _
             "'. This may be due to containing malformed XML. Check the source XML document for validity. " & _
@@ -1318,7 +1318,7 @@ Private Function SanitizeXML() As String
 
     ' Check string length to determine which formatter to use.
     ' (XSLT does a better job, but may fail on large sets of data)
-    If Len(strXML) < 30000 Then
+    If Len(strXml) < 30000 Then
         ' Use XSLT to format the XML output.
         this.strOutput = FormatXML(objXml)
     Else
