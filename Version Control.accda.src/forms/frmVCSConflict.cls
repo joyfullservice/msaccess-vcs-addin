@@ -108,6 +108,7 @@ End Sub
 '
 Private Sub cmdOverwriteAll_Click()
     sfrmConflictList.SetFocus
+    If sfrmConflictList.Form.Dirty Then sfrmConflictList.Form.Dirty = False
     CodeDb.Execute "update tblConflicts set Resolution=" & eResolveConflict.ercOverwrite, dbFailOnError
     sfrmConflictList.Requery
 End Sub
@@ -122,6 +123,7 @@ End Sub
 '
 Private Sub cmdSkipAll_Click()
     sfrmConflictList.SetFocus
+    If sfrmConflictList.Form.Dirty Then sfrmConflictList.Form.Dirty = False
     CodeDb.Execute "update tblConflicts set Resolution=" & eResolveConflict.ercSkip, dbFailOnError
     sfrmConflictList.Requery
 End Sub
