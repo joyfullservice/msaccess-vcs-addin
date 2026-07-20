@@ -65,6 +65,7 @@ End Sub
 Private Sub SaveImages()
 
     Dim varPic As Variant
+    Dim strFolder As String
 
     ' Make sure we actually have images to save
     If this.dImages Is Nothing Then Exit Sub
@@ -72,6 +73,15 @@ Private Sub SaveImages()
 
     ' Verify the first path, to make sure the folder exists
     VerifyPath CStr(this.dImages.Keys(0))
+
+    ' Clear existing images in this bar's image folder before rewriting the current set.
+    ' Image files (.bmp) are named after controls, not the command bar, so the generic
+    ' orphan cleanup (which keys on object names and primary source extensions) never
+    ' removes them. Without this, a renamed icon -- e.g. a caption-less control whose
+    ' image name switches from the runtime .Id to a content hash -- would leave the old
+    ' .bmp files behind. All current images are rewritten in the loop immediately below.
+    strFolder = FSO.GetParentFolderName(CStr(this.dImages.Keys(0)))
+    ClearFilesByExtension strFolder, "bmp"
 
     Perf.OperationStart "Save CommandBar Images"
     For Each varPic In this.dImages.Keys
@@ -195,11 +205,15 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
         ' Set control properties
         For Each varProp In this.CtlWriteProperties
             If dParent.Exists(varProp) Then
-                CallByName objItem, varProp, VbLet, dParent(varProp)
-                If Catch(438, 440) Then
-                    ' No point logging those errors
-                ElseIf CatchAny(eelNoError, vbNullString) Then
-                    Debug.Print "Could not set " & varProp & " on " & objItem.Caption
+                If varProp = "FaceId" Then
+                    SetControlFaceId objItem, CLng(dParent(varProp))
+                Else
+                    CallByName objItem, varProp, VbLet, dParent(varProp)
+                    If Catch(438, 440) Then
+                        ' No point logging those errors
+                    ElseIf CatchAny(eelNoError, vbNullString) Then
+                        Debug.Print "Could not set " & varProp & " on " & objItem.Caption
+                    End If
                 End If
             End If
         Next varProp
@@ -211,7 +225,7 @@ Private Sub BuildControls(dParent As Dictionary, objItem As Object)
         ElseIf TypeOf objItem Is CommandBarComboBox And dParent.Exists("List") Then
             Dim varItem As Variant
             Dim cbcItem As CommandBarComboBox
-            Set objItem = cbcItem
+            Set cbcItem = objItem
             For Each varItem In dParent("List")
                 cbcItem.AddItem varItem
             Next
@@ -292,16 +306,20 @@ Private Sub AddChildControl(dControl As Dictionary, objParent As Object)
         ElseIf CatchAny(eelError, "Unable to add built-in control Id " & dControl("Id"), ModuleName(Me) & ".AddChildControl", blnIncludeErrorWithDescription:=True) Then
             ' Unexpected error adding a built-in that should be addable.
         Else
-            objBuiltIn.Visible = dControl("Visible")
-            If dControl.Exists("BeginGroup") Then objBuiltIn.BeginGroup = dControl("BeginGroup")
+            BuildControls dControl, objBuiltIn
         End If
     Else
-        ' Fully custom controls and non-addable built-in replicas (BuiltIn=false).
-        Set objCustom = objParent.Controls.Add(dControl("Type"))
-        If CatchAny(eelError, "Unable to add custom control to command bar", ModuleName(Me) & ".AddChildControl", blnIncludeErrorWithDescription:=True) Then
-            ' Failed to add custom control.
+        ' Fully custom controls and legacy non-addable built-in replicas (BuiltIn=false).
+        If IsNonCustomAddableControlType(dControl("Type")) Then
+            Log.Error eelWarning, T("Skipping command bar control type {0} (cannot be created without a built-in Id; re-export menus with the current add-in).", _
+                var0:=CStr(dControl("Type"))), ModuleName(Me) & ".AddChildControl"
         Else
-            BuildControls dControl, objCustom
+            Set objCustom = objParent.Controls.Add(dControl("Type"))
+            If CatchAny(eelError, "Unable to add custom control to command bar", ModuleName(Me) & ".AddChildControl", blnIncludeErrorWithDescription:=True) Then
+                ' Failed to add custom control.
+            Else
+                BuildControls dControl, objCustom
+            End If
         End If
     End If
 
@@ -353,14 +371,148 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 6/22/2026
 ' Purpose   : Returns true when a control's image should NOT be exported to a file.
-'           : Under export format 5.0.0+, only genuinely custom (pasted) faces are saved
-'           : as images. A non-zero FaceId is a built-in icon that is reconstructed from
-'           : the FaceId on import, so exporting its rendered bitmap only creates churn.
+'           : Under export format 5.0.0+, skip the image when FaceId resolves to a
+'           : known built-in icon (reconstructed on import). Export bitmaps for pasted
+'           : faces and bogus non-reconstructable FaceId values (e.g. 50000).
 '---------------------------------------------------------------------------------------
 '
 Private Function SkipControlImage(ctl As CommandBarControl) As Boolean
+    Dim lngFaceId As Long
     If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Function
-    SkipControlImage = (GetControlFaceId(ctl) <> 0)
+    lngFaceId = GetControlFaceId(ctl)
+    If lngFaceId = 0 Then Exit Function
+    ' Skip image export only when FaceId resolves to a known built-in icon name.
+    SkipControlImage = (Len(ControlIdToName(lngFaceId)) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsReconstructableFaceId
+' Author    : Adam Waller
+' Date      : 7/16/2026
+' Purpose   : Return true when a FaceId maps to a known built-in icon that can be
+'           : reassigned on import without exporting a bitmap.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsReconstructableFaceId(lngFaceId As Long) As Boolean
+    If lngFaceId = 0 Then Exit Function
+    IsReconstructableFaceId = (Len(ControlIdToName(lngFaceId)) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetControlFaceId
+' Author    : Adam Waller
+' Date      : 7/16/2026
+' Purpose   : Assign FaceId defensively so legacy or bogus values (e.g. 50000) never
+'           : abort a menu build. Picture/Mask from ImagePath are applied afterward.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetControlFaceId(ctl As CommandBarControl, lngFaceId As Long)
+    If Not (TypeOf ctl Is CommandBarButton) Then Exit Sub
+    If lngFaceId = 0 Then Exit Sub
+    LogUnhandledErrors
+    On Error Resume Next
+    ctl.FaceId = lngFaceId
+    CatchAny eelNoError, vbNullString
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsNonCustomAddableControlType
+' Author    : Adam Waller
+' Date      : 7/16/2026
+' Purpose   : Return true for control types that cannot be created with Controls.Add(Type)
+'           : alone. Legacy BuiltIn:false replicas of these types are skipped on import.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsNonCustomAddableControlType(lngType As Long) As Boolean
+    Select Case lngType
+        Case msoControlSplitDropdown, msoControlButtonPopup, msoControlSplitButtonPopup, _
+             msoControlSplitButtonMRUPopup, msoControlExpandingGrid, msoControlGrid, _
+             msoControlPane, msoControlWorkPane
+            IsNonCustomAddableControlType = True
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasCustomizedSubmenu
+' Author    : Adam Waller
+' Date      : 7/16/2026
+' Purpose   : Return true when a popup's submenu differs from native regeneration:
+'           : any non-built-in child, or any child hidden from the default submenu.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasCustomizedSubmenu(ctl As CommandBarControl) As Boolean
+
+    Dim ctlChild As CommandBarControl
+
+    If Not (TypeOf ctl Is CommandBarPopup) Then Exit Function
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    For Each ctlChild In ctl.Controls
+        If Err.Number <> 0 Then Exit For
+        If Not ctlChild.BuiltIn Then
+            HasCustomizedSubmenu = True
+            Exit For
+        End If
+        If Not ctlChild.Visible Then
+            HasCustomizedSubmenu = True
+            Exit For
+        End If
+    Next ctlChild
+
+    ' Never let an expected enumeration/read error (e.g. a popup whose .Controls is
+    ' not accessible in the current state) leak to the caller and corrupt later reads.
+    CatchAny eelNoError, vbNullString, blnLogError:=False
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TryGetChildControls
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Safely return a control's child Controls collection, or Nothing. Some
+'           : built-in popups (e.g. the Office Links split MRU popup, Type 14) raise
+'           : -2147467259 when .Controls is read before the submenu is materialized.
+'           : Those popups regenerate their native children on import, so returning
+'           : Nothing (and skipping the serialized Controls array) is correct. Clearing
+'           : the error here prevents it from leaking into the next control's property
+'           : read, which previously showed up as a bogus "Unhandled error" in the log
+'           : and could drop the following control's BeginGroup.
+'---------------------------------------------------------------------------------------
+'
+Private Function TryGetChildControls(objCtl As Object) As CommandBarControls
+    LogUnhandledErrors
+    On Error Resume Next
+    Set TryGetChildControls = objCtl.Controls
+    CatchAny eelNoError, vbNullString, blnLogError:=False
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ComboListReadable
+' Author    : Adam Waller
+' Date      : 7/16/2026
+' Purpose   : Return true when a combo's ListCount can be read. Access-managed built-in
+'           : combos (e.g. Zoom) raise an error and must not emit an empty List block.
+'---------------------------------------------------------------------------------------
+'
+Private Function ComboListReadable(cbcItem As CommandBarComboBox) As Boolean
+
+    LogUnhandledErrors
+    On Error Resume Next
+    ComboListReadable = (cbcItem.ListCount >= 0)
+    If Err.Number <> 0 Then ComboListReadable = False
+    ' Access-managed combos (e.g. Zoom) raise -2147467259 here; that is expected, so
+    ' clear it without logging. Logging (even at eelNoError) writes the error to the
+    ' log file and leaves residual state that can corrupt the next control's read.
+    CatchAny eelNoError, vbNullString, blnLogError:=False
+
 End Function
 
 
@@ -370,11 +522,9 @@ End Function
 ' Date      : 6/25/2026
 ' Purpose   : Return true when a built-in control carries customizations that the minimal
 '           : built-in export (Type + Id only) would lose: a custom action (OnAction /
-'           : Parameter) or a custom pasted face (FaceId = 0 with a picture present). Such
-'           : controls must be exported as full replicas so their action parameters and
-'           : pictures survive the round-trip (issue #584). A pristine built-in control
-'           : has an empty OnAction - its behavior is wired to its Id - so a non-empty
-'           : OnAction/Parameter reliably indicates a user customization.
+'           : Parameter), a custom pasted face, or a customized submenu on a popup.
+'           : Addable built-ins with any such customization keep BuiltIn:true + Id and
+'           : export full properties (issue #584 and split-button submenu edits).
 '---------------------------------------------------------------------------------------
 '
 Private Function IsBuiltInControlCustomized(ctl As CommandBarControl) As Boolean
@@ -401,7 +551,8 @@ Private Function IsBuiltInControlCustomized(ctl As CommandBarControl) As Boolean
     End If
     If IsBuiltInControlCustomized Then Exit Function
 
-    ' Custom pasted face: a button with no FaceId but a picture present.
+    ' Custom pasted face: a button with no FaceId but a picture present, or a picture with
+    ' a bogus non-reconstructable FaceId (e.g. 50000) that cannot be reassigned on import.
     If TypeOf ctl Is CommandBarButton Then
         If GetControlFaceId(ctl) = 0 Then
             Set picItem = ctl.Picture
@@ -409,6 +560,13 @@ Private Function IsBuiltInControlCustomized(ctl As CommandBarControl) As Boolean
                 ' No picture available; not a custom face.
             ElseIf CatchAny(eelNoError, vbNullString) Then
                 ' Unexpected error; treat as not customized.
+            ElseIf Not picItem Is Nothing Then
+                IsBuiltInControlCustomized = True
+            End If
+        ElseIf Not IsReconstructableFaceId(GetControlFaceId(ctl)) Then
+            Set picItem = ctl.Picture
+            If Catch(438) Then
+            ElseIf CatchAny(eelNoError, vbNullString) Then
             ElseIf Not picItem Is Nothing Then
                 IsBuiltInControlCustomized = True
             End If
@@ -564,6 +722,7 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
     Dim colList As Collection
     Dim lngItem As Long
     Dim blnExportAsReplica As Boolean
+    Dim ctlChildren As CommandBarControls
 
     LogUnhandledErrors
     On Error Resume Next
@@ -573,6 +732,7 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         this.BarPosition = objItem.Position
         ' Add command bar properties
         For Each varProp In this.BarProperties
+            Err.Clear ' Judge each read on its own outcome (see CtlReadProperties note).
             varValue = CallByName(objItem, varProp, VbGet)
             ' No point in logging those 2 errors.
             If Catch(438, 440) Then
@@ -585,8 +745,8 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         dParent.Add "Controls", BuildControlCollection(objItem.Controls)
     ElseIf TypeOf objItem Is CommandBarControl Then
         blnExportAsReplica = False
-        ' Built-in classification (EFV_5_0_0+): manual override -> replica; addable+clean ->
-        ' minimal block; addable+customized -> replica (#584); non-addable+in-template ->
+        ' Built-in classification (EFV_5_0_0+): manual override -> replica; addable+pristine ->
+        ' minimal block; addable+customized -> full built-in (keep Id); non-addable+in-template ->
         ' full-property built-in (template copy on import); non-addable+not-in-template ->
         ' visual replica. Addability uses a cached runtime probe keyed on (Type, Id).
         If objItem.BuiltIn Then
@@ -594,9 +754,7 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
                 If IsNonAddableControl(objItem.Id) Then
                     blnExportAsReplica = True
                 ElseIf IsBuiltInControlAddable(objItem.Type, objItem.Id) Then
-                    If IsBuiltInControlCustomized(objItem) Then
-                        blnExportAsReplica = True
-                    Else
+                    If Not IsBuiltInControlCustomized(objItem) And Not HasCustomizedSubmenu(objItem) Then
                         AddReferenceName dParent, objItem
                         dParent.Add "BeginGroup", objItem.BeginGroup
                         dParent.Add "BuiltIn", True
@@ -621,6 +779,11 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         ' Add control properties
         For Each varProp In this.CtlReadProperties
             varValue = Empty ' Clear the value from previous run
+            ' Clear Err first so this read is judged only on its own outcome. A leaked
+            ' error from a prior control (e.g. the Zoom combo's ListCount probe) would
+            ' otherwise be mis-attributed here and silently drop this property, breaking
+            ' export idempotency.
+            Err.Clear
             varValue = CallByName(objItem, varProp, VbGet)
             ' No point in logging those 2 errors.
             If Catch(438, 440) Then
@@ -641,25 +804,29 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
         End If
         If TypeOf objItem Is CommandBarComboBox Then
             If objItem.Type = msoControlDropdown Or objItem.Type = msoControlComboBox Then
-            ' Build List
-            Set cbcItem = objItem
-
-            Set colList = New Collection
-            For lngItem = 1 To cbcItem.ListCount
-                colList.Add cbcItem.List(lngItem), CStr(lngItem)
-            Next
-            dParent.Add "List", colList
+                Set cbcItem = objItem
+                If ComboListReadable(cbcItem) Then
+                    Set colList = New Collection
+                    For lngItem = 1 To cbcItem.ListCount
+                        colList.Add cbcItem.List(lngItem), CStr(lngItem)
+                    Next
+                    dParent.Add "List", colList
+                End If
             End If
         End If
         If TypeOf objItem Is CommandBarPopup Then
-            ' Addable built-in popups have their native submenus regenerated on import via
-            ' .Add(Type, Id), so serializing their children would create duplicates. But a
-            ' non-addable built-in popup is exported as a replica and rebuilt from source,
-            ' so its children must be serialized. Custom popups always serialize children.
+            ' Addable built-in popups with pristine submenus regenerate native children on
+            ' import via .Add(Type, Id). Customized submenus must serialize their children.
             If Options.ExportFormatVersion >= EFV_5_0_0 And objItem.BuiltIn And Not blnExportAsReplica Then
-                ' Skip children for addable built-in popups (regenerated on import)
+                If IsBuiltInControlAddable(objItem.Type, objItem.Id) And Not HasCustomizedSubmenu(objItem) Then
+                    ' Skip children for addable built-in popups (regenerated on import)
+                Else
+                    Set ctlChildren = TryGetChildControls(objItem)
+                    If Not ctlChildren Is Nothing Then dParent.Add "Controls", BuildControlCollection(ctlChildren)
+                End If
             Else
-                dParent.Add "Controls", BuildControlCollection(objItem.Controls)
+                Set ctlChildren = TryGetChildControls(objItem)
+                If Not ctlChildren Is Nothing Then dParent.Add "Controls", BuildControlCollection(ctlChildren)
             End If
         Else
             ' Check for picture
@@ -684,6 +851,13 @@ Private Function BuildElementDictionary(dParent As Dictionary, objItem As Object
                     this.dImages.Add strPath, objItem
                     ' Save path to images in element dictionary
                     dParent.Add "ImagePath", GetRelativePath(strPath, IDbComponent_BaseFolder)
+                    ' Drop bogus FaceId values when the bitmap is the authoritative source.
+                    If dParent.Exists("FaceId") Then
+                        If Not IsReconstructableFaceId(CLng(dParent("FaceId"))) Then
+                            dParent.Remove "FaceId"
+                            If dParent.Exists("BuiltInFace") Then dParent.Remove "BuiltInFace"
+                        End If
+                    End If
                 End If
             End If
         End If
@@ -755,11 +929,20 @@ Private Function GetImagePath(ctl As CommandBarControl) As String
             ' We already have the name for this item
             strSegment = vbNullString
         Else
-            ' Control item. (Use caption or ID)
-            strSegment = Nz2(MultiReplace(ctlTest.Caption, _
+            ' Control item. (Use caption; fall back to a stable image hash, then ID.)
+            strSegment = MultiReplace(ctlTest.Caption, _
                 "&", vbNullString, _
-                "...", vbNullString) _
-                , ctlTest.Id)
+                "...", vbNullString)
+            If Len(strSegment) = 0 Then
+                ' Caption-less custom controls have no portable identity: the runtime .Id
+                ' is reassigned when the menu is rebuilt into a new database (custom
+                ' controls default to Id=1), so a name keyed on .Id churns on every
+                ' rebuild. Content-address the image instead -- same icon yields the same
+                ' filename in any database, immune to control reordering.
+                strSegment = GetControlImageHash(ctlTest)
+                ' Last-resort fallback if the image cannot be hashed.
+                If Len(strSegment) = 0 Then strSegment = CStr(ctlTest.Id)
+            End If
         End If
         If Len(strSegment) Then
             If Len(strName) Then
@@ -779,6 +962,58 @@ Private Function GetImagePath(ctl As CommandBarControl) As String
 
     ' Convert name to a filesafe name
     GetImagePath = BuildPath2(GetSafeFileName(m_CommandBar.Name) & "_Images", GetSafeFileName(strName))
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetControlImageHash
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Return a short, stable, portable identifier for a control's image, derived
+'           : from a hash of the picture (and mask) bytes. Used to name image files for
+'           : caption-less custom controls, which carry no durable identity of their own
+'           : (the runtime .Id is reassigned on every rebuild). Content-addressing keeps
+'           : the filename identical across databases and immune to control reordering.
+'           : Returns an empty string if no picture is available.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetControlImageHash(objCtl As Object) As String
+
+    Dim strTempPic As String
+    Dim strTempMask As String
+    Dim strPicHash As String
+    Dim strMaskHash As String
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Hash the picture bytes. (SavePicture writes a deterministic BMP for a given image.)
+    strTempPic = GetTempFile("VCS")
+    stdole.SavePicture objCtl.Picture, strTempPic
+    If FSO.FileExists(strTempPic) Then
+        strPicHash = GetFileHash(strTempPic)
+        DeleteFile strTempPic
+    End If
+
+    ' Fold in the mask so two icons that differ only by their mask get distinct names.
+    strTempMask = GetTempFile("VCS")
+    stdole.SavePicture objCtl.Mask, strTempMask
+    If FSO.FileExists(strTempMask) Then
+        strMaskHash = GetFileHash(strTempMask)
+        DeleteFile strTempMask
+    End If
+
+    ' A control without a mask (or picture) raises here; that is expected -- clear it
+    ' without logging so it cannot leak into the next control's property read.
+    CatchAny eelNoError, vbNullString, blnLogError:=False
+
+    If Len(strPicHash) = 0 Then Exit Function
+    If Len(strMaskHash) > 0 Then
+        GetControlImageHash = Left$(GetStringHash(strPicHash & "|" & strMaskHash), 12)
+    Else
+        GetControlImageHash = Left$(strPicHash, 12)
+    End If
 
 End Function
 
@@ -1130,7 +1365,11 @@ Private Sub Class_Initialize()
         .Add "HelpFile"
         .Add "HyperlinkType"
         .Add "Left"
-        .Add "ListCount"
+        ' ListCount is intentionally omitted: it is read-only (never in CtlWriteProperties),
+        ' redundant with the serialized "List" array, and Access-managed built-in combos
+        ' (e.g. the Zoom box, Id 1733) raise -2147467259 when it is read. That error polluted
+        ' the property read of the following control (dropping its BeginGroup) and broke
+        ' command-bar export idempotency. The readable-list path uses ComboListReadable instead.
         .Add "ListHeaderCount"
         .Add "ListIndex"
         .Add "OLEMenuGroup"
