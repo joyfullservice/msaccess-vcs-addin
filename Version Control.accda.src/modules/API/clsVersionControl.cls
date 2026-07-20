@@ -1068,6 +1068,280 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportByType
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Category-scoped export: sync one or more whole component categories
+'           : from the database to source files. Reconciles deletions (orphaned source
+'           : files) within the named categories. Conflicts are auto-resolved under
+'           : MCP/API or prompted interactively.
+'           :
+'           : This is a middle tier between ExportObject (one named object, no orphan
+'           : cleanup) and Export/FullExport (entire project with global front-matter).
+'           :
+'           : varTypes accepts a single eDatabaseComponentType enum, a string alias
+'           : (anything ResolveComponentType accepts), or an Array of either.
+'           : blnFullExport=False (default) re-exports only changed objects;
+'           : True re-exports all objects. Both modes reconcile deletions.
+'           :
+'           : Returns JSON: {"success":true/false, "logPath":"...", "error":"..."}
+'---------------------------------------------------------------------------------------
+'
+Public Function ExportByType(ByVal varTypes As Variant, _
+    Optional ByVal blnFullExport As Boolean = False) As String
+
+    Dim dResult As Dictionary
+    Dim colContainers As Collection
+    Dim strError As String
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+
+    If Not DatabaseFileOpen Then
+        dResult.Add "success", False
+        dResult.Add "error", "No database is currently open."
+        ExportByType = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    Set colContainers = GetContainersForTypes(varTypes, strError)
+    If Len(strError) > 0 Then
+        dResult.Add "success", False
+        dResult.Add "error", strError
+        ExportByType = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    If Not ScopedExportPreflight(strError) Then
+        dResult.Add "success", False
+        dResult.Add "error", strError
+        ExportByType = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    If Not Operation.Begin(eotExport) Then
+        dResult.Add "success", False
+        dResult.Add "error", "Could not begin export operation (another operation may be running)"
+        ExportByType = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    BeginScopedSyncLog T("Beginning Category Export")
+    modExport.ExportScoped colContainers, blnFullExport
+    ExportByType = FinishScopedSync(dResult, colContainers, True)
+    Exit Function
+
+ErrHandler:
+    ExportByType = ScopedSyncErrHandler(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportByType
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Category-scoped import (merge): merge source files for one or more
+'           : whole component categories into the current database. Reconciles
+'           : deletions (DB objects no longer represented in source) within the
+'           : named categories. Conflicts are auto-resolved under MCP/API or prompted
+'           : interactively.
+'           :
+'           : This is a middle tier between ImportObject (one named object, no orphan
+'           : reconciliation) and MergeBuild (entire project with backup).
+'           : No database backup is taken - the caller/pipeline owns backups.
+'           :
+'           : varTypes accepts a single eDatabaseComponentType enum, a string alias
+'           : (anything ResolveComponentType accepts), or an Array of either.
+'           : blnFullImport=False (default) merges only changed source files;
+'           : True merges all source files. Both modes reconcile deletions.
+'           :
+'           : Returns JSON: {"success":true/false, "logPath":"...", "error":"..."}
+'---------------------------------------------------------------------------------------
+'
+Public Function ImportByType(ByVal varTypes As Variant, _
+    Optional ByVal blnFullImport As Boolean = False) As String
+
+    Dim dResult As Dictionary
+    Dim colContainers As Collection
+    Dim strError As String
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+
+    If Not DatabaseFileOpen Then
+        dResult.Add "success", False
+        dResult.Add "error", "No database is currently open."
+        ImportByType = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    Set colContainers = GetContainersForTypes(varTypes, strError, True)
+    If Len(strError) > 0 Then
+        dResult.Add "success", False
+        dResult.Add "error", strError
+        ImportByType = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    If Not ScopedImportPreflight(strError) Then
+        dResult.Add "success", False
+        dResult.Add "error", strError
+        ImportByType = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    If Not Operation.Begin(eotMerge) Then
+        dResult.Add "success", False
+        dResult.Add "error", "Could not begin import operation (another operation may be running)"
+        ImportByType = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    BeginScopedSyncLog T("Beginning Category Import")
+    modBuild.MergeScoped colContainers, blnFullImport
+    ImportByType = FinishScopedSync(dResult, colContainers, False)
+    Exit Function
+
+ErrHandler:
+    ImportByType = ScopedSyncErrHandler(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BeginScopedSyncLog
+' Purpose   : Shared setup for ExportByType / ImportByType.
+'---------------------------------------------------------------------------------------
+'
+Private Sub BeginScopedSyncLog(strHeading As String)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Set VCSIndex = Nothing
+    Set Options = Nothing
+    Options.LoadProjectOptions
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        Options.LoadOptionOverrides
+    End If
+    Log.Clear
+    Log.SourcePath = Options.GetExportFolder
+    Log.Active = True
+    Perf.StartTiming
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    With Log
+        .Spacer
+        .Add strHeading, False
+        .Add CurrentProject.Name
+        .Add T("VCS Version {0}", var0:=GetVCSVersion)
+        .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
+        .Add T("Export Folder: {0}", var0:=Options.GetExportFolder), False
+        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
+        .Add Now
+        .Spacer
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FinishScopedSync
+' Purpose   : Shared wrap-up for ExportByType / ImportByType.
+'---------------------------------------------------------------------------------------
+'
+Private Function FinishScopedSync(dResult As Dictionary, colContainers As Collection, _
+    blnExport As Boolean) As String
+
+    Dim blnCanceled As Boolean
+    Dim blnCritical As Boolean
+    Dim blnUserCanceled As Boolean
+    Dim intResult As eOperationResult
+    Dim strColor As String
+
+    blnUserCanceled = VCSIndex.Conflicts.UserCanceled
+    blnCritical = (Operation.ErrorLevel = eelCritical)
+    blnCanceled = blnCritical Or blnUserCanceled
+
+    If blnCanceled Then
+        strColor = "Red"
+    ElseIf Operation.ErrorLevel >= eelError Then
+        strColor = "red"
+    Else
+        strColor = "green"
+    End If
+
+    Log.Spacer
+    If Not blnCanceled Then
+        Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, strColor, True
+    End If
+
+    VCSIndex.ClearTempExportFolder
+    Perf.EndTiming
+    With Log
+        .Add vbNewLine & Perf.GetReports, False
+        .SaveFile
+        .Active = False
+        .Flush
+    End With
+
+    If Not blnCanceled Then
+        If blnExport Then modExport.UpdateScopedExportIndex colContainers
+        VCSIndex.Save
+    End If
+
+    If blnUserCanceled Then
+        intResult = eorCanceled
+    ElseIf blnCritical Or Operation.ErrorLevel >= eelError Then
+        intResult = eorFailed
+    Else
+        intResult = eorSuccess
+    End If
+
+    If Not dResult.Exists("success") Then
+        dResult.Add "success", (intResult = eorSuccess)
+        If intResult <> eorSuccess Then
+            dResult.Add "error", IIf(blnUserCanceled, _
+                "Operation was canceled.", _
+                "Operation completed with errors. Check the log for details.")
+        End If
+        dResult.Add "logPath", Log.LogFilePath
+    End If
+
+    Operation.Finish intResult
+    FinishScopedSync = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScopedSyncErrHandler
+' Purpose   : Ensure scoped sync operations always finish the Operation on error.
+'---------------------------------------------------------------------------------------
+'
+Private Function ScopedSyncErrHandler(dResult As Dictionary) As String
+
+    If Operation.Status = eosRunning Then
+        Perf.EndTiming
+        Log.Active = False
+        Operation.Finish eorFailed
+    End If
+
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", Err.Description
+    dResult.Add "errorNumber", CLng(Err.Number)
+    ScopedSyncErrHandler = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : FindSourceFile
 ' Author    : Adam Waller
 ' Date      : 4/14/2026

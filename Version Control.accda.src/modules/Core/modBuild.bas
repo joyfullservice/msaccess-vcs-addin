@@ -1002,6 +1002,205 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MergeScoped
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Category-scoped merge: merge source files for the named container(s)
+'           : into the current database, reconciling deletions (DB objects no longer
+'           : represented in source) within each category. This is a middle tier
+'           : between LoadSingleObject (one object, no orphan reconciliation) and
+'           : Build/MergeAllSource (full project with backup and global front-matter).
+'           :
+'           : blnFullMerge controls the file set: True = all source files (GetFileList)
+'           : unioned with orphan-deletion entries; False = changed source files only
+'           : (GetModifiedSourceFiles, which already includes orphan-deletion entries).
+'           :
+'           : Assumes the caller has already begun an Operation, loaded Options/Index/
+'           : Log, and started Perf timing. Does NOT take a database backup.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeScoped(colContainers As Collection, blnFullMerge As Boolean)
+
+    Dim dCategories As Dictionary
+    Dim dCategory As Dictionary
+    Dim dFiles As Dictionary
+    Dim varCategory As Variant
+    Dim varFile As Variant
+    Dim cCategory As IDbComponent
+    Dim cItem As IDbComponent
+    Dim dItems As Dictionary
+    Dim lngCount As Long
+    Dim lngCurrent As Long
+    Dim intSave As AcCloseSave
+    Dim strPath As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Remove misplaced duplicate copies for targeted layout categories only
+    For Each cCategory In colContainers
+        Select Case cCategory.ComponentType
+            Case edbModule
+                RemoveDuplicateModuleFiles cCategory.BaseFolder
+            Case edbForm
+                RemoveDuplicateFormFiles cCategory.BaseFolder
+            Case edbReport
+                RemoveDuplicateReportFiles cCategory.BaseFolder
+        End Select
+    Next cCategory
+
+    ' Close open objects of the targeted categories before merging
+    If Operation.InteractionMode = eimNormal _
+        And Operation.Source <> eosMCPTool _
+        And Operation.Source <> eosExternalAPI Then
+        intSave = acSavePrompt
+    Else
+        intSave = acSaveYes
+    End If
+
+    If Not CloseOpenObjectsForContainers(colContainers, intSave) Then
+        Log.Spacer
+        Log.Add T("Merge Canceled"), , , "Red", True
+        Operation.ErrorLevel = eelCritical
+        Exit Sub
+    End If
+
+    SaveUnsavedVbaProjectIfNeeded colContainers
+    CacheBackEndConnections
+
+    ' Build collections of files to import/merge
+    Set dCategories = New Dictionary
+    VCSIndex.Conflicts.Initialize dCategories, eatImport
+    Perf.OperationStart "Scan Source Files"
+    For Each cCategory In colContainers
+        Set dCategory = New Dictionary
+        dCategory.Add "Class", cCategory
+        Operation.Pulse
+        If blnFullMerge Then
+            Set dFiles = cCategory.GetFileList
+            Set dItems = cCategory.GetAllFromDB
+            If Not cCategory.SingleFile Then
+                For Each varFile In dItems.Items
+                    Set cItem = varFile
+                    If Not dFiles.Exists(cItem.SourceFile) Then
+                        dFiles.Add cItem.SourceFile, vbNullString
+                    End If
+                Next varFile
+            End If
+            dCategory.Add "Files", dFiles
+        Else
+            If cCategory.ComponentType = edbTableData Then
+                Log.Add T("Not merging {0}. (Imported only on full build)", _
+                    var0:=T(LCase(cCategory.Category))), Options.ShowDebug
+                dCategory.Add "Files", New Dictionary
+            Else
+                dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
+            End If
+        End If
+        If dCategory("Files").Count = 0 Then
+            Log.Add T(IIf(blnFullMerge, "No {0} source files found.", "No modified {0} source files found."), _
+                var0:=T(LCase(cCategory.Category))), Options.ShowDebug
+        Else
+            dCategories.Add cCategory.Category, dCategory
+            If Not blnFullMerge Then
+                VCSIndex.CheckMergeConflicts cCategory, dCategory("Files")
+            End If
+        End If
+        If Operation.ErrorLevel = eelCritical Then
+            Log.Add vbNullString
+            Perf.OperationEnd
+            Exit Sub
+        End If
+    Next cCategory
+    Perf.OperationEnd
+
+    ' Check for any conflicts
+    With VCSIndex.Conflicts
+        If .Count > 0 Then
+            .ResolveOrPrompt
+            If .ApproveResolutions Then
+                Log.Add T("Resolving source conflicts"), False
+                .Resolve
+            Else
+                Log.Spacer
+                Log.Add T("Merge Canceled"), , , "Red", True
+                Operation.ErrorLevel = eelCritical
+                Exit Sub
+            End If
+        End If
+    End With
+
+    ' A merge may not find any changed files
+    If dCategories.Count = 0 And Not blnFullMerge Then
+        Log.Add T("No changes found.")
+    End If
+
+    ' Loop through all categories and merge
+    For Each varCategory In dCategories.Keys
+        Set cCategory = dCategories(varCategory)("Class")
+        Set dFiles = dCategories(varCategory)("Files")
+
+        Log.Spacer Options.ShowDebug
+        Log.PadRight T(IIf(blnFullMerge, "Importing {0}...", "Merging {0}..."), _
+            var0:=T(LCase(cCategory.Category))), , Options.ShowDebug
+        Perf.CategoryStart cCategory.Category
+        lngCount = dFiles.Count
+        lngCurrent = 0
+        Log.Flush
+
+        For Each varFile In dFiles.Keys
+            lngCurrent = lngCurrent + 1
+            Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
+            Log.Progress lngCurrent, lngCount, FSO.GetFileName(varFile)
+            Operation.Pulse
+            cCategory.Merge CStr(varFile)
+            If Not blnFullMerge And Options.ExportAfterMerge Then
+                If cCategory.ComponentType <> edbForm Then cCategory.Export
+            End If
+            CatchAny eelError, T(IIf(blnFullMerge, "Build error in: {0}", "Merge error in: {0}"), _
+                var0:=varFile), ModuleName & ".MergeScoped", True, True
+            If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: Exit Sub
+            If cCategory.SingleFile Then Exit For
+        Next varFile
+
+        If Options.ShowDebug Then
+            Log.Add T("[{0}] {1} processed.", var0:=dFiles.Count, var1:=T(LCase(cCategory.Category)))
+        Else
+            Log.Add "[" & dFiles.Count & "]"
+        End If
+        Perf.CategoryEnd dFiles.Count
+        ReleaseDbReferences
+    Next varCategory
+
+    If Operation.ErrorLevel <> eelCritical Then PromptAndSaveConnections
+
+    If Not blnFullMerge Then
+        If ContainerHasAnyObject(dCategories, _
+            edbAdpFunction, edbAdpServerView, edbAdpStoredProcedure, edbAdpTable, edbAdpTrigger, _
+            edbForm, edbMacro, edbModule, edbQuery, edbReport, edbTableData, edbTableDataMacro, edbTableDef) Then
+            Log.Add T("Merging any changed document properties..."), Options.ShowDebug
+            MergeIfChanged edbDocument
+        End If
+    End If
+
+    strPath = CurrentProject.FullName
+    If ContainerHasObject(dCategories, edbTheme) Then
+        Log.Add T("Reopening database...")
+        Log.Flush
+        StageMainForm
+        CloseCurrentDatabase2
+        ShiftOpenDatabase strPath
+        RestoreMainForm
+    End If
+
+    If ContainerHasObject(dCategories, edbForm) Then
+        Log.Add T("Initializing forms...")
+        InitializeForms dCategories
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetBackupFileName
 ' Author    : Adam Waller
 ' Date      : 5/4/2020

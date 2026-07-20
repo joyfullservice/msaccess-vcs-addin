@@ -144,3 +144,93 @@ Private Function GetTestComponent() As IDbComponent
     Set cModule.DbObject = CurrentProject.AllModules(0)
     Set GetTestComponent = cModule
 End Function
+
+
+Public Sub TestResolveComponentTypeMenusAlias()
+    TestAssert ResolveComponentType("menus") = edbCommandBar, "menus alias"
+    TestAssert ResolveComponentType("menu") = edbCommandBar, "menu alias"
+End Sub
+
+
+Public Sub TestResolveComponentTypeArgNull()
+    TestAssert ResolveComponentTypeArg(Null) = -1, "Null rejected"
+    TestAssert ResolveComponentTypeArg(Empty) = -1, "Empty rejected"
+End Sub
+
+
+Public Sub TestResolveComponentTypeArgEnum()
+    TestAssert ResolveComponentTypeArg(edbQuery) = edbQuery, "enum passthrough"
+End Sub
+
+
+Public Sub TestGetContainersForTypesDedupes()
+    Dim col As Collection
+    Dim strError As String
+
+    Set col = GetContainersForTypes(Array("forms", "forms"), strError)
+    TestAssert Len(strError) = 0, "no error"
+    TestAssert col.Count = 1, "duplicate collapsed"
+End Sub
+
+
+Public Sub TestGetContainersForTypesUnknown()
+    Dim col As Collection
+    Dim strError As String
+
+    Set col = GetContainersForTypes("not_a_real_type", strError)
+    TestAssert Len(strError) > 0, "unknown type rejected"
+End Sub
+
+
+Public Sub TestGetContainersForTypesImportRejectsTableData()
+    Dim col As Collection
+    Dim strError As String
+
+    Set col = GetContainersForTypes("table_data", strError, True)
+    TestAssert Len(strError) > 0, "table_data import rejected"
+End Sub
+
+
+Public Sub TestComponentTypeSupportsScopedImport()
+    TestAssert ComponentTypeSupportsScopedImport(edbQuery), "queries supported"
+    TestAssert Not ComponentTypeSupportsScopedImport(edbTableData), "table data unsupported"
+End Sub
+
+
+Public Sub TestGetContainersForTypesCanonicalOrder()
+    Dim col As Collection
+    Dim cCategory As IDbComponent
+    Dim strError As String
+    Dim lngPrev As Long
+    Dim lngCurrent As Long
+
+    Set col = GetContainersForTypes(Array("reports", "modules", "forms"), strError)
+    TestAssert Len(strError) = 0, "no error"
+    TestAssert col.Count = 3, "three categories"
+
+    lngPrev = -1
+    For Each cCategory In col
+        lngCurrent = GetCanonicalContainerOrder(cCategory.ComponentType)
+        TestAssert lngCurrent > lngPrev, "canonical order: " & cCategory.Category
+        lngPrev = lngCurrent
+    Next cCategory
+End Sub
+
+
+Private Function GetCanonicalContainerOrder(intType As eDatabaseComponentType) As Long
+
+    Dim lngIdx As Long
+    Dim cCont As IDbComponent
+
+    lngIdx = 0
+    For Each cCont In GetContainers()
+        If cCont.ComponentType = intType Then
+            GetCanonicalContainerOrder = lngIdx
+            Exit Function
+        End If
+        lngIdx = lngIdx + 1
+    Next cCont
+
+    GetCanonicalContainerOrder = -1
+
+End Function

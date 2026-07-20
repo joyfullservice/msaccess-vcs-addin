@@ -81,12 +81,42 @@ The primary entry point for external automation. Exposed via the `VCS` object in
 
 ```vba
 ' Key public methods:
-VCS.Export              ' Export all source
+VCS.Export              ' Export all source (fast save)
+VCS.FullExport          ' Export all source (full)
 VCS.ExportVBA           ' Export VBA components only
+VCS.ExportByType types  ' Export one or more categories (category-scoped sync)
 VCS.Build strFolder     ' Full build from source
 VCS.MergeBuild          ' Merge changes into existing database
+VCS.ImportByType types  ' Import one or more categories (category-scoped sync)
 VCS.Options             ' Access project options
 ```
+
+#### Category-Scoped Sync (`ExportByType` / `ImportByType`)
+
+A middle tier between the single-object API (`ExportObject`/`ImportObject`) and full Export/Build:
+
+| Tier | Entry point | Scope | Deletions | Backup | Conflicts |
+|---|---|---|---|---|---|
+| Surgical | `ExportObject` / `ImportObject` | one named object | no | no | mode-driven |
+| **Category sync** | **`ExportByType` / `ImportByType`** | **whole category(ies)** | **yes, within category** | **no** | **mode-driven** |
+| Comprehensive | `Export` / `Build` / `MergeBuild` | entire project | yes | yes (merge) | mode-driven |
+
+```vba
+' varTypes accepts a single type or Array of types (enum or string alias):
+?VCS.ExportByType("menus")                         ' Changed command bars only
+?VCS.ExportByType("menus", True)                    ' All command bars (full re-export)
+?VCS.ExportByType(Array(edbCommandBar, edbQuery))  ' Multiple categories
+?VCS.ImportByType("command_bars")                   ' Merge changed command bars from source
+?VCS.ImportByType("menus", True)                    ' Merge all command bars from source
+```
+
+Accepted aliases include `menu`/`menus` and `command_bar`/`command_bars` (on-disk folder is `menus/`). Duplicate types in an array are collapsed. Types not supported in the current database format (for example `connection` on an ADP project) are rejected before the operation starts.
+
+**Import restrictions:** `ImportByType` rejects categories whose merge path is unsupported, including `table_data` and ADP schema objects (`table_data` is imported only on full build/merge). Use `Build` / `MergeBuild` for those.
+
+**Export restrictions:** When global export options have changed (export format version, Access version), run a normal full `Export` or `FullExport` to migrate the project before relying on fast category export. Category-scoped export updates index metadata only for the categories processed; it does not update the project-wide full-export timestamp or untouched option hashes.
+
+These methods treat each named category **as a whole**: they reconcile deletions within the category (export removes orphaned source files; import removes orphaned DB objects). Conflicts are auto-resolved under MCP/API and prompted interactively. No database backup is taken. Open UI objects of targeted categories are closed before export/import (save behavior follows interaction mode); module code is flushed via VBA project save rather than closing module windows. Cross-project access via `Application.Run("Version Control.API", "ExportByType", "menus")` — pass one type per call when using `Application.Run` (VBA arrays do not marshal reliably across projects).
 
 ### Component Interface (`IDbComponent`)
 

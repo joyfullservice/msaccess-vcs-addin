@@ -418,6 +418,127 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CloseOpenObjectsForType
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Close any open database objects of a single component type. The save
+'           : argument controls whether the user is prompted (acSavePrompt) or changes
+'           : are auto-saved (acSaveYes). Only UI-openable types are handled; command
+'           : bars, properties, references, etc. are no-ops. Module windows are not
+'           : closed here — callers should flush unsaved VBA via SaveUnsavedVbaProjectIfNeeded.
+'           : Returns False when a close is canceled or fails.
+'---------------------------------------------------------------------------------------
+'
+Public Function CloseOpenObjectsForType(intType As eDatabaseComponentType, intSave As AcCloseSave) As Boolean
+
+    Dim objItem As AccessObject
+    Dim intItem As Integer
+    Dim intAcType As AcObjectType
+
+    CloseOpenObjectsForType = True
+
+    If DebugMode(True) Then On Error GoTo ErrHandler Else On Error GoTo ErrHandler
+
+    Select Case intType
+        Case edbForm
+            For intItem = Forms.Count - 1 To 0 Step -1
+                If Forms(intItem).Caption <> PROJECT_NAME Then
+                    DoCmd.Close acForm, Forms(intItem).Name, intSave
+                    DoEvents
+                End If
+            Next intItem
+        Case edbReport
+            For intItem = Reports.Count - 1 To 0 Step -1
+                DoCmd.Close acReport, Reports(intItem).Name, intSave
+                DoEvents
+            Next intItem
+        Case edbMacro
+            intAcType = acMacro
+            For Each objItem In CurrentProject.AllMacros
+                If SysCmd(acSysCmdGetObjectState, intAcType, objItem.Name) <> adStateClosed Then
+                    DoCmd.Close intAcType, objItem.Name, intSave
+                End If
+            Next objItem
+        Case edbQuery
+            intAcType = acQuery
+            For Each objItem In CurrentData.AllQueries
+                If SysCmd(acSysCmdGetObjectState, intAcType, objItem.Name) <> adStateClosed Then
+                    DoCmd.Close intAcType, objItem.Name, intSave
+                End If
+            Next objItem
+        Case edbTableDef, edbTableData, edbTableDataMacro
+            intAcType = acTable
+            For Each objItem In CurrentData.AllTables
+                If SysCmd(acSysCmdGetObjectState, intAcType, objItem.Name) <> adStateClosed Then
+                    DoCmd.Close intAcType, objItem.Name, intSave
+                End If
+            Next objItem
+    End Select
+
+    Exit Function
+
+ErrHandler:
+    CloseOpenObjectsForType = False
+    CatchAny eelWarning, T("Error closing open objects"), ModuleName & ".CloseOpenObjectsForType", True, True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CloseOpenObjectsForContainers
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Close open objects for each container in the collection.
+'---------------------------------------------------------------------------------------
+'
+Public Function CloseOpenObjectsForContainers(colContainers As Collection, intSave As AcCloseSave) As Boolean
+
+    Dim cCategory As IDbComponent
+
+    CloseOpenObjectsForContainers = True
+
+    For Each cCategory In colContainers
+        If Not CloseOpenObjectsForType(cCategory.ComponentType, intSave) Then
+            CloseOpenObjectsForContainers = False
+            Exit Function
+        End If
+    Next cCategory
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveUnsavedVbaProjectIfNeeded
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Save unsaved VBA project changes when a targeted category can contain code.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveUnsavedVbaProjectIfNeeded(colContainers As Collection)
+
+    Dim cCategory As IDbComponent
+    Dim blnHasVba As Boolean
+
+    For Each cCategory In colContainers
+        Select Case cCategory.ComponentType
+            Case edbModule, edbForm, edbReport, edbVbeForm
+                blnHasVba = True
+                Exit For
+        End Select
+    Next cCategory
+
+    If blnHasVba Then
+        If Not CurrentVBProject.Saved Then
+            If CurrentProject.AllModules.Count > 0 Then
+                DoCmd.Save acModule, CurrentProject.AllModules(0).Name
+            End If
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CloseAllFormsReports
 ' Author    : Adam Waller
 ' Date      : 1/25/2019

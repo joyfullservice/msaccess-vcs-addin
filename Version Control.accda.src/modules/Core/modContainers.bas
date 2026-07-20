@@ -203,7 +203,8 @@ Public Function ResolveComponentType(strType As String) As eDatabaseComponentTyp
         Case "theme", "themes":                                                 ResolveComponentType = edbTheme
         Case "shared_image", "shared_images":                                   ResolveComponentType = edbSharedImage
         Case "vbe_form", "vbe_forms", "userform", "userforms":                  ResolveComponentType = edbVbeForm
-        Case "command_bar", "command_bars", "commandbar", "commandbars":        ResolveComponentType = edbCommandBar
+        Case "menu", "menus", "command_bar", "command_bars", "commandbar", "commandbars": _
+                                                                                ResolveComponentType = edbCommandBar
         ' Single-file types (object_name ignored by callers)
         Case "vbe_project", "vb_project":                                       ResolveComponentType = edbVbeProject
         Case "vbe_reference", "vbe_references":                                 ResolveComponentType = edbVbeReference
@@ -214,6 +215,187 @@ Public Function ResolveComponentType(strType As String) As eDatabaseComponentTyp
         Case "document", "documents":                                           ResolveComponentType = edbDocument
         Case "hidden_attribute", "hidden_attributes":                           ResolveComponentType = edbHiddenAttribute
         Case "nav_pane_group", "nav_pane_groups":                               ResolveComponentType = edbNavPaneGroup
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveComponentTypeArg
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Accept a Variant that is either a numeric eDatabaseComponentType value
+'           : or a string alias (anything ResolveComponentType accepts). Returns the
+'           : resolved enum value, or -1 if unrecognized.
+'           : This is intended for public API methods that accept a Variant type
+'           : parameter so callers can pass either an enum or a string.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResolveComponentTypeArg(varType As Variant) As eDatabaseComponentType
+
+    Dim dblType As Double
+    Dim lngType As Long
+
+    ResolveComponentTypeArg = -1
+
+    If IsNull(varType) Or IsEmpty(varType) Then Exit Function
+
+    If IsNumeric(varType) Then
+        dblType = CDbl(varType)
+        If dblType <> Fix(dblType) Then Exit Function
+        lngType = CLng(dblType)
+        If lngType >= 0 And lngType < eDatabaseComponentType.[_Last] Then
+            If Not GetComponentClass(lngType) Is Nothing Then
+                ResolveComponentTypeArg = lngType
+            End If
+        End If
+    Else
+        ResolveComponentTypeArg = ResolveComponentType(CStr(varType))
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetContainersForTypes
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Resolve one or more type arguments to a deduplicated collection of
+'           : IDbComponent containers in canonical GetContainers() order.
+'           : Validates project compatibility and, when blnForImport is True,
+'           : rejects categories whose Merge implementation is unsupported.
+'           : Returns Nothing and sets strError when validation fails.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetContainersForTypes(varTypes As Variant, _
+    Optional ByRef strError As String = vbNullString, _
+    Optional ByVal blnForImport As Boolean = False) As Collection
+
+    Dim aTypes() As Variant
+    Dim dRequested As Dictionary
+    Dim colContainers As New Collection
+    Dim cCanonical As IDbComponent
+    Dim cComponent As IDbComponent
+    Dim intComponentType As eDatabaseComponentType
+    Dim lngIdx As Long
+    Dim strBadTypes As String
+    Dim strUnsupported As String
+    Dim strIncompatible As String
+
+    strError = vbNullString
+
+    If IsArray(varTypes) Then
+        aTypes = varTypes
+    Else
+        ReDim aTypes(0)
+        aTypes(0) = varTypes
+    End If
+
+    If UBound(aTypes) < LBound(aTypes) Then
+        strError = "No valid component types specified."
+        Exit Function
+    End If
+
+    Set dRequested = New Dictionary
+
+    For lngIdx = LBound(aTypes) To UBound(aTypes)
+        intComponentType = ResolveComponentTypeArg(aTypes(lngIdx))
+        If intComponentType = -1 Then
+            If Len(strBadTypes) > 0 Then strBadTypes = strBadTypes & ", "
+            strBadTypes = strBadTypes & FormatTypeArg(aTypes(lngIdx))
+        ElseIf Not ComponentTypeInProject(intComponentType) Then
+            If Len(strIncompatible) > 0 Then strIncompatible = strIncompatible & ", "
+            strIncompatible = strIncompatible & ComponentTypeDisplayName(intComponentType)
+        ElseIf blnForImport And Not ComponentTypeSupportsScopedImport(intComponentType) Then
+            If Len(strUnsupported) > 0 Then strUnsupported = strUnsupported & ", "
+            strUnsupported = strUnsupported & ComponentTypeDisplayName(intComponentType)
+        ElseIf Not dRequested.Exists(intComponentType) Then
+            dRequested.Add intComponentType, True
+        End If
+    Next lngIdx
+
+    If Len(strBadTypes) > 0 Then
+        strError = "Unknown object type(s): " & strBadTypes & _
+            ". See ResolveComponentType in modContainers for accepted values."
+        Exit Function
+    End If
+
+    If Len(strIncompatible) > 0 Then
+        strError = "Component type(s) not supported in this database format: " & strIncompatible & "."
+        Exit Function
+    End If
+
+    If Len(strUnsupported) > 0 Then
+        strError = "Import not supported for component type(s): " & strUnsupported & "."
+        Exit Function
+    End If
+
+    If dRequested.Count = 0 Then
+        strError = "No valid component types specified."
+        Exit Function
+    End If
+
+    For Each cCanonical In GetContainers()
+        If dRequested.Exists(cCanonical.ComponentType) Then
+            Set cComponent = GetComponentClass(cCanonical.ComponentType)
+            If Not cComponent Is Nothing Then colContainers.Add cComponent
+        End If
+    Next cCanonical
+
+    Set GetContainersForTypes = colContainers
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScopedExportPreflight
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Shared guards for category-scoped export. Returns False and sets
+'           : strError when the operation cannot proceed.
+'---------------------------------------------------------------------------------------
+'
+Public Function ScopedExportPreflight(ByRef strError As String) As Boolean
+
+    strError = vbNullString
+
+    If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
+        strError = "Unable to export the running database. Use the add-in menu or ribbon."
+        Exit Function
+    End If
+
+    ScopedExportPreflight = ScopedVbePreflight(strError)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScopedImportPreflight
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Shared guards for category-scoped import.
+'---------------------------------------------------------------------------------------
+'
+Public Function ScopedImportPreflight(ByRef strError As String) As Boolean
+    strError = vbNullString
+    ScopedImportPreflight = ScopedVbePreflight(strError)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ComponentTypeSupportsScopedImport
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Returns false for categories whose Merge path is explicitly unsupported
+'           : or a documented no-op (table data, ADP schema objects).
+'---------------------------------------------------------------------------------------
+'
+Public Function ComponentTypeSupportsScopedImport(intType As eDatabaseComponentType) As Boolean
+    Select Case intType
+        Case edbTableData, edbAdpFunction, edbAdpServerView, edbAdpStoredProcedure, _
+             edbAdpTable, edbAdpTrigger
+            ComponentTypeSupportsScopedImport = False
+        Case Else
+            ComponentTypeSupportsScopedImport = True
     End Select
 End Function
 
@@ -532,5 +714,80 @@ Public Function GetSourceFilesPropertyHash(cmp As IDbComponent, Optional strFile
         GetSourceFilesPropertyHash = GetStringHash(.GetStr)
         Perf.OperationEnd
     End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ComponentTypeInProject
+' Purpose   : Returns true when the type is exported/imported for the current project.
+'---------------------------------------------------------------------------------------
+'
+Private Function ComponentTypeInProject(intType As eDatabaseComponentType) As Boolean
+
+    Dim cCont As IDbComponent
+
+    For Each cCont In GetContainers()
+        If cCont.ComponentType = intType Then
+            ComponentTypeInProject = True
+            Exit Function
+        End If
+    Next cCont
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ComponentTypeDisplayName
+' Purpose   : Friendly name for validation errors.
+'---------------------------------------------------------------------------------------
+'
+Private Function ComponentTypeDisplayName(intType As eDatabaseComponentType) As String
+
+    Dim cComponent As IDbComponent
+
+    Set cComponent = GetComponentClass(intType)
+    If cComponent Is Nothing Then
+        ComponentTypeDisplayName = CStr(intType)
+    Else
+        ComponentTypeDisplayName = cComponent.Category
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatTypeArg
+' Purpose   : Safe display of a type argument for error messages.
+'---------------------------------------------------------------------------------------
+'
+Private Function FormatTypeArg(varType As Variant) As String
+    If IsNull(varType) Then
+        FormatTypeArg = "Null"
+    ElseIf IsEmpty(varType) Then
+        FormatTypeArg = "Empty"
+    Else
+        FormatTypeArg = CStr(varType)
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScopedVbePreflight
+' Purpose   : Reject scoped sync when the VBE project is locked or compiled.
+'---------------------------------------------------------------------------------------
+'
+Private Function ScopedVbePreflight(ByRef strError As String) As Boolean
+
+    ScopedVbePreflight = True
+
+    If CurrentVBProject.Protection = vbext_pp_locked Then
+        If IsMDE Then
+            strError = "The current database is a compiled MDE/ACCDE file and does not contain the original VBA source code."
+        Else
+            strError = "Project is protected with a password. Unlock the project before using this tool."
+        End If
+        ScopedVbePreflight = False
+    End If
 
 End Function

@@ -61,3 +61,10 @@ Public Sub TestFilterEngineManagedProps_NoEngineProps()
     Set dOut = FilterEngineManagedProps(dIn)
     TestAssert dOut.Count = 2, "all properties retained when none are engine-managed"
 End Sub
+
+
+Public Sub TestCloseOpenObjectsForTypeNoOpTypes()
+    TestAssert CloseOpenObjectsForType(edbCommandBar, acSaveYes), "command bars no-op succeeds"
+    TestAssert CloseOpenObjectsForType(edbModule, acSaveYes), "modules no-op succeeds"
+    TestAssert CloseOpenObjectsForType(edbVbeReference, acSaveYes), "references no-op succeeds"
+End Sub
