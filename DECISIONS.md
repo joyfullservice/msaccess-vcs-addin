@@ -81,6 +81,24 @@ contradictory guidance.
 
 ---
 
+## 2026-07-24 — Defer dedicated decision-document (ADR) infrastructure
+
+**Trigger**: Some decisions involve far more reasoning and trade-off analysis than a `DECISIONS.md` entry seems able to hold (a long deliberative session on per-component "exporter revision" invalidation was the prompting example). Question raised: should heavyweight decisions get comprehensive standalone ADRs under a new folder, with the lightweight log linking out to them? Concern was that an agent lacking full context might reopen a settled decision.
+
+**Options explored**:
+- **Curated ADR folder** (`docs/decisions/`, dated files, template, log links out via a `Full rationale` field): explored in detail and initially planned. Rejected after auditing the log: only ~3–5 of ~102 entries would clear a sensible promotion bar, and the strongest candidates (e.g. the round-trip harness entry with 9 options) already carry their reasoning fully in the log. Standing up a folder + template + README + cross-references in four files to serve ~3% of cases is disproportionate, and adds permanent cost of carry (a second place to keep in sync, drift risk, per-doc sanitization, and exactly the "more data to sift through" problem we were trying to avoid).
+- **Reconstruct ADRs retroactively from agent transcripts**: rejected. Backfilling settled history yields low-value archive; second-hand distillations look authoritative but can quietly encode a wrong rationale (fidelity risk); each transcript needs the same sanitization pass fixtures get (production names). Transcripts already preserve the full raw record and can be mined on demand.
+- **Link the originating transcript from a log entry**: rejected as a committed convention. Transcripts are local, per-user, and uncommitted, so a link in the committed log is a dangling reference on any clean clone and may point at unsanitized content.
+- **Do nothing / rely on the existing log**: chosen. The premise (the log format can't hold big decisions) did not survive scrutiny — the "aim for 10–50 lines" guideline is a soft default the log already breaks when a decision earns it. The real worry ("an agent reverses a decision without context") is what the `What this rules out` section already exists to prevent; a thin entry is fixed by writing a better paragraph, not by new infrastructure.
+
+**Decision**: Do not build ADR infrastructure now. This is a YAGNI situation — no concrete case has yet shown a log entry failing in a way an ADR would have prevented. Keep `DECISIONS.md` as the single home for architectural rationale, and invest in richer `What this rules out` / `Options explored` sections when a decision warrants depth. If a log entry ever genuinely proves insufficient for a specific contested decision, create one standalone doc at that moment and let the real need define its format.
+
+**What this rules out**: Creating `docs/decisions/`, an ADR template, or a bulk transcript-reconstruction effort without a demonstrated, concrete failure of the log first. Revisit only if a real case arises where the log measurably fell short (an agent reopened a well-documented decision, or a clean-clone contributor lacked reasoning that only a transcript held). `docs/` remains for sustained internal *reference* material about how systems work — not one-shot decision rationale, which stays in this log (see 2026-04-27 entry).
+
+**Relevant files**: None (documentation/process decision). Supersedes the shelved plan "ADR convention for heavyweight decisions."
+
+---
+
 ## 2026-07-14 — Conditional formatting field-value operator decode (issue #725)
 
 **Trigger**: Issue #725 — exporting a form with conditional formatting decoded every
