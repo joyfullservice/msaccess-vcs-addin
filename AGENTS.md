@@ -386,6 +386,22 @@ How to gate a new export behavior change:
 
 Import logic does **not** need gating — it must remain backwards compatible with all prior export formats.
 
+**Exporter revisions (cache-bust for bug fixes):** When a bug fix changes exported output in a way the change index cannot detect (sidecar/companion files such as command-bar `_Images`, or components whose `IsModified` relies on `DateModified`), bump the category's revision in `GetExporterRevisions()` in `modConstants.bas` instead of adding an export format version gate. The revision is folded into that category's `CategoryHashes` entry; on the user's next export, the existing stale-category path re-exports that category once and persists the new hash.
+
+When to use each mechanism:
+
+| Situation | Mechanism |
+|-----------|-----------|
+| Opt-in output change; old and new formats must coexist | `eExportFormatVersion` gate (`If Options.ExportFormatVersion >= EFV_...`) |
+| Bug fix to blind-spot output (sidecars, date-fast-path) | Bump `GetExporterRevisions` for that `IDbComponent.Category` |
+| Bug fix to content-hashed primary output | Nothing — `IsModified` self-heals |
+
+Workflow for an exporter revision bump:
+
+1. Add or increment the category entry in `GetExporterRevisions()` in `modConstants.bas` (key = `IDbComponent.Category` string, e.g. `"CommandBars"`)
+2. Add a history comment line documenting the fix
+3. Ship the actual exporter fix in the same release
+
 ### Modifying the Query Parser
 
 The query parser (`clsQueryComposer.cls` + `clsDbQuery.cls`) carries hard-won decisions in places that are not always obvious from a casual read. Before modifying either class, read these in order:

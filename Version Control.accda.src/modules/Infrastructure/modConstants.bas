@@ -246,3 +246,27 @@ Public Enum eImportCommandBarsResult
     eicImportedVerified = 1
     eicImportedUnableToVerify = 2
 End Enum
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetExporterRevisions
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Per-category exporter revisions. Bump when a bug fix changes a category's
+'           : exported output in a way the change index cannot otherwise detect (sidecar
+'           : files, or components whose IsModified relies on DateModified). This forces
+'           : a one-time full re-export of that category via CategoryHashes invalidation.
+'           : NOT for opt-in output changes (use eExportFormatVersion) and NOT needed for
+'           : content-hashed primary output (IsModified self-heals).
+'           : History (one line per bump):
+'           :   CommandBars = 1  7/27/2026  Fixed _Images sidecar export
+'---------------------------------------------------------------------------------------
+'
+Public Function GetExporterRevisions() As Dictionary
+
+    Dim d As Dictionary
+    Set d = New Dictionary
+    d.Add "CommandBars", 1
+    Set GetExporterRevisions = d
+
+End Function

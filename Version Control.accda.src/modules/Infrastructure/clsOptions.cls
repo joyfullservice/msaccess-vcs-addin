@@ -747,7 +747,9 @@ Public Function GetCategoryHashes() As Dictionary
     Dim dGlobal As Dictionary
     Dim dResult As Dictionary
     Dim dMerged As Dictionary
+    Dim dRev As Dictionary
     Dim varKey As Variant
+    Dim varRevCat As Variant
 
     Set dOptions = CloneDictionary(SerializeOptions)
     Set dCats = New Dictionary
@@ -828,6 +830,13 @@ Public Function GetCategoryHashes() As Dictionary
                     "Please add it to the appropriate category or non-export list."
         End Select
     Next varKey
+
+    ' Fold in per-category exporter revisions (forces one-time re-export on bump)
+    Set dRev = GetExporterRevisions
+    For Each varRevCat In dRev.Keys
+        If Not dCats.Exists(CStr(varRevCat)) Then Set dCats(CStr(varRevCat)) = New Dictionary
+        dCats(CStr(varRevCat)).Add "ExporterRevision", CStr(dRev(varRevCat))
+    Next varRevCat
 
     ' Build hashes: global hash + per-category hashes (each includes global options)
     dResult.Add "_Global", GetDictionaryHash(dGlobal)

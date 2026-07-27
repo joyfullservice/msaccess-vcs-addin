@@ -12,6 +12,40 @@ Agents: read this file before working on any module referenced here.
 
 ---
 
+## 2026-07-27 — Per-category exporter revisions for cache-bust bug fixes
+
+**Trigger**: Bug fixes to command-bar `_Images` sidecar export changed output without
+changing primary `GetSource` bytes or `DateModified`. The change index reported no
+modification, so fast save skipped re-export and the fix never reached existing
+projects. Bumping `eExportFormatVersion` for each such fix would force a full
+project export and proliferate permanent `If >= EFV_...` branches.
+
+**Options explored**:
+- **Patch-level `eExportFormatVersion`** — rejected: `_Global` hash forces full export;
+  every gate is a permanent opt-in branch users must carry forever.
+- **Per-object predicate in exporter code** (`If IsUnionQuery Then ...`) — rejected:
+  permanent per-fix branches; no better git outcome than category-level re-export
+  because unaffected objects serialize to byte-identical output.
+- **Explicit per-category revision in index + opt-in UI** — rejected for v1: honors
+  deferral but adds index format field and UI affordance; category re-export cost is
+  bounded (~minutes worst case) and git diffs stay surgical.
+- **Fold revision into `CategoryHashes` (chosen)** — `GetExporterRevisions()` in
+  `modConstants.bas` returns `{categoryName → revision}`; `GetCategoryHashes` seeds
+  `ExporterRevision` into each listed category (creating the dict on demand so
+  categories with no classified export options, e.g. `CommandBars`, still get a hash).
+  Existing `dStaleCategories` path in `modExport` re-exports that category once;
+  new hash is persisted self-clearingly.
+
+**Decision**:
+- `GetExporterRevisions()` is the single registry; bump on blind-spot fixes only
+  (sidecars, date-fast-path). Do not bump for content-hashed primary output
+  (`IsModified` self-heals) or opt-in format changes (`eExportFormatVersion`).
+- Initial entry: `CommandBars = 1` for `_Images` sidecar export fix.
+- Pattern mirrors `LAYOUT_SVG_GENERATOR_VERSION` intent but uses category hash
+  invalidation instead of a dedicated comparison in each component.
+
+---
+
 ## 2026-07-27 — Hydrate prior test metadata in the web runner after tree publish
 
 **Trigger**: `test-state.json` already stores per-test `durationMs`, assertion
