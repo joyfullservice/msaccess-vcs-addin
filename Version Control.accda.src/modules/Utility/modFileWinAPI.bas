@@ -295,6 +295,36 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetFileInfo
+' Author    : Adam Waller
+' Date      : 7/24/2026
+' Purpose   : Single kernel-level stat of one file via FindFirstFileW. Returns True if the
+'           : file exists (and is not a directory), reporting its size in bytes and its
+'           : actual on-disk name (correct case) via ByRef. Replaces the multiple
+'           : filesystem-hitting COM calls of FSO.FileExists + FSO.GetFile(...).Size / .Name.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFileInfo(strPath As String, ByRef dblSize As Double, _
+    ByRef strActualName As String) As Boolean
+
+    Dim pFileHandle As LongPtr
+    Dim tFileData As WIN32_FIND_DATA
+
+    pFileHandle = FindFirstFileW(StrPtr(strPath), VarPtr(tFileData))
+    If pFileHandle = INVALID_HANDLE_VALUE Then Exit Function
+
+    If (tFileData.dwFileAttributes And FILE_ATTRIBUTE_DIRECTORY) = 0 Then
+        strActualName = Left$(tFileData.cFileName, InStr(tFileData.cFileName, vbNullChar) - 1)
+        dblSize = (tFileData.nFileSizeHigh * 4294967296#) + tFileData.nFileSizeLow
+        If tFileData.nFileSizeLow < 0 Then dblSize = dblSize + 4294967296#
+        GetFileInfo = True
+    End If
+    FindClose pFileHandle
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ScanFolderContents
 ' Author    : Adam Waller
 ' Date      : 4/28/2026

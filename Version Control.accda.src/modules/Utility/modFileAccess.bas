@@ -148,47 +148,53 @@ End Function
 '
 Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
 
+    Dim bteContent() As Byte
+    Dim dblFileSize As Double
+    Dim strActualName As String
+
     ' If writing an empty string, remove any existing file instead.
     If Len(strText) = 0 Then
         If FSO.FileExists(strPath) Then DeleteFile strPath
         Exit Sub
     End If
 
-    Perf.OperationStart "Write File"
+    Perf.OperationStart "Compare File"
 
-    ' Write to a UTF-8 eoncoded file
+    ' Encode content once (UTF-8 w/ BOM by default), ensuring a trailing CRLF,
+    ' then capture the exact bytes that would be written to disk.
     With New ADODB.Stream
         .Type = adTypeText
         .Open
         .Charset = strEncoding
         .WriteText strText
-        ' Ensure that we are ending the content with a vbcrlf
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
-        ' Write to disk
-        VerifyPath strPath
-        ' Delete existing file if file name case differs. (The Overwrite flag will not change the name.)
-        If FSO.FileExists(strPath) Then
-            If StrComp(FSO.GetFileName(strPath), FSO.GetFile(strPath).Name, vbBinaryCompare) <> 0 Then
-                ' Remove existing file so we can use the correct case in the new file name.
-                DeleteFile strPath
-            End If
-        End If
-        ' Watch out for possible write error
-        LogUnhandledErrors
-        On Error Resume Next
-        .SaveToFile strPath, adSaveCreateOverWrite
-        If Catch(3004) Then
-            ' File is locked. Try again after 1 second, just in case something
-            ' like Google Drive momentarily locked the file.
-            Err.Clear
-            Pause 1
-            .SaveToFile strPath, adSaveCreateOverWrite
-        End If
-        CatchAny eelError, "Error writing file: " & strPath, ModuleName & ".WriteFile"
+        .Position = 0
+        .Type = adTypeBinary
+        bteContent = .Read
         .Close
     End With
 
+    VerifyPath strPath
+
+    ' Skip / case-correct based on the existing file (single Win32 stat, no COM).
+    If GetFileInfo(strPath, dblFileSize, strActualName) Then
+        If StrComp(FSO.GetFileName(strPath), strActualName, vbBinaryCompare) = 0 Then
+            ' Same name case: size gate, then content compare -> skip if identical.
+            If dblFileSize = (UBound(bteContent) - LBound(bteContent) + 1) Then
+                If GetBytesHash(bteContent) = GetFileHash(strPath) Then
+                    Perf.OperationEnd
+                    Exit Sub
+                End If
+            End If
+        Else
+            ' Name case differs; remove so the new file uses the correct case.
+            DeleteFile strPath
+        End If
+    End If
+
     Perf.OperationEnd
+
+    SaveByteArrayToFile bteContent, strPath, ModuleName & ".WriteFile"
 
 End Sub
 
@@ -204,40 +210,49 @@ End Sub
 '
 Public Sub WriteFileNoBom(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
 
+    Dim bteContent() As Byte
+    Dim dblFileSize As Double
+    Dim strActualName As String
     Dim stmNoBom As ADODB.Stream
 
-    ' Write to a UTF-8 eoncoded file
+    Perf.OperationStart "Compare File"
+
+    ' Write to a UTF-8 encoded file, then capture bytes without the BOM.
     With New ADODB.Stream
         .Type = adTypeText
         .Open
         .Charset = strEncoding
         .WriteText strText
-        ' Ensure that we are ending the content with a vbcrlf
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
 
-        ' Now, create a new BINARY stream and copy over the content.
         Set stmNoBom = New ADODB.Stream
         stmNoBom.Type = adTypeBinary
         stmNoBom.Open
         .Position = 3
         .CopyTo stmNoBom
-
-        ' Write to disk
-        VerifyPath strPath
-        ' Watch out for possible write error
-        LogUnhandledErrors
-        On Error Resume Next
-        stmNoBom.SaveToFile strPath, adSaveCreateOverWrite
-        If Catch(3004) Then
-            ' File is locked. Try again after 1 second, just in case something
-            ' like Google Drive momentarily locked the file.
-            Err.Clear
-            Pause 1
-            stmNoBom.SaveToFile strPath, adSaveCreateOverWrite
-        End If
-        CatchAny eelError, "Error writing file: " & strPath, ModuleName & ".WriteFile"
+        bteContent = stmNoBom.Read
+        stmNoBom.Close
         .Close
     End With
+
+    VerifyPath strPath
+
+    If GetFileInfo(strPath, dblFileSize, strActualName) Then
+        If StrComp(FSO.GetFileName(strPath), strActualName, vbBinaryCompare) = 0 Then
+            If dblFileSize = (UBound(bteContent) - LBound(bteContent) + 1) Then
+                If GetBytesHash(bteContent) = GetFileHash(strPath) Then
+                    Perf.OperationEnd
+                    Exit Sub
+                End If
+            End If
+        Else
+            DeleteFile strPath
+        End If
+    End If
+
+    Perf.OperationEnd
+
+    SaveByteArrayToFile bteContent, strPath, ModuleName & ".WriteFileNoBom"
 
 End Sub
 
@@ -332,30 +347,91 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function WriteBinaryFile(strPath As String, bteArray() As Byte)
-    Perf.OperationStart "Write Binary File"
+
+    Dim dblFileSize As Double
+    Dim strActualName As String
+
+    Perf.OperationStart "Compare File"
+
+    VerifyPath strPath
+
+    If GetFileInfo(strPath, dblFileSize, strActualName) Then
+        If StrComp(FSO.GetFileName(strPath), strActualName, vbBinaryCompare) = 0 Then
+            If dblFileSize = (UBound(bteArray) - LBound(bteArray) + 1) Then
+                If GetBytesHash(bteArray) = GetFileHash(strPath) Then
+                    Perf.OperationEnd
+                    Exit Function
+                End If
+            End If
+        Else
+            DeleteFile strPath
+        End If
+    End If
+
+    Perf.OperationEnd
+
+    SaveByteArrayToFile bteArray, strPath, ModuleName & ".WriteBinaryFile"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveByteArrayToFile
+' Author    : Adam Waller
+' Date      : 7/24/2026
+' Purpose   : Write a byte array to disk with performance timing and locked-file retry.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveByteArrayToFile(bteContent() As Byte, strPath As String, strCallingFunction As String)
+
+    Perf.OperationStart "Write File"
     With New ADODB.Stream
         .Type = adTypeBinary
         .Open
-        .Write bteArray
-        VerifyPath strPath
+        .Write bteContent
+        LogUnhandledErrors
+        On Error Resume Next
         .SaveToFile strPath, adSaveCreateOverWrite
+        If Catch(3004) Then
+            ' File is locked. Try again after 1 second, just in case something
+            ' like Google Drive momentarily locked the file.
+            Err.Clear
+            Pause 1
+            .SaveToFile strPath, adSaveCreateOverWrite
+        End If
+        CatchAny eelError, "Error writing file: " & strPath, strCallingFunction
         .Close
     End With
     Perf.OperationEnd
-End Function
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : DeleteFile
 ' Author    : Adam Waller
 ' Date      : 11/5/2020
-' Purpose   : Wrapper to delete file while monitoring performance.
+' Purpose   : Wrapper to delete file while monitoring performance. Deleting a file
+'           : that does not exist is treated as a no-op rather than an error, so
+'           : callers do not need to guard with their own existence check.
+'           : Accepts a wildcard pattern (such as "C:\Folder\*.json") in addition
+'           : to a specific file path.
 '---------------------------------------------------------------------------------------
 '
 Public Sub DeleteFile(strFile As String, Optional blnForce As Boolean = True)
+
+    ' FSO.FileExists cannot evaluate a wildcard, so patterns use an API scan instead.
+    If InStr(strFile, "*") > 0 Or InStr(strFile, "?") > 0 Then
+        If Not FilePatternExists(FSO.GetParentFolderName(strFile), _
+            FSO.GetFileName(strFile)) Then Exit Sub
+    ElseIf Not FSO.FileExists(strFile) Then
+        Exit Sub
+    End If
+
     Perf.OperationStart "Delete File"
     FSO.DeleteFile strFile, blnForce
     Perf.OperationEnd
+
 End Sub
 
 
@@ -408,22 +484,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
-
-    Dim strFolderNoSlash As String
-
     Perf.OperationStart "Clear Files by Ext"
-    strFolderNoSlash = StripSlash(strFolder)
-
-    ' Quick API-level check to avoid expensive FSO scan when no files match
-    If Not FilePatternExists(strFolderNoSlash, "*." & strExt) Then
-        Perf.OperationEnd
-        Exit Sub
-    End If
-
-    ' At least one matching file exists. Use the wildcard delete.
-    DeleteFile FSO.BuildPath(strFolderNoSlash, "*." & strExt)
+    DeleteFile FSO.BuildPath(StripSlash(strFolder), "*." & strExt)
     Perf.OperationEnd
-
 End Sub
 
 
