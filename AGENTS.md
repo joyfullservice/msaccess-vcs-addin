@@ -395,12 +395,24 @@ When to use each mechanism:
 | Opt-in output change; old and new formats must coexist | `eExportFormatVersion` gate (`If Options.ExportFormatVersion >= EFV_...`) |
 | Bug fix to blind-spot output (sidecars, date-fast-path) | Bump `GetExporterRevisions` for that `IDbComponent.Category` |
 | Bug fix to content-hashed primary output | Nothing — `IsModified` self-heals |
+| Change to external database schema DDL output | Bump `SCHEMA_EXPORTER_REVISION_*` in `modConstants.bas` (see below) |
 
 Workflow for an exporter revision bump:
 
 1. Add or increment the category entry in `GetExporterRevisions()` in `modConstants.bas` (key = `IDbComponent.Category` string, e.g. `"CommandBars"`)
 2. Add a history comment line documenting the fix
 3. Ship the actual exporter fix in the same release
+
+**External database schemas use a separate mechanism.** Schema exports (`IDbSchema`, `clsSchemaMsSql`, `clsSchemaMySql`) do not participate in `CategoryHashes` or the component index, so `GetExporterRevisions` does not reach them. Their only change signal is timestamp equality: `ExportObject` stamps each exported `.sql` file with the server object's `last_modified` date, and the next export compares the two. Nothing in that comparison reflects *how* the DDL was generated.
+
+Two things can change the generated DDL without touching any object's `last_modified` date:
+
+- **Exporter revision** — a DDL-shape fix in the exporter class. Bump `SCHEMA_EXPORTER_REVISION_MSSQL` / `SCHEMA_EXPORTER_REVISION_MYSQL` in `modConstants.bas` and add a history comment line.
+- **Runtime server capability** — on SQL Server, whether `sp_GetDDL` is installed. Installing or removing it switches every object between rich SP-generated DDL and the built-in `object_definition()` fallback. This is probed per connection and needs no code change to take effect.
+
+Both are folded into a per-schema fingerprint stored in the index's `SchemaState` section (`VCSIndex.SchemaState(<schema name>)`). When the recorded fingerprint no longer matches, the exporter treats every object in that schema as modified for one export, then records the new value. A schema with no recorded fingerprint re-exports once to establish a baseline, so the first export after upgrading re-exports schema objects (content is normally identical, so git shows no diff).
+
+`IDbSchema.Export(blnFullExport)` is also honored by both exporters, so a full export re-exports all schema objects regardless of dates. When `VCSIndex.Disabled` is set there is nowhere to record the fingerprint, so the capability check is skipped rather than forcing a re-export on every run.
 
 ### Modifying the Query Parser
 

@@ -48,8 +48,11 @@ Private m_Conflicts As clsConflicts
 Private m_strTempExportFolderPath As String
 
 ' Binary index format
+' Version 4 appended the SchemaState section. Version 3 files still load (the section
+' is simply absent), so upgrading the add-in does not discard an existing index.
 Private Const cstrIdxMagic As String = "VCSI"
-Private Const cintIdxFormatVersion As Integer = 3
+Private Const cintIdxFormatVersion As Integer = 4
+Private Const cintIdxMinReadVersion As Integer = 3
 Private Const cstrLegacyFileName As String = "vcs-index.json"
 
 ' Optional field flags for component entries
@@ -144,9 +147,12 @@ Public Sub LoadFromFile(Optional strFile As String)
     Next intCnt
     lngPos = Len(cstrIdxMagic)
 
-    ' Read and validate format version
+    ' Read and validate format version. Older (but still readable) versions are
+    ' accepted so an add-in upgrade does not force a full re-export.
     lngVersion = ReadUInt16(bData, lngPos)
-    If lngVersion <> cintIdxFormatVersion Then GoTo CorruptIndex
+    If lngVersion < cintIdxMinReadVersion Or lngVersion > cintIdxFormatVersion Then
+        GoTo CorruptIndex
+    End If
 
     ' Read global properties (UTC dates converted to local)
     Me.MergeBuildDate = ReadUtcDate(bData, lngPos)
@@ -194,6 +200,15 @@ Public Sub LoadFromFile(Optional strFile As String)
         Next lngItem
     Next lngCat
 
+    ' Read external database schema state (added in format version 4)
+    If lngVersion >= 4 Then
+        lngHashCount = ReadUInt32(bData, lngPos)
+        For lngHash = 1 To lngHashCount
+            strCat = ReadLPS(bData, lngPos)
+            m_dIndex("SchemaState").Add strCat, ReadLPS(bData, lngPos)
+        Next lngHash
+    End If
+
     Perf.OperationEnd
     Exit Sub
 
@@ -227,6 +242,7 @@ Public Sub Save(Optional strInFolder As String)
     Dim dComponents As Dictionary
     Dim dCategory As Dictionary
     Dim dCatHashes As Dictionary
+    Dim dSchemaState As Dictionary
     Dim cEntry As clsVCSIndexItem
     Dim bFlags As Byte
 
@@ -312,6 +328,15 @@ Public Sub Save(Optional strInFolder As String)
             If (bFlags And cbytFlagFolderAnnotation) Then WriteLPS cEntry.FolderAnnotation
             If (bFlags And cbytFlagAllFilesHash) Then WriteLPS cEntry.AllFilesHash
         Next varFile
+    Next varCat
+
+    ' External database schema state (sorted for deterministic output)
+    Set dSchemaState = SortDictionaryByKeys(m_dIndex("SchemaState"))
+    Set m_dIndex("SchemaState") = dSchemaState
+    WriteUInt32 dSchemaState.Count
+    For Each varCat In dSchemaState.Keys
+        WriteLPS CStr(varCat)
+        WriteLPS CStr(dSchemaState(varCat))
     Next varCat
 
     ' Write the buffer to file
@@ -1287,6 +1312,7 @@ Public Sub DumpToJson(Optional strPath As String)
     dDump.Add "LastMergedCommit", Me.LastMergedCommit
     dDump.Add "VBAProjectDate", ZNDate(Me.VBAProjectDate)
     Set dDump("CategoryHashes") = m_dIndex("CategoryHashes")
+    Set dDump("SchemaState") = m_dIndex("SchemaState")
 
     ' Convert clsVCSIndexItem entries to Dictionaries
     Set dComponents = New Dictionary
@@ -1335,6 +1361,34 @@ End Property
 
 Public Property Set CategoryHashes(dHashes As Dictionary)
     Set m_dIndex("CategoryHashes") = dHashes
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SchemaState
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Per-schema export fingerprint for external database schema exports.
+'           : External schemas detect changes by comparing the exported file date to the
+'           : server object's last_modified date, so nothing in that comparison reflects
+'           : how the DDL was generated. This slot records that: the exporter revision
+'           : plus any runtime capability affecting output (e.g. whether sp_GetDDL is
+'           : installed on the SQL Server). When the recorded value no longer matches,
+'           : the schema exporter re-exports every object in that schema once.
+'           : Accessed per key rather than as a whole dictionary because, unlike
+'           : CategoryHashes, this section is not rebuilt from options on each export.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SchemaState(strName As String) As String
+    If Me.Disabled Then Exit Property
+    If m_dIndex("SchemaState").Exists(strName) Then
+        SchemaState = CStr(m_dIndex("SchemaState")(strName))
+    End If
+End Property
+
+Public Property Let SchemaState(strName As String, strValue As String)
+    If Me.Disabled Then Exit Property
+    m_dIndex("SchemaState")(strName) = strValue
 End Property
 
 
@@ -1560,6 +1614,8 @@ Private Sub Class_Initialize()
         .Add "VBAProjectDate", Null
         .Add "LastMergedCommit", vbNullString
         Set .Item("CategoryHashes") = New Dictionary
+        Set .Item("SchemaState") = New Dictionary
+        .Item("SchemaState").CompareMode = TextCompare
         Set .Item("Components") = New Dictionary
         Set .Item("AlternateExport") = New Dictionary
     End With

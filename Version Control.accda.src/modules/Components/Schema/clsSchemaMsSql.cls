@@ -48,6 +48,14 @@ Private m_Files As Dictionary
 Private m_AllItems As Dictionary
 Private m_ModifiedItems As Dictionary
 
+' Availability of the sp_GetDDL stored procedure on this connection. Probed once per
+' instance, since a new instance is created for each schema export.
+Private m_intSpStatus As eSpStatus
+
+' Treat every object as modified, bypassing the date comparison. Set when the caller
+' requested a full export, or when the recorded export fingerprint no longer matches.
+Private m_blnForceAll As Boolean
+
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the server classes consistent in how they are used in the export
 ' process. The implemented functions should be kept private as they are called
@@ -76,6 +84,14 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean _
 
     ' Make sure we initialize before running the export
     If Not this.blnInitialized Then Exit Sub
+
+    ' Decide whether to bypass the date comparison and re-export everything. This must
+    ' be settled before the scan, since the scan builds the modified-item list.
+    m_blnForceAll = blnFullExport Or FingerprintChanged
+
+    ' Any earlier scan (an object count, for example) used the normal date comparison,
+    ' so discard it when everything now needs to be treated as modified.
+    If m_blnForceAll Then Set m_AllItems = Nothing
 
     ' Make sure we have already performed a scan of the database objects
     If m_Files Is Nothing Then ScanFiles
@@ -153,6 +169,89 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean _
             End If
         Next varItem
     End If
+
+    ' Record how these files were generated, so a later change in the DDL source or the
+    ' exporter forces them to be rebuilt. Only recorded on a clean run, so a canceled
+    ' export does not claim credit for files it never wrote.
+    If Operation.ErrorLevel < eelError Then SaveFingerprint
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFingerprint
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Return a fingerprint of everything that affects the content of the exported
+'           : DDL files but is invisible to the date-based change detection. This covers
+'           : the exporter revision and whether sp_GetDDL is installed on the server,
+'           : since installing or removing that SP changes the DDL for every object
+'           : without touching any object's last_modified date.
+'           : Returns an empty string when the SP status could not be determined (a
+'           : failed connection, for example), so we never force a re-export on a guess.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetFingerprint() As String
+
+    Dim strSource As String
+
+    ' Probe the server, then translate the cached status
+    CanUseGetDDL
+    Select Case m_intSpStatus
+        Case essInstalled:      strSource = "sp_GetDDL"
+        Case essUnavailable:    strSource = "builtin"
+        Case Else:              Exit Function   ' Unknown; do not force a re-export
+    End Select
+
+    GetFingerprint = "rev=" & SCHEMA_EXPORTER_REVISION_MSSQL & ";ddl=" & strSource
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FingerprintChanged
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Returns true if the exported files for this schema were generated under a
+'           : different DDL source or exporter revision than we would use now. A schema
+'           : with no recorded fingerprint (a new schema, or one exported before this
+'           : was tracked) re-exports once to establish a known baseline.
+'---------------------------------------------------------------------------------------
+'
+Private Function FingerprintChanged() As Boolean
+
+    Dim strCurrent As String
+
+    ' Without an index we have nowhere to record the result, so forcing here would
+    ' re-export the whole schema on every run.
+    If VCSIndex.Disabled Then Exit Function
+
+    strCurrent = GetFingerprint
+    If Len(strCurrent) = 0 Then Exit Function
+
+    If VCSIndex.SchemaState(this.strName) <> strCurrent Then
+        FingerprintChanged = True
+        Log.Add T("   The DDL exporter has changed for this connection. Re-exporting all objects."), False
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveFingerprint
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Record the current fingerprint in the index. The index is saved later in
+'           : the export process, so we only set the value here.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveFingerprint()
+
+    Dim strCurrent As String
+
+    If VCSIndex.Disabled Then Exit Sub
+    strCurrent = GetFingerprint
+    If Len(strCurrent) Then VCSIndex.SchemaState(this.strName) = strCurrent
 
 End Sub
 
@@ -257,18 +356,18 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 7/31/2023
 ' Purpose   : Returns true if we can use the system SP `sp_GetDDL`
+'           : The probe result is cached in m_intSpStatus, which GetFingerprint also
+'           : reads so a change in availability can force a re-export.
 '---------------------------------------------------------------------------------------
 '
 Private Function CanUseGetDDL() As Boolean
-
-    Static intUseSP As eSpStatus
 
     Dim conn As ADODB.Connection
     Dim cmd As ADODB.Command
     Dim rst As ADODB.Recordset
 
     ' Cache whether or not sp_GetDDL exists
-    If intUseSP = essUnknown Then
+    If m_intSpStatus = essUnknown Then
 
         ' Open connection, if not provided
         Set conn = GetNewOpenConnection
@@ -286,14 +385,14 @@ Private Function CanUseGetDDL() As Boolean
                 Set rst = .Execute
                 If Nz(rst.Fields(0).Value, 0) = 0 Then
                     ' Still not available
-                    intUseSP = essUnavailable
+                    m_intSpStatus = essUnavailable
                 Else
                     ' Works on the local database
-                    intUseSP = essInstalled
+                    m_intSpStatus = essInstalled
                 End If
             Else
                 ' Found an object ID. Should be available
-                intUseSP = essInstalled
+                m_intSpStatus = essInstalled
             End If
         End With
 
@@ -301,7 +400,7 @@ Private Function CanUseGetDDL() As Boolean
         conn.Close
 
         ' Add log entries if the tool is not available
-        If intUseSP = essUnavailable Then
+        If m_intSpStatus = essUnavailable Then
             Log.Add "   Note: sp_GetDDL was not available for generating object definitions. Using built-in SQL functions instead.", False
             Log.Add "   This system stored procedure can be found at: http://www.stormrage.com/2022/03/16/sp_getddla-and-sp_getddl/", False
             Log.Add "   or at https://web.archive.org/web/20230928112439/https://stormrage.com/SQLStuff/sp_GetDDL_Latest.txt", False
@@ -309,7 +408,7 @@ Private Function CanUseGetDDL() As Boolean
     End If
 
     ' Return current status
-    CanUseGetDDL = (intUseSP = essInstalled)
+    CanUseGetDDL = (m_intSpStatus = essInstalled)
 
 End Function
 
@@ -430,7 +529,10 @@ Private Sub ScanDatabaseObjects()
                 m_AllItems.Add strItem, Nz(!last_modified)
 
                 ' Check for modification/new item
-                If m_Files.Exists(strItem) Then
+                If m_blnForceAll Then
+                    ' Full export, or the way we generate DDL has changed
+                    blnModified = True
+                ElseIf m_Files.Exists(strItem) Then
                     ' Flag as modified if the dates don't match
                     blnModified = (Nz(!last_modified) <> CStr(m_Files(strItem)))
                 Else

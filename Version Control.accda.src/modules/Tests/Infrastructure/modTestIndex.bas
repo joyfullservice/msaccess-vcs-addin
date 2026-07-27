@@ -54,6 +54,48 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestIndexSchemaStateRoundTrip
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : The SchemaState section drives re-export of external database schemas, so
+'           : it has to survive a save/load cycle of the binary index format.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestIndexSchemaStateRoundTrip()
+
+    Dim cSave As clsVCSIndex
+    Dim cLoad As clsVCSIndex
+    Dim strFolder As String
+
+    strFolder = GetTempFolder("VCSIdx")
+
+    Set cSave = New clsVCSIndex
+    cSave.SchemaState("Sample Connection") = "rev=1;ddl=sp_GetDDL"
+    cSave.Save strFolder
+
+    Set cLoad = New clsVCSIndex
+    cLoad.LoadFromFile StripSlash(strFolder) & PathSep & "vcs-index.idx"
+
+    TestAssert cLoad.SchemaState("Sample Connection") = "rev=1;ddl=sp_GetDDL", _
+        "schema state survives index round trip"
+
+    ' Schema names are matched without regard to case
+    TestAssert cLoad.SchemaState("sample connection") = "rev=1;ddl=sp_GetDDL", _
+        "schema state lookup is case insensitive"
+
+    ' An unrecorded schema returns an empty string, which forces a baseline re-export
+    TestAssert cLoad.SchemaState("Never Exported") = vbNullString, _
+        "unrecorded schema returns empty state"
+
+    LogUnhandledErrors
+    On Error Resume Next
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder StripSlash(strFolder), True
+    Err.Clear
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetTestComponent
 ' Author    : Adam Waller
 ' Date      : 5/12/2026

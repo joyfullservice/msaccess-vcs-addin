@@ -239,6 +239,16 @@ Public Const LATEST_EXPORT_FORMAT As Long = eExportFormatVersion.[_Last]
 ' to force regeneration of cached SVG files.
 Public Const LAYOUT_SVG_GENERATOR_VERSION As Long = 1
 
+' Revisions for the external database schema exporters (clsSchemaMsSql, clsSchemaMySql).
+' Bump when a DDL-shape fix changes exported output. Folded into the per-schema state
+' fingerprint stored in the index, which forces a one-time re-export of that schema.
+' Schema exports do not participate in CategoryHashes, so GetExporterRevisions does
+' not apply to them. History (one line per bump):
+'   MsSql = 1  7/27/2026  Initial fingerprint (also tracks sp_GetDDL availability)
+'   MySql = 1  7/27/2026  Initial fingerprint
+Public Const SCHEMA_EXPORTER_REVISION_MSSQL As Long = 1
+Public Const SCHEMA_EXPORTER_REVISION_MYSQL As Long = 1
+
 ' Used for ImportCommandBars function; negative/zero result should be treated as an error.
 Public Enum eImportCommandBarsResult
     eicImportedNotVerified = -1

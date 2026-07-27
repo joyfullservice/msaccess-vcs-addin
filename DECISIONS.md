@@ -12,6 +12,69 @@ Agents: read this file before working on any module referenced here.
 
 ---
 
+## 2026-07-27 — Schema export cache-bust via per-schema fingerprint in the index
+
+**Trigger**: Installing or removing `sp_GetDDL` on a SQL Server switches every exported
+object between rich SP-generated DDL and the built-in `object_definition()` fallback, but
+nothing re-exported. Schema exports bypass `VCSIndex` and `CategoryHashes` entirely;
+their only change signal is timestamp equality (`ExportObject` stamps each `.sql` with the
+server's `last_modified`, and the next scan compares the two). A capability change leaves
+both sides of that comparison identical, so `IDbSchema_Export` short-circuits before
+opening a connection. Investigation also found `blnFullExport` was declared in
+`IDbSchema.Export` and both implementations but **never referenced** — so no supported
+way to force a schema re-export existed at all.
+
+**Options explored**:
+- **Reuse `GetExporterRevisions` / `CategoryHashes`** — rejected on two counts:
+  `modExport` replaces `VCSIndex.CategoryHashes` wholesale after each export
+  (`Set .CategoryHashes = dCurrentHashes`), so extra `"Schema:<name>"` keys are clobbered;
+  and probing for the SP needs a live connection, while `GetCategoryHashes` runs offline
+  for `frmVCSMain` UI state.
+- **Sidecar state file** in `databases/<name>/` — viable (verified safe from the orphan
+  and empty-folder cleanup passes, which only consider `*.sql` inside known base
+  subfolders), but adds another gitignore rule to ship to user projects.
+- **Marker comment in each exported `.sql`** naming the DDL source — rejected: changes
+  exported content, which is `eExportFormatVersion` territory, and adds per-file I/O.
+- **New `SchemaState` section in `vcs-index.idx` (chosen)** — the index is already the
+  gitignored home for local derived sync state, and a per-key accessor avoids the
+  wholesale-replacement problem that rules out `CategoryHashes`.
+
+**Decision**:
+- Index format bumped 3 → 4, appending `SchemaState` (`{schema name → fingerprint}`).
+  The reader accepts versions 3 and 4 via `cintIdxMinReadVersion`, so upgrading does not
+  discard an existing index — the previous `<> cintIdxFormatVersion` check would have
+  deleted it and forced a full project re-export.
+- Fingerprint covers both an exporter revision (`SCHEMA_EXPORTER_REVISION_MSSQL` /
+  `_MYSQL` in `modConstants.bas`) and any runtime capability affecting output. Only MSSQL
+  has the latter today (`sp_GetDDL`); MySQL always uses `show create ...`.
+- `VCSIndex.SchemaState` is a **parameterized property**, not a whole-dictionary
+  Get/Set like `CategoryHashes`, precisely because this section is not rebuilt from
+  options on each export. `TextCompare` matches `Options.SchemaExports` name handling.
+- Both exporters now honor `blnFullExport`, and an unrecorded fingerprint forces one
+  baseline re-export. Content is normally byte-identical and files are re-stamped with
+  the same server dates, so git shows nothing.
+- The fingerprint is recorded only when `Operation.ErrorLevel < eelError`, so a canceled
+  or failed export does not claim credit for files it never wrote. An undeterminable SP
+  status (failed connection) returns an empty fingerprint and forces nothing, rather than
+  guessing "builtin" and re-exporting everything.
+- When `VCSIndex.Disabled` there is nowhere to record the result, so the check is skipped
+  — otherwise every run would re-export the whole schema.
+- `CanUseGetDDL`'s cached status moved from a procedure `Static` to instance-level
+  `m_intSpStatus` so `GetFingerprint` can distinguish *unavailable* from *unknown*.
+  Behaviorally identical (VBA `Static` in a class procedure is already per-instance, and
+  a fresh exporter instance is created per schema per export).
+
+**What this rules out**: Treating timestamp equality as a complete change signal for
+external schema exports. Any future change to how DDL is generated — in our code or in
+the server environment we probe — must be reflected in `GetFingerprint`, or it will not
+reach existing projects. Also rules out storing per-schema derived state in
+`CategoryHashes`, which is rebuilt from options and cannot hold it.
+
+**Relevant files**: `clsVCSIndex.cls`, `clsSchemaMsSql.cls`, `clsSchemaMySql.cls`,
+`modConstants.bas`, `modTestIndex.bas`, `AGENTS.md`.
+
+---
+
 ## 2026-07-27 — Per-category exporter revisions for cache-bust bug fixes
 
 **Trigger**: Bug fixes to command-bar `_Images` sidecar export changed output without
