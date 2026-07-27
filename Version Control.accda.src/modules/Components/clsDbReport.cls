@@ -141,10 +141,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
-    VerifyPath strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".cls", strToFolder
+    MoveComponentSource Me, strFromFolder, strToFolder
 End Sub
 
 
@@ -283,7 +280,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
         IDbComponent_FileExtensions.Add "report"
@@ -291,6 +288,10 @@ Private Property Get IDbComponent_FileExtensions() As Collection
         IDbComponent_FileExtensions.Add "bas"
     End If
     IDbComponent_FileExtensions.Add "cls"
+    If Scope = efesAll Then
+        IDbComponent_FileExtensions.Add "json"
+        IDbComponent_FileExtensions.Add "svg"
+    End If
 End Property
 
 

@@ -215,6 +215,12 @@ Public Enum eContainerFilter
     ecfSchemas
 End Enum
 
+' Scope for IDbComponent.FileExtensions: indexed (hash/conflict) vs all (move/orphan cleanup)
+Public Enum eFileExtensionScope
+    efesIndexed = 0   ' Tracked/indexed files (hash, change detection, conflict). Default.
+    efesAll = 1       ' All files the component writes (adds derived sidecars, e.g. svg)
+End Enum
+
 ' Used for handling custom built-in command bar controls. See clsDbCommandBar for details.
 Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinCommandBarTemplate"
 

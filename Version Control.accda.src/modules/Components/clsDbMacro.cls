@@ -232,7 +232,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
         IDbComponent_FileExtensions.Add "macro"

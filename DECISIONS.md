@@ -1,4 +1,4 @@
-<!-- BEGIN HEADER -->
+﻿<!-- BEGIN HEADER -->
 
 # Decision Log
 
@@ -96,6 +96,25 @@ contradictory guidance.
 **What this rules out**: Creating `docs/decisions/`, an ADR template, or a bulk transcript-reconstruction effort without a demonstrated, concrete failure of the log first. Revisit only if a real case arises where the log measurably fell short (an agent reopened a well-documented decision, or a clean-clone contributor lacked reasoning that only a transcript held). `docs/` remains for sustained internal *reference* material about how systems work — not one-shot decision rationale, which stays in this log (see 2026-04-27 entry).
 
 **Relevant files**: None (documentation/process decision). Supersedes the shelved plan "ADR convention for heavyweight decisions."
+
+---
+
+## 2026-07-20 — Scoped `FileExtensions` for artifact cleanup and moves
+
+**Trigger**: Orphan cleanup and `MoveSource` duplicated hardcoded extension lists (form/report `.json`/`.svg`, query legacy files, etc.) separate from `FileExtensions`, which intentionally excludes derived sidecars from the index because `GetDifferingFiles` uses a strict file-count match (see 2026-05-05 entry). A single declaration site was needed for “all files this component writes” without polluting change detection.
+
+**Options explored**:
+- **Add sidecars to `FileExtensions`**: rejected at the time for derived `.svg` and conflict noise.
+- **Separate `ArtifactExtensions` property**: rejected. Third parallel list to maintain; same drift risk as hardcoded cleanup arrays.
+- **Optional `Scope` on `FileExtensions`** (`efesIndexed` default, `efesAll` adds sidecars): chosen. Indexed consumers unchanged; `ClearOrphanedComponentArtifacts`, `MoveComponentSource`, and tests read `efesAll`. Folder artifacts (`_Images`, theme folders) are not object-named flat files and stay on the folder cleanup path.
+
+**Decision**: `eFileExtensionScope` in `modConstants`; `clsDbForm` / `clsDbReport` branch on scope (`efesAll` adds `svg` only; `json` in `efesIndexed` since 2026-07-20). Shared helpers: `ClearOrphanedComponentArtifacts` and `MoveComponentSource`.
+
+**Orphan-cleanup dispatch — no interface method**: An initial pass added an `IDbComponent.ClearOrphanedArtifacts` hook with 29 implementations. Once file cleanup became fully data-driven from `FileExtensions(efesAll)`, 27 of those implementations were identical no-ops and the hook had a single call site — pure boilerplate that VBA's lack of default interface methods forces onto every class. It was removed. `modOrphaned.ClearOrphanedSourceFiles` now calls `ClearOrphanedComponentArtifacts cType, dBaseNames` directly (data-driven files, covers form/report and any future sidecar automatically), plus `ClearOrphanedComponentFolders cType, dBaseNames` — a small `TypeOf` switch handling the only two folder-producing types (`clsDbCommandBar` → `_Images`, `clsDbTheme` → extracted folder). Rejected keeping the interface hook for uniformity: 25+ no-op overrides is worse maintenance than one localized 2-branch switch. This introduces a minor Core→Components reference in `modOrphaned`, accepted as the pragmatic home for the one bit of per-type folder knowledge (the suffix).
+
+**What this rules out**: Using `FileExtensions` without a scope for cleanup/move — callers must pass `efesAll` explicitly when they need the full file set. Adding a new derived sidecar requires updating the component's `FileExtensions(efesAll)` branch only; it must not be added to `efesIndexed` unless it becomes authoritative tracked state. A new folder-producing component adds one branch to `ClearOrphanedComponentFolders` (and its own MoveSource folder handling) rather than an interface override.
+
+**Relevant files**: `modConstants.bas`, `IDbComponent.cls`, `modOrphaned.bas` (`ClearOrphanedComponentArtifacts`, `ClearOrphanedComponentFolders`), `modContainers.bas` (`MoveComponentSource`), `clsDbForm.cls`, `clsDbReport.cls`, `modTestOrphaned.bas`, `modTestComponentInvariants.bas`.
 
 ---
 

@@ -1,4 +1,4 @@
-﻿VERSION 1.0 CLASS
+VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
@@ -182,11 +182,14 @@ End Property
 ' Procedure : FileExtensions
 ' Author    : Adam Waller
 ' Date      : 12/1/2023
-' Purpose   : A collection of the file extensions used in source files for this
-'           : component type.
+' Purpose   : Extensions used in source files for this component type.
+'           : efesIndexed (default): files that define tracked/indexed state (hash,
+'           : change detection, conflict resolution). efesAll: indexed set plus derived
+'           : sidecar files (e.g. form/report .json and .svg) used for MoveSource and
+'           : orphan artifact cleanup but excluded from the index.
 '---------------------------------------------------------------------------------------
 '
-Public Property Get FileExtensions() As Collection
+Public Property Get FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
 End Property
 
 

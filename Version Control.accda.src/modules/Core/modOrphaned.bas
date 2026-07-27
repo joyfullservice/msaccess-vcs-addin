@@ -1,4 +1,4 @@
-﻿Attribute VB_Name = "modOrphaned"
+Attribute VB_Name = "modOrphaned"
 '---------------------------------------------------------------------------------------
 ' Module    : modOrphaned
 ' Author    : Adam Waller
@@ -65,6 +65,11 @@ Public Sub ClearOrphanedSourceFiles(cType As IDbComponent)
             End If
         End If
     Else
+        ' Remove sub-artifacts (sidecars, per-object folders) before the generic scan.
+        ' File sidecars are data-driven from FileExtensions(efesAll); folder artifacts
+        ' (command-bar _Images, extracted theme folders) are dispatched by type.
+        ClearOrphanedComponentArtifacts cType, dBaseNames
+        ClearOrphanedComponentFolders cType, dBaseNames
         ' Loop through files in folder (and subfolders for @Folder support)
         ScanFolderForOrphans cType, StripSlash(cType.BaseFolder), dExtensions, dBaseNames
 
@@ -192,5 +197,216 @@ Private Sub CompareToIndex(cType As IDbComponent, strFilePath As String, dExtens
             End If
         End If
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedComponentArtifacts
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Remove object-named sidecar files declared in FileExtensions(efesAll) but
+'           : not in FileExtensions(efesIndexed). Called for every component type during
+'           : orphan cleanup; a no-op wherever efesAll equals efesIndexed.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearOrphanedComponentArtifacts(cmp As IDbComponent, dObjectBaseNames As Dictionary)
+
+    Dim dArtifactExts As Dictionary
+
+    Set dArtifactExts = GetArtifactOnlyExtensions(cmp)
+    If dArtifactExts.Count = 0 Then Exit Sub
+    If Not FSO.FolderExists(cmp.BaseFolder) Then Exit Sub
+    ClearOrphanedArtifactFilesInFolder cmp, StripSlash(cmp.BaseFolder), dArtifactExts, dObjectBaseNames
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedComponentFolders
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Remove per-object artifact folders that the generic file scan cannot see.
+'           : Only two component types produce such folders, so they are dispatched here
+'           : explicitly rather than via a mostly no-op interface method on all 29
+'           : component classes. A new folder-producing component adds one branch here.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearOrphanedComponentFolders(cmp As IDbComponent, dObjectBaseNames As Dictionary)
+
+    If TypeOf cmp Is clsDbCommandBar Then
+        ' Command-bar images live in "<Bar>_Images" subfolders.
+        ClearOrphanedArtifactFolders cmp, dObjectBaseNames, "_Images"
+    ElseIf TypeOf cmp Is clsDbTheme Then
+        ' Extracted themes live in a subfolder named after the theme.
+        ClearOrphanedArtifactFolders cmp, dObjectBaseNames
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetArtifactOnlyExtensions
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Return extensions present in FileExtensions(efesAll) but not in
+'           : FileExtensions(efesIndexed) as a case-insensitive dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetArtifactOnlyExtensions(cmp As IDbComponent) As Dictionary
+
+    Dim dResult As Dictionary
+    Dim colIndexed As Collection
+    Dim colAll As Collection
+    Dim varExt As Variant
+
+    Set dResult = New Dictionary
+    dResult.CompareMode = TextCompare
+    Set colIndexed = cmp.FileExtensions(efesIndexed)
+    Set colAll = cmp.FileExtensions(efesAll)
+
+    For Each varExt In colAll
+        If Not ExtensionInCollection(CStr(varExt), colIndexed) Then
+            If Not dResult.Exists(CStr(varExt)) Then dResult.Add CStr(varExt), vbNullString
+        End If
+    Next varExt
+
+    Set GetArtifactOnlyExtensions = dResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtensionInCollection
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Case-insensitive membership test for a file extension collection.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtensionInCollection(strExt As String, colExts As Collection) As Boolean
+
+    Dim varItem As Variant
+
+    For Each varItem In colExts
+        If StrComp(CStr(varItem), strExt, vbTextCompare) = 0 Then
+            ExtensionInCollection = True
+            Exit Function
+        End If
+    Next varItem
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedArtifactFiles
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Recursively delete files in a component's BaseFolder whose extension is
+'           : listed in Extensions and whose base name is not a current database object.
+'           : Used for sidecar files (e.g. form/report .json and .svg) not declared in
+'           : FileExtensions and therefore invisible to CompareToIndex.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearOrphanedArtifactFiles(cType As IDbComponent, dObjectBaseNames As Dictionary, _
+    ParamArray Extensions())
+
+    Dim dExtensions As Dictionary
+    Dim varExt As Variant
+
+    If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
+
+    Set dExtensions = New Dictionary
+    dExtensions.CompareMode = TextCompare
+    For Each varExt In Extensions
+        dExtensions.Add CStr(varExt), vbNullString
+    Next varExt
+
+    ClearOrphanedArtifactFilesInFolder cType, StripSlash(cType.BaseFolder), dExtensions, dObjectBaseNames
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedArtifactFilesInFolder
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Recursive helper for ClearOrphanedArtifactFiles.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ClearOrphanedArtifactFilesInFolder(cType As IDbComponent, strFolder As String, _
+    dExtensions As Dictionary, dObjectBaseNames As Dictionary)
+
+    Dim colFiles As New Collection
+    Dim colSubFolders As New Collection
+    Dim varItem As Variant
+    Dim strFileName As String
+    Dim strBaseName As String
+    Dim strExt As String
+
+    ScanFolderContents strFolder, colFiles, colSubFolders
+
+    For Each varItem In colFiles
+        strFileName = FSO.GetFileName(CStr(varItem))
+        strBaseName = FSO.GetBaseName(strFileName)
+        strExt = Mid$(strFileName, Len(strBaseName) + 2)
+        If dExtensions.Exists(strExt) Then
+            If Not dObjectBaseNames.Exists(strBaseName) Then
+                Log.Add "  Removing orphaned artifact file: " & CStr(varItem), Options.ShowDebug
+                DeleteFile CStr(varItem), True
+            End If
+        End If
+    Next varItem
+
+    For Each varItem In colSubFolders
+        ClearOrphanedArtifactFilesInFolder cType, CStr(varItem), dExtensions, dObjectBaseNames
+    Next varItem
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearOrphanedArtifactFolders
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Delete immediate subfolders of a component's BaseFolder when the folder
+'           : name (minus an optional suffix such as "_Images") is not a current
+'           : database object. Used for per-object artifact folders (command-bar images,
+'           : extracted theme folders).
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearOrphanedArtifactFolders(cType As IDbComponent, dObjectBaseNames As Dictionary, _
+    Optional strSuffix As String = vbNullString)
+
+    Dim colFiles As New Collection
+    Dim colSubFolders As New Collection
+    Dim varItem As Variant
+    Dim strFolderName As String
+    Dim strBaseName As String
+
+    If Not FSO.FolderExists(cType.BaseFolder) Then Exit Sub
+
+    ScanFolderContents StripSlash(cType.BaseFolder), colFiles, colSubFolders
+
+    For Each varItem In colSubFolders
+        strFolderName = FSO.GetFileName(CStr(varItem))
+        If Len(strSuffix) > 0 Then
+            If Right$(strFolderName, Len(strSuffix)) = strSuffix Then
+                strBaseName = Left$(strFolderName, Len(strFolderName) - Len(strSuffix))
+            Else
+                strBaseName = vbNullString
+            End If
+        Else
+            strBaseName = strFolderName
+        End If
+        If Len(strBaseName) > 0 Then
+            If Not dObjectBaseNames.Exists(strBaseName) Then
+                Log.Add "  Removing orphaned artifact folder: " & CStr(varItem), Options.ShowDebug
+                LogUnhandledErrors
+                On Error Resume Next
+                FSO.DeleteFolder CStr(varItem), True
+                CatchAny eelWarning, "Unable to delete orphaned artifact folder: " & CStr(varItem), ModuleName & ".ClearOrphanedArtifactFolders"
+            End If
+        End If
+    Next varItem
 
 End Sub

@@ -363,6 +363,11 @@ eotOther = 9   ' Other / catch-all operations
 2. Add a new enum value to `eDatabaseComponentType` in `modConstants`
 3. Add the class to `GetContainers()` function in `modVCSUtility`
 4. Implement all interface methods (Export, Import, Merge, GetAllFromDB, etc.)
+5. Declare file extensions in `FileExtensions`:
+   - **`efesIndexed` (default):** authoritative files used for hash/change detection, conflict resolution, and merge detection (`FilePropertiesHash` + `AllFilesHash`). Form/report companion `.json` (metadata, conditional formatting sections) belongs here.
+   - **`efesAll`:** indexed set plus derived sidecar files only (e.g. form/report `.svg` previews). Orphan cleanup and `MoveComponentSource` read `efesAll`. Indexed companion files **must** be produced on the alternate/temp export path so `GetDifferingFiles` file counts stay balanced.
+   - Sidecar cleanup for derived-only files is automatic via `modOrphaned.ClearOrphanedComponentArtifacts` (`efesAll − efesIndexed`).
+   - Per-object **folders** (command-bar `_Images`, extracted theme folders) are not flat extensions. Add a branch to `ClearOrphanedComponentFolders` in `modOrphaned.bas` and move the folder in `MoveSource`.
 
 ### Modifying Export/Import Behavior
 

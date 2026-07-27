@@ -718,6 +718,7 @@ Public Function GetSourceFilesPropertyHash(cmp As IDbComponent, Optional strFile
 End Function
 
 
+
 '---------------------------------------------------------------------------------------
 ' Procedure : ComponentTypeInProject
 ' Purpose   : Returns true when the type is exported/imported for the current project.
@@ -791,3 +792,27 @@ Private Function ScopedVbePreflight(ByRef strError As String) As Boolean
     End If
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MoveComponentSource
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Move all source files for a component from one folder to another, using
+'           : FileExtensions(efesAll) as the single source of truth for which files
+'           : belong to the object.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MoveComponentSource(cmp As IDbComponent, strFromFolder As String, strToFolder As String)
+
+    Dim varExt As Variant
+    Dim strBase As String
+
+    VerifyPath strToFolder
+    strBase = FSO.GetBaseName(cmp.SourceFile)
+
+    For Each varExt In cmp.FileExtensions(efesAll)
+        MoveFileIfExists strFromFolder & strBase & "." & varExt, strToFolder
+    Next varExt
+
+End Sub

@@ -1,4 +1,4 @@
-﻿Attribute VB_Name = "modTestComponentInvariants"
+Attribute VB_Name = "modTestComponentInvariants"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestComponentInvariants
 ' Author    : Adam Waller
@@ -92,6 +92,37 @@ Public Sub TestFileExtensionsNonEmpty()
         TestAssert colExts.Count > 0, cnt.Category & " FileExtensions is non-empty"
     Next
 End Sub
+
+
+Public Sub TestFileExtensionScopeInvariant()
+    Dim colContainers As Collection
+    Dim cnt As IDbComponent
+    Dim colIndexed As Collection
+    Dim colAll As Collection
+    Dim varExt As Variant
+
+    Set colContainers = GetContainers
+    For Each cnt In colContainers
+        Set colIndexed = cnt.FileExtensions(efesIndexed)
+        Set colAll = cnt.FileExtensions(efesAll)
+        TestAssert colAll.Count >= colIndexed.Count, cnt.Category & " efesAll count >= efesIndexed"
+        For Each varExt In colIndexed
+            TestAssert ExtensionInIndexedScope(CStr(varExt), colAll), _
+                cnt.Category & " indexed ext in efesAll: " & varExt
+        Next varExt
+    Next cnt
+End Sub
+
+
+Private Function ExtensionInIndexedScope(strExt As String, colAll As Collection) As Boolean
+    Dim varItem As Variant
+    For Each varItem In colAll
+        If StrComp(CStr(varItem), strExt, vbTextCompare) = 0 Then
+            ExtensionInIndexedScope = True
+            Exit Function
+        End If
+    Next varItem
+End Function
 
 
 Public Sub TestFrmVCSTestRunnerSourceRequiresEdgeControl()
