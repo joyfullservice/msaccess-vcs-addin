@@ -53,6 +53,31 @@ Private m_blnIsPassThrough As Boolean
 Private m_blnIsDDL As Boolean
 Private m_blnRequiresDesignView As Boolean   ' True when SQL has shapes (e.g. multi-condition ON) that dbMemo "SQL" cannot represent
 Private m_colWarnings As Collection     ' Builder warnings captured for diagnostics
+Private m_syntax As clsSqlSyntax        ' Pure SQL token/identifier parsing core
+Private m_strContextLabel As String     ' Query name for export-path warning context
+
+
+Private Sub Class_Initialize()
+    Set m_syntax = New clsSqlSyntax
+End Sub
+
+
+Private Sub Class_Terminate()
+    Set m_syntax = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ContextLabel
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Optional query/object name for diagnostics when m_strRawSql is unset
+'           : (e.g. during ReconstructSQL on the export path).
+'---------------------------------------------------------------------------------------
+'
+Public Property Let ContextLabel(ByVal strLabel As String)
+    m_strContextLabel = strLabel
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -414,10 +439,11 @@ Public Function ReconstructSQL(colRows As Collection) As String
     ' Terminate with semicolon and newline
     cSql.Add ";" & vbCrLf
 
-    ReconstructSQL = cSql.GetStr
+    m_strRawSql = cSql.GetStr
+    ReconstructSQL = m_strRawSql
 
 CleanUp:
-    CatchAny eelError, "Error reconstructing SQL (" & colRows.Count & " rows)", _
+    CatchAny eelError, "Error reconstructing SQL (" & colRows.Count & " rows). " & SqlSnippet(), _
         ModuleName(Me) & ".ReconstructSQL"
 
 End Function
@@ -1676,7 +1702,11 @@ End Function
 Private Function SqlSnippet() As String
     Const MAX_LEN As Long = 200
     If Len(m_strRawSql) = 0 Then
-        SqlSnippet = "(no SQL captured)"
+        If Len(m_strContextLabel) > 0 Then
+            SqlSnippet = "Query: " & m_strContextLabel
+        Else
+            SqlSnippet = "(no SQL captured)"
+        End If
     ElseIf Len(m_strRawSql) > MAX_LEN Then
         SqlSnippet = "SQL: " & Left$(m_strRawSql, MAX_LEN) & "..."
     Else
@@ -1714,58 +1744,17 @@ End Function
 
 
 Private Function BracketIfNeeded(strName As String) As String
-    ' Return name as-is if already bracketed, parenthesized (derived table
-    ' subquery), or contains a dot (qualified -- caller is responsible for
-    ' bracketing each segment, e.g. "[a].[b]").
-    If Left$(strName, 1) = "[" Or Left$(strName, 1) = "(" Then
-        BracketIfNeeded = strName
-    ElseIf InStr(1, strName, ".") > 0 Then
-        BracketIfNeeded = strName
-    ElseIf HasNonIdentChars(strName) Or IsAccessReservedWord(strName) Then
-        BracketIfNeeded = "[" & strName & "]"
-    Else
-        BracketIfNeeded = strName
-    End If
+    BracketIfNeeded = m_syntax.BracketIfNeeded(strName)
 End Function
 
 
-' EDGE CASE: Access aliases like the auto-generated %$##@_Alias placeholder
-' (used for unnamed derived tables in the FROM clause) contain '%', '$', '#',
-' '@' which are SQL operators / format specifiers. Emitted unbracketed they
-' are tokenized into separate symbols by clsSqlFormatter -- e.g.
-' '%$##@_Alias' becomes '% $ ##@_Alias' -- producing un-importable SQL.
-' Bracketing any identifier with non-regular chars prevents that.
-' See: docs/access-query-storage.md, regression/qryRegressionFromSubquery
 Private Function HasNonIdentChars(strName As String) As Boolean
-    Dim i As Long
-    Dim ch As String
-    For i = 1 To Len(strName)
-        ch = Mid$(strName, i, 1)
-        Select Case ch
-            Case "A" To "Z", "a" To "z", "0" To "9", "_"
-            Case Else
-                HasNonIdentChars = True
-                Exit Function
-        End Select
-    Next i
+    HasNonIdentChars = m_syntax.HasNonIdentChars(strName)
 End Function
 
 
 Private Function IsAccessReservedWord(strWord As String) As Boolean
-    Select Case UCase$(strWord)
-        Case "ACTION", "SELECT", "FROM", "WHERE", "ORDER", "BY", "GROUP", "HAVING", _
-             "INSERT", "INTO", "UPDATE", "DELETE", "SET", "VALUE", "VALUES", _
-             "JOIN", "INNER", "LEFT", "RIGHT", "OUTER", "ON", "AS", _
-             "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "IS", "NULL", _
-             "EXISTS", "ALL", "ANY", "SOME", "UNION", "EXCEPT", "INTERSECT", _
-             "DISTINCT", "TOP", "TRANSFORM", "PIVOT", "TABLE", "CREATE", _
-             "ALTER", "DROP", "INDEX", "VIEW", "PROCEDURE", "PARAMETER", _
-             "PARAMETERS", "TRUE", "FALSE", "YES", "NO", "DATE", "TIME", "YEAR", _
-             "TEXT", "MEMO", "LONG", "SHORT", "SINGLE", "DOUBLE", "CURRENCY", _
-             "COUNTER", "YESNO", "BINARY", "OLEOBJECT", "GUID", "KEY", "NAMES", "NUMBER", _
-             "PRIMARY", "FOREIGN", "CONSTRAINT", "REFERENCES", "UNIQUE"
-            IsAccessReservedWord = True
-    End Select
+    IsAccessReservedWord = m_syntax.IsAccessReservedWord(strWord)
 End Function
 
 
@@ -2519,22 +2508,8 @@ Private Sub AddInputTable(strTableExpr As String)
     Dim dTbl As Dictionary
     Dim strName As String
     Dim strAlias As String
-    Dim lngAs As Long
 
-    strName = Trim$(strTableExpr)
-
-    ' Check for AS alias
-    lngAs = FindTopLevelKeyword(strName, " AS ")
-    If lngAs > 0 Then
-        strAlias = Trim$(Mid$(strName, lngAs + 4))
-        strName = Trim$(Left$(strName, lngAs - 1))
-    Else
-        strAlias = vbNullString
-    End If
-
-    ' Remove brackets
-    strName = UnBracket(strName)
-    If Len(strAlias) > 0 Then strAlias = UnBracket(strAlias)
+    m_syntax.SplitTableRef strTableExpr, strName, strAlias
 
     Set dTbl = New Dictionary
     dTbl.Add "name", strName
@@ -2595,311 +2570,73 @@ End Sub
 
 
 '=======================================================================================
-' PRIVATE: Parsing utility functions
+' PRIVATE: Parsing utility functions (delegate to clsSqlSyntax)
 '=======================================================================================
 
 Private Function FindTopLevelKeyword(strSql As String, strKeyword As String) As Long
-    ' Find keyword position at the top level
-    ' (not inside parentheses, double-quoted strings, or bracketed identifiers)
-    Dim lngPos As Long
-    Dim lngDepth As Long
-    Dim blnInString As Boolean
-    Dim blnInBracket As Boolean
-    Dim strUpper As String
-    Dim strKeyUpper As String
+    FindTopLevelKeyword = m_syntax.FindTopLevelKeyword(strSql, strKeyword)
+End Function
 
-    strUpper = UCase$(strSql)
-    strKeyUpper = UCase$(strKeyword)
 
-    For lngPos = 1 To Len(strUpper) - Len(strKeyUpper) + 1
-        Select Case Mid$(strUpper, lngPos, 1)
-            Case """"
-                If Not blnInBracket Then blnInString = Not blnInString
-            Case "["
-                If Not blnInString Then blnInBracket = True
-            Case "]"
-                If Not blnInString Then blnInBracket = False
-            Case "("
-                If Not blnInString And Not blnInBracket Then lngDepth = lngDepth + 1
-            Case ")"
-                If Not blnInString And Not blnInBracket Then lngDepth = lngDepth - 1
-        End Select
+Private Function FindJoinKeyword(strExpr As String, ByRef strJoinType As String, ByRef lngFlag As Long) As Long
+    FindJoinKeyword = m_syntax.FindJoinKeyword(strExpr, strJoinType, lngFlag)
+End Function
 
-        If Not blnInString And Not blnInBracket And lngDepth = 0 Then
-            If Mid$(strUpper, lngPos, Len(strKeyUpper)) = strKeyUpper Then
-                ' Verify word boundary before keyword. Keywords that start
-                ' with a space (like " LEFT JOIN ") already carry their own
-                ' boundary, so no extra check is needed.
-                If Left$(strKeyUpper, 1) = " " Then
-                    FindTopLevelKeyword = lngPos
-                    Exit Function
-                ElseIf lngPos = 1 Then
-                    FindTopLevelKeyword = lngPos
-                    Exit Function
-                ElseIf Mid$(strUpper, lngPos - 1, 1) = " " Or _
-                   Mid$(strUpper, lngPos - 1, 1) = ")" Then
-                    FindTopLevelKeyword = lngPos
-                    Exit Function
-                End If
-            End If
-        End If
-    Next lngPos
+
+Private Function FindLastJoinKeyword(strExpr As String, ByRef strJoinType As String, ByRef lngFlag As Long) As Long
+    FindLastJoinKeyword = m_syntax.FindLastJoinKeyword(strExpr, strJoinType, lngFlag)
+End Function
+
+
+Private Function FindTopLevelKeywordFrom(strSql As String, strKeyword As String, lngStart As Long) As Long
+    FindTopLevelKeywordFrom = m_syntax.FindTopLevelKeywordFrom(strSql, strKeyword, lngStart)
+End Function
+
+
+Private Function FindMatchingParen(strExpr As String, lngStart As Long) As Long
+    FindMatchingParen = m_syntax.FindMatchingParen(strExpr, lngStart)
+End Function
+
+
+Private Function HasTopLevelBoolean(strExpr As String) As Boolean
+    HasTopLevelBoolean = m_syntax.HasTopLevelBoolean(strExpr)
+End Function
+
+
+Private Function StripOuterParens(strExpr As String) As String
+    StripOuterParens = m_syntax.StripOuterParens(strExpr)
+End Function
+
+
+Private Function SplitTopLevel(strExpr As String, strDelim As String) As String()
+    SplitTopLevel = m_syntax.SplitTopLevel(strExpr, strDelim)
+End Function
+
+
+Private Function UnBracket(strName As String) As String
+    UnBracket = m_syntax.UnBracket(strName)
+End Function
+
+
+Private Function TryExtractSimpleTable(strTableExpr As String) As String
+    TryExtractSimpleTable = m_syntax.TryExtractSimpleTable(strTableExpr)
+End Function
+
+
+Private Function OnClauseTableExcluding(strOnExpr As String, _
+                                        strExcludeTable As String) As String
+    OnClauseTableExcluding = m_syntax.OnClauseTableExcluding(strOnExpr, strExcludeTable)
+End Function
+
+
+Private Function ExtractTableFromOnSide(strOnExpr As String, blnLeftSide As Boolean) As String
+    ExtractTableFromOnSide = m_syntax.ExtractTableFromOnSide(strOnExpr, blnLeftSide)
 End Function
 
 
 Private Function FindKeyword(strUpper As String, strKeyword As String, lngStart As Long) As Long
     ' Simple keyword find from a starting position
     FindKeyword = InStr(lngStart, strUpper, strKeyword, vbTextCompare)
-End Function
-
-
-Private Function FindJoinKeyword(strExpr As String, ByRef strJoinType As String, ByRef lngFlag As Long) As Long
-    ' Find the first JOIN keyword at the top level
-    Dim lngPos As Long
-
-    lngPos = FindTopLevelKeyword(strExpr, " INNER JOIN ")
-    If lngPos > 0 Then
-        strJoinType = " INNER JOIN "
-        lngFlag = 1
-        FindJoinKeyword = lngPos
-        Exit Function
-    End If
-
-    lngPos = FindTopLevelKeyword(strExpr, " LEFT JOIN ")
-    If lngPos > 0 Then
-        strJoinType = " LEFT JOIN "
-        lngFlag = 2
-        FindJoinKeyword = lngPos
-        Exit Function
-    End If
-
-    lngPos = FindTopLevelKeyword(strExpr, " RIGHT JOIN ")
-    If lngPos > 0 Then
-        strJoinType = " RIGHT JOIN "
-        lngFlag = 3
-        FindJoinKeyword = lngPos
-        Exit Function
-    End If
-End Function
-
-
-Private Function FindLastJoinKeyword(strExpr As String, ByRef strJoinType As String, ByRef lngFlag As Long) As Long
-    ' Find the last top-level JOIN keyword
-    Dim lngPos As Long
-    Dim lngLast As Long
-    Dim strLastType As String
-    Dim lngLastFlag As Long
-    Dim lngSearch As Long
-    Dim strTmpType As String
-    Dim lngTmpFlag As Long
-    Dim strUpper As String
-
-    strUpper = UCase$(strExpr)
-    lngSearch = 1
-    lngLast = 0
-
-    Do
-        lngPos = 0
-        ' Check each join type from current search position
-        Dim lngInner As Long, lngLeft As Long, lngRight As Long
-        lngInner = FindTopLevelKeywordFrom(strExpr, " INNER JOIN ", lngSearch)
-        lngLeft = FindTopLevelKeywordFrom(strExpr, " LEFT JOIN ", lngSearch)
-        lngRight = FindTopLevelKeywordFrom(strExpr, " RIGHT JOIN ", lngSearch)
-
-        ' Find the nearest one
-        If lngInner > 0 Then
-            lngPos = lngInner: strTmpType = " INNER JOIN ": lngTmpFlag = 1
-        End If
-        If lngLeft > 0 And (lngPos = 0 Or lngLeft < lngPos) Then
-            lngPos = lngLeft: strTmpType = " LEFT JOIN ": lngTmpFlag = 2
-        End If
-        If lngRight > 0 And (lngPos = 0 Or lngRight < lngPos) Then
-            lngPos = lngRight: strTmpType = " RIGHT JOIN ": lngTmpFlag = 3
-        End If
-
-        If lngPos > 0 Then
-            lngLast = lngPos
-            strLastType = strTmpType
-            lngLastFlag = lngTmpFlag
-            lngSearch = lngPos + Len(strTmpType)
-        End If
-    Loop While lngPos > 0
-
-    If lngLast > 0 Then
-        FindLastJoinKeyword = lngLast
-        strJoinType = strLastType
-        lngFlag = lngLastFlag
-    End If
-End Function
-
-
-Private Function FindTopLevelKeywordFrom(strSql As String, strKeyword As String, lngStart As Long) As Long
-    Dim lngPos As Long
-    Dim lngDepth As Long
-    Dim blnInString As Boolean
-    Dim strUpper As String
-    Dim strKeyUpper As String
-
-    strUpper = UCase$(strSql)
-    strKeyUpper = UCase$(strKeyword)
-
-    For lngPos = lngStart To Len(strUpper) - Len(strKeyUpper) + 1
-        Select Case Mid$(strUpper, lngPos, 1)
-            Case """"
-                blnInString = Not blnInString
-            Case "("
-                If Not blnInString Then lngDepth = lngDepth + 1
-            Case ")"
-                If Not blnInString Then lngDepth = lngDepth - 1
-        End Select
-
-        If Not blnInString And lngDepth = 0 Then
-            If Mid$(strUpper, lngPos, Len(strKeyUpper)) = strKeyUpper Then
-                FindTopLevelKeywordFrom = lngPos
-                Exit Function
-            End If
-        End If
-    Next lngPos
-End Function
-
-
-Private Function FindMatchingParen(strExpr As String, lngStart As Long) As Long
-    Dim lngPos As Long
-    Dim lngDepth As Long
-    Dim blnInString As Boolean
-
-    lngDepth = 0
-    For lngPos = lngStart To Len(strExpr)
-        Select Case Mid$(strExpr, lngPos, 1)
-            Case """"
-                blnInString = Not blnInString
-            Case "("
-                If Not blnInString Then lngDepth = lngDepth + 1
-            Case ")"
-                If Not blnInString Then
-                    lngDepth = lngDepth - 1
-                    If lngDepth = 0 Then
-                        FindMatchingParen = lngPos
-                        Exit Function
-                    End If
-                End If
-        End Select
-    Next lngPos
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HasTopLevelBoolean
-' Author    : Adam Waller
-' Date      : 4/27/2026
-' Purpose   : Returns True when the given expression contains a top-level AND or OR
-'           : operator after a single layer of outer parens has been stripped.
-'           : Used to detect multi-condition ON clauses such as:
-'           :     ON (tblA.x = tblB.x) AND (tblA.y = tblB.y)
-'           :     ON tblA.x = tblB.x AND tblA.y = tblB.y
-'           :     ON ((tblA.x = tblB.x) AND (tblA.y = tblB.y))
-'           : All three forms come back as True. A single-condition ON clause such
-'           : as ON tblA.x = tblB.x or ON (tblA.x = tblB.x) returns False.
-'---------------------------------------------------------------------------------------
-'
-Private Function HasTopLevelBoolean(strExpr As String) As Boolean
-    Dim strWork As String
-
-    strWork = Trim$(strExpr)
-    If Len(strWork) = 0 Then Exit Function
-
-    ' Strip any number of full-wrapping outer paren layers so that
-    ' "((a=b) AND (c=d))" reduces to "(a=b) AND (c=d)" -- which still
-    ' has a top-level AND -- but a single-condition wrap like
-    ' "(a=b)" reduces to "a=b" with no top-level boolean.
-    Do While Left$(strWork, 1) = "(" And Right$(strWork, 1) = ")"
-        If FindMatchingParen(strWork, 1) = Len(strWork) Then
-            strWork = Trim$(Mid$(strWork, 2, Len(strWork) - 2))
-        Else
-            Exit Do
-        End If
-    Loop
-
-    HasTopLevelBoolean = (FindTopLevelKeyword(strWork, " AND ") > 0) Or _
-                         (FindTopLevelKeyword(strWork, " OR ") > 0)
-End Function
-
-
-Private Function StripOuterParens(strExpr As String) As String
-    Dim strWork As String
-    strWork = Trim$(strExpr)
-    Do While Left$(strWork, 1) = "(" And Right$(strWork, 1) = ")"
-        If FindMatchingParen(strWork, 1) = Len(strWork) Then
-            strWork = Trim$(Mid$(strWork, 2, Len(strWork) - 2))
-        Else
-            Exit Do
-        End If
-    Loop
-    StripOuterParens = strWork
-End Function
-
-
-Private Function SplitTopLevel(strExpr As String, strDelim As String) As String()
-    ' Split a string by delimiter, but only at the top level (not inside
-    ' parentheses, double-quoted strings, single-quoted strings, or
-    ' bracketed identifiers).
-    Dim colParts As New Collection
-    Dim lngStart As Long
-    Dim lngPos As Long
-    Dim lngDepth As Long
-    Dim blnInDblQuote As Boolean
-    Dim blnInSglQuote As Boolean
-    Dim blnInBracket As Boolean
-    Dim asParts() As String
-    Dim blnInAnyString As Boolean
-
-    lngStart = 1
-    For lngPos = 1 To Len(strExpr)
-        blnInAnyString = blnInDblQuote Or blnInSglQuote
-        Select Case Mid$(strExpr, lngPos, 1)
-            Case """"
-                If Not blnInBracket And Not blnInSglQuote Then blnInDblQuote = Not blnInDblQuote
-            Case "'"
-                If Not blnInBracket And Not blnInDblQuote Then blnInSglQuote = Not blnInSglQuote
-            Case "["
-                If Not blnInAnyString Then blnInBracket = True
-            Case "]"
-                If Not blnInAnyString Then blnInBracket = False
-            Case "("
-                If Not blnInAnyString And Not blnInBracket Then lngDepth = lngDepth + 1
-            Case ")"
-                If Not blnInAnyString And Not blnInBracket Then lngDepth = lngDepth - 1
-            Case Else
-                If Mid$(strExpr, lngPos, Len(strDelim)) = strDelim Then
-                    If Not blnInAnyString And Not blnInBracket And lngDepth = 0 Then
-                        colParts.Add Mid$(strExpr, lngStart, lngPos - lngStart)
-                        lngStart = lngPos + Len(strDelim)
-                    End If
-                End If
-        End Select
-    Next lngPos
-
-    ' Add the last part
-    colParts.Add Mid$(strExpr, lngStart)
-
-    ' Convert to array
-    ReDim asParts(0 To colParts.Count - 1)
-    Dim lngI As Long
-    For lngI = 1 To colParts.Count
-        asParts(lngI - 1) = CStr(colParts(lngI))
-    Next lngI
-
-    SplitTopLevel = asParts
-End Function
-
-
-Private Function UnBracket(strName As String) As String
-    strName = Trim$(strName)
-    If Left$(strName, 1) = "[" And Right$(strName, 1) = "]" Then
-        UnBracket = Mid$(strName, 2, Len(strName) - 2)
-    Else
-        UnBracket = strName
-    End If
 End Function
 
 
@@ -2912,104 +2649,6 @@ Private Function UnquoteSqlString(strValue As String) As String
         End If
     End If
     UnquoteSqlString = Replace$(strValue, "''", "'")
-End Function
-
-
-Private Function TryExtractSimpleTable(strTableExpr As String) As String
-    ' Returns the table name if strTableExpr is a simple table reference
-    ' (optionally with an alias), or vbNullString if it contains a nested
-    ' JOIN expression. Used by ParseJoinExpression to decide which side of
-    ' a JOIN can be authoritatively named without ON-clause inspection.
-    Dim strClean As String
-    strClean = Trim$(strTableExpr)
-
-    Do While Left$(strClean, 1) = "(" And Right$(strClean, 1) = ")"
-        If FindMatchingParen(strClean, 1) = Len(strClean) Then
-            strClean = Trim$(Mid$(strClean, 2, Len(strClean) - 2))
-        Else
-            Exit Do
-        End If
-    Loop
-
-    strClean = UnBracket(strClean)
-
-    If InStr(1, strClean, " JOIN ", vbTextCompare) > 0 Then
-        TryExtractSimpleTable = vbNullString
-        Exit Function
-    End If
-
-    ' Check for AS alias. For self-joins (same table with different aliases)
-    ' the alias is the disambiguating identifier in the join graph, so
-    ' returning it instead of the raw table name prevents the graph from
-    ' collapsing both sides into one node.
-    Dim lngAs As Long
-    lngAs = InStr(1, strClean, " AS ", vbTextCompare)
-    If lngAs > 0 Then
-        TryExtractSimpleTable = Trim$(Mid$(strClean, lngAs + 4))
-        Exit Function
-    End If
-
-    Dim lngSpace As Long
-    lngSpace = InStr(1, strClean, " ", vbTextCompare)
-    If lngSpace > 0 Then
-        TryExtractSimpleTable = Trim$(Left$(strClean, lngSpace - 1))
-    Else
-        TryExtractSimpleTable = strClean
-    End If
-End Function
-
-
-Private Function OnClauseTableExcluding(strOnExpr As String, _
-                                        strExcludeTable As String) As String
-    ' Extract both table names from the first '=' in an ON expression and
-    ' return whichever is NOT strExcludeTable. Caller has already established
-    ' the excluded side authoritatively (via TryExtractSimpleTable on the
-    ' opposite operand) so this disambiguation is reliable even for multi-
-    ' condition ON clauses where the first "=" sits on the "wrong" side.
-    Dim strTblA As String
-    Dim strTblB As String
-    strTblA = ExtractTableFromOnSide(strOnExpr, True)
-    strTblB = ExtractTableFromOnSide(strOnExpr, False)
-
-    If StrComp(strTblA, strExcludeTable, vbTextCompare) = 0 Then
-        OnClauseTableExcluding = strTblB
-    Else
-        OnClauseTableExcluding = strTblA
-    End If
-End Function
-
-
-Private Function ExtractTableFromOnSide(strOnExpr As String, blnLeftSide As Boolean) As String
-    ' Extract a table name from one side of the first '=' in an ON expression.
-    ' blnLeftSide=True returns the table before '=', False returns after '='.
-    Dim lngEq As Long
-    Dim strSide As String
-
-    lngEq = InStr(1, strOnExpr, "=")
-    If lngEq = 0 Then Exit Function
-
-    If blnLeftSide Then
-        strSide = Trim$(Left$(strOnExpr, lngEq - 1))
-    Else
-        strSide = Trim$(Mid$(strOnExpr, lngEq + 1))
-    End If
-
-    ' Strip outer parens
-    Do While Left$(strSide, 1) = "("
-        strSide = Mid$(strSide, 2)
-    Loop
-    Do While Right$(strSide, 1) = ")"
-        strSide = Left$(strSide, Len(strSide) - 1)
-    Loop
-    strSide = Trim$(strSide)
-
-    Dim lngDot As Long
-    lngDot = InStr(1, strSide, ".")
-    If lngDot > 0 Then
-        ExtractTableFromOnSide = UnBracket(Trim$(Left$(strSide, lngDot - 1)))
-    Else
-        ExtractTableFromOnSide = UnBracket(strSide)
-    End If
 End Function
 
 
@@ -3142,9 +2781,9 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     ' when the SQL aliased it (e.g. "tbl AS tbl_1" in a self-join). Without
     ' the Alias line, Access stores both Attribute 5 rows with null Name2 and
     ' the Attribute 7 join rows collapse to leftTable == rightTable, which on
-    ' the next export crashes BuildJoinChain (no graph root). This bit
-    ' affected ~723 queries in db-sec alone, including qryBucketCombineRandUCos
-    ' and qdelTempInvByQtrSubMergerAcquisition3.
+    ' the next export crashes BuildJoinChain (no graph root). Production
+    ' validation found this affecting ~723 queries in a single database,
+    ' across both SELECT and action query types.
     ' Always emit InputTables block (even when empty). Access SaveAsText does
     ' the same for Design View queries; omitting the empty block causes
     ' LoadFromText to silently drop OutputColumns on table-less SELECTs.
@@ -3194,6 +2833,8 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         Dim strCondition As String
         Dim strCondLeft As String
         Dim strCondRight As String
+        Dim dInputRefs As Dictionary
+        Set dInputRefs = BuildInputTableRefLookup()
         For Each dJn In m_colJoins
             If HasTopLevelBoolean(CStr(dJn("expression"))) Then
                 asConditions = SplitTopLevel(StripOuterParens(CStr(dJn("expression"))), " AND ")
@@ -3204,6 +2845,8 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
                         strCondRight = ExtractTableFromOnSide(strCondition, False)
                         If Len(strCondLeft) = 0 Then strCondLeft = CStr(dJn("leftTable"))
                         If Len(strCondRight) = 0 Then strCondRight = CStr(dJn("rightTable"))
+                        WarnIfJoinRefMissing strCondLeft, dInputRefs
+                        WarnIfJoinRefMissing strCondRight, dInputRefs
                         cOut.Add "    LeftTable =""" & strCondLeft & """", vbCrLf
                         cOut.Add "    RightTable =""" & strCondRight & """", vbCrLf
                         EmitWrappedString cOut, "    Expression", strCondition
@@ -3211,6 +2854,8 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
                     End If
                 Next lngC
             Else
+                WarnIfJoinRefMissing CStr(dJn("leftTable")), dInputRefs
+                WarnIfJoinRefMissing CStr(dJn("rightTable")), dInputRefs
                 cOut.Add "    LeftTable =""" & CStr(dJn("leftTable")) & """", vbCrLf
                 cOut.Add "    RightTable =""" & CStr(dJn("rightTable")) & """", vbCrLf
                 EmitWrappedString cOut, "    Expression", CStr(dJn("expression"))
@@ -3263,6 +2908,30 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         ModuleName(Me) & ".EmitDesignViewQdef"
 
 End Sub
+
+
+Private Sub WarnIfJoinRefMissing(ByVal strRef As String, dInputRefs As Dictionary)
+    If Len(strRef) = 0 Then Exit Sub
+    If dInputRefs.Exists(strRef) Then Exit Sub
+    AddBuilderWarning "Join reference '" & strRef & _
+        "' not found in InputTables block; qdef may be rejected by LoadFromText. " & _
+        SqlSnippet(), ModuleName(Me) & ".EmitDesignViewQdef"
+End Sub
+
+
+Private Function BuildInputTableRefLookup() As Dictionary
+    Dim dLookup As New Dictionary
+    Dim dTbl As Dictionary
+    For Each dTbl In m_colInputTables
+        If Len(CStr(dTbl("name"))) > 0 Then
+            If Not dLookup.Exists(CStr(dTbl("name"))) Then dLookup.Add CStr(dTbl("name")), True
+        End If
+        If Len(Nz(dTbl("alias"), vbNullString)) > 0 Then
+            If Not dLookup.Exists(CStr(dTbl("alias"))) Then dLookup.Add CStr(dTbl("alias")), True
+        End If
+    Next dTbl
+    Set BuildInputTableRefLookup = dLookup
+End Function
 
 
 Private Sub EmitSqlViewQdef(cOut As clsConcat, dProperties As Dictionary, _
@@ -3777,12 +3446,7 @@ End Sub
 
 
 Private Function IsIdentChar(strCh As String) As Boolean
-    Dim lngCode As Long
-    lngCode = AscW(strCh)
-    IsIdentChar = (lngCode >= 65 And lngCode <= 90) Or _
-                  (lngCode >= 97 And lngCode <= 122) Or _
-                  (lngCode >= 48 And lngCode <= 57) Or _
-                  lngCode = 95 Or lngCode = 91 Or lngCode = 93
+    IsIdentChar = m_syntax.IsIdentChar(strCh)
 End Function
 
 
@@ -3822,7 +3486,8 @@ Private Sub EmitDesignLayout(cOut As clsConcat, dLayout As Dictionary)
         cOut.Add "    Bottom =" & CStr(dPane("bottom")), vbCrLf
     End If
 
-    ' Grid origin
+    ' Grid origin. LoadFromText requires Left before Top here; emitting Top
+    ' first fails the whole Design View import with "Expected: 'Left'".
     If dLayout.Exists("gridLeft") Then
         cOut.Add "    Left =" & CStr(dLayout("gridLeft")), vbCrLf
         cOut.Add "    Top =" & CStr(dLayout("gridTop")), vbCrLf

@@ -97,6 +97,7 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
     Dim blnOperationOwned As Boolean
     Dim eimPriorMode As eInteractionMode
     Dim sngStart As Single
+    Dim strLogFile As String
 
     LogUnhandledErrors
     On Error GoTo ErrHandler
@@ -190,6 +191,9 @@ CleanUp:
     BuildStatsDict colResults, dStats
     dStats.Add "elapsedSeconds", Round(Perf.MicroTimer - sngStart, 3)
 
+    strLogFile = FSO.BuildPath(strFixtureFolder & "logs", _
+        "ObjectRoundtrip_" & Log.OperationId & ".log")
+
     With Log
         .Spacer
         .Add T("Round-trip summary"), True, , "blue", True
@@ -201,6 +205,11 @@ CleanUp:
         .Add T("  Errors:            {0}", var0:=CStr(dStats("errors"))), , , _
             IIf(dStats("errors") > 0, "red", vbNullString), (dStats("errors") > 0)
         .Add T("  Elapsed (s):       {0}", var0:=CStr(dStats("elapsedSeconds")))
+        ' Echo the artifact paths as plain text. A failing run is almost always
+        ' followed by someone opening the log for the unified diffs, or the
+        ' scratch folder for the actual Pass 1 / Pass 2 output files.
+        .Add T("  Log file:          {0}", var0:=strLogFile)
+        .Add T("  Scratch folder:    {0}", var0:=strScratch)
         .Spacer
     End With
 
@@ -209,8 +218,7 @@ CleanUp:
     ' Persist the per-session log file with our custom prefix so it is easy
     ' to distinguish from Export/Build/Merge logs.
     On Error Resume Next
-    Log.SaveFile FSO.BuildPath(strFixtureFolder & "logs", _
-        "ObjectRoundtrip_" & Log.OperationId & ".log")
+    Log.SaveFile strLogFile
     Log.Active = False
     Log.Flush
     On Error GoTo 0
@@ -227,8 +235,7 @@ CleanUp:
     dResult.Add "fixtureFolder", strFixtureFolder
     dResult.Add "scratchFolder", strScratch
     dResult.Add "rebaseline", blnRebaseline
-    dResult.Add "logPath", FSO.BuildPath(strFixtureFolder & "logs", _
-        "ObjectRoundtrip_" & Log.OperationId & ".log")
+    dResult.Add "logPath", strLogFile
     dResult.Add "stats", dStats
     dResult.Add "results", CollectionToJsonArray(colResults)
 

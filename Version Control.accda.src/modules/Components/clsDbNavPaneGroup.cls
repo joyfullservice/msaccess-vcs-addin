@@ -1,4 +1,4 @@
-VERSION 1.0 CLASS
+﻿VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
@@ -96,7 +96,7 @@ Private Sub IDbComponent_Import(strFile As String)
             For intCategory = 1 To m_dItems("Items")("Categories").Count
                 Set dCategory = m_dItems("Items")("Categories")(intCategory)
                 ' Check for existing category with this name
-                lngCategoryID = Nz(DLookup("Id", "MSysNavPaneGroupCategories", "Type=4 and Name=""" & dCategory("Name") & """"), 0)
+                lngCategoryID = Nz(dLookup("Id", "MSysNavPaneGroupCategories", "Type=4 and Name=""" & dCategory("Name") & """"), 0)
                 If lngCategoryID = 0 Then
                     ' Add additional field values and create record
                     dCategory.Add "Type", 4
@@ -118,18 +118,18 @@ Private Sub IDbComponent_Import(strFile As String)
                     dGroup.Add "Object Type Group", -1
                     dGroup.Add "ObjectID", 0
                     ' Check for existing group with this name. (Such as Unassigned Objects)
-                    lngGroupID = Nz(DLookup("Id", "MSysNavPaneGroups", "GroupCategoryID=" & lngCategoryID & " AND Name=""" & dGroup("Name") & """"), 0)
+                    lngGroupID = Nz(dLookup("Id", "MSysNavPaneGroups", "GroupCategoryID=" & lngCategoryID & " AND Name=""" & dGroup("Name") & """"), 0)
                     If lngGroupID = 0 Then lngGroupID = LoadRecord("MSysNavPaneGroups", dGroup)
                     For intObject = 1 To dGroup("Objects").Count
                         Set dObject = dGroup("Objects")(intObject)
-                        lngObjectId = Nz(DLookup("Id", "MSysObjects", "Name=""" & dObject("Name") & """ AND Type=" & dObject("Type")), 0)
+                        lngObjectId = Nz(dLookup("Id", "MSysObjects", "Name=""" & dObject("Name") & """ AND Type=" & dObject("Type")), 0)
                         If lngObjectId <> 0 Then
                             dObject.Add "ObjectID", lngObjectId
                             dObject.Add "GroupID", lngGroupID
                             ' Change name to the name defined in this group. (Could be different from the object name)
                             dObject("Name") = dObject("NameInGroup")
                             ' Should not already be a link, but just in case...
-                            lngLinkID = Nz(DLookup("Id", "MSysNavPaneGroupToObjects", "ObjectID=" & lngObjectId & " AND GroupID = " & lngGroupID), 0)
+                            lngLinkID = Nz(dLookup("Id", "MSysNavPaneGroupToObjects", "ObjectID=" & lngObjectId & " AND GroupID = " & lngGroupID), 0)
                             If lngLinkID = 0 Then lngLinkID = LoadRecord("MSysNavPaneGroupToObjects", dObject)
                         End If
                     Next intObject

@@ -1,4 +1,4 @@
-VERSION 1.0 CLASS
+﻿VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
@@ -300,7 +300,7 @@ Private Sub DeleteSpecByName(strName As String)
     If Not TableExists("MSysIMEXSpecs") Then Exit Sub
 
     ' Attempt to look up spec by name
-    lngId = Nz(DLookup("SpecID", "MSysIMEXSpecs", "SpecName=""" & DblQ(strName) & """"))
+    lngId = Nz(dLookup("SpecID", "MSysIMEXSpecs", "SpecName=""" & DblQ(strName) & """"))
     If lngId > 0 Then
         ' Remove related records
         SharedDb.Execute "delete from MSysIMEXColumns where SpecID=" & lngId, dbFailOnError

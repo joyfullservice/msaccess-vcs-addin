@@ -544,9 +544,9 @@ For each fixture under `Testing/Fixtures/`, the harness:
 
 Output goes to three coordinated channels:
 
-- **`frmVCSMain` console** — live progress (one line per fixture).
+- **`frmVCSMain` console** — live progress (one line per fixture), then a summary that echoes the log file and scratch folder paths as plain text so they can be copied straight into an agent session.
 - **Per-session log file** — `Testing/Fixtures/logs/ObjectRoundtrip_<opId>.log`, with full unified diffs for any failures.
-- **JSON return value** — machine-parseable summary suitable for `vcs_run_vba` callers and CI.
+- **JSON return value** — machine-parseable summary suitable for `vcs_run_vba` callers and CI. Includes `logPath` and `scratchFolder`.
 
 All external invocations go through the public API method `VCS.RunRoundtripTests`. The implementation in `modTestRoundtrip.bas` uses `Option Private Module` so test internals stay hidden from cross-project `Application.Run` lookups, matching the rest of the add-in.
 

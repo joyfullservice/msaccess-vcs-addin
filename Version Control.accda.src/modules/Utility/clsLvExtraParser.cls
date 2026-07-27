@@ -24,7 +24,7 @@ Attribute VB_Exposed = False
 '           :   [16: window RECT (L,T,R,B as Longs)]
 '           :   [4: state Long]
 '           :   [16: designer pane RECT (L,T,R,B as Longs)]
-'           :   [8: grid origin (L,T as Longs)]
+'           :   [8: grid origin (T,L as Longs -- note the reversed order)]
 '           :   [4: ColumnsShown Long]
 '           :   [4: table count Long]
 '           :   [per table entry: 284 bytes fixed]
@@ -100,9 +100,12 @@ Public Function ParseLvExtra(bteData() As Byte) As Dictionary
     dPane.Add "bottom", ReadLong()
     dResult.Add "designerPane", dPane
 
-    ' Grid origin
-    dResult.Add "gridLeft", ReadLong()
+    ' Grid origin. The blob stores Top before Left -- the reverse of every other
+    ' RECT in this format, and the reverse of the qdef layout block, which
+    ' LoadFromText requires as Left then Top. Reading these in blob order and
+    ' labelling them (Left, Top) swapped the two values on every round trip.
     dResult.Add "gridTop", ReadLong()
+    dResult.Add "gridLeft", ReadLong()
 
     ' Columns shown
     dResult.Add "columnsShown", ReadLong()

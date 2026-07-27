@@ -10,6 +10,81 @@ context on trade-offs already evaluated.
 
 Agents: read this file before working on any module referenced here.
 
+---
+
+## 2026-07-27 — Grid origin is stored Top-first in LvExtra, Left-first in the qdef
+
+**Trigger**: Query `.json` files flipped `GridLeft` and `GridTop` on every round trip
+(243 of ~1800 queries in one production database; the rest have `0, 0`, which is why
+no fixture caught it).
+
+**Decision**: The `LvExtra` blob stores the grid origin as `(Top, Left)` — reversed
+relative to every other RECT in that format. `clsLvExtraParser` now assigns the first
+Long to `gridTop`. The qdef layout block keeps the opposite order: `EmitDesignLayout`
+writes `Left` before `Top`, because that is what `LoadFromText` demands.
+
+**Alternatives considered**: Reversing the qdef emitter instead. Rejected empirically —
+Access rejects the whole Design View import with `Expected: 'Left'. Found: Top.`, and
+the importer silently falls back to SQL View, dropping the layout for every Design View
+query. The round-trip harness caught this across 21 fixtures.
+
+**What this rules out**: Assuming the blob and the qdef agree on coordinate order. They
+do not, for this one field. Do not "tidy" either side into matching the other.
+
+**Fixture**: `qryRegressionGridOrigin` pins an asymmetric nonzero origin; every other
+fixture in the corpus has `0, 0` and cannot detect a swap.
+
+---
+
+## 2026-07-27 — Layout pipeline gets DB-free unit tests, not a nested round-trip subset
+
+**Trigger**: The grid origin swap survived every normal test run and only surfaced under
+`VCS.RunRoundtripTests`. Layer 1 covered SQL text and `MSysQueries` rows; nothing below
+the round-trip harness touched the binary `LvExtra` blob or the qdef layout block, so the
+one field where the reader and the writer disagree had no unit-level coverage at all.
+
+**Decision**: Add `clsTestQueryLayout` — a database-free class that synthesizes an
+`LvExtra` blob, parses it with `clsLvExtraParser`, and feeds the result through the public
+`clsQueryComposer.GenerateQdef`. Three tests pin the asymmetry: the blob reads Top-then-Left,
+the qdef emits Left-then-Top, and the composition of the two preserves the original values.
+The probe values are asymmetric and distinct from every other coordinate, so a swap cannot
+hide behind a coincidentally matching number.
+
+**Alternatives considered**: Running a curated subset of the round-trip corpus inside the
+normal suite. Rejected for now — `RunObjectRoundtripTests` calls `Operation.Begin` and
+`Log.Clear`, so nesting it inside a test run (itself an `eotTestRun` operation) would fail
+to start and would wipe the console output. Making the harness re-entrant is a real option,
+but it is a change to singleton ownership and not one to make immediately before a release.
+
+**What this rules out**: Treating "it round-trips through Access" as the only available
+check for binary-blob fields. Where a reader and a writer must disagree about ordering,
+pin each end separately against ground truth — a composed test alone passes when both
+ends flip together.
+
+## 2026-07-27 — Bracket-aware table-ref parsing in clsSqlSyntax
+
+**Trigger**: Production database build failures when join operands used bracketed
+multi-word table names (`[Car Models]`). `TryExtractSimpleTable` un-bracketed
+then split on the first space, truncating names and corrupting `MSysQueries`.
+
+**Decision**: Extract a pure `clsSqlSyntax` functional core with shared `SplitTableRef`
+(bracket-aware `AS` detection, no space split). Both `AddInputTable` and
+`TryExtractSimpleTable` derive the same reference key from identical operand text.
+`clsQueryComposer` delegates parsing helpers to a per-instance `m_syntax` member.
+
+**Alternatives considered**:
+- Surgical fix (only guard the space split for bracketed names) — rejected; left
+  embedded-`AS`, embedded-`JOIN`, and implicit-alias inconsistencies in place.
+- Standard module (`modSqlSyntax`) — rejected; would add ~15 public names to an
+  already crowded global namespace; class scoping keeps IntelliSense clean.
+
+**What this rules out**: Naive `InStr`/`Split` on un-bracketed table operands in
+join parsing. Any new table-ref extraction must go through `SplitTableRef` or share
+its bracket-aware keyword scanning.
+
+**Fixtures**: `qryRegressionSpacedTableNameJoin` (Layer 2), `clsTestSqlSyntax` and
+`clsTestQueryComposerJoins` (Layer 1 matrix + closed loop).
+
 ### When to log
 
 Log decisions that constrain future design, involved genuine alternatives,
@@ -1846,7 +1921,7 @@ single-object import.)*
 > multi-pattern folder enumeration" and "Batch file metadata (date+size) for source property
 > hashing" above.
 
-**Trigger**: Export profiling on a large database (`db-sec`, ~3,500 components) showed orphan scanning and file-extension migration checks dominated the "no changes" export time. Two separate problems: (1) `Dir()` does not support Unicode filenames — it silently skips or fails on paths containing non-ASCII characters, which Access databases frequently contain (accented characters, CJK object names). (2) `Scripting.FileSystemObject` (FSO) folder enumeration is correct but slow — each `oFolder.Files` / `oFolder.SubFolders` iteration creates COM proxy objects with per-item round-trip overhead.
+**Trigger**: Export profiling on a large production database (~3,500 components) showed orphan scanning and file-extension migration checks dominated the "no changes" export time. Two separate problems: (1) `Dir()` does not support Unicode filenames — it silently skips or fails on paths containing non-ASCII characters, which Access databases frequently contain (accented characters, CJK object names). (2) `Scripting.FileSystemObject` (FSO) folder enumeration is correct but slow — each `oFolder.Files` / `oFolder.SubFolders` iteration creates COM proxy objects with per-item round-trip overhead.
 
 **Options explored**:
 - **FSO-only** (drop `Dir()`, keep FSO for all scanning): rejected. Correct for Unicode but too slow — FSO `GetFolder().Files` on a 500-file export folder added measurable latency per component type during orphan cleanup.
@@ -1903,7 +1978,7 @@ stored query attributes.
 
 ## 2026-04-28 — Replace JSON index with binary `.idx` format and promote `clsVCSIndexItem` to persistent storage
 
-**Trigger**: On a large database (db-sec: ~3,500 component entries), the `vcs-index.json` file grew to 1.5MB / 40K lines. Parsing it via `modJsonConverter.ParseJson` consumed 1.5-2.2s per export — nearly half the total runtime for a no-changes export. The bottleneck was threefold: three `Replace()` calls stripping whitespace from a 1.5MB string, character-by-character recursive descent creating ~10,000 `Scripting.Dictionary` COM objects, and ~3,500 ISO 8601 date string parses.
+**Trigger**: On a large production database (~3,500 component entries), the `vcs-index.json` file grew to 1.5MB / 40K lines. Parsing it via `modJsonConverter.ParseJson` consumed 1.5-2.2s per export — nearly half the total runtime for a no-changes export. The bottleneck was threefold: three `Replace()` calls stripping whitespace from a 1.5MB string, character-by-character recursive descent creating ~10,000 `Scripting.Dictionary` COM objects, and ~3,500 ISO 8601 date string parses.
 
 **Options explored**:
 - **SQLite sidecar database**: Maximum query flexibility and proven binary format. Rejected: requires distributing and maintaining an external DLL dependency (`sqlite3.dll`), version management across 32/64-bit Access, and introduces a non-VBA dependency for a core infrastructure component.
@@ -1965,7 +2040,7 @@ A `DumpToJson` method is available for troubleshooting — it reconstructs a tem
 
 ## 2026-04-24 — Object round-trip regression harness lives inside the add-in, fixtures are versioned text files, queries pilot the IDbComponent abstraction, and the public surface routes through `clsVersionControl`
 
-**Trigger**: Post-`clsQueryComposer` work on the SQL/JSON query format surfaced ~723 affected queries in `db-sec` from a single self-join alias bug (`qryCurrencyCrossRates` archetype). Manual repro-and-fix is unsustainable as more edge cases land. Traditional VBA unit testing (Rubberduck-style or hand-rolled) would require hundreds of fixture queries hard-coded into the add-in — thousands of lines of VBA permanently loaded into memory in every running instance, for code paths that are only exercised during development. A different shape was needed.
+**Trigger**: Post-`clsQueryComposer` work on the SQL/JSON query format surfaced ~723 affected queries in a single production database from a self-join alias bug (`qryCurrencyCrossRates` archetype). Manual repro-and-fix is unsustainable as more edge cases land. Traditional VBA unit testing (Rubberduck-style or hand-rolled) would require hundreds of fixture queries hard-coded into the add-in — thousands of lines of VBA permanently loaded into memory in every running instance, for code paths that are only exercised during development. A different shape was needed.
 
 **Options explored**:
 - **Per-query VBA unit tests with hard-coded SQL strings**: rejected. Bloats the add-in's `.accda` permanently for a dev-only feature; every new edge case requires editing VBA and redeploying; no easy way to inspect the input/output of a specific failing case.
@@ -1979,7 +2054,7 @@ A `DumpToJson` method is available for troubleshooting — it reconstructs a tem
 - **Expose `RunObjectRoundtripTests` directly via `vcs_call_vba`** (which uses `Application.Run` and doesn't require `McpAllowRunVBA`): rejected as the *primary* path. The agent-friendliness gain isn't worth either keeping the module publicly exposed or carving out a private-module exception for `Application.Run` lookup. The harness *is* arbitrary code execution from the user's perspective (it imports/exports/deletes objects), so gating it behind the same `McpAllowRunVBA` opt-in that already governs `vcs_run_vba` is the correct security model — not a friction worth designing around.
 - **Single delegate method on `clsVersionControl` (`VCS.RunRoundtripTests`) with `Option Private Module` on `modTestRoundtrip.bas`**: chosen. Matches the established add-in pattern exactly (everything user-visible lives on `clsVersionControl`; implementation modules are private). One curated public symbol instead of N. Future helpers added to the test module are automatically blocked from external callers — no future-leak hazard. Immediate-Window dev access from inside the add-in's own VBE still works (`?modTestRoundtrip.RunObjectRoundtripTests()`) because `Option Private Module` only blocks cross-project lookups, not in-project ones. `RunOurFixtures` is dropped as redundant — `RunRoundtripTests()` with no args produces the identical zero-arg-shipped-corpus behavior.
 
-**Decision**: Implement `modTestRoundtrip.bas` inside the add-in with `Option Private Module` and `RunObjectRoundtripTests(Optional strFixtureFolder, Optional blnRebaseline)` as its single in-project entry point. Expose this externally through one public delegate, `clsVersionControl.RunRoundtripTests`, alongside the other dev/agent tools (`RunVBA`, `ExecuteSQL`, `CompileVBA`). External invocation: Immediate Window uses `?VCS.RunRoundtripTests`; MCP/CI uses `vcs_run_vba` with `MCP_TempFunction = VCS.RunRoundtripTests()` (gated by `McpAllowRunVBA`). Fixtures live in `Testing/Fixtures/<component>/<category>/` as plain text (`.sql` + `.json` for queries today; the slot is reserved for `forms/`, `reports/`, etc.) with a `_scaffold/` sibling folder for shared supporting objects loaded once per session. Each fixture runs through a two-pass round trip (import to `vcs_test_<name>_<hash>` sandbox, export, re-import, re-export) with three independent SHA-256 comparisons: Pass 1 vs. fixture, Pass 1 vs. Pass 2 (idempotency), JSON-with-`Info`-stripped both directions. Bloat is addressed structurally: random-suffix sandbox names allow parallel runs and unambiguous leftover detection, every fixture cleans up via `DoCmd.DeleteObject` + `DBEngine.Idle dbRefreshCache`, the run starts with a `CleanupStaleObjects` sweep over any `vcs_test_*` survivors from a crashed prior run, and `VCSIndex.Disabled = True` for the entire run prevents test operations from polluting `vcs-index.json`. Output flows through the existing `Log` singleton (live console in `frmVCSMain` + per-session `ObjectRoundtrip_<opId>.log` with full inline diffs) and a structured JSON return for programmatic parsing. Bug-as-fixture is the canonical contribution path: real-world failures from `db-sec` or user reports are distilled into a fixture under `regression/` with a `.notes.md` companion documenting the failure mode and resolution status — `qryCurrencyCrossRates` is the seed entry, currently failing as expected.
+**Decision**: Implement `modTestRoundtrip.bas` inside the add-in with `Option Private Module` and `RunObjectRoundtripTests(Optional strFixtureFolder, Optional blnRebaseline)` as its single in-project entry point. Expose this externally through one public delegate, `clsVersionControl.RunRoundtripTests`, alongside the other dev/agent tools (`RunVBA`, `ExecuteSQL`, `CompileVBA`). External invocation: Immediate Window uses `?VCS.RunRoundtripTests`; MCP/CI uses `vcs_run_vba` with `MCP_TempFunction = VCS.RunRoundtripTests()` (gated by `McpAllowRunVBA`). Fixtures live in `Testing/Fixtures/<component>/<category>/` as plain text (`.sql` + `.json` for queries today; the slot is reserved for `forms/`, `reports/`, etc.) with a `_scaffold/` sibling folder for shared supporting objects loaded once per session. Each fixture runs through a two-pass round trip (import to `vcs_test_<name>_<hash>` sandbox, export, re-import, re-export) with three independent SHA-256 comparisons: Pass 1 vs. fixture, Pass 1 vs. Pass 2 (idempotency), JSON-with-`Info`-stripped both directions. Bloat is addressed structurally: random-suffix sandbox names allow parallel runs and unambiguous leftover detection, every fixture cleans up via `DoCmd.DeleteObject` + `DBEngine.Idle dbRefreshCache`, the run starts with a `CleanupStaleObjects` sweep over any `vcs_test_*` survivors from a crashed prior run, and `VCSIndex.Disabled = True` for the entire run prevents test operations from polluting `vcs-index.json`. Output flows through the existing `Log` singleton (live console in `frmVCSMain` + per-session `ObjectRoundtrip_<opId>.log` with full inline diffs) and a structured JSON return for programmatic parsing. Bug-as-fixture is the canonical contribution path: real-world failures from production validation or user reports are distilled into a fixture under `regression/` with a `.notes.md` companion documenting the failure mode and resolution status — `qryCurrencyCrossRates` is the seed entry, currently failing as expected.
 
 **What this rules out**: Storing test fixtures inside any `.accdb` (must remain text files in the repo). Per-component bespoke comparison logic — new component types must conform to the import-export-compare shape and use the shared `Run<Type>Fixtures` dispatch. Loading fixture corpora that exceed sandbox-name uniqueness guarantees (the 7-hex-char suffix gives ~268M combinations per fixture name; collision-handling beyond that is not designed for). Adding *additional* test entry points to the add-in's external API surface without an explicit follow-up decision — `VCS.RunRoundtripTests` is the single sanctioned public method; future test categories (perf, validation, etc.) should add new module(s) under the `modTest*` convention with their own delegate methods on `clsVersionControl` rather than expanding the test modules' own public surface. Reaching the harness via `vcs_call_vba` (the lower-friction MCP path that doesn't require `McpAllowRunVBA`) — agents must use `vcs_run_vba` with the security gate enabled, by design. JSON comparison schemes that depend on specific field names (the `Info`-stripping strategy assumes the import path will continue to ignore `Info`; if a future format change makes `Info` semantically load-bearing, the comparator must change in lockstep). Combining the harness with operations that want to own the global `Operation` state — `RunObjectRoundtripTests` calls `Operation.Begin(eotOther)` and refuses to run if another operation is in flight, so it cannot be invoked from inside an active export/build/merge.
 
@@ -2876,7 +2951,7 @@ The ribbon button (`btnStandardizeLetterCasing`) is placed in the Advanced Tools
 
 ## 2026-03-13 — @Folder annotation caching: Static per-instance vs modObjects-level cache
 
-**Trigger**: After implementing `@Folder` annotation support (EFV 5.0.0), export logs from `C:\Repos\db-sec` showed "Clear Orphaned Files" consistently at 5-6 seconds on fast saves, even with zero modified objects. Root cause: `GetFolderAnnotation` reads the entire VBE code module via `cmpItem.CodeModule.Lines(1, 999999)` on every call, and `SourceFile` (which calls `GetFolderAnnotation`) was accessed multiple times per object per export — up to ~1,558 VBE COM calls for db-sec's 779 VBA-backed objects.
+**Trigger**: After implementing `@Folder` annotation support (EFV 5.0.0), export logs from a large production database showed "Clear Orphaned Files" consistently at 5-6 seconds on fast saves, even with zero modified objects. Root cause: `GetFolderAnnotation` reads the entire VBE code module via `cmpItem.CodeModule.Lines(1, 999999)` on every call, and `SourceFile` (which calls `GetFolderAnnotation`) was accessed multiple times per object per export — up to ~1,558 VBE COM calls for that database's 779 VBA-backed objects.
 
 **Options explored**:
 
@@ -2900,13 +2975,13 @@ The ribbon button (`btnStandardizeLetterCasing`) is placed in the Advanced Tools
 
 ## 2026-03-12 — Single-loop dual-populate for component cache slots
 
-**Trigger**: During fast-save export, each `IDbComponent` class's `GetAllFromDB` was called twice per category: first with `blnModifiedOnly=True` (scan for changes), then with `blnModifiedOnly=False` (orphan detection via `ClearOrphanedSourceFiles`). Each call independently iterated the full Access collection and instantiated new `clsDb*` objects. Performance logs from `C:\Repos\db-sec` (~412 forms, ~3694 queries, ~392 tables) showed "Clear Orphaned Files" consistently taking 5.2-6.0 seconds — pure waste from re-enumerating objects already visited during the scan phase. Combined with "Scan DB Objects" (6.2-28.3s), these two passes consumed 34-54% of total fast-save runtime.
+**Trigger**: During fast-save export, each `IDbComponent` class's `GetAllFromDB` was called twice per category: first with `blnModifiedOnly=True` (scan for changes), then with `blnModifiedOnly=False` (orphan detection via `ClearOrphanedSourceFiles`). Each call independently iterated the full Access collection and instantiated new `clsDb*` objects. Performance logs from a large production database (~412 forms, ~3694 queries, ~392 tables) showed "Clear Orphaned Files" consistently taking 5.2-6.0 seconds — pure waste from re-enumerating objects already visited during the scan phase. Combined with "Scan DB Objects" (6.2-28.3s), these two passes consumed 34-54% of total fast-save runtime.
 
 **Options explored**:
 
 - **Approach A — Single-loop dual-populate**: When `GetAllFromDB(True)` iterates the collection, always populate `m_Items(False)` (all items) alongside `m_Items(True)` (modified items). The subsequent `GetAllFromDB(False)` call from `ClearOrphanedSourceFiles` hits the warm cache. A `blnNeedAll` flag prevents resetting `m_Items(False)` if it was already populated. Chosen.
 - **Approach B — Lazy IsModified flag on instances**: Replace two-slot cache with a single dictionary of all items; cache `IsModified` results per instance and filter on demand. Conceptually clean, but filtering creates a new dictionary each time unless cached — reintroducing two-slot complexity. More invasive with no benefit over Approach A. Rejected.
-- **Approach C — Lightweight orphan detection (no full instantiation)**: `ClearOrphanedSourceFiles` only needs base names, not full component instances. A new interface method could return just names. Initially dismissed as over-engineered, but db-sec logs proved orphan detection IS a bottleneck (5-6s consistently). However, Approach A eliminates the cost entirely without requiring interface changes, making Approach C unnecessary. Rejected.
+- **Approach C — Lightweight orphan detection (no full instantiation)**: `ClearOrphanedSourceFiles` only needs base names, not full component instances. A new interface method could return just names. Initially dismissed as over-engineered, but production logs proved orphan detection IS a bottleneck (5-6s consistently). However, Approach A eliminates the cost entirely without requiring interface changes, making Approach C unnecessary. Rejected.
 
 **Decision**: Applied the single-loop dual-populate pattern to all 29 component classes implementing `IDbComponent`. Three implementation variants based on how each class determines modification:
 
@@ -2930,7 +3005,7 @@ Single-object classes (`clsDbProject`, `clsDbVbeProject`) also received the tran
 
 ## 2026-03-12 — SharedDb: shared CurrentDb reference across component classes
 
-**Trigger**: Export of `sec.accdb` (~6,870 objects, ~567 with descriptions) took ~47s on fast save. Benchmarking revealed the bottleneck was **cold DAO property value reads** in `clsDbDocument.GetDictionary`: iterating Container/Document objects and reading `Description` values took ~18s due to physical disk I/O in the JET engine loading scattered property-value pages. Multiple component classes each called `Set dbs = CurrentDb` independently, and each new `CurrentDb` reference starts with a cold JET page cache (per-reference caching). This meant duplicate cold I/O penalties when multiple components accessed the same data.
+**Trigger**: Export of a large production database (~6,870 objects, ~567 with descriptions) took ~47s on fast save. Benchmarking revealed the bottleneck was **cold DAO property value reads** in `clsDbDocument.GetDictionary`: iterating Container/Document objects and reading `Description` values took ~18s due to physical disk I/O in the JET engine loading scattered property-value pages. Multiple component classes each called `Set dbs = CurrentDb` independently, and each new `CurrentDb` reference starts with a cold JET page cache (per-reference caching). This meant duplicate cold I/O penalties when multiple components accessed the same data.
 
 **Options explored**:
 
@@ -3486,7 +3561,7 @@ For the UI notification, the main form (`frmVCSMain`) shows a clickable `lblForm
 
 > **⚠ Partially superseded** (2026-03-10): References to `modImportExport.bas` below should now read `modExport.bas` (skip-count logging). See "Split modImportExport into modExport, modBuild, modSourceUpgrade" above.
 
-**Trigger**: After building a database from source, a subsequent "fast save" export re-exported every single object (e.g., all 3,673 queries in `sec.accdb`, taking ~1,600s). The existing `IsModified` logic compared `DateModified > ExportDate`, but every object received a fresh `DateModified` from Access during import, making all objects appear modified.
+**Trigger**: After building a database from source, a subsequent "fast save" export re-exported every single object (e.g., all 3,673 queries in a large production database, taking ~1,600s). The existing `IsModified` logic compared `DateModified > ExportDate`, but every object received a fresh `DateModified` from Access during import, making all objects appear modified.
 
 **Options explored**:
 
@@ -3660,7 +3735,7 @@ Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", 
 
 **Options explored**:
 - **Fall back to `QueryDefs(name).SQL` (legacy path)** — rejected: the new pipeline was designed to generate its own `.qdef` rather than receive a pre-baked one, and falling back to the legacy path would lose design layout. The bug was in the emitter, not in `LoadFromText`.
-- **Store per-condition table pairs in the `.json` companion** — rejected: the table pair for each condition is derivable from the condition expression itself (e.g., `tblFunds.FundID = tblAssociates.fldFundID` clearly references `tblFunds` and `tblAssociates`). Adding explicit storage would be redundant.
+- **Store per-condition table pairs in the `.json` companion** — rejected: the table pair for each condition is derivable from the condition expression itself (e.g., `tblCars.ID = tblCarsModel.CarID` clearly references `tblCars` and `tblCarsModel`). Adding explicit storage would be redundant.
 - **Extract per-condition table pairs from the expression at emit time (chosen)** — the emitter already has `ExtractTableFromOnSide` available. Using it for each split condition, with a fallback to the parent join's tables if extraction fails, is correct, minimal, and preserves backward compatibility.
 
 **Decision**: `EmitDesignViewQdef` now calls `ExtractTableFromOnSide(condition, True)` and `ExtractTableFromOnSide(condition, False)` for each individual condition in a split compound `ON` clause. Falls back to the parent join's `leftTable`/`rightTable` only if extraction returns empty.

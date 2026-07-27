@@ -411,6 +411,7 @@ contribute a fixture (see the bug-as-fixture workflow in
 | Scalar `SELECT 1 ... AS X` subqueries in projection | No fixture. Riddington Part 1 § 27 example uses `Exists (SELECT 1 ...)` inside a DELETE; only the outer DELETE shape is currently exercised. |
 | `INSERT INTO ... VALUES (...)` (literal append)    | No fixture. Differs structurally from `INSERT INTO ... SELECT` (uses Attribute 6 Flag = -32768 for VALUES literals).           |
 | Non-equi joins (`A.x > B.y`)                       | No fixture. Cannot be displayed in Design View — would be SQL-View-only and may need to land alongside the multi-cond `ON` asymmetry in § 6. |
+| Function calls in ON-clause operands (`Left(a.x,3)=b.y`) | **Known parser gap.** `ExtractTableFromOnSide` splits on the first `=` and takes the token before the first dot; it is not expression-aware. Non-equi/expression joins are largely gated by `IsDesignerCompatible`, but a fixture is still warranted if this shape is observed in production. |
 | External-database joins (`IN '...'` clause)        | No fixture. Attribute 4 carries the connect string; verify it round-trips.                                                     |
 
 When adding a fixture for any of the above, follow the contribution

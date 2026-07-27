@@ -1,0 +1,9 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionSpacedTableNameJoin"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

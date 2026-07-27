@@ -1,4 +1,4 @@
-VERSION 1.0 CLASS
+﻿VERSION 1.0 CLASS
 BEGIN
   MultiUse = -1  'True
 END
@@ -189,6 +189,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     ' Step 3: Reconstruct SQL from MSysQueries rows
     Perf.OperationStart "Reconstruct SQL"
     Set cComposer = New clsQueryComposer
+    cComposer.ContextLabel = strQueryName
     strSql = cComposer.ReconstructSQL(colRows)
     Perf.OperationEnd
 

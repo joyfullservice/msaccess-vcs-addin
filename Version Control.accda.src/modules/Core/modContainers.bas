@@ -230,17 +230,17 @@ End Function
 '           : parameter so callers can pass either an enum or a string.
 '---------------------------------------------------------------------------------------
 '
-Public Function ResolveComponentTypeArg(varType As Variant) As eDatabaseComponentType
+Public Function ResolveComponentTypeArg(VarType As Variant) As eDatabaseComponentType
 
     Dim dblType As Double
     Dim lngType As Long
 
     ResolveComponentTypeArg = -1
 
-    If IsNull(varType) Or IsEmpty(varType) Then Exit Function
+    If IsNull(VarType) Or IsEmpty(VarType) Then Exit Function
 
-    If IsNumeric(varType) Then
-        dblType = CDbl(varType)
+    If IsNumeric(VarType) Then
+        dblType = CDbl(VarType)
         If dblType <> Fix(dblType) Then Exit Function
         lngType = CLng(dblType)
         If lngType >= 0 And lngType < eDatabaseComponentType.[_Last] Then
@@ -249,7 +249,7 @@ Public Function ResolveComponentTypeArg(varType As Variant) As eDatabaseComponen
             End If
         End If
     Else
-        ResolveComponentTypeArg = ResolveComponentType(CStr(varType))
+        ResolveComponentTypeArg = ResolveComponentType(CStr(VarType))
     End If
 
 End Function
@@ -795,13 +795,13 @@ End Function
 ' Purpose   : Safe display of a type argument for error messages.
 '---------------------------------------------------------------------------------------
 '
-Private Function FormatTypeArg(varType As Variant) As String
-    If IsNull(varType) Then
+Private Function FormatTypeArg(varArgType As Variant) As String
+    If IsNull(varArgType) Then
         FormatTypeArg = "Null"
-    ElseIf IsEmpty(varType) Then
+    ElseIf IsEmpty(varArgType) Then
         FormatTypeArg = "Empty"
     Else
-        FormatTypeArg = CStr(varType)
+        FormatTypeArg = CStr(varArgType)
     End If
 End Function
 
