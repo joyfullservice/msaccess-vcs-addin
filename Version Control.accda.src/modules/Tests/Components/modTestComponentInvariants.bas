@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestComponentInvariants"
+﻿Attribute VB_Name = "modTestComponentInvariants"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestComponentInvariants
 ' Author    : Adam Waller

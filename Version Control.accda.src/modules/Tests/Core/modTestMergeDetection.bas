@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestMergeDetection"
+﻿Attribute VB_Name = "modTestMergeDetection"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestMergeDetection
 ' Author    : Adam Waller

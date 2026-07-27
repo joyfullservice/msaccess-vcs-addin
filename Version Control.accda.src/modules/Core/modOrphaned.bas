@@ -1,4 +1,4 @@
-Attribute VB_Name = "modOrphaned"
+﻿Attribute VB_Name = "modOrphaned"
 '---------------------------------------------------------------------------------------
 ' Module    : modOrphaned
 ' Author    : Adam Waller

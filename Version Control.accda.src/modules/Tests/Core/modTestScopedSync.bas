@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestScopedSync"
+﻿Attribute VB_Name = "modTestScopedSync"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestScopedSync
 ' Author    : Adam Waller
