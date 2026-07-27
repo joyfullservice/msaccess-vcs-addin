@@ -11,6 +11,10 @@ Option Explicit
 Option Private Module
 '@Folder("Tests.Core")
 
+' WriteFile deletes the target when handed an empty string, so fixture files must
+' carry content to exist on disk.
+Private Const FixtureContent As String = "vcs orphan test fixture"
+
 
 Public Sub TestFormAllScopeIncludesSidecars()
     Dim cForm As IDbComponent
@@ -33,9 +37,14 @@ End Sub
 Public Sub TestClearOrphanedComponentArtifactsRemovesSidecars()
     Dim cForm As IDbComponent
     Dim dBaseNames As Dictionary
+    Dim strSavedFolder As String
+    Dim strRoot As String
     Dim strFolder As String
     Dim strFake As String
     Dim varExt As Variant
+
+    strSavedFolder = BeginOrphanSandbox(strRoot)
+    On Error GoTo CleanUp
 
     Set cForm = New clsDbForm
     Set dBaseNames = New Dictionary
@@ -47,7 +56,7 @@ Public Sub TestClearOrphanedComponentArtifactsRemovesSidecars()
     VerifyPath strFolder
 
     For Each varExt In cForm.FileExtensions(efesAll)
-        WriteFile "", strFolder & strFake & "." & varExt
+        WriteFile FixtureContent, strFolder & strFake & "." & varExt
     Next varExt
 
     ClearOrphanedComponentArtifacts cForm, dBaseNames
@@ -61,16 +70,22 @@ Public Sub TestClearOrphanedComponentArtifactsRemovesSidecars()
     End If
     TestAssert FSO.FileExists(strFolder & strFake & ".cls"), "indexed cls untouched"
 
-    CleanupOrphanTestFiles cForm, strFake
+CleanUp:
+    EndOrphanSandbox strSavedFolder, strRoot
 End Sub
 
 
 Public Sub TestClearOrphanedComponentArtifactsPreservesLiveObject()
     Dim cForm As IDbComponent
     Dim dBaseNames As Dictionary
+    Dim strSavedFolder As String
+    Dim strRoot As String
     Dim strFolder As String
     Dim strKeep As String
     Dim varExt As Variant
+
+    strSavedFolder = BeginOrphanSandbox(strRoot)
+    On Error GoTo CleanUp
 
     Set cForm = New clsDbForm
     Set dBaseNames = New Dictionary
@@ -82,7 +97,7 @@ Public Sub TestClearOrphanedComponentArtifactsPreservesLiveObject()
     VerifyPath strFolder
 
     For Each varExt In cForm.FileExtensions(efesAll)
-        WriteFile "", strFolder & strKeep & "." & varExt
+        WriteFile FixtureContent, strFolder & strKeep & "." & varExt
     Next varExt
 
     ClearOrphanedComponentArtifacts cForm, dBaseNames
@@ -91,15 +106,21 @@ Public Sub TestClearOrphanedComponentArtifactsPreservesLiveObject()
         TestAssert FSO.FileExists(strFolder & strKeep & "." & varExt), "kept live " & varExt
     Next varExt
 
-    CleanupOrphanTestFiles cForm, strKeep
+CleanUp:
+    EndOrphanSandbox strSavedFolder, strRoot
 End Sub
 
 
 Public Sub TestClearOrphanedArtifactFoldersRemovesOrphanCommandBarImages()
     Dim cBar As IDbComponent
     Dim dBaseNames As Dictionary
+    Dim strSavedFolder As String
+    Dim strRoot As String
     Dim strFolder As String
     Dim strFake As String
+
+    strSavedFolder = BeginOrphanSandbox(strRoot)
+    On Error GoTo CleanUp
 
     Set cBar = New clsDbCommandBar
     Set dBaseNames = New Dictionary
@@ -109,20 +130,28 @@ Public Sub TestClearOrphanedArtifactFoldersRemovesOrphanCommandBarImages()
     strFolder = cBar.BaseFolder
     strFake = "vcs_test_orphan_fakebar"
     VerifyPath strFolder
-    VerifyPath strFolder & strFake & "_Images"
-    WriteFile "", strFolder & strFake & "_Images\orphan.bmp"
+    VerifyPath strFolder & strFake & "_Images" & PathSep
+    WriteFile FixtureContent, strFolder & strFake & "_Images" & PathSep & "orphan.bmp"
 
     ClearOrphanedArtifactFolders cBar, dBaseNames, "_Images"
 
     TestAssert Not FSO.FolderExists(strFolder & strFake & "_Images"), "orphan images folder removed"
+
+CleanUp:
+    EndOrphanSandbox strSavedFolder, strRoot
 End Sub
 
 
 Public Sub TestClearOrphanedArtifactFoldersPreservesLiveCommandBarImages()
     Dim cBar As IDbComponent
     Dim dBaseNames As Dictionary
+    Dim strSavedFolder As String
+    Dim strRoot As String
     Dim strFolder As String
     Dim strKeep As String
+
+    strSavedFolder = BeginOrphanSandbox(strRoot)
+    On Error GoTo CleanUp
 
     Set cBar = New clsDbCommandBar
     Set dBaseNames = New Dictionary
@@ -132,25 +161,28 @@ Public Sub TestClearOrphanedArtifactFoldersPreservesLiveCommandBarImages()
 
     strFolder = cBar.BaseFolder
     VerifyPath strFolder
-    VerifyPath strFolder & strKeep & "_Images"
-    WriteFile "", strFolder & strKeep & "_Images\keep.bmp"
+    VerifyPath strFolder & strKeep & "_Images" & PathSep
+    WriteFile FixtureContent, strFolder & strKeep & "_Images" & PathSep & "keep.bmp"
 
     ClearOrphanedArtifactFolders cBar, dBaseNames, "_Images"
 
     TestAssert FSO.FolderExists(strFolder & strKeep & "_Images"), "live images folder preserved"
 
-    LogUnhandledErrors
-    On Error Resume Next
-    FSO.DeleteFolder strFolder & strKeep & "_Images", True
-    On Error GoTo 0
+CleanUp:
+    EndOrphanSandbox strSavedFolder, strRoot
 End Sub
 
 
 Public Sub TestClearOrphanedArtifactFoldersRemovesOrphanThemeFolder()
     Dim cTheme As IDbComponent
     Dim dBaseNames As Dictionary
+    Dim strSavedFolder As String
+    Dim strRoot As String
     Dim strFolder As String
     Dim strFake As String
+
+    strSavedFolder = BeginOrphanSandbox(strRoot)
+    On Error GoTo CleanUp
 
     Set cTheme = New clsDbTheme
     Set dBaseNames = New Dictionary
@@ -160,20 +192,49 @@ Public Sub TestClearOrphanedArtifactFoldersRemovesOrphanThemeFolder()
     strFolder = cTheme.BaseFolder
     strFake = "vcs_test_orphan_faketheme"
     VerifyPath strFolder
-    VerifyPath strFolder & strFake
-    WriteFile "", strFolder & strFake & "\theme.xml"
+    VerifyPath strFolder & strFake & PathSep
+    WriteFile FixtureContent, strFolder & strFake & PathSep & "theme.xml"
 
     ClearOrphanedArtifactFolders cTheme, dBaseNames
 
     TestAssert Not FSO.FolderExists(strFolder & strFake), "orphan theme folder removed"
+
+CleanUp:
+    EndOrphanSandbox strSavedFolder, strRoot
 End Sub
 
 
-Private Sub CleanupOrphanTestFiles(cmp As IDbComponent, strBase As String)
-    Dim varExt As Variant
-    For Each varExt In cmp.FileExtensions(efesAll)
-        DeleteFile cmp.BaseFolder & strBase & "." & varExt, True
-    Next varExt
+'---------------------------------------------------------------------------------------
+' Procedure : BeginOrphanSandbox
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Redirect the export folder to a scratch folder so orphan-cleanup fixtures
+'           : never write into (or delete from) the live source tree. Returns the prior
+'           : ExportFolder value and reports the scratch root through strRoot.
+'---------------------------------------------------------------------------------------
+'
+Private Function BeginOrphanSandbox(ByRef strRoot As String) As String
+    BeginOrphanSandbox = Options.ExportFolder
+    strRoot = GetTempFolder("vcs_orphan") & PathSep
+    Options.ExportFolder = strRoot
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EndOrphanSandbox
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Restore the export folder and discard the scratch folder. Restoring the
+'           : option matters more than the cleanup, so it happens first.
+'---------------------------------------------------------------------------------------
+'
+Private Sub EndOrphanSandbox(strSavedFolder As String, strRoot As String)
+    Options.ExportFolder = strSavedFolder
+    LogUnhandledErrors
+    On Error Resume Next
+    If FSO.FolderExists(strRoot) Then FSO.DeleteFolder StripSlash(strRoot), True
+    Err.Clear
+    On Error GoTo 0
 End Sub
 
 
