@@ -1,4 +1,4 @@
-﻿<!-- BEGIN HEADER -->
+<!-- BEGIN HEADER -->
 
 # Decision Log
 
@@ -99,12 +99,31 @@ contradictory guidance.
 
 ---
 
+## 2026-07-20 — Index companion `.json` for merge detection and `AllFilesHash`
+
+**Trigger**: Metadata-only edits to a form/report companion `.json` (Description, Hidden) were not picked up by `MergeBuild`. Root causes: (1) form/report `.json` was excluded from indexed `FileExtensions`; (2) even where `.json` was indexed (modules, queries, table defs, macros), `GetModifiedSourceFiles` confirmed timestamp drift via primary-file content hash only, masking companion-only changes. Macros also gated `.json` emission to the real export path while indexing it — a latent `GetDifferingFiles` false-conflict risk.
+
+**Options explored**:
+- **Rely on `MetaHash` only**: rejected. `MetaHash` reads live DB state and does not detect hand-edited source `.json`; the `.json` can also hold `ConditionalFormatting` and other sections beyond Description/Hidden.
+- **Add `.json` to indexed set without fixing fallback**: rejected. Property-hash drift would still be dismissed when the primary file was unchanged.
+- **Index `.json` + combined `AllFilesHash` content fallback**: chosen. Forms/reports add `json` to `efesIndexed` (`efesAll` adds `svg` only). All three components that gated metadata writes (form, report, macro) now emit `.json` on alternate/temp exports (matching modules/table defs/queries). `GetSourceFilesContentHash` hashes all indexed files; stored as `AllFilesHash` on index entries (flag bit 32, no index format-version bump). `GetModifiedSourceFiles` uses `AllFilesHash` when present; legacy entries fall back to primary-only until re-synced.
+
+**Decision**: Comprehensive fix — the fallback benefits every multi-file component. Component-specific edits limited to form/report (index + alt emit) and macro (alt emit only).
+
+**What this rules out**: Treating form/report `.json` as derived-only (`efesAll` sidecar). Derived `.svg` previews remain unindexed. Index format version was not bumped — `AllFilesHash` populates on next export/import per object.
+
+**Relevant files**: `clsVCSIndex.cls`, `clsVCSIndexItem.cls`, `modContainers.bas`, `clsDbForm.cls`, `clsDbReport.cls`, `clsDbMacro.cls`, `modTestMergeDetection.bas`, `modTestOrphaned.bas`.
+
+---
+
 ## 2026-07-20 — Scoped `FileExtensions` for artifact cleanup and moves
+
+> **⚠ Partially superseded** (2026-07-20): Form/report companion `.json` is now in `efesIndexed` (authoritative metadata), not `efesAll` only. `.svg` remains `efesAll`-only. See "Index companion `.json` for merge detection and `AllFilesHash`" above.
 
 **Trigger**: Orphan cleanup and `MoveSource` duplicated hardcoded extension lists (form/report `.json`/`.svg`, query legacy files, etc.) separate from `FileExtensions`, which intentionally excludes derived sidecars from the index because `GetDifferingFiles` uses a strict file-count match (see 2026-05-05 entry). A single declaration site was needed for “all files this component writes” without polluting change detection.
 
 **Options explored**:
-- **Add sidecars to `FileExtensions`**: rejected at the time for derived `.svg` and conflict noise.
+- **Add sidecars to `FileExtensions`**: rejected at the time for derived `.svg` and conflict noise; form/report `.json` was later indexed separately once alternate-path emission was aligned (see superseding entry).
 - **Separate `ArtifactExtensions` property**: rejected. Third parallel list to maintain; same drift risk as hardcoded cleanup arrays.
 - **Optional `Scope` on `FileExtensions`** (`efesIndexed` default, `efesAll` adds sidecars): chosen. Indexed consumers unchanged; `ClearOrphanedComponentArtifacts`, `MoveComponentSource`, and tests read `efesAll`. Folder artifacts (`_Images`, theme folders) are not object-named flat files and stay on the folder cleanup path.
 

@@ -58,6 +58,7 @@ Private Const cbytFlagOtherHash As Byte = 2
 Private Const cbytFlagMetaHash As Byte = 4
 Private Const cbytFlagFilePropertiesHash As Byte = 8
 Private Const cbytFlagFolderAnnotation As Byte = 16
+Private Const cbytFlagAllFilesHash As Byte = 32
 
 ' UDTs for LSet Double <-> Byte() punning
 Private Type tDoubleBytes
@@ -187,6 +188,7 @@ Public Sub LoadFromFile(Optional strFile As String)
             If (bFlags And cbytFlagMetaHash) Then cEntry.MetaHash = ReadLPS(bData, lngPos)
             If (bFlags And cbytFlagFilePropertiesHash) Then cEntry.FilePropertiesHash = ReadLPS(bData, lngPos)
             If (bFlags And cbytFlagFolderAnnotation) Then cEntry.FolderAnnotation = ReadLPS(bData, lngPos)
+            If (bFlags And cbytFlagAllFilesHash) Then cEntry.AllFilesHash = ReadLPS(bData, lngPos)
 
             dCategory.Add strFileName, cEntry
         Next lngItem
@@ -293,6 +295,7 @@ Public Sub Save(Optional strInFolder As String)
             If Len(cEntry.MetaHash) > 0 Then bFlags = bFlags Or cbytFlagMetaHash
             If Len(cEntry.FilePropertiesHash) > 0 Then bFlags = bFlags Or cbytFlagFilePropertiesHash
             If Len(cEntry.FolderAnnotation) > 0 Then bFlags = bFlags Or cbytFlagFolderAnnotation
+            If Len(cEntry.AllFilesHash) > 0 Then bFlags = bFlags Or cbytFlagAllFilesHash
             WriteByte bFlags
 
             ' Fixed date fields (UTC)
@@ -307,6 +310,7 @@ Public Sub Save(Optional strInFolder As String)
             If (bFlags And cbytFlagMetaHash) Then WriteLPS cEntry.MetaHash
             If (bFlags And cbytFlagFilePropertiesHash) Then WriteLPS cEntry.FilePropertiesHash
             If (bFlags And cbytFlagFolderAnnotation) Then WriteLPS cEntry.FolderAnnotation
+            If (bFlags And cbytFlagAllFilesHash) Then WriteLPS cEntry.AllFilesHash
         Next varFile
     Next varCat
 
@@ -409,6 +413,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
             dteDateTime = GetSourceModifiedDate(cItem, cItem.SourceFile)
             .SourceModified = dteDateTime
             .FilePropertiesHash = GetSourceFilesPropertyHash(cItem)
+            .AllFilesHash = GetSourceFilesContentHash(cItem)
         End If
     End With
 
@@ -457,6 +462,7 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
             .OtherHash = cAltItem.OtherHash
             .MetaHash = cAltItem.MetaHash
             .FilePropertiesHash = cAltItem.FilePropertiesHash
+            .AllFilesHash = cAltItem.AllFilesHash
             .FolderAnnotation = cAltItem.FolderAnnotation
             .ExportDate = cAltItem.ExportDate
             .ImportDate = cAltItem.ImportDate
@@ -796,20 +802,31 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
                     ' Get hash of current source files (date/size sourced from the
                     ' single folder scan above instead of per-file FSO.GetFile).
                     strHash = GetSourceFilesPropertyHash(cCategory, strFile, dMeta)
-                    ' File is considered not modified if the index hash matches the current hash.
-                    blnModified = Not (Me.Item(cCategory, strFile).FilePropertiesHash = strHash)
-                    ' Content-hash fallback: if property hash differs (e.g. git
-                    ' checkout touched timestamps without changing content), verify
-                    ' by comparing the stored file content hash.
-                    If blnModified Then
-                        strStoredHash = Me.Item(cCategory, strFile).FileHash
-                        If Len(strStoredHash) > 0 Then
-                            blnModified = (strStoredHash <> GetFileHash(strFile))
-                            If Not blnModified Then
-                                ' Content unchanged -- refresh stale property hash so this
-                                ' fallback doesn't repeat on the next operation.
+                    If Len(Me.Item(cCategory, strFile).AllFilesHash) > 0 Then
+                        ' Combined content hash is authoritative when present: detects
+                        ' companion-only edits and ignores timestamp-only drift.
+                        blnModified = (Me.Item(cCategory, strFile).AllFilesHash <> _
+                            GetSourceFilesContentHash(cCategory, strFile))
+                        If Not blnModified Then
+                            ' Content unchanged -- refresh any stale property metadata.
+                            If Me.Item(cCategory, strFile).FilePropertiesHash <> strHash Then
                                 Me.Item(cCategory, strFile).FilePropertiesHash = strHash
-                                Me.Item(cCategory, strFile).SourceModified = GetSourceModifiedDate(cCategory, strFile)
+                                Me.Item(cCategory, strFile).SourceModified = _
+                                    GetSourceModifiedDate(cCategory, strFile)
+                            End If
+                        End If
+                    Else
+                        ' Legacy entries without AllFilesHash (pre-upgrade index).
+                        blnModified = Not (Me.Item(cCategory, strFile).FilePropertiesHash = strHash)
+                        If blnModified Then
+                            strStoredHash = Me.Item(cCategory, strFile).FileHash
+                            If Len(strStoredHash) > 0 Then
+                                blnModified = (strStoredHash <> GetFileHash(strFile))
+                                If Not blnModified Then
+                                    Me.Item(cCategory, strFile).FilePropertiesHash = strHash
+                                    Me.Item(cCategory, strFile).SourceModified = _
+                                        GetSourceModifiedDate(cCategory, strFile)
+                                End If
                             End If
                         End If
                     End If
@@ -1284,6 +1301,7 @@ Public Sub DumpToJson(Optional strPath As String)
                 If cEntry.ImportDate <> 0 Then dEntryOut.Add "ImportDate", cEntry.ImportDate
                 dEntryOut.Add "SourceModified", ZNDate(cEntry.SourceModified)
                 If Len(cEntry.FilePropertiesHash) > 0 Then dEntryOut.Add "FilePropertiesHash", cEntry.FilePropertiesHash
+                If Len(cEntry.AllFilesHash) > 0 Then dEntryOut.Add "AllFilesHash", cEntry.AllFilesHash
                 If Len(cEntry.OtherHash) > 0 Then dEntryOut.Add "OtherHash", cEntry.OtherHash
                 If Len(cEntry.MetaHash) > 0 Then dEntryOut.Add "MetaHash", cEntry.MetaHash
                 If cEntry.ObjectDate <> 0 Then dEntryOut.Add "ObjectDate", cEntry.ObjectDate

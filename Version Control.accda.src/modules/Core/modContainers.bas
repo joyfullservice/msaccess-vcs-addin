@@ -718,6 +718,39 @@ Public Function GetSourceFilesPropertyHash(cmp As IDbComponent, Optional strFile
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : GetSourceFilesContentHash
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Return a hash of the content of all indexed source files for a component.
+'           : Used by merge change-detection to detect companion-file-only edits.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSourceFilesContentHash(cmp As IDbComponent, Optional strFile As String) As String
+
+    Dim varExt As Variant
+    Dim strSourceFile As String
+    Dim strBaseFile As String
+
+    Perf.OperationStart "Get File Content Hash"
+
+    If Len(strFile) Then
+        strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(strFile), FSO.GetBaseName(strFile))
+    Else
+        strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(cmp.SourceFile), FSO.GetBaseName(cmp.SourceFile))
+    End If
+
+    With New clsConcat
+        For Each varExt In cmp.FileExtensions
+            strSourceFile = strBaseFile & "." & varExt
+            If FSO.FileExists(strSourceFile) Then .Add GetFileHash(strSourceFile)
+        Next varExt
+        GetSourceFilesContentHash = GetStringHash(.GetStr)
+        Perf.OperationEnd
+    End With
+
+End Function
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ComponentTypeInProject

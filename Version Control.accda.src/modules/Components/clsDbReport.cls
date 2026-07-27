@@ -57,10 +57,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     strHash = SaveComponentAsText(acReport, m_Report.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
 
-    ' Export object metadata (doc properties + hidden attribute) into companion .json
-    If strAlternatePath = vbNullString Then
-        ExportObjectMetadata SwapExtension(IDbComponent_SourceFile, "json"), "Reports", m_Report.Name, Me
-    End If
+    ' Export object metadata (doc properties + hidden attribute) into companion .json.
+    ' Produced for both normal and alternate-path (temp) exports so that conflict
+    ' detection and merge change-detection can compare all indexed files.
+    ExportObjectMetadata SwapExtension(Nz2(strAlternatePath, IDbComponent_SourceFile), "json"), _
+        "Reports", m_Report.Name, Me
 
     ' Generate layout SVG if enabled
     If strAlternatePath = vbNullString Then
@@ -288,8 +289,10 @@ Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensio
         IDbComponent_FileExtensions.Add "bas"
     End If
     IDbComponent_FileExtensions.Add "cls"
-    If Scope = efesAll Then
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
         IDbComponent_FileExtensions.Add "json"
+    End If
+    If Scope = efesAll Then
         IDbComponent_FileExtensions.Add "svg"
     End If
 End Property
