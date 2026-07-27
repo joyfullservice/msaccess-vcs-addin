@@ -81,6 +81,39 @@ contradictory guidance.
 
 ---
 
+## 2026-07-27 — Web runner: copy test-state path and save TestRun log
+
+**Trigger**: Users want to paste a test-results file path into an agent chat after a
+web-runner run. Investigation also found web runs never called `Log.SaveFile`, so
+`TestRun_*.log` was not written despite `Log.Active = True` during bridge runs.
+
+**Options explored**:
+- **`test-results.html`** — rejected for agent handoff: same data as state JSON but
+  inlined in a large HTML/CSS/JS shell; poor token efficiency for agents.
+- **`logs/TestResults_<timestamp>.json`** — rejected as the copy target: ephemeral
+  per-run filename changes every run; `test-state.json` has a stable path and merges
+  partial runs.
+- **`logs/TestRun_*.log`** — useful for human debugging but not the primary agent
+  artifact; log save is fixed separately so both tiers exist after web runs.
+- **`test-results/test-state.json` (chosen)** — stable path, always written by
+  `MergeAndSave`, rich per-test fields (`moduleName`, `procName`, `line`, assertions,
+  `loggedErrors`, tags).
+
+**Decision**: Add **Copy path** toolbar button and `CopyResultsPath` bridge callback
+that copies the bare `GetStateFilePath()` string via `SetClipboardText`. Fix web-runner
+teardown to call `SaveWebRunnerRunLog` (`Perf.EndTiming`, perf report, `Log.SaveFile`)
+in `EndInteractiveBridgeRun` and on execute-phase errors before `Operation.Finish`.
+Add a self-describing run heading when `blnInvokeSetup` is true.
+
+**What this rules out**: Using `navigator.clipboard` in WebView2 for this action (VBA
+clipboard helper is already tested). Copying HTML report or timestamped JSON paths as
+the default agent handoff. Leaving web runs without a persisted `TestRun_*.log`.
+
+**Relevant files**: `TestRunner/runner.html`, `modTestRunnerUI.bas`, `AGENTS.md`,
+`.cursor/rules/testing.mdc`.
+
+---
+
 ## 2026-07-24 — Defer dedicated decision-document (ADR) infrastructure
 
 **Trigger**: Some decisions involve far more reasoning and trade-off analysis than a `DECISIONS.md` entry seems able to hold (a long deliberative session on per-component "exporter revision" invalidation was the prompting example). Question raised: should heavyweight decisions get comprehensive standalone ADRs under a new folder, with the lightweight log linking out to them? Concern was that an agent lacking full context might reopen a settled decision.
@@ -298,7 +331,7 @@ console logs need different lifetimes.
 - **Suppress the timeout entirely for run commands** — rejected: a genuinely lost dispatch (stalled `RetrieveJavascriptValue`) would leave the UI waiting forever with no feedback.
 - **Resolve at acceptance (chosen)** — VBA validates the request (`AcceptBridgeRun`: not already running, keys present, `Operation.Begin` succeeds), resolves the promise with `{"ok":true,"accepted":true}`, then executes the blocking run (`ExecutePendingBridgeRun`). Completion arrives via the streamed `onRunComplete` / `onRunCancelled` / new `onRunError` events the page already consumes. A JS watchdog (`RUN_START_WATCHDOG_MS`, 60 s) covers the pathological accepted-but-never-started case.
 
-**Decision**: Run commands are ack-then-stream; request/response calls (`Cancel`, `RefreshTests`, `OpenTestSource`, `OpenResultsReport`, `ReportJsError`) keep resolve-with-result under the 30 s `VBA_CALL_TIMEOUT_MS`. `TestRunner.InvokeGlobalTestSetup` (unbounded user hook) moved from the accept phase to the execute phase so the ack itself cannot stall. The compile-error abort in `RunSelected` now streams `onRunError` before bailing. Post-ack failures never reject the promise (it is already consumed) — they stream `onRunError` and guarantee `Operation.Finish` so the next run is not blocked.
+**Decision**: Run commands are ack-then-stream; request/response calls (`Cancel`, `RefreshTests`, `OpenTestSource`, `OpenResultsReport`, `CopyResultsPath`, `ReportJsError`) keep resolve-with-result under the 30 s `VBA_CALL_TIMEOUT_MS`. `TestRunner.InvokeGlobalTestSetup` (unbounded user hook) moved from the accept phase to the execute phase so the ack itself cannot stall. The compile-error abort in `RunSelected` now streams `onRunError` before bailing. Post-ack failures never reject the promise (it is already consumed) — they stream `onRunError` and guarantee `Operation.Finish` so the next run is not blocked.
 
 **What this rules out**: The `.then()` of a run-command `VBA.call` no longer means "run finished" — UI state transitions must key off streamed events only. Any new long-running bridge command should follow the same accept/execute split rather than raising the shared timeout. Live per-assertion streaming (`onAssertionResult`) was also evaluated and removed: one `ExecuteJavascript` round-trip per assertion (suites run thousands) for no visible gain, since `onTestComplete` already carries the full assertion list; the per-assertion contract is `seq`/`passed`/`context` — VBA cannot capture call-site source text or line numbers through `Application.Run`.
 

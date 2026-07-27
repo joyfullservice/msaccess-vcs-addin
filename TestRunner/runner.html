@@ -1177,6 +1177,9 @@
       <button class="btn" id="btn-open-report" title="Open HTML report in browser">
         <span class="btn-icon">&#128196;</span> Open report
       </button>
+      <button class="btn" id="btn-copy-results-path" title="Copy the results JSON path to the clipboard">
+        <span class="btn-icon">&#128203;</span> Copy path
+      </button>
       <button class="btn" id="btn-cancel" style="display:none">
         <span class="btn-icon">&#9632;</span> Stop
       </button>
@@ -3175,6 +3178,12 @@ $('btn-open-report').addEventListener('click', () => {
   VBA.call('OpenResultsReport')
     .then(() => toast('Opened test results report'))
     .catch(err => toast('Could not open report: ' + (err && err.message ? err.message : err)));
+});
+
+$('btn-copy-results-path').addEventListener('click', () => {
+  VBA.call('CopyResultsPath')
+    .then(res => toast('Copied: ' + ((res && res.path) || 'results path')))
+    .catch(err => toast('Could not copy path: ' + (err && err.message ? err.message : err)));
 });
 
 $('detail-content').addEventListener('click', e => {

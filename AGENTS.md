@@ -611,7 +611,7 @@ the `frmVCSMain` console unchanged.
 - **Inbound bridge**: outbox **polling** — JS enqueues commands in
   `window.__vbaOutbox`, the form timer drains them via `RetrieveJavascriptValue`
   (no navigation; see the `frmVCSTestRunner` header and DECISIONS.md 2026-07-08).
-  Allowlisted callbacks: `RunAll,RunSelected,RunFailed,Cancel,OpenTestSource,RefreshTests,OpenResultsReport`.
+  Allowlisted callbacks: `RunAll,RunSelected,RunFailed,Cancel,OpenTestSource,RefreshTests,OpenResultsReport,CopyResultsPath`.
 - **Run command protocol**: run commands (`RunAll`/`RunSelected`/`RunFailed`)
   resolve the JS promise with an **acceptance ack** (`AcceptBridgeRun`) *before*
   the blocking run executes (`ExecutePendingBridgeRun`); completion arrives via
@@ -653,7 +653,9 @@ the `frmVCSMain` console unchanged.
   `{folder, suite, filterText}` snapshots so combinations restore on click; the
   stats bar shows PHPUnit-style **tests** and **assertions** totals; primary Run
   executes the **visible scope** (composed navigation + filter); per-test/per-suite/
-  folder ▶ run buttons; clicking a location opens the VBE at the proc.
+  folder ▶ run buttons; **Copy path** copies the bare `test-results/test-state.json`
+  path to the clipboard (for pasting into agent chat); clicking a location opens the
+  VBE at the proc.
   `VCS.RunTests(...)` / ribbon `DefaultTestFilter` prefill the filter box when the
   web runner opens (no auto-run). Opening the web runner does not begin an
   `Operation` — bridge Run callbacks do.

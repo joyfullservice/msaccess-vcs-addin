@@ -131,7 +131,7 @@ runtime) using the `https://msaccess/` prefix; paths containing spaces are copie
 to a temp cache folder automatically.
 
 Inbound UI actions use an allowlisted bridge (`RunAll`, `RunSelected`,
-`RunFailed`, `Cancel`, `OpenTestSource`, `RefreshTests`, `OpenResultsReport`). Primary mechanism:
+`RunFailed`, `Cancel`, `OpenTestSource`, `RefreshTests`, `OpenResultsReport`, `CopyResultsPath`). Primary mechanism:
 `BeforeNavigate` on `vba://` iframe URLs. Fallback:
 `EnableBridgePollingFallback` (timer + `__vbaOutbox`) if interception fails.
 
