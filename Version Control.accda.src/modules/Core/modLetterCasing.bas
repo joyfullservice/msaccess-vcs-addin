@@ -155,11 +155,12 @@ Public Function StandardizeLetterCasing(Optional ByRef colIssues As Collection) 
     ' in clsStandardLetterCasing propagates canonical casing project-wide via
     ' VBA (dirtying other modules too); saving one module saves the whole project.
     If colChanges.Count > 0 Then
-        LogUnhandledErrors FunctionName
-        On Error Resume Next
+        Set VBE.ActiveVBProject = CurrentVBProject
         DoCmd.Save acModule, StandardLetterCasingModuleName
-        If Err Then Err.Clear
-        On Error GoTo ErrHandler
+        CatchAny eelWarning, T("Error saving letter casing corrections"), FunctionName, True, True
+        If Not CurrentVBProject.Saved Then
+            Log.Error eelWarning, T("VBA project still has unsaved changes after letter casing corrections"), FunctionName
+        End If
     End If
 
     Exit Function

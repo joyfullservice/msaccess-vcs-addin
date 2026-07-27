@@ -56,7 +56,6 @@ Public RunBeforeBuild As String
 Public RunAfterBuild As String
 Public RunBeforeMerge As String
 Public RunAfterMerge As String
-Public GitSettings As Dictionary
 
 ' Table Data
 Public TablesToExportData As Dictionary
@@ -162,18 +161,6 @@ Public Sub LoadDefaults()
         .ExportAfterMerge = False
         .ForceImportOriginalQuerySQL = False
         .UseMergeBuild = False
-        Set .GitSettings = New Dictionary
-        With .GitSettings
-            .CompareMode = TextCompare
-            .Add "MergeUntrackedFiles", True
-            .Add "ImportTableData", False
-            .Add "MergeQuerySQL", False
-            .Add "MergeConflicts", "Cancel Merge"
-            .Add "RunBeforeMerge", vbNullString
-            .Add "RunAfterMerge", vbNullString
-            .Add "InspectSharedImages", False
-            .Add "InspectThemeFiles", False
-        End With
 
         ' Table Data
         Set .TablesToExportData = New Dictionary

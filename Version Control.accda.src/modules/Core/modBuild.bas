@@ -44,8 +44,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Dim lngCurrent As Long
     Dim cModule As clsDbModule
 
-    Dim strText As String   ' Remove later
-
     LogUnhandledErrors FunctionName
     On Error Resume Next
 
@@ -161,15 +159,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             GoTo CleanUp
         End If
     Else
-        ' Run any pre-merge instructions
-        strText = dNZ(Options.GitSettings, "RunBeforeMerge")
-        If strText <> vbNullString Then
-            Log.Add T("Running {0}...", var0:=strText)
-            Perf.OperationStart "RunBeforeMerge"
-            RunSubInCurrentProject strText
-            Perf.OperationEnd
-        End If
-
         ' Now, just to make sure all objects are closed and unloaded, we will
         ' close and shift-open the database before merging source files into it.
         Log.Add T("Closing and reopening current database before merge...")
@@ -179,6 +168,17 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         ShiftOpenDatabase strPath
         RestoreMainForm
         Perf.OperationEnd
+
+        ' Run any pre-merge instructions after the database has been reopened
+        ' with all objects closed/unloaded.
+        If Options.RunBeforeMerge <> vbNullString Then
+            Log.Add T("Running {0}...", var0:=Options.RunBeforeMerge)
+            Log.Flush
+            Perf.OperationStart "RunBeforeMerge"
+            RunSubInCurrentProject Options.RunBeforeMerge
+            Perf.OperationEnd
+            CatchAny eelError, T("Error running {0}", var0:=Options.RunBeforeMerge), FunctionName, True, True
+        End If
     End If
 
     ' Launch the GUI form

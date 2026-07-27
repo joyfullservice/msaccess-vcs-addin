@@ -12,6 +12,53 @@ Agents: read this file before working on any module referenced here.
 
 ---
 
+## 2026-07-27 — Pre-operation hook timing and letter-casing save reliability
+
+**Trigger**: Review of when `RunBeforeExport` and `RunBeforeMerge` execute relative to
+`CloseDatabaseObjects` / the merge shift-reopen. `RunBeforeExport` ran before objects
+were closed, so a hook that modified an open object could have its change overwritten
+when `DoCmd.Close` saved the stale in-memory design, and hook side effects persisted even
+when the subsequent close failure aborted the export. `RunBeforeMerge` never fired: the
+build read `dNZ(Options.GitSettings, "RunBeforeMerge")`, but `GitSettings` was a vestigial
+dictionary (default-populated only, never serialized to `vcs-options.json`, never written
+by any form). The options UI reads/writes `Options.RunBeforeMerge`, which nothing
+consumed. Separately, intermittent save prompts during builds pointed at
+`StandardizeLetterCasing`: its post-correction `DoCmd.Save` did not set
+`VBE.ActiveVBProject` and swallowed failures with `On Error Resume Next`.
+
+**Options explored**:
+- **Leave `RunBeforeExport` before close** — rejected: clobber risk on open objects and
+  wasted hook side effects when close aborts the export.
+- **Re-close only when a hook is configured** — chosen for export: avoids extra close
+  work on the common path (no hook), but sweeps up anything the hook opened.
+- **Run `RunBeforeMerge` before shift-reopen** — rejected: session-scoped hook state is
+  destroyed by `CloseCurrentDatabase2` / `ShiftOpenDatabase` before merge work starts.
+- **Run `RunBeforeMerge` after shift-reopen** — chosen: matches `RunBeforeBuild`, which
+  runs after the target database exists in the state the operation will use.
+- **Keep `GitSettings` with a comment** — rejected: nothing serializes or reads it;
+  delete the dead surface.
+- **Letter-casing save: silent `Err.Clear`** — rejected: failures left the VBA project
+  dirty with no log entry; set active project before save, log via `CatchAny`, warn if
+  `CurrentVBProject.Saved` is still False.
+
+**Decision**:
+- `modExport.ExportSource`: close objects first; run `RunBeforeExport`; re-close only
+  when a hook ran; then save unsaved VBA. Extracted `CloseObjectsOrAbort` helper.
+- `modBuild.Build` (merge): remove dead `GitSettings` read; run `Options.RunBeforeMerge`
+  after the close/shift-reopen, with `Log.Flush` and trailing `CatchAny`.
+- `modLetterCasing.StandardizeLetterCasing`: `Set VBE.ActiveVBProject = CurrentVBProject`
+  before `DoCmd.Save`; log save failures; warn when project remains dirty.
+- Remove `Options.GitSettings` from `clsOptions`.
+
+**What this rules out**: Do not read merge hook names from `GitSettings` again. Do not
+move `RunBeforeMerge` before the shift-reopen without re-evaluating session lifetime.
+Do not restore silent error swallowing on the letter-casing save.
+
+**Relevant files**: `modExport.bas`, `modBuild.bas`, `modLetterCasing.bas`,
+`clsOptions.cls`
+
+---
+
 ## 2026-07-27 — Schema export cache-bust via per-schema fingerprint in the index
 
 **Trigger**: Installing or removing `sp_GetDDL` on a SQL Server switches every exported

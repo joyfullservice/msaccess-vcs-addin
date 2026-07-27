@@ -179,6 +179,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         RevertFileExtensions
     End If
 
+    ' Close open database objects before export (and again after RunBeforeExport
+    ' in case the hook opened anything).
+    If Not CloseObjectsOrAbort() Then GoTo CleanUp
+
     ' Run any custom sub before export
     If Options.RunBeforeExport <> vbNullString Then
         Log.Add T("Running {0}...", var0:=Options.RunBeforeExport)
@@ -186,18 +190,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Perf.OperationStart "RunBeforeExport"
         RunSubInCurrentProject Options.RunBeforeExport
         Perf.OperationEnd
-    End If
-
-    ' Close open database objects and save unsaved VBA changes.
-    ' Pause timing so user interaction doesn't affect performance.
-    Perf.PauseTiming
-    If Not CloseDatabaseObjects Then
-        Perf.ResumeTiming
-        MsgBox2 T("Please close all database objects"), _
-            T("All database objects (i.e.forms, reports, tables, queries, etc...) must be closed to export source code."), _
-            , vbExclamation
-        Operation.ErrorLevel = eelCritical
-        GoTo CleanUp
+        If Not CloseObjectsOrAbort() Then GoTo CleanUp
     End If
 
     ' Save unsaved VBA project changes so exported source reflects
@@ -208,7 +201,6 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             DoCmd.Save acModule, CurrentProject.AllModules(0).Name
         End If
     End If
-    Perf.ResumeTiming
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections
@@ -1205,3 +1197,30 @@ Public Sub RemoveThemeZipFiles()
         If FSO.FolderExists(strFolder) Then ClearFilesByExtension strFolder, "zip"
     End If
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CloseObjectsOrAbort
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Close open database objects for export. Pauses performance timing while
+'           : the user may interact with save prompts. Returns False and sets a critical
+'           : error when objects could not be closed.
+'---------------------------------------------------------------------------------------
+'
+Private Function CloseObjectsOrAbort() As Boolean
+
+    Perf.PauseTiming
+    If Not CloseDatabaseObjects Then
+        Perf.ResumeTiming
+        MsgBox2 T("Please close all database objects"), _
+            T("All database objects (i.e.forms, reports, tables, queries, etc...) must be closed to export source code."), _
+            , vbExclamation
+        Operation.ErrorLevel = eelCritical
+        CloseObjectsOrAbort = False
+    Else
+        Perf.ResumeTiming
+        CloseObjectsOrAbort = True
+    End If
+
+End Function
