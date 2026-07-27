@@ -12,7 +12,7 @@ Option Private Module
 '---------------------------------------------------------------------------------------
 
 Private Const ModuleName As String = "modTestRunnerUI"
-Private Const ALLOWED_CALLBACKS As String = "RunAll,RunSelected,RunFailed,Cancel,OpenTestSource,ReportJsError,RefreshTests,OpenResultsReport"
+Private Const ALLOWED_CALLBACKS As String = "RunAll,RunSelected,RunFailed,Cancel,OpenTestSource,ReportJsError,RefreshTests,OpenResultsReport,CopyResultsPath"
 Private Const JS_RETRIEVE_TIMEOUT_SENTINEL As String = "RetrieveJavascriptValue timed out"
 Private Const MIN_EDGE_BUILD As Long = 16327
 Private Const WEB_RUNNER_CACHE_FOLDER As String = "TestRunnerCache"
@@ -714,6 +714,8 @@ Public Function DispatchBridgeCall(ByVal strFnName As String, ByVal strRequestId
             DispatchBridgeCall = BridgeRefreshTests(strPayloadJson)
         Case "OpenResultsReport"
             DispatchBridgeCall = BridgeOpenResultsReport(strPayloadJson)
+        Case "CopyResultsPath"
+            DispatchBridgeCall = BridgeCopyResultsPath(strPayloadJson)
         Case Else
             Err.Raise vbObjectError + 513, FunctionName, "Unhandled bridge callback: " & strFnName
     End Select
@@ -878,7 +880,18 @@ Public Sub ExecutePendingBridgeRun()
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
-    If blnInvokeSetup Then TestRunner.InvokeGlobalTestSetup
+    If blnInvokeSetup Then
+        With Log
+            .Spacer
+            .Add T("Running Tests"), False
+            .Add CurrentProject.Name
+            .Add T("VCS Version {0}", var0:=GetVCSVersion)
+            .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
+            .Add Now
+            .Spacer
+        End With
+        TestRunner.InvokeGlobalTestSetup
+    End If
 
     Select Case strFnName
         Case "RunAll"
@@ -898,7 +911,10 @@ ErrHandler:
     On Error Resume Next
     modTestRunnerDiag.Diag "run.execute.error", strFnName & " | " & strErrMsg
     StreamRunError strErrMsg
-    If Operation.Status = eosRunning Then Operation.Finish eorFailed
+    If Operation.Status = eosRunning Then
+        SaveWebRunnerRunLog
+        Operation.Finish eorFailed
+    End If
     Log.SuppressDebugOutput = False
     Operation.InteractionMode = m_eimPriorMode
     Err.Clear
@@ -962,6 +978,29 @@ Public Function BridgeOpenResultsReport(ByVal strPayloadJson As String) As Strin
 
     Application.FollowHyperlink strPath
     BridgeOpenResultsReport = "{""ok"":true,""path"":""" & Replace(strPath, "\", "\\") & """}"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BridgeCopyResultsPath
+' Author    : Adam Waller
+' Date      : 7/24/2026
+' Purpose   : Copy the durable test-state.json path to the clipboard for agent chat.
+'---------------------------------------------------------------------------------------
+'
+Public Function BridgeCopyResultsPath(ByVal strPayloadJson As String) As String
+
+    Dim strPath As String
+
+    strPath = modTestState.GetStateFilePath()
+    If Not FSO.FileExists(strPath) Then
+        Err.Raise vbObjectError + 520, ModuleName & ".BridgeCopyResultsPath", _
+            T("No test results file was found. Run tests first.")
+    End If
+
+    SetClipboardText strPath
+    BridgeCopyResultsPath = "{""ok"":true,""path"":""" & Replace(strPath, "\", "\\") & """}"
 
 End Function
 
@@ -1473,6 +1512,7 @@ Private Sub EndInteractiveBridgeRun()
         TestRunner.SaveResults
         modTestState.PersistAfterRun
         TestRunner.InvokeGlobalTestTeardown
+        SaveWebRunnerRunLog
         Operation.Finish IIf(TestRunner.State = etrsCancelled, eorCanceled, eorSuccess)
     End If
 
@@ -1482,5 +1522,16 @@ Private Sub EndInteractiveBridgeRun()
     ' Teardown (and ActiveVBProject switches during the run) can leave the VBE in
     ' the foreground when it was already open. Return focus to the runner form.
     RefocusWebRunner
+
+End Sub
+
+
+Private Sub SaveWebRunnerRunLog()
+
+    Perf.EndTiming
+    With Log
+        .Add vbNewLine & Perf.GetReports, False
+        .SaveFile
+    End With
 
 End Sub
