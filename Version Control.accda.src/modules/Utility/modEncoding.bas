@@ -485,3 +485,153 @@ Public Function GetSystemEncoding(Optional blnAllowUtf8 As Boolean = False) As S
     End Select
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : EscapeXmlName
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Escape a field or table name the way Access does for XML data export
+'           : element names (_xHHHH_ for disallowed characters).
+'---------------------------------------------------------------------------------------
+'
+Public Function EscapeXmlName(strName As String) As String
+
+    Dim lngPos As Long
+    Dim lngChar As Long
+    Dim cOut As New clsConcat
+
+    For lngPos = 1 To Len(strName)
+        lngChar = AscW(Mid$(strName, lngPos, 1))
+        If IsXmlExportNameChar(lngChar) Then
+            cOut.Add ChrW$(lngChar)
+        Else
+            cOut.Add "_x", Right$("0000" & Hex$(lngChar And &HFFFF&), 4), "_"
+        End If
+    Next lngPos
+
+    EscapeXmlName = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : NormalizeXmlSortValue
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Normalize a table-data XML element value for deterministic lexical sorting.
+'           : Null/missing fields pass blnIsNull=True.
+'---------------------------------------------------------------------------------------
+'
+Public Function NormalizeXmlSortValue(strValue As String, intFieldType As Integer, Optional blnIsNull As Boolean = False) As String
+
+    Const MAX_SORT_LEN As Long = 255
+
+    If blnIsNull Then
+        NormalizeXmlSortValue = Chr$(1) & "N"
+        Exit Function
+    End If
+
+    Select Case intFieldType
+        Case dbBoolean
+            If StrComp(strValue, "true", vbTextCompare) = 0 _
+                Or strValue = "1" _
+                Or StrComp(strValue, "-1", vbTextCompare) = 0 Then
+                NormalizeXmlSortValue = Chr$(2) & "1"
+            Else
+                NormalizeXmlSortValue = Chr$(2) & "0"
+            End If
+        Case dbByte, dbInteger, dbLong, dbSingle, dbDouble, dbCurrency, dbDecimal, dbNumeric
+            NormalizeXmlSortValue = Chr$(3) & NormalizeNumericXmlSortValue(strValue)
+        Case dbDate
+            NormalizeXmlSortValue = Chr$(4) & Left$(strValue, MAX_SORT_LEN)
+        Case Else
+            NormalizeXmlSortValue = Chr$(5) & Left$(strValue, MAX_SORT_LEN)
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : NormalizeNumericXmlSortValue
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Fixed-width numeric normalization so lexical order matches numeric order.
+'---------------------------------------------------------------------------------------
+'
+Public Function NormalizeNumericXmlSortValue(strValue As String) As String
+
+    ' Fractional digits are zero-padded rather than optional (########) so that every key
+    ' is the same length. Without padding, a nines-complemented "2" ("...97") would sort
+    ' ahead of "2.5" ("...97.4"), reversing the intended order for negative values.
+    Const NUM_SORT_FORMAT As String = "0000000000000000.00000000"
+
+    Dim dblVal As Double
+
+    If Len(strValue) = 0 Then
+        NormalizeNumericXmlSortValue = "P" & Format$(0, NUM_SORT_FORMAT)
+        Exit Function
+    End If
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    dblVal = CDbl(strValue)
+    If Err Then
+        Err.Clear
+        NormalizeNumericXmlSortValue = "T" & Left$(strValue, 255)
+        Exit Function
+    End If
+
+    If dblVal < 0 Then
+        ' Nines-complement the magnitude so that larger negatives sort first. Subtracting
+        ' the value from a large constant cannot be used here, because Format$ rounds a
+        ' Double to 15 significant digits and the 16-digit results collapse together.
+        NormalizeNumericXmlSortValue = "N" & NinesComplement(Format$(-dblVal, NUM_SORT_FORMAT))
+    Else
+        NormalizeNumericXmlSortValue = "P" & Format$(dblVal, NUM_SORT_FORMAT)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : NinesComplement
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Replace each digit with (9 - digit), leaving the decimal separator alone,
+'           : so that a descending magnitude produces an ascending lexical key.
+'---------------------------------------------------------------------------------------
+'
+Private Function NinesComplement(strNumber As String) As String
+
+    Dim lngPos As Long
+    Dim lngChar As Long
+    Dim cOut As New clsConcat
+
+    For lngPos = 1 To Len(strNumber)
+        lngChar = AscW(Mid$(strNumber, lngPos, 1))
+        If lngChar >= 48 And lngChar <= 57 Then
+            cOut.Add ChrW$(105 - lngChar)
+        Else
+            cOut.Add ChrW$(lngChar)
+        End If
+    Next lngPos
+
+    NinesComplement = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : IsXmlExportNameChar
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Characters Access leaves unescaped in exported XML element names.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsXmlExportNameChar(lngChar As Long) As Boolean
+    IsXmlExportNameChar = _
+        (lngChar >= 48 And lngChar <= 57) _
+        Or (lngChar >= 65 And lngChar <= 90) _
+        Or (lngChar >= 97 And lngChar <= 122) _
+        Or lngChar = 95
+End Function

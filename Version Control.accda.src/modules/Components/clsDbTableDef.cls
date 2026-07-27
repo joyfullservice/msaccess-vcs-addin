@@ -126,7 +126,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             .Add "SourceTableName", tdf.SourceTableName
             .Add "Attributes", tdf.Attributes
             ' indexes (Find primary key)
-            If IndexAvailable(tdf) Then
+            If TableIndexesAvailable(tdf) Then
                 For Each idx In tdf.Indexes
                     If idx.Primary Then
                         ' Add the primary key columns, using brackets just in case the field names have spaces.
@@ -484,7 +484,7 @@ Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
         .Remove 3   ' strip off last comma and crlf
 
         ' Constraints
-        If IndexAvailable(tdf) Then
+        If TableIndexesAvailable(tdf) Then
             Set cAttr = New clsConcat
             For Each idx In tdf.Indexes
                 If idx.Fields.Count > 1 Then
@@ -624,31 +624,6 @@ Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
         Case dbText:            GetTypeString = "VARCHAR"
         Case Else:              GetTypeString = "VARCHAR"
     End Select
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : IndexAvailable
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return true if the index collection is avilable. Without the error handling
-'           : this may throw an error if a linked table is not accessible during export.
-'---------------------------------------------------------------------------------------
-'
-Private Function IndexAvailable(tdf As TableDef) As Boolean
-
-    Dim lngTest As Long
-
-    LogUnhandledErrors
-    On Error Resume Next
-    lngTest = tdf.Indexes.Count
-    If Err Then
-        Err.Clear
-    Else
-        IndexAvailable = True
-    End If
-    CatchAny eelNoError, vbNullString, , False
-
 End Function
 
 
@@ -913,7 +888,7 @@ Private Function HasUniqueIndex(tdf As TableDef) As Boolean
 
     Dim idx As DAO.Index
 
-    If IndexAvailable(tdf) Then
+    If TableIndexesAvailable(tdf) Then
         For Each idx In tdf.Indexes
             If idx.Unique Then
                 HasUniqueIndex = True

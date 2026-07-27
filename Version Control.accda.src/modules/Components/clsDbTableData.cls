@@ -74,8 +74,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_Last] - 1
-        ' Build file name for this format
-        strFile = Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat))
+        ' A caller-supplied path names a single output file, so the cleanup pass for the
+        ' other formats would resolve to that same path and delete what we just wrote.
+        If Len(strAlternatePath) > 0 Then
+            If intFormat <> Me.Format Then GoTo NextFormat
+            strFile = strAlternatePath
+        Else
+            strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat)
+        End If
         If FSO.FileExists(strFile) Then DeleteFile strFile, True
         If intFormat = Me.Format Then
             ' Export the table using this format.
@@ -96,11 +102,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                     End If
                     Perf.OperationEnd
                     With New clsSourceParser
+                        ' Loading resets the parser, so the sort fields must be assigned after.
                         .LoadSourceFile strFile, IDbComponent_ComponentType
+                        Set .RowSortFields = GetTableSortFields(SharedDb.TableDefs(m_Table.Name))
                         WriteFile .Sanitize(ectXML), strFile
                     End With
             End Select
         End If
+NextFormat:
     Next intFormat
 
     ' Trap any errors while exporting table data.
@@ -131,7 +140,18 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
 
     ' Open table in fast read-only view
     Set dbs = SharedDb
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     Set rst = dbs.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbReadOnly)
+    If Err Then
+        Log.Add T("Unable to sort table data for {0} during export. Exporting without ORDER BY.", var0:=strTable), False
+        Err.Clear
+        Set rst = dbs.OpenRecordset(GetTableExportSql(strTable, False), dbOpenSnapshot, dbReadOnly)
+    End If
+    CatchAny eelWarning, "Error opening sorted recordset for " & strTable, ModuleName(Me) & ".ExportTableDataAsTDF"
+    If rst Is Nothing Then
+        Log.Error eelError, T("Unable to export table data for {0}.", var0:=strTable), ModuleName(Me) & ".ExportTableDataAsTDF"
+        Exit Sub
+    End If
     intFields = rst.Fields.Count
 
     ' Add header row
@@ -145,17 +165,20 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
     ' Make sure we actually have records
     If Not rst.EOF Then
 
-        ' Stash current progress bar values so we can reuse the
-        ' progress bar to show the progress through the rows.
-        With Log.ProgressBar
-            lngProgMax = .Max
-            lngProgValue = .Value
-            ' Set to recordset after accessing all records
-            rst.MoveLast
-            .Max = rst.RecordCount
-            .Value = 1
-            rst.MoveFirst
-        End With
+        ' Populate the recordset so we have an accurate record count
+        rst.MoveLast
+        rst.MoveFirst
+
+        ' Reuse the console progress bar for the row loop. It is only present when
+        ' frmVCSMain is hosting the log, not on web runner or headless test runs.
+        If Not Log.ProgressBar Is Nothing Then
+            With Log.ProgressBar
+                lngProgMax = .Max
+                lngProgValue = .Value
+                .Max = rst.RecordCount
+                .Value = 1
+            End With
+        End If
 
         ' Add data rows
         Do While Not rst.EOF
@@ -177,10 +200,12 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
         Loop
 
         ' Restore progress bar values for object iteration
-        With Log.ProgressBar
-             .Max = lngProgMax
-             .Value = lngProgValue
-        End With
+        If Not Log.ProgressBar Is Nothing Then
+            With Log.ProgressBar
+                .Max = lngProgMax
+                .Value = lngProgValue
+            End With
+        End If
     End If
 
     ' Close database objects
@@ -345,37 +370,46 @@ End Function
 ' Purpose   : Build SQL to export `tbl_name` sorted by each field from first to last
 '---------------------------------------------------------------------------------------
 '
-Private Function GetTableExportSql(strTable As String) As String
+Private Function GetTableExportSql(strTable As String, Optional blnIncludeOrderBy As Boolean = True) As String
 
     Dim tdf As DAO.TableDef
     Dim fld As DAO.Field
-    Dim intFields As Integer
+    Dim varKey As Variant
     Dim cText As New clsConcat
     Dim cFieldList As New clsConcat
     Dim cSortList As New clsConcat
+    Dim dSortFields As Dictionary
     Dim dbs As Database
 
     Set dbs = SharedDb
     Set tdf = dbs.TableDefs(strTable)
-    intFields = tdf.Fields.Count
 
     ' Build list of fields
     With cFieldList
         For Each fld In tdf.Fields
             .Add "[", fld.Name, "], "
-            If Not IsBinaryType(fld) Then cSortList.Add "[", fld.Name, "], "
         Next fld
     End With
 
     ' Remove any trailing commas
     cFieldList.Remove 2
-    cSortList.Remove 2
+
+    Set dSortFields = GetTableSortFields(tdf)
+    If blnIncludeOrderBy Then
+        For Each varKey In dSortFields.Keys
+            cSortList.Add "[" & varKey & "], "
+        Next varKey
+        cSortList.Remove 2
+    End If
 
     ' Build select statement
     With cText
         .Add "SELECT ", cFieldList.GetStr
-        .Add " FROM [", strTable, "] ORDER BY "
-        .Add cSortList.GetStr
+        .Add " FROM [", strTable, "]"
+        If blnIncludeOrderBy And dSortFields.Count > 0 Then
+            .Add " ORDER BY "
+            .Add cSortList.GetStr
+        End If
     End With
 
     GetTableExportSql = cText.GetStr
@@ -541,10 +575,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IsBinaryType(fld As DAO.Field) As Boolean
-    Select Case fld.Type
-        Case dbLongBinary, dbVarBinary, dbAttachment: IsBinaryType = True
-        Case Else: IsBinaryType = False
-    End Select
+    IsBinaryType = IsBinaryTableFieldType(fld.Type)
 End Function
 
 

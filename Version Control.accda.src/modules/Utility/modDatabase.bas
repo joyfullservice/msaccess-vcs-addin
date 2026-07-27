@@ -880,6 +880,97 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TableIndexesAvailable
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Return true if the index collection is available. Without the error handling
+'           : this may throw an error if a linked table is not accessible during export.
+'---------------------------------------------------------------------------------------
+'
+Public Function TableIndexesAvailable(tdf As DAO.TableDef) As Boolean
+
+    Dim lngTest As Long
+
+    LogUnhandledErrors
+    On Error Resume Next
+    lngTest = tdf.Indexes.Count
+    If Err Then
+        Err.Clear
+    Else
+        TableIndexesAvailable = True
+    End If
+    CatchAny eelNoError, vbNullString, , False
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetTableSortFields
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Return the field names and DAO types to use when sorting table data for
+'           : deterministic export. Prefers primary key, then unique+required index,
+'           : then all non-binary fields.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableSortFields(tdf As DAO.TableDef) As Dictionary
+
+    Dim dFields As Dictionary
+    Dim idx As DAO.Index
+    Dim idxFld As Object
+    Dim fld As DAO.Field
+
+    Set dFields = New Dictionary
+    dFields.CompareMode = vbTextCompare
+
+    If TableIndexesAvailable(tdf) Then
+        For Each idx In tdf.Indexes
+            If idx.Primary Then
+                For Each idxFld In idx.Fields
+                    dFields.Add idxFld.Name, tdf.Fields(idxFld.Name).Type
+                Next idxFld
+                Set GetTableSortFields = dFields
+                Exit Function
+            End If
+        Next idx
+
+        For Each idx In tdf.Indexes
+            If idx.Unique And idx.Required Then
+                For Each idxFld In idx.Fields
+                    dFields.Add idxFld.Name, tdf.Fields(idxFld.Name).Type
+                Next idxFld
+                Set GetTableSortFields = dFields
+                Exit Function
+            End If
+        Next idx
+    End If
+
+    For Each fld In tdf.Fields
+        If Not IsBinaryTableFieldType(fld.Type) Then dFields.Add fld.Name, fld.Type
+    Next fld
+
+    Set GetTableSortFields = dFields
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : IsBinaryTableFieldType
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Returns true for DAO field types that cannot be represented in table data
+'           : export text/XML formats.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsBinaryTableFieldType(intType As Integer) As Boolean
+    Select Case intType
+        Case dbLongBinary, dbVarBinary, dbAttachment: IsBinaryTableFieldType = True
+        Case Else: IsBinaryTableFieldType = False
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetCachedTableType
 ' Author    : Adam Waller
 ' Date      : 7/13/2026

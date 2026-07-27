@@ -18,6 +18,7 @@ Option Explicit
 '@Folder("Core")
 
 Public ObjectName As String
+Public RowSortFields As Dictionary
 
 Public Enum eContentType
     ectObjectDefinition
@@ -112,6 +113,7 @@ Private Sub ResetContent()
         .strCFControl = vbNullString
     End With
     Me.ObjectName = vbNullString
+    Set Me.RowSortFields = Nothing
 End Sub
 
 
@@ -1314,6 +1316,10 @@ Private Function SanitizeXML() As String
         Next
     End If
 
+    If Not Me.RowSortFields Is Nothing Then
+        If Me.RowSortFields.Count > 0 Then SortXmlDataRows objXml
+    End If
+
     Perf.OperationEnd
 
     ' Check string length to determine which formatter to use.
@@ -1336,6 +1342,118 @@ Private Function SanitizeXML() As String
 
     ' Log any errors
     CatchAny eelError, "Error sanitizing XML for " & Nz2(FSO.GetFileName(this.strFilePath), Me.ObjectName), ModuleName(Me) & ".SanitizeXML"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SortXmlDataRows
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Reorder exported table-data row elements for deterministic XML output.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SortXmlDataRows(objXml As MSXML2.DOMDocument60)
+
+    Const SORT_KEY_ORDINAL_SEP As String = vbLf
+
+    Dim objRoot As MSXML2.IXMLDOMElement
+    Dim objRows As MSXML2.IXMLDOMNodeList
+    Dim lngCount As Long
+    Dim lngIdx As Long
+    Dim lngPos As Long
+    Dim varKeys() As String
+    Dim varSortedIdx() As Long
+    Dim blnNeedsSort As Boolean
+    Dim colSorted As Collection
+
+    Set objRoot = objXml.documentElement
+    If objRoot Is Nothing Then Exit Sub
+    If LCase$(objRoot.nodeName) <> "dataroot" Then
+        Set objRoot = objXml.SelectSingleNode("//dataroot")
+    End If
+    If objRoot Is Nothing Then Exit Sub
+
+    Set objRows = objRoot.ChildNodes
+    lngCount = objRows.Length
+    If lngCount < 2 Then Exit Sub
+
+    ReDim varKeys(0 To lngCount - 1)
+    ReDim varSortedIdx(0 To lngCount - 1)
+    blnNeedsSort = False
+
+    For lngIdx = 0 To lngCount - 1
+        varKeys(lngIdx) = BuildXmlRowSortKey(objRows.Item(lngIdx), lngIdx)
+        If lngIdx > 0 Then
+            If varKeys(lngIdx) < varKeys(lngIdx - 1) Then blnNeedsSort = True
+        End If
+    Next lngIdx
+
+    If Not blnNeedsSort Then Exit Sub
+
+    QuickSort varKeys
+
+    For lngIdx = 0 To lngCount - 1
+        lngPos = InStrRev(varKeys(lngIdx), SORT_KEY_ORDINAL_SEP)
+        varSortedIdx(lngIdx) = CLng(Mid$(varKeys(lngIdx), lngPos + 1))
+    Next lngIdx
+
+    Set colSorted = New Collection
+    For lngIdx = 0 To lngCount - 1
+        colSorted.Add objRows.Item(varSortedIdx(lngIdx))
+    Next lngIdx
+
+    For lngIdx = lngCount - 1 To 0 Step -1
+        objRoot.removeChild objRoot.FirstChild
+    Next lngIdx
+
+    For lngIdx = 1 To colSorted.Count
+        objRoot.appendChild colSorted(lngIdx)
+    Next lngIdx
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : BuildXmlRowSortKey
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Build a lexical sort key for one exported table-data row element.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildXmlRowSortKey(objRow As MSXML2.IXMLDOMNode, lngOrdinal As Long) As String
+
+    Const SORT_KEY_ORDINAL_SEP As String = vbLf
+
+    Dim varKey As Variant
+    Dim objChild As MSXML2.IXMLDOMNode
+    Dim strFieldName As String
+    Dim strXmlName As String
+    Dim strPart As String
+    Dim blnFound As Boolean
+    Dim cKey As New clsConcat
+
+    For Each varKey In Me.RowSortFields.Keys
+        strFieldName = CStr(varKey)
+        strXmlName = EscapeXmlName(strFieldName)
+        blnFound = False
+        For Each objChild In objRow.ChildNodes
+            If objChild.NodeType = NODE_ELEMENT Then
+                If StrComp(objChild.baseName, strXmlName, vbTextCompare) = 0 _
+                    Or StrComp(objChild.nodeName, strXmlName, vbTextCompare) = 0 Then
+                    strPart = NormalizeXmlSortValue(objChild.Text, Me.RowSortFields(strFieldName))
+                    blnFound = True
+                    Exit For
+                End If
+            End If
+        Next objChild
+        If Not blnFound Then
+            strPart = NormalizeXmlSortValue(vbNullString, Me.RowSortFields(strFieldName), True)
+        End If
+        cKey.Add Format$(Len(strPart), "0000"), strPart
+    Next varKey
+
+    BuildXmlRowSortKey = cKey.GetStr & SORT_KEY_ORDINAL_SEP & Format$(lngOrdinal, "0000000000")
 
 End Function
 

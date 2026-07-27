@@ -3999,3 +3999,26 @@ Additionally, unsaved VBA project changes are now persisted at the start of the 
 - `modExport.bas` — saves VBA project before export scan, wraps `CloseDatabaseObjects` in `Perf.PauseTiming`/`ResumeTiming`, fixes `Exit Sub` → `GoTo CleanUp` with `eelCritical`
 
 ---
+
+## 2026-07-27 — Deterministic table data export row order
+
+**Trigger**: Exported table data (especially XML format) could appear in different row orders between exports even when no records changed, producing noisy git diffs. Tab-delimited export already used `ORDER BY` but sorted on every non-binary column (expensive and fragile on linked tables with unsortable memo/text columns).
+
+**Options explored**:
+- **Sort only in post-export XML sanitization (chosen for XML path)** — `Application.ExportXML` has no ordering parameter. Reordering in `SanitizeXML` after DOM parse avoids a second database round-trip and keeps `acEmbedSchema` calculated-field metadata intact.
+- **Export via temporary `ORDER BY` query with `acExportQuery`** — rejected: row elements are renamed to the query name and embedded-schema annotations (`od:expression`, `od:jetType`) required for calculated fields are lost, breaking `ImportXML`.
+- **Sort on all non-binary columns (status quo for TDF)** — rejected for performance: replaced with primary-key sort when available (index-backed scan).
+- **Gate behind `eExportFormatVersion`** — rejected: treated as a bug fix; `clsDbTableData.IsModified` already forces re-export of all table data on every run, so users get a one-time reorder diff regardless.
+
+**Decision**: Added shared `GetTableSortFields` in `modDatabase.bas` (primary key → unique+required index → all non-binary fields). Tab-delimited export uses it for `ORDER BY`, with a warning and unsorted fallback when the sort query fails (e.g. linked SQL Server memo columns). XML export sets `clsSourceParser.RowSortFields` before sanitization; `SortXmlDataRows` builds lexical keys (with `EscapeXmlName`, null sentinels, and fixed-width numeric normalization), skips reordering when already monotonic, and only sorts/re-appends when needed. Moved `IndexAvailable` to `TableIndexesAvailable` in `modDatabase` for reuse.
+
+**What this rules out**: Relying on engine iteration order for XML table data. Using `acExportQuery` as a shortcut for sorted XML export. Sorting on every column when a primary key exists.
+
+**Relevant files**:
+- `modDatabase.bas` — `GetTableSortFields`, `TableIndexesAvailable`, `IsBinaryTableFieldType`
+- `clsDbTableData.cls` — shared sort SQL, XML `RowSortFields` wiring, TDF fallback
+- `clsSourceParser.cls` — `RowSortFields`, `SortXmlDataRows`
+- `modEncoding.bas` — `EscapeXmlName`, `NormalizeXmlSortValue`, `NormalizeNumericXmlSortValue`
+- `modTestTableData.bas` — unit/integration tests
+
+---
