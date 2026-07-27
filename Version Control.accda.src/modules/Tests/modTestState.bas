@@ -179,6 +179,24 @@ Public Sub LoadInto(tr As clsTestRunner)
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : MergeInto
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Overlay durable state from test-state.json onto an already-scanned runner.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeInto(tr As clsTestRunner)
+
+    Dim dTests As Dictionary
+
+    Set dTests = LoadStateTestsDict()
+    If dTests Is Nothing Then Exit Sub
+    tr.MergeStateResults dTests
+
+End Sub
+
+
 ' ===================== Private helpers =====================
 
 

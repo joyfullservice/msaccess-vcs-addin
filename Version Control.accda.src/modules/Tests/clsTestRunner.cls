@@ -361,6 +361,8 @@ Public Sub RunSelected(colTestKeys As Collection)
         lngErrJournalAtStart = Log.ErrorJournalCount
         eelAtStart = Operation.ErrorLevel
 
+        If dTest.Exists("fromPriorRun") Then dTest("fromPriorRun") = False
+
         modTestRunnerUI.StreamTestStart strTestKey, dTest
 
         ' Emit module heading when the module changes
@@ -1070,6 +1072,38 @@ Public Sub LoadStateTests(dStateTests As Dictionary)
         AccumulateCountsFromTest dTest
     Next varKey
 
+    this.State = etrsComplete
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeStateResults
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Overlay durable test-state.json results onto already-discovered tests
+'           : (keyed by Module.Proc) without replacing the scanned tree.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeStateResults(dStateTests As Dictionary)
+
+    Dim varKey As Variant
+    Dim dSrc As Dictionary
+    Dim dTest As Dictionary
+
+    If this.Tests Is Nothing Then Exit Sub
+    If dStateTests Is Nothing Then Exit Sub
+    If this.Tests.Count = 0 Then Exit Sub
+
+    For Each varKey In dStateTests.Keys
+        If this.Tests.Exists(CStr(varKey)) Then
+            Set dSrc = dStateTests(CStr(varKey))
+            Set dTest = this.Tests(CStr(varKey))
+            ApplyStateResultsToTest dTest, dSrc, True
+        End If
+    Next varKey
+
+    RebuildCountsFromTests
     this.State = etrsComplete
 
 End Sub
@@ -1840,13 +1874,6 @@ Private Function DictionaryFromStateEntry(ByVal strKey As String, ByVal dSrc As 
     Dim dTest As Dictionary
     Dim colTags As Collection
     Dim colTagsOut As Collection
-    Dim colAssertOut As Collection
-    Dim colAssertions As Collection
-    Dim colLoggedOut As Collection
-    Dim dA As Dictionary
-    Dim dAOut As Dictionary
-    Dim dErr As Dictionary
-    Dim dErrOut As Dictionary
     Dim i As Long
 
     Set dTest = New Dictionary
@@ -1855,14 +1882,9 @@ Private Function DictionaryFromStateEntry(ByVal strKey As String, ByVal dSrc As 
     dTest.Add "folder", CStr(dSrc("folder"))
     dTest.Add "line", CLng(Nz(dSrc("line"), 0))
     dTest.Add "sourceType", CStr(Nz(dSrc("sourceType"), "module"))
-    dTest.Add "status", CLng(StringToStatus(CStr(Nz(dSrc("status"), "PENDING"))))
-    dTest.Add "durationMs", CLng(Nz(dSrc("durationMs"), 0))
-
-    If dSrc.Exists("errorMessage") Then
-        If Len(CStr(dSrc("errorMessage"))) > 0 Then
-            dTest.Add "errorMessage", CStr(dSrc("errorMessage"))
-        End If
-    End If
+    dTest.Add "status", etsPending
+    dTest.Add "durationMs", CLng(0)
+    Set dTest("assertionResults") = New Collection
 
     Set colTagsOut = New Collection
     If dSrc.Exists("tags") Then
@@ -1874,6 +1896,80 @@ Private Function DictionaryFromStateEntry(ByVal strKey As String, ByVal dSrc As 
         End If
     End If
     Set dTest("tags") = colTagsOut
+
+    ApplyStateResultsToTest dTest, dSrc, True
+
+    Set DictionaryFromStateEntry = dTest
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyStateResultsToTest
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Copy result fields from a durable-state entry onto a test dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ApplyStateResultsToTest(ByVal dTest As Dictionary, ByVal dSrc As Dictionary, ByVal blnMarkPrior As Boolean)
+
+    Dim lngStatus As eTestStatus
+
+    lngStatus = StringToStatus(CStr(Nz(dSrc("status"), "PENDING")))
+    dTest("status") = CLng(lngStatus)
+    dTest("durationMs") = CLng(Nz(dSrc("durationMs"), 0))
+
+    If dSrc.Exists("errorMessage") Then
+        If Len(CStr(dSrc("errorMessage"))) > 0 Then
+            If dTest.Exists("errorMessage") Then
+                dTest("errorMessage") = CStr(dSrc("errorMessage"))
+            Else
+                dTest.Add "errorMessage", CStr(dSrc("errorMessage"))
+            End If
+        ElseIf dTest.Exists("errorMessage") Then
+            dTest.Remove "errorMessage"
+        End If
+    ElseIf dTest.Exists("errorMessage") Then
+        dTest.Remove "errorMessage"
+    End If
+
+    Set dTest("assertionResults") = CloneAssertionsFromState(dSrc)
+    ApplyLoggedErrorsFromState dTest, dSrc
+
+    If dSrc.Exists("lastRunAt") Then
+        If Len(CStr(dSrc("lastRunAt"))) > 0 Then
+            If dTest.Exists("lastRunAt") Then
+                dTest("lastRunAt") = CStr(dSrc("lastRunAt"))
+            Else
+                dTest.Add "lastRunAt", CStr(dSrc("lastRunAt"))
+            End If
+        ElseIf dTest.Exists("lastRunAt") Then
+            dTest.Remove "lastRunAt"
+        End If
+    ElseIf dTest.Exists("lastRunAt") Then
+        dTest.Remove "lastRunAt"
+    End If
+
+    If blnMarkPrior And lngStatus <> etsPending Then
+        If dTest.Exists("fromPriorRun") Then
+            dTest("fromPriorRun") = True
+        Else
+            dTest.Add "fromPriorRun", True
+        End If
+    ElseIf dTest.Exists("fromPriorRun") Then
+        dTest("fromPriorRun") = False
+    End If
+
+End Sub
+
+
+Private Function CloneAssertionsFromState(ByVal dSrc As Dictionary) As Collection
+
+    Dim colAssertOut As Collection
+    Dim colAssertions As Collection
+    Dim dA As Dictionary
+    Dim dAOut As Dictionary
+    Dim i As Long
 
     Set colAssertOut = New Collection
     If dSrc.Exists("assertions") Then
@@ -1893,31 +1989,42 @@ Private Function DictionaryFromStateEntry(ByVal strKey As String, ByVal dSrc As 
             Next i
         End If
     End If
-    Set dTest("assertionResults") = colAssertOut
 
-    If dSrc.Exists("loggedErrors") Then
-        If TypeName(dSrc("loggedErrors")) = "Collection" Then
-            Set colLoggedOut = New Collection
-            Set colAssertions = dSrc("loggedErrors")
-            For i = 1 To colAssertions.Count
-                Set dErr = colAssertions(i)
-                Set dErrOut = New Dictionary
-                dErrOut.Add "level", dErr("level")
-                dErrOut.Add "message", dErr("message")
-                If dErr.Exists("source") Then dErrOut.Add "source", CStr(dErr("source"))
-                If dErr.Exists("errNumber") Then dErrOut.Add "errNumber", CLng(dErr("errNumber"))
-                If dErr.Exists("errDescription") Then
-                    dErrOut.Add "errDescription", CStr(dErr("errDescription"))
-                End If
-                colLoggedOut.Add dErrOut
-            Next i
-            Set dTest("loggedErrors") = colLoggedOut
-        End If
-    End If
-
-    Set DictionaryFromStateEntry = dTest
+    Set CloneAssertionsFromState = colAssertOut
 
 End Function
+
+
+Private Sub ApplyLoggedErrorsFromState(ByVal dTest As Dictionary, ByVal dSrc As Dictionary)
+
+    Dim colLoggedOut As Collection
+    Dim colLogged As Collection
+    Dim dErr As Dictionary
+    Dim dErrOut As Dictionary
+    Dim i As Long
+
+    If dTest.Exists("loggedErrors") Then dTest.Remove "loggedErrors"
+
+    If Not dSrc.Exists("loggedErrors") Then Exit Sub
+    If TypeName(dSrc("loggedErrors")) <> "Collection" Then Exit Sub
+
+    Set colLoggedOut = New Collection
+    Set colLogged = dSrc("loggedErrors")
+    For i = 1 To colLogged.Count
+        Set dErr = colLogged(i)
+        Set dErrOut = New Dictionary
+        dErrOut.Add "level", dErr("level")
+        dErrOut.Add "message", dErr("message")
+        If dErr.Exists("source") Then dErrOut.Add "source", CStr(dErr("source"))
+        If dErr.Exists("errNumber") Then dErrOut.Add "errNumber", CLng(dErr("errNumber"))
+        If dErr.Exists("errDescription") Then
+            dErrOut.Add "errDescription", CStr(dErr("errDescription"))
+        End If
+        colLoggedOut.Add dErrOut
+    Next i
+    Set dTest("loggedErrors") = colLoggedOut
+
+End Sub
 
 
 Private Sub AccumulateCountsFromTest(ByVal dTest As Dictionary)
@@ -2313,6 +2420,24 @@ Private Sub MergePriorTestResult(ByVal dNew As Dictionary, ByVal dOld As Diction
 
     If dOld.Exists("assertionResults") Then
         Set dNew("assertionResults") = CloneAssertionResults(dOld("assertionResults"))
+    End If
+
+    If dOld.Exists("lastRunAt") Then
+        If Len(CStr(dOld("lastRunAt"))) > 0 Then
+            If dNew.Exists("lastRunAt") Then
+                dNew("lastRunAt") = CStr(dOld("lastRunAt"))
+            Else
+                dNew.Add "lastRunAt", CStr(dOld("lastRunAt"))
+            End If
+        End If
+    End If
+
+    If dOld.Exists("fromPriorRun") Then
+        If dNew.Exists("fromPriorRun") Then
+            dNew("fromPriorRun") = CBool(dOld("fromPriorRun"))
+        Else
+            dNew.Add "fromPriorRun", CBool(dOld("fromPriorRun"))
+        End If
     End If
 
 End Sub

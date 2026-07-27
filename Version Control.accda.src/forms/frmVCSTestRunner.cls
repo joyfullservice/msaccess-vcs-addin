@@ -96,12 +96,16 @@ End Sub
 ' Procedure : Form_Timer
 ' Author    : Adam Waller
 ' Date      : 7/8/2026
-' Purpose   : Inbound bridge pump. Drains window.__vbaOutbox and dispatches commands.
+' Purpose   : Inbound bridge pump. Drains window.__vbaOutbox and dispatches commands,
+'           : then runs any hydrate deferred by RefreshWebTestTreeDeferred (deferred so
+'           : the page can paint the test tree and the loading indicator before VBA
+'           : blocks on the test-state.json parse).
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Timer()
     EnsureInit
     DrainOutbox
+    modTestRunnerUI.PumpDeferredHydrate
 End Sub
 
 

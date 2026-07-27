@@ -605,7 +605,7 @@ the `frmVCSMain` console unchanged.
   `localStorage` — Recent filters, column widths, theme — persists across sessions)
 - **Entry points**: `VCS.RunTests` (show + deferred scan; user clicks Run),
   `VCS.OpenTestRunner` (open to view last results — rehydrates from singleton or
-  `test-state.json` on standalone opens)
+  `test-state.json` when the singleton is empty)
 - **Option**: `Options.UseWebTestRunner` (Advanced options → Automated Testing;
   default True) gates the whole routing in `clsVersionControl.ExecuteTests`.
 - **Inbound bridge**: outbox **polling** — JS enqueues commands in
@@ -627,14 +627,32 @@ the `frmVCSMain` console unchanged.
   a real unload.
 - **Tree refresh**: after show (or on **Refresh** in the toolbar), VBA runs
   `ScanMergingPriorResults` — rediscovers tests while preserving pass/fail for
-  unchanged `Module.Proc` keys — and republishes the tree only.
+  unchanged `Module.Proc` keys — publishes the tree, then overlays durable state
+  from `test-state.json` in one `onResultsBatch` (names paint first; prior
+  durations/assertion counts follow without blocking the scan). The overlay is
+  **deferred to `Form_Timer`** (`ScheduleHydratePriorResults` sets a flag;
+  `PumpDeferredHydrate` does the work next tick) so Access reaches its message loop
+  and the page paints before VBA blocks on the parse — WebView2 composites no frames
+  while VBA holds the thread. `PumpDeferredHydrate` additionally waits for the page to
+  confirm the paint (`window.__hydratePainted`, set from a double
+  `requestAnimationFrame`; capped by `HYDRATE_PAINT_TIMEOUT_MS`), because the next timer
+  tick alone arrives ~50 ms after the push — far too soon.
+  `onHydrateStart` / `onHydrateEnd` cover the gap by
+  switching the header status badge to a pulsing **Loading previous results…** plus a
+  stats-bar chip; JS holds both up for `HYDRATE_MIN_VISIBLE_MS` so a fast parse does
+  not flash them past unread. The overlay runs **once per open** — a re-fired
+  `DocumentComplete` replays the already-merged state from memory instead of parsing
+  the file (and showing the indicator) a second time.
 - **Quiet mode**: while the web runner hosts a run, `Log.SuppressDebugOutput` is
   set so per-test results are not echoed to the Immediate window (the UI shows
   them; the log file is unaffected).
 - **State persistence**: durable merged state in `<export-folder>/test-results/test-state.json`
   (survives Access restarts; partial runs update only executed tests and mark others
   `stale`). The in-memory `clsTestRunner` singleton is still used within a session;
-  `VCS.OpenTestRunner` reloads from `test-state.json` when the singleton is empty.
+  both `VCS.RunTests` and `VCS.OpenTestRunner` hydrate the web UI from
+  `test-state.json` after the tree is published (prior results shown dimmed with
+  last-run time in the detail pane; timings survive a full-run reset until each
+  test re-executes).
 - **JUnit export**: `Options.ExportTestResultsJUnit` (default **on**) writes
   `<export-folder>/test-results/test-results.xml` after each run as a projection of
   the durable state. `VCS.ExportTestResultsJUnit` regenerates it on demand without

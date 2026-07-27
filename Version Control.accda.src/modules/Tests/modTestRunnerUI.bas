@@ -17,6 +17,10 @@ Private Const JS_RETRIEVE_TIMEOUT_SENTINEL As String = "RetrieveJavascriptValue 
 Private Const MIN_EDGE_BUILD As Long = 16327
 Private Const WEB_RUNNER_CACHE_FOLDER As String = "TestRunnerCache"
 
+' Longest we will wait for the page to confirm it painted the hydration indicator
+' before parsing test-state.json anyway. See PumpDeferredHydrate.
+Private Const HYDRATE_PAINT_TIMEOUT_MS As Long = 1500
+
 ' Keep aligned with VBA_CALL_TIMEOUT_MS in runner.html (values cannot be shared
 ' across the JS/VBA boundary).
 Public Const WEB_RUNNER_READY_TIMEOUT_MS As Long = 30000
@@ -25,6 +29,9 @@ Private m_blnWebRunnerActive As Boolean
 Private m_blnDocumentReady As Boolean
 Private m_blnTreePublished As Boolean
 Private m_blnStandalone As Boolean      ' opened to view last results (not a fresh run)
+Private m_blnPriorStateLoaded As Boolean ' durable state read once per runner open
+Private m_blnHydratePending As Boolean   ' hydrate scheduled; runs on the form timer
+Private m_curHydrateScheduled As Currency ' MicroTimer when the indicator was pushed
 Private m_strPendingTreeJson As String
 Private m_strPendingDefaultFilter As String
 Private m_varEdgeBuildCached As Variant
@@ -323,6 +330,8 @@ Public Sub ResetWebRunnerHostState()
     m_strPendingTreeJson = vbNullString
     m_strPendingDefaultFilter = vbNullString
     m_blnStandalone = False
+    m_blnPriorStateLoaded = False
+    m_blnHydratePending = False
 End Sub
 
 
@@ -411,11 +420,14 @@ Public Sub NotifyDocumentReady()
     ' Edge control can re-fire DocumentComplete without our Navigate). The retained tree
     ' JSON must be (re)sent, so reset the published flag; otherwise a reload leaves the
     ' page with an empty testTree and every later onTestComplete has no row to update.
+    ' NOTE: m_blnPriorStateLoaded is deliberately NOT reset here. The page is fresh but
+    ' the singleton still holds the durable state, so RefreshWebTestTreeDeferred replays
+    ' it from memory instead of re-parsing the file on every DocumentComplete.
     m_blnTreePublished = False
+    m_blnHydratePending = False
     ConnectBridgeInPage
     TryPublishPendingTree
     RefreshWebTestTreeDeferred
-    If HasCompletedTests() Then StreamCompletedTestResults
     DoCmd.Hourglass False
 End Sub
 
@@ -819,6 +831,11 @@ Public Function AcceptBridgeRun(ByVal strFnName As String, ByVal strPayloadJson 
             End If
     End Select
 
+    ' A run supersedes any pending prior-state hydrate: it produces fresh results for
+    ' the tests it covers, and JS onRunStart already clears the indicator.
+    m_blnHydratePending = False
+    m_blnPriorStateLoaded = True
+
     ' Suppress Immediate window output while the web runner hosts the run.
     Log.SuppressDebugOutput = True
 
@@ -1196,6 +1213,17 @@ Private Function AdaptTestResult(ByVal strTestKey As String, ByVal dTest As Dict
     End If
     Set dOut("assertions") = colOut
 
+    If dTest.Exists("lastRunAt") Then
+        If Len(CStr(dTest("lastRunAt"))) > 0 Then
+            dOut.Add "lastRunAt", CStr(dTest("lastRunAt"))
+        End If
+    End If
+    If dTest.Exists("fromPriorRun") Then
+        dOut.Add "prior", CBool(dTest("fromPriorRun"))
+    Else
+        dOut.Add "prior", False
+    End If
+
     Set AdaptTestResult = dOut
 
 End Function
@@ -1258,9 +1286,8 @@ Private Sub ReuseOrReloadRunner(ByVal frm As Object, ByVal blnStandalone As Bool
 
     If WebRunnerPageHealthy() Then
         modTestRunnerDiag.Diag "open.reuse.warm"
-        DoCmd.Hourglass False
         RefreshWebTestTreeDeferred
-        If blnStandalone And HasCompletedTests() Then StreamCompletedTestResults
+        DoCmd.Hourglass False
     Else
         modTestRunnerDiag.Diag "open.reuse.reload"
         m_blnDocumentReady = False
@@ -1318,13 +1345,145 @@ Private Sub RefreshWebTestTreeDeferred()
     If TestRunner.State = etrsRunning Then Exit Sub
 
     modTestRunnerDiag.Diag "refresh.tree"
-    If m_blnStandalone Then
-        modTestState.LoadInto TestRunner
-    End If
     TestRunner.ScanMergingPriorResults
     PublishTestTree TestRunner.GetTestTreeAsJson()
 
+    If m_blnPriorStateLoaded Then
+        ' Durable state is already in the singleton. A re-fired DocumentComplete or a
+        ' forced reload wipes the page, not our memory, so replay from memory rather
+        ' than paying for a second parse of test-state.json (which also showed the
+        ' loading indicator twice).
+        If HasCompletedTests() Then StreamCompletedTestResults
+    Else
+        ScheduleHydratePriorResults
+    End If
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScheduleHydratePriorResults
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Show the hydration indicator and hand the actual work to the form timer.
+'           : The tree is already painted by the time we get here, so parsing
+'           : test-state.json inline would stall the page for the whole parse -- and
+'           : WebView2 never composites a frame while VBA holds the thread, so the
+'           : indicator would be created and removed without ever being seen. Setting a
+'           : flag and returning lets Access reach its message loop, the page paint, and
+'           : PumpDeferredHydrate do the work on the next tick.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ScheduleHydratePriorResults()
+
+    If m_blnPriorStateLoaded Then Exit Sub
+    If m_blnHydratePending Then Exit Sub
+
+    m_blnHydratePending = True
+    m_curHydrateScheduled = Perf.MicroTimer
+    modTestRunnerDiag.Diag "hydrate.scheduled"
+    PushTestUI "onHydrateStart", "{}"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PumpDeferredHydrate
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Run the scheduled hydrate: overlay durable state from test-state.json and
+'           : stream one onResultsBatch. Called from frmVCSTestRunner.Form_Timer (after
+'           : the outbox drain, so user commands take priority). Hydrates once per
+'           : runner open; Refresh reuses in-memory merge-scan results instead.
+'           :
+'           : Waits for the page to CONFIRM it painted the indicator before starting the
+'           : parse. Reaching the timer is not enough: the diagnostic trace (7/27) showed
+'           : only 49 ms between the onHydrateStart push and the first tick, then a
+'           : 1.76 s parse during which VBA holds the thread and WebView2 composites
+'           : nothing -- so the indicator was pushed, never painted, and removed. JS sets
+'           : window.__hydratePainted from a double requestAnimationFrame, which only
+'           : fires once the compositor has actually produced the frame.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PumpDeferredHydrate()
+
+    If Not m_blnHydratePending Then Exit Sub
+
+    ' A run dispatched on this same tick owns the results; retry on a later tick.
+    If TestRunner.State = etrsRunning Then Exit Sub
+
+    If Not HydrateIndicatorPainted() Then
+        ' Never hold the data hostage to a rendering detail; proceed after the cap.
+        If HydrateWaitElapsedMs() < HYDRATE_PAINT_TIMEOUT_MS Then Exit Sub
+        modTestRunnerDiag.Diag "hydrate.paint.timeout", _
+            "afterMs=" & CLng(HydrateWaitElapsedMs())
+    End If
+
+    m_blnHydratePending = False
+    m_blnPriorStateLoaded = True
+    modTestRunnerDiag.Diag "hydrate.begin"
+
+    modTestState.MergeInto TestRunner
+    If HasCompletedTests() Then StreamCompletedTestResults
+
+    modTestRunnerDiag.Diag "hydrate.end"
+    PushTestUI "onHydrateEnd", "{}"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HydrateIndicatorPainted
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : True once the page reports that the hydration indicator reached the screen
+'           : (window.__hydratePainted, set from a double requestAnimationFrame). Returns
+'           : True on any failure to read it -- a missing form or a bridge timeout must
+'           : not stall the hydrate itself.
+'---------------------------------------------------------------------------------------
+'
+Private Function HydrateIndicatorPainted() As Boolean
+
+    Dim frm As Object
+    Dim strResult As String
+
+    On Error Resume Next
+    Set frm = RunnerForm()
+    If frm Is Nothing Then
+        Err.Clear
+        HydrateIndicatorPainted = True
+        Exit Function
+    End If
+
+    strResult = frm.RetrieveRunnerJsValue("String(window.__hydratePainted === true)")
+    If Err.Number <> 0 Then
+        Err.Clear
+        HydrateIndicatorPainted = True
+        Exit Function
+    End If
+
+    HydrateIndicatorPainted = (StrComp(Trim$(strResult), "true", vbTextCompare) = 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HydrateWaitElapsedMs
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Milliseconds since the hydration indicator was pushed to the page.
+'---------------------------------------------------------------------------------------
+'
+Private Function HydrateWaitElapsedMs() As Double
+
+    Dim dblMs As Double
+
+    If m_curHydrateScheduled = 0 Then Exit Function
+    dblMs = (Perf.MicroTimer - m_curHydrateScheduled) * 1000
+    If dblMs < 0 Then dblMs = 0
+    HydrateWaitElapsedMs = dblMs
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

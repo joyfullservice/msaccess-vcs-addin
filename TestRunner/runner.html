@@ -483,6 +483,18 @@
   .badge.skip { background: var(--skip-bg); color: var(--skip-fg); }
   .badge.error { background: var(--error-bg); color: var(--error-fg); }
   .badge.running { background: var(--running-bg); color: var(--running-fg); }
+
+  /* Loading prior results: pulse so a sub-second hydrate is still noticeable. */
+  .badge.hydrating {
+    background: var(--running-bg);
+    color: var(--running-fg);
+    animation: pulse-badge 1.1s ease-in-out infinite;
+  }
+
+  @keyframes pulse-badge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
   
   .main {
     display: flex;
@@ -703,6 +715,28 @@
     color: var(--text-tertiary);
     font-variant-numeric: tabular-nums;
   }
+
+  /* Shown between tree publish and the onResultsBatch replay, while VBA parses
+     test-state.json. The [hidden] rule must override the flex display above. */
+  .hydrate-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+
+  .hydrate-status[hidden] { display: none; }
+
+  .hydrate-spinner {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
   
   .test-list {
     flex: 1;
@@ -791,7 +825,14 @@
   .status-icon.fail { color: var(--fail-fg); }
   .status-icon.skip { color: var(--skip-fg); }
   .status-icon.error { color: var(--error-fg); }
-  
+
+  .test-row.stale .status-icon.pass,
+  .test-row.stale .status-icon.fail,
+  .test-row.stale .status-icon.error,
+  .test-row.stale .status-icon.skip {
+    opacity: 0.55;
+  }
+
   .status-icon.running {
     border: 1.5px solid var(--running-fg);
     border-top-color: transparent;
@@ -844,7 +885,24 @@
     color: var(--text-tertiary);
     font-variant-numeric: tabular-nums;
   }
-  
+
+  .test-meta .prior {
+    font-style: italic;
+    opacity: 0.85;
+  }
+
+  .detail-prior-note {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 4px;
+  }
+
+  .detail-status.prior::after {
+    content: ' · previous run';
+    font-weight: 400;
+    opacity: 0.75;
+  }
+
   .assertion-count {
     background: var(--bg-tertiary);
     padding: 1px 5px;
@@ -1197,6 +1255,7 @@
       <div class="stat" data-filter="skipped" role="button" tabindex="0" title="Show skipped tests"><div class="stat-dot skip"></div><span class="stat-num" id="stat-skipped">0</span><span class="stat-label">skipped</span></div>
       <div class="stat stat-sep"><span class="stat-num" id="stat-tests">0</span><span class="stat-label">tests</span></div>
       <div class="stat"><span class="stat-num" id="stat-assertions">0</span><span class="stat-label">assertions</span></div>
+      <div class="hydrate-status" id="hydrate-status" hidden><span class="hydrate-spinner"></span>Loading previous results&hellip;</div>
       <div class="progress-track" id="progress-track">
         <div class="progress-segment pass" id="prog-pass" style="width:0"></div>
         <div class="progress-segment fail" id="prog-fail" style="width:0"></div>
@@ -1328,6 +1387,7 @@ window.__vbaReject = function(id, errMsg) {
 const state = {
   testTree: {},
   results: new Map(),
+  priorResults: new Map(),  // last-session metadata; survives onRunStart reset
   selectedSuite: null,
   selectedFolder: null,   // dotted @Folder path (e.g. Tests.SQL)
   selectedTest: null,
@@ -1348,6 +1408,10 @@ const state = {
   lastRunOutcome: null,    // { total, passed, failed, errored } for last run only
   
   counts: { passed: 0, failed: 0, errored: 0, skipped: 0, total: 0 },
+  
+  hydrating: false,        // loading prior results from test-state.json
+  hydrateShownAt: 0,       // when the indicator went up (minimum-visible hold)
+  hydrateHideTimer: null,
   
   reset() {
     this.results.clear();
@@ -2369,12 +2433,47 @@ function renderSuiteGroup(suiteKey, suite, tests) {
   return group;
 }
 
+function formatLastRunAt(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return String(iso);
+  return d.toLocaleString();
+}
+
+function storeTestResult(result) {
+  const rec = {
+    status: result.status,
+    assertions: result.assertions || [],
+    durationMs: result.durationMs,
+    errorMessage: result.errorMessage,
+    lastRunAt: result.lastRunAt || null,
+    prior: !!result.prior
+  };
+  state.results.set(result.testKey, rec);
+  if (rec.prior) {
+    state.priorResults.set(result.testKey, {
+      status: rec.status,
+      assertions: rec.assertions,
+      durationMs: rec.durationMs,
+      lastRunAt: rec.lastRunAt
+    });
+  } else {
+    state.priorResults.delete(result.testKey);
+  }
+}
+
 function renderTestRow(test) {
   const r = state.results.get(test.key);
-  const status = r ? r.status : 'pending';
+  const prior = (!r || r.status === 'pending') ? state.priorResults.get(test.key) : null;
+  const display = r && r.status !== 'pending' ? r : prior;
+  const isPrior = !!(display && (prior || (r && r.prior)));
+  const status = display ? display.status : 'pending';
+  const priorTip = isPrior && display && display.lastRunAt
+    ? 'Previous run: ' + formatLastRunAt(display.lastRunAt)
+    : (isPrior ? 'Previous run' : '');
   
   const row = el('div', {
-    className: 'test-row ' + status,
+    className: 'test-row ' + status + (isPrior ? ' stale' : ''),
     dataset: { testKey: test.key },
     tabIndex: -1,
     onclick: () => selectTest(test.key)
@@ -2393,17 +2492,19 @@ function renderTestRow(test) {
   if (chips) row.appendChild(chips);
 
   const meta = el('div', { className: 'test-meta' });
-  if (r && r.assertions) {
-    const failedCount = r.assertions.filter(a => !a.passed).length;
+  if (display && display.assertions) {
+    const failedCount = display.assertions.filter(a => !a.passed).length;
     if (failedCount > 0) {
       meta.appendChild(el('span', {
-        className: 'assertion-count',
-        text: failedCount + '/' + r.assertions.length + ' assertions'
+        className: 'assertion-count' + (isPrior ? ' prior' : ''),
+        title: priorTip,
+        text: failedCount + '/' + display.assertions.length + ' assertions'
       }));
-    } else if (r.assertions.length > 0) {
+    } else if (display.assertions.length > 0) {
       meta.appendChild(el('span', {
-        className: 'assertion-count',
-        text: r.assertions.length + ' assertions'
+        className: 'assertion-count' + (isPrior ? ' prior' : ''),
+        title: priorTip,
+        text: display.assertions.length + ' assertions'
       }));
     }
   } else if (test.assertionCount) {
@@ -2413,8 +2514,12 @@ function renderTestRow(test) {
     }));
   }
   
-  if (r && r.durationMs != null) {
-    meta.appendChild(el('span', { text: r.durationMs + 'ms' }));
+  if (display && display.durationMs != null) {
+    meta.appendChild(el('span', {
+      className: isPrior ? 'prior' : '',
+      title: priorTip,
+      text: display.durationMs + 'ms'
+    }));
   }
   meta.appendChild(el('button', {
     className: 'run-btn',
@@ -2583,11 +2688,16 @@ function renderDetailPane() {
   const test = findTestByKey(state.selectedTest);
   if (!test) return;
   const r = state.results.get(test.key);
+  const prior = (!r || r.status === 'pending') ? state.priorResults.get(test.key) : null;
+  const display = r && r.status !== 'pending' && r.status !== 'running' ? r : prior;
+  const isPrior = !!(display && (prior || (r && r.prior)));
   
   const header = el('div', { className: 'detail-header' });
   
-  const status = r ? r.status : 'pending';
-  const statusBadge = el('div', { className: 'detail-status ' + status });
+  const status = display ? display.status : 'pending';
+  const statusBadge = el('div', {
+    className: 'detail-status ' + status + (isPrior ? ' prior' : '')
+  });
   statusBadge.textContent = status === 'pending' ? 'Not run' : status;
   header.appendChild(statusBadge);
   
@@ -2600,6 +2710,13 @@ function renderDetailPane() {
   });
   header.appendChild(loc);
 
+  if (isPrior && display && display.lastRunAt) {
+    header.appendChild(el('div', {
+      className: 'detail-prior-note',
+      text: 'Last run: ' + formatLastRunAt(display.lastRunAt)
+    }));
+  }
+
   const tagChips = renderTagChips(test.tags, { detail: true });
   if (tagChips) header.appendChild(tagChips);
 
@@ -2607,29 +2724,30 @@ function renderDetailPane() {
   
   const body = el('div', { className: 'detail-body scrollable' });
   
-  if (r && r.errorMessage) {
+  if (display && display.errorMessage) {
     body.appendChild(el('div', { className: 'detail-section' }, [
       el('div', { className: 'detail-label', text: 'Runtime error' }),
-      el('div', { className: 'error-block', text: r.errorMessage })
+      el('div', { className: 'error-block', text: display.errorMessage })
     ]));
   }
   
-  if (r && r.assertions && r.assertions.length > 0) {
+  if (display && display.assertions && display.assertions.length > 0) {
     const section = el('div', { className: 'detail-section' });
     section.appendChild(el('div', {
       className: 'detail-label',
-      text: 'Assertions (' + r.assertions.length + ')'
+      text: 'Assertions (' + display.assertions.length + ')' + (isPrior ? ' (previous run)' : '')
     }));
-    for (const a of r.assertions) {
+    for (const a of display.assertions) {
       section.appendChild(renderAssertionBlock(a, test));
     }
     body.appendChild(section);
-  } else if (r && r.status === 'pass') {
+  } else if (display && display.status === 'pass') {
     body.appendChild(el('div', { className: 'detail-section' }, [
       el('div', { className: 'detail-label', text: 'All assertions passed' }),
       el('div', {
         className: 'error-block',
-        text: 'Test completed in ' + (r.durationMs || 0) + 'ms with no failures.'
+        text: 'Test completed in ' + (display.durationMs || 0) + 'ms with no failures.'
+          + (isPrior ? ' (previous run)' : '')
       })
     ]));
   }
@@ -2834,6 +2952,60 @@ function recomputeCounts() {
 // =============================================================================
 // Stats and progress
 // =============================================================================
+// The test-state.json parse often finishes in a few hundred ms, which is long enough
+// to be a visible stall but too short to read an indicator that disappears immediately.
+// Hold it on screen for a readable minimum instead of blinking.
+const HYDRATE_MIN_VISIBLE_MS = 600;
+
+// VBA polls window.__hydratePainted and will not start parsing test-state.json until it
+// is true. A double rAF is the signal: the first callback still runs before the frame
+// containing our change, the second only after the compositor has produced it. Without
+// this, VBA re-takes the thread ~50ms after the push and the indicator never appears.
+function confirmHydratePaint() {
+  window.__hydratePainted = false;
+  requestAnimationFrame(function () {
+    requestAnimationFrame(function () {
+      window.__hydratePainted = true;
+      window.diag('hydratePainted', '');
+    });
+  });
+}
+
+function applyHydrating(on) {
+  state.hydrating = on;
+  const status = $('hydrate-status');
+  if (status) status.hidden = !on;
+  updatePageHeader();
+  if (on) confirmHydratePaint();
+  else window.__hydratePainted = false;
+}
+
+// force: skip the minimum-visible hold (a run is starting; its own status wins).
+function setHydrating(on, opts) {
+  if (state.hydrateHideTimer) {
+    clearTimeout(state.hydrateHideTimer);
+    state.hydrateHideTimer = null;
+  }
+
+  if (on) {
+    state.hydrateShownAt = Date.now();
+    applyHydrating(true);
+    return;
+  }
+
+  if (!state.hydrating) return;
+
+  const remaining = HYDRATE_MIN_VISIBLE_MS - (Date.now() - (state.hydrateShownAt || 0));
+  if ((opts && opts.force) || remaining <= 0) {
+    applyHydrating(false);
+    return;
+  }
+  state.hydrateHideTimer = setTimeout(function () {
+    state.hydrateHideTimer = null;
+    applyHydrating(false);
+  }, remaining);
+}
+
 function updateStats() {
   $('stat-passed').textContent = state.counts.passed;
   $('stat-failed').textContent = state.counts.failed;
@@ -2899,6 +3071,7 @@ function formatDuration(ms) {
 function deriveRunStatus() {
   if (state.cancelling) return 'cancelling';
   if (state.running) return 'running';
+  if (state.hydrating) return 'hydrating';
   const executed = state.counts.passed + state.counts.failed +
     state.counts.errored + state.counts.skipped;
   if (executed === 0) return 'ready';
@@ -2910,8 +3083,14 @@ function updatePageHeader() {
   const status = deriveRunStatus();
   const badge = $('run-status');
   const meta = $('header-meta');
-  const labels = { ready: 'Ready', running: 'Running', cancelling: 'Cancelling…', passed: 'Passed', failed: 'Failed' };
-  const classes = { ready: 'skip', running: 'running', cancelling: 'running', passed: 'pass', failed: 'fail' };
+  const labels = {
+    ready: 'Ready', running: 'Running', cancelling: 'Cancelling…',
+    hydrating: 'Loading previous results…', passed: 'Passed', failed: 'Failed'
+  };
+  const classes = {
+    ready: 'skip', running: 'running', cancelling: 'running',
+    hydrating: 'hydrating', passed: 'pass', failed: 'fail'
+  };
 
   badge.textContent = labels[status];
   badge.className = 'badge run-status ' + classes[status];
@@ -2967,7 +3146,18 @@ window.TestUI = {
     updateClearFilterChip();
   }),
   
+  // Prior-result hydration is in flight (VBA is parsing test-state.json). The tree
+  // is already painted, so this explains the gap before durations appear.
+  onHydrateStart: guardTestUI('onHydrateStart', function () {
+    setHydrating(true);
+  }),
+
+  onHydrateEnd: guardTestUI('onHydrateEnd', function () {
+    setHydrating(false);
+  }),
+
   onRunStart: guardTestUI('onRunStart', function (data) {
+    setHydrating(false, { force: true });
     const keys = (data && data.testKeys) || [];
     const vbaTotal = (data && data.totalTests) || keys.length;
     if (vbaTotal !== keys.length && keys.length) {
@@ -2985,10 +3175,31 @@ window.TestUI = {
     state.cancelling = false;
     state.runKeys = keys.slice();
     if (isPartial) {
-      for (const k of keys) state.results.set(k, { status: 'pending', assertions: [] });
+      for (const k of keys) {
+        const rec = state.results.get(k);
+        if (rec && rec.status !== 'pending' && rec.status !== 'running') {
+          state.priorResults.set(k, {
+            status: rec.status,
+            assertions: rec.assertions || [],
+            durationMs: rec.durationMs,
+            lastRunAt: rec.lastRunAt || null
+          });
+        }
+        state.results.set(k, { status: 'pending', assertions: [] });
+      }
     } else {
       state.lastRunMs = null;
       state.lastRunOutcome = null;
+      for (const [testKey, rec] of state.results) {
+        if (rec && rec.status !== 'pending' && rec.status !== 'running') {
+          state.priorResults.set(testKey, {
+            status: rec.status,
+            assertions: rec.assertions || [],
+            durationMs: rec.durationMs,
+            lastRunAt: rec.lastRunAt || null
+          });
+        }
+      }
       state.reset();
       for (const sk in state.testTree) {
         for (const t of state.testTree[sk].tests) {
@@ -3027,12 +3238,7 @@ window.TestUI = {
   
   onTestComplete: guardTestUI('onTestComplete', function (result) {
     window.diag('onTestComplete', (result && result.testKey) + ' ' + (result && result.status));
-    state.results.set(result.testKey, {
-      status: result.status,
-      assertions: result.assertions || [],
-      durationMs: result.durationMs,
-      errorMessage: result.errorMessage
-    });
+    storeTestResult(Object.assign({ prior: false }, result));
     
     recomputeCounts();
     
@@ -3054,13 +3260,9 @@ window.TestUI = {
     window.diag('onResultsBatch', 'n=' + results.length);
     for (const result of results) {
       if (!result || !result.testKey) continue;
-      state.results.set(result.testKey, {
-        status: result.status,
-        assertions: result.assertions || [],
-        durationMs: result.durationMs,
-        errorMessage: result.errorMessage
-      });
+      storeTestResult(result);
     }
+    setHydrating(false);
     recomputeCounts();
     updateStats();
     updatePageHeader();

@@ -12,6 +12,71 @@ Agents: read this file before working on any module referenced here.
 
 ---
 
+## 2026-07-27 — Hydrate prior test metadata in the web runner after tree publish
+
+**Trigger**: `test-state.json` already stores per-test `durationMs`, assertion
+counts, and `lastRunAt`, but the web runner showed test names only until Run on
+the `VCS.RunTests` path. `LoadInto` was gated behind `m_blnStandalone`
+(`VCS.OpenTestRunner` only).
+
+**Options explored**:
+- **Embed metadata in the tree JSON** — rejected: duplicates the batch replay
+  path and enlarges every `onReady` payload with full assertion arrays.
+- **Replace `LoadStateTests` before scan** — rejected: `LoadStateTests` wipes
+  `this.Tests`; scan must run first so discovered tests match the live VBA project.
+- **Publish tree, then overlay + one `onResultsBatch` (chosen)** — scan and
+  `onReady` paint names immediately; `modTestState.MergeInto` overlays durable
+  state onto discovered keys; one batch streams prior results. Cost is one
+  `ParseJson` (~240 KB in this repo) — negligible vs VBIDE scan.
+
+**Decision**:
+- `clsTestRunner.MergeStateResults` overlays disk state by `Module.Proc` key;
+  `ApplyStateResultsToTest` is shared with `LoadStateTests`.
+- In-memory `fromPriorRun` (distinct from persisted `stale`) marks hydrated rows
+  for the UI; cleared when a test actually starts running.
+- JS keeps a `priorResults` map that survives `onRunStart` reset so not-yet-run
+  rows still show last session's duration during a long run.
+- `m_blnPriorStateLoaded` prevents re-reading disk on toolbar Refresh (merge-scan
+  preserves in-memory results) **and across `DocumentComplete` re-fires**. It is
+  deliberately not reset there: the page is wiped but the singleton is not, so
+  `RefreshWebTestTreeDeferred` replays from memory instead of parsing again. Resetting
+  it meant any spurious reload paid for a second parse and blinked the indicator a
+  second time. Only a real form unload (`ResetWebRunnerHostState`) clears it.
+- The parse is visible on open, and the tree is already painted when it starts, so
+  it gets an in-page indicator rather than relying on the Access hourglass (easy to
+  miss over a WebView2 pop-up): `onHydrateStart` / `onHydrateEnd` drive the header
+  status badge (pulsing **Loading previous results…**, sharing the run-status slot)
+  plus a stats-bar chip. A chip alone tested as too easy to miss.
+- JS enforces `HYDRATE_MIN_VISIBLE_MS` (600 ms) before hiding. The parse often
+  finishes fast enough that a truthful indicator is unreadable, so the hold buys
+  legibility; `onRunStart` passes `force` to drop it immediately, since the run's own
+  status must own the badge.
+- **The overlay itself is deferred to `Form_Timer`**, not run inline. An inline parse
+  with a `DoEvents` before it was tried first and the chip never appeared: WebView2
+  composites no frames while VBA holds the thread, so the chip was created and removed
+  without ever being painted. `ScheduleHydratePriorResults` only sets a flag and pushes
+  `onHydrateStart`; `PumpDeferredHydrate` runs after `DrainOutbox` on the next tick, so
+  user commands keep priority. A run supersedes a pending hydrate (`AcceptBridgeRun`
+  clears the flag).
+- **Reaching the timer is still not sufficient** — `PumpDeferredHydrate` waits for the
+  page to *confirm the paint*. The diagnostic trace (7/27) showed only 49 ms between the
+  `onHydrateStart` push and the first tick, followed by a **1.76 s** parse with the
+  thread held, so the indicator was pushed, never composited, then removed. JS sets
+  `window.__hydratePainted` from a **double `requestAnimationFrame`** (the first
+  callback still precedes the frame carrying the change; the second follows it), and VBA
+  polls that flag, capped by `HYDRATE_PAINT_TIMEOUT_MS` so a bridge failure cannot stall
+  the data. Wall-clock delays were rejected: they guess at compositor timing, and this
+  is the one signal that actually means "on screen."
+- The warm-reuse path now clears the hourglass *after* refresh, not before.
+
+**What this rules out**: Showing prior pass/fail as authoritative without the
+dimmed/stale styling — hydrated rows are explicitly "previous run" until re-run.
+
+**Relevant files**: `clsTestRunner.cls`, `modTestState.bas`, `modTestRunnerUI.bas`,
+`TestRunner/runner.html`.
+
+---
+
 ## 2026-07-27 — Grid origin is stored Top-first in LvExtra, Left-first in the qdef
 
 **Trigger**: Query `.json` files flipped `GridLeft` and `GridTop` on every round trip
