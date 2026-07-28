@@ -1,5 +1,13 @@
 Change log
 ==========
+
+> **This file is not maintained. Do not add entries here.**
+>
+> Applies to human contributors and AI agents alike. Changes are documented in
+> commit messages; architectural decisions and their rationale go in
+> [DECISIONS.md](DECISIONS.md). The history below is retained for reference only
+> and stops in 2015.
+
 Ongoing Development
 -------------------
 joyfullservice:
