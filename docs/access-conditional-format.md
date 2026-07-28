@@ -301,7 +301,7 @@ The trailer starts at **`P = 32 + 2·(shortestLen + longestLen)`** and the recor
 | +A | 4 | `longestLen` | UTF-16 code-unit count |
 | +A+4 | `longestLen × 2` | `longestValue` | UTF-16LE typed value |
 | +B | 4 | `unk2` | always `1` |
-| P | 1 | `showBarOnly` | `0` / `1` → VBA `ShowBarOnly` |
+| P | 1 | `showBarOnly` | Boolean → VBA `ShowBarOnly`; non-zero is true, and the value is `1` or `0xFF` depending on who authored the rule (§6.1) |
 | P+1 | 3 | `barColor` | BGR (high byte `0` at P+4) → VBA `BackColor` |
 | P+5 | 1 | `shortestLimit` | limit-type enum → VBA `ShortestBarLimit` |
 | P+9 | 1 | `longestLimit` | limit-type enum → VBA `LongestBarLimit` |
@@ -367,50 +367,97 @@ CF14 only. Verified from AlertText (4 expression rules, legacy `ruleCount = 3`).
   | 4 | 4 | `foreColor` |
   | 8 | 4 | `backColor` |
 
-**Expression-window chaining.** Each expression/focus rule's expression occupies a tight
-window of `exprLen + 2` UTF-16 code units (expression text + 2 null units). Windows are
-chained sequentially from unit 0. The descriptor dwords on non-last rules point to the
-*next* rule's window:
+**Expression slots.** Every rule owns **two** slots, regardless of type: `Expression1` and
+`Expression2`. Each slot holds its text plus a null terminator, but never fewer than two
+code units — an unused slot (an expression rule's `Expression2`, or either slot on a
+field-has-focus rule) still occupies two null units:
 
 ```
-Window 0: units 0 .. (exprLen[0]+1)     ← offset24 = exprLen[0]+1
-Window 1: units (W0 size) .. (W0+W1-1)  ← nextExprStart/End from rule 0
-Window 2: units (W0+W1) .. (W0+W1+W2-1) ← nextExprStart/End from rule 1
+slotUnits(text) = max(len(text) + 1, 2)
 ```
 
-**Verified from AlertText** (3 rules, each exprLen = 29):
+Slots are laid out consecutively from unit 0, in rule order. `offset24` is the end unit of
+the first rule's *first* slot, and the descriptor dwords on non-last rules name the
+following rule's slot window. Treating an expression rule as owning a single window is the
+mistake that produced malformed multi-rule blocks; a rule that uses only `Expression1`
+still reserves the second slot.
+
+**Verified across 42 captured controls** (`modTestConditionalFormatCorpus`), including an
+expression-length sweep from 3 to 20 characters that pins the `+1` and the minimum of 2.
+For 3 rules of `exprLen` 29:
 
 | Rule | Record size | nextExprStart | nextExprEnd |
 |------|-------------|---------------|-------------|
-| 0 (non-last) | 28 | 31 | 61 |
-| 1 (non-last) | 28 | 62 | 92 |
+| 0 (non-last) | 28 | 32 | 62 |
+| 1 (non-last) | 28 | 64 | 94 |
 | 2 (last) | 12 | — | — |
 
 Header + body = 28 + 28 + 28 + 12 = 96 (= `LEGACY_EXPR_OFFSET`, no padding needed).
-Expression buffer = 3 × 31 × 2 = 186 bytes. `blockSize` = 96 + 186 = 282. ✓
+Expression buffer = 3 × (30 + 2) × 2 = 192 bytes. `blockSize` = 96 + 192 = 288. ✓
 
-**Between rules.** Field-value (between) rules use capacity-based padded slots instead of
-tight windows: two slots of `capacity` code units each per rule (where `capacity` =
-`max(exprLen) + 1`). `offset24` = `capacity`. Verified for single-rule (Text25 = 124 bytes).
-Multi-rule between layout is unverified.
+**Data-bar-only controls have no legacy block.** The legacy block is single-type and cannot
+represent a data bar, so a control whose only rules are data bars gets no block at all.
+Access does emit a rule-less 96-byte block in some cases, but discards it again on the next
+save, so its presence carries no information and the companion JSON does not record it.
 
-The rebuilder reproduces single-rule blocks byte-for-byte (Text9 = 126, Text23 = 100,
-Text25 = 124 bytes) and multi-rule expression blocks byte-for-byte (Text11 = 156,
-AlertText = 282 bytes).
+### 5.3 Two encodings, both valid
+
+The dialog and VBA disagree on the size of an unused trailing slot. A rule authored in the
+design-view dialog allocates **one null unit less** per expression rule than the same rule
+authored with `FormatConditions.Add`:
+
+| Shape | Design-view dialog | VBA-authored |
+|-------|--------------------|--------------|
+| 1 expression rule, `exprLen` 13 | 126 bytes | 128 bytes |
+| 3 expression rules, `exprLen` 29 | 282 bytes | 288 bytes |
+| 1 field-value rule (two slots used) | 124 bytes | 124 bytes |
+
+Field-value rules match, because both encodings populate both slots. Access preserves
+whichever encoding it finds and never rewrites the block on a plain save, so both persist
+in the wild. The add-in emits the VBA convention; see DECISIONS.md (7/28/2026) for why, and
+`modTestConditionalFormat.TestLegacySlotSizingUsesVbaConvention` for the pinned arithmetic.
+
+Only the byte count differs. The block stays self-describing either way, which is what
+matters: Access silently discards the legacy blocks of **every** control on a form when one
+of them is malformed.
 
 ---
 
-## 6. Format flags dword (4 bytes)
+## 6. Format flags record (4 bytes)
 
-| Byte index | Meaning | `1` = |
-|------------|---------|-------|
-| 0 | `Enabled` | enabled (control active) |
-| 1 | `FontBold` | bold |
-| 2 | `FontItalic` | italic |
-| 3 | `FontUnderline` | underline |
+**These are four independent bytes, not a bitfield.** Each byte is a Boolean; any non-zero
+value means true.
 
-Examples: `01 00 00 00` enabled/not bold; `01 01 00 00` enabled+bold; `00 01 00 00`
-disabled+bold; `01 00 00 01` enabled+underline; `01 01 01 01` all flags.
+| Byte index | Meaning |
+|------------|---------|
+| 0 | `Enabled` (control active) |
+| 1 | `FontBold` |
+| 2 | `FontItalic` |
+| 3 | `FontUnderline` |
+
+### 6.1 How Access encodes a true Boolean
+
+Access writes **`1`** for a byte it computes itself, and **`0xFF`** for a Boolean it copied
+from VBA — because VBA `True` is `-1`, which truncates to `0xFF`. So the value tells you who
+authored the rule, and both appear in real databases:
+
+| Authored in | `Enabled` | `FontBold` set |
+|-------------|-----------|----------------|
+| Design-view dialog | `01` | `01` |
+| VBA `FormatConditions.Add` + `.FontBold = True` | `01` | `FF` |
+
+`Enabled` is `1` in both, since nothing assigns it from VBA. The same rule governs the data
+bar `showBarOnly` byte (§4).
+
+Examples: `01 00 00 00` enabled, no font flags; `01 01 00 00` enabled+bold (dialog);
+`01 FF 00 FF` enabled+bold+underline (VBA); `00 00 00 00` disabled.
+
+> **Do not read this record as a single dword.** With `FontUnderline` set from VBA the high
+> byte is `0xFF`, and `byte3 × 0x1000000` overflows a signed VBA `Long`. That raised error 6
+> and lost the control's formatting for every form containing an underline rule (issue #730).
+
+Since a set flag has no single canonical byte, a rebuilt block cannot be byte-identical to
+both encodings. The add-in emits the VBA encoding — see DECISIONS.md (7/28/2026).
 
 ---
 
@@ -441,10 +488,31 @@ on white background. There is no `-1` sentinel in the fixtures.
 
 ## 9. Verified fixtures
 
+### 9.1 Captured corpus (primary regression net)
+
+`modTestConditionalFormatCorpus` holds the exact CF14 and legacy blocks Access wrote for
+**42 controls**, every one of which rebuilds byte-for-byte. All were authored with VBA
+`FormatConditions.Add`, so they carry the VBA Boolean encoding (§6.1).
+
+| Group | Controls | Coverage |
+|-------|----------|----------|
+| Data bars | 12 | All 9 shortest/longest limit-type combinations, `ShowBarOnly`, data bar after an expression rule, back-to-back data bars |
+| Expressions | 18 | Expression-length sweep 3–20 chars; pins legacy slot sizing at every length and both parities |
+| Multi-rule | 5 | 2/3/4 same-type rules, the 3-rule legacy cap, expression + focus, long expressions |
+| Field values | 5 | Between, Equal, GreaterThan, mixed-operator multi-rule, field-has-focus |
+| Font flags | 2 | Bold, italic, bold+underline, and a bold+italic field-value rule |
+
+### 9.2 Design-view fixtures (alternate encoding)
+
+Kept in `modTestConditionalFormat` and captured from controls formatted in the Access
+dialog, so they carry the other Boolean encoding and the shorter legacy slot. They are
+deliberately **not** asserted byte-exact — they prove that encoding still decodes and
+survives a rebuild without changing meaning.
+
 | Control | Source | Rules | Key properties |
 |---------|--------|-------|----------------|
 | Text9 | frmMain | 1 expression | Baseline single-rule expression (bold removed) |
-| Text11 | frmMain | 2 expression + 1 focus | 2-rule multi-rule legacy; focus dropped |
+| Text11 | frmMain | 2 expression + 1 focus | Focus rule dropped from legacy; bold as `01` |
 | Text23 | frmMain | 1 focus | Single-rule focus |
 | Text25 | frmMain | 1 between | Single-rule field-value |
 | Text38 | frmMain | 2 expression + 8 data bar | Mixed-type; data bars CF14-only |
@@ -457,11 +525,11 @@ on white background. There is no `-1` sentinel in the fixtures.
   unknown. Reproduced verbatim (echo + zeros).
 - Data bar `unk1`/`unk2` dwords (both always `1`) and the `fillColor` field — purpose
   unconfirmed; reproduced verbatim.
-- Multi-rule legacy layout for field-value rules: the header operator (offset 16) is the
-  first rule's; later field-value rules embed their operators in the per-rule descriptors.
-  Rebuild remains best-effort for multi-rule field-value legacy blocks (CF14 is the
-  authoritative decode source and round-trips fully).
-- Whether the legacy block alone imports cleanly when no data bars are present.
+- Why the dialog and VBA differ by one null unit per expression rule (§5.3). Both are
+  reproducible and self-consistent; the mechanism behind the difference is unknown.
+- Whether the legacy block alone imports cleanly when no data bars are present. Access
+  itself does **not** regenerate a missing legacy block: a form saved with CF14 and no
+  legacy block keeps working and stays that way across design-view saves.
 
 ---
 

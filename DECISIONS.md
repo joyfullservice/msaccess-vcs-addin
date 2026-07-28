@@ -12,6 +12,80 @@ Agents: read this file before working on any module referenced here.
 
 ---
 
+## 2026-07-28 — Conditional formatting: crash-proof decode, and which Boolean encoding to emit
+
+**Trigger**: Issue #730 — data bar conditional formatting was silently lost on export.
+Investigating it against a purpose-built corpus of 42 controls captured from Access
+(`SaveAsText` output for every rule shape the add-in handles) turned up three separate
+crashes in the decode path plus a systematically wrong legacy emitter, and then a genuine
+ambiguity in how Access encodes Booleans.
+
+Any unhandled error in the decode path is the *same bug as #730*, because a failed decode
+means the control's formatting does not reach the companion JSON. Three were found:
+
+1. The data bar record layout assumed a per-rule prefix on rule 0, which has none.
+2. `ReadLong` computed the high byte as `byte3 * &H1000000`, which overflows a signed
+   `Long` once `byte3 >= &H80`. A rule with `FontUnderline` set from VBA stores `&HFF`
+   there, so every such form raised error 6.
+3. `HexToBytes` drove its loop from the hex string length rather than the byte count, so an
+   odd-length block (a truncated or hand-edited `.form`) raised "subscript out of range".
+
+**The ambiguity**: Access writes `1` for a flag byte it computes itself, and `&HFF` for a
+Boolean it copied from VBA (VBA `True` is `-1`, truncated to a byte). Both appear in real
+databases, Access preserves whichever it finds, and it never rewrites the blocks on a plain
+save — confirmed by round-tripping a form through design view. The same split applies to the
+legacy expression slots: dialog-authored rules allocate one null unit less per expression
+rule (1 rule / 13 chars → 126 bytes from the dialog vs 128 from VBA; 3 rules / 29 chars →
+282 vs 288). Field-value rules match, since both populate two slots. So a rebuilt block
+cannot be byte-identical to both encodings.
+
+**Options explored**:
+- **Preserve the original encoding in the companion JSON** as optional fidelity fields
+  (the existing `TrailerColor` precedent) — byte-exact for both families, at the cost of two
+  new JSON fields carrying an Access implementation detail. Rejected as not worth the schema
+  surface: the choice has no functional or source-churn consequence (see below).
+- **Always emit the design-view encoding** (`1`, slots `len + 2`) — byte-exact for typical
+  user forms and for the pre-existing fixtures and docs. Rejected.
+- **Always emit the VBA encoding** (`&HFF`, slots `max(len + 1, 2)` per slot) — chosen. It is
+  what the 42-control corpus verifies byte-for-byte, and the corpus is the artifact future
+  changes will be tested against.
+- **Treat the legacy block as optional and stop emitting it** — not pursued now, though
+  Access demonstrably tolerates its absence. Worth revisiting separately.
+
+Why the choice is low-stakes either way: the exported source stores decoded rules as JSON
+booleans, not hex, so neither encoding causes git churn on re-export; Access reads any
+non-zero byte as true; and CF14 is the authoritative block, with the legacy block existing
+only for Access 2007 compatibility.
+
+**Decision**:
+- Read the format flags **byte-wise**, never as a dword. They are four independent Boolean
+  bytes, not a bitfield.
+- `ReadLong` folds the sign bit in separately, and `WriteLong` masks each byte before
+  dividing, so the two are exact inverses over all 2³² patterns (integer division truncates
+  toward zero and produced wrong high bytes for negative values).
+- Screen hex input with `IsHexBytes` before converting; malformed input sets `DecodeFailed`
+  so the caller keeps the inline binary block rather than raising.
+- `FlagsToLong` replaced by `WriteFlags`, emitting bytes directly: `Enabled` as `1`, each set
+  font flag as `&HFF`. Same convention for the data bar `showBarOnly` byte.
+- `BuildLegacyHex` uses a unified slot model — every rule owns two slots sized
+  `max(len + 1, 2)` — with descriptor dwords naming the next rule's slot window, and emits
+  no block at all for data-bar-only controls.
+- Byte-exact assertions live in the new `modTestConditionalFormatCorpus` (42 captures,
+  generated from capture files rather than transcribed). `modTestConditionalFormat` keeps the
+  design-view fixtures to assert the *other* encoding decodes and survives a rebuild with its
+  model unchanged, and pins the slot-size arithmetic so a change to the convention is visible.
+
+**What this rules out**: Do not read the format flags, or any CF dword, as a single `Long`
+without accounting for the sign bit. Do not "fix" the design-view fixtures to be byte-exact —
+they document a second valid encoding on purpose. Do not add an export format version gate
+for these changes: the emitted artifact is the companion JSON, which is unaffected. Do not
+transcribe hex fixtures by hand; generate them from captures.
+
+**Relevant files**: `clsConditionalFormat.cls`, `modTestConditionalFormat.bas`,
+`modTestConditionalFormatCorpus.bas`, `docs/access-conditional-format.md`
+
+---
+
 ## 2026-07-27 — Pre-operation hook timing and letter-casing save reliability
 
 **Trigger**: Review of when `RunBeforeExport` and `RunBeforeMerge` execute relative to

@@ -49,9 +49,19 @@ Private Const LEGACY_EXPR_OFFSET As Long = 96
 ' Access 2007 legacy format caps at 3 rules per block.
 Private Const LEGACY_RULE_CAP As Long = 3
 
+' Minimum size Access allocates for a legacy expression slot, even when unused.
+Private Const LEGACY_MIN_SLOT_UNITS As Long = 2
+
+' Fixed trailer size on a data bar record (showBarOnly through longestLimit padding).
+Private Const DATABAR_TRAILER_LEN As Long = 13
+
+' Byte Access writes for a True ShowBarOnly flag (VBA True widened to a byte).
+Private Const DATABAR_BAR_ONLY_TRUE As Long = &HFF&
+
 ' Decoded rule model. Each item is a Dictionary describing one format rule.
 Private m_colRules As Collection
 Private m_lngVersion As Long
+Private m_blnDecodeFailed As Boolean
 
 
 '---------------------------------------------------------------------------------------
@@ -75,14 +85,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : DecodeFailed
+' Purpose   : True when the most recent LoadFromCF14Hex call could not decode the block.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get DecodeFailed() As Boolean
+    DecodeFailed = m_blnDecodeFailed
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LoadFromCF14Hex
 ' Author    : Adam Waller
 ' Date      : 6/17/2026
 ' Purpose   : Parse a ConditionalFormat14 hex string (concatenated, no "0x" prefix or
 '           : separators) into the decoded rule model. CF14 is the authoritative source.
+'           : Returns True when the full block was decoded; False on structural failure.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadFromCF14Hex(strHex As String)
+Public Function LoadFromCF14Hex(strHex As String) As Boolean
 
     Dim bteData() As Byte
     Dim lngPos As Long
@@ -93,47 +114,87 @@ Public Sub LoadFromCF14Hex(strHex As String)
     Dim lngRule As Long
     Dim dRule As Dictionary
 
+    m_blnDecodeFailed = False
     Set m_colRules = New Collection
-    If Len(strHex) = 0 Then Exit Sub
+    LoadFromCF14Hex = False
+    If Len(strHex) = 0 Then Exit Function
+
+    ' Reject anything that is not a whole number of hex bytes before converting. A block
+    ' truncated mid-byte, or one carrying stray characters, must be reported as a decode
+    ' failure so the caller keeps the inline binary block - never raise, since an
+    ' unhandled error here loses the user's conditional formatting (issue #730).
+    If Not IsHexBytes(strHex) Then
+        m_blnDecodeFailed = True
+        Exit Function
+    End If
+
     bteData = HexToBytes(strHex)
-    If UBound(bteData) < 13 Then Exit Sub
+    If UBound(bteData) < 13 Then
+        m_blnDecodeFailed = True
+        Exit Function
+    End If
 
     ' Parse 14-byte header
     m_lngVersion = ReadInt(bteData, 0)
     lngRuleCount = ReadInt(bteData, 2)
     lngFirstType = ReadInt(bteData, 6)
+    If lngRuleCount < 1 Then
+        m_blnDecodeFailed = True
+        Exit Function
+    End If
     lngPos = 14
 
     For lngRule = 0 To lngRuleCount - 1
 
         ' Rules after the first carry an 8-byte type prefix (type dword + operator
-        ' dword). Data bar records embed their own type dword at the same position, so
-        ' the prefix and the data bar header coincide; read the type either way.
-        ' For the first rule the type comes from the header (offset 6) and the
-        ' field-value operator from offset 10 (docs section 4.1). For later rules the
-        ' operator is the second dword of the prefix (offset lngPos + 4).
+        ' dword). Data bars use the same prefix for rules after the first; the first
+        ' rule's type comes from the header (offset 6) with no per-rule prefix.
+        ' For the first rule the field-value operator comes from offset 10 (docs §4.1).
+        ' For later rules the operator is the second dword of the prefix (lngPos + 4).
         If lngRule = 0 Then
             lngType = lngFirstType
+            If Not CanReadBytes(bteData, 10, 2) Then
+                m_blnDecodeFailed = True
+                Exit Function
+            End If
             lngOperator = ReadInt(bteData, 10)
         Else
+            If Not CanReadBytes(bteData, lngPos, RULE_PREFIX_LEN) Then
+                m_blnDecodeFailed = True
+                Exit Function
+            End If
             lngType = ReadLong(bteData, lngPos)
             lngOperator = ReadLong(bteData, lngPos + 4)
         End If
 
         Select Case lngType
             Case CF_TYPE_DATABAR
-                Set dRule = ParseDataBarRule(bteData, lngPos)
+                Set dRule = ParseDataBarRule(bteData, lngPos, (lngRule > 0))
             Case Else
                 ' Skip the prefix for subsequent non-data-bar rules
                 If lngRule > 0 Then lngPos = lngPos + RULE_PREFIX_LEN
                 Set dRule = ParseStandardRule(bteData, lngPos, lngType, lngOperator)
         End Select
 
-        If dRule Is Nothing Then Exit For
+        If dRule Is Nothing Then
+            m_blnDecodeFailed = True
+            Exit Function
+        End If
         m_colRules.Add dRule
     Next lngRule
 
-End Sub
+    If m_colRules.Count <> lngRuleCount Then
+        m_blnDecodeFailed = True
+        Exit Function
+    End If
+    If lngPos <> UBound(bteData) + 1 Then
+        m_blnDecodeFailed = True
+        Exit Function
+    End If
+
+    LoadFromCF14Hex = True
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -149,40 +210,52 @@ Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngT
     Optional lngOperator As Long = 0) As Dictionary
 
     Dim dRule As Dictionary
-    Dim lngFlags As Long
     Dim lngLen1 As Long
     Dim lngLen2 As Long
     Dim lngUnits As Long
     Dim lngTrailPos As Long
     Dim lngTrailEcho As Long
     Dim lngEcho As Long
+    Dim lngBodyEnd As Long
+
+    If Not CanReadBytes(bteData, lngPos, BASE_BODY) Then Exit Function
 
     Set dRule = New Dictionary
     dRule.CompareMode = TextCompare
 
-    lngFlags = ReadLong(bteData, lngPos)
+    ' Format flags occupy four independent bytes, not a bitfield. Read them byte-wise:
+    ' a set font flag holds VBA True (&HFF), so the underline byte alone would overflow
+    ' a signed Long if the record were read as a single dword (docs section 6).
     dRule.Add "Type", TypeToName(lngType)
-    dRule.Add "Enabled", CBool((lngFlags And &HFF) <> 0)
-    dRule.Add "FontBold", CBool(((lngFlags \ &H100) And &HFF) <> 0)
-    dRule.Add "FontItalic", CBool(((lngFlags \ &H10000) And &HFF) <> 0)
-    dRule.Add "FontUnderline", CBool(((lngFlags \ &H1000000) And &HFF) <> 0)
+    dRule.Add "Enabled", CBool(bteData(lngPos) <> 0)
+    dRule.Add "FontBold", CBool(bteData(lngPos + 1) <> 0)
+    dRule.Add "FontItalic", CBool(bteData(lngPos + 2) <> 0)
+    dRule.Add "FontUnderline", CBool(bteData(lngPos + 3) <> 0)
     dRule.Add "ForeColor", LongToRGB(ReadLong(bteData, lngPos + 4))
     dRule.Add "BackColor", LongToRGB(ReadLong(bteData, lngPos + 8))
 
     ' Expression length and text (focus rules have length 0)
+    If Not CanReadBytes(bteData, lngPos + 12, 4) Then Exit Function
     lngLen1 = ReadLong(bteData, lngPos + 12)
     lngUnits = lngLen1
     If lngType = CF_TYPE_FIELDVALUE Then
         ' Both bounds stored inline, each length-prefixed. Expression2 is only
         ' meaningful for Between / NotBetween; single-value operators leave it empty.
         dRule.Add "Operator", OperatorToName(lngOperator)
+        If Not CanReadUtf16(bteData, lngPos + 16, lngLen1) Then Exit Function
         dRule.Add "Expression1", ReadUtf16(bteData, lngPos + 16, lngLen1)
+        If Not CanReadBytes(bteData, lngPos + 16 + (lngLen1 * 2), 4) Then Exit Function
         lngLen2 = ReadLong(bteData, lngPos + 16 + (lngLen1 * 2))
+        If Not CanReadUtf16(bteData, lngPos + 20 + (lngLen1 * 2), lngLen2) Then Exit Function
         dRule.Add "Expression2", ReadUtf16(bteData, lngPos + 20 + (lngLen1 * 2), lngLen2)
         lngUnits = lngLen1 + lngLen2
     ElseIf lngType = CF_TYPE_EXPRESSION Then
+        If Not CanReadUtf16(bteData, lngPos + 16, lngLen1) Then Exit Function
         dRule.Add "Expression1", ReadUtf16(bteData, lngPos + 16, lngLen1)
     End If
+
+    lngBodyEnd = lngPos + BASE_BODY + (lngUnits * 2)
+    If Not CanReadBytes(bteData, lngPos, lngBodyEnd - lngPos) Then Exit Function
 
     ' Read the CF14 trailer BackColor echo (3 bytes). The echo sits (trailerLen - 12)
     ' bytes into the trailing region, i.e. +9 for the 21-byte expression/focus trailer
@@ -203,7 +276,7 @@ Private Function ParseStandardRule(bteData() As Byte, ByRef lngPos As Long, lngT
     End If
 
     ' Advance past the full body (base size plus 2 bytes per expression code unit)
-    lngPos = lngPos + BASE_BODY + (lngUnits * 2)
+    lngPos = lngBodyEnd
 
     Set ParseStandardRule = dRule
 
@@ -214,36 +287,52 @@ End Function
 ' Procedure : ParseDataBarRule
 ' Author    : Adam Waller
 ' Date      : 6/17/2026
-' Purpose   : Parse a data bar rule record (CF14 only) beginning at the type marker.
+' Purpose   : Parse a data bar rule record (CF14 only). When blnHasPrefix is True,
+'           : lngPos points at the type dword; otherwise it points at unk1 (rule 0).
 '           : Advances lngPos past the full record. Offsets follow docs §4.4.
 '---------------------------------------------------------------------------------------
 '
-Private Function ParseDataBarRule(bteData() As Byte, ByRef lngPos As Long) As Dictionary
+Private Function ParseDataBarRule(bteData() As Byte, ByRef lngPos As Long, _
+    blnHasPrefix As Boolean) As Dictionary
 
     Dim dRule As Dictionary
     Dim lngShortLen As Long
     Dim lngLongLen As Long
+    Dim lngBody As Long
     Dim lngP As Long
+    Dim lngRecordEnd As Long
 
     Set dRule = New Dictionary
     dRule.CompareMode = TextCompare
     dRule.Add "Type", TypeToName(CF_TYPE_DATABAR)
 
-    dRule.Add "FillColor", LongToRGB(ReadLong(bteData, lngPos + 16))
-    lngShortLen = ReadLong(bteData, lngPos + 20)
-    dRule.Add "ShortestValue", ReadUtf16(bteData, lngPos + 24, lngShortLen)
-    lngLongLen = ReadLong(bteData, lngPos + 24 + (lngShortLen * 2))
-    dRule.Add "LongestValue", ReadUtf16(bteData, lngPos + 28 + (lngShortLen * 2), lngLongLen)
+    If blnHasPrefix Then
+        If Not CanReadBytes(bteData, lngPos, RULE_PREFIX_LEN) Then Exit Function
+        lngBody = lngPos + RULE_PREFIX_LEN
+    Else
+        lngBody = lngPos
+    End If
 
-    ' Trailer position relative to the type marker
-    lngP = lngPos + 32 + (2 * (lngShortLen + lngLongLen))
+    If Not CanReadBytes(bteData, lngBody, 20) Then Exit Function
+    dRule.Add "FillColor", LongToRGB(ReadLong(bteData, lngBody + 8))
+    lngShortLen = ReadLong(bteData, lngBody + 12)
+    If Not CanReadUtf16(bteData, lngBody + 16, lngShortLen) Then Exit Function
+    dRule.Add "ShortestValue", ReadUtf16(bteData, lngBody + 16, lngShortLen)
+    If Not CanReadBytes(bteData, lngBody + 16 + (lngShortLen * 2), 4) Then Exit Function
+    lngLongLen = ReadLong(bteData, lngBody + 16 + (lngShortLen * 2))
+    If Not CanReadUtf16(bteData, lngBody + 20 + (lngShortLen * 2), lngLongLen) Then Exit Function
+    dRule.Add "LongestValue", ReadUtf16(bteData, lngBody + 20 + (lngShortLen * 2), lngLongLen)
+
+    ' Trailer position relative to the body start (after value fields and unk2)
+    lngP = lngBody + 20 + (2 * (lngShortLen + lngLongLen)) + 4
+    lngRecordEnd = lngP + DATABAR_TRAILER_LEN
+    If Not CanReadBytes(bteData, lngP, DATABAR_TRAILER_LEN) Then Exit Function
     dRule.Add "ShowBarOnly", CBool(bteData(lngP) <> 0)
     dRule.Add "BarColor", LongToRGB(bteData(lngP + 1) + (bteData(lngP + 2) * &H100&) + (bteData(lngP + 3) * &H10000))
     dRule.Add "ShortestLimit", LimitToName(bteData(lngP + 5))
     dRule.Add "LongestLimit", LimitToName(bteData(lngP + 9))
 
-    ' Record length is P + 13 (relative to the type marker)
-    lngPos = lngP + 13
+    lngPos = lngRecordEnd
 
     Set ParseDataBarRule = dRule
 
@@ -363,11 +452,13 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
     lngType = NameToType(dRule("Type"))
 
     If lngType = CF_TYPE_DATABAR Then
-        ' Type marker + reserved are part of the record
+        ' Rules after the first carry the type prefix; rule 0 uses the header type only.
+        If Not blnFirst Then
+            cData.Add WriteLong(CF_TYPE_DATABAR)
+            cData.Add WriteLong(0)
+        End If
         lngLen1 = Utf16Units(dNZ(dRule, "ShortestValue"))
         lngLen2 = Utf16Units(dNZ(dRule, "LongestValue"))
-        cData.Add WriteLong(CF_TYPE_DATABAR)       ' type
-        cData.Add WriteLong(0)                      ' reserved
         cData.Add WriteLong(1)                      ' unk1
         cData.Add WriteLong(0)                      ' reserved
         cData.Add WriteLong(RGBToLong(dNZ(dRule, "FillColor", "0")))
@@ -377,7 +468,7 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
         cData.Add WriteUtf16(dNZ(dRule, "LongestValue"))
         cData.Add WriteLong(1)                      ' unk2
         ' Trailer
-        cData.Add WriteByte(IIf(CBool(dNZ(dRule, "ShowBarOnly", "0")), 1, 0))
+        cData.Add WriteByte(IIf(CBool(dNZ(dRule, "ShowBarOnly", "0")), DATABAR_BAR_ONLY_TRUE, 0))
         cData.Add WriteColor3(RGBToLong(dNZ(dRule, "BarColor", "0")))
         cData.Add WriteByte(0)                      ' high byte of bar color
         cData.Add WriteByte(NameToLimit(dNZ(dRule, "ShortestLimit", "automatic")))
@@ -398,7 +489,7 @@ Private Function EmitRuleCF14(dRule As Dictionary, blnFirst As Boolean) As Strin
         End If
     End If
 
-    cData.Add WriteLong(FlagsToLong(dRule))
+    cData.Add WriteFlags(dRule)
     cData.Add WriteLong(RGBToLong(dNZ(dRule, "ForeColor", "0")))
     cData.Add WriteLong(RGBToLong(dNZ(dRule, "BackColor", "0")))
 
@@ -446,6 +537,13 @@ End Function
 ' Purpose   : Rebuild the legacy ConditionalFormat hex byte string. The legacy block is
 '           : single-type: it carries only the rules whose type matches the first rule's
 '           : type (data bars and other off-type rules live only in CF14). See docs §5.
+'           :
+'           : Every rule owns two expression slots (Expression1, Expression2) sized by
+'           : SlotUnits, regardless of type - an expression rule simply leaves the second
+'           : slot empty. Rules before the last carry four extra descriptor dwords naming
+'           : the following rule's type, operator, and slot window. Getting any of this
+'           : wrong is not benign: Access silently discards the legacy blocks of *every*
+'           : control on the form when one block is malformed.
 '---------------------------------------------------------------------------------------
 '
 Public Function BuildLegacyHex() As String
@@ -455,15 +553,13 @@ Public Function BuildLegacyHex() As String
     Dim cData As clsConcat
     Dim lngIndex As Long
     Dim dRule As Dictionary
+    Dim dNext As Dictionary
     Dim lngType As Long
     Dim lngHeaderType As Long
     Dim lngCount As Long
-    Dim lngCapacity As Long
     Dim lngBlockSize As Long
     Dim lngHeaderBytes As Long
-    Dim lngOffset24 As Long
     Dim lngNextStart As Long
-    Dim lngExprLen As Long
     Dim colMatch As Collection
 
     If m_colRules.Count = 0 Then Exit Function
@@ -473,17 +569,10 @@ Public Function BuildLegacyHex() As String
 
     ' Collect the rules that the legacy block can represent (matching type)
     Set colMatch = New Collection
-    lngCapacity = 0
     For lngIndex = 1 To m_colRules.Count
         Set dRule = m_colRules(lngIndex)
         lngType = NameToType(dRule("Type"))
-        If lngType = lngHeaderType And lngType <> CF_TYPE_DATABAR Then
-            colMatch.Add dRule
-            lngCapacity = MaxLong(lngCapacity, Utf16Units(dNZ(dRule, "Expression1")) + 1)
-            If lngType = CF_TYPE_FIELDVALUE Then
-                lngCapacity = MaxLong(lngCapacity, Utf16Units(dNZ(dRule, "Expression2")) + 1)
-            End If
-        End If
+        If lngType = lngHeaderType And lngType <> CF_TYPE_DATABAR Then colMatch.Add dRule
     Next lngIndex
 
     ' Cap at the Access 2007 legacy limit
@@ -491,51 +580,41 @@ Public Function BuildLegacyHex() As String
         colMatch.Remove colMatch.Count
     Loop
     lngCount = colMatch.Count
+
+    ' A data-bar-only control has nothing the legacy block can represent. Access emits a
+    ' rule-less 96-byte block in that case, but discards it again on the next design-view
+    ' save, so its presence carries no information and the companion JSON does not record
+    ' it. Returning an empty string omits the block entirely (see FormatCFBlock).
     If lngCount = 0 Then Exit Function
 
-    ' Compute offset 24 (end unit index of the first expression window for
-    ' expression/focus rules, or the slot capacity for between rules).
-    If lngHeaderType = CF_TYPE_FIELDVALUE Then
-        lngOffset24 = lngCapacity
-    Else
-        lngOffset24 = Utf16Units(dNZ(colMatch(1), "Expression1")) + 1
-    End If
-
-    ' Build per-rule body records and expression buffer.
+    ' Build per-rule body records and the expression slot buffer.
     Set cBody = New clsConcat
     Set cExpr = New clsConcat
 
-    ' Track the running expression-window position for descriptor dwords.
-    lngNextStart = Utf16Units(dNZ(colMatch(1), "Expression1")) + 2
+    ' Running start unit of the next rule's slot window
+    lngNextStart = RuleSlotUnits(colMatch(1))
 
     For lngIndex = 1 To lngCount
         Set dRule = colMatch(lngIndex)
-        cBody.Add WriteLong(FlagsToLong(dRule))
+            cBody.Add WriteFlags(dRule)
         cBody.Add WriteLong(RGBToLong(dNZ(dRule, "ForeColor", "0")))
         cBody.Add WriteLong(RGBToLong(dNZ(dRule, "BackColor", "0")))
 
-        If lngHeaderType = CF_TYPE_FIELDVALUE Then
-            ' Between: capacity-based padded slots (verified for single rules)
-            cExpr.Add WriteUtf16Padded(dNZ(dRule, "Expression1"), lngCapacity)
-            cExpr.Add WriteUtf16Padded(dNZ(dRule, "Expression2"), lngCapacity)
-        Else
-            ' Expression/focus: tight window (text + 2 null UTF-16 units)
-            cExpr.Add WriteUtf16(dNZ(dRule, "Expression1"))
-            cExpr.Add WriteZeros(4)
-
-            If lngIndex < lngCount Then
-                ' Non-last rule: append descriptor dwords (28-byte record)
-                lngExprLen = Utf16Units(dNZ(colMatch(lngIndex + 1), "Expression1"))
-                cBody.Add WriteLong(1)
-                cBody.Add WriteLong(0)
-                cBody.Add WriteLong(lngNextStart)
-                cBody.Add WriteLong(lngNextStart + lngExprLen + 1)
-                lngNextStart = lngNextStart + lngExprLen + 2
-            End If
+        If lngIndex < lngCount Then
+            ' Non-last rule: append descriptor dwords describing the next rule (28-byte record)
+            Set dNext = colMatch(lngIndex + 1)
+            cBody.Add WriteLong(NameToType(dNext("Type")))
+            cBody.Add WriteLong(LegacyOperator(NameToType(dNext("Type")), dNext))
+            cBody.Add WriteLong(lngNextStart)
+            cBody.Add WriteLong(lngNextStart + SlotUnits(dNZ(dNext, "Expression1")))
+            lngNextStart = lngNextStart + RuleSlotUnits(dNext)
         End If
+
+        cExpr.Add WriteUtf16Padded(dNZ(dRule, "Expression1"), SlotUnits(dNZ(dRule, "Expression1")))
+        cExpr.Add WriteUtf16Padded(dNZ(dRule, "Expression2"), SlotUnits(dNZ(dRule, "Expression2")))
     Next lngIndex
 
-    ' Assemble: header (28 bytes) + per-rule body + padding to offset 96 + expressions.
+    ' Assemble: header (28 bytes) + per-rule body + padding to offset 96 + slot buffer.
     Set cData = New clsConcat
     cData.Add WriteLong(1)                              ' version
     cData.Add WriteLong(0)                              ' blockSize placeholder
@@ -543,7 +622,7 @@ Public Function BuildLegacyHex() As String
     cData.Add WriteLong(lngHeaderType)                  ' conditionType
     cData.Add WriteLong(LegacyOperator(lngHeaderType, colMatch(1)))  ' operator (offset 16)
     cData.Add WriteLong(0)                              ' reserved
-    cData.Add WriteLong(lngOffset24)                    ' expression window end / capacity
+    cData.Add WriteLong(SlotUnits(dNZ(colMatch(1), "Expression1")))  ' first slot end unit
     cData.Add cBody.GetStr
     lngHeaderBytes = Len(cData.GetStr) \ 2
     If LEGACY_EXPR_OFFSET > lngHeaderBytes Then cData.Add WriteZeros(LEGACY_EXPR_OFFSET - lngHeaderBytes)
@@ -556,29 +635,80 @@ Public Function BuildLegacyHex() As String
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : SlotUnits / RuleSlotUnits
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Size of one legacy expression slot in UTF-16 code units, and the combined
+'           : size of a rule's two slots. A slot holds the text plus a null terminator,
+'           : but Access never writes a slot shorter than two units - an unused slot (an
+'           : expression rule's Expression2, or either slot on a field-has-focus rule)
+'           : still occupies two null units.
+'---------------------------------------------------------------------------------------
+'
+Private Function SlotUnits(strText As String) As Long
+    SlotUnits = MaxLong(Utf16Units(strText) + 1, LEGACY_MIN_SLOT_UNITS)
+End Function
+
+Private Function RuleSlotUnits(dRule As Dictionary) As Long
+    RuleSlotUnits = SlotUnits(dNZ(dRule, "Expression1")) + SlotUnits(dNZ(dRule, "Expression2"))
+End Function
+
+
 ' ===================================================================================
 ' Byte/value helpers
 ' ===================================================================================
 
 '---------------------------------------------------------------------------------------
+' Procedure : IsHexBytes
+' Purpose   : True when the string is a whole number of hex bytes and nothing else, so
+'           : HexToBytes can convert it without raising. Callers must screen input with
+'           : this rather than relying on an error handler.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsHexBytes(strHex As String) As Boolean
+
+    Dim lngChar As Long
+    Dim intCode As Integer
+
+    If Len(strHex) = 0 Then Exit Function
+    If (Len(strHex) Mod 2) <> 0 Then Exit Function
+    For lngChar = 1 To Len(strHex)
+        intCode = AscW(Mid$(strHex, lngChar, 1))
+        Select Case intCode
+            Case 48 To 57, 65 To 70, 97 To 102     ' 0-9, A-F, a-f
+            Case Else: Exit Function
+        End Select
+    Next lngChar
+    IsHexBytes = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : HexToBytes
 ' Purpose   : Convert a hex string (2 chars per byte) into a zero-based byte array.
+'           : Screen input with IsHexBytes first.
 '---------------------------------------------------------------------------------------
 '
 Private Function HexToBytes(strHex As String) As Byte()
 
     Dim bteData() As Byte
-    Dim lngChar As Long
-    Dim lngPos As Long
+    Dim lngByte As Long
+    Dim lngCount As Long
     Dim strByte As String
 
+    lngCount = Len(strHex) \ 2
+    If lngCount = 0 Then Exit Function
+
     strByte = "&h00"
-    ReDim bteData(0 To (Len(strHex) \ 2) - 1)
-    For lngChar = 1 To Len(strHex) Step 2
-        Mid$(strByte, 3, 2) = Mid$(strHex, lngChar, 2)
-        bteData(lngPos) = CByte(CLng(strByte))
-        lngPos = lngPos + 1
-    Next lngChar
+    ReDim bteData(0 To lngCount - 1)
+    ' Drive the loop from the byte count rather than the string length; an odd-length
+    ' string would otherwise run one iteration past the end of the array.
+    For lngByte = 0 To lngCount - 1
+        Mid$(strByte, 3, 2) = Mid$(strHex, (lngByte * 2) + 1, 2)
+        bteData(lngByte) = CByte(CLng(strByte))
+    Next lngByte
     HexToBytes = bteData
 
 End Function
@@ -586,7 +716,11 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ReadInt / ReadLong
-' Purpose   : Read a little-endian unsigned 16-bit / 32-bit value from a byte array.
+' Purpose   : Read a little-endian 16-bit / 32-bit value from a byte array. ReadInt is
+'           : unsigned; ReadLong returns the 32-bit pattern as a signed Long, since a
+'           : VBA Long cannot hold values above &H7FFFFFFF. Multiplying the high byte
+'           : into place overflows once it reaches &H80, which real conditional-format
+'           : blocks reach routinely, so the sign bit is folded in separately.
 '---------------------------------------------------------------------------------------
 '
 Private Function ReadInt(bteData() As Byte, lngPos As Long) As Long
@@ -594,8 +728,11 @@ Private Function ReadInt(bteData() As Byte, lngPos As Long) As Long
 End Function
 
 Private Function ReadLong(bteData() As Byte, lngPos As Long) As Long
+    Dim lngHigh As Long
+    lngHigh = bteData(lngPos + 3)
     ReadLong = bteData(lngPos) + (bteData(lngPos + 1) * &H100&) + _
-        (bteData(lngPos + 2) * &H10000) + (CLng(bteData(lngPos + 3)) * &H1000000)
+        (bteData(lngPos + 2) * &H10000) + ((lngHigh And &H7F&) * &H1000000)
+    If (lngHigh And &H80&) <> 0 Then ReadLong = ReadLong Or &H80000000
 End Function
 
 
@@ -608,11 +745,34 @@ Private Function ReadUtf16(bteData() As Byte, lngPos As Long, lngUnits As Long) 
     Dim bteStr() As Byte
     Dim lngByte As Long
     If lngUnits <= 0 Then Exit Function
+    If Not CanReadUtf16(bteData, lngPos, lngUnits) Then Exit Function
     ReDim bteStr(0 To (lngUnits * 2) - 1)
     For lngByte = 0 To (lngUnits * 2) - 1
         bteStr(lngByte) = bteData(lngPos + lngByte)
     Next lngByte
     ReadUtf16 = bteStr
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CanReadBytes / CanReadUtf16
+' Purpose   : Bounds checks before reading from a CF14 byte array.
+'---------------------------------------------------------------------------------------
+'
+Private Function CanReadBytes(bteData() As Byte, lngPos As Long, lngCount As Long) As Boolean
+    If lngCount <= 0 Then
+        CanReadBytes = True
+    Else
+        CanReadBytes = (lngPos >= LBound(bteData) And lngPos + lngCount - 1 <= UBound(bteData))
+    End If
+End Function
+
+Private Function CanReadUtf16(bteData() As Byte, lngPos As Long, lngUnits As Long) As Boolean
+    If lngUnits <= 0 Then
+        CanReadUtf16 = True
+    Else
+        CanReadUtf16 = CanReadBytes(bteData, lngPos, lngUnits * 2)
+    End If
 End Function
 
 
@@ -626,8 +786,12 @@ Private Function WriteInt(ByVal lngValue As Long) As String
 End Function
 
 Private Function WriteLong(ByVal lngValue As Long) As String
-    WriteLong = ByteHex(lngValue And &HFF&) & ByteHex((lngValue \ &H100&) And &HFF) & _
-        ByteHex((lngValue \ &H10000) And &HFF) & ByteHex((lngValue \ &H1000000) And &HFF)
+    ' Mask each byte before dividing. Dividing first truncates toward zero, which yields
+    ' the wrong high bytes for any negative value - i.e. any dword whose high bit is set,
+    ' which is what ReadLong hands back for such a record.
+    WriteLong = ByteHex(lngValue And &HFF&) & ByteHex((lngValue And &HFF00&) \ &H100&) & _
+        ByteHex((lngValue And &HFF0000) \ &H10000) & _
+        ByteHex((lngValue And &HFF000000) \ &H1000000)
 End Function
 
 Private Function WriteByte(ByVal lngValue As Long) As String
@@ -701,18 +865,24 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : FlagsToLong
-' Purpose   : Build the format-flags dword from the rule's font/enabled booleans.
-'           : Byte 0 = enabled, 1 = bold, 2 = italic, 3 = underline (docs §6).
+' Procedure : WriteFlags
+' Purpose   : Emit the 4-byte format-flags record from the rule's font/enabled booleans.
+'           : Byte 0 = enabled, 1 = bold, 2 = italic, 3 = underline (docs §6). These are
+'           : four independent bytes rather than a bitfield, and the two groups do not
+'           : share a convention: Access writes 1 for enabled but VBA True (&HFF) for a
+'           : set font flag. Emitting them as bytes also keeps the underline byte from
+'           : forcing a negative Long through the dword writer.
 '---------------------------------------------------------------------------------------
 '
-Private Function FlagsToLong(dRule As Dictionary) As Long
-    Dim lngFlags As Long
-    If CBool(dNZ(dRule, "Enabled", "True")) Then lngFlags = lngFlags Or &H1&
-    If CBool(dNZ(dRule, "FontBold", "False")) Then lngFlags = lngFlags Or &H100&
-    If CBool(dNZ(dRule, "FontItalic", "False")) Then lngFlags = lngFlags Or &H10000
-    If CBool(dNZ(dRule, "FontUnderline", "False")) Then lngFlags = lngFlags Or &H1000000
-    FlagsToLong = lngFlags
+Private Function WriteFlags(dRule As Dictionary) As String
+    WriteFlags = WriteByte(IIf(CBool(dNZ(dRule, "Enabled", "True")), 1, 0)) & _
+        WriteFontFlag(dNZ(dRule, "FontBold", "False")) & _
+        WriteFontFlag(dNZ(dRule, "FontItalic", "False")) & _
+        WriteFontFlag(dNZ(dRule, "FontUnderline", "False"))
+End Function
+
+Private Function WriteFontFlag(varValue As Variant) As String
+    WriteFontFlag = WriteByte(IIf(CBool(varValue), &HFF, 0))
 End Function
 
 

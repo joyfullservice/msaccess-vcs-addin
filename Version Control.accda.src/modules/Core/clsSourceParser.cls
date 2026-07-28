@@ -37,8 +37,9 @@ Private Type udtThis
     strOutput As String
     strVBA As String
     colBlocks As Collection
-    dConditionalFormat As Dictionary    ' Control name -> {CF14, Legacy} hex blocks
+    dConditionalFormat As Dictionary    ' Control name -> {CF14, Legacy, Decoded, SkipLines} 
     strCFControl As String              ' Name of the control currently being scanned
+    lngSkipSentinel As Long             ' Line index past EOF; neutralizes a skip entry
 End Type
 Private this As udtThis
 
@@ -330,11 +331,14 @@ Public Function GetConditionalFormats() As Dictionary
     Perf.OperationStart "Decode Conditional Formatting"
     For Each varKey In this.dConditionalFormat.Keys
         Set dControl = this.dConditionalFormat(varKey)
-        ' CF14 is the authoritative, complete copy; decode from it.
-        If dControl.Exists("CF14") Then
+        If dControl.Exists("Decoded") Then
+            dResult.Add CStr(varKey), dControl("Decoded")
+        ElseIf dControl.Exists("CF14") Then
+            ' Fallback when capture did not run eager decode (e.g. tests)
             Set cCF = New clsConditionalFormat
-            cCF.LoadFromCF14Hex CStr(dControl("CF14"))
-            If cCF.HasRules Then dResult.Add CStr(varKey), cCF.GetDictionary
+            If cCF.LoadFromCF14Hex(CStr(dControl("CF14"))) And cCF.HasRules Then
+                dResult.Add CStr(varKey), cCF.GetDictionary
+            End If
         End If
     Next varKey
     Perf.OperationEnd
@@ -361,6 +365,74 @@ Private Sub StoreCFBlock(strKind As String, cBuffer As clsConcat)
         this.dConditionalFormat.Add this.strCFControl, dControl
     End If
     dControl(strKind) = cBuffer.GetStr
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RecordCFSkipLine
+' Purpose   : Track source line numbers stripped for a control's CF block so they can be
+'           : restored when decode fails.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RecordCFSkipLine(lngLine As Long)
+
+    Dim dControl As Dictionary
+
+    If this.dConditionalFormat Is Nothing Then Set this.dConditionalFormat = New Dictionary
+    If this.dConditionalFormat.Exists(this.strCFControl) Then
+        Set dControl = this.dConditionalFormat(this.strCFControl)
+    Else
+        Set dControl = New Dictionary
+        this.dConditionalFormat.Add this.strCFControl, dControl
+    End If
+    If Not dControl.Exists("SkipLines") Then dControl.Add "SkipLines", New Collection
+    dControl("SkipLines").Add lngLine
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveCapturedConditionalFormats
+' Purpose   : Decode captured CF14 blocks before output is built. Failed decodes restore
+'           : the original inline blocks by neutralizing their skip-line entries.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ResolveCapturedConditionalFormats()
+
+    Dim varKey As Variant
+    Dim dControl As Dictionary
+    Dim cCF As clsConditionalFormat
+    Dim colSkip As Collection
+    Dim varLine As Variant
+    Dim lngI As Long
+
+    If this.dConditionalFormat Is Nothing Then Exit Sub
+
+    For Each varKey In this.dConditionalFormat.Keys
+        Set dControl = this.dConditionalFormat(varKey)
+        If Not dControl.Exists("CF14") Then GoTo NextControl
+        Set cCF = New clsConditionalFormat
+        If cCF.LoadFromCF14Hex(CStr(dControl("CF14"))) And cCF.HasRules Then
+            Set dControl("Decoded") = cCF.GetDictionary
+        Else
+            If dControl.Exists("SkipLines") Then
+                Set colSkip = dControl("SkipLines")
+                For Each varLine In colSkip
+                    For lngI = 0 To this.lngSkipIndex - 1
+                        If this.lngSkipLines(lngI) = CLng(varLine) Then
+                            this.lngSkipLines(lngI) = this.lngSkipSentinel
+                        End If
+                    Next lngI
+                Next varLine
+            End If
+            Log.Add T("Conditional formatting on control {0} in {1} could not be decoded; keeping inline binary blocks.", _
+                var0:=CStr(varKey), var1:=Nz2(Me.ObjectName, FSO.GetFileName(this.strFilePath)))
+            dControl.Remove "CF14"
+            If dControl.Exists("Legacy") Then dControl.Remove "Legacy"
+        End If
+NextControl:
+    Next varKey
 
 End Sub
 
@@ -535,10 +607,12 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
         ElseIf blnInsideCFBlock Then
             ' Capturing a conditional formatting block for the current control.
             If strTLine = "End" Then
+                RecordCFSkipLine lngLine
                 StoreCFBlock strCFKind, cCFBuffer
                 blnInsideCFBlock = False
                 SkipLine lngLine
             ElseIf StartsWith(strTLine, "0x") Then
+                RecordCFSkipLine lngLine
                 cCFBuffer.Add ExtractHexBytes(strTLine)
                 SkipLine lngLine
             Else
@@ -575,6 +649,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         blnInsideCFBlock = True
                         strCFKind = IIf(strTLine = "ConditionalFormat14 = Begin", "CF14", "Legacy")
                         Set cCFBuffer = New clsConcat
+                        RecordCFSkipLine lngLine
                         SkipLine lngLine
                     Else
                         ' Leave the block in place as a generic binary block.
@@ -752,6 +827,10 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
             If Options.ExportFormatVersion >= EFV_5_0_0 Then NormalizeViewport varLines
         End If
     End If
+
+    ' Decode captured CF14 before building output so failed blocks stay inline.
+    this.lngSkipSentinel = UBound(varLines) + 1
+    If blnStripCF Then ResolveCapturedConditionalFormats
 
     ' Prepare primary output
     this.strOutput = BuildOutput(varLines)

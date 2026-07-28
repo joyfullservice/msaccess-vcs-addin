@@ -3,12 +3,19 @@
 ' Module    : modTestConditionalFormat
 ' Author    : Adam Waller
 ' Date      : 6/17/2026
-' Purpose   : Round-trip tests for clsConditionalFormat. Both the CF14 and legacy
-'           : ConditionalFormat blocks must rebuild byte-for-byte for every exercised
-'           : rule shape, including multi-rule legacy (decoded from AlertText).
+' Purpose   : Behavior tests for clsConditionalFormat: decoding, colors, operators,
+'           : trailer echoes, graceful failure, and source-file merge semantics.
 '           :
-'           : Fixtures are the exact hex blocks emitted by Access SaveAsText for the
-'           : controls in the conditional-formatting sample form and report.
+'           : The byte-exact regression corpus lives in modTestConditionalFormatCorpus.
+'           : The fixtures here were captured from controls formatted in the Access
+'           : design-view dialog, which encodes a set Boolean as 1. The dialog and VBA
+'           : disagree: Access stores a Boolean copied from VBA as VBA True (&HFF), and
+'           : preserves whichever encoding it finds rather than normalizing. It also
+'           : allocates one fewer null unit per legacy expression slot for dialog-authored
+'           : rules. The emitter targets the VBA encoding (DECISIONS.md 7/28/2026), so
+'           : these fixtures are deliberately NOT asserted byte-exact - they are kept to
+'           : prove the other encoding still decodes and survives a rebuild unchanged in
+'           : meaning. See docs/access-conditional-format.md section 6.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -49,46 +56,32 @@ Private Const TEXT25_LEGACY As String = _
     "0000000000000000000000000000000000000000000000000000000000000000" & _
     "22005400450053005400220000002200540045005300540022000000"
 
-' --- Text11 legacy: 2 expression rules (focus rule dropped from legacy) ---
-' Computed from the decoded multi-rule layout and verified against the documented
-' blockSize of 156 bytes (from the frmMain fixture catalog).
-Private Const TEXT11_LEGACY As String = _
-    "010000009c000000020000000100000000000000000000000e00000001010000" & _
-    "00000000ffffff0001000000000000000f0000001d00000001000000" & _
-    "00000000ffffff00" & _
-    "00000000000000000000000000000000000000000000000000000000" & _
-    "5b006600720061004f007000740069006f006e005d003d00310000000000" & _
-    "5b006600720061004f007000740069006f006e005d003d00320000000000"
-
 ' --- AlertText: 4 expression rules, non-white BackColors (from rAlertList report) ---
 Private Const ALERTTEXT_CF14 As String = _
     "010004000000010000000000000001010000ff804000dbdbb7001d0000004900" & _
     "6e0053007400720028005b0041006c0065007200740050006100720061006d00" & _
-    "73005d002c0027005b0021005d003b00270029003e003000000000000000" & _
-    "000000dbdbb700000000000000000001000000000000000100010000000000" & _
-    "dbdbb7001d00000049006e0053007400720028005b0041006c006500720074" & _
-    "00500061" & _
+    "73005d002c0027005b0021005d003b00270029003e0030000000000000000000" & _
+    "00dbdbb700000000000000000001000000000000000100010000000000dbdbb7" & _
+    "001d00000049006e0053007400720028005b0041006c00650072007400500061" & _
     "00720061006d0073005d002c0027005b0069005d003b00270029003e00300000" & _
-    "0000000000000000dbdbb70000000000000000000100000000000000" & _
-    "0101000000000000dbdbb7001d00000049006e0053007400720028005b004100" & _
-    "6c00650072007400500061" & _
-    "00720061006d0073005d002c0027005b0062005d003b00270029003e00300000" & _
-    "0000000000000000dbdbb70000000000000000000100000000000000" & _
-    "01010000ffffff00ba1419001f00000049006e0053007400720028005b004100" & _
-    "6c00650072007400500061" & _
-    "00720061006d0073005d002c0027005b002100210021005d003b002700290" & _
-    "03e003000000000000000000000000000000000000000000000"
+    "0000000000000000dbdbb7000000000000000000010000000000000001010000" & _
+    "00000000dbdbb7001d00000049006e0053007400720028005b0041006c006500" & _
+    "7200740050006100720061006d0073005d002c0027005b0062005d003b002700" & _
+    "29003e003000000000000000000000dbdbb70000000000000000000100000000" & _
+    "00000001010000ffffff00ba1419001f00000049006e0053007400720028005b" & _
+    "0041006c0065007200740050006100720061006d0073005d002c0027005b0021" & _
+    "00210021005d003b00270029003e003000000000000000000000000000000000" & _
+    "000000000000"
 Private Const ALERTTEXT_LEGACY As String = _
     "010000001a010000030000000100000000000000000000001e00000001010000" & _
-    "ff804000dbdbb70001000000000000001f0000003d00000001000100000000" & _
-    "00dbdbb70001000000000000003e0000005c000000010100000000000" & _
-    "0dbdbb700" & _
+    "ff804000dbdbb70001000000000000001f0000003d0000000100010000000000" & _
+    "dbdbb70001000000000000003e0000005c0000000101000000000000dbdbb700" & _
     "49006e0053007400720028005b0041006c006500720074005000610072006100" & _
     "6d0073005d002c0027005b0021005d003b00270029003e003000000000004900" & _
     "6e0053007400720028005b0041006c0065007200740050006100720061006d00" & _
-    "73005d002c0027005b0069005d003b00270029003e003000000000004900" & _
-    "6e0053007400720028005b0041006c0065007200740050006100720061006d00" & _
-    "73005d002c0027005b0062005d003b00270029003e00300000000000"
+    "73005d002c0027005b0069005d003b00270029003e0030000000000049006e00" & _
+    "53007400720028005b0041006c0065007200740050006100720061006d007300" & _
+    "5d002c0027005b0062005d003b00270029003e00300000000000"
 
 ' --- Field-value operator fixtures (issue #725) ---
 ' Captured from Access SaveAsText for a single field-value rule on one text box, one
@@ -144,6 +137,43 @@ Private Const MULTI_OP_CF14 As String = _
     "00ff00000000000000000000000000000400000001000000000000000000ff00" & _
     "02000000390039000000000000000000000000ff000000000000000000"
 
+' --- Data bar fixtures (issue #730) ---
+' Single data bar, automatic shortest/longest limits (Lowest/Highest Value). Offset 14 is
+' unk1 (=1), not the type dword — rule 0 has no per-rule prefix.
+Private Const DATABAR_AUTO_CF14 As String = _
+    "01000100000003000000000000000100000000000000ffffff000000000000000000" & _
+    "01000000001c2400000000000000000000"
+
+' Number limits with typed bounds "10" and "100".
+Private Const DATABAR_NUMBER_CF14 As String = _
+    "01000100000003000000000000000100000000000000ffffff000200000031003000" & _
+    "0300000031003000300001000000000070c0000100000001000000"
+
+' Percent limits with typed bounds "25" and "75".
+Private Const DATABAR_PERCENT_CF14 As String = _
+    "01000100000003000000000000000100000000000000ffffff000200000032003500" & _
+    "020000003700350001000000001c2400000200000002000000"
+
+' ShowBarOnly with number limits and a custom bar color. Dialog-authored, so ShowBarOnly
+' is stored as 1 rather than VBA True - see the module header.
+Private Const DATABAR_SHOWONLY_CF14 As String = _
+    "01000100000003000000000000000100000000000000ffffff000100000030000200" & _
+    "0000350030000100000001ff0000000100000001000000"
+
+' --- Font flag fixture (issue #730) ---
+' Single expression rule "[n0]>1" with FontBold and FontUnderline set from VBA, so the
+' flags record is 01 ff 00 ff. The &HFF in the high byte is what overflowed ReadLong.
+Private Const FLAGS_BOLD_UNDERLINE_CF14 As String = _
+    "010001000000010000000000000001ff00ff00000000ffffff00060000005b00" & _
+    "6e0030005d003e003100000000000000000000000000000000000000000000"
+
+' Expression rule followed by a data bar (data bar carries the 8-byte type prefix).
+Private Const EXPR_DATABAR_CF14 As String = _
+    "01000200000001000000000000000100000000000000ffffff000d0000005b006600720061" & _
+    "004f007000740069006f006e005d003d0031000000000000000000000000000000000000" & _
+    "0000000003000000000000000100000000000000ffffff0000000000000000000100000000" & _
+    "1c2400000000000000000000"
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : TestCF14ByteExactExpression
@@ -156,75 +186,88 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : TestCF14ByteExactMultiRule
-' Purpose   : CF14 rebuilds byte-for-byte for a multi-rule block (expression + focus).
+' Procedure : TestDialogBooleanEncodingDecodes
+' Purpose   : A set Boolean stored by the design-view dialog as 1 decodes to True, just
+'           : like the VBA encoding (&HFF). Any non-zero byte means True; only the
+'           : emitter has to pick one value to write.
 '---------------------------------------------------------------------------------------
 '
-Public Sub TestCF14ByteExactMultiRule()
-    TestAssert RebuildCF14(TEXT11_CF14) = TEXT11_CF14, "Text11 CF14 byte-exact"
+Public Sub TestDialogBooleanEncodingDecodes()
+
+    Dim cCF As clsConditionalFormat
+
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex TEXT11_CF14
+    TestAssert NthRule(cCF, 1)("FontBold") = True, "FontBold decoded from 0x01"
+
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex DATABAR_SHOWONLY_CF14
+    TestAssert NthRule(cCF, 1)("ShowBarOnly") = True, "ShowBarOnly decoded from 0x01"
+
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : TestCF14ByteExactBetween
-' Purpose   : CF14 rebuilds byte-for-byte for a field-value "between" rule.
+' Procedure : TestDialogEncodingSurvivesRebuild
+' Purpose   : Dialog-authored blocks are re-emitted in the VBA encoding, so they are not
+'           : byte-identical to the original. What must hold is that nothing is lost: the
+'           : rebuilt block decodes to the same model, and rebuilding again is stable.
+'           : (Byte-exactness is asserted against the captured corpus instead.)
 '---------------------------------------------------------------------------------------
 '
-Public Sub TestCF14ByteExactBetween()
-    TestAssert RebuildCF14(TEXT25_CF14) = TEXT25_CF14, "Text25 CF14 byte-exact"
+Public Sub TestDialogEncodingSurvivesRebuild()
+
+    TestAssert ModelSignature(TEXT11_CF14) = ModelSignature(RebuildCF14(TEXT11_CF14)), _
+        "Text11 model unchanged by rebuild"
+    TestAssert ModelSignature(TEXT25_CF14) = ModelSignature(RebuildCF14(TEXT25_CF14)), _
+        "Text25 model unchanged by rebuild"
+    TestAssert ModelSignature(ALERTTEXT_CF14) = ModelSignature(RebuildCF14(ALERTTEXT_CF14)), _
+        "AlertText model unchanged by rebuild"
+    TestAssert ModelSignature(DATABAR_SHOWONLY_CF14) = _
+        ModelSignature(RebuildCF14(DATABAR_SHOWONLY_CF14)), _
+        "ShowBarOnly model unchanged by rebuild"
+
+    ' A second pass must be byte-stable, so an import/export cycle cannot keep drifting.
+    TestAssert RebuildCF14(RebuildCF14(ALERTTEXT_CF14)) = RebuildCF14(ALERTTEXT_CF14), _
+        "AlertText rebuild is idempotent"
+
 End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : TestLegacyByteExactExpression
-' Purpose   : The legacy block rebuilds byte-for-byte for a single expression rule.
+' Procedure : TestLegacySlotSizingUsesVbaConvention
+' Purpose   : Pin the legacy expression-slot convention so a change to it is visible.
+'           : Every rule owns two slots sized max(len + 1, 2) code units, which is what
+'           : Access writes for VBA-authored rules. The design-view dialog allocates one
+'           : null unit less per expression rule, so a rebuilt block is exactly 2 bytes
+'           : per rule longer than the dialog original. Field-value rules already carry
+'           : two slots in both encodings and so come out the same size.
+'           :
+'           : Both layouts are valid Access output; the emitter targets the VBA convention
+'           : (DECISIONS.md 7/28/2026).
 '---------------------------------------------------------------------------------------
 '
-Public Sub TestLegacyByteExactExpression()
-    TestAssert RebuildLegacy(TEXT9_CF14) = TEXT9_LEGACY, "Text9 legacy byte-exact"
-End Sub
+Public Sub TestLegacySlotSizingUsesVbaConvention()
 
+    ' Expression rules: +1 null unit (2 bytes) per rule versus the dialog original
+    TestAssert Len(RebuildLegacy(TEXT9_CF14)) \ 2 = (Len(TEXT9_LEGACY) \ 2) + 2, _
+        "1 expression rule is 2 bytes longer than the dialog block"
+    TestAssert Len(RebuildLegacy(ALERTTEXT_CF14)) \ 2 = (Len(ALERTTEXT_LEGACY) \ 2) + 6, _
+        "3 legacy expression rules are 6 bytes longer than the dialog block"
 
-'---------------------------------------------------------------------------------------
-' Procedure : TestLegacyByteExactBetween
-' Purpose   : The legacy block rebuilds byte-for-byte for a single between rule.
-'---------------------------------------------------------------------------------------
-'
-Public Sub TestLegacyByteExactBetween()
-    TestAssert RebuildLegacy(TEXT25_CF14) = TEXT25_LEGACY, "Text25 legacy byte-exact"
-End Sub
+    ' Field-value rules already have two slots in both encodings, so the size matches
+    TestAssert Len(RebuildLegacy(TEXT25_CF14)) \ 2 = Len(TEXT25_LEGACY) \ 2, _
+        "field-value block size matches the dialog block"
 
+    ' The rebuilt block must stay internally consistent: Access silently discards the
+    ' legacy blocks of every control on the form if any one of them is malformed.
+    TestAssert LegacyBlockSizeField(RebuildLegacy(TEXT9_CF14)) = _
+        Len(RebuildLegacy(TEXT9_CF14)) \ 2, "single-rule blockSize field is consistent"
+    TestAssert LegacyBlockSizeField(RebuildLegacy(ALERTTEXT_CF14)) = _
+        Len(RebuildLegacy(ALERTTEXT_CF14)) \ 2, "multi-rule blockSize field is consistent"
+    TestAssert LegacyBlockSizeField(RebuildLegacy(TEXT25_CF14)) = _
+        Len(RebuildLegacy(TEXT25_CF14)) \ 2, "field-value blockSize field is consistent"
 
-'---------------------------------------------------------------------------------------
-' Procedure : TestLegacyByteExactMultiRule
-' Purpose   : The legacy block rebuilds byte-for-byte for a 2-rule expression block
-'           : (exercises 28-byte non-last records and expression-window chaining).
-'---------------------------------------------------------------------------------------
-'
-Public Sub TestLegacyByteExactMultiRule()
-    TestAssert RebuildLegacy(TEXT11_CF14) = TEXT11_LEGACY, "Text11 legacy byte-exact"
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : TestCF14ByteExactAlertText
-' Purpose   : CF14 with trailer BackColor echo bytes rebuilds byte-for-byte.
-'---------------------------------------------------------------------------------------
-'
-Public Sub TestCF14ByteExactAlertText()
-    TestAssert RebuildCF14(ALERTTEXT_CF14) = ALERTTEXT_CF14, "AlertText CF14 byte-exact"
-End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : TestLegacyByteExactAlertText
-' Purpose   : A 4-rule model rebuilds the 3-rule, 282-byte legacy block byte-for-byte
-'           : (exercises the 3-rule cap, 28-byte non-last records, and expression-window
-'           : chaining with same-length expressions).
-'---------------------------------------------------------------------------------------
-'
-Public Sub TestLegacyByteExactAlertText()
-    TestAssert RebuildLegacy(ALERTTEXT_CF14) = ALERTTEXT_LEGACY, "AlertText legacy byte-exact"
 End Sub
 
 
@@ -481,6 +524,189 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestCF14ByteExactDataBarAuto
+' Purpose   : CF14 rebuilds byte-for-byte for a single data bar with automatic limits
+'           : (issue #730 — Lowest Value / Highest Value).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCF14ByteExactDataBarAuto()
+    TestAssert RebuildCF14(DATABAR_AUTO_CF14) = DATABAR_AUTO_CF14, "data bar auto CF14 byte-exact"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCF14ByteExactDataBarLimits
+' Purpose   : CF14 rebuilds byte-for-byte for number and percent data bar limits.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCF14ByteExactDataBarLimits()
+    TestAssert RebuildCF14(DATABAR_NUMBER_CF14) = DATABAR_NUMBER_CF14, "data bar number CF14 byte-exact"
+    TestAssert RebuildCF14(DATABAR_PERCENT_CF14) = DATABAR_PERCENT_CF14, "data bar percent CF14 byte-exact"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCF14ByteExactDataBarMultiRule
+' Purpose   : CF14 rebuilds byte-for-byte when a data bar follows another rule (per-rule
+'           : type prefix on rules after the first). Back-to-back data bars are covered by
+'           : the captured corpus.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCF14ByteExactDataBarMultiRule()
+    TestAssert RebuildCF14(EXPR_DATABAR_CF14) = EXPR_DATABAR_CF14, "expression + data bar CF14 byte-exact"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestDecodeDataBarAuto
+' Purpose   : Automatic-limit data bar decodes limit types and empty value fields.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDecodeDataBarAuto()
+
+    Dim cCF As clsConditionalFormat
+    Dim dRule As Dictionary
+
+    Set cCF = New clsConditionalFormat
+    TestAssert cCF.LoadFromCF14Hex(DATABAR_AUTO_CF14), "auto data bar decodes"
+    TestAssert Not cCF.DecodeFailed, "auto data bar DecodeFailed is false"
+    Set dRule = NthRule(cCF, 1)
+    TestAssert dRule("Type") = "DataBar", "rule type is DataBar"
+    TestAssert dRule("ShortestLimit") = "automatic", "shortest limit automatic"
+    TestAssert dRule("LongestLimit") = "automatic", "longest limit automatic"
+    TestAssert dRule("ShortestValue") = "", "automatic shortest has empty value"
+    TestAssert dRule("LongestValue") = "", "automatic longest has empty value"
+    TestAssert dRule("ShowBarOnly") = False, "ShowBarOnly default"
+    TestAssert dRule("BarColor") = "RGB(28,36,0)", "bar color decoded from BGR bytes"
+    TestAssert dRule("FillColor") = "RGB(255,255,255)", "fill color white"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestDecodeDataBarNumberPercent
+' Purpose   : Number and percent limit types decode with their typed value strings.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDecodeDataBarNumberPercent()
+
+    Dim cCF As clsConditionalFormat
+    Dim dRule As Dictionary
+
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex DATABAR_NUMBER_CF14
+    Set dRule = NthRule(cCF, 1)
+    TestAssert dRule("ShortestLimit") = "number", "number shortest limit"
+    TestAssert dRule("LongestLimit") = "number", "number longest limit"
+    TestAssert dRule("ShortestValue") = "10", "shortest value 10"
+    TestAssert dRule("LongestValue") = "100", "longest value 100"
+
+    Set cCF = New clsConditionalFormat
+    cCF.LoadFromCF14Hex DATABAR_PERCENT_CF14
+    Set dRule = NthRule(cCF, 1)
+    TestAssert dRule("ShortestLimit") = "percent", "percent shortest limit"
+    TestAssert dRule("LongestLimit") = "percent", "percent longest limit"
+    TestAssert dRule("ShortestValue") = "25", "shortest value 25"
+    TestAssert dRule("LongestValue") = "75", "longest value 75"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestDecodeFailsOnTruncatedBlock
+' Purpose   : A truncated CF14 block reports decode failure instead of raising an error.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDecodeFailsOnTruncatedBlock()
+
+    Dim cCF As clsConditionalFormat
+
+    Set cCF = New clsConditionalFormat
+    TestAssert Not cCF.LoadFromCF14Hex(Left$(DATABAR_AUTO_CF14, 80)), "truncated block fails decode"
+    TestAssert cCF.DecodeFailed, "truncated block sets DecodeFailed"
+    TestAssert Not cCF.HasRules, "truncated block loads no rules"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestDecodeFailsOnMalformedHex
+' Purpose   : Hex that is not a whole number of bytes, or carries stray characters, is
+'           : reported as a decode failure. Splitting an odd-length string into bytes used
+'           : to raise "subscript out of range" from inside HexToBytes, which would lose
+'           : the control's formatting rather than keep the inline block (issue #730).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDecodeFailsOnMalformedHex()
+
+    Dim cCF As clsConditionalFormat
+
+    ' Odd length: a byte split in half
+    Set cCF = New clsConditionalFormat
+    TestAssert Not cCF.LoadFromCF14Hex(Left$(DATABAR_AUTO_CF14, 81)), "odd-length hex fails decode"
+    TestAssert cCF.DecodeFailed, "odd-length hex sets DecodeFailed"
+
+    ' Non-hex characters
+    Set cCF = New clsConditionalFormat
+    TestAssert Not cCF.LoadFromCF14Hex("0100zz00"), "non-hex characters fail decode"
+    TestAssert cCF.DecodeFailed, "non-hex characters set DecodeFailed"
+
+    ' Embedded whitespace (a hand-wrapped block that was not re-joined cleanly)
+    Set cCF = New clsConditionalFormat
+    TestAssert Not cCF.LoadFromCF14Hex("0100 0100"), "embedded whitespace fails decode"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestUnderlineFlagDoesNotOverflow
+' Purpose   : A rule with FontUnderline puts &HFF in the high byte of the format-flags
+'           : record. Reading that record as a single dword overflowed a signed Long and
+'           : raised error 6, so every form with an underline rule failed to decode. The
+'           : flags are four independent bytes and must be read as such (issue #730).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestUnderlineFlagDoesNotOverflow()
+
+    Dim cCF As clsConditionalFormat
+    Dim dRule As Dictionary
+
+    Set cCF = New clsConditionalFormat
+    TestAssert cCF.LoadFromCF14Hex(FLAGS_BOLD_UNDERLINE_CF14), "underline rule decodes without error"
+    Set dRule = NthRule(cCF, 1)
+    TestAssert dRule("FontBold") = True, "bold decoded"
+    TestAssert dRule("FontItalic") = False, "italic not set"
+    TestAssert dRule("FontUnderline") = True, "underline decoded"
+    TestAssert cCF.BuildCF14Hex() = FLAGS_BOLD_UNDERLINE_CF14, "underline rule rebuilds byte-exact"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestSanitizeKeepsInlineOnDecodeFailure
+' Purpose   : When CF14 cannot be decoded during export sanitize, the inline binary block
+'           : is preserved and no JSON entry is produced for that control.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestSanitizeKeepsInlineOnDecodeFailure()
+
+    Dim cParser As clsSourceParser
+    Dim strForm As String
+    Dim strOut As String
+
+    strForm = BuildControlWithCF14("TextBad", Left$(DATABAR_AUTO_CF14, 80))
+    Set cParser = New clsSourceParser
+    cParser.LoadString strForm, edbForm
+    cParser.ObjectName = "frmTest"
+    strOut = cParser.Sanitize(ectObjectDefinition)
+
+    TestAssert InStr(strOut, "ConditionalFormat14 = Begin") > 0, "failed decode keeps inline CF14"
+    TestAssert cParser.GetConditionalFormats.Count = 0, "failed decode omits JSON entry"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : TestDecodeMultiRule
 ' Purpose   : A three-rule block decodes to the expected rule types in order.
 '---------------------------------------------------------------------------------------
@@ -501,24 +727,9 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : TestSemanticRoundTrip
-' Purpose   : Decoding a rebuilt CF14 block yields the same model (stable round-trip).
-'---------------------------------------------------------------------------------------
-'
-Public Sub TestSemanticRoundTrip()
-    TestAssert ModelSignature(TEXT11_CF14) = ModelSignature(RebuildCF14(TEXT11_CF14)), _
-        "Text11 model is stable across rebuild"
-    TestAssert ModelSignature(TEXT25_CF14) = ModelSignature(RebuildCF14(TEXT25_CF14)), _
-        "Text25 model is stable across rebuild"
-    TestAssert ModelSignature(ALERTTEXT_CF14) = ModelSignature(RebuildCF14(ALERTTEXT_CF14)), _
-        "AlertText model is stable across rebuild"
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : TestTrailerColorRoundTrip
-' Purpose   : The TrailerColor field survives a decode/JSON/rebuild round-trip, producing
-'           : byte-exact CF14 output including non-zero trailer echo bytes.
+' Purpose   : The TrailerColor field survives a decode/JSON/rebuild round-trip, preserving
+'           : the non-zero trailer echo bytes.
 '---------------------------------------------------------------------------------------
 '
 Public Sub TestTrailerColorRoundTrip()
@@ -537,11 +748,15 @@ Public Sub TestTrailerColorRoundTrip()
     Set dRule = NthRule(cCF, 4)
     TestAssert Not dRule.Exists("TrailerColor"), "rule 3 (CF14-only) has no TrailerColor"
 
-    ' Round-trip through the dictionary model (simulates JSON save/load)
+    ' Round-trip through the dictionary model (simulates JSON save/load). Compared against
+    ' a direct rebuild rather than the dialog-authored original, since the emitter writes
+    ' the VBA Boolean encoding - the point here is that the JSON hop loses nothing.
     Set dModel = cCF.GetDictionary
     Set cCF2 = New clsConditionalFormat
     cCF2.LoadFromDictionary dModel
-    TestAssert cCF2.BuildCF14Hex() = ALERTTEXT_CF14, "AlertText CF14 byte-exact after JSON round-trip"
+    TestAssert cCF2.BuildCF14Hex() = RebuildCF14(ALERTTEXT_CF14), _
+        "AlertText CF14 unchanged by JSON round-trip"
+    TestAssert InStr(cCF2.BuildCF14Hex(), "dbdbb7") > 0, "trailer echo bytes preserved"
 
 End Sub
 
@@ -656,6 +871,22 @@ Private Function RebuildLegacy(strCF14Hex As String) As String
     RebuildLegacy = cCF.BuildLegacyHex
 End Function
 
+'---------------------------------------------------------------------------------------
+' Procedure : LegacyBlockSizeField
+' Purpose   : Read the blockSize dword the legacy block declares at byte offset 4, so a
+'           : test can check it against the block's actual length.
+'---------------------------------------------------------------------------------------
+'
+Private Function LegacyBlockSizeField(strLegacyHex As String) As Long
+
+    If Len(strLegacyHex) < 16 Then Exit Function
+    ' Bytes 4-7 are chars 9-16; reverse them into one hex literal to read little-endian
+    LegacyBlockSizeField = CLng("&h" & Mid$(strLegacyHex, 15, 2) & Mid$(strLegacyHex, 13, 2) & _
+        Mid$(strLegacyHex, 11, 2) & Mid$(strLegacyHex, 9, 2))
+
+End Function
+
+
 Private Function RuleCount(cCF As clsConditionalFormat) As Long
     Dim dModel As Dictionary
     Set dModel = cCF.GetDictionary
@@ -730,6 +961,16 @@ Private Function BuildControl(strName As String, strInlineMarker As String) As S
     cData.Remove Len(vbCrLf)
     BuildControl = cData.GetStr
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildControlWithCF14
+' Purpose   : Build a minimal control block with a full inline CF14 hex payload.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildControlWithCF14(strName As String, strCF14Hex As String) As String
+    BuildControlWithCF14 = BuildControl(strName, strCF14Hex)
 End Function
 
 

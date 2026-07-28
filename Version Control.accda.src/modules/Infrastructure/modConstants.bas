@@ -270,6 +270,8 @@ End Enum
 '           : content-hashed primary output (IsModified self-heals).
 '           : History (one line per bump):
 '           :   CommandBars = 1  7/27/2026  Fixed _Images sidecar export
+'           :   Forms = 1        7/28/2026  Fixed CF14 data bar decode (issue #730)
+'           :   Reports = 1      7/28/2026  Fixed CF14 data bar decode (issue #730)
 '---------------------------------------------------------------------------------------
 '
 Public Function GetExporterRevisions() As Dictionary
@@ -277,6 +279,8 @@ Public Function GetExporterRevisions() As Dictionary
     Dim d As Dictionary
     Set d = New Dictionary
     d.Add "CommandBars", 1
+    d.Add "Forms", 1
+    d.Add "Reports", 1
     Set GetExporterRevisions = d
 
 End Function
