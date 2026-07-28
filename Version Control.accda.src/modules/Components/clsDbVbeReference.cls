@@ -78,18 +78,17 @@ End Sub
 ' Date      : 4/21/2021
 ' Purpose   : Wrapper to import references with the option of only loading the
 '           : GUID references. (This is used when preparing a bootstrap module.)
+'           : For the real (non-GUID-only) pass, also normalizes final reference
+'           : priority order to match the source file: whatever order references
+'           : ended up added in, wipe every non-built-in reference and re-add them
+'           : strictly in vbe-references.json's Items order.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ImportReferences(strFile As String, Optional blnGuidOnly As Boolean = False)
 
-    Dim dRef As Dictionary
     Dim dItems As Dictionary
-    Dim varKey As Variant
-    Dim ref As VBIDE.Reference
     Dim dFile As Dictionary
     Dim proj As VBProject
-    Dim varVersion As Variant
-    Dim strPath As String
     Dim dExisting As Dictionary
 
     ' Only import files with the correct extension.
@@ -103,36 +102,89 @@ Public Sub ImportReferences(strFile As String, Optional blnGuidOnly As Boolean =
 
         ' Build list of current references so we can avoid conflicts
         Set proj = CurrentVBProject
-        Set dExisting = New Dictionary
-        For Each ref In proj.References
-            dExisting.Add ref.Name, ref.Guid
-        Next ref
+        Set dExisting = GetExistingReferenceNames(proj)
 
         ' Add any references from file that don't already exist
         Set dItems = dFile("Items")
-        For Each varKey In dItems.Keys
-            Set dRef = dItems(varKey)
-            If Not dExisting.Exists(CStr(varKey)) Then
-                If dRef.Exists("GUID") Then
-                    varVersion = Split(dRef("Version"), ".")
-                    AddFromGuid proj, CStr(varKey), dRef("GUID"), CLng(varVersion(0)), CLng(varVersion(1))
-                ElseIf dRef.Exists("FullPath") Then
-                    If Not blnGuidOnly Then
-                        strPath = GetPathFromRelative(dRef("FullPath"))
-                        If Not FSO.FileExists(strPath) Then
-                            Log.Error eelError, "File not found. Unable to add reference to " & strPath, _
-                                ModuleName(Me) & ".ImportReferences"
-                        Else
-                            Perf.OperationStart "Add Library References"
-                            proj.References.AddFromFile strPath
-                            Perf.OperationEnd
-                            CatchAny eelError, "Adding VBE reference from " & strPath, ModuleName(Me) & ".ImportReferences"
-                        End If
+        AddReferencesFromDictionary proj, dItems, dExisting, blnGuidOnly
+
+        ' Normalize final reference priority order to match the source file.
+        ' Some references end up added out of order or appended at the end of
+        ' the collection (e.g. via the AddFromGuid version-negotiation retry),
+        ' which otherwise leaves VBA's ambiguous-type-name resolution (e.g.
+        ' DAO vs. ADODB Recordset) dependent on that incidental order. Since
+        ' AddFromGuid/AddFromFile always append to the end of the collection,
+        ' wiping every non-built-in reference and re-adding them strictly in
+        ' vbe-references.json's Items order guarantees the final priority
+        ' order matches the source file. Skipped for the GUID-only bootstrap
+        ' pre-load, which isn't the final reference state for the build.
+        If Not blnGuidOnly Then
+            RemoveNonBuiltInReferences
+            Set dExisting = GetExistingReferenceNames(proj)
+            AddReferencesFromDictionary proj, dItems, dExisting, blnGuidOnly
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetExistingReferenceNames
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return a dictionary of reference Name -> Guid for every reference
+'           : currently in the project, so callers can check for conflicts.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetExistingReferenceNames(proj As VBProject) As Dictionary
+
+    Dim ref As VBIDE.Reference
+
+    Set GetExistingReferenceNames = New Dictionary
+    For Each ref In proj.References
+        GetExistingReferenceNames.Add ref.Name, ref.Guid
+    Next ref
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddReferencesFromDictionary
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Add any references from the parsed vbe-references.json "Items" dictionary
+'           : that are not already present in dExisting, in dItems key order.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddReferencesFromDictionary(proj As VBProject, dItems As Dictionary, dExisting As Dictionary, blnGuidOnly As Boolean)
+
+    Dim varKey As Variant
+    Dim dRef As Dictionary
+    Dim varVersion As Variant
+    Dim strPath As String
+
+    For Each varKey In dItems.Keys
+        Set dRef = dItems(varKey)
+        If Not dExisting.Exists(CStr(varKey)) Then
+            If dRef.Exists("GUID") Then
+                varVersion = Split(dRef("Version"), ".")
+                AddFromGuid proj, CStr(varKey), dRef("GUID"), CLng(varVersion(0)), CLng(varVersion(1))
+            ElseIf dRef.Exists("FullPath") Then
+                If Not blnGuidOnly Then
+                    strPath = GetPathFromRelative(dRef("FullPath"))
+                    If Not FSO.FileExists(strPath) Then
+                        Log.Error eelError, "File not found. Unable to add reference to " & strPath, _
+                            ModuleName(Me) & ".ImportReferences"
+                    Else
+                        Perf.OperationStart "Add Library References"
+                        proj.References.AddFromFile strPath
+                        Perf.OperationEnd
+                        CatchAny eelError, "Adding VBE reference from " & strPath, ModuleName(Me) & ".ImportReferences"
                     End If
                 End If
             End If
-        Next varKey
-    End If
+        End If
+    Next varKey
 
 End Sub
 
