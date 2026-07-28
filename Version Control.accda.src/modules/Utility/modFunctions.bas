@@ -184,6 +184,63 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : QuickSortStringsBinary
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : QuickSort for String arrays using vbBinaryCompare. Used for XML table-data
+'           : sort keys whose Chr$(1)-Chr$(5) type sentinels must not be ignored by
+'           : Option Compare Database collation rules.
+'---------------------------------------------------------------------------------------
+'
+Public Sub QuickSortStringsBinary(ByRef astrArray() As String, Optional ByVal inLow, Optional ByVal inHi)
+
+    Dim strPivot As String
+    Dim strSwap As String
+    Dim tmpLow As Long
+    Dim tmpHi As Long
+
+    If IsMissing(inLow) Then inLow = LBound(astrArray)
+    If IsMissing(inHi) Then inHi = UBound(astrArray)
+
+    Do While inLow < inHi
+
+        tmpLow = inLow
+        tmpHi = inHi
+
+        strPivot = astrArray((inLow + inHi) \ 2)
+
+        While (tmpLow <= tmpHi)
+            While (StrComp(astrArray(tmpLow), strPivot, vbBinaryCompare) < 0 And tmpLow < inHi)
+                tmpLow = tmpLow + 1
+            Wend
+
+            While (StrComp(strPivot, astrArray(tmpHi), vbBinaryCompare) < 0 And tmpHi > inLow)
+                tmpHi = tmpHi - 1
+            Wend
+
+            If (tmpLow <= tmpHi) Then
+                strSwap = astrArray(tmpLow)
+                astrArray(tmpLow) = astrArray(tmpHi)
+                astrArray(tmpHi) = strSwap
+                tmpLow = tmpLow + 1
+                tmpHi = tmpHi - 1
+            End If
+        Wend
+
+        If (tmpHi - inLow) < (inHi - tmpLow) Then
+            If inLow < tmpHi Then QuickSortStringsBinary astrArray, inLow, tmpHi
+            inLow = tmpLow
+        Else
+            If tmpLow < inHi Then QuickSortStringsBinary astrArray, tmpLow, inHi
+            inHi = tmpHi
+        End If
+
+    Loop
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Pause
 ' Author    : Adam Waller
 ' Date      : 6/3/2020

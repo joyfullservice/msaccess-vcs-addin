@@ -497,16 +497,31 @@ End Function
 '
 Public Function EscapeXmlName(strName As String) As String
 
+    Const CHAR_UNDERSCORE As Long = 95
+    Const CHAR_LOWER_X As Long = 120
+
     Dim lngPos As Long
     Dim lngChar As Long
+    Dim blnEscape As Boolean
     Dim cOut As New clsConcat
 
     For lngPos = 1 To Len(strName)
         lngChar = AscW(Mid$(strName, lngPos, 1))
-        If IsXmlExportNameChar(lngChar) Then
-            cOut.Add ChrW$(lngChar)
+        If lngChar = CHAR_UNDERSCORE Then
+            ' Access escapes an underscore only when a lowercase "x" follows it, so the
+            ' pair cannot be misread as the start of an _xHHHH_ escape sequence. An
+            ' uppercase "X" is left alone, so this test must be case sensitive.
+            blnEscape = False
+            If lngPos < Len(strName) Then
+                blnEscape = (AscW(Mid$(strName, lngPos + 1, 1)) = CHAR_LOWER_X)
+            End If
         Else
+            blnEscape = Not IsXmlExportNameChar(lngChar)
+        End If
+        If blnEscape Then
             cOut.Add "_x", Right$("0000" & Hex$(lngChar And &HFFFF&), 4), "_"
+        Else
+            cOut.Add ChrW$(lngChar)
         End If
     Next lngPos
 
@@ -548,6 +563,47 @@ Public Function NormalizeXmlSortValue(strValue As String, intFieldType As Intege
         Case Else
             NormalizeXmlSortValue = Chr$(5) & Left$(strValue, MAX_SORT_LEN)
     End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : ComposeXmlSortKey
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Concatenate normalized sort-field parts into one lexical key. Each part
+'           : is terminated with vbNullChar so multi-field keys stay unambiguous without
+'           : making string length the primary sort dimension.
+'---------------------------------------------------------------------------------------
+'
+Public Function ComposeXmlSortKey(colParts As Collection, lngOrdinal As Long) As String
+
+    Const ORDINAL_WIDTH As Long = 10
+
+    Dim varPart As Variant
+    Dim cKey As New clsConcat
+
+    For Each varPart In colParts
+        cKey.Add CStr(varPart), vbNullChar
+    Next varPart
+
+    ComposeXmlSortKey = cKey.GetStr & Format$(lngOrdinal, String$(ORDINAL_WIDTH, "0"))
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : XmlSortKeyOrdinal
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Recover the stable-sort ordinal suffix from a ComposeXmlSortKey result.
+'---------------------------------------------------------------------------------------
+'
+Public Function XmlSortKeyOrdinal(strKey As String) As Long
+
+    Const ORDINAL_WIDTH As Long = 10
+
+    XmlSortKeyOrdinal = CLng(Right$(strKey, ORDINAL_WIDTH))
 
 End Function
 

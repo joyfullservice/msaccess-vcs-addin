@@ -10,6 +10,142 @@ context on trade-offs already evaluated.
 
 Agents: read this file before working on any module referenced here.
 
+### When to log
+
+Log decisions that constrain future design, involved genuine alternatives,
+or would be non-obvious to a future contributor. A good litmus test: does
+the "What this rules out" section have something meaningful to say?
+
+Do NOT log: bug fixes with obvious solutions, test-only refactors,
+documentation updates, or minor config tweaks that don't affect
+architecture.
+
+### Entry format
+
+Insert new entries immediately below the `<!-- END HEADER -->` marker and the
+`---` that follows it, newest first — not below the introduction at the top of
+this header, which splits the header in two. Do not modify or reorder existing
+entries except to add supersession notes (see below).
+If a session produced multiple independent decisions, create a separate
+entry for each.
+
+**Year-end summaries:** When the log rolls into a new calendar year, add
+a summary entry titled "Summary of [previous year] decisions" that
+briefly describes each decision from that year in one line. This gives
+agents scanning forward a checkpoint before older entries.
+
+```
+---
+
+## YYYY-MM-DD — [Short descriptive title]
+
+**Trigger**: What problem, requirement, or situation prompted this work.
+
+**Options explored**:
+- For each option, name the approach, its strengths, and why it was or
+  wasn't chosen. Include options that were tried and reverted.
+
+**Decision**: What was chosen and the core trade-off.
+
+**What this rules out**: Future directions now constrained or foreclosed.
+What would trigger revisiting this decision.
+
+**Relevant files**: Key files created or modified.
+```
+
+### Guidelines
+
+- Focus on **why**, not what. The diff shows what changed; this log
+  explains the reasoning.
+- Capture rejected alternatives with equal care. Future agents need to
+  know what was already tried.
+- Be specific — name libraries, files, config choices, error messages.
+- Aim for 10–50 lines per entry. Reference document, not narrative.
+- Plain language. No jargon, no editorializing, no padding.
+
+### Superseded entries
+
+When a new decision invalidates, corrects, or replaces guidance in an older
+entry, add a blockquote annotation to the affected older entry — do not
+rewrite or delete its original text. Place the note immediately after the
+entry's heading or after the paragraph containing the superseded claim.
+
+> **⚠ Superseded** (YYYY-MM-DD): [Brief explanation of what changed and
+> why.] See "[title of newer entry]" above.
+
+Use **⚠ Partially superseded** when only specific claims are affected, and
+**⚠ Superseded** when the entire entry's premise or decision has been
+overturned. Always scan older entries for claims that conflict with the new
+decision — agents reading the log linearly will otherwise encounter
+contradictory guidance.
+
+<!-- END HEADER -->
+
+---
+
+## 2026-07-28 — Deterministic table data export row order
+
+**Trigger**: Exported table data (especially XML format) could appear in different row orders between exports even when no records changed, producing noisy git diffs. Tab-delimited export already used `ORDER BY` but sorted on every non-binary column (expensive and fragile on linked tables with unsortable memo/text columns).
+
+*(Consolidated 2026-07-28: this entry absorbs the original sanitization-sort decision and the three same-day revisions that followed it — engine-side sorting, the sort-key rewrite, and the `EscapeXmlName` fix. The parser-side DOM sort described here is now a fallback, not the primary path.)*
+
+**Options explored**:
+- **Sort in post-export XML sanitization** — reorders the parsed DOM after `Application.ExportXML`, which has no ordering parameter. Retained only as the fallback for schema-bearing tables; see the known limitation below.
+- **Export via temporary `ORDER BY` query with `acExportQuery` (chosen for XML)** — initially rejected on the belief that losing embedded-schema annotations would break `ImportXML`. Re-probed and adopted; see below.
+- **Sort on all non-binary columns (status quo for TDF)** — rejected for performance: replaced with primary-key sort when available (index-backed scan).
+- **Use the table's saved datasheet `OrderBy`** — rejected on technical grounds: `ExportXML` ignores the property entirely (see probe table).
+- **Gate behind `eExportFormatVersion`** — rejected: treated as a bug fix; `clsDbTableData.IsModified` already forces re-export of all table data on every run, so users get a one-time reorder diff regardless.
+
+**Decision**: Shared `GetTableSortFields` in `modDatabase.bas` picks sort fields (primary key → unique+required index → all non-binary fields). Tab-delimited export uses it for `ORDER BY`, with a warning and unsorted fallback when the sort query fails (e.g. linked SQL Server memo columns). XML export routes through a temporary `ORDER BY` query so the database engine does the ordering; schema-bearing tables fall back to `acExportTable` plus the parser-side DOM sort. `IndexAvailable` moved to `TableIndexesAvailable` in `modDatabase` for reuse.
+
+**Probe findings — why `acExportQuery`**: tested against a live Access instance on a table whose rows were inserted deliberately out of key order.
+
+| Export mode | Row order |
+|---|---|
+| `acExportTable` | insertion order |
+| `acExportTable` with `OrderBy` + `OrderByOn` set | insertion order (**property ignored**) |
+| `acExportQuery` with `ORDER BY` | correctly sorted |
+
+The schema objection turned out to be mostly moot: a query export does lose `<od:index primary="yes">` and downgrades the key field from `minOccurs="1"` / `od:nonNullable="yes"` to `minOccurs="0"`, but `SanitizeXML` already discards the entire schema unless it contains `od:expression`, `od:jetType="complex"`, or `od:jetType="oleobject"`. For every other table the schema never reaches disk either way. A round-trip probe confirmed the renamed query output re-imports through `ImportXML` to the correct table name with identical row content, and that its `<dataroot>` element and row markup match the table export byte for byte.
+
+Row elements take the query name and are renamed back to the table name with a string replace, which is safe because XML escapes `<` in character data, so `<queryname>` can only occur as markup. `TableRequiresXmlSchema` routes calculated, complex, and OLE object tables to `acExportTable`, and a post-sanitization check for a surviving `xsd:schema` acts as a correctness net in case that detection is ever wrong. Any failure — including a read-only database that cannot host the temp query — falls back to the table export.
+
+**Temp query lifecycle — one per operation, not one per table**: the first implementation created and dropped a temp `QueryDef` for every table, calling `QueryDefs.Refresh` on each side. On a database with 3681 saved queries that was catastrophic: 64 full-collection refreshes pushed the Table Data category from 5.95s to 19.97s, with 15.46s of it (77%) invisible because none of the new code was instrumented.
+
+The query is now created once per export operation and repointed by assigning `.SQL` per table — empirically confirmed that `ExportXML acExportQuery` observes a reassigned `.SQL` without any collection refresh, so `QueryDefs.Refresh` runs once at creation instead of twice per table. `PrepareTableDataSortExport` sweeps leftovers from an interrupted run; `ReleaseTableDataSortExport` drops the query and is called from every export cleanup block.
+
+`AssignTableDataSortQuery` must return an empty string on any failure, because the query would otherwise still hold the *previous* table's SQL and the caller would export that table's rows into this table's source file. Note that the engine defers table-name resolution, so SQL naming a missing table is accepted at assignment and only fails later inside `ExportXML`, where the existing fallback handles it. A lookup failure (query deleted mid-operation) is distinguished from an assignment failure and recreates the query in the same call.
+
+**Sort key construction**: the initial XML sort-key builder prefixed each normalized field value with its *length* (`Format$(Len(strPart), "0000")`), making string length the primary sort dimension — tables with variable-length text primary keys exported rows grouped by `Len(value)` rather than by value. Fixed with `ComposeXmlSortKey` / `XmlSortKeyOrdinal` in `modEncoding.bas`: each normalized part is terminated with `vbNullChar` (unambiguous without length-prefixing) and a fixed-width ordinal suffix supports stable sort. Comparison uses `QuickSortStringsBinary` with `vbBinaryCompare` so `Chr$(1)`–`Chr$(5)` sentinels are not ignored under `Option Compare Database` collation. XML text ordering is therefore ordinal while tab-delimited uses Access `ORDER BY` collation; each table uses one format only, so per-table determinism holds.
+
+**`EscapeXmlName` underscore rule**: Access escapes `_` to `_x005F_` when, and only when, it is immediately followed by a **lowercase** `x` (probed: `a_x1` → `a_x005F_x1`, `b_X2` → `b_X2`, and `a_xZZZZ_b` → `a_x005F_xZZZZ_b` even though the hex digits are invalid). Treating `_` as a plain name character meant field names containing `_x` never matched when building sort keys, so every row collapsed to the null sentinel and sorted arbitrarily — a silent wrong answer rather than a visible failure.
+
+**Performance** (same database, 3681 queries, table-data-only fast-save export):
+
+| Implementation | Table Data | Per table | Uninstrumented |
+|---|---|---|---|
+| No sorting (baseline) | 5.95s / 30 | 0.198s | 0.38s (6%) |
+| Parser-side DOM sort | 7.45s / 30 | 0.248s | 0.34s (5%) |
+| Temp query per table | 19.97s / 32 | 0.624s | 15.46s (77%) |
+| Temp query per operation | **4.90s / 32** | **0.153s** | ~0.3s (6%) |
+
+The final result beats the unsorted baseline because `acExportQuery` is itself cheaper than `acExportTable` (0.113s vs 0.163–0.190s per call); engine-side `ORDER BY` costs less than the DOM sort it replaced. `Application.ExportXML` is now 72% of the remaining category time, so further gains would require emitting the XML directly from a sorted recordset — not attempted, given the `ImportXML` compatibility risk.
+
+**Instrumentation**: `Assign Temp Sort Query`, `Drop Temp Sort Query`, `Check Calculated Fields`, and `Build Table Sort Fields` were added so this path can never again hide its cost in `Other Operations`. A `Drop Temp Sort Query` count above 1 for a whole export means the per-operation lifecycle has regressed.
+
+**Known limitation**: the parser-side DOM sort retained for schema-bearing tables indexes rows with `objRows.Item(i)` on a live `ChildNodes` list, which is a sibling-chain walk. Measured per-access cost scales linearly with row count (16.7 µs at 5K rows rising to 104.1 µs at 40K), making that loop O(N²); caching nodes during a single `For Each` pass measured flat at ~2.3 µs/node. This path is now reached only by calculated, complex, and OLE object tables, which is why it was left alone.
+
+**What this rules out**: Relying on engine iteration order for XML table data. Using saved datasheet `OrderBy` for export ordering (Access ignores it). Creating or dropping the temp query per table, or calling `QueryDefs.Refresh` anywhere in the per-table path. Sorting on every column when a primary key exists. Length-prefixing normalized sort-key parts. Treating `_` as always safe in exported XML element names. Memoizing `TableRequiresXmlSchema` or `IsLocalTable` per operation — both are called once per table, so the caches measured 0% hit rate and were removed; `Check Calculated Fields` is only 0.06s across 31 tables.
+
+**Relevant files**:
+- `modDatabase.bas` — `GetTableSortFields`, `TableIndexesAvailable`, `IsBinaryTableFieldType`, `TableRequiresXmlSchema`, temp query lifecycle (`PrepareTableDataSortExport`, `AssignTableDataSortQuery`, `ReleaseTableDataSortExport`)
+- `clsDbTableData.cls` — shared sort SQL, `ExportTableDataAsXml` query/table routing, TDF fallback
+- `modExport.bas` / `clsVersionControl.cls` — `Prepare`/`Release` calls in each export entry point and cleanup block
+- `clsSourceParser.cls` — `RowSortFields`, `SortXmlDataRows`
+- `modEncoding.bas` — `EscapeXmlName`, `NormalizeXmlSortValue`, `NormalizeNumericXmlSortValue`, `ComposeXmlSortKey`, `XmlSortKeyOrdinal`
+- `modFunctions.bas` — `QuickSortStringsBinary`
+- `modTestTableData.bas` — unit/integration tests, including temp query SQL reuse and recovery
+
 ---
 
 ## 2026-07-28 — Conditional formatting: crash-proof decode, and which Boolean encoding to emit
@@ -344,6 +480,8 @@ check for binary-blob fields. Where a reader and a writer must disagree about or
 pin each end separately against ground truth — a composed test alone passes when both
 ends flip together.
 
+---
+
 ## 2026-07-27 — Bracket-aware table-ref parsing in clsSqlSyntax
 
 **Trigger**: Production database build failures when join operands used bracketed
@@ -367,75 +505,6 @@ its bracket-aware keyword scanning.
 
 **Fixtures**: `qryRegressionSpacedTableNameJoin` (Layer 2), `clsTestSqlSyntax` and
 `clsTestQueryComposerJoins` (Layer 1 matrix + closed loop).
-
-### When to log
-
-Log decisions that constrain future design, involved genuine alternatives,
-or would be non-obvious to a future contributor. A good litmus test: does
-the "What this rules out" section have something meaningful to say?
-
-Do NOT log: bug fixes with obvious solutions, test-only refactors,
-documentation updates, or minor config tweaks that don't affect
-architecture.
-
-### Entry format
-
-Insert new entries directly below this header, newest first. Do not modify
-or reorder existing entries except to add supersession notes (see below).
-If a session produced multiple independent decisions, create a separate
-entry for each.
-
-**Year-end summaries:** When the log rolls into a new calendar year, add
-a summary entry titled "Summary of [previous year] decisions" that
-briefly describes each decision from that year in one line. This gives
-agents scanning forward a checkpoint before older entries.
-
-```
----
-
-## YYYY-MM-DD — [Short descriptive title]
-
-**Trigger**: What problem, requirement, or situation prompted this work.
-
-**Options explored**:
-- For each option, name the approach, its strengths, and why it was or
-  wasn't chosen. Include options that were tried and reverted.
-
-**Decision**: What was chosen and the core trade-off.
-
-**What this rules out**: Future directions now constrained or foreclosed.
-What would trigger revisiting this decision.
-
-**Relevant files**: Key files created or modified.
-```
-
-### Guidelines
-
-- Focus on **why**, not what. The diff shows what changed; this log
-  explains the reasoning.
-- Capture rejected alternatives with equal care. Future agents need to
-  know what was already tried.
-- Be specific — name libraries, files, config choices, error messages.
-- Aim for 10–50 lines per entry. Reference document, not narrative.
-- Plain language. No jargon, no editorializing, no padding.
-
-### Superseded entries
-
-When a new decision invalidates, corrects, or replaces guidance in an older
-entry, add a blockquote annotation to the affected older entry — do not
-rewrite or delete its original text. Place the note immediately after the
-entry's heading or after the paragraph containing the superseded claim.
-
-> **⚠ Superseded** (YYYY-MM-DD): [Brief explanation of what changed and
-> why.] See "[title of newer entry]" above.
-
-Use **⚠ Partially superseded** when only specific claims are affected, and
-**⚠ Superseded** when the entire entry's premise or decision has been
-overturned. Always scan older entries for claims that conflict with the new
-decision — agents reading the log linearly will otherwise encounter
-contradictory guidance.
-
-<!-- END HEADER -->
 
 ---
 
@@ -1628,6 +1697,8 @@ part of the v5 baseline. The `EFV_5_1_0 = 50100` slot is free again for the firs
 `modules/Components/clsDbConnection.cls`, `forms/frmVCSOptionsExport.cls`,
 `modules/Tests/Connect/modTestConnect.bas`, `docs/access-conditional-format.md`.
 
+---
+
 ## 2026-06-18 — Build-time cleanup for duplicate `@Folder` source files
 
 **Trigger**: AI agents repeatedly created a second copy of a VBA module in the wrong
@@ -1715,6 +1786,9 @@ falling back to the hybrid raw-hex approach. Byte-exactness is enforced by
 `modules/Infrastructure/clsOptions.cls` + `forms/frmVCSOptionsExport`
 (`DecodeConditionalFormatting`), `modules/Tests/Core/modTestConditionalFormat.bas`,
 `docs/access-conditional-format.md`.
+
+---
+
 ## 2026-06-09 — Batch file metadata (date+size) for source property hashing
 
 **Trigger**: Merge-build change detection on a large project (~7,300-file `queries`
@@ -2142,6 +2216,28 @@ single-object import.)*
 
 ---
 
+## 2026-05-07 — Cross-table ON condition LeftTable/RightTable in Design View qdef
+
+**Trigger**: A production database had four queries that passed SQL builder validation but failed with DAO error 3082 ("JOIN operation refers to a field that is not in one of the joined tables") after a full build from source. The queries used compound `ON` clauses where individual conditions referenced different table pairs, and one table was also used inside a saved subquery referenced in another condition.
+
+**Root cause**: `clsQueryComposer.EmitDesignViewQdef` reused the parent join's `leftTable`/`rightTable` for all split conditions in a compound `ON` clause. Access stores each compound `ON` condition as a separate Attribute 7 row in `MSysQueries` with its own `Name1`/`Name2` (the specific table pair for that condition). The emitter's reuse of the parent join's tables produced a `.qdef` where the `RightTable` for a condition referencing table `C` was set to table `B` (the parent join's right table). `LoadFromText` accepted this silently, but the resulting internal storage confused Access's scope resolution at execution time.
+
+**Options explored**:
+- **Fall back to `QueryDefs(name).SQL` (legacy path)** — rejected: the new pipeline was designed to generate its own `.qdef` rather than receive a pre-baked one, and falling back to the legacy path would lose design layout. The bug was in the emitter, not in `LoadFromText`.
+- **Store per-condition table pairs in the `.json` companion** — rejected: the table pair for each condition is derivable from the condition expression itself (e.g., `tblCars.ID = tblCarsModel.CarID` clearly references `tblCars` and `tblCarsModel`). Adding explicit storage would be redundant.
+- **Extract per-condition table pairs from the expression at emit time (chosen)** — the emitter already has `ExtractTableFromOnSide` available. Using it for each split condition, with a fallback to the parent join's tables if extraction fails, is correct, minimal, and preserves backward compatibility.
+
+**Decision**: `EmitDesignViewQdef` now calls `ExtractTableFromOnSide(condition, True)` and `ExtractTableFromOnSide(condition, False)` for each individual condition in a split compound `ON` clause. Falls back to the parent join's `leftTable`/`rightTable` only if extraction returns empty.
+
+**Why this was hard to diagnose**: The SQL builder validation compares `ReconstructSQL` output against `QueryDefs.SQL` — a text-level check. The bug was not in SQL reconstruction but in `.qdef` emission, and `LoadFromText` accepted the wrong structure silently. The error only surfaced at query execution time, where the misleading error message ("field not in one of the joined tables") pointed away from the actual root cause (wrong `LeftTable`/`RightTable` metadata).
+
+**Relevant files**:
+- `clsQueryComposer.cls` — `EmitDesignViewQdef`: per-condition `LeftTable`/`RightTable` extraction
+- `docs/access-query-storage.md` § 6 — documents the finding
+- `Testing/Fixtures/queries/regression/qryRegressionCrossTableOn.notes.md` — regression context
+
+---
+
 ## 2026-05-05 — Multi-file conflict detection: per-file diff with per-component resolution
 
 **Trigger**: On first export (empty index) all table definitions showed as export conflicts even though the XML files were byte-identical. Root cause: `SourceMatches` compared all `FileExtensions` across source and temp directories, but companion files (`.json` metadata, `.sql` DDL) were never produced during temp/alternate-path exports — they were gated behind `If strAlternatePath = vbNullString`. The file-count mismatch caused every multi-file component to report a false conflict.
@@ -2155,6 +2251,48 @@ single-object import.)*
 **What this rules out**: Per-file resolution (skip one file but overwrite another within the same component) — export/import operates atomically on whole components, so partial resolution would require fundamentally different import/export logic. If per-file resolution is ever needed, it would require splitting components into independently importable sub-units. Adding new file extensions to a component's `FileExtensions` now requires ensuring those files are also produced during alternate-path exports, or the strict count comparison in `GetDifferingFiles` will flag false conflicts.
 
 **Relevant files**: `clsDbTableDef.cls` (companion file export), `clsDbModule.cls` (metadata export), `clsVCSIndex.cls` (`GetDifferingFiles`, `GetExportConflictFiles`, `IsMergeConflict`), `clsConflictItem.cls` (`DifferingFiles` property), `clsConflicts.cls` (multi-row `SaveToTable`), `frmVCSConflictList.cls` (resolution propagation), `frmVCSConflictList.form` (`AfterUpdate` event wiring).
+
+---
+
+## 2026-05-05 — VBProject.Saved + DateModified fast path for VBA code hashing
+
+**Trigger**: Fast-save exports were spending significant time hashing every VBA module's code (via `GetCodeModuleHash` → `CodeModule.Lines(1, 999999)` → SHA256) even when no VBA code had changed since the last export. For a project with 110+ modules, the "Get VBA Hash" operation dominated the scan phase.
+
+**Key empirical findings** (tested against `Version Control.accda` with 110 modules, 17 forms):
+
+1. `VBProject.Saved` (Boolean) reliably detects all unsaved VBE changes, including VBA's automatic case-sync propagation across modules. Goes `False` on any in-memory edit, `True` after any save.
+2. `CurrentProject.AllModules(name).DateModified` is a VBE-level property (NOT from `MSysObjects`). Always identical across all modules. Updates in real-time from VBE memory, even without saving.
+3. `MSysObjects.DateUpdate` is a separate DAO-level per-row write timestamp with millisecond precision. Only updates on actual disk writes. Does NOT reflect VBE code edits. DOES reflect DAO property changes (e.g., Description). These are two completely different dates from different subsystems.
+4. Saving any single module triggers a full VBA project write that updates `DateModified` on all 110 modules simultaneously. Saving a form's code-behind also updates all 110 module dates, but only that form's `DateModified` changes.
+5. `CurrentProject.AllModules` does NOT include form/report code-behind — those are `vbext_ct_Document` components in the VBE.
+
+**Options explored for the fast-path guard**:
+- **DateModified only** — rejected: VBA case-sync changes `CodeModule.Lines()` without updating `DateModified`, so the date alone could miss changes.
+- **Force compile-and-save before export** — rejected: would fail on uncompilable code, which the add-in must support exporting.
+- **VBProject.Saved + DateModified (chosen)** — `Saved = True` means no dirty VBE memory (covers case-sync); `DateModified` match confirms nothing was saved since last export. Both must pass to skip hashing.
+
+**Options explored for index storage of module dates**:
+- **Per-module ObjectDate (existing)** — rejected: all 110 values are always identical, and partial exports only update N entries, leaving the other 110-N stale until a full export "heals" them.
+- **Per-module ObjectDate with post-export healing pass** — rejected: unnecessary iteration when a single value suffices.
+- **Top-level VBAProjectDate (chosen)** — one value in the index, updated whenever any module is exported. Eliminates redundant storage, eliminates the healing problem, eliminates 110 per-module COM property reads during change detection.
+
+**Decision**: Two-tier guard in `clsDbModule.IsModified`: (1) `CurrentVBProject.Saved = True`, (2) `AllModules(0).DateModified = VCSIndex.VBAProjectDate`. When both pass, skip `GetCodeModuleHash` entirely. `MetaHash` check always runs (metadata changes don't affect `Saved` or `DateModified`). For forms/reports, the same `VBProject.Saved` guard skips the code-behind hash when the layout `DateModified` also matches.
+
+Additionally, unsaved VBA project changes are now persisted at the start of the export flow (alongside `CloseDatabaseObjects`), ensuring exported source always reflects the current VBE state and preventing the scenario where a user exports code then discards changes on close.
+
+**Performance results** (no-change fast-save export):
+- Before: 0.88s total, 127 `Get VBA Hash` calls (0.09s), 286 `Compute SHA256` calls (0.15s)
+- After: 0.44s total, 0 `Get VBA Hash` calls, 159 `Compute SHA256` calls (0.05s)
+- 50% faster overall; `Get VBA Hash` completely eliminated
+
+**What this rules out**: Per-module `ObjectDate` is no longer written for module components (other types still use it). The binary index format version was bumped from 2 to 3, so existing index files are rebuilt on first use. `MSysObjects.DateUpdate` was investigated but provides no advantage over `AllModules.DateModified` for VBA change detection. `CompileAndSaveAllModules` is intentionally NOT added to the export flow — it would break on uncompilable code.
+
+**Relevant files**:
+- `clsVCSIndex.cls` — new `VBAProjectDate` top-level property, format version 3, `Update` sets `VBAProjectDate` instead of per-module `ObjectDate` for modules
+- `clsDbModule.cls` — `IsModified` uses `VBProject.Saved` + `VBAProjectDate` fast path
+- `clsDbForm.cls` — `IsModified` skips code-behind hash when `VBProject.Saved = True` and layout date matches
+- `clsDbReport.cls` — same as `clsDbForm.cls`
+- `modExport.bas` — saves VBA project before export scan, wraps `CloseDatabaseObjects` in `Perf.PauseTiming`/`ResumeTiming`, fixes `Exit Sub` → `GoTo CleanUp` with `eelCritical`
 
 ---
 
@@ -2527,6 +2665,32 @@ What would trigger revisiting: if a future composer rewrite collapses multiple s
 
 ---
 
+## 2026-04-15 — Session-scoped option overrides for MCP/API callers
+
+**Trigger**: When the MCP agent sets an option (e.g., `BreakOnError = True`) via `SetOption`, the change was silently discarded because every operation entry point resets `Options` and reloads from `vcs-options.json`. The agent's overrides never survived past the first subsequent operation.
+
+**Options explored**:
+- **Edit `vcs-options.json` directly** — corrupts user config on failure, race conditions, violates thin-wrapper principle.
+- **In-memory overrides dictionary** — lost on Access restart; invisible; complex `ReleaseObjects` coordination.
+- **Pass options as operation parameters** — changes VBA API signatures, awkward across COM. Deferred as a possible future enhancement.
+- **Skip reload when called via API** — agent operates with stale options for everything, not just its overrides.
+- **Single shared override file** — no session isolation; stale overrides bleed into interactive use.
+- **Session-scoped override files in `mcp/` subfolder (chosen)** — each MCP/API session gets its own override file. Files are `.gitignored`. The user's `vcs-options.json` is never touched.
+
+**Decision**: `SetOption` now persists overrides to `mcp/options-{session_id}.json` alongside `vcs-options.json`. After every `LoadProjectOptions` call, if `Operation.Source` is `eosMCPTool` or `eosExternalAPI`, `LoadOptionOverrides` scans the `mcp/` subfolder and merges matching override files on top. Interactive ribbon operations never see them. Stale files are auto-cleaned after 30 days. The MCP server generates a random session ID at startup, registers it via `RegisterSession`, and calls `EndSession` on shutdown to delete the override file.
+
+**What this rules out**: Overrides do not persist across MCP server restarts (the server generates a new session ID each time). If two agents concurrently interact with the same database, their override files may both be loaded — this is an accepted tradeoff. If the MCP spec adds persistent session IDs (SEP-1364), we can adopt them as the session component without changing the file-based mechanism.
+
+**Relevant files**:
+- `clsOptions.cls` — `LoadOptionOverrides`, `MergeOverrideFile`, `CleanupStaleOverrides`
+- `clsVersionControl.cls` — `SetOption` (updated), `SaveOptionOverride`, `RegisterSession`, `EndSession`
+- `modObjects.bas` — `SessionId` property (survives `ReleaseObjects`)
+- `modExport.bas`, `modBuild.bas` — `LoadOptionOverrides` calls gated on `Operation.Source`
+- `main.py` — session ID generation, `atexit` cleanup
+- `tools.py` — `vcs_set_option` registers session, `vcs_end_session` tool added
+
+---
+
 ## 2026-04-14 — Architectural principle: all external automation goes through the public API
 
 **Trigger**: Adding 7 new methods to `clsVersionControl` for MCP tool support raised the question of where the boundary sits between the add-in's internal logic and what external consumers can reach. The MCP server, PowerShell scripts, and other VBA projects all need to call add-in functionality — should they use different entry points?
@@ -2721,6 +2885,60 @@ Rather than building cleanup infrastructure for a feature that had outlived its 
 **What this rules out**: The assumption that merge requires a prior full build is no longer valid. Future code should not re-introduce a `FullBuildDate`-only check. If a new component type is added that requires special handling on first import (like table data), it should be handled in the merge path's category filtering, not by gating on build history. Revisit if a scenario is found where export-generated index entries are insufficient for accurate merge detection.
 
 **Relevant files**: `Version Control.accda.src/forms/frmVCSMain.cls` (gate condition and comment), `Version Control.accda.src/modules/API/clsVersionControl.cls` (user-facing message, added `T()` wrapping).
+
+---
+
+## 2026-04-10 — Deterministic query export with performance optimization
+
+**Trigger**: Query exports using `Application.SaveAsText` were non-deterministic (WHERE clause ordering, column metadata ordering varied between exports) causing VCS noise, and slow (~30 minutes for 2,800 queries due to per-query COM calls).
+
+**Options explored**:
+
+- **Keep `SaveAsText` and post-process for determinism**: Sanitize the output to normalize ordering. Rejected because it doesn't solve the performance problem (SaveAsText is the bottleneck) and the sanitization is fragile given the undocumented format.
+- **Read `QueryDefs(name).SQL` directly**: Avoids SaveAsText but is still a slow per-query COM call. Doesn't capture design layout, column metadata, or properties without additional COM calls. Rejected.
+- **Read MSysQueries + MSysObjects system tables directly** (chosen): Single SQL queries can bulk-read all query data. `MSysQueries` contains the decomposed query structure (one row per clause). `MSysObjects.LvProp` stores properties and column metadata in the same MR2 binary format already parsed for linked tables. `MSysObjects.LvExtra` stores Design View layout. Both blobs are sub-millisecond to read per query. SQL is reconstructed deterministically from the decomposed structure.
+
+**Decision**: Replace `SaveAsText` + `QueryDefs.SQL` with direct reads from `MSysQueries` and `MSysObjects` system tables. Export produces `.sql` (source of truth for SQL text) + `.json` (metadata: properties, columns, design layout, description, hidden). The `.qdef` file is no longer exported.
+
+**Architecture**:
+
+- `clsQueryComposer`: Bidirectional SQL/structure translation class. `ReconstructSQL()` builds SQL from MSysQueries rows on export. `DecomposeSQL()` parses SQL back into structure on import. `GenerateQdef()` emits Design View or SQL View `.qdef` text for `LoadFromText`.
+- `clsLvExtraParser`: Parses the LvExtra binary blob (magic `0x99 0x99 0xCE 0xAC`, window/pane RECTs, table positions as null-terminated UTF-16LE strings). Format reverse-engineered from live data.
+- `clsLvPropParser`: Existing class, verified to work on query LvProp blobs (same MR2 format as linked tables).
+- Import flow: `.sql` → `DecomposeSQL()` → check `IsDesignerCompatible()` → generate Design View `.qdef` (with layout from `.json`) or SQL View `.qdef` → `LoadFromText` → apply metadata from `.json`. Falls back to SQL View if Design View import fails.
+- Backward compatibility: Legacy `.qdef`/`.bas` files are still accepted for import. `GetFileList` searches for `.sql` first, then `.qdef`/`.bas`. Legacy files are cleaned up on next export.
+
+**LvExtra binary format** (reverse-engineered):
+
+| Offset | Size | Content |
+|--------|------|---------|
+| 0-3 | 4 | Magic: `99 99 CE AC` |
+| 4-15 | 12 | Padding: `0xAA` × 12 |
+| 16-31 | 16 | Window RECT (Left, Top, Right, Bottom as Longs) |
+| 32-35 | 4 | State (Long) |
+| 36-51 | 16 | Designer pane RECT |
+| 52-59 | 8 | Grid origin (Left, Top) |
+| 60-63 | 4 | ColumnsShown (Long) |
+| 64-67 | 4 | Table count (Long) |
+| 68+ | var | Per table: 5 Longs (L,T,R,B,scrollTop) + 2 null-term UTF-16LE names |
+
+**MSysQueries findings** (vs isladogs documentation):
+
+- Attribute 6 (field references): Expression column, not Name1
+- Attribute 11 (ORDER BY): Expression column, not Name2
+- Undocumented columns: `Order` (Binary, 510 bytes), `LvExtra` (Long, always NULL)
+- `MSysObjects.LvExtra IS NOT NULL` reliably indicates Design View save
+
+**What this rules out**: `SaveAsText` is no longer used for query export (still used for forms, reports, macros). The `SaveQuerySQL` option and `ForceImportOriginalQuerySQL` option are superseded by the new format. The decomposed query structure is never stored in files — it exists only transiently during composition/decomposition. Future changes to Access SQL dialect (new keywords, syntax) may require updates to `clsQueryComposer`.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` — new: bidirectional SQL/structure/qdef translation
+- `Version Control.accda.src/modules/Utility/clsLvExtraParser.cls` — new: LvExtra binary parser
+- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — rewritten: Export reads system tables, Import generates .qdef on-the-fly
+- `Version Control.accda.src/modules/Utility/clsLvPropParser.cls` — verified: works for query LvProp blobs as-is
+- `Version Control.accda.src/AGENTS.md` — updated: Query Files section for .sql + .json format
+- `docs/how-access-stores-queries.md` — corrections to MSysQueries attribute documentation
 
 ---
 
@@ -3011,6 +3229,25 @@ locally in VBScript). That would reduce the number of COM calls that need
 pump dispatch.
 
 **Relevant files**: `Version Control.accda.src/modules/Integration/clsWorker.cls`
+
+---
+
+## 2026-04-03 — Remove BOM/CRLF workaround instructions from agent documentation
+
+**Trigger**: Cursor fixed the underlying bug where `StrReplace` and `Write` tools stripped UTF-8 BOM bytes and converted CRLF line endings to LF. The extensive workaround instructions (mandatory post-edit PowerShell scripts, tool-distrust warnings, edit-size guidance to minimize corruption) added in earlier sessions were consuming significant token budget on every VBA source file edit with no remaining benefit.
+
+**Decision**: Removed the workaround-specific content from agent documentation and Cursor rules while keeping the format requirements documented concisely as reference information. The `.editorconfig` and `.gitattributes` files (added as part of the 2026-03-10 belt-and-suspenders approach) remain in place as the primary enforcement mechanism.
+
+Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", "REQUIRED: Preserve CRLF Line Endings", and "Editing Safely" sections from `.cursor/rules/vba-source-files.mdc`. (2) Condensed Rules 1 and 2 in `Version Control.accda.src/AGENTS.md` from ~80 lines of MUST/MUST NOT lists, verification scripts, and warnings down to two brief sentences each, pointing to `.editorconfig` for enforcement. Removed repeated "Save with UTF-8 BOM encoding" steps from Common Tasks. (3) Removed the UTF-8 BOM reminder line from `.cursor/rules/project-guide.mdc`. (4) Added explanatory comments to `.editorconfig` since it is now the primary documentation point for these format constraints.
+
+**What this rules out**: If Cursor regresses and reintroduces BOM stripping or CRLF conversion, the workaround instructions would need to be re-added. The `.editorconfig` and `.gitattributes` enforcement remains regardless.
+
+**Relevant files**:
+
+- `.cursor/rules/vba-source-files.mdc` — removed four workaround sections
+- `Version Control.accda.src/AGENTS.md` — condensed Rules 1-2, removed Common Tasks encoding steps
+- `.cursor/rules/project-guide.mdc` — removed BOM reminder line
+- `.editorconfig` — added explanatory comments
 
 ---
 
@@ -3344,6 +3581,47 @@ The separate `WarmDAOCache` warm-up pass was reverted because the first componen
 **Relevant files**:
 
 - `Version Control.accda.src/modules/Infrastructure/clsPerformance.cls` — `AddCategoryNote`, `FootnoteMarks`, `CategoryFootnotes` in `udtPerformance`, `GetReports` rendering, `TOTAL RUNTIME` line
+
+---
+
+## 2026-03-12 — Per-object companion .json for consolidated metadata
+
+**Trigger**: `clsDbDocument` scans ~6,870 DAO documents to read the `Description` property on every export, costing ~18-20s of cold JET I/O. `clsDbHiddenAttribute` performs a similar full scan. Both produce monolithic singleton files (`documents.json`, `hidden-attributes.json`) because that mirrors how DAO exposes them via `Container.Documents`. However, document properties and hidden attributes are logically part of the objects they describe. During fast saves (the common case), only a handful of objects are modified, yet the full scan runs every time.
+
+**Options explored**:
+
+- **Skip the full scan during fast saves**: Only run the monolithic `clsDbDocument`/`clsDbHiddenAttribute` scan during full exports. Rejected because full exports are rare (days/weeks apart) while fast saves happen multiple times per day — descriptions would go stale for extended periods.
+- **Targeted delta scan of modified objects against the monolithic file**: Scan only objects flagged as modified and merge into `documents.json`. Complex, and still suffers from the SingleFile limitation where every description change rewrites the entire file.
+- **Per-object companion `.json` files** (chosen): Consolidate all per-object metadata (document properties, hidden attributes, print settings, linked table info) into companion `.json` files co-located with each object's primary source file. Each component's `Export` method performs O(1) lookups for its own metadata. The performance problem disappears by design.
+
+**Decision**: Companion `.json` files use reserved keys under `"Items"`: `"Properties"` for document properties, `"Hidden"` for hidden attribute (only present when `True`). Existing keys (`"Printer"`, `"Margins"`, `"Connect"`, etc.) are unchanged. For forms/reports, metadata merges into the existing print settings `.json`. For linked tables, it merges into the existing linked table `.json`. For queries, macros, modules, and local tables, a new companion `.json` is created only when metadata exists.
+
+`clsDbDocument` is reduced to only scan the "Databases" container (SummaryInfo, UserDefined) when `EFV >= 5.0.0`. `clsDbHiddenAttribute` returns an empty dictionary when `EFV >= 5.0.0`.
+
+DAO container mapping: Forms→`"Forms"`, Reports→`"Reports"`, Queries→`"Tables"` (DAO quirk), Tables→`"Tables"`, Macros→`"Scripts"`, Modules→`"Modules"`.
+
+**Change detection via MetaHash**: Access does not update an object's `DateModified` when its Description or Hidden attribute changes. Since companion `.json` files are only written during `Export`, and `Export` is only called for objects that `IsModified` returns `True` for, metadata-only changes would be silently missed. To address this, a lightweight `MetaHash` is stored in the VCS index during export. `GetMetadataHash()` reads just the Description property and Hidden attribute (two O(1) DAO calls) and returns a hash. Each component's `IsModified` compares the current `MetaHash` against the stored value as a final check after the existing DateModified/code-hash checks pass. This adds no file I/O — the comparison is entirely in-memory (VCS index) vs live DAO, and runs only for objects that appear unchanged by other checks.
+
+When `SaveAllDocumentProperties = True`, all non-standard DAO properties are exported (not just Description). However, the `MetaHash` only covers Description + Hidden for fast-save detection. Custom property changes are captured on full export — an acceptable trade-off since custom properties are rare and typically accompany other object changes.
+
+**Backward compatibility**: Import reads companion `.json` first; `clsDbDocument.Import` and `clsDbHiddenAttribute.Import` still process their singleton files for legacy source. A one-time migration in `modSourceUpgrade.UpgradeSourceFiles` distributes entries from `documents.json` and `hidden-attributes.json` into companion files.
+
+**What this rules out**: The monolithic `documents.json` no longer contains per-object descriptions for `EFV >= 5.0.0` — only database-level properties (SummaryInfo, UserDefined). `hidden-attributes.json` is no longer written. Future per-object metadata should be added to the companion `.json` structure. Making the `.json` the primary source file for queries is deferred as a future direction.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Core/modLoadSaveText.bas` — `ExportObjectMetadata`, `ImportObjectMetadata`, `GetMetadataHash`, `HasNonMetadataKeys`
+- `Version Control.accda.src/modules/Components/clsDbForm.cls` — Export/Import/IsModified with metadata helpers and MetaHash
+- `Version Control.accda.src/modules/Components/clsDbReport.cls` — same pattern as forms
+- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — same pattern, add json to FileExtensions/MoveSource
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — same pattern, update MoveSource
+- `Version Control.accda.src/modules/Components/clsDbMacro.cls` — same pattern, add json to FileExtensions/MoveSource
+- `Version Control.accda.src/modules/Components/clsDbModule.cls` — same pattern, add json to FileExtensions/MoveSource
+- `Version Control.accda.src/modules/Components/clsDbDocument.cls` — reduced to Databases container only (EFV >= 5.0.0)
+- `Version Control.accda.src/modules/Components/clsDbHiddenAttribute.cls` — returns empty dictionary (EFV >= 5.0.0)
+- `Version Control.accda.src/modules/Core/modSourceUpgrade.bas` — `MigrateMetadataToCompanionFiles` migration logic
+- `Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls` — `MetaHash` in `Update`, `LoadItem`
+- `Version Control.accda.src/modules/Infrastructure/clsVCSIndexItem.cls` — `MetaHash` field
 
 ---
 
@@ -3867,232 +4145,5 @@ For the UI notification, the main form (`frmVCSMain`) shows a clickable `lblForm
 - `Version Control.accda.src/modules/clsDbForm.cls` — IsModified updated (keeps OtherHash)
 - `Version Control.accda.src/modules/clsDbReport.cls` — IsModified updated (keeps OtherHash)
 - `Version Control.accda.src/modules/modImportExport.bas` — skip-count logging during fast save
-
----
-
-## 2026-03-12 — Per-object companion .json for consolidated metadata
-
-**Trigger**: `clsDbDocument` scans ~6,870 DAO documents to read the `Description` property on every export, costing ~18-20s of cold JET I/O. `clsDbHiddenAttribute` performs a similar full scan. Both produce monolithic singleton files (`documents.json`, `hidden-attributes.json`) because that mirrors how DAO exposes them via `Container.Documents`. However, document properties and hidden attributes are logically part of the objects they describe. During fast saves (the common case), only a handful of objects are modified, yet the full scan runs every time.
-
-**Options explored**:
-
-- **Skip the full scan during fast saves**: Only run the monolithic `clsDbDocument`/`clsDbHiddenAttribute` scan during full exports. Rejected because full exports are rare (days/weeks apart) while fast saves happen multiple times per day — descriptions would go stale for extended periods.
-- **Targeted delta scan of modified objects against the monolithic file**: Scan only objects flagged as modified and merge into `documents.json`. Complex, and still suffers from the SingleFile limitation where every description change rewrites the entire file.
-- **Per-object companion `.json` files** (chosen): Consolidate all per-object metadata (document properties, hidden attributes, print settings, linked table info) into companion `.json` files co-located with each object's primary source file. Each component's `Export` method performs O(1) lookups for its own metadata. The performance problem disappears by design.
-
-**Decision**: Companion `.json` files use reserved keys under `"Items"`: `"Properties"` for document properties, `"Hidden"` for hidden attribute (only present when `True`). Existing keys (`"Printer"`, `"Margins"`, `"Connect"`, etc.) are unchanged. For forms/reports, metadata merges into the existing print settings `.json`. For linked tables, it merges into the existing linked table `.json`. For queries, macros, modules, and local tables, a new companion `.json` is created only when metadata exists.
-
-`clsDbDocument` is reduced to only scan the "Databases" container (SummaryInfo, UserDefined) when `EFV >= 5.0.0`. `clsDbHiddenAttribute` returns an empty dictionary when `EFV >= 5.0.0`.
-
-DAO container mapping: Forms→`"Forms"`, Reports→`"Reports"`, Queries→`"Tables"` (DAO quirk), Tables→`"Tables"`, Macros→`"Scripts"`, Modules→`"Modules"`.
-
-**Change detection via MetaHash**: Access does not update an object's `DateModified` when its Description or Hidden attribute changes. Since companion `.json` files are only written during `Export`, and `Export` is only called for objects that `IsModified` returns `True` for, metadata-only changes would be silently missed. To address this, a lightweight `MetaHash` is stored in the VCS index during export. `GetMetadataHash()` reads just the Description property and Hidden attribute (two O(1) DAO calls) and returns a hash. Each component's `IsModified` compares the current `MetaHash` against the stored value as a final check after the existing DateModified/code-hash checks pass. This adds no file I/O — the comparison is entirely in-memory (VCS index) vs live DAO, and runs only for objects that appear unchanged by other checks.
-
-When `SaveAllDocumentProperties = True`, all non-standard DAO properties are exported (not just Description). However, the `MetaHash` only covers Description + Hidden for fast-save detection. Custom property changes are captured on full export — an acceptable trade-off since custom properties are rare and typically accompany other object changes.
-
-**Backward compatibility**: Import reads companion `.json` first; `clsDbDocument.Import` and `clsDbHiddenAttribute.Import` still process their singleton files for legacy source. A one-time migration in `modSourceUpgrade.UpgradeSourceFiles` distributes entries from `documents.json` and `hidden-attributes.json` into companion files.
-
-**What this rules out**: The monolithic `documents.json` no longer contains per-object descriptions for `EFV >= 5.0.0` — only database-level properties (SummaryInfo, UserDefined). `hidden-attributes.json` is no longer written. Future per-object metadata should be added to the companion `.json` structure. Making the `.json` the primary source file for queries is deferred as a future direction.
-
-**Relevant files**:
-
-- `Version Control.accda.src/modules/Core/modLoadSaveText.bas` — `ExportObjectMetadata`, `ImportObjectMetadata`, `GetMetadataHash`, `HasNonMetadataKeys`
-- `Version Control.accda.src/modules/Components/clsDbForm.cls` — Export/Import/IsModified with metadata helpers and MetaHash
-- `Version Control.accda.src/modules/Components/clsDbReport.cls` — same pattern as forms
-- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — same pattern, add json to FileExtensions/MoveSource
-- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — same pattern, update MoveSource
-- `Version Control.accda.src/modules/Components/clsDbMacro.cls` — same pattern, add json to FileExtensions/MoveSource
-- `Version Control.accda.src/modules/Components/clsDbModule.cls` — same pattern, add json to FileExtensions/MoveSource
-- `Version Control.accda.src/modules/Components/clsDbDocument.cls` — reduced to Databases container only (EFV >= 5.0.0)
-- `Version Control.accda.src/modules/Components/clsDbHiddenAttribute.cls` — returns empty dictionary (EFV >= 5.0.0)
-- `Version Control.accda.src/modules/Core/modSourceUpgrade.bas` — `MigrateMetadataToCompanionFiles` migration logic
-- `Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls` — `MetaHash` in `Update`, `LoadItem`
-- `Version Control.accda.src/modules/Infrastructure/clsVCSIndexItem.cls` — `MetaHash` field
-
----
-
-## 2026-04-03 — Remove BOM/CRLF workaround instructions from agent documentation
-
-**Trigger**: Cursor fixed the underlying bug where `StrReplace` and `Write` tools stripped UTF-8 BOM bytes and converted CRLF line endings to LF. The extensive workaround instructions (mandatory post-edit PowerShell scripts, tool-distrust warnings, edit-size guidance to minimize corruption) added in earlier sessions were consuming significant token budget on every VBA source file edit with no remaining benefit.
-
-**Decision**: Removed the workaround-specific content from agent documentation and Cursor rules while keeping the format requirements documented concisely as reference information. The `.editorconfig` and `.gitattributes` files (added as part of the 2026-03-10 belt-and-suspenders approach) remain in place as the primary enforcement mechanism.
-
-Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", "REQUIRED: Preserve CRLF Line Endings", and "Editing Safely" sections from `.cursor/rules/vba-source-files.mdc`. (2) Condensed Rules 1 and 2 in `Version Control.accda.src/AGENTS.md` from ~80 lines of MUST/MUST NOT lists, verification scripts, and warnings down to two brief sentences each, pointing to `.editorconfig` for enforcement. Removed repeated "Save with UTF-8 BOM encoding" steps from Common Tasks. (3) Removed the UTF-8 BOM reminder line from `.cursor/rules/project-guide.mdc`. (4) Added explanatory comments to `.editorconfig` since it is now the primary documentation point for these format constraints.
-
-**What this rules out**: If Cursor regresses and reintroduces BOM stripping or CRLF conversion, the workaround instructions would need to be re-added. The `.editorconfig` and `.gitattributes` enforcement remains regardless.
-
-**Relevant files**:
-
-- `.cursor/rules/vba-source-files.mdc` — removed four workaround sections
-- `Version Control.accda.src/AGENTS.md` — condensed Rules 1-2, removed Common Tasks encoding steps
-- `.cursor/rules/project-guide.mdc` — removed BOM reminder line
-- `.editorconfig` — added explanatory comments
-
----
-
-## 2026-04-10 — Deterministic query export with performance optimization
-
-**Trigger**: Query exports using `Application.SaveAsText` were non-deterministic (WHERE clause ordering, column metadata ordering varied between exports) causing VCS noise, and slow (~30 minutes for 2,800 queries due to per-query COM calls).
-
-**Options explored**:
-
-- **Keep `SaveAsText` and post-process for determinism**: Sanitize the output to normalize ordering. Rejected because it doesn't solve the performance problem (SaveAsText is the bottleneck) and the sanitization is fragile given the undocumented format.
-- **Read `QueryDefs(name).SQL` directly**: Avoids SaveAsText but is still a slow per-query COM call. Doesn't capture design layout, column metadata, or properties without additional COM calls. Rejected.
-- **Read MSysQueries + MSysObjects system tables directly** (chosen): Single SQL queries can bulk-read all query data. `MSysQueries` contains the decomposed query structure (one row per clause). `MSysObjects.LvProp` stores properties and column metadata in the same MR2 binary format already parsed for linked tables. `MSysObjects.LvExtra` stores Design View layout. Both blobs are sub-millisecond to read per query. SQL is reconstructed deterministically from the decomposed structure.
-
-**Decision**: Replace `SaveAsText` + `QueryDefs.SQL` with direct reads from `MSysQueries` and `MSysObjects` system tables. Export produces `.sql` (source of truth for SQL text) + `.json` (metadata: properties, columns, design layout, description, hidden). The `.qdef` file is no longer exported.
-
-**Architecture**:
-
-- `clsQueryComposer`: Bidirectional SQL/structure translation class. `ReconstructSQL()` builds SQL from MSysQueries rows on export. `DecomposeSQL()` parses SQL back into structure on import. `GenerateQdef()` emits Design View or SQL View `.qdef` text for `LoadFromText`.
-- `clsLvExtraParser`: Parses the LvExtra binary blob (magic `0x99 0x99 0xCE 0xAC`, window/pane RECTs, table positions as null-terminated UTF-16LE strings). Format reverse-engineered from live data.
-- `clsLvPropParser`: Existing class, verified to work on query LvProp blobs (same MR2 format as linked tables).
-- Import flow: `.sql` → `DecomposeSQL()` → check `IsDesignerCompatible()` → generate Design View `.qdef` (with layout from `.json`) or SQL View `.qdef` → `LoadFromText` → apply metadata from `.json`. Falls back to SQL View if Design View import fails.
-- Backward compatibility: Legacy `.qdef`/`.bas` files are still accepted for import. `GetFileList` searches for `.sql` first, then `.qdef`/`.bas`. Legacy files are cleaned up on next export.
-
-**LvExtra binary format** (reverse-engineered):
-
-| Offset | Size | Content |
-|--------|------|---------|
-| 0-3 | 4 | Magic: `99 99 CE AC` |
-| 4-15 | 12 | Padding: `0xAA` × 12 |
-| 16-31 | 16 | Window RECT (Left, Top, Right, Bottom as Longs) |
-| 32-35 | 4 | State (Long) |
-| 36-51 | 16 | Designer pane RECT |
-| 52-59 | 8 | Grid origin (Left, Top) |
-| 60-63 | 4 | ColumnsShown (Long) |
-| 64-67 | 4 | Table count (Long) |
-| 68+ | var | Per table: 5 Longs (L,T,R,B,scrollTop) + 2 null-term UTF-16LE names |
-
-**MSysQueries findings** (vs isladogs documentation):
-
-- Attribute 6 (field references): Expression column, not Name1
-- Attribute 11 (ORDER BY): Expression column, not Name2
-- Undocumented columns: `Order` (Binary, 510 bytes), `LvExtra` (Long, always NULL)
-- `MSysObjects.LvExtra IS NOT NULL` reliably indicates Design View save
-
-**What this rules out**: `SaveAsText` is no longer used for query export (still used for forms, reports, macros). The `SaveQuerySQL` option and `ForceImportOriginalQuerySQL` option are superseded by the new format. The decomposed query structure is never stored in files — it exists only transiently during composition/decomposition. Future changes to Access SQL dialect (new keywords, syntax) may require updates to `clsQueryComposer`.
-
-**Relevant files**:
-
-- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` — new: bidirectional SQL/structure/qdef translation
-- `Version Control.accda.src/modules/Utility/clsLvExtraParser.cls` — new: LvExtra binary parser
-- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — rewritten: Export reads system tables, Import generates .qdef on-the-fly
-- `Version Control.accda.src/modules/Utility/clsLvPropParser.cls` — verified: works for query LvProp blobs as-is
-- `Version Control.accda.src/AGENTS.md` — updated: Query Files section for .sql + .json format
-- `docs/how-access-stores-queries.md` — corrections to MSysQueries attribute documentation
-
----
-
-## 2026-04-15 — Session-scoped option overrides for MCP/API callers
-
-**Trigger**: When the MCP agent sets an option (e.g., `BreakOnError = True`) via `SetOption`, the change was silently discarded because every operation entry point resets `Options` and reloads from `vcs-options.json`. The agent's overrides never survived past the first subsequent operation.
-
-**Options explored**:
-- **Edit `vcs-options.json` directly** — corrupts user config on failure, race conditions, violates thin-wrapper principle.
-- **In-memory overrides dictionary** — lost on Access restart; invisible; complex `ReleaseObjects` coordination.
-- **Pass options as operation parameters** — changes VBA API signatures, awkward across COM. Deferred as a possible future enhancement.
-- **Skip reload when called via API** — agent operates with stale options for everything, not just its overrides.
-- **Single shared override file** — no session isolation; stale overrides bleed into interactive use.
-- **Session-scoped override files in `mcp/` subfolder (chosen)** — each MCP/API session gets its own override file. Files are `.gitignored`. The user's `vcs-options.json` is never touched.
-
-**Decision**: `SetOption` now persists overrides to `mcp/options-{session_id}.json` alongside `vcs-options.json`. After every `LoadProjectOptions` call, if `Operation.Source` is `eosMCPTool` or `eosExternalAPI`, `LoadOptionOverrides` scans the `mcp/` subfolder and merges matching override files on top. Interactive ribbon operations never see them. Stale files are auto-cleaned after 30 days. The MCP server generates a random session ID at startup, registers it via `RegisterSession`, and calls `EndSession` on shutdown to delete the override file.
-
-**What this rules out**: Overrides do not persist across MCP server restarts (the server generates a new session ID each time). If two agents concurrently interact with the same database, their override files may both be loaded — this is an accepted tradeoff. If the MCP spec adds persistent session IDs (SEP-1364), we can adopt them as the session component without changing the file-based mechanism.
-
-**Relevant files**:
-- `clsOptions.cls` — `LoadOptionOverrides`, `MergeOverrideFile`, `CleanupStaleOverrides`
-- `clsVersionControl.cls` — `SetOption` (updated), `SaveOptionOverride`, `RegisterSession`, `EndSession`
-- `modObjects.bas` — `SessionId` property (survives `ReleaseObjects`)
-- `modExport.bas`, `modBuild.bas` — `LoadOptionOverrides` calls gated on `Operation.Source`
-- `main.py` — session ID generation, `atexit` cleanup
-- `tools.py` — `vcs_set_option` registers session, `vcs_end_session` tool added
-
----
-
-## 2026-05-07 — Cross-table ON condition LeftTable/RightTable in Design View qdef
-
-**Trigger**: A production database had four queries that passed SQL builder validation but failed with DAO error 3082 ("JOIN operation refers to a field that is not in one of the joined tables") after a full build from source. The queries used compound `ON` clauses where individual conditions referenced different table pairs, and one table was also used inside a saved subquery referenced in another condition.
-
-**Root cause**: `clsQueryComposer.EmitDesignViewQdef` reused the parent join's `leftTable`/`rightTable` for all split conditions in a compound `ON` clause. Access stores each compound `ON` condition as a separate Attribute 7 row in `MSysQueries` with its own `Name1`/`Name2` (the specific table pair for that condition). The emitter's reuse of the parent join's tables produced a `.qdef` where the `RightTable` for a condition referencing table `C` was set to table `B` (the parent join's right table). `LoadFromText` accepted this silently, but the resulting internal storage confused Access's scope resolution at execution time.
-
-**Options explored**:
-- **Fall back to `QueryDefs(name).SQL` (legacy path)** — rejected: the new pipeline was designed to generate its own `.qdef` rather than receive a pre-baked one, and falling back to the legacy path would lose design layout. The bug was in the emitter, not in `LoadFromText`.
-- **Store per-condition table pairs in the `.json` companion** — rejected: the table pair for each condition is derivable from the condition expression itself (e.g., `tblCars.ID = tblCarsModel.CarID` clearly references `tblCars` and `tblCarsModel`). Adding explicit storage would be redundant.
-- **Extract per-condition table pairs from the expression at emit time (chosen)** — the emitter already has `ExtractTableFromOnSide` available. Using it for each split condition, with a fallback to the parent join's tables if extraction fails, is correct, minimal, and preserves backward compatibility.
-
-**Decision**: `EmitDesignViewQdef` now calls `ExtractTableFromOnSide(condition, True)` and `ExtractTableFromOnSide(condition, False)` for each individual condition in a split compound `ON` clause. Falls back to the parent join's `leftTable`/`rightTable` only if extraction returns empty.
-
-**Why this was hard to diagnose**: The SQL builder validation compares `ReconstructSQL` output against `QueryDefs.SQL` — a text-level check. The bug was not in SQL reconstruction but in `.qdef` emission, and `LoadFromText` accepted the wrong structure silently. The error only surfaced at query execution time, where the misleading error message ("field not in one of the joined tables") pointed away from the actual root cause (wrong `LeftTable`/`RightTable` metadata).
-
-**Relevant files**:
-- `clsQueryComposer.cls` — `EmitDesignViewQdef`: per-condition `LeftTable`/`RightTable` extraction
-- `docs/access-query-storage.md` § 6 — documents the finding
-- `Testing/Fixtures/queries/regression/qryRegressionCrossTableOn.notes.md` — regression context
-
----
-
-## 2026-05-05 — VBProject.Saved + DateModified fast path for VBA code hashing
-
-**Trigger**: Fast-save exports were spending significant time hashing every VBA module's code (via `GetCodeModuleHash` → `CodeModule.Lines(1, 999999)` → SHA256) even when no VBA code had changed since the last export. For a project with 110+ modules, the "Get VBA Hash" operation dominated the scan phase.
-
-**Key empirical findings** (tested against `Version Control.accda` with 110 modules, 17 forms):
-
-1. `VBProject.Saved` (Boolean) reliably detects all unsaved VBE changes, including VBA's automatic case-sync propagation across modules. Goes `False` on any in-memory edit, `True` after any save.
-2. `CurrentProject.AllModules(name).DateModified` is a VBE-level property (NOT from `MSysObjects`). Always identical across all modules. Updates in real-time from VBE memory, even without saving.
-3. `MSysObjects.DateUpdate` is a separate DAO-level per-row write timestamp with millisecond precision. Only updates on actual disk writes. Does NOT reflect VBE code edits. DOES reflect DAO property changes (e.g., Description). These are two completely different dates from different subsystems.
-4. Saving any single module triggers a full VBA project write that updates `DateModified` on all 110 modules simultaneously. Saving a form's code-behind also updates all 110 module dates, but only that form's `DateModified` changes.
-5. `CurrentProject.AllModules` does NOT include form/report code-behind — those are `vbext_ct_Document` components in the VBE.
-
-**Options explored for the fast-path guard**:
-- **DateModified only** — rejected: VBA case-sync changes `CodeModule.Lines()` without updating `DateModified`, so the date alone could miss changes.
-- **Force compile-and-save before export** — rejected: would fail on uncompilable code, which the add-in must support exporting.
-- **VBProject.Saved + DateModified (chosen)** — `Saved = True` means no dirty VBE memory (covers case-sync); `DateModified` match confirms nothing was saved since last export. Both must pass to skip hashing.
-
-**Options explored for index storage of module dates**:
-- **Per-module ObjectDate (existing)** — rejected: all 110 values are always identical, and partial exports only update N entries, leaving the other 110-N stale until a full export "heals" them.
-- **Per-module ObjectDate with post-export healing pass** — rejected: unnecessary iteration when a single value suffices.
-- **Top-level VBAProjectDate (chosen)** — one value in the index, updated whenever any module is exported. Eliminates redundant storage, eliminates the healing problem, eliminates 110 per-module COM property reads during change detection.
-
-**Decision**: Two-tier guard in `clsDbModule.IsModified`: (1) `CurrentVBProject.Saved = True`, (2) `AllModules(0).DateModified = VCSIndex.VBAProjectDate`. When both pass, skip `GetCodeModuleHash` entirely. `MetaHash` check always runs (metadata changes don't affect `Saved` or `DateModified`). For forms/reports, the same `VBProject.Saved` guard skips the code-behind hash when the layout `DateModified` also matches.
-
-Additionally, unsaved VBA project changes are now persisted at the start of the export flow (alongside `CloseDatabaseObjects`), ensuring exported source always reflects the current VBE state and preventing the scenario where a user exports code then discards changes on close.
-
-**Performance results** (no-change fast-save export):
-- Before: 0.88s total, 127 `Get VBA Hash` calls (0.09s), 286 `Compute SHA256` calls (0.15s)
-- After: 0.44s total, 0 `Get VBA Hash` calls, 159 `Compute SHA256` calls (0.05s)
-- 50% faster overall; `Get VBA Hash` completely eliminated
-
-**What this rules out**: Per-module `ObjectDate` is no longer written for module components (other types still use it). The binary index format version was bumped from 2 to 3, so existing index files are rebuilt on first use. `MSysObjects.DateUpdate` was investigated but provides no advantage over `AllModules.DateModified` for VBA change detection. `CompileAndSaveAllModules` is intentionally NOT added to the export flow — it would break on uncompilable code.
-
-**Relevant files**:
-- `clsVCSIndex.cls` — new `VBAProjectDate` top-level property, format version 3, `Update` sets `VBAProjectDate` instead of per-module `ObjectDate` for modules
-- `clsDbModule.cls` — `IsModified` uses `VBProject.Saved` + `VBAProjectDate` fast path
-- `clsDbForm.cls` — `IsModified` skips code-behind hash when `VBProject.Saved = True` and layout date matches
-- `clsDbReport.cls` — same as `clsDbForm.cls`
-- `modExport.bas` — saves VBA project before export scan, wraps `CloseDatabaseObjects` in `Perf.PauseTiming`/`ResumeTiming`, fixes `Exit Sub` → `GoTo CleanUp` with `eelCritical`
-
----
-
-## 2026-07-27 — Deterministic table data export row order
-
-**Trigger**: Exported table data (especially XML format) could appear in different row orders between exports even when no records changed, producing noisy git diffs. Tab-delimited export already used `ORDER BY` but sorted on every non-binary column (expensive and fragile on linked tables with unsortable memo/text columns).
-
-**Options explored**:
-- **Sort only in post-export XML sanitization (chosen for XML path)** — `Application.ExportXML` has no ordering parameter. Reordering in `SanitizeXML` after DOM parse avoids a second database round-trip and keeps `acEmbedSchema` calculated-field metadata intact.
-- **Export via temporary `ORDER BY` query with `acExportQuery`** — rejected: row elements are renamed to the query name and embedded-schema annotations (`od:expression`, `od:jetType`) required for calculated fields are lost, breaking `ImportXML`.
-- **Sort on all non-binary columns (status quo for TDF)** — rejected for performance: replaced with primary-key sort when available (index-backed scan).
-- **Gate behind `eExportFormatVersion`** — rejected: treated as a bug fix; `clsDbTableData.IsModified` already forces re-export of all table data on every run, so users get a one-time reorder diff regardless.
-
-**Decision**: Added shared `GetTableSortFields` in `modDatabase.bas` (primary key → unique+required index → all non-binary fields). Tab-delimited export uses it for `ORDER BY`, with a warning and unsorted fallback when the sort query fails (e.g. linked SQL Server memo columns). XML export sets `clsSourceParser.RowSortFields` before sanitization; `SortXmlDataRows` builds lexical keys (with `EscapeXmlName`, null sentinels, and fixed-width numeric normalization), skips reordering when already monotonic, and only sorts/re-appends when needed. Moved `IndexAvailable` to `TableIndexesAvailable` in `modDatabase` for reuse.
-
-**What this rules out**: Relying on engine iteration order for XML table data. Using `acExportQuery` as a shortcut for sorted XML export. Sorting on every column when a primary key exists.
-
-**Relevant files**:
-- `modDatabase.bas` — `GetTableSortFields`, `TableIndexesAvailable`, `IsBinaryTableFieldType`
-- `clsDbTableData.cls` — shared sort SQL, XML `RowSortFields` wiring, TDF fallback
-- `clsSourceParser.cls` — `RowSortFields`, `SortXmlDataRows`
-- `modEncoding.bas` — `EscapeXmlName`, `NormalizeXmlSortValue`, `NormalizeNumericXmlSortValue`
-- `modTestTableData.bas` — unit/integration tests
 
 ---

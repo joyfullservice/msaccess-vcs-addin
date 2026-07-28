@@ -1282,6 +1282,7 @@ Private Function FinishScopedSync(dResult As Dictionary, colContainers As Collec
     End If
 
     VCSIndex.ClearTempExportFolder
+    ReleaseTableDataSortExport
     Perf.EndTiming
     With Log
         .Add vbNewLine & Perf.GetReports, False
@@ -1328,6 +1329,7 @@ Private Function ScopedSyncErrHandler(dResult As Dictionary) As String
 
     If Operation.Status = eosRunning Then
         Perf.EndTiming
+        ReleaseTableDataSortExport
         Log.Active = False
         Operation.Finish eorFailed
     End If

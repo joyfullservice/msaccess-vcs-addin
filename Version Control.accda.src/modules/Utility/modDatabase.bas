@@ -16,6 +16,10 @@ Private Const ModuleName As String = "modDatabase"
 ' Batched table Type cache (table name -> MSysObjects.Type for local/linked tables).
 Private m_dTableTypeCache As Dictionary
 
+' Reused temporary query for deterministic table-data XML export (one per operation).
+Private Const TABLE_DATA_SORT_QUERY_PREFIX As String = "vcs_tmp_sort_export"
+Private m_strTableDataSortQueryName As String
+
 ' UDTs for reinterpreting a Long bit pattern as IEEE 754 Single (used by LongToSingle)
 Private Type typLong
     Value As Long
@@ -967,6 +971,230 @@ Public Function IsBinaryTableFieldType(intType As Integer) As Boolean
         Case dbLongBinary, dbVarBinary, dbAttachment: IsBinaryTableFieldType = True
         Case Else: IsBinaryTableFieldType = False
     End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : TableRequiresXmlSchema
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Returns true when the embedded XML schema has to survive sanitization for
+'           : the table to import correctly. Calculated fields carry od:expression, and
+'           : complex or OLE object fields carry an od:jetType that ImportXML needs.
+'           : Exporting through a query drops those annotations, so these tables must be
+'           : exported with acExportTable instead of a sorted query.
+'---------------------------------------------------------------------------------------
+'
+Public Function TableRequiresXmlSchema(tdf As DAO.TableDef) As Boolean
+
+    Dim fld As DAO.Field
+    Dim strExpression As String
+
+    For Each fld In tdf.Fields
+
+        Select Case fld.Type
+            Case dbLongBinary, dbAttachment, _
+                dbComplexByte, dbComplexInteger, dbComplexLong, dbComplexSingle, _
+                dbComplexDouble, dbComplexGUID, dbComplexDecimal, dbComplexText
+                TableRequiresXmlSchema = True
+                Exit Function
+        End Select
+
+        ' Only calculated fields expose an Expression property, so reading it from an
+        ' ordinary field raises an error that we use as the negative result.
+        strExpression = vbNullString
+        LogUnhandledErrors
+        On Error Resume Next
+        strExpression = Nz(fld.Properties("Expression"), vbNullString)
+        If Err Then Err.Clear
+        On Error GoTo 0
+        If Len(strExpression) > 0 Then
+            TableRequiresXmlSchema = True
+            Exit Function
+        End If
+
+    Next fld
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrepareTableDataSortExport
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Prepare for a table-data export operation by removing any temporary sort
+'           : query left behind by an interrupted run. Pairs with
+'           : ReleaseTableDataSortExport, which drops the query this operation creates.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PrepareTableDataSortExport()
+    SweepLeftoverTableDataSortQueries
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : AssignTableDataSortQuery
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Point the operation-scoped temporary sort query at strSql. Creates the
+'           : query on first use and reassigns .SQL on later tables, which avoids paying
+'           : a QueryDefs.Refresh over the whole collection once per table.
+'           :
+'           : Returns an empty string when strSql has no ORDER BY, or when the query
+'           : could not be created or repointed. Returning empty on failure is essential:
+'           : the query would otherwise still hold the previous table's SQL, and the
+'           : caller would export that table's rows into this table's source file.
+'           :
+'           : Note that the engine defers table-name resolution, so assigning SQL that
+'           : names a missing table succeeds here and fails later in ExportXML, where the
+'           : caller already falls back to the table export.
+'---------------------------------------------------------------------------------------
+'
+Public Function AssignTableDataSortQuery(strSql As String) As String
+
+    Dim dbs As DAO.Database
+    Dim qdf As DAO.QueryDef
+    Dim strName As String
+
+    If InStr(1, strSql, " ORDER BY ", vbTextCompare) = 0 Then Exit Function
+
+    Set dbs = SharedDb
+
+    Perf.OperationStart "Assign Temp Sort Query"
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Repoint the query we already own.
+    If Len(m_strTableDataSortQueryName) > 0 Then
+        Set qdf = dbs.QueryDefs(m_strTableDataSortQueryName)
+        If Err Then
+            ' Gone from under us (interrupted run, external cleanup). Recreate below.
+            Err.Clear
+            m_strTableDataSortQueryName = vbNullString
+        Else
+            qdf.SQL = strSql
+            If Err Then GoTo Failed
+        End If
+    End If
+
+    ' Create on first use, or to replace one that disappeared.
+    If Len(m_strTableDataSortQueryName) = 0 Then
+        strName = GetUnusedTableDataSortQueryName
+        dbs.CreateQueryDef strName, strSql
+        If Err Then GoTo Failed
+        ' Needed once per operation so ExportXML can resolve the new name.
+        dbs.QueryDefs.Refresh
+        If Err Then GoTo Failed
+        m_strTableDataSortQueryName = strName
+    End If
+
+    On Error GoTo 0
+    AssignTableDataSortQuery = m_strTableDataSortQueryName
+    Perf.OperationEnd
+    Exit Function
+
+Failed:
+    ' Drop the query rather than leave it pointed at a previous table's SQL.
+    Err.Clear
+    If Len(m_strTableDataSortQueryName) > 0 Then
+        dbs.QueryDefs.Delete m_strTableDataSortQueryName
+        If Err Then Err.Clear
+        m_strTableDataSortQueryName = vbNullString
+    End If
+    On Error GoTo 0
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseTableDataSortExport
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Drop the operation-scoped temporary sort query. Safe to call when no query
+'           : is active, so it can sit unconditionally in export cleanup blocks.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseTableDataSortExport()
+
+    Dim dbs As DAO.Database
+
+    If Len(m_strTableDataSortQueryName) = 0 Then Exit Sub
+
+    Perf.OperationStart "Drop Temp Sort Query"
+    Set dbs = SharedDb
+
+    LogUnhandledErrors
+    On Error Resume Next
+    dbs.QueryDefs.Delete m_strTableDataSortQueryName
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+    m_strTableDataSortQueryName = vbNullString
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SweepLeftoverTableDataSortQueries
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Remove any temporary sort queries left behind by an interrupted export.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SweepLeftoverTableDataSortQueries()
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim strName As String
+
+    Set dbs = SharedDb
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set rst = dbs.OpenRecordset( _
+        "SELECT Name FROM MSysObjects WHERE Name LIKE '" & TABLE_DATA_SORT_QUERY_PREFIX & "*' AND Type = 5", _
+        dbOpenSnapshot, dbReadOnly)
+    If Not rst Is Nothing Then
+        Do While Not rst.EOF
+            strName = Nz(rst!Name, vbNullString)
+            If Len(strName) > 0 Then
+                dbs.QueryDefs.Delete strName
+                If Err Then Err.Clear
+            End If
+            rst.MoveNext
+        Loop
+        rst.Close
+        Set rst = Nothing
+    End If
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetUnusedTableDataSortQueryName
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return a query name not already used by any object in the database.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetUnusedTableDataSortQueryName() As String
+
+    Dim strName As String
+    Dim lngSuffix As Long
+
+    strName = TABLE_DATA_SORT_QUERY_PREFIX
+    Do While DCount("*", "MSysObjects", "Name=""" & strName & """") > 0
+        lngSuffix = lngSuffix + 1
+        strName = TABLE_DATA_SORT_QUERY_PREFIX & CStr(lngSuffix)
+    Loop
+
+    GetUnusedTableDataSortQueryName = strName
+
 End Function
 
 

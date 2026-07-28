@@ -92,21 +92,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                 Case etdXML
                     ' Export data rows as XML (encoding default is UTF-8)
                     VerifyPath strFile
-                    Perf.OperationStart "App.ExportXML()"
-                    If IsLocalTable(m_Table.Name) Then
-                        ' Embedded schema for local tables to support calculated fields
-                        Application.ExportXML acExportTable, m_Table.Name, strFile, , , , , acEmbedSchema
-                    Else
-                        ' Export data only for linked tables
-                        Application.ExportXML acExportTable, m_Table.Name, strFile
-                    End If
-                    Perf.OperationEnd
-                    With New clsSourceParser
-                        ' Loading resets the parser, so the sort fields must be assigned after.
-                        .LoadSourceFile strFile, IDbComponent_ComponentType
-                        Set .RowSortFields = GetTableSortFields(SharedDb.TableDefs(m_Table.Name))
-                        WriteFile .Sanitize(ectXML), strFile
-                    End With
+                    ExportTableDataAsXml m_Table.Name, strFile
             End Select
         End If
 NextFormat:
@@ -361,6 +347,138 @@ Private Function FormatStringFromTDF(strTDFValue) As String
         "\t", vbTab, _
         Chr$(26), "\")
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportTableDataAsXml
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Export table data as XML in a deterministic row order.
+'           : Application.ExportXML has no ordering parameter and ignores a table's saved
+'           : OrderBy property, so the rows come back in engine order. Routing the export
+'           : through a temporary ORDER BY query lets the database engine do the sorting,
+'           : which avoids reordering the parsed DOM in VBA. Tables that need the embedded
+'           : schema, and any failure along the way, fall back to the table export where
+'           : clsSourceParser sorts the rows instead.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportTableDataAsXml(strTable As String, strFile As String)
+
+    Dim strQuery As String
+    Dim strSql As String
+    Dim blnExported As Boolean
+    Dim blnNeedsSchema As Boolean
+
+    Perf.OperationStart "Check Calculated Fields"
+    blnNeedsSchema = TableRequiresXmlSchema(SharedDb.TableDefs(strTable))
+    Perf.OperationEnd
+
+    If Not blnNeedsSchema Then
+        Perf.OperationStart "Build Table Sort Fields"
+        strSql = GetTableExportSql(strTable)
+        Perf.OperationEnd
+        strQuery = AssignTableDataSortQuery(strSql)
+    End If
+
+    If Len(strQuery) > 0 Then
+        blnExported = ExportXmlFromQuery(strTable, strQuery, strFile)
+        If blnExported Then Exit Sub
+    End If
+
+    ExportXmlFromTable strTable, strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportXmlFromQuery
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Export pre-sorted rows through a temporary query. Returns false when the
+'           : caller should fall back to the table export.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExportXmlFromQuery(strTable As String, strQuery As String, strFile As String) As Boolean
+
+    Dim strContent As String
+    Dim strFrom As String
+    Dim strTo As String
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Perf.OperationStart "App.ExportXML()"
+    If IsLocalTable(strTable) Then
+        Application.ExportXML acExportQuery, strQuery, strFile, , , , , acEmbedSchema
+    Else
+        ' Export data only for linked tables
+        Application.ExportXML acExportQuery, strQuery, strFile
+    End If
+    Perf.OperationEnd
+
+    If Err Then
+        Log.Add T("Unable to export sorted table data for {0}. Falling back to an unsorted export.", _
+            var0:=strTable), False
+        Err.Clear
+        Exit Function
+    End If
+    On Error GoTo 0
+
+    With New clsSourceParser
+        .LoadSourceFile strFile, IDbComponent_ComponentType
+        strContent = .Sanitize(ectXML)
+    End With
+    If Len(strContent) = 0 Then Exit Function
+
+    ' A retained schema would still describe the temporary query rather than the table,
+    ' so this path is only safe once sanitization has discarded it. TableRequiresXmlSchema
+    ' normally prevents us from getting here, and this guards against it being wrong.
+    If InStr(1, strContent, "xsd:schema", vbTextCompare) > 0 Then Exit Function
+
+    ' Row elements carry the temporary query name, so restore the table name to match a
+    ' table export. XML escapes "<" inside character data, which means these tags can
+    ' only ever appear as markup and never within an exported value.
+    strFrom = EscapeXmlName(strQuery)
+    strTo = EscapeXmlName(strTable)
+    strContent = Replace(strContent, "<" & strFrom & ">", "<" & strTo & ">", , , vbBinaryCompare)
+    strContent = Replace(strContent, "</" & strFrom & ">", "</" & strTo & ">", , , vbBinaryCompare)
+
+    ' Never ship a file that still names the temporary query anywhere.
+    If InStr(1, strContent, strFrom, vbTextCompare) > 0 Then Exit Function
+
+    WriteFile strContent, strFile
+    ExportXmlFromQuery = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportXmlFromTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Export the table directly, letting clsSourceParser reorder the rows.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportXmlFromTable(strTable As String, strFile As String)
+
+    Perf.OperationStart "App.ExportXML()"
+    If IsLocalTable(strTable) Then
+        ' Embedded schema for local tables to support calculated fields
+        Application.ExportXML acExportTable, strTable, strFile, , , , , acEmbedSchema
+    Else
+        ' Export data only for linked tables
+        Application.ExportXML acExportTable, strTable, strFile
+    End If
+    Perf.OperationEnd
+
+    With New clsSourceParser
+        ' Loading resets the parser, so the sort fields must be assigned after.
+        .LoadSourceFile strFile, IDbComponent_ComponentType
+        Set .RowSortFields = GetTableSortFields(SharedDb.TableDefs(strTable))
+        WriteFile .Sanitize(ectXML), strFile
+    End With
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -675,6 +793,7 @@ Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensio
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "txt"
     IDbComponent_FileExtensions.Add "tdf"
+    IDbComponent_FileExtensions.Add "xml"
 End Property
 
 

@@ -1434,14 +1434,11 @@ End Function
 '
 Private Sub SortXmlDataRows(objXml As MSXML2.DOMDocument60)
 
-    Const SORT_KEY_ORDINAL_SEP As String = vbLf
-
     Dim objRoot As MSXML2.IXMLDOMElement
     Dim objRows As MSXML2.IXMLDOMNodeList
     Dim lngCount As Long
     Dim lngIdx As Long
-    Dim lngPos As Long
-    Dim varKeys() As String
+    Dim astrKeys() As String
     Dim varSortedIdx() As Long
     Dim blnNeedsSort As Boolean
     Dim colSorted As Collection
@@ -1457,24 +1454,23 @@ Private Sub SortXmlDataRows(objXml As MSXML2.DOMDocument60)
     lngCount = objRows.Length
     If lngCount < 2 Then Exit Sub
 
-    ReDim varKeys(0 To lngCount - 1)
+    ReDim astrKeys(0 To lngCount - 1)
     ReDim varSortedIdx(0 To lngCount - 1)
     blnNeedsSort = False
 
     For lngIdx = 0 To lngCount - 1
-        varKeys(lngIdx) = BuildXmlRowSortKey(objRows.Item(lngIdx), lngIdx)
+        astrKeys(lngIdx) = BuildXmlRowSortKey(objRows.Item(lngIdx), lngIdx)
         If lngIdx > 0 Then
-            If varKeys(lngIdx) < varKeys(lngIdx - 1) Then blnNeedsSort = True
+            If StrComp(astrKeys(lngIdx), astrKeys(lngIdx - 1), vbBinaryCompare) < 0 Then blnNeedsSort = True
         End If
     Next lngIdx
 
     If Not blnNeedsSort Then Exit Sub
 
-    QuickSort varKeys
+    QuickSortStringsBinary astrKeys
 
     For lngIdx = 0 To lngCount - 1
-        lngPos = InStrRev(varKeys(lngIdx), SORT_KEY_ORDINAL_SEP)
-        varSortedIdx(lngIdx) = CLng(Mid$(varKeys(lngIdx), lngPos + 1))
+        varSortedIdx(lngIdx) = XmlSortKeyOrdinal(astrKeys(lngIdx))
     Next lngIdx
 
     Set colSorted = New Collection
@@ -1502,15 +1498,13 @@ End Sub
 '
 Private Function BuildXmlRowSortKey(objRow As MSXML2.IXMLDOMNode, lngOrdinal As Long) As String
 
-    Const SORT_KEY_ORDINAL_SEP As String = vbLf
-
     Dim varKey As Variant
     Dim objChild As MSXML2.IXMLDOMNode
     Dim strFieldName As String
     Dim strXmlName As String
     Dim strPart As String
     Dim blnFound As Boolean
-    Dim cKey As New clsConcat
+    Dim colParts As New Collection
 
     For Each varKey In Me.RowSortFields.Keys
         strFieldName = CStr(varKey)
@@ -1529,10 +1523,10 @@ Private Function BuildXmlRowSortKey(objRow As MSXML2.IXMLDOMNode, lngOrdinal As 
         If Not blnFound Then
             strPart = NormalizeXmlSortValue(vbNullString, Me.RowSortFields(strFieldName), True)
         End If
-        cKey.Add Format$(Len(strPart), "0000"), strPart
+        colParts.Add strPart
     Next varKey
 
-    BuildXmlRowSortKey = cKey.GetStr & SORT_KEY_ORDINAL_SEP & Format$(lngOrdinal, "0000000000")
+    BuildXmlRowSortKey = ComposeXmlSortKey(colParts, lngOrdinal)
 
 End Function
 

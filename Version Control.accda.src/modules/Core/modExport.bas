@@ -204,6 +204,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections
+    PrepareTableDataSortExport
 
     ' Enforce any supplied letter casing rules
     Dim colCasingChanges As Collection
@@ -408,6 +409,7 @@ CleanUp:
     ' Run any cleanup routines
     CloseBackEndConnections
     ClearEnvCache
+    ReleaseTableDataSortExport
     VCSIndex.ClearTempExportFolder
     RemoveThemeZipFiles
 
@@ -500,6 +502,7 @@ Public Sub ExportScoped(colContainers As Collection, blnFullExport As Boolean)
 
     SaveUnsavedVbaProjectIfNeeded colContainers
     CacheBackEndConnections
+    PrepareTableDataSortExport
 
     ' Detect categories that need a full re-export due to option-hash drift
     Set dCurrentHashes = Options.GetCategoryHashes
@@ -748,6 +751,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections
+    PrepareTableDataSortExport
 
     ' Get a database component class from the item
     Set cDbObject = GetClassFromObject(objItem)
@@ -821,6 +825,7 @@ CleanUp:
     ' Run any cleanup routines
     CloseBackEndConnections
     ClearEnvCache
+    ReleaseTableDataSortExport
     If Not blnNoIndex Then VCSIndex.ClearTempExportFolder
 
     ' Add performance data to log file and save file
@@ -935,6 +940,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections
+    PrepareTableDataSortExport
 
     Set dCategories = New Dictionary
 
@@ -1040,6 +1046,7 @@ CleanUp:
     ' Run any cleanup routines
     CloseBackEndConnections
     ClearEnvCache
+    ReleaseTableDataSortExport
     VCSIndex.ClearTempExportFolder
 
     ' Add performance data to log file and save log
