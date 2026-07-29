@@ -249,6 +249,13 @@ Private Sub IDbComponent_Import(strFile As String)
             LogUnhandledErrors
             On Error Resume Next
 
+            ' Application.ImportXML has no schema representation for dbBigInt and
+            ' silently re-creates such fields as dbDecimal(38,0) instead. Detect them
+            ' from the source XML before the (possibly temp-copied) file is gone, so
+            ' they can be corrected after the import completes.
+            Dim colBigIntFields As Collection
+            Set colBigIntFields = GetCorruptedBigIntFieldNames(strFile)
+
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
             If blnUseTemp Then
@@ -262,13 +269,22 @@ Private Sub IDbComponent_Import(strFile As String)
             End If
 
             ' Importing XML can throw an error if ActiveX security is too restrictive.
+            Dim blnImportFailed As Boolean
             If Catch(31521) Then
                 Log.Error eelError, "ActiveX security settings blocked the import of " & _
                 "table definition XML file: " & FSO.GetFileName(strFile) & ".", ModuleName(Me) & ".Import"
                 Log.Add "Importing XML files requires ActiveX to be enabled."
+                blnImportFailed = True
             Else
                 ' Log any other error.
-                CatchAny eelError, "Unable to import XML for " & FSO.GetFileName(strFile), ModuleName(Me) & ".Import"
+                blnImportFailed = CatchAny(eelError, "Unable to import XML for " & FSO.GetFileName(strFile), ModuleName(Me) & ".Import")
+            End If
+
+            ' Restore any fields that Access's own XML round-trip corrupted.
+            If Not blnImportFailed Then
+                If colBigIntFields.Count > 0 Then
+                    FixCorruptedBigIntFields GetObjectNameFromFileName(strFile), colBigIntFields
+                End If
             End If
 
         Case Else
@@ -599,6 +615,134 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetCorruptedBigIntFieldNames
+' Purpose   : A dbBigInt field has no representation in the ExportXML/ImportXML schema,
+'           : so Access exports it with a self-inconsistent totalDigits value="0"
+'           : placeholder (a real field's precision is never 0 - genuine Decimal fields
+'           : always carry their actual configured precision, e.g. totalDigits="38").
+'           : Scan the structure XML for that signature *before* ImportXML runs (and
+'           : before a temp copy of the file is deleted), so the caller knows which
+'           : fields to correct once the table exists again.
+'           : Uses a DOM/XPath query (matching the pattern already established in
+'           : clsSourceParser.cls for this same xsd:/od:-namespaced Access XML) rather
+'           : than a textual regex, because a field with any field-level properties set
+'           : (column width, default value, decimal places, etc. - i.e. essentially any
+'           : real, UI-created field) has an <xsd:annotation> block between the
+'           : <xsd:element> opening tag and its <xsd:simpleType>, which a regex assuming
+'           : direct adjacency silently fails to match. Namespace-agnostic predicates
+'           : (namespace-uri()/local-name()) are used instead of registering
+'           : SelectionNamespaces prefixes, since simpleType/restriction/totalDigits are
+'           : still required to be direct children in that order - only the (possible)
+'           : annotation sibling before simpleType is tolerated.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetCorruptedBigIntFieldNames(strXmlFile As String) As Collection
+
+    Const XPATH_CORRUPTED_BIGINT As String = _
+        "//*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='element'" & _
+        " and *[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='simpleType']" & _
+        "/*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='restriction' and @base='xsd:decimal']" & _
+        "/*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='totalDigits' and @value='0']]"
+
+    Dim colNames As New Collection
+    Dim objXml As MSXML2.DOMDocument60
+    Dim objNodes As MSXML2.IXMLDOMNodeList
+    Dim objNode As MSXML2.IXMLDOMNode
+    Dim objNameAttr As MSXML2.IXMLDOMNode
+
+    If FSO.FileExists(strXmlFile) Then
+        Set objXml = New MSXML2.DOMDocument60
+        objXml.async = False
+        If objXml.Load(strXmlFile) Then
+            Set objNodes = objXml.SelectNodes(XPATH_CORRUPTED_BIGINT)
+            For Each objNode In objNodes
+                Set objNameAttr = objNode.Attributes.getNamedItem("name")
+                If Not objNameAttr Is Nothing Then colNames.Add objNameAttr.Text
+            Next objNode
+        Else
+            ' Don't let this scan disappear silently on malformed/unreadable XML - the
+            ' subsequent Application.ImportXML call will very likely also fail on the
+            ' same file and get logged there, but log here too since that's not
+            ' guaranteed (e.g. a transient read failure that clears before ImportXML
+            ' runs), and this exact silent-failure shape is what broke the original fix.
+            Log.Error eelWarning, "Unable to parse " & strXmlFile & " while scanning for " & _
+                "corrupted Big Integer fields.", ModuleName(Me) & ".GetCorruptedBigIntFieldNames"
+        End If
+    End If
+
+    Set GetCorruptedBigIntFieldNames = colNames
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FixCorruptedBigIntFields
+' Purpose   : Correct fields that Application.ImportXML just mis-created as
+'           : dbDecimal(38,0) back to genuine dbBigInt fields. DAO refuses to change a
+'           : Field's Type in place once it has been appended ("Illegal operation"), but
+'           : a plain SQL ALTER COLUMN is accepted, preserves the field's position in
+'           : the table (unlike a delete+recreate), and round-trips data without loss.
+'           : After each ALTER, re-reads the field's DAO Type as a defensive check -
+'           : cheap insurance so a future failure mode (e.g. the ALTER succeeding
+'           : without error but not actually landing as dbBigInt) surfaces as a logged
+'           : warning instead of silently disappearing, the way the original detection
+'           : bug did. That check deliberately reads through a *freshly-obtained*
+'           : CurrentDb rather than the long-held SharedDb: verified live that a
+'           : Database handle held since before this table's DoCmd.DeleteObject +
+'           : Application.ImportXML rebuild (earlier in the same Import call) keeps
+'           : reporting the field's pre-ALTER Type indefinitely - even after an
+'           : explicit TableDefs.Refresh on that same handle - while a brand-new
+'           : CurrentDb call reports the correct post-ALTER type immediately. This is a
+'           : read-side client cache quirk only: the ALTER itself (run via SharedDb,
+'           : same as always) and subsequent data writes through the stale handle are
+'           : unaffected, but a stale read here would make this defensive check emit a
+'           : false warning on every single run. The fresh Database object is captured
+'           : into a local variable before use rather than chained inline
+'           : (CurrentDb.TableDefs(...)) - verified live that the inline form releases
+'           : the temporary Database object before the returned TableDef is accessed,
+'           : raising runtime error 3420 ("object invalid or no longer set").
+'---------------------------------------------------------------------------------------
+'
+Private Sub FixCorruptedBigIntFields(strTableName As String, colFieldNames As Collection)
+
+    Dim varName As Variant
+    Dim dbs As DAO.Database
+    Dim dbsVerify As DAO.Database
+    Dim lngVerifyType As Long
+
+    Set dbs = SharedDb
+
+    For Each varName In colFieldNames
+        On Error Resume Next
+        Err.Clear
+        dbs.Execute "ALTER TABLE [" & strTableName & "] ALTER COLUMN [" & varName & "] BIGINT", dbFailOnError
+        If Err Then
+            CatchAny eelWarning, "Unable to restore Big Integer field type for " & _
+                strTableName & "." & varName, ModuleName(Me) & ".FixCorruptedBigIntFields"
+        Else
+            ' Defensive check: confirm the ALTER actually produced a dbBigInt field.
+            ' Must use a fresh CurrentDb, not SharedDb - see procedure header. The read
+            ' itself is also error-checked (unlike a bare property access, which would
+            ' silently skip the whole If on failure under this loop's still-active
+            ' On Error Resume Next) - this check exists specifically so a failure can't
+            ' disappear silently, so a failure *reading* it must warn too.
+            Set dbsVerify = CurrentDb
+            Err.Clear
+            lngVerifyType = dbsVerify.TableDefs(strTableName).Fields(CStr(varName)).Type
+            If Err Then
+                Log.Error eelWarning, "Unable to verify Big Integer field type restoration for " & _
+                    strTableName & "." & varName, ModuleName(Me) & ".FixCorruptedBigIntFields"
+            ElseIf lngVerifyType <> dbBigInt Then
+                Log.Error eelWarning, "Big Integer field type restoration did not take effect for " & _
+                    strTableName & "." & varName, ModuleName(Me) & ".FixCorruptedBigIntFields"
+            End If
+        End If
+    Next varName
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetTypeString
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
@@ -610,7 +754,7 @@ Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
         Case dbLongBinary:      GetTypeString = "LONGBINARY"
         Case dbBinary:          GetTypeString = "BINARY"
         Case dbBoolean:         GetTypeString = "BIT"
-        Case dbAutoIncrField:   GetTypeString = "COUNTER"
+        Case dbBigInt:          GetTypeString = "BIGINT"
         Case dbCurrency:        GetTypeString = "CURRENCY"
         Case dbDate, dbTime:    GetTypeString = "DATETIME"
         Case dbGUID:            GetTypeString = "GUID"
@@ -621,6 +765,7 @@ Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
         Case dbInteger:         GetTypeString = "SHORT"
         Case dbLong:            GetTypeString = "LONG"
         Case dbNumeric:         GetTypeString = "NUMERIC"
+        Case dbDecimal:         GetTypeString = "DECIMAL"
         Case dbText:            GetTypeString = "VARCHAR"
         Case Else:              GetTypeString = "VARCHAR"
     End Select
