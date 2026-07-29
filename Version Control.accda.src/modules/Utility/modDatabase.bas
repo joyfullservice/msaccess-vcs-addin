@@ -534,14 +534,25 @@ Public Sub SaveUnsavedVbaProjectIfNeeded(colContainers As Collection)
         End Select
     Next cCategory
 
-    If blnHasVba Then
-        If Not CurrentVBProject.Saved Then
-            If CurrentProject.AllModules.Count > 0 Then
-                DoCmd.Save acModule, CurrentProject.AllModules(0).Name
-            End If
-        End If
-    End If
+    If blnHasVba Then SaveUnsavedVbaProject
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveUnsavedVbaProject
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Save any unsaved VBA project changes in the current database, so that module
+'           : windows do not need to be closed individually.
+'           :
+'           : Delegates to SaveCurrentVBProject. The single-module save this used to perform
+'           : does not save the whole project when form and report class modules are dirty,
+'           : and it locks the database against other clients — see that procedure.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveUnsavedVbaProject()
+    SaveCurrentVBProject
 End Sub
 
 

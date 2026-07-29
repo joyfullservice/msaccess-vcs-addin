@@ -15,22 +15,42 @@ Option Explicit
 
 Private Const ModuleName As String = "modBuild"
 
+' Set while a merge is preparing the database in place, to limit the crash trace to the
+' operation that needs it. (See TraceInPlaceMerge.)
+Private m_blnTraceInPlaceMerge As Boolean
+
+' Set when the VBA project reset stage could not reset the project, so that the merge
+' falls back to a database reopen when it resumes. These survive the timer stages because
+' the add-in's own project is never the one being reset.
+Private m_blnInPlaceResetFailed As Boolean
+
+' Set when the in-place preparation confirmed that the database was accessible to other
+' clients, so that a merge which then imports nothing can skip the post-merge check.
+Private m_blnVerifiedAccessible As Boolean
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : Build (Full build or Merge Build)
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
 ' Purpose   : Build the project from source files.
+'           : blnResumed is set only when a merge build re-enters this procedure on a
+'           : fresh call stack, after PrepareMergeInPlace has prepared the database and
+'           : ResetProjectForInPlaceMerge has reset its VBA project. (See the merge
+'           : preparation section below.) It preserves the log and performance timers
+'           : started by the first call.
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 , Optional intFilter As eContainerFilter = ecfAllObjects _
-                , Optional strAlternatePath As String)
+                , Optional strAlternatePath As String _
+                , Optional blnResumed As Boolean)
 
     Const FunctionName As String = ModuleName & ".Build"
 
     Dim strPath As String
     Dim strBackup As String
+    Dim blnNoChanges As Boolean
     Dim strCurrentDbFilename As String
     Dim cCategory As IDbComponent
     Dim dCategories As Dictionary
@@ -40,6 +60,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Dim varFile As Variant
     Dim strType As String
     Dim blnSuccess As Boolean
+    Dim blnPrepared As Boolean
     Dim lngCount As Long
     Dim lngCurrent As Long
     Dim cModule As clsDbModule
@@ -143,11 +164,17 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     LogUnhandledErrors FunctionName
     On Error Resume Next
 
-    ' Start log and performance timers before merge prep so those messages are preserved
-    Log.Clear
-    Log.SourcePath = strSourceFolder
-    Log.Active = True
-    Perf.StartTiming
+    ' Start log and performance timers before merge prep so those messages are preserved.
+    ' (A resumed merge keeps the log and timers from the call that prepared the database,
+    '  so the preparation entries stay in the same log and performance report.)
+    If Not blnResumed Then
+        m_blnTraceInPlaceMerge = False
+        m_blnVerifiedAccessible = False
+        Log.Clear
+        Log.SourcePath = strSourceFolder
+        Log.Active = True
+        Perf.StartTiming
+    End If
 
     ' Build original file name for database
     If blnFullBuild Then
@@ -159,17 +186,51 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             GoTo CleanUp
         End If
     Else
-        ' Now, just to make sure all objects are closed and unloaded, we will
-        ' close and shift-open the database before merging source files into it.
-        Log.Add T("Closing and reopening current database before merge...")
-        Perf.OperationStart "Reopen DB before Merge"
-        StageMainForm
-        CloseCurrentDatabase2
-        ShiftOpenDatabase strPath
-        RestoreMainForm
-        Perf.OperationEnd
+        ' All objects must be closed and unloaded before source files are merged in,
+        ' since most objects are deleted and reimported. Closing and shift-opening the
+        ' database guarantees this, but on a large database it is one of the most
+        ' expensive parts of a merge. When the user opts in, prepare the database in
+        ' place instead, and resume the merge on a fresh call stack.
+        If blnResumed Then
+            ' The database was prepared, and its VBA project reset, before this call stack
+            ' existed. (See PrepareMergeInPlace and ResetProjectForInPlaceMerge.) Nothing
+            ' to do here but honor a reset that did not succeed.
+            TraceInPlaceMerge "merge stage: resumed on fresh stack"
+            If m_blnInPlaceResetFailed Then
+                Log.Add T("Unable to reset the VBA project for the current database.")
+                Log.Add T("Falling back to closing and reopening the database.")
+                m_blnTraceInPlaceMerge = False
+                ReopenBeforeMerge strPath
+            ElseIf Not FlushVbaProjectAfterReset Then
+                ReopenBeforeMerge strPath
+            End If
+        ElseIf Options.SkipReopenBeforeMerge Then
+            m_blnTraceInPlaceMerge = True
+            m_blnInPlaceResetFailed = False
+            Log.Add T("Preparing current database for merge...")
+            Log.Flush
+            Perf.OperationStart "Prepare Merge In Place"
+            blnPrepared = PrepareMergeInPlace
+            Perf.OperationEnd
+            If blnPrepared Then
+                ' Hand off to the reset stage and let this call stack unwind completely.
+                ' Nothing is finished or torn down here: the staged operation, log, and
+                ' timers are picked up by the merge stage that follows the reset.
+                Log.Flush
+                Operation.Stage
+                TraceInPlaceMerge "prep: staging reset timer"
+                SetTimer "MergeReset", strSourceFolder, CStr(CLng(intFilter))
+                Exit Sub
+            Else
+                ' Fall back to the reliable path.
+                m_blnTraceInPlaceMerge = False
+                ReopenBeforeMerge strPath
+            End If
+        Else
+            ReopenBeforeMerge strPath
+        End If
 
-        ' Run any pre-merge instructions after the database has been reopened
+        ' Run any pre-merge instructions after the database has been prepared
         ' with all objects closed/unloaded.
         If Options.RunBeforeMerge <> vbNullString Then
             Log.Add T("Running {0}...", var0:=Options.RunBeforeMerge)
@@ -182,12 +243,15 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     End If
 
     ' Launch the GUI form
+    TraceInPlaceMerge "phase: opening main form"
     DoCmd.OpenForm "frmVCSMain"
     Form_frmVCSMain.StartBuild blnFullBuild
 
     ' Minimize the VBE window to prevent it from stealing focus
     ' when VBA components are imported during the build.
+    TraceInPlaceMerge "phase: minimizing VBE window"
     MinimizeVBEWindow
+    TraceInPlaceMerge "phase: VBE window minimized"
 
     ' Display the build header.
     DoCmd.Hourglass True
@@ -277,9 +341,11 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     ' Warm persistent connections to linked Access back-end files before merge
     ' conflict temp-exports (same as full export operations).
+    TraceInPlaceMerge "phase: caching back-end connections"
     CacheBackEndConnections
 
     ' Build collections of files to import/merge
+    TraceInPlaceMerge "phase: scanning source files"
     Log.Add T("Scanning source files...")
     Log.Flush
 
@@ -300,6 +366,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     For Each cCategory In GetContainers(intFilter)
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
+        TraceInPlaceMerge "scan: " & cCategory.Category
         Operation.Pulse
         ' Get collection of source files
         If blnFullBuild Then
@@ -339,11 +406,13 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
     Next cCategory
     Perf.OperationEnd
+    TraceInPlaceMerge "phase: scan complete"
 
     ' Check for any conflicts
     With VCSIndex.Conflicts
         If .Count > 0 Then
             ' Resolve conflicts (auto-resolve for agent/API, prompt for user)
+            TraceInPlaceMerge "phase: resolving conflicts"
             .ResolveOrPrompt
             If .ApproveResolutions Then
                 Log.Add T("Resolving source conflicts"), False
@@ -360,6 +429,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     ' A merge may not find any changed files
     If dCategories.Count = 0 And Not blnFullBuild Then
+        blnNoChanges = True
         Log.Add T("No changes found.")
     Else
         ' Perform a backup if we have changes to merge
@@ -388,6 +458,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         lngCount = dFiles.Count
         lngCurrent = 0
         Log.Flush
+        TraceInPlaceMerge "merge: " & cCategory.Category & " (" & lngCount & " files)"
 
         ' Loop through each file in this category.
         If blnFullBuild And cCategory.ComponentType = edbModule Then
@@ -445,8 +516,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
         Perf.CategoryEnd dFiles.Count
         ReleaseDbReferences
+        TraceInPlaceMerge "merge: " & cCategory.Category & " complete"
 
     Next varCategory
+    TraceInPlaceMerge "phase: merge loop complete"
 
     If Operation.ErrorLevel <> eelCritical Then PromptAndSaveConnections
 
@@ -466,10 +539,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     If ContainerHasObject(dCategories, edbTheme) Then
         Log.Add T("Reopening database...")
         Log.Flush
+        TraceInPlaceMerge "phase: reopening for themes"
         StageMainForm
         CloseCurrentDatabase2
         ShiftOpenDatabase strPath
         RestoreMainForm
+        TraceInPlaceMerge "phase: reopened for themes"
     End If
 
     ' Initialize forms to ensure that the colors/themes are rendered properly
@@ -477,7 +552,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     '  may be involved, and must already exist in the database.)
     If ContainerHasObject(dCategories, edbForm) Then
         Log.Add T("Initializing forms...")
+        TraceInPlaceMerge "phase: initializing forms"
         InitializeForms dCategories
+        TraceInPlaceMerge "phase: forms initialized"
     End If
 
     ' Update operation result in case this is queried in the AfterBuild hooks
@@ -504,27 +581,40 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
     End If
 
-    ' Enforce any supplied letter casing rules
-    Dim colCasingChanges As Collection
-    Dim varChange As Variant
-    Set colCasingChanges = StandardizeLetterCasing
-    If Not colCasingChanges Is Nothing Then
-        If colCasingChanges.Count > 0 Then
-            Log.Add T("{0} letter casing correction(s) applied:", var0:=colCasingChanges.Count), False
-            For Each varChange In colCasingChanges
-                Log.Add "  " & varChange, False
-            Next varChange
+    ' Enforce any supplied letter casing rules.
+    '
+    ' Full builds only. Applying corrections saves the VBA project, and saving locks the
+    ' database against other clients, so the accessibility check below then reopens it --
+    ' measured at 83 seconds on a merge that imported nothing and corrected one identifier.
+    ' A merge does not need it: the code it brings in comes from source files that the
+    ' export pass already standardized, and export standardizes again before writing, so
+    ' source consistency never depends on the merge. At worst the database carries
+    ' non-canonical casing until the next export corrects it.
+    If blnFullBuild Then
+        Dim colCasingChanges As Collection
+        Dim varChange As Variant
+        Set colCasingChanges = StandardizeLetterCasing
+        If Not colCasingChanges Is Nothing Then
+            If colCasingChanges.Count > 0 Then
+                Log.Add T("{0} letter casing correction(s) applied:", var0:=colCasingChanges.Count), False
+                For Each varChange In colCasingChanges
+                    Log.Add "  " & varChange, False
+                Next varChange
+            End If
         End If
     End If
 
     ' Log any errors after build/merge
     CatchAny eelError, T("Error running {0}", var0:=CallByName(Options, "RunAfter" & strType, VbGet)), FunctionName, True, True
 
-    ' If the database is not accessible to other clients (common after import
-    ' operations that modify the schema), reopen it in shared mode.
-    ' Uses an out-of-process worker to detect the engine-level lock state
-    ' that an in-process check cannot see.
-    If DatabaseFileOpen Then
+    ' If the database is not accessible to other clients, reopen it in shared mode.
+    ' Uses an out-of-process worker to detect the engine-level lock state that an
+    ' in-process check cannot see.
+    '
+    ' The check itself costs a worker round trip, and there is one case where its answer
+    ' is already known: an in-place merge verifies accessibility before it begins, so if
+    ' it then imported nothing, nothing has happened since that could have changed it.
+    If DatabaseFileOpen And Not (blnNoChanges And m_blnVerifiedAccessible) Then
         If Not Worker.IsDatabaseAccessible Then
             Log.Add T("Reopening database in shared mode...")
             Log.Flush
@@ -642,6 +732,283 @@ CleanUp:
             T("Note that some settings may not take effect until this database is reopened."), _
             T("A backup of the previous build was saved as '{0}'.", var0:=FSO.GetFileName(strBackup)), vbInformation
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TraceInPlaceMerge
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Crash-trace breadcrumb, active only while a merge is preparing the database
+'           : in place. That path manipulates the VBA project and can fault inside
+'           : VBE7.DLL, taking Access down without unwinding, so its progress has to
+'           : reach disk step by step. Every other build and merge path skips the writes.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TraceInPlaceMerge(strStep As String)
+    If m_blnTraceInPlaceMerge Then LogCrashTrace strStep
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResetProjectForInPlaceMerge
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Clear the target database's VBA project run-state as its own timer stage.
+'           :
+'           : This exists as a separate stage on purpose. The reset has to happen when as
+'           : little as possible is alive: not merely on a stack the target project does
+'           : not own, but before the merge has set anything up. Doing it inside Build
+'           : meant the whole of Build's prologue — reloaded options, reacquired database
+'           : handles, resolved paths — was already live when the project was reset, and
+'           : the merge then continued to use references taken before it. The caller
+'           : stages the main form (releasing the form instance and the log console) and
+'           : releases cached references before arming this stage, so by the time the
+'           : reset runs, only this frame and the add-in's own singletons remain.
+'           :
+'           : Nothing may run on this call stack after the reset — see the caller, which
+'           : arms the next stage before calling this. Executing the VBE Reset control
+'           : returns immediately, but the teardown it triggers lands later, when the
+'           : thread next reaches a message pump. Both observed crashes were in the first
+'           : substantial work done after the Execute on the same stack: continuing the
+'           : merge in an earlier design, then RestoreMainForm in this one. Opening a form
+'           : pumps messages, so it collided with the teardown. Cheap statements such as
+'           : recording the result below have proven survivable; anything that pumps has
+'           : not, so it belongs on the next stack.
+'           :
+'           : Records failure rather than reporting it, because the merge that resumes on
+'           : the next stage is the thing that has to fall back to a database reopen. The
+'           : main form is not restored here either: the merge stage reopens it, and
+'           : frmVCSMain.ResetForOperation rebinds the log console and clears the console
+'           : text anyway, so there is nothing worth restoring first.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ResetProjectForInPlaceMerge()
+    TraceInPlaceMerge "reset stage: resetting project (nothing runs after this)"
+    m_blnInPlaceResetFailed = Not ResetCurrentVBProjectState(m_blnTraceInPlaceMerge)
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FlushVbaProjectAfterReset
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Save the target database's VBA project once its run-state has been cleared,
+'           : so that unsaved VBE edits are not overwritten by the source files about to be
+'           : merged in. Returns False when the merge should fall back to a reopen instead.
+'           :
+'           : This runs *after* the reset rather than during the preparation so the save
+'           : cannot encounter run-state in the project it is writing. (An earlier theory
+'           : held that run-state was what defeated the save outright; that turned out to
+'           : be the caller's own VBA stack instead -- see SaveCurrentVBProject. Saving
+'           : after the reset remains the safer order regardless.) Nothing is lost by
+'           : waiting: the reset clears run-state, not editor buffers, so unsaved edits are
+'           : still present afterwards.
+'           :
+'           : Accessibility is re-checked only when the save actually wrote something. A
+'           : write is the only thing that can lock the database, and the preparation
+'           : already confirmed the database was accessible, so a save that changes nothing
+'           : cannot have invalidated that. This keeps the common case (a clean project,
+'           : where the save is a no-op) free of a second worker round trip.
+'---------------------------------------------------------------------------------------
+'
+Private Function FlushVbaProjectAfterReset() As Boolean
+
+    Dim blnWasDirty As Boolean
+
+    FlushVbaProjectAfterReset = True
+
+    blnWasDirty = Not CurrentVBProject.Saved
+    If Not blnWasDirty Then Exit Function
+
+    TraceInPlaceMerge "merge stage: saving VBA project after reset"
+    If Not SaveCurrentVBProject(m_blnTraceInPlaceMerge) Then
+        ' Nothing was written, so the database cannot have been locked by us. Proceed, but
+        ' record it: any unsaved edits in objects the merge replaces will be overwritten.
+        Log.Add T("Note: unsaved VBA changes could not be saved before merging."), False
+        Exit Function
+    End If
+
+    ' The save wrote the project. Confirm the database is still usable by other clients
+    ' before the merge reaches its backup, which an exclusive lock would block.
+    TraceInPlaceMerge "merge stage: rechecking lock state after save"
+    If DatabaseFileOpen Then
+        If Not Worker.IsDatabaseAccessible Then
+            Log.Add T("Database is not accessible to other clients after saving VBA changes.")
+            Log.Add T("Falling back to closing and reopening the database.")
+            m_blnTraceInPlaceMerge = False
+            FlushVbaProjectAfterReset = False
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReopenBeforeMerge
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Close and shift-open the current database so that every object is closed
+'           : and unloaded before source files are merged into it. This is the default
+'           : (and most reliable) way to prepare for a merge.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ReopenBeforeMerge(strPath As String)
+    Log.Add T("Closing and reopening current database before merge...")
+    Perf.OperationStart "Reopen DB before Merge"
+    StageMainForm
+    CloseCurrentDatabase2
+    ShiftOpenDatabase strPath
+    RestoreMainForm
+    Perf.OperationEnd
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrepareMergeInPlace
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Prepare the current database for a merge without closing and reopening it,
+'           : reaching the same starting conditions by other means:
+'           :
+'           :  1. Every open object is closed (merge deletes and reimports objects).
+'           :  2. Pending VBE edits are flushed, so unsaved code is not lost.
+'           :  3. References that would be invalidated are released.
+'           :
+'           : Clearing the VBA project's run-state is the fourth requirement, and it is
+'           : what makes this safe rather than merely faster: importing a component into
+'           : a project that holds run-state resets that project implicitly, part way
+'           : through the merge, invalidating references the merge is still using (the
+'           : crash in DECISIONS.md 2026-07-06). Doing it deliberately and up front,
+'           : with nothing yet cached, replaces an uncontrolled reset with a controlled
+'           : one.
+'           :
+'           : The reset itself deliberately does NOT happen here — see
+'           : ResetProjectForInPlaceMerge, which runs as its own timer stage once this
+'           : call stack has unwound. Staging the main form is the last step here so that
+'           : the add-in's console is released before that stage runs.
+'           :
+'           : Returns True when the database is ready to merge in place. Returns False
+'           : if any step could not be completed, in which case the caller must fall
+'           : back to ReopenBeforeMerge rather than merge in an unknown state.
+'---------------------------------------------------------------------------------------
+'
+Private Function PrepareMergeInPlace() As Boolean
+
+    Const FunctionName As String = ModuleName & ".PrepareMergeInPlace"
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    ' The reset cannot be survived when the project it acts on is the one running this
+    ' code, so there is no in-place path to offer while the add-in is open as the current
+    ' database. (This is the normal workflow for developing the add-in itself.)
+    TraceInPlaceMerge "prep: checking host project"
+    If ResetWouldEndOurOwnCode Then
+        Log.Add T("Cannot prepare in place while the add-in is open as the current database.")
+        GoTo FallBack
+    End If
+
+    ' Close all open database objects. A cancelled or failed close means we cannot
+    ' guarantee that objects are unloaded.
+    TraceInPlaceMerge "prep: closing open objects"
+    If Not CloseDatabaseObjects Then
+        Log.Add T("Unable to close all open objects.")
+        GoTo FallBack
+    End If
+
+    ' Release every reference the reset would invalidate.
+    TraceInPlaceMerge "prep: releasing cached references"
+    ReleaseScanState
+    TraceInPlaceMerge "prep: references released"
+
+    If CatchAny(eelWarning, T("Error preparing database for merge"), FunctionName, True, True) Then GoTo FallBack
+
+    ' A database that other clients cannot open has to be reopened whether we do it now or
+    ' the post-merge check does it later, so there is no saving left to protect and we take
+    ' the proven path instead. Reopening now is strictly better than reopening after: the
+    ' shift-open leaves the database accessible, so the post-merge check then finds nothing
+    ' to do, and the mid-merge backup (critical on failure, and blocked by an exclusive
+    ' lock) is not attempted against a locked file. Checked here rather than on entry
+    ' because the steps above can escalate the lock, so this is the only point that
+    ' reflects the state the merge would actually run in.
+    TraceInPlaceMerge "prep: checking lock state"
+    If DatabaseFileOpen Then
+        If Worker.IsDatabaseAccessible Then
+            m_blnVerifiedAccessible = True
+        Else
+            Log.Add T("Database is not accessible to other clients.")
+            GoTo FallBack
+        End If
+    End If
+
+    ' Release the add-in's own console: this drops the form instance and the log's
+    ' reference to its controls, the same way it is released around a database reopen.
+    ' The staged content is restored after the reset. Deliberately the last step, so that
+    ' the fallback path never has to unpick a staged form.
+    TraceInPlaceMerge "prep: staging main form"
+    StageMainForm
+
+    PrepareMergeInPlace = True
+    Exit Function
+
+FallBack:
+    Log.Add T("Falling back to closing and reopening the database.")
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseScanState
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Release every reference that a VBA project reset or a database
+'           : close/reopen would invalidate, so that work can safely continue on the
+'           : other side of that boundary.
+'           :
+'           : Two earlier attempts to avoid the pre-merge reopen crashed Access because
+'           : references survived the boundary: an in-place project reset (DECISIONS.md
+'           : 2026-07-06) and a deferred reopen that reused the scan's component classes
+'           : (reverted in 0e4b93b0, which named this helper as the prerequisite).
+'           :
+'           : Component classes cache database objects internally, so a category
+'           : dictionary built by a scan cannot be carried across the boundary and
+'           : reused. Pass it here to drop the class references; the source file paths
+'           : it holds are plain strings and remain valid.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseScanState(Optional dCategories As Dictionary)
+
+    Const FunctionName As String = ModuleName & ".ReleaseScanState"
+
+    Dim varCategory As Variant
+    Dim dCategory As Dictionary
+
+    LogUnhandledErrors FunctionName
+    On Error Resume Next
+
+    ' Drop component classes built against the current instance of the database.
+    If Not dCategories Is Nothing Then
+        For Each varCategory In dCategories.Keys
+            Set dCategory = dCategories(varCategory)
+            If Not dCategory Is Nothing Then
+                If dCategory.Exists("Class") Then Set dCategory("Class") = Nothing
+            End If
+        Next varCategory
+    End If
+
+    ' Release cached database handles and connections.
+    ReleaseDbReferences
+    CloseCachedConnections
+    CloseBackEndConnections
+    ClearEnvCache
+    ClearConnState
+
+    ' Discard cached state tied to the current database file location.
+    modLoadFromText.Reset
+
+    If Err Then Err.Clear
 
 End Sub
 

@@ -150,15 +150,16 @@ Public Function StandardizeLetterCasing(Optional ByRef colIssues As Collection) 
 
     Set StandardizeLetterCasing = colChanges
 
-    ' Persist the corrections so the VBA project isn't left with unsaved
-    ' changes that prompt a save when Access is closed. Correcting the casing
-    ' in clsStandardLetterCasing propagates canonical casing project-wide via
-    ' VBA (dirtying other modules too); saving one module saves the whole project.
+    ' Persist the corrections so the VBA project isn't left with unsaved changes that
+    ' prompt a save when Access is closed. Correcting the casing in
+    ' clsStandardLetterCasing propagates canonical casing project-wide via VBA, dirtying
+    ' form and report class modules too -- which is why the single-module save this used to
+    ' do never finished the job, and why the warning below fired run after run without the
+    ' corrections ever converging.
     If colChanges.Count > 0 Then
-        Set VBE.ActiveVBProject = CurrentVBProject
-        DoCmd.Save acModule, StandardLetterCasingModuleName
-        CatchAny eelWarning, T("Error saving letter casing corrections"), FunctionName, True, True
-        If Not CurrentVBProject.Saved Then
+        ' SaveCurrentVBProject reports the project's real state and handles its own errors,
+        ' so its return value is the signal here rather than Err.
+        If Not SaveCurrentVBProject Then
             Log.Error eelWarning, T("VBA project still has unsaved changes after letter casing corrections"), FunctionName
         End If
     End If

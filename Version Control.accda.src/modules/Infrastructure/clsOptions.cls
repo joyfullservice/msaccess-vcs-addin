@@ -53,6 +53,7 @@ Public ExportAfterMerge As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public UseMergeBuild As Boolean
 Public MergeTableData As Boolean        ' Reconcile exported table data on merge (default: True)
+Public SkipReopenBeforeMerge As Boolean ' Prepare for merge in place instead of reopening (default: False)
 Public RunBeforeBuild As String
 Public RunAfterBuild As String
 Public RunBeforeMerge As String
@@ -163,6 +164,7 @@ Public Sub LoadDefaults()
         .ForceImportOriginalQuerySQL = False
         .UseMergeBuild = False
         .MergeTableData = True
+        .SkipReopenBeforeMerge = False
 
         ' Table Data
         Set .TablesToExportData = New Dictionary
@@ -802,6 +804,7 @@ Public Function GetCategoryHashes() As Dictionary
             Case "ExportFolder", "ShowDebug", "UseFastSave", _
                  "UseMergeBuild", "ExportAfterMerge", "UseGitIntegration", _
                  "ForceImportOriginalQuerySQL", "MergeTableData", _
+                 "SkipReopenBeforeMerge", _
                  "RunBeforeExport", "RunAfterExport", _
                  "RunBeforeBuild", "RunAfterBuild", _
                  "RunBeforeMerge", "RunAfterMerge", _
@@ -998,6 +1001,7 @@ Private Sub Class_Initialize()
         .Add "ForceImportOriginalQuerySQL"
         .Add "UseMergeBuild"
         .Add "MergeTableData"
+        .Add "SkipReopenBeforeMerge"
         .Add "RunBeforeBuild"
         .Add "RunAfterBuild"
         .Add "RunBeforeMerge"

@@ -196,11 +196,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Save unsaved VBA project changes so exported source reflects
     ' the current state of the code. (Analogous to closing forms/reports
     ' which forces a save decision on layout changes.)
-    If Not CurrentVBProject.Saved Then
-        If CurrentProject.AllModules.Count > 0 Then
-            DoCmd.Save acModule, CurrentProject.AllModules(0).Name
-        End If
-    End If
+    SaveUnsavedVbaProject
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections

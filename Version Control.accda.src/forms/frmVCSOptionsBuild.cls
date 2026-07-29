@@ -55,6 +55,7 @@ Private Sub LoadOptions()
         Me.chkExportAfterMerge = .ExportAfterMerge
         Me.chkForceImportOriginalQuerySQL = .ForceImportOriginalQuerySQL
         Me.chkMergeTableData = .MergeTableData
+        Me.chkSkipReopenBeforeMerge = .SkipReopenBeforeMerge
         Me.txtRunBeforeBuild = .RunBeforeBuild
         Me.txtRunAfterBuild = .RunAfterBuild
         Me.txtRunBeforeMerge = .RunBeforeMerge
@@ -77,6 +78,7 @@ Private Sub SaveOptions()
         .ExportAfterMerge = Nz(Me.chkExportAfterMerge)
         .ForceImportOriginalQuerySQL = Nz(Me.chkForceImportOriginalQuerySQL)
         .MergeTableData = Nz(Me.chkMergeTableData)
+        .SkipReopenBeforeMerge = Nz(Me.chkSkipReopenBeforeMerge)
         .RunBeforeBuild = Nz(Me.txtRunBeforeBuild)
         .RunAfterBuild = Nz(Me.txtRunAfterBuild)
         .RunBeforeMerge = Nz(Me.txtRunBeforeMerge)

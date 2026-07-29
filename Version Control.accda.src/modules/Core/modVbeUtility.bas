@@ -806,24 +806,166 @@ End Sub
 '           : Acts on the active project only; it does NOT reset library/add-in
 '           : projects, so the add-in's own singletons remain intact.
 '           : Returns True if the Reset control was found and executed without error.
+'           :
+'           : Set blnTrace when a fault here would take the process down (see
+'           : LogCrashTrace). Callers that already run with a warm VBE and an idle target
+'           : project have no need for it.
 '---------------------------------------------------------------------------------------
 '
-Public Function ResetCurrentVBProjectState() As Boolean
+Public Function ResetCurrentVBProjectState(Optional blnTrace As Boolean) As Boolean
 
     Const VBE_CMD_RESET_ID As Long = 228   ' VBE Standard toolbar Reset (language-independent)
     Dim ctl As CommandBarControl
 
     LogUnhandledErrors
     On Error Resume Next
+    If blnTrace Then LogCrashTrace "reset: setting active project"
     Set VBE.ActiveVBProject = CurrentVBProject
+    If blnTrace Then LogCrashTrace "reset: finding Reset control"
     Set ctl = Application.VBE.CommandBars.FindControl(, VBE_CMD_RESET_ID)
     If Not ctl Is Nothing Then
+        If blnTrace Then LogCrashTrace "reset: executing Reset control"
         ctl.Execute
         If Err.Number = 0 Then ResetCurrentVBProjectState = True
     End If
+    If blnTrace Then LogCrashTrace "reset: returned " & CStr(ResetCurrentVBProjectState)
     If Err Then Err.Clear
     On Error GoTo 0
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveCurrentVBProject
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Save the current database's VBA project, and report whether the project ended
+'           : up clean. Delegates to the worker script, because the VBE Save command only
+'           : works when nothing sits below it on the VBA stack (see below).
+'           :
+'           : This does NOT reset the project first, which was tried and reverted -- see the
+'           : list of dropped mechanisms below.
+'           :
+'           : `DoCmd.Save acModule, <one module>` is not equivalent, despite the long-held
+'           : assumption that saving one module saves the whole project. When form and
+'           : report class modules are dirty — the usual state after startup code has run,
+'           : where dozens of form classes report unsaved — it leaves the project dirty.
+'           : modLetterCasing had been logging exactly that ("VBA project still has unsaved
+'           : changes after letter casing corrections") for a long time before the cause
+'           : was understood.
+'           :
+'           : It also matters for database locking: a partial save leaves the database
+'           : inaccessible to other clients, where a complete one does not, which is the
+'           : difference between an in-place merge and one that has to reopen.
+'           :
+'           : Three mechanisms were tried and dropped, and should not be reintroduced
+'           : without new evidence:
+'           :
+'           :  * Saving individual modules. Form and report class modules cannot be saved
+'           :    this way at all, so it reports success while leaving dirty precisely the
+'           :    components that matter. This was the original bug.
+'           :  * `DoCmd.RunCommand acCmdSaveAllModules`. Raises 2046 ("isn't available now")
+'           :    unless a module window is active, and is widely reported to do nothing even
+'           :    when it does run. An expected error also has to be captured and cleared
+'           :    before anything is logged, or LogUnhandledErrors reports it and a modal
+'           :    dialog stops an unattended merge.
+'           :  * Executing the VBE Save command (ID 3) in process. Reports success and saves
+'           :    nothing — no error, correct project active, caption confirming the right
+'           :    document, before and after a project reset alike. Running the identical
+'           :    command from the worker saves the project, so the caller's own VBA stack is
+'           :    what it objects to. Do not add this back as a "free" first attempt: it never
+'           :    succeeds, and targeting it correctly means showing a code pane, which pops
+'           :    the VBE window open mid-merge.
+'           :  * Resetting the project in the same worker job, immediately before the save,
+'           :    to avoid the VBE's "this action will reset your project" prompt on a project
+'           :    holding run-state. This broke export and cannot work from here. A VBE reset
+'           :    ends whatever code is *running*; setting ActiveVBProject does not scope it
+'           :    away from us. During an export the running code is this add-in, waiting in
+'           :    Worker.WaitForQueue's DoEvents loop for the very job issuing the reset — so
+'           :    it terminated its own caller, taking the job queue with it ("Returned worker
+'           :    not found in job queue", then 40040 from the ribbon command). The merge is
+'           :    immune only because its next stage arrives on a Windows timer, so nothing of
+'           :    ours has to survive; a save called mid-procedure has no such re-entry. Note
+'           :    also that the prompt this was meant to prevent has never been observed here.
+'           :
+'           : Compiling is deliberately avoided: `acCmdCompileAndSaveAllModules` is the
+'           : mechanism usually recommended, but a project that does not compile still has
+'           : to be mergeable.
+'           :
+'           : Returns the project's actual `Saved` state, so a caller never has to trust
+'           : that this worked.
+'---------------------------------------------------------------------------------------
+'
+Public Function SaveCurrentVBProject(Optional blnTrace As Boolean) As Boolean
+
+    Dim strDetail As String
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    If CurrentVBProject.Saved Then GoTo Verify
+
+    If blnTrace Then LogCrashTrace "save: saving VBA project out of process"
+    Worker.Run_SaveVbaProject
+    strDetail = ErrDetail
+    If Err Then Err.Clear
+    If blnTrace Then LogCrashTrace "save: worker returned" & strDetail & _
+        ", saved: " & CStr(CurrentVBProject.Saved)
+
+Verify:
+    ' Report what actually happened rather than what was attempted.
+    SaveCurrentVBProject = CurrentVBProject.Saved
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ErrDetail
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Render the current error for a trace line, or an empty string when there is
+'           : none, so that a step which fails silently can be told apart from one that
+'           : raises. Reads Err without clearing it, so callers must capture the text and
+'           : clear Err before logging -- see the note in SaveCurrentVBProject.
+'---------------------------------------------------------------------------------------
+'
+Private Function ErrDetail() As String
+    If Err.Number <> 0 Then ErrDetail = " [err " & Err.Number & ": " & Err.Description & "]"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResetWouldEndOurOwnCode
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Returns True when the project that ResetCurrentVBProjectState would reset
+'           : is also the project running this code — i.e. the add-in is open as the
+'           : current database rather than loaded as a library add-in.
+'           :
+'           : A VBE reset is equivalent to the End statement for the project it acts on.
+'           : Resetting a project that has frames on the call stack destroys the stack
+'           : underneath the running code, which crashes Access inside VBE7.DLL
+'           : (access violation, no trappable error, no chance to fall back). This is
+'           : why the reset is safe in RunVBA, where the reset target is the current
+'           : database and the caller lives in the add-in library project.
+'           :
+'           : Callers that reset as a side effect must check this first and choose a
+'           : different strategy when it returns True.
+'           :
+'           : False is NOT a guarantee that a reset is harmless. Setting ActiveVBProject
+'           : does not confine a reset to that project: it ends running code generally, so
+'           : an add-in-side caller can lose its own module-level state while resetting a
+'           : different project. Resetting during an export demonstrated this by wiping the
+'           : worker job queue mid-operation. What makes the merge safe is not this check
+'           : alone but that its next stage re-enters on a Windows timer, so no state has to
+'           : survive the reset. A caller that needs to keep running afterwards needs the
+'           : same choreography, not just a False here.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResetWouldEndOurOwnCode() As Boolean
+    ResetWouldEndOurOwnCode = (StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0)
 End Function
 
 

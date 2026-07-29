@@ -316,7 +316,7 @@ Begin Form
                     Top =4320
                     Width =2640
                     Height =315
-                    TabIndex =4
+                    TabIndex =5
                     Name ="txtRunBeforeBuild"
                     ValidationRule ="Like \"*?.?*\" Or \"\" Or Is Null"
                     ValidationText ="This value must include both module and sub names joined with a period. For exam"
@@ -352,7 +352,7 @@ Begin Form
                     Top =5220
                     Width =2640
                     Height =315
-                    TabIndex =5
+                    TabIndex =6
                     Name ="txtRunAfterBuild"
 
                     LayoutCachedLeft =2700
@@ -521,6 +521,36 @@ Begin Form
                         End
                     End
                 End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =3535
+                    TabIndex =4
+                    Name ="chkSkipReopenBeforeMerge"
+
+                    LayoutCachedLeft =420
+                    LayoutCachedTop =3535
+                    LayoutCachedWidth =680
+                    LayoutCachedHeight =3775
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =727
+                            Top =3480
+                            Width =5580
+                            Height =315
+                            ForeColor =5324600
+                            Name ="lblSkipReopenBeforeMerge"
+                            Caption ="Skip closing and reopening the database before merge"
+                            LayoutCachedLeft =727
+                            LayoutCachedTop =3480
+                            LayoutCachedWidth =6307
+                            LayoutCachedHeight =3795
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
                 Begin Line
                     BorderWidth =1
                     OverlapFlags =85
@@ -559,7 +589,7 @@ Begin Form
                     Top =6840
                     Width =2640
                     Height =315
-                    TabIndex =6
+                    TabIndex =7
                     Name ="txtRunBeforeMerge"
                     ValidationRule ="Like \"*?.?*\" Or \"\" Or Is Null"
                     ValidationText ="This value must include both module and sub names joined with a period. For exam"
@@ -595,7 +625,7 @@ Begin Form
                     Top =7380
                     Width =2640
                     Height =315
-                    TabIndex =7
+                    TabIndex =8
                     Name ="txtRunAfterMerge"
 
                     LayoutCachedLeft =2700

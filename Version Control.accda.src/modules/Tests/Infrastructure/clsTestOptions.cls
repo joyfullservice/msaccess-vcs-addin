@@ -42,6 +42,20 @@ Public Sub TestGetCategoryHashes()
 End Sub
 
 
+Public Sub TestSkipReopenBeforeMergeIsNotAnExportOption()
+    Dim cOpt As New clsOptions
+    cOpt.LoadDefaults
+    TestAssert cOpt.SkipReopenBeforeMerge = False, "defaults to off"
+
+    ' This option only affects how a merge prepares the database, so flipping it must
+    ' never change an export hash (which would re-export every affected category).
+    Dim strHash As String
+    strHash = cOpt.GetHash
+    cOpt.SkipReopenBeforeMerge = True
+    TestAssert cOpt.GetHash = strHash, "toggling does not change the export hash"
+End Sub
+
+
 Public Sub TestSanitizeLevelNames()
     Dim cOpt As New clsOptions
     TestAssert cOpt.GetSanitizeLevelName(eslNone) = "None (Off)", "None level"

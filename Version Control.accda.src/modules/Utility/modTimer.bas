@@ -29,6 +29,7 @@ Public Sub WinAPITimerCallback()
     Dim strParam1 As String
     Dim strParam2 As String
     Dim strCommand As String
+    Dim intMergeFilter As eContainerFilter
 
     ' First, make sure we kill the timer!
     KillTimer
@@ -61,6 +62,25 @@ Public Sub WinAPITimerCallback()
         Case "Build"
             ' Build from source (full or merge build)
             Build strParam1, CBool(strParam2)
+
+        Case "MergeReset"
+            ' Reset the target database's VBA project between the two merge stages, on the
+            ' smallest stack available: the call that prepared the database has fully
+            ' unwound, and the merge has not started.
+            '
+            ' The next stage is armed BEFORE the reset on purpose. The reset's teardown
+            ' lands asynchronously, so this stack must do nothing afterwards and simply
+            ' return to the message loop. (See modBuild.ResetProjectForInPlaceMerge.)
+            If Operation.Status = eosRunning Then Operation.Stage
+            TraceInPlaceMerge "reset stage: merge timer armed"
+            SetTimer "MergeResume", strParam1, strParam2
+            ResetProjectForInPlaceMerge
+
+        Case "MergeResume"
+            ' Continue a merge build after the database was prepared in place and its VBA
+            ' project reset. (See modBuild.PrepareMergeInPlace.)
+            intMergeFilter = Val(strParam2)
+            Build strParam1, False, intMergeFilter, vbNullString, True
 
         Case "APIAsyncOperation"
             ' Handle async operation with MCP callbacks

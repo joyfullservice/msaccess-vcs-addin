@@ -86,6 +86,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : Run_SaveVbaProject
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Save the current database's VBA project from outside the VBA stack, which is
+'           : the only way the VBE Save command actually saves it. In process the same
+'           : command reports success and leaves the project dirty. Returns the resulting
+'           : Saved state. See modVbeUtility.SaveCurrentVBProject for what else was tried,
+'           : including resetting the project in this same job (reverted -- it broke export).
+'---------------------------------------------------------------------------------------
+'
+Public Function Run_SaveVbaProject() As Boolean
+    m_varLastResult = Empty
+    CallWorker "VbaProjectSave", 30, "SaveVbaProject"
+    Me.WaitForQueue 30, "SaveVbaProject", 0.1
+    Run_SaveVbaProject = CBool(m_varLastResult)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DeleteDatabaseObject
 ' Author    : Adam Waller
 ' Date      : 3/2/2023
@@ -500,6 +519,9 @@ Sub Main()
         Case "CheckDatabaseAccessible"
             varReturn = CheckDatabaseAccessible(WScript.Arguments(0))
 
+        Case "SaveVbaProject"
+            varReturn = SaveVbaProject(objApp)
+
         Case Else
             MsgBox "Unknown Action: " & WScript.Arguments(1), vbExclamation
 
@@ -718,6 +740,49 @@ Function CheckDatabaseAccessible(strPath)
         CheckDatabaseAccessible = False
     End If
     Set objEngine = Nothing
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveVbaProject
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Save the current database's VBA project by executing the VBE Save command
+'           : out of process. The identical in-process call reports success and saves
+'           : nothing; issued from here it saves. Main has already pointed ActiveVBProject
+'           : at the current database's project. Returns the project's actual Saved state,
+'           : not whether the command was issued.
+'           :
+'           : Do NOT reset the project here before saving. A reset ends whatever code is
+'           : running, which during an export is the add-in waiting in WaitForQueue for this
+'           : job -- so it terminates its own caller and empties the job queue. Tried and
+'           : reverted; see modVbeUtility.SaveCurrentVBProject.
+'---------------------------------------------------------------------------------------
+'
+Function SaveVbaProject(objApp)
+
+    Dim objCtl
+    Dim objProj
+
+    On Error Resume Next
+
+    Set objProj = CurrentVBProject(objApp)
+    If objProj Is Nothing Then
+        SaveVbaProject = False
+        Exit Function
+    End If
+
+    If Not objProj.Saved Then
+        Set objApp.VBE.ActiveVBProject = objProj
+        ' ID 3 is the language-independent VBE Save command.
+        Set objCtl = objApp.VBE.CommandBars.FindControl(, 3)
+        If Not objCtl Is Nothing Then objCtl.Execute
+    End If
+
+    SaveVbaProject = objProj.Saved
+    Set objCtl = Nothing
+    Set objProj = Nothing
+
 End Function
 
 

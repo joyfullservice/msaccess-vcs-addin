@@ -83,6 +83,165 @@ contradictory guidance.
 
 ---
 
+## 2026-07-29 — Opt-in in-place merge preparation instead of the pre-merge reopen
+
+**Trigger**: A merge build unconditionally closes and shift-reopens the database before scanning source files, costing roughly 23 seconds on a ~7,300-file project. Merges are run frequently while working with AI tools, so that fixed cost dominates the loop. Two earlier attempts to remove it were reverted: an in-place VBE reset (2026-07-06, crashed) and a deferred reopen (2026-06-09, reverted in `0e4b93b0` for stale component references).
+
+**Probe results** (control 228 executed against a scratch database through out-of-process COM):
+- The VBE `Reset` control is **id 228**, present on the Run menu, Standard, Debug, Watch, Immediate, and Locals bars. **Id 645 does not exist** in the VBE command bars, so it is not an alternative.
+- The reset does clear the target project's run-state: a module-level `Long` and a global object reference went from `counter=42 obj=alive:1` to `counter=0 obj=nothing`.
+- `VBE.ActiveVBProject` points at the **add-in** project whenever the add-in is loaded, not the database being merged. Anything issuing a reset must set the active project first (`ResetCurrentVBProjectState` already does). Modifying the add-in's own components by mistake hung Access on a modal.
+- Importing a component while the project holds run-state raises the modal "this will reset your project" prompt, confirming that a merge into an unprepared project gets an *implicit, mid-merge* reset — the mechanism that invalidated cached references in the 2026-07-06 crash.
+- The prompt still appeared after an explicit reset when the import was driven from **out-of-process COM**. Out-of-process automation is therefore not a faithful harness for the prompt behavior of the add-in's in-process import path, and the prompt question cannot be settled this way.
+
+**Options explored**:
+- **Issue the reset from the `Worker.vbs` VBScript** (it already attaches to the running instance with `GetObject` and sets `ActiveVBProject`): rejected. The probe showed out-of-process component modification behaves differently from the in-process path, so a worker-issued reset cannot be validated by the same evidence it would rely on, and it adds a round-trip plus a second failure mode for no demonstrated benefit. (This applies to the *reset* only. The VBA project *save* does go through the worker, for the opposite reason: in process it cannot be made to work at all — see the save findings below.)
+- **In-place reset with no other changes** (the 2026-07-06 shape): still rejected — that is the reverted crash.
+- **In-place reset, plus releasing everything the reset invalidates, plus resuming the merge on a fresh call stack**: chosen. The 2026-07-06 entry named exactly these two shapes as the prerequisites for revisiting.
+- **Make it the default**: rejected. The reopen is the conservative path, and the differences (startup code no longer bypassed, run-state cleared in place) are behavioral, not just faster.
+
+**Decision**: Add `Options.SkipReopenBeforeMerge` (default **False**). When on, the merge runs as three timer stages (see below) so that the target project's run-state is cleared deliberately, in isolation, rather than implicitly part way through the merge. Any failed step falls back to `ReopenBeforeMerge`, so a merge never proceeds in an unknown state. The resumed stage skips `Log.Clear` and `Perf.StartTiming` so all three stages share one log and one performance report.
+
+**The reset needs isolation, not just a different stack** — learned by crashing Access on the first real merge (silent disappearance; Windows logged `MSACCESS.EXE` faulting in `VBE7.DLL`, `0xc0000005`). A VBE reset is equivalent to the `End` statement for the project it acts on, and there is no trappable error, so this has to be prevented rather than handled.
+
+Because the crash leaves no log — Access dies without unwinding, so buffered log output is never written — diagnosing it needed `LogCrashTrace` (in `modErrorHandling`), which persists a breadcrumb to the log file at each step. That trace disproved two successive hypotheses and is worth keeping for anything that manipulates a VBA project:
+
+1. **Self-merge was not the cause.** The first suspicion was that the reset target was the executing project. The crash happened with the add-in loaded as a library and the merge started from the ribbon, so the target project was idle — the same arrangement that has always been safe in `RunVBA`.
+2. **The reset call itself was not the cause.** The trace showed it completing and returning `True`. The fault came *after* it.
+3. **The reset's teardown is asynchronous.** `CommandBarControl.Execute` returns immediately; the teardown lands later, when the thread next reaches a message pump. Both crashes were in the first substantial work done after the Execute *on the same call stack* — continuing the merge in the first design, then `RestoreMainForm` in the second. Opening a form pumps messages, so it collided with the teardown. Cheap statements (recording a result, appending to the log file) proved survivable across both runs; anything that pumps did not.
+
+So the rule is not just "reset on a stack the target project does not own" but "**do nothing on that stack after the Execute**". The reset stage therefore arms the next stage's timer *before* executing the reset, then returns to the message loop, letting the teardown land with no VBA of ours in progress.
+
+The result is a three-stage pipeline, each stage on its own call stack: `PrepareMergeInPlace` closes objects, saves VBA, releases cached references, and stages the main form (releasing the form instance and `Log`'s console binding, exactly as a database reopen does), then arms a timer and unwinds completely; the `MergeReset` stage arms the next timer and resets the project as its final statement; `MergeResume` runs the merge with nothing surviving from either earlier stage. It does not restore the main form — the merge stage reopens it, and `frmVCSMain.ResetForOperation` rebinds the log console and clears the console text regardless, so there is nothing worth restoring first. Two further constraints:
+
+- **The reset must run on a stack the target project does not own**, which the middle stage also satisfies.
+- **There is no in-place path at all when the add-in is open as the current database**, because the project being reset is then the project running the merge, on any stack. `ResetWouldEndOurOwnCode` (in `modVbeUtility`) detects this and forces the fallback. This is the add-in's *own* development workflow, so the option cannot be exercised by self-merging this repo — it needs a separate target database.
+
+`ReleaseScanState` is the helper `0e4b93b0` referred to: it drops component classes from a category dictionary (they cache database objects and cannot cross the boundary), releases `SharedDb`, closes cached and back-end connections, clears the `.env`/connection caches, and resets `modLoadFromText`. It takes the dictionary optionally so it also serves the deferred-reopen shape if that is revisited.
+
+**What this rules out**: Do not collapse the three stages back into one, do not move the reset back inside `Build`, do not add work after the reset Execute on its own stack (including anything that opens a form or otherwise pumps messages), and do not remove the `ResetWouldEndOurOwnCode` guard — each crashes Access outright rather than failing safely. When debugging anything in this path, reach for `LogCrashTrace` first: a fault here produces no log at all, so reasoning without it is guesswork. Do not make this the default without validating the behavioral differences. Do not route the reset through the worker on the strength of the probe above. The option only removes the *pre*-merge reopen; the post-merge shared-mode reopen (16s measured here, worker-probed) is untouched, and skipping the pre-merge reopen makes it *more* likely to fire rather than less — see the lock-state finding under validation below.
+
+**Validation status**: On a ~7,300-file project, once the three constraints above were in place, three consecutive merges completed without incident **in a single Access instance, with no restart between them** — which matters as much as any one run passing, since a reset that left the project subtly damaged would be expected to accumulate across repeated use in one session:
+
+1. No changed source files (ribbon) — confirmed the stage choreography and that the log and performance report stay continuous across the two timer hops. `Prepare Merge In Place` = 0.02 s in place of the reopen.
+2. Imported a standard module, a query, and two forms, then ran `InitializeForms` (ribbon) — the VBA-bearing import that crashed in 2026-07-06 and drove the 2026-06-09 revert survived a reset standing in for a reopen. 28 s total.
+3. Open forms and live run-state present, invoked through the External API rather than the ribbon — `Close Open Objects` = 0.37 s and `Prepare Merge In Place` = 1.04 s (against 0.02 s when there was nothing to close), so the preparation demonstrably did real work rather than short-circuiting.
+
+**Debug → Compile succeeded in every project afterwards.** This was the failure mode most worth ruling out: a reset leaves the project loaded rather than rebuilt, so a merge that imported modules could plausibly have left a project that no longer compiles even though the import reported success. It compiles.
+
+Worth noting for anyone optimizing further: with the reopen gone, these runs are dominated by change detection, not by merging. Of run 2's 28 s, roughly 18 s was hashing and scanning 7,300 source files (20,136 SHA-256 computations at 6.6 s, plus file reads, folder metadata, and content hashes) against 3.9 s of actual merging.
+
+**The post-merge shared-mode reopen is triggered by lock state, not by importing.** Run 3 imported nothing yet still reopened in shared mode (16.04 s of its 61 s), while run 2 imported four objects and did not. This corrects the model recorded in the 2026-06-09 entry, which read the reopen as a consequence of schema-modifying imports. The check is `Worker.IsDatabaseAccessible`, an out-of-process probe of the engine lock state, and it makes no reference to what the merge did.
+
+**Consequence: the preparation falls back to a reopen when the database is not accessible.** The option's benefit and the lock are mutually exclusive — a database other clients cannot open is going to be reopened whether the preparation does it now or the post-merge check does it later, so there is no saving left to protect. Reopening up front is strictly better than reopening after:
+
+- The pre-merge `ShiftOpenDatabase` leaves the database accessible, so the post-merge check then finds nothing to do. Run 3's shape would be roughly 33 s (reopen, fast scan, no second reopen) rather than 61 s (fast scan, then reopen).
+- The merge takes its backup **mid-flight** (`FSO.CopyFile` in `Build`, `eelCritical` on failure), and an exclusive lock is documented in `IsFileOpenExclusive` as preventing exactly that copy. Run 3 had no changes and never reached that line. A locked session merging *with* changes could therefore abort the merge at the backup — a far worse outcome than a slow reopen, and the reason this fall back is a correctness measure and not only an optimization.
+
+The check is placed at the *end* of the preparation, after objects are closed and the VBA project saved, since those steps affect the lock state themselves — as the finding below shows, one of them was creating it.
+
+The probe costs a worker round trip (~0.95 s measured), and the in-place path would otherwise pay it twice. When the preparation confirmed accessibility and the merge then found no changed files, nothing has happened in between that could have escalated the lock, so the post-merge check is skipped (`m_blnVerifiedAccessible` + `blnNoChanges`). The no-change merge is the case the fast path exists for, so the saving lands where it matters.
+
+An option to skip the post-merge check outright was considered and deferred rather than rejected. With the fall back in place a locked session takes the old path anyway, so the check rarely leads to a reopen; what remains is the ~1 s probe, and the baseline timing should say whether that is worth an option. The argument against is attribution: skipping it leaves a locked database behind, and the resulting failure surfaces much later in an MCP call, a worker job, or the *next* merge's backup, where nothing points back to the setting.
+
+**The lock is escalated by the preparation itself, not inherited from the session.** The initial reading was that a used session arrives already locked and the in-place path merely inherits it. Probing on entry to the preparation as well as at the end disproved that. Two consecutive runs, minutes apart on the same database:
+
+| Session | On entry | After preparation | Outcome |
+|---|---|---|---|
+| Startup code had run, forms opened | accessible | **not accessible** | fell back, `Reopen DB before Merge` 36.91 s, 101.64 s total |
+| Immediately after that reopen | accessible | accessible | in place, no reopen anywhere, 56.41 s total |
+
+Both sessions were accessible when the merge began. The first became inaccessible during preparation. Probing between the individual steps then identified the culprit exactly:
+
+```
+[trace] lock state after closing objects: accessible
+[trace] prep: saving VBA project (dirty: True)
+[trace] lock state after saving VBA project: NOT accessible to other clients
+```
+
+**A *partial* save of the VBA project locks the database against other clients.** `SaveUnsavedVbaProject` issued `DoCmd.Save acModule, <first standard module>` on the long-held assumption that saving one module saves the whole project. It does not, when form and report class modules are dirty — which is the usual state after startup code has run, where dozens of form classes report unsaved. Closing open objects, by contrast, is harmless.
+
+Saving is not the problem; saving *incompletely* is. Manual verification: after `AutoExec` ran, `CurrentVBProject.Saved` was False; pressing **Save** on the VBE toolbar returned it to True, and a merge then ran fully in place with no reopen. The same sequence through `DoCmd.Save acModule` left the project dirty and the database locked.
+
+**The same bug was already on record in two other places, mislabelled in one and invisible in the other.** `modLetterCasing.StandardizeLetterCasing` had been logging "VBA project still has unsaved changes after letter casing corrections" for a long time, directly under a comment asserting that "saving one module saves the whole project" — the warning was reporting the bug and the comment was denying it. Correcting casing in `clsStandardLetterCasing` propagates project-wide and dirties form and report classes, which the single-module save cannot reach. That also resolves an open puzzle: the same correction (`fldConvertId` → `fldConvertID`) recurred across six runs spanning three days without converging, which looked like something restoring the non-canonical casing between runs and was simply the correction never being persisted.
+
+`modExport.ExportSource` made the same call with no warning at all, to ensure "exported source reflects the current state of the code" — which did not hold for form and report class code, so an export could silently omit unsaved class-module edits it believed it had captured. That is a correctness bug independent of merging. Both now call `SaveCurrentVBProject`; fixing them alongside the merge path was preferable to leaving two known-wrong copies of a mechanism this hard to get right for the next reader to copy.
+
+**Decision: `SaveCurrentVBProject` owns saving the project, executes the VBE Save command (ID 3) *from the worker script*, and returns the project's actual `Saved` state rather than assuming the save worked.** `SaveUnsavedVbaProject` delegates to it, so the merge preparation, export, letter casing, and category-scoped sync share one implementation. Evidence that the worker is not incidental complexity:
+
+```
+[trace] save: VBE Save control executed (&Save sec, window visible: True), saved: False
+[trace] save: retrying out of process
+Worker job SaveVbaProject (1fce8f0) completed in 1.46 seconds.
+[trace] save: worker returned, saved: True
+```
+
+Identical command, same instance, same project — refused in process, succeeds out of process. A hand-pressed button has no VBA frame beneath it, and that turns out to be the thing that matters. The merge that produced those lines ran fully in place after `AutoExec` had dirtied the project: 58.94 s against the 101.64 s reopen baseline, accessibility recheck passing. That is the case that motivated the whole investigation.
+
+`clsWorker` needed very little, because two things it already does are exactly what this requires: it attaches to the *specific* instance via `GetObject(<database path>)` rather than an ambiguous `GetObject(, "Access.Application")`, and `Main` already sets `ActiveVBProject` to the current database's project for every job. (The VBA wrapper and the script function live in the same class module, hence the `Run_` prefix convention `Run_SaveVbaProject` shares with `Run_BuildAndInstall`.)
+
+**Four mechanisms were tried and dropped. Do not reintroduce any of them without new evidence** — each looked correct, and three of the four fail *silently*, which is why this took a full day to pin down:
+
+| Mechanism | Why it was dropped |
+|---|---|
+| `DoCmd.Save acModule, <one module>` | Cannot save form or report class modules at all. Reports success while leaving dirty precisely the components that matter, and locks the database. The original bug. |
+| `DoCmd.RunCommand acCmdSaveAllModules` (280) | Raises 2046 ("isn't available now") unless a module window is active, and is widely reported to do nothing even when it runs. |
+| VBE Save command in process | Reports success and saves nothing. No error, correct project active, caption naming the right document, before *and* after a project reset alike. |
+| `acCmdCompileAndSaveAllModules` | Compiles, and a project that does not compile still has to be mergeable. |
+
+Two theories were disproved along the way and are recorded because both are plausible enough to be re-derived:
+
+- **Run-state is not what defeated the save.** The reading was that saving a project holding run-state requires resetting it, and that the VBE was silently declining rather than raising its "this action will reset your project" prompt to a programmatic caller. Moving the save into `FlushVbaProjectAfterReset`, after the reset has cleared run-state, produced the same silent failure — so run-state was not the cause. Run-state does still matter, just for a different reason: it makes that prompt possible where no reset has happened, which is why the worker resets first outside the merge path (below). The merge's save stays after the reset regardless, since the reset clears run-state rather than editor buffers and nothing is lost by waiting.
+- **Wrong-document targeting does not explain it either.** `Execute` *is* bound to the VBE's active document rather than `ActiveVBProject`, so an add-in code pane in focus would have meant saving the already-clean add-in — a no-op indistinguishable from a refusal. Tracing `ctl.Caption` settled it: `&Save sec`, right project, right document, still nothing saved. The in-process attempt was then removed entirely rather than kept as a free fast path, because targeting it correctly requires showing a code pane, which pops the VBE window open mid-merge for a step that cannot succeed.
+
+**Trap worth remembering: never log before clearing `Err`.** Tracing the 2046 before clearing it meant `LogCrashTrace` → `LogUnhandledErrors` reported it, putting a modal dialog in front of what is meant to be an unattended merge. It also corrupted a measurement: `Prepare Merge In Place` read 13.68 s, which looked like a slow save and was the time taken to read and dismiss that dialog. Capture the error text, clear `Err`, *then* log.
+
+A working save also removes the reason for the pessimistic guard that briefly lived here (fall back immediately whenever `CurrentVBProject.Saved` was False). The accessibility probe at the end of the preparation remains the authority: save properly, then ask. If a save ever does leave the project dirty, a breadcrumb records it and the probe decides.
+
+**Rejected: resetting the project before saving it outside the merge path.** Export, letter casing, and category-scoped sync call the save with no preceding reset, so the project can still hold run-state, and saving such a project should raise the VBE's modal "this action will reset your project" prompt — which nobody is present to dismiss during an unattended export. (That prompt *was* observed on importing into a project with run-state, earlier in this entry.) Resetting first, in the same worker job so that no caller VBA sits between the two steps, looked like the safe way to prevent it.
+
+It broke export immediately, and the failure is instructive: **a VBE reset ends whatever code is running, and setting `ActiveVBProject` does not scope that away from the caller.** During an export the running code is the add-in itself, waiting in `Worker.WaitForQueue`'s `DoEvents` loop for the very job that issues the reset. So the reset terminated its own caller and took the add-in's module-level state with it:
+
+```
+ERROR: Returned worker not found in job queue: 1fce8f0   (clsWorker.ReturnWorker)
+Failed to run ribbon command for btnExport
+40040: The expression you entered refers to an object that is closed or doesn't exist.
+```
+
+The job queue was gone by the time the worker called back. The same run of the merge was unaffected, which isolates the cause precisely — the merge passed through the identical code with the reset suppressed, having already reset in its own stage.
+
+This is also why the merge's three-stage choreography is not over-engineering. The merge survives a reset because its next stage arrives on a Windows timer, so nothing of ours has to live through it. A save called from the middle of `ExportSource` has no such re-entry, and giving it one would mean restructuring export around the reset — a large change to prevent a prompt that has never actually been observed on this path. Left as: save without resetting, and treat the prompt as a hypothesis awaiting a run where a dirty project is exported.
+
+**Knock-on: this explains the most expensive reopen observed anywhere in this investigation.** `StandardizeLetterCasing` runs at the end of every export and every build/merge, and when it applies corrections it deliberately saves the project (`DoCmd.Save acModule`) so the user is not prompted at shutdown. By the measurement above, that save locks the database. The accessibility check runs a few lines later in the same procedure, so the reopen follows directly. Observed on the same project, in one merge:
+
+```
+1 letter casing correction(s) applied:
+  fldConvertId -> fldConvertID
+WARNING: VBA project still has unsaved changes after letter casing corrections
+Reopening database in shared mode...
+Reopen DB (shared mode)       1         82.96
+```
+
+The merge that produced those lines **imported nothing** — `No changes found` — so 141 seconds were spent because one identifier's capitalization was corrected in a database that was not otherwise modified.
+
+**Decision: the casing pass runs on full builds only, not on merges.** Source consistency never depended on the merge doing it. Export standardizes casing *before* it writes source files, so the source tree is authoritative and self-healing regardless of what the database holds; a merge's incoming code comes from those already-standardized files. The worst case from skipping it is that the database carries non-canonical casing until the next export corrects it — against a reopen that has been measured at 16, 48, and 83 seconds on the same project. Export and full build are unchanged: export must run it to keep source consistent, and a full build is producing a database from scratch where the cost is proportionate and no user session is disrupted.
+
+The cost also compounded: because the save left the project dirty, the *next* merge found a dirty project, saved it during preparation, and locked the database again. Both that and the non-convergence trace back to the partial save, so `SaveCurrentVBProject` addresses the cause; skipping the casing pass on merges makes the two paths independent regardless.
+
+**What dirties the project in practice: `AutoExec`.** Running any VBA compiles it on demand, and the compiled state is part of the saved project, so a database whose startup macro runs code has a dirty project from the moment it finishes opening — before the user does anything. On such a database the first merge after a normal open always declines.
+
+Even before the save worked this self-healed, because the fall back uses `ShiftOpenDatabase`, which bypasses the startup code: the reopened session has a clean project, and subsequent merges take the in-place path. Observed twice — a merge that fell back at 13:21 was followed by an in-place merge at 13:23 with no reopen at all. So even the worst case was one reopen per *run of the application*, not one per merge.
+
+With the worker save in place that reopen is gone as well: a merge immediately after `AutoExec` saved the project and completed in place in 58.94 s. So the option pays off both in a session opened for merging and in one where startup code has run.
+
+**Measured saving**: the two runs above are close to a matched pair — same database, no changed files, two minutes apart — and differ by 45 s (101.64 s against 56.41 s), of which 36.91 s is the reopen and the remainder is the first run's slower I/O (`Scan Folder Metadata` 8.02 s against 4.80 s). So the option removes roughly a 37 s reopen from a 100 s no-change merge on a 7,300-file project. The same pair also confirms the fall back end to end and the skipped post-merge probe: the second run made two worker calls, both during preparation, and none after the merge.
+
+Still outstanding: the equivalence check (merge the same source into two copies of a database, one path each, export both, diff the trees), the rest of the matrix (open objects of the remaining types, VBE open with unsaved edits, themes, table data, startup form), and one run of the *export* path with run-state present, to confirm the worker's reset-then-save neither prompts nor faults. Keep the option default-off and experimental until those are done.
+
+**Relevant files**: `Version Control.accda.src/modules/Core/modBuild.bas` (`Build`, new `ReopenBeforeMerge`, `PrepareMergeInPlace`, `ResetProjectForInPlaceMerge`, `FlushVbaProjectAfterReset`, `ReleaseScanState`, `TraceInPlaceMerge`), `modules/Core/modVbeUtility.bas` (new `ResetWouldEndOurOwnCode` and `SaveCurrentVBProject`, tracing in `ResetCurrentVBProjectState`), `modules/Integration/clsWorker.cls` (new `Run_SaveVbaProject` and the `SaveVbaProject` script action), `modules/Infrastructure/modErrorHandling.bas` (new `LogCrashTrace`), `modules/Utility/modTimer.bas` (`MergeReset`, `MergeResume`), `modules/Utility/modDatabase.bas` (new `SaveUnsavedVbaProject`), `modules/Core/modExport.bas` and `modules/Core/modLetterCasing.bas` (partial saves replaced), `modules/Infrastructure/clsOptions.cls`, `modules/Tests/Infrastructure/clsTestOptions.cls`, `forms/frmVCSOptionsBuild.form` + `.cls`, `Wiki/Options.md`.
+
+---
+
 ## 2026-07-28 — Merge table data through a staging table and set-based reconcile
 
 **Trigger**: Table data was skipped on merge builds, so a developer who added a record to a versioned internal table (release/version info was the motivating case) could only get it into another database with a full build. Merges are used precisely on the large databases where a full build is expensive, so "just do a full build" was not a real answer.
@@ -294,6 +453,14 @@ consumed. Separately, intermittent save prompts during builds pointed at
 - `modLetterCasing.StandardizeLetterCasing`: `Set VBE.ActiveVBProject = CurrentVBProject`
   before `DoCmd.Save`; log save failures; warn when project remains dirty.
 - Remove `Options.GitSettings` from `clsOptions`.
+
+> **⚠ Partially superseded** (2026-07-29): The letter-casing and export saves no longer use
+> `DoCmd.Save acModule`. Saving one module does not save the project when form or report
+> class modules are dirty, so those saves silently failed — which is what the "project
+> remains dirty" warning added here had been reporting all along. Both now call
+> `SaveCurrentVBProject`, which saves via the worker and returns the resulting `Saved`
+> state. The casing pass also no longer runs on merges. See "Opt-in in-place merge
+> preparation instead of the pre-merge reopen" above.
 
 **What this rules out**: Do not read merge hook names from `GitSettings` again. Do not
 move `RunBeforeMerge` before the shift-reopen without re-evaluating session lifetime.
@@ -1310,6 +1477,13 @@ as a third UI mode.
 
 ## 2026-07-06 — Surgical VBE reset in RunVBA; rejected for merge (crashes)
 
+> **⚠ Partially superseded** (2026-07-29): The reset is now used in the merge
+> path behind the opt-in `Options.SkipReopenBeforeMerge`, in one of the two
+> shapes this entry named as prerequisites — references released before the
+> reset, and the merge resumed on a fresh stack via the timer. The rejection of
+> a *bare* in-place reset in merge still stands. See "Opt-in in-place merge
+> preparation instead of the pre-merge reopen" above.
+
 **Trigger**: Agents driving `vcs_run_vba` (and repeated add/remove of modules
 via MCP) intermittently hit the modal "This action will reset your project,
 proceed anyway?" prompt, which blocks the automation thread until a human
@@ -1924,6 +2098,13 @@ full tree is enumerated regardless of whether anything changed).
 
 ## 2026-06-09 — Defer pre-merge database reopen until changes are confirmed
 
+> **⚠ Partially superseded** (2026-07-29): This decision was reverted in
+> `0e4b93b0` (the reopen is unconditional again). The `ReleaseScanState` helper
+> it depended on now exists, and the pre-merge reopen can instead be skipped
+> entirely via the opt-in `Options.SkipReopenBeforeMerge`. Deferring the reopen
+> based on change count remains unimplemented. See "Opt-in in-place merge
+> preparation instead of the pre-merge reopen" above.
+
 **Trigger**: Every merge build unconditionally closed and shift-reopened the current
 database before scanning source files (to unload objects ahead of the destructive merge),
 costing ~23s even when no source files had changed — the common "pull / switch-branch"
@@ -1957,6 +2138,12 @@ when `dCategories.Count = 0`). Combined with the enumeration and metadata change
 total no-change merge time fell from 96.3s to 11.8s. The separate ~32s post-merge
 shared-mode reopen did not occur on this run because nothing was imported — it still fires
 on merges that import objects, confirming it as the next (Phase 4) target.
+
+*(Correction, 2026-07-29: the link to importing was coincidental. The post-merge reopen is
+triggered purely by the engine lock state that `Worker.IsDatabaseAccessible` probes, which
+makes no reference to what the merge did. A later run imported four objects without
+triggering it, and another triggered it having imported nothing. See the 2026-07-29 in-place
+merge entry.)*
 
 **Relevant files**: `modBuild.bas` (`Build`, `RefreshContainerClasses`).
 

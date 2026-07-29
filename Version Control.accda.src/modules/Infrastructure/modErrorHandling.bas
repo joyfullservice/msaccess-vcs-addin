@@ -120,6 +120,31 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : LogCrashTrace
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Record a step in the log and persist the log to disk immediately, so that
+'           : a hard fault leaves evidence of how far execution got.
+'           :
+'           : Ordinary logging is not sufficient for code that can take the process down:
+'           : an access violation inside VBE7.DLL (which is what manipulating a VBA
+'           : project can produce) terminates Access without unwinding, so nothing
+'           : buffered in memory is ever written. The last line in the log file is then
+'           : the last step that completed. Reserve this for operations that can fault
+'           : rather than raise a trappable error — the disk write is not free.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LogCrashTrace(strStep As String)
+    LogUnhandledErrors
+    On Error Resume Next
+    Log.Add "  [trace] " & strStep, Options.ShowDebug
+    Log.SaveFile
+    If Err Then Err.Clear
+    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CatchAny
 ' Author    : Adam Waller
 ' Date      : 12/3/2020
