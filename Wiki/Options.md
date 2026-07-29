@@ -143,6 +143,7 @@ A unique feature of this add-in is the ability to build a fully functioning data
 |**Run Sub Before Build**|**Default: [Blank]**|Same as below, except before the build.
 |**Run Sub After Build**|**Default: [Blank]**|Run the specified subroutine after building the project from source files. This is a great way to extend the add-in to add any custom post-build functionality that you need after the build finishes. For example, you might use this to trigger an automated testing routine that verifies that the application is fully functional.
 |**Immediately export object after merge**|**Default: Off**|After a [merge build](Merge-Build), re-export merged objects so source and database stay aligned.
+|**Merge changes to exported table data**|**Default: On**|Reconcile the records in tables listed under **Table Data** during a [merge build](Merge-Build): rows are added, updated, and removed to match the source file, keyed on the table's primary key. Turn this off if those records are environment-specific. A table with no primary key is reloaded wholesale instead (unless another table references it); tables with attachment, OLE object, multi-value, or calculated fields are skipped with a warning and require a full build.
 |**Run Sub Before Merge**|**Default: [Blank]**|VBA hook before merge build (`Application.Run`).
 |**Run Sub After Merge**|**Default: [Blank]**|VBA hook after merge build.
 

@@ -307,9 +307,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             dCategory.Add "Files", cCategory.GetFileList
         Else
             ' Merge build
-            If cCategory.ComponentType = edbTableData Then
-                ' Some component types are only imported on full build
-                Log.Add T("Not merging {0}. (Imported only on full build)", _
+            If cCategory.ComponentType = edbTableData And Not Options.MergeTableData Then
+                ' Reconciling table data on a merge is optional, since it changes records
+                ' rather than object definitions.
+                Log.Add T("Not merging {0}. (Merge table data option is turned off)", _
                     var0:=T(LCase(cCategory.Category))), Options.ShowDebug
                 dCategory.Add "Files", New Dictionary
             Else
@@ -1089,6 +1090,9 @@ Public Sub MergeScoped(colContainers As Collection, blnFullMerge As Boolean)
             dCategory.Add "Files", dFiles
         Else
             If cCategory.ComponentType = edbTableData Then
+                ' Unreachable in practice: ComponentTypeSupportsScopedImport rejects table
+                ' data before a scoped import starts. Kept as a guard because a scoped
+                ' import takes no backup, unlike a merge build.
                 Log.Add T("Not merging {0}. (Imported only on full build)", _
                     var0:=T(LCase(cCategory.Category))), Options.ShowDebug
                 dCategory.Add "Files", New Dictionary

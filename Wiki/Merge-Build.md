@@ -39,6 +39,31 @@ See issue [#81](https://github.com/joyfullservice/msaccess-vcs-addin/issues/81) 
 
 ---
 
+## Table data
+
+Tables listed under **Options** → **Table Data** are merged along with everything else, controlled by **Merge changes to exported table data** in **Options** → **Build** (on by default). Turn it off if the records in those tables are environment-specific and should never be replaced by whatever a source file happens to contain.
+
+Records are reconciled row by row against the table's primary key (or a unique, required index), rather than by emptying the table and reloading it:
+
+| Source file row | Database row | Resulting action |
+|-----------------|--------------|------------------|
+| Present | Missing | Insert |
+| Present, differs | Present | Update the differing fields |
+| Present, identical | Present | None |
+| Missing | Present | Delete |
+
+Only rows that actually differ are written, so key values (including AutoNumber values that other tables reference) survive a merge, and unchanged rows are never disturbed. The console reports one line per table, for example `tblVersions: 1 added, 0 changed, 0 removed`.
+
+The whole reconcile for a table runs as a single transaction. If a delete is blocked because another table still references the row, the table is rolled back to its previous state, the error is logged, and the rest of the merge continues.
+
+**Tables with no key.** A table without a primary key (or unique, required index) has no way to pair a source record with a database record, so its records are replaced outright: every row is deleted and reloaded from the source file, inside the same transaction. The console reports `tblSettings: 42 row(s) reloaded (no key to compare on)`. Duplicate records survive this, which a key-based reconcile could not manage. Because a reload deletes every row, it is refused when another table references this one — that table is named in the warning, and adding a primary key is the fix.
+
+**Tables that are skipped.** A table is reported with a warning and left untouched when it contains attachment, OLE object, multi-value, or calculated fields, and when a keyless table has another table referencing it. Those tables still export normally, and still import on a full build — use a full build when you need them.
+
+**Deletions are in scope.** A table you have opted into version control is described completely by its source file, so a record that is not in the file is removed from the table. If a source file is missing entirely — you removed the table from the export options, or deleted the file — nothing is deleted; the existing records are left alone.
+
+---
+
 ## Conflict resolution
 
 When source and database both changed the same object, the add-in pauses for your decision:

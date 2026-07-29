@@ -46,6 +46,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim intFormat As eTableDataExportFormat
     Dim strConnect As String
 
+    ' Nothing to export from a category-level instance, such as the one a merge build uses
+    ' to re-export after merging a table it ended up skipping.
+    If m_Table Is Nothing Then Exit Sub
+
     ' Use error handling in case we encouter errors during export
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -211,9 +215,12 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/7/2020
 ' Purpose   : Imports the data from a TDF file, loading it into the table
+'           : Pass strTargetTable to load the rows somewhere other than the table the
+'           : file is named for, such as the staging table used by a merge. The target
+'           : is then assumed to be empty, so nothing is cleared first.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ImportTableDataTDF(strFile As String)
+Private Sub ImportTableDataTDF(strFile As String, Optional strTargetTable As String)
 
     Dim strTable As String
     Dim dCols As Dictionary
@@ -231,7 +238,7 @@ Private Sub ImportTableDataTDF(strFile As String)
 
     ' Build a dictionary of column names so we can load the data
     ' into the matching columns.
-    strTable = GetObjectNameFromFileName(strFile)
+    strTable = Nz2(strTargetTable, GetObjectNameFromFileName(strFile))
     Set dbs = SharedDb
     Set dCols = New Dictionary
     For Each fld In dbs.TableDefs(strTable).Fields
@@ -239,7 +246,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     Next fld
 
     ' Clear any existing records before importing this data.
-    dbs.Execute "delete from [" & strTable & "]", dbFailOnError
+    If Len(strTargetTable) = 0 Then dbs.Execute "delete from [" & strTable & "]", dbFailOnError
     Set rst = dbs.OpenRecordset(strTable)
 
     ' Read file line by line
@@ -599,14 +606,418 @@ End Sub
 ' Procedure : Merge
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
-' Purpose   : Merge the source file into the existing database, updating or replacing
-'           : any existing object.
+' Purpose   : Merge the source file into the existing database, reconciling the rows in
+'           : the table against the rows in the source file.
+'           :
+'           : Import cannot be reused here. It clears the table and reloads every row,
+'           : which fails outright once other tables reference this one, and would
+'           : rewrite rows that never changed. Instead the file is loaded into a staging
+'           : table and reconciled with three set-based statements, so only the rows that
+'           : actually differ are touched and existing key values survive.
+'           :
+'           : Source is authoritative: rows missing from the file are removed from the
+'           : table. This is consistent with the index, which has always treated table
+'           : data as something to overwrite rather than something to raise a conflict.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    Log.Error eelWarning, "Merge not supported for table data. (" & _
-        GetObjectNameFromFileName(strFile) & ")", "clsDbTableData.Merge"
+
+    Dim strTable As String
+    Dim strStaging As String
+    Dim strReason As String
+    Dim eStrategy As eTableMergeStrategy
+    Dim lngInserted As Long
+    Dim lngUpdated As Long
+    Dim lngDeleted As Long
+
+    strTable = GetObjectNameFromFileName(strFile)
+
+    ' A missing source file means the table was removed from the list of tables to export
+    ' data for, or the file was deleted outright. Discarding the rows is never the right
+    ' response to either one, so only the index entry is cleared.
+    If Not FSO.FileExists(strFile) Then
+        Log.Add T("    No source file for {0}. Leaving existing table data unchanged.", _
+            var0:=strTable), Options.ShowDebug
+        VCSIndex.Remove Me, strFile
+        Exit Sub
+    End If
+
+    ' Only local tables hold data we can merge.
+    If Not IsLocalTable(strTable) Then
+        If TableExists(strTable) Then
+            Log.Add T("    Skipping table data for linked table '{0}' (data resides in the back-end).", _
+                var0:=strTable), Options.ShowDebug
+        Else
+            Log.Error eelError, "Table structure not found for '" & strTable & "'.", _
+                ModuleName(Me) & ".Merge"
+            Log.Add T("Table definition does not exist for '{0}'." & _
+                " This must be created before merging table data.", var0:=strTable), False
+        End If
+        Exit Sub
+    End If
+
+    eStrategy = GetMergeStrategy(strTable, strFile, strReason)
+    If eStrategy = etmsNone Then
+        Log.Error eelWarning, T("Unable to merge table data for {0} ({1})." & _
+            " Perform a full build to import this table.", var0:=strTable, var1:=strReason), _
+            ModuleName(Me) & ".Merge"
+        Exit Sub
+    End If
+
+    Perf.OperationStart "Merge Table Data"
+
+    strStaging = CreateTableDataStagingTable(strTable)
+    If Len(strStaging) = 0 Then
+        Log.Error eelError, T("Unable to create a staging table to merge table data for {0}.", _
+            var0:=strTable), ModuleName(Me) & ".Merge"
+        Perf.OperationEnd
+        Exit Sub
+    End If
+
+    If LoadStagingTable(strFile, strTable, strStaging) Then
+        If ReconcileTableData(strTable, strStaging, eStrategy, _
+            lngInserted, lngUpdated, lngDeleted) Then
+            If eStrategy = etmsReload Then
+                ' Counting changes is not possible without a key, so report what was done.
+                Log.Add "    " & T("{0}: {1} row(s) reloaded (no key to compare on)", _
+                    var0:=strTable, var1:=CStr(lngInserted)), True
+            Else
+                Log.Add "    " & T("{0}: {1} added, {2} changed, {3} removed", _
+                    var0:=strTable, var1:=CStr(lngInserted), var2:=CStr(lngUpdated), _
+                    var3:=CStr(lngDeleted)), _
+                    (lngInserted + lngUpdated + lngDeleted > 0) Or Options.ShowDebug
+            End If
+            ' Record the file we just merged so the next merge sees it as unchanged.
+            Perf.OperationStart "Update Index (Table Data)"
+            Set m_Table = CurrentData.AllTables(strTable)
+            Me.Format = GetFormatByExt(strFile)
+            VCSIndex.Update Me, eatImport, GetFileHash(strFile)
+            Perf.OperationEnd
+        End If
+    End If
+
+    DropTableDataStagingTable strStaging
+    Perf.OperationEnd
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetMergeStrategy
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Returns how this table and source file can be merged, setting strReason to a
+'           : translated explanation when they cannot. Extends the table-level test in
+'           : GetTableMergeStrategy with what the source file itself rules out.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetMergeStrategy(strTable As String, strFile As String, _
+    ByRef strReason As String) As eTableMergeStrategy
+
+    ' A format we cannot load would leave the staging table empty, and an empty staging
+    ' table reads as "the source has no rows" -- which would empty the live table.
+    If GetFormatByExt(strFile) = etdNoData Then
+        strReason = T("unrecognized source file format")
+        Exit Function
+    End If
+
+    GetMergeStrategy = GetTableMergeStrategy(SharedDb.TableDefs(strTable), strReason)
+    If GetMergeStrategy = etmsNone Then Exit Function
+
+    ' A retained schema names the table it was exported from, so the row elements cannot
+    ' be pointed at the staging table without contradicting it. Tables that need the
+    ' schema are already rejected above; this catches a file exported before that was so.
+    If GetFormatByExt(strFile) = etdXML Then
+        If InStr(1, ReadFile(strFile), "xsd:schema", vbTextCompare) > 0 Then
+            strReason = T("source file has an embedded schema")
+            GetMergeStrategy = etmsNone
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadStagingTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Load the rows from the source file into the (empty) staging table.
+'---------------------------------------------------------------------------------------
+'
+Private Function LoadStagingTable(strFile As String, strTable As String, _
+    strStaging As String) As Boolean
+
+    Dim strTempFile As String
+    Dim lngSourceRows As Long
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Select Case GetFormatByExt(strFile)
+
+        Case etdTabDelimited
+            ImportTableDataTDF strFile, strStaging
+
+        Case etdXML
+            ' ImportXML takes the target table from the row element names rather than from
+            ' any parameter, so the rows have to be relabeled to reach the staging table.
+            strTempFile = GetTempFile
+            Perf.OperationStart "Relabel Staging XML"
+            If Not WriteStagingXml(strFile, strTable, strStaging, strTempFile, lngSourceRows) Then
+                On Error GoTo 0
+                Perf.OperationEnd
+                Log.Error eelError, T("Unable to prepare table data from '{0}' for merge.", _
+                    var0:=strFile), ModuleName(Me) & ".LoadStagingTable"
+                Exit Function
+            End If
+            Perf.OperationEnd
+            ' A file with no rows needs no import: the staging table is already empty,
+            ' which is what "the source has no records" means. Skipping the call is not
+            ' just an optimization -- ImportXML spends about 95 seconds on a row-less
+            ' document, however small, while a 2,000 row file imports in a fraction of a
+            ' second. Two empty tables were enough to make a merge look broken.
+            If lngSourceRows > 0 Then
+                Perf.OperationStart "Import XML to Staging"
+                Application.ImportXML strTempFile, acAppendData
+                Perf.OperationEnd
+            End If
+            DeleteFile strTempFile
+
+        Case Else
+            ' Guarded by GetMergeStrategy. Never fall through to the reconcile with an
+            ' empty staging table, which would read as a source file with no rows.
+            On Error GoTo 0
+            Exit Function
+
+    End Select
+
+    If Err Then
+        On Error GoTo 0
+        Log.Error eelError, T("Error reading table data from '{0}' for merge. {1}", _
+            var0:=strFile, var1:=Err.Description), ModuleName(Me) & ".LoadStagingTable"
+        Err.Clear
+        Exit Function
+    End If
+    On Error GoTo 0
+
+    ' ImportXML can reject individual rows without raising an error, diverting them to an
+    ' import errors table. A short load would look like rows the source no longer has, and
+    ' the reconcile would delete them, so the counts have to agree before going any further.
+    If GetFormatByExt(strFile) = etdXML Then
+        If DCount("*", "[" & strStaging & "]") <> lngSourceRows Then
+            Log.Error eelError, T("Only {0} of {1} rows from '{2}' could be read for merge.", _
+                var0:=CStr(DCount("*", "[" & strStaging & "]")), var1:=CStr(lngSourceRows), _
+                var2:=strFile), ModuleName(Me) & ".LoadStagingTable"
+            Exit Function
+        End If
+    End If
+
+    LoadStagingTable = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteStagingXml
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Write a copy of the exported XML with the row elements renamed to the
+'           : staging table, so ImportXML loads the rows there instead of into the live
+'           : table. Returns false when the file could not be parsed.
+'           :
+'           : The rows are rebuilt through the DOM rather than by replacing tag text,
+'           : because a table is allowed to have a field with the same name as the table
+'           : itself. A blind text replacement would rename that field element too.
+'---------------------------------------------------------------------------------------
+'
+Private Function WriteStagingXml(strFile As String, strTable As String, _
+    strStaging As String, strOutputFile As String, ByRef lngRows As Long) As Boolean
+
+    Dim objXml As MSXML2.DOMDocument60
+    Dim objRow As MSXML2.IXMLDOMNode
+    Dim objField As MSXML2.IXMLDOMNode
+    Dim cData As clsConcat
+    Dim strRowTag As String
+
+    ' Parsed from the file's content rather than its path, since the DOM treats the path
+    ' as a URL and these file names can contain percent-encoded characters.
+    Set objXml = New MSXML2.DOMDocument60
+    If Not objXml.LoadXML(ReadFile(strFile)) Then Exit Function
+
+    strRowTag = EscapeXmlName(strStaging)
+    Set cData = New clsConcat
+    cData.Add "<?xml version=""1.0"" encoding=""UTF-8""?>", vbCrLf
+    ' The namespace is declared even though data-only rows do not normally use it, so a
+    ' field element that does carry an od: attribute still resolves.
+    cData.Add "<dataroot xmlns:od=""urn:schemas-microsoft-com:officedata"">", vbCrLf
+
+    For Each objRow In objXml.SelectNodes("/dataroot/" & EscapeXmlName(strTable))
+        cData.Add "<", strRowTag, ">"
+        For Each objField In objRow.ChildNodes
+            cData.Add objField.XML
+        Next objField
+        cData.Add "</", strRowTag, ">", vbCrLf
+        lngRows = lngRows + 1
+    Next objRow
+
+    cData.Add "</dataroot>"
+
+    WriteFile cData.GetStr, strOutputFile
+    WriteStagingXml = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReconcileTableData
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Bring the live table in line with the staging table, returning the number of
+'           : rows affected. With a merge key that is three set-based statements; without
+'           : one it is a wholesale replace, and lngInserted reports the rows reloaded.
+'           :
+'           : Order matters. Inserting before deleting means a row that a child record
+'           : depends on is present before anything tries to remove its predecessor, and
+'           : deleting last means a delete blocked by referential integrity is reported
+'           : against a table that is otherwise already up to date.
+'           :
+'           : The whole reconcile runs in one transaction. A delete blocked by
+'           : referential integrity is the expected failure, and rolling back leaves the
+'           : table exactly as it was rather than half merged. Errors are always trapped
+'           : here, including in debug mode, since an untrapped error would leave the
+'           : transaction open.
+'---------------------------------------------------------------------------------------
+'
+Private Function ReconcileTableData(strTable As String, strStaging As String, _
+    eStrategy As eTableMergeStrategy, ByRef lngInserted As Long, _
+    ByRef lngUpdated As Long, ByRef lngDeleted As Long) As Boolean
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim dKey As Dictionary
+    Dim varKey As Variant
+    Dim cTargetCols As clsConcat
+    Dim cSourceCols As clsConcat
+    Dim cJoin As clsConcat
+    Dim cSet As clsConcat
+    Dim cDiff As clsConcat
+    Dim strT As String
+    Dim strS As String
+    Dim strFirstKey As String
+    Dim blnInTrans As Boolean
+    Dim blnTiming As Boolean
+
+    Set dbs = SharedDb
+    Set tdf = dbs.TableDefs(strTable)
+    Set dKey = GetTableMergeKey(tdf)
+    strT = "[" & strTable & "]"
+    strS = "[" & strStaging & "]"
+
+    Set cTargetCols = New clsConcat
+    Set cSourceCols = New clsConcat
+    Set cSet = New clsConcat
+    Set cDiff = New clsConcat
+    For Each fld In tdf.Fields
+        cTargetCols.Add "[", fld.Name, "], "
+        cSourceCols.Add strS, ".[", fld.Name, "], "
+        If Not dKey.Exists(fld.Name) Then
+            cSet.Add strT, ".[", fld.Name, "] = ", strS, ".[", fld.Name, "], "
+            ' Null is not equal to anything, including another Null, so an inequality
+            ' test alone would miss every change to or from Null.
+            cDiff.Add "((", strT, ".[", fld.Name, "] <> ", strS, ".[", fld.Name, "])"
+            cDiff.Add " OR (", strT, ".[", fld.Name, "] IS NULL XOR ", _
+                strS, ".[", fld.Name, "] IS NULL)) OR "
+        End If
+    Next fld
+    cTargetCols.Remove 2
+    cSourceCols.Remove 2
+    If cSet.Length > 0 Then cSet.Remove 2
+    If cDiff.Length > 0 Then cDiff.Remove 4
+
+    Set cJoin = New clsConcat
+    For Each varKey In dKey.Keys
+        If Len(strFirstKey) = 0 Then strFirstKey = CStr(varKey)
+        cJoin.Add "(", strS, ".[", CStr(varKey), "] = ", strT, ".[", CStr(varKey), "]) AND "
+    Next varKey
+    If cJoin.Length > 0 Then cJoin.Remove 5
+
+    LogUnhandledErrors
+    On Error GoTo Failed
+
+    DBEngine.Workspaces(0).BeginTrans
+    blnInTrans = True
+
+    If eStrategy = etmsReload Then
+        ' No key means no way to pair a source row with a table row, so the rows are
+        ' replaced outright. Both statements are inside the transaction, so a failure
+        ' leaves the original rows in place rather than an emptied table.
+        blnTiming = True
+        Perf.OperationStart "Reload: Delete All"
+        dbs.Execute "DELETE FROM " & strT, dbFailOnError
+        lngDeleted = dbs.RecordsAffected
+        Perf.OperationEnd
+        Perf.OperationStart "Reload: Insert All"
+        dbs.Execute "INSERT INTO " & strT & " (" & cTargetCols.GetStr & ") SELECT " & _
+            cSourceCols.GetStr & " FROM " & strS, dbFailOnError
+        lngInserted = dbs.RecordsAffected
+        Perf.OperationEnd
+        blnTiming = False
+        DBEngine.Workspaces(0).CommitTrans
+        blnInTrans = False
+        On Error GoTo 0
+        ReconcileTableData = True
+        Exit Function
+    End If
+
+    blnTiming = True
+    Perf.OperationStart "Reconcile: Insert"
+    dbs.Execute "INSERT INTO " & strT & " (" & cTargetCols.GetStr & ") SELECT " & _
+        cSourceCols.GetStr & " FROM " & strS & " LEFT JOIN " & strT & " ON " & cJoin.GetStr & _
+        " WHERE " & strT & ".[" & strFirstKey & "] IS NULL", dbFailOnError
+    lngInserted = dbs.RecordsAffected
+    Perf.OperationEnd
+
+    ' Nothing to compare or assign when the key covers every column.
+    If cSet.Length > 0 Then
+        Perf.OperationStart "Reconcile: Update"
+        dbs.Execute "UPDATE " & strT & " INNER JOIN " & strS & " ON " & cJoin.GetStr & _
+            " SET " & cSet.GetStr & " WHERE " & cDiff.GetStr, dbFailOnError
+        lngUpdated = dbs.RecordsAffected
+        Perf.OperationEnd
+    End If
+
+    Perf.OperationStart "Reconcile: Delete"
+    dbs.Execute "DELETE FROM " & strT & " WHERE NOT EXISTS (SELECT 1 FROM " & strS & _
+        " WHERE " & cJoin.GetStr & ")", dbFailOnError
+    lngDeleted = dbs.RecordsAffected
+    Perf.OperationEnd
+    blnTiming = False
+
+    DBEngine.Workspaces(0).CommitTrans
+    blnInTrans = False
+    On Error GoTo 0
+
+    ReconcileTableData = True
+    Exit Function
+
+Failed:
+    ' Close the statement's timer, not the caller's, so the failure is attributed to the
+    ' phase that raised it.
+    If blnTiming Then Perf.OperationEnd
+    Log.Error eelError, T("Unable to merge table data for {0}. No changes were made" & _
+        " to this table. {1}", var0:=strTable, var1:=Err.Description), _
+        ModuleName(Me) & ".ReconcileTableData"
+    Err.Clear
+    ' Clearing the error object is not enough while a handler is active; the handler state
+    ' has to be reset before Resume Next protects the rollback.
+    On Error GoTo -1
+    On Error Resume Next
+    If blnInTrans Then DBEngine.Workspaces(0).Rollback
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

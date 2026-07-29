@@ -52,6 +52,7 @@ Public LayoutSvgScaleMode As String     ' "Universal", "Screenshot"
 Public ExportAfterMerge As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public UseMergeBuild As Boolean
+Public MergeTableData As Boolean        ' Reconcile exported table data on merge (default: True)
 Public RunBeforeBuild As String
 Public RunAfterBuild As String
 Public RunBeforeMerge As String
@@ -161,6 +162,7 @@ Public Sub LoadDefaults()
         .ExportAfterMerge = False
         .ForceImportOriginalQuerySQL = False
         .UseMergeBuild = False
+        .MergeTableData = True
 
         ' Table Data
         Set .TablesToExportData = New Dictionary
@@ -799,7 +801,7 @@ Public Function GetCategoryHashes() As Dictionary
             ' --- Non-export options (skip) ---
             Case "ExportFolder", "ShowDebug", "UseFastSave", _
                  "UseMergeBuild", "ExportAfterMerge", "UseGitIntegration", _
-                 "ForceImportOriginalQuerySQL", _
+                 "ForceImportOriginalQuerySQL", "MergeTableData", _
                  "RunBeforeExport", "RunAfterExport", _
                  "RunBeforeBuild", "RunAfterBuild", _
                  "RunBeforeMerge", "RunAfterMerge", _
@@ -995,6 +997,7 @@ Private Sub Class_Initialize()
         .Add "ExportAfterMerge"
         .Add "ForceImportOriginalQuerySQL"
         .Add "UseMergeBuild"
+        .Add "MergeTableData"
         .Add "RunBeforeBuild"
         .Add "RunAfterBuild"
         .Add "RunBeforeMerge"

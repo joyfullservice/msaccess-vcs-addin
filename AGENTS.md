@@ -112,7 +112,7 @@ A middle tier between the single-object API (`ExportObject`/`ImportObject`) and 
 
 Accepted aliases include `menu`/`menus` and `command_bar`/`command_bars` (on-disk folder is `menus/`). Duplicate types in an array are collapsed. Types not supported in the current database format (for example `connection` on an ADP project) are rejected before the operation starts.
 
-**Import restrictions:** `ImportByType` rejects categories whose merge path is unsupported, including `table_data` and ADP schema objects (`table_data` is imported only on full build/merge). Use `Build` / `MergeBuild` for those.
+**Import restrictions:** `ImportByType` rejects categories whose merge path is unsupported, including `table_data` and ADP schema objects. Use `Build` / `MergeBuild` for those. Table data *is* merged by a normal merge build — reconciled row by row against the primary key, gated on `Options.MergeTableData` (see `Wiki/Merge-Build.md` and the 2026-07-28 DECISIONS.md entry). It is only category-scoped sync that rejects it, because scoped sync takes no database backup.
 
 **Export restrictions:** When global export options have changed (export format version, Access version), run a normal full `Export` or `FullExport` to migrate the project before relying on fast category export. Category-scoped export updates index metadata only for the categories processed; it does not update the project-wide full-export timestamp or untouched option hashes.
 

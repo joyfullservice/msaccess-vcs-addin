@@ -20,6 +20,9 @@ Private m_dTableTypeCache As Dictionary
 Private Const TABLE_DATA_SORT_QUERY_PREFIX As String = "vcs_tmp_sort_export"
 Private m_strTableDataSortQueryName As String
 
+' Temporary staging table used to reconcile table data on a merge (one table at a time).
+Private Const TABLE_DATA_STAGING_PREFIX As String = "vcs_tmp_merge_data"
+
 ' UDTs for reinterpreting a Long bit pattern as IEEE 754 Single (used by LongToSingle)
 Private Type typLong
     Value As Long
@@ -920,33 +923,12 @@ End Function
 Public Function GetTableSortFields(tdf As DAO.TableDef) As Dictionary
 
     Dim dFields As Dictionary
-    Dim idx As DAO.Index
-    Dim idxFld As Object
     Dim fld As DAO.Field
 
-    Set dFields = New Dictionary
-    dFields.CompareMode = vbTextCompare
-
-    If TableIndexesAvailable(tdf) Then
-        For Each idx In tdf.Indexes
-            If idx.Primary Then
-                For Each idxFld In idx.Fields
-                    dFields.Add idxFld.Name, tdf.Fields(idxFld.Name).Type
-                Next idxFld
-                Set GetTableSortFields = dFields
-                Exit Function
-            End If
-        Next idx
-
-        For Each idx In tdf.Indexes
-            If idx.Unique And idx.Required Then
-                For Each idxFld In idx.Fields
-                    dFields.Add idxFld.Name, tdf.Fields(idxFld.Name).Type
-                Next idxFld
-                Set GetTableSortFields = dFields
-                Exit Function
-            End If
-        Next idx
+    Set dFields = GetTableMergeKey(tdf)
+    If dFields.Count > 0 Then
+        Set GetTableSortFields = dFields
+        Exit Function
     End If
 
     For Each fld In tdf.Fields
@@ -954,6 +936,138 @@ Public Function GetTableSortFields(tdf As DAO.TableDef) As Dictionary
     Next fld
 
     Set GetTableSortFields = dFields
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetTableMergeKey
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return the field names and DAO types of the primary key, or failing that a
+'           : unique and required index, for use as a row identity when merging table
+'           : data. Returns an empty dictionary when the table has no such index.
+'           :
+'           : Unlike GetTableSortFields, this never falls back to the full field list.
+'           : Sorting only needs a deterministic order, but merging needs each row in the
+'           : source file to match at most one row in the table, so a non-unique key
+'           : would silently update or delete the wrong rows.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableMergeKey(tdf As DAO.TableDef) As Dictionary
+
+    Dim dFields As Dictionary
+    Dim idx As DAO.Index
+    Dim idxFld As Object
+
+    Set dFields = New Dictionary
+    dFields.CompareMode = vbTextCompare
+    Set GetTableMergeKey = dFields
+
+    If Not TableIndexesAvailable(tdf) Then Exit Function
+
+    For Each idx In tdf.Indexes
+        If idx.Primary Then
+            For Each idxFld In idx.Fields
+                dFields.Add idxFld.Name, tdf.Fields(idxFld.Name).Type
+            Next idxFld
+            Exit Function
+        End If
+    Next idx
+
+    For Each idx In tdf.Indexes
+        If idx.Unique And idx.Required Then
+            For Each idxFld In idx.Fields
+                dFields.Add idxFld.Name, tdf.Fields(idxFld.Name).Type
+            Next idxFld
+            Exit Function
+        End If
+    Next idx
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetTableMergeStrategy
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Returns how a merge can bring this table's data in line with its source
+'           : file, setting strReason to a translated explanation when it cannot.
+'           :
+'           : Binary, complex, and calculated columns rule out any strategy. Binary and
+'           : complex values cannot be compared with a SQL operator, and calculated
+'           : columns are maintained by the engine and cannot be assigned. Those tables
+'           : still export and still import on a full build.
+'           :
+'           : With a merge key the rows are reconciled individually. Without one, a source
+'           : row cannot be matched to a table row, so the only option is to replace every
+'           : row -- acceptable precisely because there is no key, and therefore no
+'           : identity or AutoNumber value that anything could be holding a reference to.
+'           : It is still refused when a relationship points at the table, since the
+'           : delete would fail and the whole table would roll back.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableMergeStrategy(tdf As DAO.TableDef, _
+    ByRef strReason As String) As eTableMergeStrategy
+
+    Dim fld As DAO.Field
+    Dim strDependent As String
+
+    strReason = vbNullString
+
+    For Each fld In tdf.Fields
+        If IsBinaryTableFieldType(fld.Type) Then
+            strReason = T("binary field '{0}'", var0:=fld.Name)
+            Exit Function
+        End If
+    Next fld
+
+    ' Covers complex (multi-value/attachment) and calculated fields, both of which
+    ' depend on the embedded XML schema to round-trip.
+    If TableRequiresXmlSchema(tdf) Then
+        strReason = T("complex or calculated fields")
+        Exit Function
+    End If
+
+    If GetTableMergeKey(tdf).Count > 0 Then
+        GetTableMergeStrategy = etmsReconcile
+        Exit Function
+    End If
+
+    strDependent = GetFirstDependentTable(tdf.Name)
+    If Len(strDependent) > 0 Then
+        strReason = T("no primary key or unique required index, and '{0}' references it", _
+            var0:=strDependent)
+        Exit Function
+    End If
+
+    GetTableMergeStrategy = etmsReload
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetFirstDependentTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return the name of a table that references this one through a relationship,
+'           : or an empty string when nothing does. Only the first is needed; it exists to
+'           : name a blocking table in a message.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFirstDependentTable(strTable As String) As String
+
+    Dim rel As DAO.Relation
+
+    For Each rel In SharedDb.Relations
+        ' Table is the referenced (one) side, ForeignTable the referencing (many) side.
+        If StrComp(rel.Table, strTable, vbTextCompare) = 0 Then
+            If StrComp(rel.ForeignTable, strTable, vbTextCompare) <> 0 Then
+                GetFirstDependentTable = rel.ForeignTable
+                Exit Function
+            End If
+        End If
+    Next rel
 
 End Function
 
@@ -1194,6 +1308,181 @@ Private Function GetUnusedTableDataSortQueryName() As String
     Loop
 
     GetUnusedTableDataSortQueryName = strName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : CreateTableDataStagingTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Create an empty local table with the same columns as strTable, to load a
+'           : source file into before reconciling it against the live table. Returns the
+'           : staging table name, or an empty string when it could not be created.
+'           :
+'           : SELECT INTO is used rather than DDL so every column keeps the source
+'           : table's exact type and size. It also demotes an AutoNumber key to a plain
+'           : Long, which is what we want: the staging copy has to hold the key values
+'           : read from the source file.
+'           :
+'           : A unique index on the merge key is added for two reasons. The engine
+'           : rejects an UPDATE across a join unless the joined side is provably unique,
+'           : and the index is what keeps the reconcile joins from scanning. A table with
+'           : no merge key gets no index, since it is reloaded wholesale rather than
+'           : joined, and a unique index could reject rows the live table accepts.
+'---------------------------------------------------------------------------------------
+'
+Public Function CreateTableDataStagingTable(strTable As String) As String
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim dKey As Dictionary
+    Dim varKey As Variant
+    Dim cFields As clsConcat
+    Dim cKeys As clsConcat
+    Dim strName As String
+
+    ' An interrupted merge can leave one behind, and table defs get exported.
+    Perf.OperationStart "Sweep Staging Tables"
+    SweepLeftoverTableDataStagingTables
+    Perf.OperationEnd
+
+    Set dbs = SharedDb
+    Set tdf = dbs.TableDefs(strTable)
+    Set dKey = GetTableMergeKey(tdf)
+
+    Set cFields = New clsConcat
+    For Each fld In tdf.Fields
+        cFields.Add "[", fld.Name, "], "
+    Next fld
+    cFields.Remove 2
+
+    Set cKeys = New clsConcat
+    For Each varKey In dKey.Keys
+        cKeys.Add "[", CStr(varKey), "], "
+    Next varKey
+    If cKeys.Length > 0 Then cKeys.Remove 2
+
+    strName = GetUnusedTableDataStagingName
+
+    Perf.OperationStart "Create Staging Table"
+    LogUnhandledErrors
+    On Error Resume Next
+    dbs.Execute "SELECT " & cFields.GetStr & " INTO [" & strName & "] FROM [" & strTable & _
+        "] WHERE (1 = 0)", dbFailOnError
+    If Err Then GoTo Failed
+    If cKeys.Length > 0 Then
+        dbs.Execute "CREATE UNIQUE INDEX [idx_" & strName & "] ON [" & strName & "] (" & _
+            cKeys.GetStr & ")", dbFailOnError
+        If Err Then GoTo Failed
+    End If
+    ' The collection was enumerated before this table existed.
+    dbs.TableDefs.Refresh
+    If Err Then GoTo Failed
+    On Error GoTo 0
+
+    CreateTableDataStagingTable = strName
+    Perf.OperationEnd
+    Exit Function
+
+Failed:
+    Err.Clear
+    On Error GoTo 0
+    Perf.OperationEnd
+    ' Never return a half-built staging table for the caller to load rows into.
+    DropTableDataStagingTable strName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DropTableDataStagingTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Remove a staging table. Safe to call with an empty name or for a table that
+'           : was never created, so it can sit unconditionally in a cleanup block.
+'---------------------------------------------------------------------------------------
+'
+Public Sub DropTableDataStagingTable(strName As String)
+
+    Dim dbs As DAO.Database
+
+    If Len(strName) = 0 Then Exit Sub
+    Set dbs = SharedDb
+
+    LogUnhandledErrors
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strName & "]", dbFailOnError
+    If Err Then Err.Clear
+    dbs.TableDefs.Refresh
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SweepLeftoverTableDataStagingTables
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Remove staging tables left behind by an interrupted merge. Only ever called
+'           : before a new staging table is created, so this can never drop one that is
+'           : currently in use.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SweepLeftoverTableDataStagingTables()
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim colNames As Collection
+    Dim varName As Variant
+
+    Set dbs = SharedDb
+    Set colNames = New Collection
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set rst = dbs.OpenRecordset( _
+        "SELECT Name FROM MSysObjects WHERE Name LIKE '" & TABLE_DATA_STAGING_PREFIX & "*' AND Type = 1", _
+        dbOpenSnapshot, dbReadOnly)
+    If Not rst Is Nothing Then
+        Do While Not rst.EOF
+            colNames.Add Nz(rst!Name, vbNullString)
+            rst.MoveNext
+        Loop
+        rst.Close
+        Set rst = Nothing
+    End If
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+    For Each varName In colNames
+        DropTableDataStagingTable CStr(varName)
+    Next varName
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetUnusedTableDataStagingName
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return a table name not already used by any object in the database.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetUnusedTableDataStagingName() As String
+
+    Dim strName As String
+    Dim lngSuffix As Long
+
+    strName = TABLE_DATA_STAGING_PREFIX
+    Do While DCount("*", "MSysObjects", "Name=""" & strName & """") > 0
+        lngSuffix = lngSuffix + 1
+        strName = TABLE_DATA_STAGING_PREFIX & CStr(lngSuffix)
+    Loop
+
+    GetUnusedTableDataStagingName = strName
 
 End Function
 

@@ -54,6 +54,7 @@ Private Sub LoadOptions()
     With Form_frmVCSOptions.OptionsInstance
         Me.chkExportAfterMerge = .ExportAfterMerge
         Me.chkForceImportOriginalQuerySQL = .ForceImportOriginalQuerySQL
+        Me.chkMergeTableData = .MergeTableData
         Me.txtRunBeforeBuild = .RunBeforeBuild
         Me.txtRunAfterBuild = .RunAfterBuild
         Me.txtRunBeforeMerge = .RunBeforeMerge
@@ -75,6 +76,7 @@ Private Sub SaveOptions()
     With Form_frmVCSOptions.OptionsInstance
         .ExportAfterMerge = Nz(Me.chkExportAfterMerge)
         .ForceImportOriginalQuerySQL = Nz(Me.chkForceImportOriginalQuerySQL)
+        .MergeTableData = Nz(Me.chkMergeTableData)
         .RunBeforeBuild = Nz(Me.txtRunBeforeBuild)
         .RunAfterBuild = Nz(Me.txtRunAfterBuild)
         .RunBeforeMerge = Nz(Me.txtRunBeforeMerge)

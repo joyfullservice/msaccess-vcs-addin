@@ -18,6 +18,15 @@ Private Const TEST_TABLE_PLAIN As String = "vcs_test_plain"
 Private Const TEST_TABLE_OLE As String = "vcs_test_ole"
 Private Const TEST_TABLE_SORTFIELDS As String = "vcs_test_sortfields"
 Private Const TEST_TABLE_PRIMARY_KEY As String = "vcs_test_sortfields_pk"
+Private Const TEST_TABLE_BINARY As String = "vcs_test_binary_pk"
+Private Const TEST_TABLE_MERGE As String = "vcs_test_merge"
+Private Const TEST_TABLE_MERGE_COMPOSITE As String = "vcs_test_merge_composite"
+Private Const TEST_TABLE_MERGE_NULLS As String = "vcs_test_merge_nulls"
+Private Const TEST_TABLE_MERGE_PARENT As String = "vcs_test_merge_parent"
+Private Const TEST_TABLE_MERGE_CHILD As String = "vcs_test_merge_child"
+
+' The XML merge table deliberately carries a field with the same name as the table.
+Private Const TEST_TABLE_MERGE_XML As String = "vcs_test_merge_xml"
 
 
 Public Sub TestEscapeXmlName()
@@ -385,6 +394,649 @@ Public Sub TestTableDataSortQueryRecoversWhenDeleted()
 
     DropTestTable TEST_TABLE_ORDER, dbs
 
+End Sub
+
+
+Public Sub TestGetTableMergeKey_RequiresUniqueIndex()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+
+    Set dbs = CurrentDb
+
+    CreateTestTable dbs, TEST_TABLE_PRIMARY_KEY, _
+        "CREATE TABLE [" & TEST_TABLE_PRIMARY_KEY & "] (ID LONG, ObjectType LONG, CONSTRAINT PK PRIMARY KEY (ID, ObjectType))"
+    TestAssert GetTableMergeKey(dbs.TableDefs(TEST_TABLE_PRIMARY_KEY)).Count = 2, _
+        "composite primary key returns both fields"
+    DropTestTable TEST_TABLE_PRIMARY_KEY, dbs
+
+    ' GetTableSortFields falls back to every field here, which is deliberately not
+    ' something the merge key is allowed to do.
+    CreateTestTable dbs, TEST_TABLE_SORTFIELDS, _
+        "CREATE TABLE [" & TEST_TABLE_SORTFIELDS & "] (Alpha TEXT(10), Beta LONG)"
+    TestAssert GetTableMergeKey(dbs.TableDefs(TEST_TABLE_SORTFIELDS)).Count = 0, _
+        "table with no unique index has no merge key"
+    TestAssert GetTableSortFields(dbs.TableDefs(TEST_TABLE_SORTFIELDS)).Count = 2, _
+        "sort fields still fall back to all fields"
+    DropTestTable TEST_TABLE_SORTFIELDS, dbs
+
+End Sub
+
+
+Public Sub TestGetTableMergeStrategy()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strReason As String
+
+    Set dbs = CurrentDb
+
+    CreateTestTable dbs, TEST_TABLE_PLAIN, _
+        "CREATE TABLE [" & TEST_TABLE_PLAIN & "] (ID LONG PRIMARY KEY, Alpha TEXT(10))"
+    TestAssert GetTableMergeStrategy(dbs.TableDefs(TEST_TABLE_PLAIN), strReason) = etmsReconcile, _
+        "keyed table of simple types is reconciled row by row"
+    TestAssert Len(strReason) = 0, "no reason given when mergeable"
+    DropTestTable TEST_TABLE_PLAIN, dbs
+
+    ' Without a key there is nothing to pair rows on, so the rows are replaced instead.
+    CreateTestTable dbs, TEST_TABLE_SORTFIELDS, _
+        "CREATE TABLE [" & TEST_TABLE_SORTFIELDS & "] (Alpha TEXT(10), Beta LONG)"
+    TestAssert GetTableMergeStrategy(dbs.TableDefs(TEST_TABLE_SORTFIELDS), strReason) = etmsReload, _
+        "table with no unique index is reloaded"
+    TestAssert Len(strReason) = 0, "no reason given when reloadable"
+    DropTestTable TEST_TABLE_SORTFIELDS, dbs
+
+    CreateTestTable dbs, TEST_TABLE_BINARY, _
+        "CREATE TABLE [" & TEST_TABLE_BINARY & "] (ID LONG PRIMARY KEY, Blob LONGBINARY)"
+    TestAssert GetTableMergeStrategy(dbs.TableDefs(TEST_TABLE_BINARY), strReason) = etmsNone, _
+        "binary field blocks any merge"
+    TestAssert InStr(1, strReason, "Blob", vbTextCompare) > 0, "reason names the binary field"
+    DropTestTable TEST_TABLE_BINARY, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestGetTableMergeStrategy_KeylessWithDependent
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : A keyless table can only be reloaded, and a reload deletes every row. When
+'           : another table references it the delete would fail and roll the table back,
+'           : so the merge is refused up front with a message naming the blocking table.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestGetTableMergeStrategy_KeylessWithDependent()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strReason As String
+
+    Set dbs = CurrentDb
+    DropTestTable TEST_TABLE_MERGE_CHILD, dbs
+    ' A unique index on a nullable column: enough for a relationship to reference, but not
+    ' a merge key, since a Null could match several rows.
+    CreateTestTable dbs, TEST_TABLE_MERGE_PARENT, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE_PARENT & "] (ID LONG, Label TEXT(50))"
+    dbs.Execute "CREATE UNIQUE INDEX [uq_parent] ON [" & TEST_TABLE_MERGE_PARENT & "] (ID)", _
+        dbFailOnError
+    dbs.TableDefs.Refresh
+    TestAssert GetTableMergeKey(dbs.TableDefs(TEST_TABLE_MERGE_PARENT)).Count = 0, _
+        "a unique index on a nullable column is not a merge key"
+    TestAssert GetTableMergeStrategy(dbs.TableDefs(TEST_TABLE_MERGE_PARENT), strReason) = etmsReload, _
+        "keyless table with nothing referencing it is reloaded"
+
+    CreateTestTable dbs, TEST_TABLE_MERGE_CHILD, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE_CHILD & "] (CID LONG PRIMARY KEY, ParentID LONG" & _
+        " REFERENCES [" & TEST_TABLE_MERGE_PARENT & "] (ID))"
+    TestAssert GetFirstDependentTable(TEST_TABLE_MERGE_PARENT) = TEST_TABLE_MERGE_CHILD, _
+        "the referencing table is reported as a dependent"
+    TestAssert Len(GetFirstDependentTable(TEST_TABLE_MERGE_CHILD)) = 0, _
+        "the referencing table itself has no dependents"
+    TestAssert GetTableMergeStrategy(dbs.TableDefs(TEST_TABLE_MERGE_PARENT), strReason) = etmsNone, _
+        "a reload is refused while another table references the rows"
+    TestAssert InStr(1, strReason, TEST_TABLE_MERGE_CHILD, vbTextCompare) > 0, _
+        "reason names the table that blocks the reload"
+
+    DropTestTable TEST_TABLE_MERGE_CHILD, dbs
+    DropTestTable TEST_TABLE_MERGE_PARENT, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_ReconcilesRowsFromTdf
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : One merge has to add a missing row, update a changed row, and remove a row
+'           : the source no longer has, and a second merge of the same file has to be a
+'           : no-op.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_ReconcilesRowsFromTdf()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strExpected As String
+
+    Set dbs = CurrentDb
+    CreateTestTable dbs, TEST_TABLE_MERGE, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE & "] (ID LONG PRIMARY KEY, Label TEXT(50))"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE & "] (ID, Label) VALUES (1, 'A')", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE & "] (ID, Label) VALUES (2, 'B')", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE & "] (ID, Label) VALUES (3, 'C')", dbFailOnError
+
+    ' The exported file becomes the state the merge has to restore.
+    strFile = GetTestSourceFile(TEST_TABLE_MERGE, "txt")
+    ExportTestTableData TEST_TABLE_MERGE, etdTabDelimited, strFile
+    strExpected = GetRowSummary("SELECT ID, Label FROM [" & TEST_TABLE_MERGE & "] ORDER BY ID")
+
+    ' Diverge in all three directions at once.
+    dbs.Execute "UPDATE [" & TEST_TABLE_MERGE & "] SET Label = 'changed' WHERE ID = 1", dbFailOnError
+    dbs.Execute "DELETE FROM [" & TEST_TABLE_MERGE & "] WHERE ID = 2", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE & "] (ID, Label) VALUES (4, 'D')", dbFailOnError
+
+    MergeTestTableData etdTabDelimited, strFile
+    TestAssert GetRowSummary("SELECT ID, Label FROM [" & TEST_TABLE_MERGE & "] ORDER BY ID") = strExpected, _
+        "row added, row updated, and row removed to match the source file"
+
+    MergeTestTableData etdTabDelimited, strFile
+    TestAssert GetRowSummary("SELECT ID, Label FROM [" & TEST_TABLE_MERGE & "] ORDER BY ID") = strExpected, _
+        "merging the same file again changes nothing"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_MERGE, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_EmptyXmlSourceEmptiesTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : A source file with no records means the table should hold none. The load path
+'           : skips ImportXML in this case, so the empty staging table has to be reached
+'           : anyway -- and the merge has to finish promptly, since ImportXML takes about
+'           : 95 seconds on a row-less document.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_EmptyXmlSourceEmptiesTable()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim sngStart As Single
+
+    Set dbs = CurrentDb
+    CreateTestTable dbs, TEST_TABLE_MERGE, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE & "] (ID LONG PRIMARY KEY, Label TEXT(50))"
+    strSql = "SELECT ID, Label FROM [" & TEST_TABLE_MERGE & "] ORDER BY ID"
+
+    ' Export while empty, then add rows the source file does not have.
+    strFile = GetTestSourceFile(TEST_TABLE_MERGE, "xml")
+    ExportTestTableData TEST_TABLE_MERGE, etdXML, strFile
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE & "] (ID, Label) VALUES (1, 'A')", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE & "] (ID, Label) VALUES (2, 'B')", dbFailOnError
+
+    sngStart = Timer
+    MergeTestTableData etdXML, strFile
+    TestAssert Len(GetRowSummary(strSql)) = 0, "table emptied to match a source file with no records"
+    TestAssert Timer - sngStart < 10, "row-less source merged without the ImportXML stall"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_MERGE, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_ReconcilesRowsFromXml
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : The XML rows have to be relabeled to load into the staging table. This table
+'           : has a field named after the table itself, which is the case that a textual
+'           : tag replacement would corrupt.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_ReconcilesRowsFromXml()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strExpected As String
+
+    Set dbs = CurrentDb
+    CreateTestTable dbs, TEST_TABLE_MERGE_XML, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE_XML & "] (ID LONG PRIMARY KEY, [" & _
+        TEST_TABLE_MERGE_XML & "] TEXT(50))"
+    strSql = "SELECT ID, [" & TEST_TABLE_MERGE_XML & "] FROM [" & TEST_TABLE_MERGE_XML & "] ORDER BY ID"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_XML & "] (ID, [" & TEST_TABLE_MERGE_XML & _
+        "]) VALUES (1, 'A')", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_XML & "] (ID, [" & TEST_TABLE_MERGE_XML & _
+        "]) VALUES (2, 'B')", dbFailOnError
+
+    strFile = GetTestSourceFile(TEST_TABLE_MERGE_XML, "xml")
+    ExportTestTableData TEST_TABLE_MERGE_XML, etdXML, strFile
+    strExpected = GetRowSummary(strSql)
+
+    dbs.Execute "UPDATE [" & TEST_TABLE_MERGE_XML & "] SET [" & TEST_TABLE_MERGE_XML & _
+        "] = 'changed' WHERE ID = 1", dbFailOnError
+    dbs.Execute "DELETE FROM [" & TEST_TABLE_MERGE_XML & "] WHERE ID = 2", dbFailOnError
+
+    MergeTestTableData etdXML, strFile
+    TestAssert GetRowSummary(strSql) = strExpected, _
+        "XML rows merged even though a field shares the table name"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_MERGE_XML, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_CompositeKey
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : The engine only accepts an UPDATE across a join when the joined side is
+'           : provably unique, which for a composite key depends on the multi-column
+'           : unique index the staging table is given.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_CompositeKey()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strExpected As String
+
+    Set dbs = CurrentDb
+    CreateTestTable dbs, TEST_TABLE_MERGE_COMPOSITE, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE_COMPOSITE & "] (ID LONG, Kind LONG, Label TEXT(50)," & _
+        " CONSTRAINT PK PRIMARY KEY (ID, Kind))"
+    strSql = "SELECT ID, Kind, Label FROM [" & TEST_TABLE_MERGE_COMPOSITE & "] ORDER BY ID, Kind"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_COMPOSITE & "] (ID, Kind, Label) VALUES (1, 1, 'A')", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_COMPOSITE & "] (ID, Kind, Label) VALUES (1, 2, 'B')", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_COMPOSITE & "] (ID, Kind, Label) VALUES (2, 1, 'C')", dbFailOnError
+
+    strFile = GetTestSourceFile(TEST_TABLE_MERGE_COMPOSITE, "txt")
+    ExportTestTableData TEST_TABLE_MERGE_COMPOSITE, etdTabDelimited, strFile
+    strExpected = GetRowSummary(strSql)
+
+    dbs.Execute "UPDATE [" & TEST_TABLE_MERGE_COMPOSITE & "] SET Label = 'changed' WHERE ID = 1 AND Kind = 2", dbFailOnError
+    dbs.Execute "DELETE FROM [" & TEST_TABLE_MERGE_COMPOSITE & "] WHERE ID = 2", dbFailOnError
+
+    MergeTestTableData etdTabDelimited, strFile
+    TestAssert GetRowSummary(strSql) = strExpected, "composite key rows reconciled"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_MERGE_COMPOSITE, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_NullsAndLongMemo
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Null is not equal to anything, including another Null, so a change to or
+'           : from Null is only detected by the explicit null test in the comparison. Memo
+'           : values are checked past the 255 character mark, where a truncating
+'           : comparison would silently report no change.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_NullsAndLongMemo()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strExpected As String
+    Dim strLong As String
+
+    Set dbs = CurrentDb
+    ' [Note] stays bracketed throughout: NOTE is a type keyword in Access DDL (a synonym
+    ' for MEMO), so an unbracketed column of that name is a syntax error. Keeping the name
+    ' also gives the reconcile a reserved word to prove it brackets every identifier.
+    CreateTestTable dbs, TEST_TABLE_MERGE_NULLS, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE_NULLS & "] (ID LONG PRIMARY KEY, [Note] MEMO, Amount DOUBLE)"
+    strSql = "SELECT ID, [Note], Amount FROM [" & TEST_TABLE_MERGE_NULLS & "] ORDER BY ID"
+    strLong = String$(299, "y") & "z"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_NULLS & "] (ID, [Note], Amount) VALUES (1, '" & _
+        strLong & "', 1.5)", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_NULLS & "] (ID, [Note], Amount) VALUES (2, Null, Null)", dbFailOnError
+
+    strFile = GetTestSourceFile(TEST_TABLE_MERGE_NULLS, "xml")
+    ExportTestTableData TEST_TABLE_MERGE_NULLS, etdXML, strFile
+    strExpected = GetRowSummary(strSql)
+
+    ' Differ only in the last character of the memo, and in both directions across Null.
+    dbs.Execute "UPDATE [" & TEST_TABLE_MERGE_NULLS & "] SET [Note] = '" & String$(300, "y") & _
+        "', Amount = Null WHERE ID = 1", dbFailOnError
+    dbs.Execute "UPDATE [" & TEST_TABLE_MERGE_NULLS & "] SET [Note] = 'now set', Amount = 9 WHERE ID = 2", dbFailOnError
+
+    MergeTestTableData etdXML, strFile
+    TestAssert GetRowSummary(strSql) = strExpected, _
+        "long memo difference and both Null directions reconciled"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_MERGE_NULLS, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_MissingSourceFileKeepsRows
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : A table dropped from the export options, or a deleted file, arrives here as
+'           : a missing file. Emptying the table is never the right response.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_MissingSourceFileKeepsRows()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strExpected As String
+
+    Set dbs = CurrentDb
+    CreateTestTable dbs, TEST_TABLE_MERGE, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE & "] (ID LONG PRIMARY KEY, Label TEXT(50))"
+    strSql = "SELECT ID, Label FROM [" & TEST_TABLE_MERGE & "] ORDER BY ID"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE & "] (ID, Label) VALUES (1, 'A')", dbFailOnError
+    strExpected = GetRowSummary(strSql)
+
+    ' Never written, standing in for a file that was deleted or is no longer exported.
+    strFile = GetTestSourceFile(TEST_TABLE_MERGE, "txt")
+    TestAssert Not FSO.FileExists(strFile), "source file does not exist"
+
+    MergeTestTableData etdTabDelimited, strFile
+    TestAssert GetRowSummary(strSql) = strExpected, "rows left alone when the source file is gone"
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_MERGE, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_ReloadsTableWithoutMergeKey
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Without a key a source row cannot be paired with a table row, so every row is
+'           : replaced. The end state still has to match the source file exactly, including
+'           : dropping a row the file does not have and keeping duplicates the file does.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_ReloadsTableWithoutMergeKey()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strExpected As String
+
+    Set dbs = CurrentDb
+    CreateTestTable dbs, TEST_TABLE_SORTFIELDS, _
+        "CREATE TABLE [" & TEST_TABLE_SORTFIELDS & "] (Alpha TEXT(10), Beta LONG)"
+    strSql = "SELECT Alpha, Beta FROM [" & TEST_TABLE_SORTFIELDS & "] ORDER BY Alpha, Beta"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_SORTFIELDS & "] (Alpha, Beta) VALUES ('a', 1)", dbFailOnError
+    ' Duplicate rows are legal here and have to survive the round trip.
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_SORTFIELDS & "] (Alpha, Beta) VALUES ('a', 1)", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_SORTFIELDS & "] (Alpha, Beta) VALUES (Null, Null)", dbFailOnError
+
+    strFile = GetTestSourceFile(TEST_TABLE_SORTFIELDS, "txt")
+    ExportTestTableData TEST_TABLE_SORTFIELDS, etdTabDelimited, strFile
+    strExpected = GetRowSummary(strSql)
+
+    ' Diverge in both directions: a row the file does not have, and a row it does.
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_SORTFIELDS & "] (Alpha, Beta) VALUES ('b', 2)", dbFailOnError
+    dbs.Execute "DELETE FROM [" & TEST_TABLE_SORTFIELDS & "] WHERE Alpha Is Null", dbFailOnError
+
+    MergeTestTableData etdTabDelimited, strFile
+    TestAssert GetRowSummary(strSql) = strExpected, "keyless table reloaded to match the source"
+
+    ' A second merge of the same file has to leave the same rows behind.
+    MergeTestTableData etdTabDelimited, strFile
+    TestAssert GetRowSummary(strSql) = strExpected, "reload is idempotent"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_SORTFIELDS, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_SkipsKeylessTableWithDependent
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Reloading a keyless table deletes every row, which fails when another table
+'           : references them. The table is left untouched rather than rolled back.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_SkipsKeylessTableWithDependent()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strDiverged As String
+
+    Set dbs = CurrentDb
+    DropTestTable TEST_TABLE_MERGE_CHILD, dbs
+    CreateTestTable dbs, TEST_TABLE_MERGE_PARENT, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE_PARENT & "] (ID LONG, Label TEXT(50))"
+    dbs.Execute "CREATE UNIQUE INDEX [uq_parent] ON [" & TEST_TABLE_MERGE_PARENT & "] (ID)", _
+        dbFailOnError
+    dbs.TableDefs.Refresh
+    strSql = "SELECT ID, Label FROM [" & TEST_TABLE_MERGE_PARENT & "] ORDER BY ID"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_PARENT & "] (ID, Label) VALUES (1, 'A')", dbFailOnError
+
+    strFile = GetTestSourceFile(TEST_TABLE_MERGE_PARENT, "txt")
+    ExportTestTableData TEST_TABLE_MERGE_PARENT, etdTabDelimited, strFile
+
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_PARENT & "] (ID, Label) VALUES (2, 'B')", dbFailOnError
+    CreateTestTable dbs, TEST_TABLE_MERGE_CHILD, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE_CHILD & "] (CID LONG PRIMARY KEY, ParentID LONG" & _
+        " REFERENCES [" & TEST_TABLE_MERGE_PARENT & "] (ID))"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_CHILD & "] (CID, ParentID) VALUES (1, 2)", dbFailOnError
+    strDiverged = GetRowSummary(strSql)
+
+    MergeTestTableData etdTabDelimited, strFile, True
+    TestAssert GetRowSummary(strSql) = strDiverged, _
+        "keyless table with a dependent is left untouched"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_MERGE_CHILD, dbs
+    DropTestTable TEST_TABLE_MERGE_PARENT, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_RollsBackWhenDeleteBlocked
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : A row the source no longer has may still be referenced by a child record.
+'           : The reconcile runs in one transaction so the table is left exactly as it
+'           : was rather than half merged.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_RollsBackWhenDeleteBlocked()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strDiverged As String
+
+    Set dbs = CurrentDb
+    DropTestTable TEST_TABLE_MERGE_CHILD, dbs
+    CreateTestTable dbs, TEST_TABLE_MERGE_PARENT, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE_PARENT & "] (ID LONG PRIMARY KEY, Label TEXT(50))"
+    strSql = "SELECT ID, Label FROM [" & TEST_TABLE_MERGE_PARENT & "] ORDER BY ID"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_PARENT & "] (ID, Label) VALUES (1, 'A')", dbFailOnError
+
+    strFile = GetTestSourceFile(TEST_TABLE_MERGE_PARENT, "txt")
+    ExportTestTableData TEST_TABLE_MERGE_PARENT, etdTabDelimited, strFile
+
+    ' Add a parent row the source file does not have, and pin it with a child record.
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_PARENT & "] (ID, Label) VALUES (2, 'B')", dbFailOnError
+    CreateTestTable dbs, TEST_TABLE_MERGE_CHILD, _
+        "CREATE TABLE [" & TEST_TABLE_MERGE_CHILD & "] (CID LONG PRIMARY KEY, ParentID LONG" & _
+        " REFERENCES [" & TEST_TABLE_MERGE_PARENT & "] (ID))"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_MERGE_CHILD & "] (CID, ParentID) VALUES (1, 2)", dbFailOnError
+    ' Also give the merge an update to perform, so a partial merge would be visible.
+    dbs.Execute "UPDATE [" & TEST_TABLE_MERGE_PARENT & "] SET Label = 'changed' WHERE ID = 1", dbFailOnError
+    strDiverged = GetRowSummary(strSql)
+
+    MergeTestTableData etdTabDelimited, strFile, True
+    TestAssert GetRowSummary(strSql) = strDiverged, _
+        "blocked delete rolls back the whole reconcile, including the update"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_MERGE_CHILD, dbs
+    DropTestTable TEST_TABLE_MERGE_PARENT, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeTestTableData
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Merge one source file through clsDbTableData, which reads the table name
+'           : from the file name. The change index is disabled so temp test tables never
+'           : reach the project index, and expected warnings are routed to the log rather
+'           : than to a dialog that would stall an unattended run.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MergeTestTableData(intFormat As eTableDataExportFormat, strFile As String, _
+    Optional blnExpectLogError As Boolean)
+
+    Dim cTable As clsDbTableData
+    Dim blnIndexDisabled As Boolean
+    Dim blnLogActive As Boolean
+    Dim intErrorLevel As eErrorLevel
+
+    blnIndexDisabled = VCSIndex.Disabled
+    VCSIndex.Disabled = True
+    blnLogActive = Log.Active
+    intErrorLevel = Operation.ErrorLevel
+    If blnExpectLogError Then Log.Active = True
+
+    Set cTable = New clsDbTableData
+    cTable.Format = intFormat
+    cTable.Parent.Merge strFile
+
+    If blnExpectLogError Then
+        Log.Active = blnLogActive
+        ' The warning was the expected outcome, so it should not color the test run.
+        Operation.ErrorLevel = intErrorLevel
+    End If
+    VCSIndex.Disabled = blnIndexDisabled
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetRowSummary
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Render the rows of a query as one comparable string, distinguishing Null
+'           : from an empty value.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetRowSummary(strSql As String) As String
+
+    Dim rst As DAO.Recordset
+    Dim fld As DAO.Field
+    Dim cData As clsConcat
+
+    Set cData = New clsConcat
+    Set rst = CurrentDb.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
+    Do While Not rst.EOF
+        For Each fld In rst.Fields
+            cData.Add CStr(Nz(fld.Value, "<null>")), ":"
+        Next fld
+        cData.Add "|"
+        rst.MoveNext
+    Loop
+    rst.Close
+
+    GetRowSummary = cData.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetTestSourceFile
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return a path in a fresh temporary folder for a table data source file.
+'           : Merge reads the table name from the file name, so a random temporary file
+'           : name will not do; the folder is what makes the name collision-free.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTestSourceFile(strTable As String, strExt As String) As String
+    GetTestSourceFile = GetTempFolder("VCS") & PathSep & strTable & "." & strExt
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteTestSourceFile
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Remove a source file created by GetTestSourceFile, along with its folder.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DeleteTestSourceFile(strFile As String)
+
+    Dim strFolder As String
+
+    strFolder = FSO.GetParentFolderName(strFile)
+    DeleteFile strFile
+
+    LogUnhandledErrors
+    On Error Resume Next
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AssertNoStagingTables
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : The staging table is temporary. One left behind would be picked up as a
+'           : table definition by the next export.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AssertNoStagingTables()
+    TestAssert DCount("*", "MSysObjects", "Name Like 'vcs_tmp_merge_data*'") = 0, _
+        "no staging table left behind"
 End Sub
 
 

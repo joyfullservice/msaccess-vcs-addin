@@ -83,6 +83,41 @@ contradictory guidance.
 
 ---
 
+## 2026-07-28 — Merge table data through a staging table and set-based reconcile
+
+**Trigger**: Table data was skipped on merge builds, so a developer who added a record to a versioned internal table (release/version info was the motivating case) could only get it into another database with a full build. Merges are used precisely on the large databases where a full build is expensive, so "just do a full build" was not a real answer.
+
+**Options explored**:
+
+- **Reuse `IDbComponent_Import`**: It already loads a source file into the table. Rejected on both formats. The tab-delimited path runs `DELETE FROM [table]` first, which fails outright once any other table references this one — the normal case for a versioned lookup table — and even when it succeeds it discards AutoNumber values that child rows point at. The XML path uses `acAppendData`, which duplicates every existing row on a populated table.
+- **Delete and reload inside a transaction**: Fixes the "half done" problem but not the referential-integrity failure or the AutoNumber loss, and it rewrites every row of a large table to apply a one-record change.
+- **Row-by-row DAO reconcile**: Read the source file, seek each key in the table, and compare fields in VBA. Correct, but the per-row cost is exactly what makes this unusable on the large databases that motivated the feature.
+- **Staging table plus set-based reconcile** (chosen): Load the source file into a temporary local table, then apply one `INSERT`, one `UPDATE`, and one `DELETE` keyed on the table's primary key. Only differing rows are written, key values and AutoNumber values survive, and referential integrity is never exercised for rows that did not change.
+
+**Decision**: Merge reconciles table data against a temporary staging table (`vcs_tmp_merge_data*`), created with `SELECT ... INTO ... WHERE (1 = 0)` so every column keeps its exact type and an AutoNumber key is demoted to Long. A unique index on the merge key is added because the engine refuses an `UPDATE` across a join unless the joined side is provably unique. The three statements run in one `BeginTrans`/`CommitTrans`, so the expected failure — a delete blocked by a child record — rolls the table back to its prior state, logs an error, and lets the rest of the merge continue.
+
+Behavior established by this decision:
+
+- **Source is authoritative, including deletions.** A row absent from the source file is removed. The user opted this table into version control, so the file is the record of what the table should contain. This also matches `clsVCSIndex.IsMergeConflict`, which has always returned `ercNone` for table data rather than raising a conflict.
+- **Default on** (`Options.MergeTableData`, Build options). Getting the data a developer committed is the expected outcome of a merge; the option exists for projects that treat records as environment-specific. It is in the non-export skip list in `GetCategoryHashes` — folding a build-side option into export category hashes would trigger spurious re-exports.
+- **Tables without a merge key are reloaded wholesale.** `GetTableMergeKey` returns primary key or unique+required index fields and nothing else — `GetTableSortFields` falls back to "all non-binary fields" when there is no key, which is fine for ordering but would let one source row match several table rows. Keyless tables are common in practice (a production database contributed 16 of 32 exported tables with no key), and skipping them left merge unable to do the one thing it was built for. Since there is no key, there is also no identity or AutoNumber value anything could hold a reference to, so `DELETE` followed by `INSERT ... SELECT` inside the same transaction is equivalent to what a full build already does — and it preserves duplicate rows, which a key-based reconcile could not. It is refused when a relationship points at the table (`GetFirstDependentTable`), because the delete would fail and roll the whole table back; that reads `Relation.Table` as the referenced side and `Relation.ForeignTable` as the referencing one. The count line says `N row(s) reloaded (no key to compare on)` rather than added/changed/removed, because without a key those numbers cannot be established.
+- **A source file with no rows skips `ImportXML` entirely.** Not an optimization. `Application.ImportXML` spends about 95 seconds on a document containing no row elements, regardless of how small the file is, while a 2,164-row 715 KB file loads in 0.32 seconds — measured across six real tables in a production database. Two empty exported tables were enough to turn a merge into a three-and-a-half minute operation and made the feature look unusable per-table; per-phase `Perf` timers isolated it to the single call. The staging table is already empty, which is exactly what "the source has no records" means, so the reconcile can proceed straight to deleting the table's rows.
+- **Binary, complex, and calculated columns are skipped with a warning.** They cannot take part in a SQL comparison, and calculated columns cannot be assigned. Those tables still export, and still import on a full build.
+- **A missing source file never deletes rows.** It means the table was dropped from `TablesToExportData` or the file was deleted, so only the index entry is removed.
+- **XML rows are relabeled through the DOM, not by replacing tag text.** `ImportXML` takes the target table from the row element names, so the rows have to be renamed to reach the staging table — but a table is allowed to have a field with the same name as the table, and a textual replacement would rename that field element too. Verified empirically before building on it: `SELECT INTO` preserves column types, `ImportXML ... acAppendData` loads renamed rows into a pre-created staging table with nulls and long memo values intact, and Jet's `<>` detects a memo difference past 255 characters.
+
+**What this rules out**: Table data no longer needs a full build to move records between databases. `ComponentTypeSupportsScopedImport` still rejects `edbTableData`, so `VCS.ImportByType("table_data")` continues to error — scoped sync takes no database backup, which deserves its own decision rather than being inherited from this one. Revisit if a project needs per-table control (the option is deliberately global) or an "insert and update but never delete" mode; both were considered unnecessary until someone has the use case.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/clsDbTableData.cls` — `IDbComponent_Merge`, `GetMergeStrategy`, `LoadStagingTable`, `WriteStagingXml`, `ReconcileTableData`
+- `Version Control.accda.src/modules/Utility/modDatabase.bas` — `GetTableMergeKey`, `GetTableMergeStrategy`, `GetFirstDependentTable`, staging table lifecycle
+- `Version Control.accda.src/modules/Core/modBuild.bas` — merge skip now gated on the option
+- `Version Control.accda.src/modules/Infrastructure/clsOptions.cls`, `forms/frmVCSOptionsBuild.*` — the new option
+- `Version Control.accda.src/modules/Tests/Components/modTestTableData.bas` — reconcile, composite key, null/memo, non-mergeable, missing file, and rollback tests
+
+---
+
 ## 2026-07-28 — Deterministic table data export row order
 
 **Trigger**: Exported table data (especially XML format) could appear in different row orders between exports even when no records changed, producing noisy git diffs. Tab-delimited export already used `ORDER BY` but sorted on every non-binary column (expensive and fragile on linked tables with unsortable memo/text columns).

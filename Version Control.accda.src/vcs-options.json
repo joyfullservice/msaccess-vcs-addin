@@ -48,6 +48,7 @@
     "ExportAfterMerge": false,
     "ForceImportOriginalQuerySQL": false,
     "UseMergeBuild": false,
+    "MergeTableData": true,
     "RunBeforeBuild": "",
     "RunAfterBuild": "AfterBuild",
     "RunBeforeMerge": "",

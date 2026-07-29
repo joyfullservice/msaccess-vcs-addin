@@ -95,6 +95,13 @@ Public Enum eDatabaseComponentType
     [_Last]
 End Enum
 
+' How a merge can bring a table's data in line with its source file.
+Public Enum eTableMergeStrategy
+    etmsNone = 0        ' Cannot be merged; the table is left untouched
+    etmsReconcile = 1   ' Row by row against the merge key: insert, update, delete
+    etmsReload = 2      ' No merge key: replace every row (only when nothing references it)
+End Enum
+
 ' Database server types for external databases
 Public Enum eDatabaseServerType
     estUnknown
