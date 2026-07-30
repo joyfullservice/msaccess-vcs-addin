@@ -123,7 +123,7 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Section
-            Height =12243
+            Height =12663
             BackColor =15130848
             Name ="Detail"
             AlternateBackColor =15130848
@@ -252,20 +252,20 @@ Begin Form
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =4020
+                    Top =4500
                     Width =6420
                     Name ="Line4"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =4020
+                    LayoutCachedTop =4500
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =4020
+                    LayoutCachedHeight =4500
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =3660
+                    Top =4140
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -273,9 +273,9 @@ Begin Form
                     Name ="Label5"
                     Caption ="Build Hooks"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =3660
+                    LayoutCachedTop =4140
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =3960
+                    LayoutCachedHeight =4440
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -313,7 +313,7 @@ Begin Form
                     OverlapFlags =85
                     IMESentenceMode =3
                     Left =2700
-                    Top =4320
+                    Top =4800
                     Width =2640
                     Height =315
                     TabIndex =5
@@ -323,23 +323,23 @@ Begin Form
                         "ple, use MyModule.Bootstrap to run the Bootstrap sub in MyModule."
 
                     LayoutCachedLeft =2700
-                    LayoutCachedTop =4320
+                    LayoutCachedTop =4800
                     LayoutCachedWidth =5340
-                    LayoutCachedHeight =4635
+                    LayoutCachedHeight =5115
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =420
-                            Top =4320
+                            Top =4800
                             Width =2085
                             Height =315
                             ForeColor =5324600
                             Name ="Label229"
                             Caption ="Run Sub Before Build:"
                             LayoutCachedLeft =420
-                            LayoutCachedTop =4320
+                            LayoutCachedTop =4800
                             LayoutCachedWidth =2505
-                            LayoutCachedHeight =4635
+                            LayoutCachedHeight =5115
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -349,30 +349,30 @@ Begin Form
                     OverlapFlags =85
                     IMESentenceMode =3
                     Left =2700
-                    Top =5220
+                    Top =5700
                     Width =2640
                     Height =315
                     TabIndex =6
                     Name ="txtRunAfterBuild"
 
                     LayoutCachedLeft =2700
-                    LayoutCachedTop =5220
+                    LayoutCachedTop =5700
                     LayoutCachedWidth =5340
-                    LayoutCachedHeight =5535
+                    LayoutCachedHeight =6015
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =420
-                            Top =5220
+                            Top =5700
                             Width =2055
                             Height =315
                             ForeColor =5324600
                             Name ="Label104"
                             Caption ="Run Sub After Build:"
                             LayoutCachedLeft =420
-                            LayoutCachedTop =5220
+                            LayoutCachedTop =5700
                             LayoutCachedWidth =2475
-                            LayoutCachedHeight =5535
+                            LayoutCachedHeight =6015
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -381,51 +381,51 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =2700
-                    Top =4740
+                    Top =5220
                     Width =3120
                     Height =240
                     FontSize =10
                     Name ="Label230"
                     Caption ="Use \"module.sub\" to specify module"
                     LayoutCachedLeft =2700
-                    LayoutCachedTop =4740
+                    LayoutCachedTop =5220
                     LayoutCachedWidth =5820
-                    LayoutCachedHeight =4980
+                    LayoutCachedHeight =5460
                     ForeTint =50.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =2700
-                    Top =5640
+                    Top =6120
                     Width =2760
                     Height =240
                     FontSize =10
                     Name ="Label231"
                     Caption ="(Module name optional)"
                     LayoutCachedLeft =2700
-                    LayoutCachedTop =5640
+                    LayoutCachedTop =6120
                     LayoutCachedWidth =5460
-                    LayoutCachedHeight =5880
+                    LayoutCachedHeight =6360
                     ForeTint =50.0
                 End
                 Begin Line
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =8400
+                    Top =8880
                     Width =6420
                     Name ="Line6"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =8400
+                    LayoutCachedTop =8880
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =8400
+                    LayoutCachedHeight =8880
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =8040
+                    Top =8520
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -433,16 +433,16 @@ Begin Form
                     Name ="Label7"
                     Caption ="Please Note"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =8040
+                    LayoutCachedTop =8520
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =8340
+                    LayoutCachedHeight =8820
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =420
-                    Top =8700
+                    Top =9180
                     Width =6000
                     Height =3483
                     ForeColor =5324600
@@ -455,9 +455,9 @@ Begin Form
                         " on the build process. If you encounter a problem, please feel free to open an i"
                         "ssues on the GitHub project."
                     LayoutCachedLeft =420
-                    LayoutCachedTop =8700
+                    LayoutCachedTop =9180
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =12183
+                    LayoutCachedHeight =12663
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -555,20 +555,20 @@ Begin Form
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =6540
+                    Top =7020
                     Width =6420
                     Name ="Line10"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =6540
+                    LayoutCachedTop =7020
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =6540
+                    LayoutCachedHeight =7020
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =6180
+                    Top =6660
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -576,9 +576,9 @@ Begin Form
                     Name ="Label11"
                     Caption ="Merge Hooks"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =6180
+                    LayoutCachedTop =6660
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =6480
+                    LayoutCachedHeight =6960
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -586,7 +586,7 @@ Begin Form
                     OverlapFlags =85
                     IMESentenceMode =3
                     Left =2700
-                    Top =6840
+                    Top =7320
                     Width =2640
                     Height =315
                     TabIndex =7
@@ -596,23 +596,23 @@ Begin Form
                         "ple, use MyModule.Bootstrap to run the Bootstrap sub in MyModule."
 
                     LayoutCachedLeft =2700
-                    LayoutCachedTop =6840
+                    LayoutCachedTop =7320
                     LayoutCachedWidth =5340
-                    LayoutCachedHeight =7155
+                    LayoutCachedHeight =7635
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =420
-                            Top =6840
+                            Top =7320
                             Width =2205
                             Height =315
                             ForeColor =5324600
                             Name ="Label13"
                             Caption ="Run Sub Before Merge:"
                             LayoutCachedLeft =420
-                            LayoutCachedTop =6840
+                            LayoutCachedTop =7320
                             LayoutCachedWidth =2625
-                            LayoutCachedHeight =7155
+                            LayoutCachedHeight =7635
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -622,30 +622,30 @@ Begin Form
                     OverlapFlags =85
                     IMESentenceMode =3
                     Left =2700
-                    Top =7380
+                    Top =7860
                     Width =2640
                     Height =315
                     TabIndex =8
                     Name ="txtRunAfterMerge"
 
                     LayoutCachedLeft =2700
-                    LayoutCachedTop =7380
+                    LayoutCachedTop =7860
                     LayoutCachedWidth =5340
-                    LayoutCachedHeight =7695
+                    LayoutCachedHeight =8175
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =420
-                            Top =7380
+                            Top =7860
                             Width =2055
                             Height =315
                             ForeColor =5324600
                             Name ="Label15"
                             Caption ="Run Sub After Merge:"
                             LayoutCachedLeft =420
-                            LayoutCachedTop =7380
+                            LayoutCachedTop =7860
                             LayoutCachedWidth =2475
-                            LayoutCachedHeight =7695
+                            LayoutCachedHeight =8175
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
