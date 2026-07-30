@@ -231,11 +231,14 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim blnUseTemp As Boolean
+    Dim blnImportFailed As Boolean
     Dim strTempFile As String
     Dim strName As String
+    Dim colBigIntFields As Collection
 
     ' Full build reuses one instance; reset link-type cache per file.
     m_lngTableType = 0
+    strName = GetObjectNameFromFileName(strFile)
 
     ' Determine import type from extension
     Select Case LCase$(FSO.GetExtensionName(strFile))
@@ -247,6 +250,11 @@ Private Sub IDbComponent_Import(strFile As String)
             ' Watch out for errors when importing XML
             LogUnhandledErrors
             On Error Resume Next
+
+            ' Application.ImportXML has no schema representation for dbBigInt and
+            ' silently re-creates such fields as dbDecimal(38,0) instead. Detect them
+            ' from the source XML before the (possibly temp-copied) file is gone.
+            Set colBigIntFields = GetBigIntRepairFieldNamesFromTableDefXmlFile(strFile)
 
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
@@ -265,9 +273,13 @@ Private Sub IDbComponent_Import(strFile As String)
                 Log.Error eelError, "ActiveX security settings blocked the import of " & _
                 "table definition XML file: " & FSO.GetFileName(strFile) & ".", ModuleName(Me) & ".Import"
                 Log.Add "Importing XML files requires ActiveX to be enabled."
+                blnImportFailed = True
             Else
-                ' Log any other error.
-                CatchAny eelError, "Unable to import XML for " & FSO.GetFileName(strFile), ModuleName(Me) & ".Import"
+                blnImportFailed = CatchAny(eelError, "Unable to import XML for " & FSO.GetFileName(strFile), ModuleName(Me) & ".Import")
+            End If
+
+            If Not blnImportFailed And colBigIntFields.Count > 0 Then
+                FixCorruptedBigIntFields strName, colBigIntFields
             End If
 
         Case Else
@@ -277,7 +289,6 @@ Private Sub IDbComponent_Import(strFile As String)
     End Select
 
     ' Update index
-    strName = GetObjectNameFromFileName(strFile)
     m_lngTableType = 0
     Set m_Table = CurrentData.AllTables(strName)
 
@@ -458,6 +469,8 @@ Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
             .Add "  [", DblQ(fld.Name), "] "
             If (fld.Attributes And dbAutoIncrField) Then
                 .Add "AUTOINCREMENT"
+            ElseIf fld.Type = dbDecimal Then
+                .Add "DECIMAL(", fld.Precision, ",", fld.NumericScale, ")"
             Else
                 .Add GetTypeString(fld.Type)
             End If
@@ -598,6 +611,75 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetBigIntRepairFieldNamesFromTableDefXmlFile
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Read a table-definition XML file and return dbBigInt field names that
+'           : Application.ImportXML would corrupt. Skips DOM parsing when the export
+'           : signature is absent.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetBigIntRepairFieldNamesFromTableDefXmlFile(strXmlFile As String) As Collection
+
+    Dim colNames As New Collection
+    Dim strXml As String
+
+    Set GetBigIntRepairFieldNamesFromTableDefXmlFile = colNames
+    If Not FSO.FileExists(strXmlFile) Then Exit Function
+
+    strXml = ReadFile(strXmlFile)
+    If InStr(1, strXml, "totalDigits value=""0""", vbTextCompare) = 0 Then Exit Function
+
+    Perf.OperationStart "Scan table XML for BigInt fields"
+    Set GetBigIntRepairFieldNamesFromTableDefXmlFile = GetBigIntRepairFieldNamesFromTableDefXml(strXml)
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FixCorruptedBigIntFields
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Correct fields that Application.ImportXML mis-created as dbDecimal(38,0)
+'           : back to genuine dbBigInt fields via ALTER COLUMN ... BIGINT.
+'---------------------------------------------------------------------------------------
+'
+Private Sub FixCorruptedBigIntFields(strTableName As String, colFieldNames As Collection)
+
+    Dim varName As Variant
+    Dim dbs As DAO.Database
+    Dim dbsVerify As DAO.Database
+    Dim lngVerifyType As Long
+
+    Set dbs = SharedDb
+
+    For Each varName In colFieldNames
+        On Error Resume Next
+        Err.Clear
+        dbs.Execute "ALTER TABLE [" & strTableName & "] ALTER COLUMN [" & varName & "] BIGINT", dbFailOnError
+        If Err Then
+            CatchAny eelWarning, "Unable to restore Big Integer field type for " & _
+                strTableName & "." & varName, ModuleName(Me) & ".FixCorruptedBigIntFields"
+        Else
+            Set dbsVerify = CurrentDb
+            Err.Clear
+            lngVerifyType = dbsVerify.TableDefs(strTableName).Fields(CStr(varName)).Type
+            If Err Then
+                CatchAny eelWarning, "Unable to verify Big Integer field type restoration for " & _
+                    strTableName & "." & varName, ModuleName(Me) & ".FixCorruptedBigIntFields"
+            ElseIf lngVerifyType <> dbBigInt Then
+                Log.Error eelWarning, "Big Integer field type restoration did not take effect for " & _
+                    strTableName & "." & varName, ModuleName(Me) & ".FixCorruptedBigIntFields"
+                Err.Clear
+            End If
+        End If
+    Next varName
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetTypeString
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
@@ -609,7 +691,7 @@ Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
         Case dbLongBinary:      GetTypeString = "LONGBINARY"
         Case dbBinary:          GetTypeString = "BINARY"
         Case dbBoolean:         GetTypeString = "BIT"
-        Case dbAutoIncrField:   GetTypeString = "COUNTER"
+        Case dbBigInt:          GetTypeString = "BIGINT"
         Case dbCurrency:        GetTypeString = "CURRENCY"
         Case dbDate, dbTime:    GetTypeString = "DATETIME"
         Case dbGUID:            GetTypeString = "GUID"

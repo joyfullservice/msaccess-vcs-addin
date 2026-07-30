@@ -83,6 +83,27 @@ contradictory guidance.
 
 ---
 
+## 2026-07-30 — Repair dbBigInt fields after Application.ImportXML
+
+**Trigger**: Issue #734 / PR #735. `Application.ExportXML`/`ImportXML` has no schema representation for `dbBigInt` (Large Number) fields. On Full Build or Merge, `ImportXML` re-creates them as `dbDecimal(38,0)`; once corrupted, writes succeed but always store `NULL`. A separate cosmetic bug mislabeled `dbBigInt` as `COUNTER` in optional `.sql` companion files because `Case dbAutoIncrField` (value 16) collided with `dbBigInt` (also 16) in `GetTypeString()`.
+
+**Options explored**:
+- **Detect via `od:jetType` / `od:sqlSType`**: rejected after live probe. Access exports `dbBigInt` with no `od:jetType` on the element and an `xsd:decimal` restriction carrying `totalDigits value="0"`. There is no `bigint` jetType to key on. `longinteger`, `text`, and other common types all carry explicit jetType values.
+- **Post-import DAO `Field.Type` reassignment**: rejected. DAO raises "Illegal operation" when changing `Type` on an appended field.
+- **Delete and recreate the field**: rejected. Loses field ordinal position and complicates indexes/relationships.
+- **Scan source XML for `totalDigits value="0"` on `xsd:decimal`, then `ALTER TABLE ... ALTER COLUMN ... BIGINT` after `ImportXML`**: chosen. Verified live: repair succeeds, field order is preserved, primary keys on bigint columns survive, and `od:fieldProperty` values such as Caption survive the ALTER.
+- **Full DOM parse on every table `.xml` during build**: rejected for the common case. An `InStr` pre-check for `totalDigits value="0"` skips DOM construction when the signature is absent; DOM/XPath runs only on the rare matching files.
+
+**Decision**: Before `Application.ImportXML`, scan the table-definition XML (from disk, before any temp copy is deleted) with `GetBigIntRepairFieldNamesFromTableDefXml` in `modDatabase.bas` using namespace-agnostic XPath (same pattern as `clsSourceParser.cls`). After a successful import, run `FixCorruptedBigIntFields` in `clsDbTableDef.cls`, which issues `ALTER COLUMN ... BIGINT` per affected field and verifies the result through a fresh `CurrentDb` handle (a `SharedDb` handle held since before the table rebuild can report the pre-ALTER type even after `TableDefs.Refresh`). Also fix `GetTypeString()` / `SaveTableSqlDef` to emit `BIGINT` and `DECIMAL(p,s)` correctly.
+
+**Residual risk accepted**: Legacy `dbNumeric` fields export with the same `totalDigits value="0"` signature as `dbBigInt` (no `od:jetType` on either). A table using `dbNumeric` could be mis-identified and altered to `BIGINT`. `dbNumeric` is uncommon relative to Large Number fields, and genuine `dbDecimal` fields export with their real precision (e.g. `totalDigits="38"`), so they do not match.
+
+**What this rules out**: Fixing this at export time only (ImportXML would still corrupt on the next build). Relying on Access to add `od:jetType="bigint"` in a future release without revisiting the XPath. Using `SharedDb` for the post-ALTER type verification.
+
+**Relevant files**: `Version Control.accda.src/modules/Components/clsDbTableDef.cls`, `Version Control.accda.src/modules/Utility/modDatabase.bas`, `Version Control.accda.src/modules/Tests/Components/modTestTableDef.bas`, `Testing/Testing.accdb.src/tbldefs/tblBigInt.xml`.
+
+---
+
 ## 2026-07-30 — UTF-8 conversion streams are cached, not rebuilt per hash
 
 **Trigger**: After the 2026-07-29 scan work took a zero-change merge from 50.9s to 7.35s, the remaining per-file cost was uneven across categories: the benchmark showed Queries at ~1.09 ms per file against 0.38–0.39 ms for Forms and Modules. The initial hypothesis — that un-memoized `clsDbQuery.SourceFile` was driving it through repeated `m_Query.Name` COM reads — turned out to be wrong, and measuring the alternatives against a live 3,681-query database redirected the work.
