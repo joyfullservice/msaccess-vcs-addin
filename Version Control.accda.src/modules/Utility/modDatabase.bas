@@ -885,6 +885,46 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetBigIntRepairFieldNamesFromTableDefXml
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return field names whose ExportXML schema cannot represent dbBigInt and
+'           : will be mis-created as dbDecimal(38,0) on Application.ImportXML.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetBigIntRepairFieldNamesFromTableDefXml(strXml As String) As Collection
+
+    Const XPATH_CORRUPTED_BIGINT As String = _
+        "//*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='element'" & _
+        " and *[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='simpleType']" & _
+        "/*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='restriction' and @base='xsd:decimal']" & _
+        "/*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='totalDigits' and @value='0']]"
+
+    Dim colNames As New Collection
+    Dim objXml As MSXML2.DOMDocument60
+    Dim objNodes As MSXML2.IXMLDOMNodeList
+    Dim objNode As MSXML2.IXMLDOMNode
+    Dim objNameAttr As MSXML2.IXMLDOMNode
+
+    Set GetBigIntRepairFieldNamesFromTableDefXml = colNames
+    If Len(strXml) = 0 Then Exit Function
+
+    Set objXml = New MSXML2.DOMDocument60
+    objXml.async = False
+    If Not objXml.LoadXML(strXml) Then Exit Function
+
+    Set objNodes = objXml.SelectNodes(XPATH_CORRUPTED_BIGINT)
+    For Each objNode In objNodes
+        Set objNameAttr = objNode.Attributes.getNamedItem("name")
+        If Not objNameAttr Is Nothing Then colNames.Add objNameAttr.Text
+    Next objNode
+
+    Set GetBigIntRepairFieldNamesFromTableDefXml = colNames
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsLocalTable
 ' Author    : Adam Waller
 ' Date      : 3/13/2023
