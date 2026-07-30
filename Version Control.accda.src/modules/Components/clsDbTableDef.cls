@@ -129,8 +129,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             If TableIndexesAvailable(tdf) Then
                 For Each idx In tdf.Indexes
                     If idx.Primary Then
-                        ' Add the primary key columns, using brackets just in case the field names have spaces.
-                        .Add "PrimaryKey", "[" & MultiReplace(CStr(idx.Fields), "+", vbNullString, ";", "], [") & "]"
+                        .Add "PrimaryKey", BracketFieldList(CStr(idx.Fields))
                         Exit For
                     End If
                 Next idx
@@ -642,6 +641,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
     Dim dbs As DAO.Database
     Dim tdf As DAO.TableDef
     Dim strSql As String
+    Dim strKeyFields As String
     Dim strConnect As String
     Dim strEnvKey As String
     Dim strKey As String
@@ -790,10 +790,13 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
         Else
             ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
             If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
-                ' Create a pseudo index on the linked table
-                strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & DblQ(tdf.Name) & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
-                dbs.Execute strSql, dbFailOnError
-                dbs.TableDefs.Refresh
+                strKeyFields = BracketFieldList(CStr(dItem("PrimaryKey")))
+                If Len(strKeyFields) Then
+                    ' Create a pseudo index on the linked table
+                    strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & DblQ(tdf.Name) & "] (" & strKeyFields & ") WITH PRIMARY"
+                    dbs.Execute strSql, dbFailOnError
+                    dbs.TableDefs.Refresh
+                End If
             End If
         End If
 

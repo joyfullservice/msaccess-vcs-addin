@@ -59,6 +59,17 @@ Public Sub TestDblQ()
 End Sub
 
 
+Public Sub TestBracketFieldList()
+    TestAssert BracketFieldList("+ID") = "[ID]", "DAO ascending prefix"
+    TestAssert BracketFieldList("+A;+B") = "[A], [B]", "DAO multi-field semicolon"
+    TestAssert BracketFieldList("+[Termin-ID]") = "[Termin-ID]", "DAO already bracketed"
+    TestAssert BracketFieldList("[[Termin-ID]]") = "[Termin-ID]", "double-bracketed JSON value"
+    TestAssert BracketFieldList("-ID") = "[ID]", "DAO descending prefix"
+    TestAssert BracketFieldList("[A], [B]") = "[A], [B]", "already normalized"
+    TestAssert BracketFieldList("") = "", "empty string"
+End Sub
+
+
 Public Sub TestDeDupString()
     TestAssert DeDupString("aa", "a") = "a", "two to one"
     TestAssert DeDupString("aaaa", "a") = "a", "four to one"
