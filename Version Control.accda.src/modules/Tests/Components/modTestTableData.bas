@@ -28,6 +28,10 @@ Private Const TEST_TABLE_MERGE_CHILD As String = "vcs_test_merge_child"
 ' The XML merge table deliberately carries a field with the same name as the table.
 Private Const TEST_TABLE_MERGE_XML As String = "vcs_test_merge_xml"
 
+' Wide enough that the reconcile cannot assign and compare every field in one statement.
+Private Const TEST_TABLE_MERGE_WIDE As String = "vcs_test_merge_wide"
+Private Const WIDE_FIELD_COUNT As Long = 80
+
 
 Public Sub TestEscapeXmlName()
     TestAssert EscapeXmlName("NotReq'd") = "NotReq_x0027_d", "apostrophe"
@@ -738,6 +742,65 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestTableDataMerge_WideTableUpdatesInGroups
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Past a certain width the database engine refuses to compile an update that
+'           : assigns and compares every field at once, answering "Query is too complex"
+'           : however few rows are involved. The reconcile has to split the fields into
+'           : groups and still land on exactly the rows the source file describes.
+'           :
+'           : Row 1 differs in the first and last field, which fall in different groups, so
+'           : this also covers a row that more than one group has to change.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataMerge_WideTableUpdatesInGroups()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strTable As String
+    Dim strExpected As String
+
+    Set dbs = CurrentDb
+    strTable = "[" & TEST_TABLE_MERGE_WIDE & "]"
+    CreateTestTable dbs, TEST_TABLE_MERGE_WIDE, BuildWideTableSql
+    strSql = "SELECT * FROM " & strTable & " ORDER BY ID"
+    InsertWideRow dbs, 1
+    InsertWideRow dbs, 2
+    InsertWideRow dbs, 3
+
+    ' The exported file becomes the state the merge has to restore.
+    strFile = GetTestSourceFile(TEST_TABLE_MERGE_WIDE, "xml")
+    ExportTestTableData TEST_TABLE_MERGE_WIDE, etdXML, strFile
+    strExpected = GetRowSummary(strSql)
+
+    ' Diverge in every direction the reconcile has to handle, spread across field groups.
+    dbs.Execute "UPDATE " & strTable & " SET [" & WideFieldName(1) & "] = 'changed', [" & _
+        WideFieldName(WIDE_FIELD_COUNT) & "] = 'changed' WHERE ID = 1", dbFailOnError
+    dbs.Execute "UPDATE " & strTable & " SET [" & WideFieldName(40) & "] = Null, [" & _
+        WideFieldName(2) & "] = 'now set' WHERE ID = 2", dbFailOnError
+    dbs.Execute "DELETE FROM " & strTable & " WHERE ID = 3", dbFailOnError
+    InsertWideRow dbs, 4
+
+    MergeTestTableData etdXML, strFile
+    TestAssert GetRowSummary(strSql) = strExpected, _
+        "wide table reconciled even though the update had to be split into field groups"
+
+    MergeTestTableData etdXML, strFile
+    TestAssert GetRowSummary(strSql) = strExpected, _
+        "merging the same file again changes nothing"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_MERGE_WIDE, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : TestTableDataMerge_MissingSourceFileKeepsRows
 ' Author    : Adam Waller
 ' Date      : 7/28/2026
@@ -1136,6 +1199,78 @@ End Sub
 Private Sub RefreshTableCollections(dbs As DAO.Database)
     dbs.TableDefs.Refresh
     ReleaseDbReferences
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : BuildWideTableSql
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the DDL for the wide merge test table. The text fields are kept short
+'           : so their declared sizes stay well inside the 4,000 character record limit.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildWideTableSql() As String
+
+    Dim cSql As clsConcat
+    Dim lngField As Long
+
+    Set cSql = New clsConcat
+    cSql.Add "CREATE TABLE [", TEST_TABLE_MERGE_WIDE, "] (ID LONG PRIMARY KEY"
+    For lngField = 1 To WIDE_FIELD_COUNT
+        cSql.Add ", [", WideFieldName(lngField), "] TEXT(20)"
+    Next lngField
+    cSql.Add ")"
+
+    BuildWideTableSql = cSql.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : WideFieldName
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the name of a field in the wide merge test table.
+'---------------------------------------------------------------------------------------
+'
+Private Function WideFieldName(lngField As Long) As String
+    WideFieldName = "F" & Format$(lngField, "000")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InsertWideRow
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Add a row to the wide merge test table, with a value in every field except
+'           : the one matching the row number. That Null gives the merge a change out of
+'           : Null to detect, which an inequality test on its own would miss.
+'---------------------------------------------------------------------------------------
+'
+Private Sub InsertWideRow(dbs As DAO.Database, lngId As Long)
+
+    Dim cSql As clsConcat
+    Dim cValues As clsConcat
+    Dim lngField As Long
+
+    Set cSql = New clsConcat
+    Set cValues = New clsConcat
+    cSql.Add "INSERT INTO [", TEST_TABLE_MERGE_WIDE, "] (ID"
+    cValues.Add CStr(lngId)
+
+    For lngField = 1 To WIDE_FIELD_COUNT
+        cSql.Add ", [", WideFieldName(lngField), "]"
+        If lngField = lngId Then
+            cValues.Add ", Null"
+        Else
+            cValues.Add ", '", WideFieldName(lngField), "-", CStr(lngId), "'"
+        End If
+    Next lngField
+
+    cSql.Add ") VALUES (", cValues.GetStr, ")"
+    dbs.Execute cSql.GetStr, dbFailOnError
+
 End Sub
 
 

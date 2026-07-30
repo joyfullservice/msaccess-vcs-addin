@@ -22,6 +22,15 @@ Public Format As eTableDataExportFormat
 
 Const UNSUPPORTED_DATA_TYPE As String = "UNSUPPORTED DATA TYPE"
 
+' Raised by the database engine when it cannot compile a statement, regardless of how
+' many rows are involved. (See UpdateChangedRows.)
+Private Const ERR_QUERY_TOO_COMPLEX As Long = 3360
+
+' Number of fields to assign and compare in a single statement when the reconcile update
+' has to be split up. Well inside the widest statement observed to compile, and reduced
+' further at runtime if the engine still refuses one.
+Private Const UPDATE_FIELD_GROUP_SIZE As Long = 12
+
 Private m_Table As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
@@ -890,6 +899,8 @@ End Function
 ' Purpose   : Bring the live table in line with the staging table, returning the number of
 '           : rows affected. With a merge key that is three set-based statements; without
 '           : one it is a wholesale replace, and lngInserted reports the rows reloaded.
+'           : The update is the one statement that scales with the width of the table, so
+'           : it is delegated to UpdateChangedRows, which splits it up when it has to.
 '           :
 '           : Order matters. Inserting before deleting means a row that a child record
 '           : depends on is present before anything tries to remove its predecessor, and
@@ -915,8 +926,7 @@ Private Function ReconcileTableData(strTable As String, strStaging As String, _
     Dim cTargetCols As clsConcat
     Dim cSourceCols As clsConcat
     Dim cJoin As clsConcat
-    Dim cSet As clsConcat
-    Dim cDiff As clsConcat
+    Dim colDataFields As Collection
     Dim strT As String
     Dim strS As String
     Dim strFirstKey As String
@@ -931,24 +941,14 @@ Private Function ReconcileTableData(strTable As String, strStaging As String, _
 
     Set cTargetCols = New clsConcat
     Set cSourceCols = New clsConcat
-    Set cSet = New clsConcat
-    Set cDiff = New clsConcat
+    Set colDataFields = New Collection
     For Each fld In tdf.Fields
         cTargetCols.Add "[", fld.Name, "], "
         cSourceCols.Add strS, ".[", fld.Name, "], "
-        If Not dKey.Exists(fld.Name) Then
-            cSet.Add strT, ".[", fld.Name, "] = ", strS, ".[", fld.Name, "], "
-            ' Null is not equal to anything, including another Null, so an inequality
-            ' test alone would miss every change to or from Null.
-            cDiff.Add "((", strT, ".[", fld.Name, "] <> ", strS, ".[", fld.Name, "])"
-            cDiff.Add " OR (", strT, ".[", fld.Name, "] IS NULL XOR ", _
-                strS, ".[", fld.Name, "] IS NULL)) OR "
-        End If
+        If Not dKey.Exists(fld.Name) Then colDataFields.Add fld.Name
     Next fld
     cTargetCols.Remove 2
     cSourceCols.Remove 2
-    If cSet.Length > 0 Then cSet.Remove 2
-    If cDiff.Length > 0 Then cDiff.Remove 4
 
     Set cJoin = New clsConcat
     For Each varKey In dKey.Keys
@@ -992,16 +992,16 @@ Private Function ReconcileTableData(strTable As String, strStaging As String, _
         " WHERE " & strT & ".[" & strFirstKey & "] IS NULL", dbFailOnError
     lngInserted = dbs.RecordsAffected
     Perf.OperationEnd
+    blnTiming = False
 
-    ' Nothing to compare or assign when the key covers every column.
-    If cSet.Length > 0 Then
-        Perf.OperationStart "Reconcile: Update"
-        dbs.Execute "UPDATE " & strT & " INNER JOIN " & strS & " ON " & cJoin.GetStr & _
-            " SET " & cSet.GetStr & " WHERE " & cDiff.GetStr, dbFailOnError
-        lngUpdated = dbs.RecordsAffected
-        Perf.OperationEnd
+    ' Nothing to compare or assign when the key covers every column. The update owns its
+    ' own timers, so the caller's are closed around it rather than left open across it.
+    If colDataFields.Count > 0 Then
+        lngUpdated = UpdateChangedRows(dbs, strTable, strStaging, colDataFields, _
+            dKey, cJoin.GetStr)
     End If
 
+    blnTiming = True
     Perf.OperationStart "Reconcile: Delete"
     dbs.Execute "DELETE FROM " & strT & " WHERE NOT EXISTS (SELECT 1 FROM " & strS & _
         " WHERE " & cJoin.GetStr & ")", dbFailOnError
@@ -1031,6 +1031,291 @@ Failed:
     If blnInTrans Then DBEngine.Workspaces(0).Rollback
     If Err Then Err.Clear
     On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateChangedRows
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Bring the non-key fields of the matched rows in line with the staging table,
+'           : returning the number of rows changed.
+'           :
+'           : One statement assigns and compares every non-key field, which is both the
+'           : fastest way to do this and, past a certain width, more than the database
+'           : engine will compile. It answers a wide enough table with "Query is too
+'           : complex" no matter how few rows are involved, and the width at which that
+'           : happens is not a published number -- it depends on the whole expression tree,
+'           : not on a field count. So rather than guess a threshold, the one statement is
+'           : attempted and the fields are split into groups only when the engine refuses.
+'           :
+'           : Retrying is safe because the refusal happens while compiling, before any row
+'           : is touched, leaving the surrounding transaction intact. Any other error is
+'           : raised to the caller, whose handler rolls that transaction back.
+'---------------------------------------------------------------------------------------
+'
+Private Function UpdateChangedRows(dbs As DAO.Database, strTable As String, _
+    strStaging As String, colFields As Collection, dKey As Dictionary, _
+    strJoin As String) As Long
+
+    Dim strT As String
+    Dim strS As String
+    Dim lngErrNumber As Long
+    Dim strErrDescription As String
+
+    strT = "[" & strTable & "]"
+    strS = "[" & strStaging & "]"
+
+    Perf.OperationStart "Reconcile: Update"
+    LogUnhandledErrors
+    On Error Resume Next
+    dbs.Execute "UPDATE " & strT & " INNER JOIN " & strS & " ON " & strJoin & _
+        " SET " & BuildFieldAssignments(strT, strS, colFields, 1, colFields.Count) & _
+        " WHERE " & BuildFieldComparisons(strT, strS, colFields, 1, colFields.Count), _
+        dbFailOnError
+    lngErrNumber = Err.Number
+    strErrDescription = Err.Description
+    If lngErrNumber = 0 Then UpdateChangedRows = dbs.RecordsAffected
+    Err.Clear
+    On Error GoTo 0
+    Perf.OperationEnd
+
+    If lngErrNumber = 0 Then Exit Function
+    If lngErrNumber <> ERR_QUERY_TOO_COMPLEX Then
+        Err.Raise lngErrNumber, ModuleName(Me) & ".UpdateChangedRows", strErrDescription
+        Exit Function
+    End If
+
+    UpdateChangedRows = UpdateChangedRowsInGroups(dbs, strTable, strStaging, colFields, _
+        dKey, strJoin)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateChangedRowsInGroups
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Update the non-key fields a group at a time, for a table too wide to update
+'           : in one statement. Returns the number of rows changed.
+'           :
+'           : The group size is halved and the whole pass repeated whenever the engine
+'           : still refuses a statement, since there is no field count that is known to be
+'           : safe. Repeating is harmless: the groups already applied no longer differ from
+'           : the staging table, so they simply match nothing on the way through again.
+'---------------------------------------------------------------------------------------
+'
+Private Function UpdateChangedRowsInGroups(dbs As DAO.Database, strTable As String, _
+    strStaging As String, colFields As Collection, dKey As Dictionary, _
+    strJoin As String) As Long
+
+    Dim dChanged As Dictionary
+    Dim lngGroup As Long
+    Dim lngErrNumber As Long
+    Dim strErrDescription As String
+
+    Set dChanged = New Dictionary
+    lngGroup = UPDATE_FIELD_GROUP_SIZE
+
+    Log.Add "    " & T("{0}: too many fields to update in one statement." & _
+        " Updating in groups of {1}.", var0:=strTable, var1:=CStr(lngGroup)), _
+        Options.ShowDebug
+
+    Perf.OperationStart "Reconcile: Update (Grouped)"
+    Do
+        If UpdateFieldGroups(dbs, strTable, strStaging, colFields, dKey, strJoin, _
+            lngGroup, dChanged, lngErrNumber, strErrDescription) Then
+            Perf.OperationEnd
+            UpdateChangedRowsInGroups = dChanged.Count
+            Exit Function
+        End If
+        If lngErrNumber <> ERR_QUERY_TOO_COMPLEX Then Exit Do
+        If lngGroup = 1 Then Exit Do
+        lngGroup = lngGroup \ 2
+    Loop
+    Perf.OperationEnd
+
+    Err.Raise lngErrNumber, ModuleName(Me) & ".UpdateChangedRowsInGroups", _
+        strErrDescription
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateFieldGroups
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Run one pass of grouped updates, adding the key of every row it changed to
+'           : dChanged. Returns false with the error details when a statement failed, so
+'           : the caller can decide whether a smaller group would help.
+'           :
+'           : The keys of the rows a group is about to change are read before the update
+'           : rather than counted after it, for two reasons: the rows stop differing once
+'           : the update runs, and a row that differs in two groups has to count once.
+'---------------------------------------------------------------------------------------
+'
+Private Function UpdateFieldGroups(dbs As DAO.Database, strTable As String, _
+    strStaging As String, colFields As Collection, dKey As Dictionary, _
+    strJoin As String, lngGroup As Long, dChanged As Dictionary, _
+    ByRef lngErrNumber As Long, ByRef strErrDescription As String) As Boolean
+
+    Dim rst As DAO.Recordset
+    Dim strT As String
+    Dim strS As String
+    Dim strDiff As String
+    Dim lngStart As Long
+    Dim lngCount As Long
+
+    strT = "[" & strTable & "]"
+    strS = "[" & strStaging & "]"
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    For lngStart = 1 To colFields.Count Step lngGroup
+        lngCount = colFields.Count - lngStart + 1
+        If lngCount > lngGroup Then lngCount = lngGroup
+        strDiff = BuildFieldComparisons(strT, strS, colFields, lngStart, lngCount)
+
+        Set rst = dbs.OpenRecordset("SELECT " & BuildKeyColumns(strT, dKey) & _
+            " FROM " & strT & " INNER JOIN " & strS & " ON " & strJoin & _
+            " WHERE " & strDiff, dbOpenSnapshot, dbReadOnly)
+        If Err Then GoTo Failed
+        Do While Not rst.EOF
+            dChanged(GetRowKey(rst)) = True
+            rst.MoveNext
+        Loop
+        rst.Close
+        Set rst = Nothing
+        If Err Then GoTo Failed
+
+        dbs.Execute "UPDATE " & strT & " INNER JOIN " & strS & " ON " & strJoin & _
+            " SET " & BuildFieldAssignments(strT, strS, colFields, lngStart, lngCount) & _
+            " WHERE " & strDiff, dbFailOnError
+        If Err Then GoTo Failed
+    Next lngStart
+
+    On Error GoTo 0
+    UpdateFieldGroups = True
+    Exit Function
+
+Failed:
+    lngErrNumber = Err.Number
+    strErrDescription = Err.Description
+    Err.Clear
+    If Not rst Is Nothing Then
+        rst.Close
+        Set rst = Nothing
+    End If
+    Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildFieldAssignments
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the SET clause assigning lngCount fields, starting at lngStart, from
+'           : the staging table to the live table.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildFieldAssignments(strT As String, strS As String, _
+    colFields As Collection, lngStart As Long, lngCount As Long) As String
+
+    Dim cSet As clsConcat
+    Dim lngField As Long
+    Dim strField As String
+
+    Set cSet = New clsConcat
+    For lngField = lngStart To lngStart + lngCount - 1
+        strField = colFields(lngField)
+        cSet.Add strT, ".[", strField, "] = ", strS, ".[", strField, "], "
+    Next lngField
+    If cSet.Length > 0 Then cSet.Remove 2
+
+    BuildFieldAssignments = cSet.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildFieldComparisons
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the WHERE clause matching rows that differ in any of lngCount fields,
+'           : starting at lngStart.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildFieldComparisons(strT As String, strS As String, _
+    colFields As Collection, lngStart As Long, lngCount As Long) As String
+
+    Dim cDiff As clsConcat
+    Dim lngField As Long
+    Dim strField As String
+
+    Set cDiff = New clsConcat
+    For lngField = lngStart To lngStart + lngCount - 1
+        strField = colFields(lngField)
+        ' Null is not equal to anything, including another Null, so an inequality
+        ' test alone would miss every change to or from Null.
+        cDiff.Add "((", strT, ".[", strField, "] <> ", strS, ".[", strField, "])"
+        cDiff.Add " OR (", strT, ".[", strField, "] IS NULL XOR ", _
+            strS, ".[", strField, "] IS NULL)) OR "
+    Next lngField
+    If cDiff.Length > 0 Then cDiff.Remove 4
+
+    BuildFieldComparisons = cDiff.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildKeyColumns
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the merge key columns, qualified with the given table, as a select
+'           : list.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildKeyColumns(strTable As String, dKey As Dictionary) As String
+
+    Dim cKeys As clsConcat
+    Dim varKey As Variant
+
+    Set cKeys = New clsConcat
+    For Each varKey In dKey.Keys
+        cKeys.Add strTable, ".[", CStr(varKey), "], "
+    Next varKey
+    If cKeys.Length > 0 Then cKeys.Remove 2
+
+    BuildKeyColumns = cKeys.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRowKey
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return a string identifying the row a key-columns recordset is positioned
+'           : on, for counting distinct changed rows across several passes. The separator
+'           : is a character that cannot appear in a key value.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetRowKey(rst As DAO.Recordset) As String
+
+    Dim cKey As clsConcat
+    Dim fld As DAO.Field
+
+    Set cKey = New clsConcat
+    For Each fld In rst.Fields
+        cKey.Add CStr(Nz(fld.Value, vbNullString)), vbNullChar
+    Next fld
+
+    GetRowKey = cKey.GetStr
 
 End Function
 

@@ -83,6 +83,34 @@ contradictory guidance.
 
 ---
 
+## 2026-07-30 — Split the table data reconcile update when the engine refuses it
+
+**Trigger**: A merge build reported `Error 3360: Query is too complex` for `tblWorkforce` (67 fields) and rolled the whole table back, leaving it unmerged. The reconcile builds one `UPDATE` carrying an assignment per non-key field plus a two-term comparison per non-key field, which for that table is 66 assignments and 132 `OR`-ed comparisons. Reproduced read-only against the live database: the comparison chain alone fails on its own in a `SELECT`, and the same shape truncated to 20 fields runs. The table holds no rows, so this is the engine declining to compile the statement, not anything to do with data volume. The merge log's `Perf` table showed the same thing — `Reconcile: Insert` ran 17 times against `Reconcile: Update` 16.
+
+**Options explored**:
+
+- **Gate on a field count**: rejected. There is no published ceiling, and there cannot be a reliable one: the limit is on the size of the parsed expression tree, so joins, calculated columns, and function arguments all spend from the same budget. Reported thresholds in the wild sit anywhere from the high 20s to past 100 depending on what else the query carries. Any constant we picked would be wrong for some table in both directions.
+- **Drop the comparison and update every matched row**: rejected. It halves the expression count but not reliably enough to matter, rewrites rows that never changed, and turns the "N changed" count into "N matched".
+- **Row-by-row DAO compare and edit**: rejected for the same reason the 2026-07-28 entry rejected it for the whole reconcile — the per-row cost is what the set-based design exists to avoid, and wide tables are not necessarily small ones.
+- **Try the one statement, split into field groups only when the engine refuses** (chosen): keeps today's single statement, and its timing, for every table that compiles.
+
+**Decision**: `ReconcileTableData` delegates the update to `UpdateChangedRows`, which attempts the all-fields statement and inspects the error. Only 3360 is recoverable; anything else is re-raised so the caller's handler rolls the transaction back. Retrying is safe because the refusal happens while compiling, before any row is touched, so the surrounding transaction is intact.
+
+The fallback assigns and compares `UPDATE_FIELD_GROUP_SIZE` (12) fields per statement, keeping the two-table shape that already works rather than introducing a join the engine might refuse to update through. Because no group size is *known* to be safe, a further 3360 halves the size and repeats the pass; repeating is harmless, since groups already applied no longer differ from the staging table and match nothing on the way through again.
+
+**Changed rows are counted by collecting keys, not by summing statements.** Per-statement `RecordsAffected` would count a row differing in two groups twice. Each group reads the keys it is about to change into a `Dictionary` immediately before running its update — before, because the rows stop differing once it runs — and the count is the number of distinct keys. A temporary keys table was the obvious alternative and was rejected: it would have to be created inside the open transaction, and Jet does not treat DDL as transactable, so the cleanup story is worse than holding the keys in memory. Memory is bounded by the number of *changed* rows, not table size.
+
+`Reconcile: Update (Grouped)` appears in the `Perf` table only when the split path ran, so a log tells you which path a table took. The caller stops holding a timer across the update, since the helper now owns and closes its own.
+
+**What this rules out**: Treating a field count as a proxy for what the engine will compile, anywhere in this path. Reporting the changed-row count from `RecordsAffected` once more than one statement is involved. Creating temporary tables inside the reconcile transaction. If a table ever proves too wide even at one field per statement, the failure surfaces as the original error rather than silently doing nothing — that would be the point to revisit, most likely with a DAO row walk reserved for that case.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/clsDbTableData.cls` — `ReconcileTableData`, new `UpdateChangedRows`, `UpdateChangedRowsInGroups`, `UpdateFieldGroups`, `BuildFieldAssignments`, `BuildFieldComparisons`, `BuildKeyColumns`, `GetRowKey`
+- `Version Control.accda.src/modules/Tests/Components/modTestTableData.bas` — `TestTableDataMerge_WideTableUpdatesInGroups` and its 80-field table builders
+
+---
+
 ## 2026-07-30 — Repair dbBigInt fields after Application.ImportXML
 
 **Trigger**: Issue #734 / PR #735. `Application.ExportXML`/`ImportXML` has no schema representation for `dbBigInt` (Large Number) fields. On Full Build or Merge, `ImportXML` re-creates them as `dbDecimal(38,0)`; once corrupted, writes succeed but always store `NULL`. A separate cosmetic bug mislabeled `dbBigInt` as `COUNTER` in optional `.sql` companion files because `Case dbAutoIncrField` (value 16) collided with `dbBigInt` (also 16) in `GetTypeString()`.
