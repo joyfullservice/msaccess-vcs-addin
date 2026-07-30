@@ -83,6 +83,89 @@ contradictory guidance.
 
 ---
 
+## 2026-07-30 — UTF-8 conversion streams are cached, not rebuilt per hash
+
+**Trigger**: After the 2026-07-29 scan work took a zero-change merge from 50.9s to 7.35s, the remaining per-file cost was uneven across categories: the benchmark showed Queries at ~1.09 ms per file against 0.38–0.39 ms for Forms and Modules. The initial hypothesis — that un-memoized `clsDbQuery.SourceFile` was driving it through repeated `m_Query.Name` COM reads — turned out to be wrong, and measuring the alternatives against a live 3,681-query database redirected the work.
+
+**Options explored**:
+- **Read query names from `MSysObjects` instead of `CurrentData.AllQueries`**: rejected on measurement. Enumerating all 3,681 queries and reading `.Name` costs 10 ms via the COM collection and 10 ms via a `MSysObjects` snapshot — no difference. DAO `CurrentDb.QueryDefs` is worse on both counts: 44 ms, and it returns 4,918 objects because it includes the 1,237 `~sq_`-prefixed hidden system queries that `AllQueries` correctly omits. The COM collection was never the bottleneck; a repeated `AccessObject.Name` read is 0.12 µs.
+- **Replace `Application.GetHiddenAttribute` with a pre-built `MSysObjects.Flags` map** (the remaining per-object call in `GetQueryMetadataHash`, since Descriptions were already batch-loaded from `LvProp` on 2026-07-13): rejected as a measured regression. `GetHiddenAttribute` costs 1.06 µs per call, 4 ms for the whole set — *faster* than a `Scripting.Dictionary` lookup at 2.12 µs. The two sources were verified to agree (zero mismatches across 3,681 queries), but only the non-hidden case was exercised, so the equivalence is unproven for hidden objects and there is now no reason to rely on it.
+- **Replace `ADODB.Stream` UTF-8 conversion with `WideCharToMultiByte`**: deferred. Almost certainly faster still (sub-microsecond), but it is a different encoder, and every hash stored in `vcs-index.idx` depends on byte-identical output. The surrogate and lone-surrogate edge cases would need to match exactly; the stream-reuse option gets most of the win with the same encoder and therefore zero encoding risk.
+- **Cache the two `ADODB.Stream` objects and rewind them between calls**: chosen. See below.
+
+**Decision**: `GetUTF8Bytes` constructed **two fresh `ADODB.Stream` COM objects on every call** — opening each, setting `Charset` and `Type`, then `WriteText`/`CopyTo`/`Read`. Since `GetStringHash` routes through it, every property hash, content hash, and metadata hash in the product paid that construction cost. Measured at 39.1 µs per call; reusing a module-level pair, rewound with `Position = 0` followed by `SetEOS`, costs 3.9 µs. The pair is opened on first use by `EnsureUtf8Streams` and torn down by `ReleaseUtf8Streams`, called from `modObjects.ReleaseObjects` and from the `GetUTF8Bytes` error handler so a transient stream failure cannot poison every later call.
+
+The `SetEOS` truncation is the load-bearing detail: without it a short input inherits the tail of a longer preceding one. Byte-for-byte equality with the fresh-stream form was verified across both BOM modes for ASCII, accented, CJK, surrogate pairs, lone high and low surrogates, empty strings, a 5,000-character string, and — the dangerous direction — short inputs immediately following long ones.
+
+Separately and much smaller, `clsDbQuery.SourceFile` is now memoized to match `clsDbForm`, cleared whenever `m_Query` is rebound (the `DbObject` setter plus the two import paths that assign `m_Query` directly). An uncached read costs 5.9 µs because it rebuilds the path through an un-memoized `Options.GetExportFolder` — including a `CurrentProject.FullName` COM read — plus the ten `Replace` calls in `GetSafeFileName`; a memoized read is 0.04 µs. Worth ~22 ms per pass over 3,681 queries: real, but not the seconds the category benchmark shows.
+
+**Residual risk accepted**: the cached streams are process-wide module state, so any future reentrant use of `GetUTF8Bytes` (a hash computed from inside a hash) would corrupt both results. Nothing in the current call graph does this, and VBA is single-threaded. `Options.GetExportFolder` remains un-memoized and is still called once per component per category via `BaseFolder`; memoizing it needs care because it depends on `CurrentProject`, which changes when the database being operated on changes.
+
+**Measured**: zero-change merge of the same project, against the 2026-07-29 result. Two consecutive runs are shown because the first had an outlier folder walk; the folder scan is the noisiest line in this report and must be checked before reading a total.
+
+| Operation | 2026-07-29 | Run 1 | Run 2 |
+|---|---|---|---|
+| **Total runtime** | **7.35s** | **7.23s** | **6.68s** |
+| `Get File Property Hash` (exclusive) | 0.75s / 5,094 | 0.44s / 5,094 | 0.44s / 5,094 |
+| `Compute SHA256` | 0.95s / 5,111 | 0.87s / 5,111 | 0.85s / 5,111 |
+| `Scan Source Files` (loop, exclusive) | 2.08s | 2.02s | 1.94s |
+| `Scan Folder Metadata (API)` | 0.30s / 1 | 0.54s / 1 | 0.27s / 1 |
+| `Other Operations` | — | 1.49s | 1.38s |
+
+Reading run 2, where the folder walk is back in line with the baseline, the net is **~0.67s (9%)**. The largest single component is exactly the intended one and is reproducible across both runs: `Get File Property Hash` — the operation wrapping `GetStringHash`, since the `Compute SHA256` timer covers only `HashBytes` and never included UTF-8 conversion — fell 41%, from 0.75s to 0.44s, about 61 µs per call. `Scan Source Files` fell 0.14s, consistent with the `clsDbQuery.SourceFile` memoization being worth ~22 ms per pass plus incidental gains.
+
+The 0.31s hash-path saving is precisely the ceiling that a call count predicted in advance: ~5,100 string hashes at ~60 µs each. That ceiling is low because the 2026-07-29 work had already cut hashing from 20,095 calls to 5,111, so this follow-up could never have been a large win no matter how fast the primitive became. The lesson worth carrying forward is to multiply per-call cost by call count *before* choosing the work, and to take two runs before quoting a total — the first run here understated the result by a factor of five purely through folder-walk variance.
+
+Note also that `GetFileHash` goes through `GetFileBytes`, not `GetUTF8Bytes`, so file content hashing does not benefit at all — only string hashes do (property hashes, combined content hashes, metadata hashes, dictionary hashes), and those run roughly once or twice per component regardless of operation. This is not a change that scales up on full exports.
+
+**Where the remaining 6.68s sits**: `Scan Source Files` loop overhead 1.94s and unattributed `Other Operations` 1.38s now dominate, together half the runtime — the loop cost is `GetFileList` enumeration plus `GetAllFromDB`, which must enumerate every database object for orphan detection. Beyond that there is ~2.1s of fixed overhead that is not scanning at all (`CheckDatabaseAccessible` 0.77s, `Wait for Job Queue` 0.71s, `Load Index` 0.64s). Hashing is no longer a meaningful target: the two hash lines together are 1.29s, and the property-hash half of that is now near its floor. The deferred per-category aggregate fingerprint remains the only option identified that attacks the loop itself, and the 1.38s of untimed work has never been instrumented.
+
+**What this rules out**: reaching for `MSysObjects` as a general substitute for Access COM object collections on performance grounds. For queries it is measurably no better, and it costs the correct hidden-object filtering that `AllQueries` gives for free. It also rules out treating the query category's per-file cost as query-specific — the dominant term is shared by every category, so component-class tuning is not where the remaining time is. And it largely rules out further hash-path work: with hashing down to 1.29s across both timers on a 6.68s run, `WideCharToMultiByte` could recover at most a couple of tenths and would require a byte-equality corpus at least as broad as the one used here to be safe. It is only worth revisiting if a future change pushes string-hash call counts back up by an order of magnitude.
+
+**Relevant files**: `Version Control.accda.src/modules/Utility/modHash.bas`, `Version Control.accda.src/modules/Infrastructure/modObjects.bas`, `Version Control.accda.src/modules/Components/clsDbQuery.cls`, `Version Control.accda.src/modules/Tests/FileIO/modTestHash.bas`, `Version Control.accda.src/modules/Tests/Core/modTestContainers.bas`
+
+---
+
+## 2026-07-29 — Merge scan reads no file content when dates and sizes are unchanged
+
+**Trigger**: A merge build on a ~5,000-component project with zero changes took 50.9 seconds, 45.3 of it in scanning. The perf report showed 20,095 SHA-256 computations, 9,893 whole-file reads, and 24 recursive folder walks — every indexed source file on disk was read and hashed even though nothing had changed. Root cause: `GetModifiedSourceFiles` computed the date+size property hash but used it only to *refresh* stale index metadata, never to skip the content read. The 2026-07-20 `AllFilesHash` work (which fixed companion-`.json` edits being dismissed) removed the property-hash-match short-circuit along with the broken primary-file-only fallback; only the broken fallback needed replacing.
+
+**Options explored**:
+- **Keep content hashing unconditional, optimize only the mechanics** (raw Win32 reads instead of ADODB.Stream, cached hash provider): rejected as the primary fix. It reduces the constant factor but still reads every byte of every source file on every merge, so the cost stays proportional to project size rather than to change count.
+- **Per-category aggregate fingerprint in the index** (one hash over all files in a category, skipping the per-file loop entirely): deferred. Strictly faster still, but requires an index format addition and complicates orphan reconciliation, which needs the per-file list regardless.
+- **Property-hash match short-circuits, content hash arbitrates on mismatch**: chosen. Restores the pre-2026-07-20 fast path while keeping the combined `AllFilesHash` (not the primary file alone) as the arbiter, so the bug that motivated `AllFilesHash` stays fixed. A file is clean when the date and size of every indexed file match the index; only when one moved is content read, and then the content hash decides — catching companion-only edits and dismissing timestamp-only drift such as a checkout that rewrote mtimes.
+
+**Decision**: Three-tier precedence in `GetModifiedSourceFiles` (property hash, then combined content hash, then the legacy primary-file fallback for entries predating `AllFilesHash`), plus supporting work that stands on its own:
+
+- **One shared folder scan.** Nine component types report the export root as their `BaseFolder`, and `ScanFolderMetadata` is recursive, so each re-walked the entire source tree. `modBuild.GetSharedScanMetadata` builds one map for the whole scan phase; when the container list contains no root-folder category (a narrowly scoped sync), only the distinct folders needed are walked, so a small operation does not pay for a full-tree walk. `GetModifiedSourceFiles` accepts it as an optional argument and falls back to its own per-category scan for other callers.
+- **`GetSourceBasePath`** replaces `FSO.BuildPath(FSO.GetParentFolderName(p), FSO.GetBaseName(p))` in the four places that built a per-extension base path, and `GetSourceFilesContentHash` takes the scan map so per-extension existence is a dictionary lookup rather than `FSO.FileExists`.
+- **Cached CNG provider.** `NGHash` opened an algorithm provider, queried two size properties, and closed the provider on *every* hash. At ~0.84 ms per hash for inputs that are mostly short strings, setup and teardown dominated. The handle, its size properties, and the hash object buffer are now cached per algorithm and released via `modObjects.ReleaseObjects`. The digest is formatted through a 256-entry hex lookup table instead of `Hex`/`Right`/`LCase` per byte.
+- **Index item resolved once.** The loop called `Me.Item(cCategory, strFile)` up to five times per file; it now resolves one `clsVCSIndexItem` through `GetExistingIndexItem`. This also fixes a latent bug: `Exists` honors the legacy table-def `.xml`/`.json` key alias but `Me.Item` does not, so aliased entries silently got a blank item and were reported modified on every merge.
+
+**Residual risk accepted**: a content edit that preserves both the exact byte size *and* the recorded modification timestamp is missed until the next full export. File dates are second-precision, so the window is an edit landing in the same second as the recorded date at identical length. This is the behavior the add-in had before 2026-07-20 and the same assumption git and rsync make. `VCS.FullExport` remains the escape hatch.
+
+**Measured**: Zero-change merge of the same ~5,000-component project (10,047 indexed files), before and after. Perf timers are exclusive, so nested time is attributed to the innermost operation.
+
+| Operation | Before | After |
+|---|---|---|
+| **Total runtime** | **50.92s** | **7.35s** |
+| `Scan Source Files` (loop, exclusive) | 6.29s | 2.08s |
+| `Compute SHA256` | 16.92s / 20,095 calls | 0.95s / 5,111 calls |
+| `Get File Content Hash` | 7.60s / 5,094 calls | *absent — 0 calls* |
+| `Read File Bytes` | 8.01s / 9,893 calls | 0.00s / 3 calls |
+| `Scan Folder Metadata (API)` | 3.99s / 24 calls | 0.30s / 1 call |
+| `Get File Property Hash` | 2.47s / 5,094 calls | 0.75s / 5,094 calls |
+
+The hash count drops to exactly one property hash per component (5,094) plus 17 incidental — no source file content is read or hashed at all on a clean merge. Per-hash cost fell from ~0.84 ms to 0.186 ms, which an isolated `modTestPerf` measurement of `GetStringHash` reproduces at 0.185 ms, confirming the provider open/close was the dominant cost rather than the digest itself. The same property hash computed from the scan map instead of `FSO.GetFile` is 0.25 ms vs 0.70 ms. Threading the map into `GetSourceFilesContentHash` is worth little on its own (0.87 → 0.73 ms) because the cost there is reading bytes, not the existence check — it matters only on the mismatch path, which is now rare.
+
+Remaining scan cost is ~4.1s, of which 2.08s is loop overhead (`GetFileList` enumeration plus `GetAllFromDB`, which must enumerate every database object for orphan detection) and 0.95s is the 5,094 property hashes. Both are what the deferred per-category aggregate fingerprint would target.
+
+**What this rules out**: `AllFilesHash` is no longer consulted on every merge, so it cannot be relied on as a content audit of the source tree — it is a tiebreaker for files whose metadata moved. Any future change to how `FilePropertiesHash` is computed must keep the FSO branch and the Win32 scan branch byte-identical; they are written on the export path through FSO and compared on the merge path through the scan map, and a divergence would silently disable the fast path rather than fail. `modTestContainers.TestPropertyHashIdenticalWithAndWithoutMetaScan` exists to make that a visible failure. Revisit with the per-category aggregate fingerprint if scan time again becomes the dominant cost on very large projects.
+
+**Relevant files**: `clsVCSIndex.cls`, `modBuild.bas`, `modContainers.bas`, `modHash.bas`, `modObjects.bas`, `modTestPerf.bas` (new benchmark harness), `modTestMergeDetection.bas`, `modTestContainers.bas`, `modTestHash.bas`.
+
+---
+
 ## 2026-07-29 — Opt-in in-place merge preparation instead of the pre-merge reopen
 
 **Trigger**: A merge build unconditionally closes and shift-reopens the database before scanning source files, costing roughly 23 seconds on a ~7,300-file project. Merges are run frequently while working with AI tools, so that fixed cost dominates the loop. Two earlier attempts to remove it were reverted: an in-place VBE reset (2026-07-06, crashed) and a deferred reopen (2026-06-09, reverted in `0e4b93b0` for stale component references).
@@ -762,6 +845,13 @@ the default agent handoff. Leaving web runs without a persisted `TestRun_*.log`.
 ---
 
 ## 2026-07-20 — Index companion `.json` for merge detection and `AllFilesHash`
+
+> **⚠ Partially superseded** (2026-07-29): `AllFilesHash` is no longer consulted on
+> every merge. It is now reached only when the date+size property hash does not match
+> the index, which is what made a no-change merge read every source file. The fix this
+> entry describes is intact — when content *is* hashed, all indexed files are hashed,
+> not the primary file alone. See "Merge scan reads no file content when dates and
+> sizes are unchanged" above.
 
 **Trigger**: Metadata-only edits to a form/report companion `.json` (Description, Hidden) were not picked up by `MergeBuild`. Root causes: (1) form/report `.json` was excluded from indexed `FileExtensions`; (2) even where `.json` was indexed (modules, queries, table defs, macros), `GetModifiedSourceFiles` confirmed timestamp drift via primary-file content hash only, masking companion-only changes. Macros also gated `.json` emission to the real export path while indexing it — a latent `GetDifferingFiles` false-conflict risk.
 
@@ -1999,6 +2089,15 @@ falling back to the hybrid raw-hex approach. Byte-exactness is enforced by
 ---
 
 ## 2026-06-09 — Batch file metadata (date+size) for source property hashing
+
+> **⚠ Partially superseded** (2026-07-29): The map is no longer built "once per
+> category." A merge build now builds one map for the whole scan phase and shares it
+> across every category, because several component types report the export root as
+> their `BaseFolder` and each recursive walk therefore covered the entire tree. The
+> "capture during enumeration" design was not needed to fix that. The DST caveat and
+> its reliance on the content-hash fallback still hold — that fallback is now the
+> second tier of a three-tier precedence. See "Merge scan reads no file content when
+> dates and sizes are unchanged" above.
 
 **Trigger**: Merge-build change detection on a large project (~7,300-file `queries`
 folder) spent ~7.4s in "Get File Property Hash". `GetModifiedSourceFiles` already only

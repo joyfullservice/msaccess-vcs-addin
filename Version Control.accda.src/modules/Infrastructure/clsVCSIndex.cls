@@ -764,19 +764,39 @@ End Property
 ' Author    : Adam Waller
 ' Date      : 12/2/2020
 ' Purpose   : Return a collection of source files that appear to be different from
-'           : the index hash of the previous export. File modified dates will be used
-'           ' to determine which files have changed.
+'           : the index entry recorded at the last export or import.
 '           : NOTE: This will also include source file paths for database objects that
 '           : no longer exist. (Orphaned database objects not represented in source.)
+'           :
+'           : Detection precedence per file:
+'           :   1. Property hash (date + size of every indexed file) matches the index
+'           :      -- nothing has been written since the last sync, so the file is clean
+'           :      and no content is read. This is the fast path, and on a project with
+'           :      thousands of components it is the difference between a merge scan that
+'           :      touches the disk once per folder and one that reads every file.
+'           :   2. Property hash differs and AllFilesHash is recorded -- the combined
+'           :      content hash of all indexed files decides. This catches companion-only
+'           :      edits (a metadata `.json`) and dismisses timestamp-only drift, such as
+'           :      a checkout that rewrote mtimes without changing content.
+'           :   3. Property hash differs and the entry predates AllFilesHash -- fall back
+'           :      to the primary file content hash alone, until the next sync populates
+'           :      the combined hash.
+'           :
+'           : Optionally accepts a folder metadata map (path -> Array(date, size)) from
+'           : ScanFolderMetadata. A merge build passes one recursive scan covering the
+'           : entire export folder so every category shares it; when omitted, this scans
+'           : just the category's own folder.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
+Public Function GetModifiedSourceFiles(cCategory As IDbComponent, _
+    Optional dSharedMeta As Dictionary) As Dictionary
 
     Dim dAllFiles As Dictionary
     Dim dItems As Dictionary
     Dim dMeta As Dictionary
     Dim varItem As Variant
     Dim cItem As IDbComponent
+    Dim cIdx As clsVCSIndexItem
     Dim strHash As String
     Dim strFile As String
     Dim blnModified As Boolean
@@ -790,11 +810,22 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
         Set dAllFiles = cCategory.GetFileList
         Set dItems = cCategory.GetAllFromDB
 
-        ' Capture file dates/sizes for the whole category folder in a single Win32
-        ' pass, so the per-file property hash below can look them up instead of
-        ' issuing a separate FSO.GetFile (date+size) for every source file. (The
-        ' batch scan is ~20x faster than per-file FSO on large folders.)
-        Set dMeta = ScanFolderMetadata(cCategory.BaseFolder)
+        ' File dates and sizes come from a single Win32 folder walk rather than a
+        ' per-file FSO.GetFile. (The batch scan is ~20x faster than per-file FSO on
+        ' large folders.) Prefer a map supplied by the caller: a merge build scans the
+        ' whole export folder once and shares it across every category, which matters
+        ' because nine component types report the export root as their BaseFolder and
+        ' would otherwise each re-walk the entire source tree.
+        ' An empty map is treated as absent, not as "no files exist on disk". If a shared
+        ' scan came back empty because the walk failed, trusting it would report every
+        ' component modified and merge the entire project.
+        If dSharedMeta Is Nothing Then
+            Set dMeta = ScanFolderMetadata(cCategory.BaseFolder)
+        ElseIf dSharedMeta.Count = 0 Then
+            Set dMeta = ScanFolderMetadata(cCategory.BaseFolder)
+        Else
+            Set dMeta = dSharedMeta
+        End If
 
         ' Loop through files and check modified dates.
         ' Get a list of all the files for this component.
@@ -817,41 +848,52 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
                     blnMissing = Not dItems.Exists(strFile)
                 End If
 
-                ' Check the index for any existing entry, so we can compare the saved modified date.
+                ' Check the index for any existing entry, so we can compare the saved hashes.
                 ' NOTE: We intentionally do NOT gate this on blnMissing. The
                 ' path-based check (dItems.Exists) can fail due to casing,
                 ' @Folder annotation drift, or stale index state. As long as
                 ' the index has an entry keyed by filename we can still compare
                 ' hashes and avoid unnecessary merges.
-                If Me.Exists(cCategory, strFile) Then
-                    ' Get hash of current source files (date/size sourced from the
-                    ' single folder scan above instead of per-file FSO.GetFile).
+                ' Resolve the entry once. GetExistingIndexItem also honors the legacy
+                ' table def .xml/.json key alias, which Me.Item does not -- going through
+                ' Me.Item would silently create a blank entry for those and report the
+                ' component modified on every merge.
+                Set cIdx = GetExistingIndexItem(cCategory, strFile)
+                If Not cIdx Is Nothing Then
+
+                    ' Hash the current file dates and sizes (sourced from the folder scan
+                    ' above rather than a per-file FSO.GetFile).
                     strHash = GetSourceFilesPropertyHash(cCategory, strFile, dMeta)
-                    If Len(Me.Item(cCategory, strFile).AllFilesHash) > 0 Then
-                        ' Combined content hash is authoritative when present: detects
-                        ' companion-only edits and ignores timestamp-only drift.
-                        blnModified = (Me.Item(cCategory, strFile).AllFilesHash <> _
-                            GetSourceFilesContentHash(cCategory, strFile))
+
+                    If Len(strHash) > 0 And cIdx.FilePropertiesHash = strHash Then
+                        ' Every indexed file still carries the date and size recorded at
+                        ' the last sync, so nothing was written since. Clean without
+                        ' reading a single byte.
+                        blnModified = False
+
+                    ElseIf Len(cIdx.AllFilesHash) > 0 Then
+                        ' A date or size moved. The combined content hash is the arbiter:
+                        ' it spans companion files, so a metadata-only `.json` edit is
+                        ' detected, and it dismisses timestamp-only drift.
+                        blnModified = (cIdx.AllFilesHash <> _
+                            GetSourceFilesContentHash(cCategory, strFile, dMeta))
                         If Not blnModified Then
-                            ' Content unchanged -- refresh any stale property metadata.
-                            If Me.Item(cCategory, strFile).FilePropertiesHash <> strHash Then
-                                Me.Item(cCategory, strFile).FilePropertiesHash = strHash
-                                Me.Item(cCategory, strFile).SourceModified = _
-                                    GetSourceModifiedDate(cCategory, strFile)
-                            End If
+                            ' Timestamp-only drift. Refresh the stale property metadata so
+                            ' the next merge takes the fast path above instead of re-reading.
+                            cIdx.FilePropertiesHash = strHash
+                            cIdx.SourceModified = GetSourceModifiedDate(cCategory, strFile)
                         End If
+
                     Else
-                        ' Legacy entries without AllFilesHash (pre-upgrade index).
-                        blnModified = Not (Me.Item(cCategory, strFile).FilePropertiesHash = strHash)
-                        If blnModified Then
-                            strStoredHash = Me.Item(cCategory, strFile).FileHash
-                            If Len(strStoredHash) > 0 Then
-                                blnModified = (strStoredHash <> GetFileHash(strFile))
-                                If Not blnModified Then
-                                    Me.Item(cCategory, strFile).FilePropertiesHash = strHash
-                                    Me.Item(cCategory, strFile).SourceModified = _
-                                        GetSourceModifiedDate(cCategory, strFile)
-                                End If
+                        ' Legacy entry written before AllFilesHash existed. Only the primary
+                        ' file can be confirmed, so companion-only edits stay hidden until
+                        ' the next export or import re-syncs this entry.
+                        strStoredHash = cIdx.FileHash
+                        If Len(strStoredHash) > 0 Then
+                            blnModified = (strStoredHash <> GetFileHash(strFile))
+                            If Not blnModified Then
+                                cIdx.FilePropertiesHash = strHash
+                                cIdx.SourceModified = GetSourceModifiedDate(cCategory, strFile)
                             End If
                         End If
                     End If

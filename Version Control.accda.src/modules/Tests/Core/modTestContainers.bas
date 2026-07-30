@@ -5,6 +5,7 @@
 ' Date      : 5/12/2026
 ' Purpose   : Tests for source file metadata functions in modContainers:
 '           : GetSourceModifiedDate, GetSourceFilesPropertyHash,
+'           : GetSourceFilesContentHash, GetSourceBasePath,
 '           : GetLastModifiedSourceFile.
 '---------------------------------------------------------------------------------------
 Option Compare Database
@@ -130,6 +131,145 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestPropertyHashIdenticalWithAndWithoutMetaScan
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : GetSourceFilesPropertyHash reads file dates and sizes either from a
+'           : per-file FSO.GetFile or from a batch Win32 folder scan. Merge change
+'           : detection uses the scan map while export records the hash through the FSO
+'           : path, so the two must agree byte for byte.
+'           :
+'           : If they ever diverge (a date conversion or precision difference, for
+'           : instance) nothing breaks visibly -- the merge short-circuit simply stops
+'           : firing and every source file gets read again. This test turns that silent
+'           : performance regression into a visible failure.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestPropertyHashIdenticalWithAndWithoutMetaScan()
+
+    Dim cModule As IDbComponent
+    Dim dMeta As Dictionary
+    Dim strSource As String
+    Dim strFsoHash As String
+    Dim strScanHash As String
+
+    Set cModule = GetTestComponent
+    If cModule Is Nothing Then Exit Sub
+    strSource = cModule.SourceFile
+    If Not FSO.FileExists(strSource) Then
+        TestAssert True, "SKIP: source file not on disk"
+        Exit Sub
+    End If
+
+    Set dMeta = ScanFolderMetadata(cModule.BaseFolder)
+
+    strFsoHash = GetSourceFilesPropertyHash(cModule, strSource)
+    strScanHash = GetSourceFilesPropertyHash(cModule, strSource, dMeta)
+
+    TestAssert Len(strFsoHash) > 0, "FSO path returns a hash"
+    TestAssert strFsoHash = strScanHash, "folder scan produces the same property hash as FSO"
+
+    ' The same must hold for a recursive scan rooted above the category folder, which is
+    ' what a merge build shares across every category.
+    Set dMeta = ScanFolderMetadata(Options.GetExportFolder)
+    strScanHash = GetSourceFilesPropertyHash(cModule, strSource, dMeta)
+    TestAssert strFsoHash = strScanHash, "shared root scan produces the same property hash"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestContentHashIdenticalWithAndWithoutMetaScan
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : The folder scan map only replaces the per-extension existence check in
+'           : GetSourceFilesContentHash, so the resulting hash must be unchanged.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestContentHashIdenticalWithAndWithoutMetaScan()
+
+    Dim cModule As IDbComponent
+    Dim dMeta As Dictionary
+    Dim strSource As String
+    Dim strFsoHash As String
+    Dim strScanHash As String
+
+    Set cModule = GetTestComponent
+    If cModule Is Nothing Then Exit Sub
+    strSource = cModule.SourceFile
+    If Not FSO.FileExists(strSource) Then
+        TestAssert True, "SKIP: source file not on disk"
+        Exit Sub
+    End If
+
+    Set dMeta = ScanFolderMetadata(cModule.BaseFolder)
+
+    strFsoHash = GetSourceFilesContentHash(cModule, strSource)
+    strScanHash = GetSourceFilesContentHash(cModule, strSource, dMeta)
+
+    TestAssert Len(strFsoHash) > 0, "FSO path returns a hash"
+    TestAssert strFsoHash = strScanHash, "folder scan produces the same content hash as FSO"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestGetSourceBasePathMatchesFso
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : GetSourceBasePath replaces three FSO calls in the per-file scan loop, so it
+'           : must return exactly what the FSO expression it replaced returned. Checked
+'           : against every real source file in a category plus the awkward shapes:
+'           : a dot in a folder name, multiple dots in a file name, and no extension.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestGetSourceBasePathMatchesFso()
+
+    Dim cModule As IDbComponent
+    Dim varFile As Variant
+    Dim strPath As String
+    Dim lngChecked As Long
+
+    Set cModule = GetTestComponent
+    If cModule Is Nothing Then Exit Sub
+
+    For Each varFile In cModule.GetFileList
+        strPath = CStr(varFile)
+        TestAssert GetSourceBasePath(cModule, strPath) = FsoBasePath(strPath), _
+            "matches FSO for " & FSO.GetFileName(strPath)
+        lngChecked = lngChecked + 1
+        If lngChecked >= 25 Then Exit For
+    Next varFile
+
+    ' Awkward shapes, independent of what happens to be on disk
+    CheckBasePath cModule, "C:\folder\name.sql"
+    CheckBasePath cModule, "C:\fold.er\name.sql"
+    CheckBasePath cModule, "C:\fold.er\na.me.sql"
+    CheckBasePath cModule, "C:\folder\name"
+    CheckBasePath cModule, "C:\fold.er\name"
+
+End Sub
+
+
+Private Sub CheckBasePath(cmp As IDbComponent, ByVal strPath As String)
+    TestAssert GetSourceBasePath(cmp, strPath) = FsoBasePath(strPath), _
+        "matches FSO for " & strPath
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FsoBasePath
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : The original FSO expression GetSourceBasePath replaced.
+'---------------------------------------------------------------------------------------
+'
+Private Function FsoBasePath(ByVal strPath As String) As String
+    FsoBasePath = FSO.BuildPath(FSO.GetParentFolderName(strPath), FSO.GetBaseName(strPath))
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetTestComponent
 ' Author    : Adam Waller
 ' Date      : 5/12/2026
@@ -144,6 +284,61 @@ Private Function GetTestComponent() As IDbComponent
     Set cModule.DbObject = CurrentProject.AllModules(0)
     Set GetTestComponent = cModule
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestQuerySourceFileMemoization
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : clsDbQuery.SourceFile is memoized because a change scan reads it repeatedly
+'           : per component. Verify the cached value matches the first computed value, and
+'           : that rebinding DbObject invalidates it -- a stale path would silently point
+'           : a component at another query's source file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestQuerySourceFileMemoization()
+
+    Dim cQuery As IDbComponent
+    Dim strFirst As String
+    Dim strCached As String
+    Dim strSecond As String
+    Dim lngIdx As Long
+
+    If CurrentData.AllQueries.Count = 0 Then
+        TestAssert True, "SKIP: no queries in this database"
+        Exit Sub
+    End If
+
+    Set cQuery = New clsDbQuery
+    Set cQuery.DbObject = CurrentData.AllQueries(0)
+
+    strFirst = cQuery.SourceFile
+    TestAssert Len(strFirst) > 0, "returns a source file path"
+
+    ' Repeated reads must return the same value from the cache
+    For lngIdx = 1 To 10
+        strCached = cQuery.SourceFile
+        TestAssert strCached = strFirst, "stable across repeated reads"
+    Next lngIdx
+
+    ' The cached path has to reflect the bound object, not the first one ever seen
+    If CurrentData.AllQueries.Count > 1 Then
+        Set cQuery.DbObject = CurrentData.AllQueries(1)
+        strSecond = cQuery.SourceFile
+        TestAssert strSecond <> strFirst, "rebinding DbObject invalidates the cached path"
+
+        ' And rebinding back returns the original
+        Set cQuery.DbObject = CurrentData.AllQueries(0)
+        TestAssert cQuery.SourceFile = strFirst, "rebinding to the original restores its path"
+    End If
+
+    ' A freshly bound instance must agree with the memoized one
+    Dim cFresh As IDbComponent
+    Set cFresh = New clsDbQuery
+    Set cFresh.DbObject = CurrentData.AllQueries(0)
+    TestAssert cFresh.SourceFile = strFirst, "memoized path matches a freshly computed one"
+
+End Sub
 
 
 Public Sub TestResolveComponentTypeMenusAlias()

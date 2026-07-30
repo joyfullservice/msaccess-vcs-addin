@@ -26,6 +26,7 @@ Option Explicit
 Private m_Query As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
+Private m_strSourceFile As String
 
 Implements IDbComponent
 
@@ -733,6 +734,7 @@ Private Sub ImportNewFormat(strSqlFile As String)
     End If
 
     Set m_Query = CurrentData.AllQueries(strQueryName)
+    m_strSourceFile = vbNullString
 
     ' Apply document metadata from the .json file
     ImportObjectMetadata strJsonFile, "Tables", strQueryName, acQuery
@@ -849,6 +851,7 @@ Private Sub ImportLegacyFormat(strFile As String)
     End If
 
     Set m_Query = CurrentData.AllQueries(strQueryName)
+    m_strSourceFile = vbNullString
     ImportObjectMetadata SwapExtension(strFile, "json"), "Tables", strQueryName, acQuery
 
     If Options.ForceImportOriginalQuerySQL And (blnRecreated = False) Then
@@ -1106,12 +1109,21 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
+    ' Memoized: a change scan reads this repeatedly per component (via GetSourceBasePath
+    ' for the property and content hashes, and again during orphan detection), and each
+    ' rebuild costs an un-memoized Options.GetExportFolder plus the ten Replace calls in
+    ' GetSafeFileName. Cleared whenever m_Query is rebound. Matches clsDbForm.
+    If Len(m_strSourceFile) > 0 Then
+        IDbComponent_SourceFile = m_strSourceFile
+        Exit Property
+    End If
     If m_Query Is Nothing Then Exit Property
     If Options.ExportFormatVersion >= EFV_5_0_0 And Options.UseDeterministicQueryExport Then
-        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+        m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
     Else
-        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
+        m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
     End If
+    IDbComponent_SourceFile = m_strSourceFile
 End Property
 
 
@@ -1134,6 +1146,7 @@ Private Property Get IDbComponent_DbObject() As Object
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set m_Query = RHS
+    m_strSourceFile = vbNullString
 End Property
 
 Private Property Get IDbComponent_SingleFile() As Boolean

@@ -82,6 +82,12 @@ Public Sub ReleaseObjects()
     Set this.TestRunner = Nothing
     Set this.dbs = Nothing
 
+    ' Release the cached CNG hashing provider handle
+    ReleaseHashProvider
+
+    ' Release the cached UTF-8 conversion streams
+    ReleaseUtf8Streams
+
     Dim udtEmpty As udtObjects
     ' Reassign "this" to blank, clearing any saved data.
     LSet this = udtEmpty

@@ -55,6 +55,166 @@ Public Sub TestMergeIgnoresTimestampOnlyWhenAllFilesHashMatches()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeSkipsContentHashWhenPropertyHashMatches
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Pin the fast path in GetModifiedSourceFiles. When the property hash (date
+'           : and size of every indexed file) matches the index, no file content is read
+'           : at all. Poisoning AllFilesHash proves that: if the content hash were still
+'           : being consulted, the bogus value would report the file as modified.
+'           :
+'           : This is what keeps a no-change merge from reading every source file. See
+'           : the 2026-07-29 DECISIONS.md entry.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeSkipsContentHashWhenPropertyHashMatches()
+
+    Dim cForm As IDbComponent
+    Dim cIdx As clsVCSIndexItem
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    blnCreatedJson = EnsureCompanionJson(strFile)
+    SeedMergeIndexBaseline cForm, strFile
+
+    ' Poison the content hash while leaving the property hash valid
+    Set cIdx = VCSIndex.Item(cForm, strFile)
+    cIdx.AllFilesHash = "bogus_content_hash"
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    TestAssert Not dModified.Exists(strFile), _
+        "matching property hash short-circuits before the content hash is consulted"
+
+    ' Restore a valid baseline so later tests are not affected
+    SeedMergeIndexBaseline cForm, strFile
+    CleanupCreatedCompanionJson strFile, blnCreatedJson
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeSkipsTableDataAfterExport
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Export must seed the index for table data so a subsequent merge scan skips
+'           : unchanged source files. Before the fix, only Merge updated the index.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeSkipsTableDataAfterExport()
+    '@Tag("integration")
+
+    Dim cCategory As IDbComponent
+    Dim cTable As clsDbTableData
+    Dim dbs As DAO.Database
+    Dim strTable As String
+    Dim strFile As String
+    Dim dModified As Dictionary
+
+    strTable = "vcs_test_export_idx"
+    strFile = vbNullString
+    Set dbs = CurrentDb
+    Set cCategory = New clsDbTableData
+
+    LogUnhandledErrors
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strTable & "]"
+    On Error GoTo 0
+    dbs.Execute "CREATE TABLE [" & strTable & "] (ID LONG, Name TEXT(10))"
+    dbs.Execute "INSERT INTO [" & strTable & "] (ID, Name) VALUES (1, 'a')"
+
+    Set cTable = New clsDbTableData
+    cTable.Format = etdTabDelimited
+    On Error Resume Next
+    Set cTable.Parent.DbObject = CurrentData.AllTables(strTable)
+    On Error GoTo 0
+    If cTable.Parent.DbObject Is Nothing Then
+        TestAssert True, "SKIP: could not bind test table"
+        GoTo Cleanup
+    End If
+
+    cTable.Parent.Export
+    strFile = Options.GetExportFolder & "tables\" & strTable & ".txt"
+    If Not FSO.FileExists(strFile) Then
+        TestAssert True, "SKIP: table data export file missing"
+        GoTo Cleanup
+    End If
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cCategory)
+    TestAssert Not dModified.Exists(strFile), _
+        "freshly exported table data skipped on merge scan"
+
+Cleanup:
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strTable & "]"
+    If Len(strFile) > 0 Then
+        If FSO.FileExists(strFile) Then DeleteFile strFile
+        VCSIndex.Remove cCategory, strFile
+    End If
+    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeUsesSharedScanMetadata
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : A merge build passes one folder metadata map covering every category rather
+'           : than letting each category scan its own folder. Verify the shared map
+'           : produces the same verdict as the per-category fallback.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeUsesSharedScanMetadata()
+
+    Dim cForm As IDbComponent
+    Dim strFile As String
+    Dim dShared As Dictionary
+    Dim dOwnScan As Dictionary
+    Dim dRootMeta As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    blnCreatedJson = EnsureCompanionJson(strFile)
+    SeedMergeIndexBaseline cForm, strFile
+
+    ' A recursive scan of the export root covers every category folder
+    Set dRootMeta = ScanFolderMetadata(Options.GetExportFolder)
+    Set dShared = VCSIndex.GetModifiedSourceFiles(cForm, dRootMeta)
+    Set dOwnScan = VCSIndex.GetModifiedSourceFiles(cForm)
+
+    TestAssert dShared.Exists(strFile) = dOwnScan.Exists(strFile), _
+        "shared folder scan agrees with the per-category scan"
+    TestAssert dShared.Count = dOwnScan.Count, "same number of modified files reported"
+
+    CleanupCreatedCompanionJson strFile, blnCreatedJson
+
+End Sub
+
+
 Public Sub TestGetSourceFilesContentHashIncludesJson()
     Dim cForm As IDbComponent
     Dim strFile As String

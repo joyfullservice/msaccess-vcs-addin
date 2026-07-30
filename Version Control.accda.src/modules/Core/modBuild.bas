@@ -57,6 +57,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Dim varCategory As Variant
     Dim dCategory As Dictionary
     Dim dFiles As Dictionary
+    Dim dScanMeta As Dictionary
+    Dim colCategories As Collection
     Dim varFile As Variant
     Dim strType As String
     Dim blnSuccess As Boolean
@@ -205,7 +207,13 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 ReopenBeforeMerge strPath
             End If
         ElseIf Options.SkipReopenBeforeMerge Then
-            m_blnTraceInPlaceMerge = True
+            ' Crash tracing is off. The in-place merge and VBA project save are settled
+            ' (see DECISIONS.md 2026-07-29), so the trace noise and the log rewrite that
+            ' each entry costs are not worth paying on every merge. Uncomment to trace a
+            ' fault: this one line re-enables every TraceInPlaceMerge call site, including
+            ' the reset and save traces in modVbeUtility, which receive this same flag.
+            ' This is also the seam for a future trace-logging option.
+            'm_blnTraceInPlaceMerge = True
             m_blnInPlaceResetFailed = False
             Log.Add T("Preparing current database for merge...")
             Log.Flush
@@ -243,7 +251,6 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     End If
 
     ' Launch the GUI form
-    TraceInPlaceMerge "phase: opening main form"
     DoCmd.OpenForm "frmVCSMain"
     Form_frmVCSMain.StartBuild blnFullBuild
 
@@ -341,11 +348,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     ' Warm persistent connections to linked Access back-end files before merge
     ' conflict temp-exports (same as full export operations).
-    TraceInPlaceMerge "phase: caching back-end connections"
     CacheBackEndConnections
 
     ' Build collections of files to import/merge
-    TraceInPlaceMerge "phase: scanning source files"
     Log.Add T("Scanning source files...")
     Log.Flush
 
@@ -362,11 +367,18 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     Set dCategories = New Dictionary
     VCSIndex.Conflicts.Initialize dCategories, eatImport
+
+    ' Walk the source folders once for file dates and sizes, and share the result with
+    ' every category below. Letting each category scan for itself re-walks the whole
+    ' source tree repeatedly, since several component types report the export root as
+    ' their BaseFolder. (A full build imports every file regardless, so it never scans.)
+    Set colCategories = GetContainers(intFilter)
+    If Not blnFullBuild Then Set dScanMeta = GetSharedScanMetadata(colCategories)
+
     Perf.OperationStart "Scan Source Files"
-    For Each cCategory In GetContainers(intFilter)
+    For Each cCategory In colCategories
         Set dCategory = New Dictionary
         dCategory.Add "Class", cCategory
-        TraceInPlaceMerge "scan: " & cCategory.Category
         Operation.Pulse
         ' Get collection of source files
         If blnFullBuild Then
@@ -383,7 +395,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             Else
                 ' Return just the modified source files for merge, including source file paths
                 ' representing orphaned objects that no longer exist in the database.
-                dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
+                dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory, dScanMeta)
             End If
         End If
         ' Check count of modified source files.
@@ -406,13 +418,11 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
     Next cCategory
     Perf.OperationEnd
-    TraceInPlaceMerge "phase: scan complete"
 
     ' Check for any conflicts
     With VCSIndex.Conflicts
         If .Count > 0 Then
             ' Resolve conflicts (auto-resolve for agent/API, prompt for user)
-            TraceInPlaceMerge "phase: resolving conflicts"
             .ResolveOrPrompt
             If .ApproveResolutions Then
                 Log.Add T("Resolving source conflicts"), False
@@ -1392,6 +1402,7 @@ Public Sub MergeScoped(colContainers As Collection, blnFullMerge As Boolean)
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
     Dim dFiles As Dictionary
+    Dim dScanMeta As Dictionary
     Dim varCategory As Variant
     Dim varFile As Variant
     Dim cCategory As IDbComponent
@@ -1438,6 +1449,10 @@ Public Sub MergeScoped(colContainers As Collection, blnFullMerge As Boolean)
     ' Build collections of files to import/merge
     Set dCategories = New Dictionary
     VCSIndex.Conflicts.Initialize dCategories, eatImport
+
+    ' One shared file date/size map for the targeted categories (see Build).
+    If Not blnFullMerge Then Set dScanMeta = GetSharedScanMetadata(colContainers)
+
     Perf.OperationStart "Scan Source Files"
     For Each cCategory In colContainers
         Set dCategory = New Dictionary
@@ -1464,7 +1479,7 @@ Public Sub MergeScoped(colContainers As Collection, blnFullMerge As Boolean)
                     var0:=T(LCase(cCategory.Category))), Options.ShowDebug
                 dCategory.Add "Files", New Dictionary
             Else
-                dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory)
+                dCategory.Add "Files", VCSIndex.GetModifiedSourceFiles(cCategory, dScanMeta)
             End If
         End If
         If dCategory("Files").Count = 0 Then
@@ -1569,6 +1584,79 @@ Public Sub MergeScoped(colContainers As Collection, blnFullMerge As Boolean)
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSharedScanMetadata
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Return a single file date/size map (see ScanFolderMetadata) covering the
+'           : base folders of every container about to be scanned for changes, so the
+'           : disk is walked once per folder rather than once per category.
+'           :
+'           : Several component types (project properties, VBE references, connections,
+'           : documents, nav pane groups) report the export root as their BaseFolder. A
+'           : recursive scan of the root already covers every other category, so as soon
+'           : as one of those is in the list this collapses to a single walk. When the
+'           : list contains none of them -- a narrowly scoped sync of, say, just menus --
+'           : only the folders actually needed are scanned, so a small operation does not
+'           : pay for a full-tree walk.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetSharedScanMetadata(colContainers As Collection) As Dictionary
+
+    Dim cCategory As IDbComponent
+    Dim dFolders As Dictionary
+    Dim dMeta As Dictionary
+    Dim dFolderMeta As Dictionary
+    Dim varFolder As Variant
+    Dim varKey As Variant
+    Dim varFolderKeys As Variant
+    Dim strRoot As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    strRoot = AddSlash(Options.GetExportFolder)
+
+    ' Collect the distinct base folders, watching for the export root.
+    Set dFolders = New Dictionary
+    dFolders.CompareMode = TextCompare
+    For Each cCategory In colContainers
+        If StrComp(AddSlash(cCategory.BaseFolder), strRoot, vbTextCompare) = 0 Then
+            ' One recursive scan from the root covers every category.
+            Set dFolders = New Dictionary
+            dFolders.Add strRoot, vbNullString
+            Exit For
+        End If
+        If Not dFolders.Exists(cCategory.BaseFolder) Then
+            dFolders.Add cCategory.BaseFolder, vbNullString
+        End If
+    Next cCategory
+
+    If dFolders.Count = 1 Then
+        ' Single walk (the export root, or a scoped sync of one category). Use the scan
+        ' directly rather than copying thousands of entries into a second dictionary.
+        varFolderKeys = dFolders.Keys
+        Set dMeta = ScanFolderMetadata(CStr(varFolderKeys(0)))
+    ElseIf dFolders.Count > 1 Then
+        ' Merge the folder scans into one map keyed by full path.
+        Set dMeta = New Dictionary
+        dMeta.CompareMode = TextCompare
+        For Each varFolder In dFolders.Keys
+            Set dFolderMeta = ScanFolderMetadata(CStr(varFolder))
+            For Each varKey In dFolderMeta.Keys
+                If Not dMeta.Exists(varKey) Then dMeta.Add varKey, dFolderMeta(varKey)
+            Next varKey
+        Next varFolder
+    End If
+
+    ' Nothing to scan leaves this Nothing, and callers fall back to their own scan.
+    Set GetSharedScanMetadata = dMeta
+
+    CatchAny eelError, T("Error scanning source folder metadata"), _
+        ModuleName & ".GetSharedScanMetadata"
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

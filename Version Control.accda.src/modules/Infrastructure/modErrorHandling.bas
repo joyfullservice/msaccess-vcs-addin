@@ -132,6 +132,14 @@ End Function
 '           : buffered in memory is ever written. The last line in the log file is then
 '           : the last step that completed. Reserve this for operations that can fault
 '           : rather than raise a trappable error — the disk write is not free.
+'           :
+'           : Two non-obvious costs. The ShowDebug argument below only suppresses the
+'           : console echo; Log.Add always appends to the file, so a trace is never
+'           : silenced by debug settings. And Log.SaveFile rewrites the whole log from
+'           : scratch and then runs CleanupOldLogs, which enumerates the logs folder --
+'           : so this is a folder scan per call, not an append. Traces on trappable
+'           : operations were removed for that reason (2026-07-30); do not reintroduce
+'           : them inside per-category loops.
 '---------------------------------------------------------------------------------------
 '
 Public Sub LogCrashTrace(strStep As String)

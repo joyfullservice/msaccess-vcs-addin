@@ -599,9 +599,7 @@ Public Function GetSourceModifiedDate(cmp As IDbComponent, Optional strFile As S
 
     ' Resolve to the provided file or the component's default source file,
     ' then build the full base path (folder + name, no extension).
-    Dim strPath As String
-    strPath = Nz2(strFile, cmp.SourceFile)
-    strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(strPath), FSO.GetBaseName(strPath))
+    strBaseFile = GetSourceBasePath(cmp, strFile)
 
     ' Check each possible file extension to find the most recent date
     For Each varExt In cmp.FileExtensions
@@ -633,9 +631,7 @@ Public Function GetLastModifiedSourceFile(cmp As IDbComponent, Optional strFile 
 
     ' Resolve to the provided file or the component's default source file,
     ' then build the full base path (folder + name, no extension).
-    Dim strPath As String
-    strPath = Nz2(strFile, cmp.SourceFile)
-    strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(strPath), FSO.GetBaseName(strPath))
+    strBaseFile = GetSourceBasePath(cmp, strFile)
 
     ' Check each possible file extension to find the most recent date
     For Each varExt In cmp.FileExtensions
@@ -679,13 +675,7 @@ Public Function GetSourceFilesPropertyHash(cmp As IDbComponent, Optional strFile
     Perf.OperationStart "Get File Property Hash"
 
     ' Build base file path without extension
-    If Len(strFile) Then
-        ' Use provided file name first
-        strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(strFile), FSO.GetBaseName(strFile))
-    Else
-        ' Otherwise use default source file name
-        strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(cmp.SourceFile), FSO.GetBaseName(cmp.SourceFile))
-    End If
+    strBaseFile = GetSourceBasePath(cmp, strFile)
 
     ' Build a combined string with all the properties
     With New clsConcat
@@ -724,30 +714,79 @@ End Function
 ' Date      : 7/20/2026
 ' Purpose   : Return a hash of the content of all indexed source files for a component.
 '           : Used by merge change-detection to detect companion-file-only edits.
+'           :
+'           : When dMeta is supplied (a path -> Array(date, size) map from a single Win32
+'           : folder scan, see ScanFolderMetadata), file existence is answered from the
+'           : map instead of a per-extension FSO.FileExists. Absence from the map means
+'           : the file does not exist, so the resulting hash is identical either way.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetSourceFilesContentHash(cmp As IDbComponent, Optional strFile As String) As String
+Public Function GetSourceFilesContentHash(cmp As IDbComponent, Optional strFile As String, _
+    Optional dMeta As Dictionary) As String
 
     Dim varExt As Variant
     Dim strSourceFile As String
     Dim strBaseFile As String
+    Dim blnExists As Boolean
 
     Perf.OperationStart "Get File Content Hash"
 
-    If Len(strFile) Then
-        strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(strFile), FSO.GetBaseName(strFile))
-    Else
-        strBaseFile = FSO.BuildPath(FSO.GetParentFolderName(cmp.SourceFile), FSO.GetBaseName(cmp.SourceFile))
-    End If
+    strBaseFile = GetSourceBasePath(cmp, strFile)
 
     With New clsConcat
         For Each varExt In cmp.FileExtensions
             strSourceFile = strBaseFile & "." & varExt
-            If FSO.FileExists(strSourceFile) Then .Add GetFileHash(strSourceFile)
+            If dMeta Is Nothing Then
+                blnExists = FSO.FileExists(strSourceFile)
+            Else
+                blnExists = dMeta.Exists(strSourceFile)
+            End If
+            If blnExists Then .Add GetFileHash(strSourceFile)
         Next varExt
         GetSourceFilesContentHash = GetStringHash(.GetStr)
         Perf.OperationEnd
     End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSourceBasePath
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Return the full source path with the extension removed, so the per-extension
+'           : file names for a component can be built by appending "." & extension.
+'           :
+'           : Equivalent to FSO.BuildPath(FSO.GetParentFolderName(p), FSO.GetBaseName(p))
+'           : but without three COM round trips. This runs once per source file per scan,
+'           : where a project with thousands of components makes the FSO cost measurable.
+'           : The final "." only counts as an extension separator when it falls after the
+'           : last path separator, so folder names containing dots and files with no
+'           : extension are both handled the same way FSO handles them.
+'           :
+'           : Public (within this project) so the equivalence with FSO can be pinned by
+'           : a regression test. See modTestContainers.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSourceBasePath(cmp As IDbComponent, Optional strFile As String) As String
+
+    Dim strPath As String
+    Dim lngSep As Long
+    Dim lngAltSep As Long
+    Dim lngDot As Long
+
+    strPath = Nz2(strFile, cmp.SourceFile)
+
+    lngSep = InStrRev(strPath, PathSep)
+    lngAltSep = InStrRev(strPath, "/")
+    If lngAltSep > lngSep Then lngSep = lngAltSep
+
+    lngDot = InStrRev(strPath, ".")
+    If lngDot > lngSep Then
+        GetSourceBasePath = Left$(strPath, lngDot - 1)
+    Else
+        GetSourceBasePath = strPath
+    End If
 
 End Function
 
