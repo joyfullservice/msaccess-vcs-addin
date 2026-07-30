@@ -43,6 +43,7 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
+    Dim strExportedFile As String
     Dim intFormat As eTableDataExportFormat
     Dim strConnect As String
 
@@ -98,9 +99,16 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                     VerifyPath strFile
                     ExportTableDataAsXml m_Table.Name, strFile
             End Select
+            If Err.Number = 0 Then strExportedFile = strFile
         End If
 NextFormat:
     Next intFormat
+
+    ' Record the file we just exported so the next merge sees it as unchanged.
+    If Len(strExportedFile) > 0 And Err.Number = 0 Then
+        VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
+            GetFileHash(strExportedFile)
+    End If
 
     ' Trap any errors while exporting table data.
     CatchAny eelError, "Error exporting table data for " & m_Table.Name, ModuleName(Me) & ".Export"
@@ -585,6 +593,13 @@ Private Sub IDbComponent_Import(strFile As String)
             Case etdTabDelimited
                 ImportTableDataTDF strFile
         End Select
+
+        ' Record the file we just imported so the next merge sees it as unchanged.
+        If Err.Number = 0 And Operation.ErrorLevel <> eelCritical Then
+            Set m_Table = CurrentData.AllTables(strTable)
+            Me.Format = GetFormatByExt(strFile)
+            VCSIndex.Update Me, eatImport, GetFileHash(strFile)
+        End If
 
     Else
         ' Either not a local table, or it doesn't exist
