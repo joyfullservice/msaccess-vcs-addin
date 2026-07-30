@@ -25,7 +25,6 @@ End Sub
 
 
 Public Sub TestIdAddableOnlyControlTypes()
-    '@Tag("slow")
     AssertAddableByIdOnly msoControlSplitButtonPopup, 212, "View split (13)"
     AssertAddableByIdOnly msoControlSplitButtonMRUPopup, 2598, "Office Links (14)"
     AssertAddableByIdOnly msoControlExpandingGrid, 177, "Multiple Pages (16)"
@@ -36,20 +35,17 @@ End Sub
 
 
 Public Sub TestMenuFixtureRoundtripCustomizedSplitButton()
-    '@Tag("slow")
     RunMenuFixtureRoundtrip "customized_split_button.json", 13, 212
 End Sub
 
 
 Public Sub TestMenuFixtureRoundtripOfficeLinksZoom()
-    '@Tag("slow")
     RunMenuFixtureRoundtrip "office_links_zoom.json", 14, 2598
     RunMenuFixtureRoundtrip "office_links_zoom.json", 4, 1733
 End Sub
 
 
 Public Sub TestMenuFixtureRoundtripCustomComboList()
-    '@Tag("slow")
     ' A custom (BuiltIn:false) combo box with a user-defined list must repopulate its
     ' items on import (regression: the combo-list import assignment was reversed) and
     ' round-trip the List array idempotently. ListCount is derived, not serialized.
@@ -136,7 +132,6 @@ End Sub
 
 
 Public Sub TestIssue584CustomizedBuiltInButtonRoundtrip()
-    '@Tag("slow")
     ' Assigning a custom OnAction to a built-in button makes Access flip BuiltIn to
     ' False; the control keeps its (reconstructable) FaceId. #584 requires the icon
     ' and action to survive export, and the export to be idempotent.

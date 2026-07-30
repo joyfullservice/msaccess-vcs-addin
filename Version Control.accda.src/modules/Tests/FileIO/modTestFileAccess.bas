@@ -109,13 +109,14 @@ Public Sub TestWriteFileSkipsUnchangedContent()
     TestAssert FSO.FileExists(strPath), "file created"
     TestAssert ReadFile(strPath) = strContent, "initial content matches"
 
+    ' Backdate the file so an unchanged rewrite is distinguishable without waiting
+    ' out the one-second filesystem timestamp resolution.
+    SetFileDate strPath, DateAdd("n", -5, Now), True
     dteBefore = GetLastModifiedDate(strPath)
-    Pause 1.1
     WriteFile strContent, strPath
     dteAfter = GetLastModifiedDate(strPath)
     TestAssert dteBefore = dteAfter, "identical rewrite preserves DateLastModified"
 
-    Pause 1.1
     WriteFile strContent & "changed", strPath
     TestAssert ReadFile(strPath) <> strContent, "changed content written"
     TestAssert GetLastModifiedDate(strPath) > dteAfter, "changed rewrite updates DateLastModified"
@@ -148,8 +149,8 @@ Public Sub TestWriteFileCaseCorrection()
     WriteFile strContent, strPathLower
     TestAssert FSO.FileExists(strPathLower), "lowercase path file created"
 
+    SetFileDate strPathLower, DateAdd("n", -5, Now), True
     dteBefore = GetLastModifiedDate(strPathLower)
-    Pause 1.1
     WriteFile strContent, strPathUpper
     TestAssert FSO.FileExists(strPathUpper), "uppercase path still resolves to file"
     dteAfter = GetLastModifiedDate(strPathUpper)
@@ -181,13 +182,12 @@ Public Sub TestWriteBinaryFileSkipsUnchangedContent()
     WriteBinaryFile strPath, bteOriginal
     TestAssert FSO.FileExists(strPath), "binary file created"
 
+    SetFileDate strPath, DateAdd("n", -5, Now), True
     dteBefore = GetLastModifiedDate(strPath)
-    Pause 1.1
     WriteBinaryFile strPath, bteOriginal
     dteAfter = GetLastModifiedDate(strPath)
     TestAssert dteBefore = dteAfter, "identical binary rewrite preserves DateLastModified"
 
-    Pause 1.1
     WriteBinaryFile strPath, bteChanged
     TestAssert GetBytesHash(GetFileBytes(strPath)) = GetBytesHash(bteChanged), "changed binary content written"
     TestAssert GetLastModifiedDate(strPath) > dteAfter, "changed binary rewrite updates DateLastModified"

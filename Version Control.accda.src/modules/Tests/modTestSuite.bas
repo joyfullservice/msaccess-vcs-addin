@@ -35,6 +35,7 @@ End Sub
 
 
 Public Sub TestGitRepositoryRoot()
+'@Tag("slow")
 
     With New clsGitIntegration
 
