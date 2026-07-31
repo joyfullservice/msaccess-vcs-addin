@@ -586,6 +586,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
                     ' The ImportXML function does not properly handle UrlEncoded paths
                     blnUseTemp = (InStr(1, strFile, "%") > 0)
+                    Perf.OperationStart "App.ImportXML() Data"
                     If blnUseTemp Then
                         ' Import from (safe) temporary file name.
                         strTempFile = GetTempFile
@@ -595,12 +596,15 @@ Private Sub IDbComponent_Import(strFile As String)
                     Else
                         Application.ImportXML strFile, acAppendData
                     End If
+                    Perf.OperationEnd
 
                     ' Trap any XML import errors
                     CatchAny eelError, "Error importing XML data from '" & strFile & "'", ModuleName(Me) & ".Import"
 
             Case etdTabDelimited
+                Perf.OperationStart "Import Table Data (TDF)"
                 ImportTableDataTDF strFile
+                Perf.OperationEnd
         End Select
 
         ' Record the file we just imported so the next merge sees it as unchanged.

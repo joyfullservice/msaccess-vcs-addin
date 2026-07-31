@@ -143,21 +143,21 @@ Public Sub TestMergeSkipsTableDataAfterExport()
     On Error GoTo 0
     If cTable.Parent.DbObject Is Nothing Then
         TestAssert True, "SKIP: could not bind test table"
-        GoTo Cleanup
+        GoTo CleanUp
     End If
 
     cTable.Parent.Export
     strFile = Options.GetExportFolder & "tables\" & strTable & ".txt"
     If Not FSO.FileExists(strFile) Then
         TestAssert True, "SKIP: table data export file missing"
-        GoTo Cleanup
+        GoTo CleanUp
     End If
 
     Set dModified = VCSIndex.GetModifiedSourceFiles(cCategory)
     TestAssert Not dModified.Exists(strFile), _
         "freshly exported table data skipped on merge scan"
 
-Cleanup:
+CleanUp:
     On Error Resume Next
     dbs.Execute "DROP TABLE [" & strTable & "]"
     If Len(strFile) > 0 Then

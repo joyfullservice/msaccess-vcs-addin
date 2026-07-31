@@ -22,7 +22,7 @@ Public intContainerFilter As eContainerFilter
 Public objSingleObject As AccessObject
 
 ' Path to the last log file, in case the user wants to view the log after the operation.
-' (The Log object has already been reset at this point, so we can't use Log.LogFilePath.)
+' (The Log object has already been reset at this point, so we can't use Log.SavedLogFilePath.)
 Public strLastLogFilePath As String
 
 ' Path to copy to clipboard (may differ from log path, e.g. JSON results for tests)
@@ -266,10 +266,10 @@ Public Sub FinishBuild(blnFullBuild As Boolean _
     strMessage = T(IIf(blnFullBuild, "Build", "Merge")) & " " & T(IIf(blnSuccess, "Complete", "FAILED"))
     SetStatusText T("Finished"), strMessage _
         , T("Additional details can be found in the project log file.<br><br>You may now close this window.")
-    cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+    cmdOpenLogFile.Visible = (Log.SavedLogFilePath <> vbNullString)
     cmdCopyPath.Visible = cmdOpenLogFile.Visible
-    Me.strLastLogFilePath = Log.LogFilePath
-    Me.strCopyToClipboardPath = Log.LogFilePath
+    Me.strLastLogFilePath = Log.SavedLogFilePath
+    Me.strCopyToClipboardPath = Log.SavedLogFilePath
 
     ' Auto-close in silent/unattended mode
     If Operation.InteractionMode = eimSilent Then
@@ -375,9 +375,10 @@ Public Sub cmdExport_Click()
     If FormLoaded(Me) Then
         SetStatusText T("Finished"), T("Export Complete"), _
             T("Additional details can be found in the project log file.<br><br>You may now close this window.")
+        Me.strLastLogFilePath = Log.SavedLogFilePath
+        Me.strCopyToClipboardPath = Log.SavedLogFilePath
         cmdOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
         cmdCopyPath.Visible = cmdOpenLogFile.Visible
-        Me.strCopyToClipboardPath = Me.strLastLogFilePath
         Operation.Finish
         DoEvents
     Else

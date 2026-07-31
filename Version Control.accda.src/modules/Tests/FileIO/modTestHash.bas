@@ -91,7 +91,10 @@ End Sub
 Public Sub TestHashProviderCacheStability()
 
     Dim strFirst As String
-    Dim strRepeat As String
+    ' Not named strRepeat: clsSqlFormatter has a private StrRepeat function, and VBA
+    ' normalizes identifier casing project-wide, so the export kept rewriting the
+    ' declaration to StrRepeat and breaking the str prefix convention.
+    Dim strRepeatHash As String
     Dim strOther As String
     Dim strBack As String
     Dim lngIdx As Long
@@ -100,8 +103,8 @@ Public Sub TestHashProviderCacheStability()
 
     ' Repeated hashing must reuse the cached provider without drift
     For lngIdx = 1 To 50
-        strRepeat = GetStringHash("provider cache probe")
-        TestAssert strRepeat = strFirst, "stable across repeated calls"
+        strRepeatHash = GetStringHash("provider cache probe")
+        TestAssert strRepeatHash = strFirst, "stable across repeated calls"
     Next lngIdx
 
     ' Interleave a different algorithm, which forces the cached provider to be replaced

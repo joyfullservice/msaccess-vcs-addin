@@ -531,6 +531,98 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Function  : UnescapeXmlName
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Reverse of EscapeXmlName. Converts _xHHHH_ sequences in an exported XML
+'           : element or index-key name back to the original character.
+'           :
+'           : A sequence is only decoded when it is well formed (_x, four hex digits, and
+'           : a closing underscore). Anything else is literal text, which is what makes
+'           : EscapeXmlName's rule -- escape an underscore only when a lowercase "x"
+'           : follows it -- round-trip: "a_x1" escapes to "a_x005F_x1", and the "_x1"
+'           : tail here is left alone because "x1" is not four hex digits.
+'           :
+'           : Comparisons are binary because Access escapes "_x" but not "_X", and this
+'           : module compiles with Option Compare Database.
+'---------------------------------------------------------------------------------------
+'
+Public Function UnescapeXmlName(strName As String) As String
+
+    Const ESCAPE_LEN As Long = 7    ' _xHHHH_
+
+    Dim lngPos As Long
+    Dim lngLen As Long
+    Dim lngCode As Long
+    Dim cOut As New clsConcat
+
+    lngLen = Len(strName)
+    lngPos = 1
+
+    Do While lngPos <= lngLen
+        lngCode = -1
+        If lngPos + ESCAPE_LEN - 1 <= lngLen Then
+            If StrComp(Mid$(strName, lngPos, 2), "_x", vbBinaryCompare) = 0 _
+                And Mid$(strName, lngPos + 6, 1) = "_" Then
+                lngCode = HexWordValue(Mid$(strName, lngPos + 2, 4))
+            End If
+        End If
+        If lngCode >= 0 Then
+            cOut.Add ChrW$(lngCode)
+            lngPos = lngPos + ESCAPE_LEN
+        Else
+            cOut.Add Mid$(strName, lngPos, 1)
+            lngPos = lngPos + 1
+        End If
+    Loop
+
+    UnescapeXmlName = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : HexWordValue
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the value of exactly four hexadecimal digits, or -1 when the string
+'           : is not four hex digits. Returning the value and the verdict together is the
+'           : point: a caller cannot validate one string and convert a different one.
+'           :
+'           : The digits are accumulated arithmetically rather than passed to CLng with an
+'           : "&H" prefix. CLng does handle that prefix correctly over the full 0000-FFFF
+'           : range, but it raises a type mismatch on a trailing "&" -- the type-suffix
+'           : character is VBA source-literal syntax, not part of string-to-number
+'           : conversion. Doing the arithmetic keeps this off VBA's parser entirely.
+'---------------------------------------------------------------------------------------
+'
+Private Function HexWordValue(strValue As String) As Long
+
+    Dim lngPos As Long
+    Dim lngChar As Long
+    Dim lngDigit As Long
+    Dim lngResult As Long
+
+    HexWordValue = -1
+    If Len(strValue) <> 4 Then Exit Function
+
+    For lngPos = 1 To 4
+        lngChar = AscW(Mid$(strValue, lngPos, 1))
+        Select Case lngChar
+            Case 48 To 57:  lngDigit = lngChar - 48     ' 0-9
+            Case 65 To 70:  lngDigit = lngChar - 55     ' A-F
+            Case 97 To 102: lngDigit = lngChar - 87     ' a-f
+            Case Else:      Exit Function
+        End Select
+        lngResult = (lngResult * 16) + lngDigit
+    Next lngPos
+
+    HexWordValue = lngResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Function  : NormalizeXmlSortValue
 ' Author    : Adam Waller
 ' Date      : 7/27/2026

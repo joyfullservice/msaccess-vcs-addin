@@ -874,16 +874,12 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Reset the log file
-    Log.Clear
-
     ' Use the main form to display progress
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     Set frm = Form_frmVCSMain   ' Connect to hidden instance
     With frm
 
         .ResetForOperation
-        .strLastLogFilePath = Log.LogFilePath
 
         ' Show the status
         .SetStatusText T("Running..."), T("Automatically exporting the saved source code"), _
@@ -1053,6 +1049,13 @@ CleanUp:
         .Active = False
         .Flush
     End With
+
+    If FormLoaded(frm) Then
+        frm.strLastLogFilePath = Log.SavedLogFilePath
+        frm.strCopyToClipboardPath = Log.SavedLogFilePath
+        frm.cmdOpenLogFile.Visible = (Len(frm.strLastLogFilePath) > 0)
+        frm.cmdCopyPath.Visible = frm.cmdOpenLogFile.Visible
+    End If
 
     ' Save index file (don't change export date for multiple items export).
     ' Skipped if the user canceled a conflict dialog so the same conflicts

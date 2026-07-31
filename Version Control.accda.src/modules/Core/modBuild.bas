@@ -1154,8 +1154,20 @@ PostMerge:
 
 CleanUp:
 
-    ' Run any cleanup routines
-    If Not blnNoIndex Then VCSIndex.ClearTempExportFolder
+    ' Run any cleanup routines. This runs even when the index is disabled, since the
+    ' table merge compares against a copy exported into this folder either way.
+    VCSIndex.ClearTempExportFolder
+
+    ' Save the index before timing stops, otherwise the "Save Index" timer it starts
+    ' never reaches the report and the cost of writing the whole file is invisible.
+    If blnNoIndex Then
+        VCSIndex.Disabled = False
+    ElseIf Not VCSIndex.Conflicts.UserCanceled Then
+        ' Save index file (don't change export date for single item export).
+        ' Skipped if the user canceled a conflict dialog so the same conflicts
+        ' will reappear on the next run.
+        VCSIndex.Save
+    End If
 
     ' Add performance data to log file and save file
     Perf.EndTiming
@@ -1166,14 +1178,6 @@ CleanUp:
         .Flush
     End With
 
-    If blnNoIndex Then
-        VCSIndex.Disabled = False
-    ElseIf Not VCSIndex.Conflicts.UserCanceled Then
-        ' Save index file (don't change export date for single item export).
-        ' Skipped if the user canceled a conflict dialog so the same conflicts
-        ' will reappear on the next run.
-        VCSIndex.Save
-    End If
     Operation.Finish intResult
 
 End Sub
@@ -1210,8 +1214,17 @@ Private Sub MergeDependentObjects(cComponentClass As IDbComponent, strName As St
                     cItem.Format = intFormat
                     strFile = cItem.Parent.SourceFile
                     If FSO.FileExists(strFile) Then
-                        Log.Add T("Importing table data for {0}", , , , strName), Options.ShowDebug
-                        cItem.Parent.Import strFile
+                        Log.Add T("Merging table data for {0}", , , , strName), Options.ShowDebug
+                        ' Merge, not Import. Import appends (XML) or deletes every row and
+                        ' reloads (tab-delimited), which was safe only while the definition
+                        ' merge above always deleted and recreated the table first. It no
+                        ' longer does -- a definition that already matches source is left
+                        ' alone, rows and all -- so appending would duplicate rows or trip
+                        ' the primary key, and the delete-and-reload would fail against any
+                        ' table referenced by a relationship. Merge reconciles against the
+                        ' key instead, and inserts everything when the table is empty
+                        ' because the definition really was rebuilt.
+                        cItem.Parent.Merge strFile
                     End If
                 End If
             End If

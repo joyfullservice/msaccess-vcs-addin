@@ -116,7 +116,7 @@ Accepted aliases include `menu`/`menus` and `command_bar`/`command_bars` (on-dis
 
 **Export restrictions:** When global export options have changed (export format version, Access version), run a normal full `Export` or `FullExport` to migrate the project before relying on fast category export. Category-scoped export updates index metadata only for the categories processed; it does not update the project-wide full-export timestamp or untouched option hashes.
 
-These methods treat each named category **as a whole**: they reconcile deletions within the category (export removes orphaned source files; import removes orphaned DB objects). Conflicts are auto-resolved under MCP/API and prompted interactively. No database backup is taken. Open UI objects of targeted categories are closed before export/import (save behavior follows interaction mode); module code is flushed via VBA project save rather than closing module windows. Cross-project access via `Application.Run("Version Control.API", "ExportByType", "menus")` — pass one type per call when using `Application.Run` (VBA arrays do not marshal reliably across projects).
+These methods treat each named category **as a whole**: they reconcile deletions within the category (export removes orphaned source files; import removes orphaned DB objects). Conflicts are auto-resolved under MCP/API and prompted interactively. No database backup is taken. Open UI objects of targeted categories are closed before export/import (save behavior follows interaction mode); module code is flushed via VBA project save rather than closing module windows. Cross-project access via `Application.Run(Environ$("AppData") & "\MSAccessVCS\Version Control.API", "ExportByType", "menus")` — pass one type per call when using `Application.Run` (VBA arrays do not marshal reliably across projects). Qualify the call with the **full path** to the add-in, which also loads it on demand. The bare file name (`"Version Control.API"`) does not resolve, because `Application.Run` matches on the VBA project name rather than the file name; `"MSAccessVCS.API"` does work, but only once the add-in is already loaded.
 
 ### Component Interface (`IDbComponent`)
 
@@ -529,6 +529,14 @@ Get-ChildItem -Recurse -Include "*.log","*.json" | Where-Object { $_.DirectoryNa
 
 Key log locations:
 - `Version Control.accda.src/logs/` — build, export, merge, and **ephemeral test run** logs (`TestResults_*.json`, `TestRun_*.log`)
+
+Operation logs are named for the operation type, not the entry point: `Export_*.log`
+for exports, `Build_*.log` for full builds, and `Merge_*.log` for merge builds **and
+single-object imports** (`LoadSelected` / `ImportObject` begin an `eotMerge`
+operation, and `clsLog.LogFilePath` maps that to the `Merge` prefix). A single-object
+import that appears to have produced no log has almost certainly written a
+`Merge_*.log`.
+
 - `Version Control.accda.src/test-results/` — **durable test state** (`test-state.json`), **JUnit XML** (`test-results.xml`), and **HTML report** (`test-results.html`); gitignored
 - `Testing/Fixtures/logs/` — object round-trip test logs (`ObjectRoundtrip_*.log`)
 
@@ -551,7 +559,9 @@ All test-infrastructure modules use the `modTest*` family prefix. This matches t
 
 ### Object round-trip harness (`modTestRoundtrip`)
 
-The Layer 2 harness is generic over `IDbComponent`. v1 ships query support; forms, reports, modules, and table data follow the same pattern by adding a per-type helper.
+The Layer 2 harness is generic over `IDbComponent`. It currently covers queries (`Testing/Fixtures/queries/`) and local table definitions (`Testing/Fixtures/tabledefs/`); forms, reports, modules, and table data follow the same pattern by adding a per-type helper.
+
+Table definition fixtures additionally assert **which import path ran**: fixtures under `tabledefs/` must be built by `modTableDefBuilder` through DAO, while those under `tabledefs/fallback/` must be refused by it and fall back to `Application.ImportXML`. Because the DAO builder's output only matches source under the canonical property ordering, the harness forces `ExportFormatVersion = EFV_5_1_0` for the duration of the run and restores it afterwards.
 
 When adding regression fixtures from a user or production database, sanitize
 the fixture and its `.notes.md` file. Do not include source database names,

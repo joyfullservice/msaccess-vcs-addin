@@ -43,6 +43,7 @@ Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
 Private m_dblPendingIncrements As Double  ' Accumulated increments awaiting throttled flush
 Private m_sngLastIncrement As Single    ' Timer value of the last applied Increment
 Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
+Private m_SavedLogFilePath As String ' Path last written by SaveFile
 Private m_lngErrCount(eelNoError To eelCritical) As Long
 Private m_colErrorJournal As Collection
 
@@ -446,6 +447,7 @@ Public Sub SaveFile(Optional strAlternatePath As String)
 
     ' Write log file (unique filename per operation)
     WriteFile m_Log.GetStr, strPath
+    m_SavedLogFilePath = strPath
 
     ' Cleanup old logs beyond MaxLogFiles
     Select Case Operation.OperationType
@@ -460,10 +462,25 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SavedLogFilePath
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the full path of the log file last written by SaveFile.
+'           : Use this (not LogFilePath) when linking to or reporting the on-disk log.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SavedLogFilePath() As String
+    SavedLogFilePath = m_SavedLogFilePath
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LogFilePath
 ' Author    : Adam Waller
 ' Date      : 5/13/2023
-' Purpose   : Return the (default) full path to the current log file.
+' Purpose   : Return the prospective full path for the current log state (derived from
+'           : Operation.OperationType and m_OperationId). For the file that exists on
+'           : disk after SaveFile, use SavedLogFilePath instead.
 '---------------------------------------------------------------------------------------
 '
 Public Property Get LogFilePath() As String
@@ -502,6 +519,7 @@ Private Sub Class_Initialize()
     Erase m_lngErrCount
     Me.PadLength = 30
     Me.Active = False
+    m_SavedLogFilePath = vbNullString
     ' Generate timestamp-based operation ID with millisecond precision
     m_OperationId = Format$(Now, "yyyymmdd\_hhnnss") & "_" & Format$((Timer * 1000) Mod 1000, "000")
 End Sub

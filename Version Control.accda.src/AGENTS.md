@@ -487,7 +487,8 @@ Operation logs are stored in the `logs/` subfolder with timestamped filenames:
 | Pattern | Purpose |
 |---------|---------|
 | `Export_YYYYMMDD_HHMMSS_mmm.log` | Export operation logs |
-| `Build_YYYYMMDD_HHMMSS_mmm.log` | Build/merge operation logs |
+| `Build_YYYYMMDD_HHMMSS_mmm.log` | Full build operation logs |
+| `Merge_YYYYMMDD_HHMMSS_mmm.log` | Merge build and single-object import logs |
 | `TestResults_YYYYMMDD_HHMMSS_mmm.json` | Ephemeral per-run test results (JSON) |
 | `TestRun_YYYYMMDD_HHMMSS_mmm.log` | Test runner console output |
 

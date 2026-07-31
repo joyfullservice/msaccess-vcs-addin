@@ -18,10 +18,34 @@ Option Compare Database
 Option Explicit
 '@Folder("Components")
 
+' Saved queries in the database before the DAO table-def fast path is worth using.
+' Application.ImportXML costs roughly the total number of table references across the
+' saved-query catalog, so query count is the cheapest available proxy. Measured cost of
+' one acStructureOnly call against a growing catalog:
+'   4 queries                       0.02 sec
+'   2,000 queries, no table refs    2.00 sec
+'   2,000 queries, table refs      19.19 sec
+'   4,000 queries, table refs      43.13 sec
+'   3,692 real production queries    276-281 sec
+' Below this line ImportXML is cheap and is the better-proven path; above it, every
+' table avoided is seconds to minutes. (See DECISIONS.md 2026-07-30.)
+Private Const MIN_QUERIES_FOR_FAST_TABLEDEF As Long = 500
+
+' Consecutive expensive failures before the fast path stands down for the rest of the
+' operation. Source that predates the current export format could fail verification on
+' every table, and a merge touching many of them should not pay for the attempt twice.
+Private Const MAX_FAST_PATH_FAILURES As Long = 3
+
 Private m_Table As AccessObject
 Private m_lngTableType As Long
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
+
+' Fast-path eligibility, resolved once and cached. 0 = not yet checked, 1 = yes, 2 = no.
+' These live on the instance because one instance serves one operation: modContainers
+' builds a fresh set per build, and LoadSingleObject is handed a fresh one per call.
+Private m_intFastPathState As Integer
+Private m_lngFastPathFailures As Long
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -247,6 +271,14 @@ Private Sub IDbComponent_Import(strFile As String)
             If Not ImportLinkedTable(strFile) Then Exit Sub
 
         Case "xml"
+            ' Build the table directly through DAO where that is worth doing, and only
+            ' keep the result if it re-exports to exactly the source file. Everything
+            ' below is the fallback, unchanged.
+            If TryFastTableDefImport(strFile, strName) Then
+                ApplyMetadataAndUpdateIndex strName, strFile
+                Exit Sub
+            End If
+
             ' Watch out for errors when importing XML
             LogUnhandledErrors
             On Error Resume Next
@@ -258,6 +290,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
+            Perf.OperationStart "App.ImportXML() Structure"
             If blnUseTemp Then
                 ' Import from (safe) temporary file name.
                 strTempFile = GetTempFile
@@ -267,6 +300,7 @@ Private Sub IDbComponent_Import(strFile As String)
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If
+            Perf.OperationEnd
 
             ' Importing XML can throw an error if ActiveX security is too restrictive.
             If Catch(31521) Then
@@ -288,14 +322,237 @@ Private Sub IDbComponent_Import(strFile As String)
 
     End Select
 
-    ' Update index
+    ' Apply metadata and update index
+    ApplyMetadataAndUpdateIndex strName, strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TryFastTableDefImport
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Create the table through DAO instead of Application.ImportXML, returning
+'           : true only when the result is provably identical to the source file.
+'           :
+'           : The verification is the whole point. A DAO build reproduces what we know
+'           : how to read, and the strict parser in modTableDefBuilder is meant to
+'           : decline anything else -- but "meant to" is not a guarantee, so the finished
+'           : table is exported and hash-compared before we accept it. On any doubt the
+'           : table is dropped and the caller falls through to the proven path, which
+'           : means the worst case is the old timing plus a few cheap milliseconds.
+'---------------------------------------------------------------------------------------
+'
+Private Function TryFastTableDefImport(strFile As String, strName As String) As Boolean
+
+    Dim strBuiltFile As String
+
+    If Not UseFastTableDefImport Then Exit Function
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    If TryBuildTableFromDefXml(strFile, strName) Then
+        If StoredDefinitionMatchesSource(strName, strFile, "Verify Table Def (DAO)", strBuiltFile) Then
+            m_lngFastPathFailures = 0
+            TryFastTableDefImport = True
+            Log.Add T("    Built {0} directly, without importing the XML.", var0:=strName), _
+                Options.ShowDebug
+        Else
+            LogDefinitionMismatch strBuiltFile, strFile
+            Set m_Table = Nothing
+            m_lngTableType = 0
+            DeleteObjectIfExists acTable, strName
+            RecordVerificationFailure T("the rebuilt table did not match the source file")
+            RecordFastPathFailure strName, GetLastDeclineReason
+        End If
+    ElseIf GetLastAttemptReachedBuild Then
+        RecordFastPathFailure strName, GetLastDeclineReason
+    Else
+        ' Declined during parsing, which costs about a millisecond. Not worth counting
+        ' against the breaker -- an unsupported construct in one table says nothing
+        ' about the next one.
+        Log.Add T("    Using XML import for {0}: {1}.", var0:=strName, _
+            var1:=GetLastDeclineReason), Options.ShowDebug
+    End If
+
+    ' Leave no residual error for the fallback path's Catch/CatchAny checks to find.
+    Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogDefinitionMismatch
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Record which lines of the rebuilt table's export differ from the source
+'           : file, so a fallback explains itself.
+'           :
+'           : Without this the log says only that the rebuilt table "did not match the
+'           : source file", which is a dead end: the temp export is swept at the end of
+'           : the operation, so by the time anyone reads the log the evidence is gone and
+'           : the only way to learn more is to reproduce -- on the very databases where
+'           : reproducing costs minutes per attempt.
+'           :
+'           : Written to the log file but not echoed to the console; this is diagnostic
+'           : detail for after the fact, and the fallback itself is already reported.
+'           : Both files come from the same exporter, so the lines correspond one to one
+'           : and a positional comparison is enough -- no need to diff properly.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LogDefinitionMismatch(strBuiltFile As String, strSourceFile As String)
+
+    ' Enough to characterize a mismatch without flooding the log on a wholesale
+    ' difference (a stale export format, say, where nearly every line differs).
+    Const MAX_REPORTED_LINES As Long = 8
+
+    Dim varBuilt As Variant
+    Dim varSource As Variant
+    Dim lngIndex As Long
+    Dim lngLast As Long
+    Dim lngShown As Long
+
+    If Not FSO.FileExists(strBuiltFile) Then Exit Sub
+    If Not FSO.FileExists(strSourceFile) Then Exit Sub
+
+    varBuilt = Split(ReadFile(strBuiltFile), vbCrLf)
+    varSource = Split(ReadFile(strSourceFile), vbCrLf)
+
+    lngLast = UBound(varBuilt)
+    If UBound(varSource) > lngLast Then lngLast = UBound(varSource)
+
+    For lngIndex = 0 To lngLast
+        If GetLineAt(varSource, lngIndex) <> GetLineAt(varBuilt, lngIndex) Then
+            If lngShown = 0 Then Log.Add "      Differences (source vs. rebuilt):", False
+            Log.Add "        " & lngIndex + 1 & " source: " & Trim$(GetLineAt(varSource, lngIndex)), False
+            Log.Add "        " & lngIndex + 1 & " built : " & Trim$(GetLineAt(varBuilt, lngIndex)), False
+            lngShown = lngShown + 1
+            If lngShown >= MAX_REPORTED_LINES Then
+                Log.Add "        ... additional differences not shown.", False
+                Exit For
+            End If
+        End If
+    Next lngIndex
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLineAt
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return one line from a Split() result, or an empty string past the end,
+'           : so two files of different lengths can be walked with one index.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetLineAt(varLines As Variant, lngIndex As Long) As String
+    If lngIndex <= UBound(varLines) Then GetLineAt = varLines(lngIndex)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UseFastTableDefImport
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Returns true when the DAO table-def path should be attempted for this
+'           : operation. Resolved once and cached, since a merge may ask per table.
+'---------------------------------------------------------------------------------------
+'
+Private Function UseFastTableDefImport() As Boolean
+
+    If m_lngFastPathFailures >= MAX_FAST_PATH_FAILURES Then Exit Function
+    If FastPathTestOverride Then
+        UseFastTableDefImport = True
+        Exit Function
+    End If
+
+    If m_intFastPathState = 0 Then
+        If FastTableDefImportApplies Then
+            m_intFastPathState = 1
+        Else
+            m_intFastPathState = 2
+        End If
+    End If
+
+    UseFastTableDefImport = (m_intFastPathState = 1)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FastTableDefImportApplies
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Decide whether this operation is one where Application.ImportXML is slow
+'           : enough to be worth replacing.
+'---------------------------------------------------------------------------------------
+'
+Private Function FastTableDefImportApplies() As Boolean
+
+    ' A DAO-built table and an ImportXML-built one export the same properties in a
+    ' different order, and only the canonical ordering introduced in EFV_5_1_0 makes the
+    ' two agree. On an older format the table would import correctly but re-export
+    ' differently from the file it came from, rewriting tbldefs on the next export. Not
+    ' worth trading source churn for speed, so the path waits for the format.
+    If Options.ExportFormatVersion < EFV_5_1_0 Then Exit Function
+
+    ' A full build creates every table before the first query exists (GetContainers
+    ' orders tables at #14 and queries at #15), so the pathology never appears there --
+    ' measured at 21.80 seconds for 372 tables. Leave that path on the proven call.
+    If Operation.OperationType = eotBuild Then Exit Function
+
+    ' Everything else -- merge build, ImportByType, single-object import -- runs against
+    ' a populated catalog, where the cost scales with it.
+    FastTableDefImportApplies = (CurrentData.AllQueries.Count >= MIN_QUERIES_FOR_FAST_TABLEDEF)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RecordFastPathFailure
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Count a fast-path attempt that cost real time, and stand the path down for
+'           : the rest of the operation once they stop looking like one-offs.
+'---------------------------------------------------------------------------------------
+'
+' ByVal on strReason: callers pass the result of T(), which is a Variant.
+Private Sub RecordFastPathFailure(ByVal strName As String, ByVal strReason As String)
+
+    m_lngFastPathFailures = m_lngFastPathFailures + 1
+
+    Log.Add T("    Using XML import for {0}: {1}.", var0:=strName, var1:=strReason), _
+        Options.ShowDebug
+
+    If m_lngFastPathFailures = MAX_FAST_PATH_FAILURES Then
+        Log.Add T("Direct table creation failed {0} times. Using XML import from here on.", _
+            var0:=CStr(MAX_FAST_PATH_FAILURES))
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyMetadataAndUpdateIndex
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Apply the object metadata (doc properties + hidden attribute) from the
+'           : companion .json file and record the import in the index. For linked
+'           : tables, the metadata is in the primary .json file itself. For local
+'           : tables (.xml import), this is a companion .json.
+'           : Shared by Import and by the Merge path that leaves the existing table in
+'           : place, since both need the table to end up in the same recorded state.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ApplyMetadataAndUpdateIndex(strName As String, strFile As String)
+
+    Dim strJsonFile As String
+
     m_lngTableType = 0
     Set m_Table = CurrentData.AllTables(strName)
 
-    ' Apply object metadata (doc properties + hidden attribute) from companion .json.
-    ' For linked tables, the metadata is in the primary .json file itself.
-    ' For local tables (.xml import), check for a companion .json.
-    Dim strJsonFile As String
     strJsonFile = IDbComponent_BaseFolder & GetSafeFileName(strName) & ".json"
     ImportObjectMetadata strJsonFile, "Tables", strName, acTable
 
@@ -311,6 +568,17 @@ End Sub
 ' Date      : 11/21/2020
 ' Purpose   : Merge the source file into the existing database, updating or replacing
 '           : any existing object.
+'           :
+'           : Replacing the table means Application.ImportXML, which dominates the cost
+'           : of this path once a database holds a lot of objects. Measured on a
+'           : three-field lookup table in a project with roughly 5,000 objects:
+'           : 281 seconds for the ImportXML call, against under 0.01 seconds each for
+'           : DoCmd.DeleteObject, creating the same table through DDL,
+'           : Application.ExportXML, and appending the rows. The cost tracks the object
+'           : count rather than the table, so it cannot be tuned from this side --
+'           : the only remedy is not to make the call. A table whose stored definition
+'           : already matches its source file has nothing to rebuild, so that case is
+'           : short-circuited before any of the destructive work begins.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
@@ -318,19 +586,34 @@ Private Sub IDbComponent_Merge(strFile As String)
     Dim strName As String
     Dim dRelations As Dictionary
 
-    ' Stage any affected relationships
     strName = GetObjectNameFromFileName(strFile)
+
+    ' Nothing to rebuild when the table already matches the source file.
+    If StoredDefinitionMatchesSource(strName, strFile) Then
+        Log.Add T("    {0} already matches the source file. Skipping table rebuild.", _
+            var0:=strName), Options.ShowDebug
+        ApplyMetadataAndUpdateIndex strName, strFile
+        Exit Sub
+    End If
+
+    ' Stage any affected relationships
+    Perf.OperationStart "Stage Relations"
     Set dRelations = StageRelations(strName)
+    Perf.OperationEnd
 
     ' Delete any existing table with this name
     Set m_Table = Nothing
     m_lngTableType = 0
+    Perf.OperationStart "Delete Table Object"
     DeleteObjectIfExists acTable, strName
+    Perf.OperationEnd
 
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
         ' Restore any affected relationships
+        Perf.OperationStart "Restore Relations"
         RestoreRelations dRelations
+        Perf.OperationEnd
     Else
         ' If the table is deleted, discard any staged relationships
         ' since we can't restore them when the table does not exist.
@@ -340,6 +623,67 @@ Private Sub IDbComponent_Merge(strFile As String)
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StoredDefinitionMatchesSource
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Returns true when the table currently in the database exports to exactly
+'           : the content of the source file, meaning a merge would rebuild it into
+'           : what it already is.
+'           :
+'           : Deliberately limited to local tables (.xml source). Those are the ones
+'           : rebuilt through Application.ImportXML, which is the expensive call this
+'           : check exists to avoid. Linked tables import from .json without it, and
+'           : exporting one can reach across to the back end, so checking them could
+'           : cost more than the import it would skip.
+'           :
+'           : A false negative is harmless -- the caller just rebuilds as before -- so
+'           : anything unexpected (missing table, source file outside the export
+'           : folder, export that produces no file) returns false.
+'           :
+'           : Also used to verify a table built by the DAO fast path, which is the same
+'           : question asked at a different moment. strTimerLabel keeps the two apart in
+'           : the performance report.
+'---------------------------------------------------------------------------------------
+'
+Private Function StoredDefinitionMatchesSource(strName As String, strFile As String, _
+    Optional strTimerLabel As String = "Compare Table Definition", _
+    Optional ByRef strComparedFile As String) As Boolean
+
+    Dim strTempFile As String
+
+    ' Only local table definitions take the Application.ImportXML path.
+    If LCase$(FSO.GetExtensionName(strFile)) <> "xml" Then Exit Function
+    If Not FSO.FileExists(strFile) Then Exit Function
+    If Not TableExists(strName) Then Exit Function
+
+    ' Reuse the conflict-detection temp folder so the export lands beside the other
+    ' comparison copies and is cleaned up with them. When the source file is not under
+    ' the export folder there is no temp path to redirect to, and exporting would
+    ' overwrite the very file being compared against.
+    strTempFile = Replace(strFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
+    If StrComp(strTempFile, strFile, vbTextCompare) = 0 Then Exit Function
+
+    Perf.OperationStart strTimerLabel
+
+    Set m_Table = CurrentData.AllTables(strName)
+    m_lngTableType = 0
+    If FSO.FileExists(strTempFile) Then DeleteFile strTempFile
+    IDbComponent_Export strTempFile
+
+    ' Hand the export back so a caller that cares *why* the two differ can diff them.
+    ' It stays in the temp folder until the operation's ClearTempExportFolder.
+    strComparedFile = strTempFile
+
+    If FSO.FileExists(strTempFile) Then
+        StoredDefinitionMatchesSource = (GetFileHash(strTempFile) = GetFileHash(strFile))
+    End If
+
+    Perf.OperationEnd
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

@@ -904,7 +904,7 @@ ExportCleanUp:
         If Operation.ErrorLevel >= eelError Then
             dResult.Add "error", "Export completed with errors. Check the log for details."
         End If
-        dResult.Add "logPath", Log.LogFilePath
+        dResult.Add "logPath", Log.SavedLogFilePath
     End If
 
     Operation.Finish
@@ -1053,7 +1053,7 @@ Public Function ImportObject(ByVal strObjectType As String, Optional ByVal strOb
     If Operation.ErrorLevel >= eelError Then
         dResult.Add "error", "Import completed with errors. Check the log for details."
     End If
-    dResult.Add "logPath", Log.LogFilePath
+    dResult.Add "logPath", Log.SavedLogFilePath
     ImportObject = ConvertToJson(dResult)
     Exit Function
 
@@ -1311,7 +1311,7 @@ Private Function FinishScopedSync(dResult As Dictionary, colContainers As Collec
                 "Operation was canceled.", _
                 "Operation completed with errors. Check the log for details.")
         End If
-        dResult.Add "logPath", Log.LogFilePath
+        dResult.Add "logPath", Log.SavedLogFilePath
     End If
 
     Operation.Finish intResult
@@ -2629,7 +2629,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
     If blnHeadless Then
         ExecuteTests = TestRunner.GetResultsAsJson(strJUnitPath, modTestState.GetStateFilePath)
     Else
-        FinalizeTestConsole blnAllPassed, Log.LogFilePath, blnCanceled, strJsonPath
+        FinalizeTestConsole blnAllPassed, Log.SavedLogFilePath, blnCanceled, strJsonPath
         ExecuteTests = TestRunner.GetResultsAsJson
     End If
 

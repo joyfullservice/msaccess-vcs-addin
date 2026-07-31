@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestTableData"
+﻿Attribute VB_Name = "modTestTableData"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestTableData
 ' Author    : Adam Waller

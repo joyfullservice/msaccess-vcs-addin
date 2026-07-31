@@ -167,7 +167,7 @@ Public Function Finish(Optional intResult As eOperationResult)
             ' Build extra data with log path
             Dim dExtra As Dictionary
             Set dExtra = New Dictionary
-            dExtra.Add "log_path", Log.LogFilePath
+            dExtra.Add "log_path", Log.SavedLogFilePath
 
             Select Case Me.Result
                 Case eorSuccess

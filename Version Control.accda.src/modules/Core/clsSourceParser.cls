@@ -20,6 +20,10 @@ Option Explicit
 Public ObjectName As String
 Public RowSortFields As Dictionary
 
+' XML namespaces used by the schema Application.ExportXML produces for table definitions.
+Private Const NS_XSD_URI As String = "http://www.w3.org/2001/XMLSchema"
+Private Const NS_OD_URI As String = "urn:schemas-microsoft-com:officedata"
+
 Public Enum eContentType
     ectObjectDefinition
     ectXML
@@ -37,7 +41,7 @@ Private Type udtThis
     strOutput As String
     strVBA As String
     colBlocks As Collection
-    dConditionalFormat As Dictionary    ' Control name -> {CF14, Legacy, Decoded, SkipLines} 
+    dConditionalFormat As Dictionary    ' Control name -> {CF14, Legacy, Decoded, SkipLines}
     strCFControl As String              ' Name of the control currently being scanned
     lngSkipSentinel As Long             ' Line index past EOF; neutralizes a skip entry
 End Type
@@ -1395,6 +1399,12 @@ Private Function SanitizeXML() As String
         Next
     End If
 
+    ' Table definitions only. SanitizeXML is shared with table data, where these nodes are
+    ' almost never present and the document can run to many megabytes.
+    If this.intObjectType = edbTableDef Then
+        If Options.ExportFormatVersion >= EFV_5_1_0 Then SortXmlPropertyNodes objXml
+    End If
+
     If Not Me.RowSortFields Is Nothing Then
         If Me.RowSortFields.Count > 0 Then SortXmlDataRows objXml
     End If
@@ -1479,12 +1489,131 @@ Private Sub SortXmlDataRows(objXml As MSXML2.DOMDocument60)
     Next lngIdx
 
     For lngIdx = lngCount - 1 To 0 Step -1
-        objRoot.removeChild objRoot.FirstChild
+        objRoot.RemoveChild objRoot.FirstChild
     Next lngIdx
 
     For lngIdx = 1 To colSorted.Count
         objRoot.appendChild colSorted(lngIdx)
     Next lngIdx
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SortXmlPropertyNodes
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Sort od:tableProperty and od:fieldProperty siblings by name within each
+'           : xsd:appinfo block, so the exported order does not depend on how the table
+'           : was created.
+'           :
+'           : Why this is needed: Access emits these in DAO Properties collection order,
+'           : and that order differs between a table built by Application.ImportXML (which
+'           : reproduces the order of the file it read) and one built through DAO (where
+'           : Required and AllowZeroLength are intrinsic members and always lead). The two
+'           : exports hold the same properties with the same values in a different
+'           : sequence, which is enough to fail a byte comparison. It cannot be fixed on
+'           : the DAO side -- the intrinsic members cannot be moved, deleted, or
+'           : re-appended (error 3367). Canonicalizing here lets modTableDefBuilder's
+'           : output match source without relaxing the byte comparison that guards it.
+'           :
+'           : Plain alphabetical is safe, which is not obvious. Access's own emission
+'           : order looks like it encodes a dependency: the lookup chain from
+'           : DisplayControl through RowSourceType, RowSource, BoundColumn, ColumnCount
+'           : and ColumnHeads to ColumnWidths never inverts once across four databases,
+'           : and issue 691 blamed alphabetical ordering for losing ColumnCount and
+'           : ColumnWidths. That turned out to be how Access serializes, not a constraint
+'           : it enforces on read. Applying the chain in alphabetical order was measured
+'           : to restore every value correctly through ImportXML, through DAO on a local
+'           : table, and through DAO on a linked table, with both a value list and a
+'           : Table/Query row source. See DECISIONS.md 2026-07-31 before adding a
+'           : dependency-ordered rank table here.
+'           :
+'           : Index nodes share the appinfo block and are deliberately left alone; their
+'           : order is preserved by re-inserting the sorted properties at the position the
+'           : first one occupied.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SortXmlPropertyNodes(objXml As MSXML2.DOMDocument60)
+
+    Dim objAppInfo As MSXML2.IXMLDOMNode
+
+    ' One document scan covers both property kinds. The caller gates this to table
+    ' definitions, so the scan is never paid on a large table-data export.
+    For Each objAppInfo In objXml.SelectNodes( _
+        "//*[namespace-uri()='" & NS_XSD_URI & "' and local-name()='appinfo']")
+        SortPropertyGroup objXml, objAppInfo, "tableProperty"
+        SortPropertyGroup objXml, objAppInfo, "fieldProperty"
+    Next objAppInfo
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SortPropertyGroup
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : Sort one kind of property element by name within a single appinfo block,
+'           : leaving every other child of that block where it was.
+'---------------------------------------------------------------------------------------
+'
+' ByVal on the node and name: callers pass a For Each loop variable and a literal, and
+' MSXML interface parameters are the same ByRef mismatch trap seen in modTableDefBuilder.
+Private Sub SortPropertyGroup(objXml As MSXML2.DOMDocument60, _
+    ByVal objAppInfo As MSXML2.IXMLDOMNode, ByVal strLocalName As String)
+
+    Dim objNode As MSXML2.IXMLDOMNode
+    Dim objName As MSXML2.IXMLDOMNode
+    Dim objMarker As MSXML2.IXMLDOMNode
+    Dim colNodes As Collection
+    Dim astrKeys() As String
+    Dim lngIdx As Long
+    Dim blnNeedsSort As Boolean
+
+    ' Snapshot the matching children. The list has to be materialized before anything is
+    ' moved, because removing a node shifts the ones behind it.
+    Set colNodes = New Collection
+    For Each objNode In objAppInfo.ChildNodes
+        If objNode.NamespaceURI = NS_OD_URI And objNode.baseName = strLocalName Then
+            colNodes.Add objNode
+        End If
+    Next objNode
+
+    If colNodes.Count < 2 Then Exit Sub
+
+    ReDim astrKeys(0 To colNodes.Count - 1)
+
+    For lngIdx = 0 To colNodes.Count - 1
+        Set objName = colNodes(lngIdx + 1).Attributes.getNamedItem("name")
+        If objName Is Nothing Then
+            ' A property with no name is not something we can order predictably.
+            Exit Sub
+        End If
+        astrKeys(lngIdx) = objName.Text & Format$(lngIdx, "0000000000")
+        If lngIdx > 0 Then
+            If StrComp(astrKeys(lngIdx), astrKeys(lngIdx - 1), vbBinaryCompare) < 0 Then
+                blnNeedsSort = True
+            End If
+        End If
+    Next lngIdx
+
+    If Not blnNeedsSort Then Exit Sub
+
+    ' Hold the insertion point, since the nodes themselves are about to move. A comment
+    ' rather than an empty text node, which MSXML may coalesce away.
+    Set objMarker = objAppInfo.InsertBefore(objXml.createComment("vcs-sort"), colNodes(1))
+
+    For lngIdx = 1 To colNodes.Count
+        objAppInfo.RemoveChild colNodes(lngIdx)
+    Next lngIdx
+
+    QuickSortStringsBinary astrKeys
+
+    For lngIdx = 0 To UBound(astrKeys)
+        objAppInfo.InsertBefore colNodes(XmlSortKeyOrdinal(astrKeys(lngIdx)) + 1), objMarker
+    Next lngIdx
+
+    objAppInfo.RemoveChild objMarker
 
 End Sub
 

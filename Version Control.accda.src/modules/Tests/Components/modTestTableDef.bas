@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestTableDef"
+﻿Attribute VB_Name = "modTestTableDef"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestTableDef
 ' Author    : Adam Waller
@@ -111,6 +111,188 @@ Public Sub TestBigIntImportXmlRepair()
     DropTestTable TEST_TABLE_BIGINT
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestPropertyNodesSortedUnderNewFormat
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Under EFV_5_1_0 the sanitizer orders od:fieldProperty and od:tableProperty
+'           : nodes by name, so a table built through DAO and one built by ImportXML
+'           : export identically. Older formats must be left exactly as Access wrote them.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestPropertyNodesSortedUnderNewFormat()
+
+    Dim strSorted As String
+    Dim strLegacy As String
+    Dim lngPrior As Long
+
+    lngPrior = Options.ExportFormatVersion
+
+    Options.ExportFormatVersion = EFV_5_1_0
+    strSorted = SanitizeFixture(UnsortedPropertyXml)
+
+    Options.ExportFormatVersion = EFV_5_0_0
+    strLegacy = SanitizeFixture(UnsortedPropertyXml)
+
+    Options.ExportFormatVersion = lngPrior
+
+    TestAssert InStr(1, strSorted, "AllowZeroLength") < InStr(1, strSorted, "ColumnWidth"), _
+        "field properties sorted by name"
+    TestAssert InStr(1, strSorted, "ColumnWidth") < InStr(1, strSorted, "Required"), _
+        "sort is alphabetical, not merely reversed"
+    TestAssert InStr(1, strSorted, "Description") < InStr(1, strSorted, "Orientation"), _
+        "table properties sorted by name"
+
+    ' The index shares the appinfo block and must not be dragged into the sort.
+    TestAssert InStr(1, strSorted, "od:index") < InStr(1, strSorted, "od:tableProperty"), _
+        "index node keeps its position ahead of the properties"
+
+    TestAssert InStr(1, strLegacy, "ColumnWidth") < InStr(1, strLegacy, "AllowZeroLength"), _
+        "older export format leaves the original order untouched"
+
+    ' The lookup chain is the one place alphabetical ordering looks dangerous: Access
+    ' always emits DisplayControl ahead of BoundColumn and ColumnCount, and issue 691
+    ' blamed the reverse for losing ColumnCount and ColumnWidths. Measurement showed the
+    ' reverse restores correctly through every import path, so the inversion below is
+    ' deliberate. Asserting it keeps a future "fix" from silently reintroducing a rank
+    ' table nobody needs. See DECISIONS.md 2026-07-31.
+    TestAssert InStr(1, strSorted, "BoundColumn") < InStr(1, strSorted, "DisplayControl"), _
+        "lookup chain is alphabetised, inverting Access's emission order on purpose"
+    TestAssert InStr(1, strSorted, "ColumnCount") < InStr(1, strSorted, "RowSourceType"), _
+        "ColumnCount sorts ahead of RowSourceType"
+
+    ' Reordering must never lose or duplicate a node.
+    TestAssert CountOccurrences(strSorted, "<od:fieldProperty ") = _
+        CountOccurrences(strLegacy, "<od:fieldProperty "), _
+        "sorting preserves the field property count"
+    TestAssert CountOccurrences(strSorted, "<od:tableProperty ") = _
+        CountOccurrences(strLegacy, "<od:tableProperty "), _
+        "sorting preserves the table property count"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestPropertyNodesNotSortedForTableData
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : The sort is gated to table definitions. SanitizeXML is shared with table
+'           : data, where a retained schema is rare and the document can run to many
+'           : megabytes, so the document scan must not happen there at all.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestPropertyNodesNotSortedForTableData()
+
+    Dim cParser As clsSourceParser
+    Dim strOut As String
+    Dim lngPrior As Long
+
+    lngPrior = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+
+    Set cParser = New clsSourceParser
+    cParser.LoadString UnsortedPropertyXml, edbTableData
+    strOut = cParser.Sanitize(ectXML)
+
+    Options.ExportFormatVersion = lngPrior
+
+    TestAssert InStr(1, strOut, "ColumnWidth") < InStr(1, strOut, "AllowZeroLength"), _
+        "table data content is not reordered"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CountOccurrences
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : Count non-overlapping occurrences of a substring.
+'---------------------------------------------------------------------------------------
+'
+Private Function CountOccurrences(strText As String, strFind As String) As Long
+
+    Dim lngPos As Long
+
+    lngPos = InStr(1, strText, strFind, vbBinaryCompare)
+    Do While lngPos > 0
+        CountOccurrences = CountOccurrences + 1
+        lngPos = InStr(lngPos + Len(strFind), strText, strFind, vbBinaryCompare)
+    Loop
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SanitizeFixture
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Run a table definition XML string through the real export sanitizer.
+'---------------------------------------------------------------------------------------
+'
+Private Function SanitizeFixture(strXml As String) As String
+
+    Dim cParser As clsSourceParser
+
+    Set cParser = New clsSourceParser
+    cParser.LoadString strXml, edbTableDef
+    SanitizeFixture = cParser.Sanitize(ectXML)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UnsortedPropertyXml
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : A table definition whose properties are deliberately out of name order, in
+'           : the arrangement Access produces: Required and AllowZeroLength trailing the
+'           : datasheet properties, and the lookup chain led by DisplayControl. Sorting
+'           : this by name inverts the lookup chain, which is the case worth pinning.
+'---------------------------------------------------------------------------------------
+'
+' Built through clsConcat rather than a continued expression: VBA allows only 25 line
+' continuations in one statement, and this document needs more lines than that.
+Private Function UnsortedPropertyXml() As String
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "<?xml version=""1.0""?>"
+        .Add "<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:od=""urn:schemas-microsoft-com:officedata"">"
+        .Add "  <xsd:element name=""Fixture"">"
+        .Add "    <xsd:annotation><xsd:appinfo>"
+        .Add "      <od:index index-name=""PrimaryKey"" index-key=""F1 "" primary=""yes"" unique=""yes"" clustered=""no"" order=""asc""/>"
+        .Add "      <od:tableProperty name=""Orientation"" type=""2"" value=""0""/>"
+        .Add "      <od:tableProperty name=""Description"" type=""10"" value=""A table""/>"
+        .Add "    </xsd:appinfo></xsd:annotation>"
+        .Add "    <xsd:complexType><xsd:sequence>"
+        .Add "      <xsd:element name=""F1"" minOccurs=""0"" od:jetType=""text"">"
+        .Add "        <xsd:annotation><xsd:appinfo>"
+        .Add "          <od:fieldProperty name=""ColumnWidth"" type=""3"" value=""-1""/>"
+        .Add "          <od:fieldProperty name=""ColumnOrder"" type=""3"" value=""0""/>"
+        .Add "          <od:fieldProperty name=""Required"" type=""1"" value=""0""/>"
+        .Add "          <od:fieldProperty name=""AllowZeroLength"" type=""1"" value=""0""/>"
+        .Add "          <od:fieldProperty name=""DisplayControl"" type=""3"" value=""111""/>"
+        .Add "          <od:fieldProperty name=""RowSourceType"" type=""10"" value=""Value List""/>"
+        .Add "          <od:fieldProperty name=""RowSource"" type=""12"" value=""1;One;2;Two""/>"
+        .Add "          <od:fieldProperty name=""BoundColumn"" type=""3"" value=""1""/>"
+        .Add "          <od:fieldProperty name=""ColumnCount"" type=""3"" value=""2""/>"
+        .Add "          <od:fieldProperty name=""ColumnWidths"" type=""10"" value=""0;1440""/>"
+        .Add "        </xsd:appinfo></xsd:annotation>"
+        .Add "        <xsd:simpleType>"
+        .Add "          <xsd:restriction base=""xsd:string"">"
+        .Add "            <xsd:maxLength value=""10""/>"
+        .Add "          </xsd:restriction>"
+        .Add "        </xsd:simpleType>"
+        .Add "      </xsd:element>"
+        .Add "    </xsd:sequence></xsd:complexType>"
+        .Add "  </xsd:element>"
+        .Add "</xsd:schema>"
+        UnsortedPropertyXml = .GetStr
+    End With
+
+End Function
 
 
 Private Function BigIntFixtureXml(strFieldName As String) As String

@@ -83,6 +83,205 @@ contradictory guidance.
 
 ---
 
+## 2026-07-31 — Property application order is not load-bearing; keep the sort alphabetical
+
+**Trigger**: The canonical sort in the entry below orders property nodes alphabetically. That is the same ordering issue #691 blames for losing combo-box lookup properties on rebuild: alphabetically `BoundColumn`, `ColumnCount`, `ColumnHeads` and `ColumnWidths` all precede `DisplayControl`, `RowSourceType` and `RowSource`, and the theory was that Access re-derives lookup metadata when those three are set, resetting `ColumnCount` to 1 and discarding `ColumnWidths`. Since the sort sits behind an export format gate, it was worth proving before shipping.
+
+**The corpus says the order looks load-bearing.** Across 444 tbldefs files from four databases — SecTbl (324 local tables), sec, Testing, and Northwind_dev, the last being Microsoft-authored and so the one sample with a creation history independent of this toolchain — Access's emission order is unstable in general (96 distinct field sequences, most property pairs appearing in both orders) but the lookup chain never inverts once: `DisplayControl` before `RowSourceType` (461 to 0), before `RowSource` (445 to 0), before `BoundColumn` (445 to 0), before `ColumnCount` (461 to 0), before `ColumnHeads` (461 to 0), before `ColumnWidths` (410 to 0). `SubdatasheetName` likewise always precedes `LinkChildFields` and `LinkMasterFields`, and `OrderByOn` always precedes `OrderBy`.
+
+**Measurement says it is not.** Each scenario built the same combo lookup twice, once with properties in alphabetical order and once in Access's order, then read all ten lookup properties back:
+
+| Path | Alphabetical result |
+|---|---|
+| `Application.ImportXML` | all ten correct |
+| DAO local table, sequential `SetDAOProperty`-style apply | all ten correct |
+| DAO linked table (Access backend) | all ten correct |
+| Local and linked with a real `Table/Query` row source rather than a value list | all ten correct |
+
+`ColumnCount` stayed 2 and `ColumnWidths` stayed `0;1440` everywhere. The invariance in the corpus reflects how Access serializes, not a constraint it enforces on read.
+
+**Decision**: Keep the sort plain alphabetical. Do not add a dependency-ordered rank table, and do not reorder properties at apply time in `modTableDefBuilder` or in the linked-table restore. A rank table would mean a new helper, three call sites, and a procedure header asserting a dependency that does not exist.
+
+**What this rules out**: Reading the corpus invariance as evidence of a dependency. It is real and reproducible, and it is still the wrong conclusion — the measurement above is the one that counts. `TestPropertyNodesSortedUnderNewFormat` now asserts the inversion explicitly (`BoundColumn` ahead of `DisplayControl`) so that a future reader who rediscovers the corpus pattern cannot quietly "fix" it.
+
+**Issue #691 is therefore still unexplained.** The ordering hypothesis in that thread was never verified and now looks wrong, so nothing here fixes it. The reported loss of `ColumnCount` and `ColumnWidths` on rebuild has some other cause; candidates not ruled out are `SetDAOProperty`'s delete-and-recreate on type mismatch, behaviour specific to an ODBC/SQL Server link (only an Access backend was reachable for testing), or something in how the link is recreated during a rebuild.
+
+**Also in this change.** The sort is now gated to `this.intObjectType = edbTableDef` and does a single `xsd:appinfo` scan handling both property kinds, rather than two full-document scans. `SanitizeXML` is shared with `clsDbTableData`, so the previous form charged every table-data export — which can run to many megabytes — two descendant scans for nodes that are almost never present. `TestPropertyNodesNotSortedForTableData` covers the gate. Two fixtures were added to `Testing/Fixtures/tabledefs/`, since the corpus had no lookup or subdatasheet coverage at all: `tblFixLookupCombo` (the full lookup chain) and `tblFixSubdatasheet`. The latter is also the only place `SubdatasheetHeight` and `SubdatasheetExpanded` appear anywhere in the corpus.
+
+---
+
+## 2026-07-30 — Canonicalize tbldefs property order so the DAO builder can match source
+
+**Trigger**: The DAO table-def builder (entry below) worked, but a real merge in `sec.accdb` still fell back to `ImportXML` and paid 451.50 seconds. Verification was rejecting the table the builder produced.
+
+**What the diff showed.** `LogDefinitionMismatch` was added to log the differing lines rather than just the verdict, and the cause was visible on the first run. Every difference is a rotation of the same property names, repeated once per field:
+
+| Source (Access) | Rebuilt (DAO) |
+|---|---|
+| ColumnWidth, ColumnOrder, ColumnHidden, Required, AllowZeroLength | AllowZeroLength, Required, ColumnWidth, ColumnOrder, ColumnHidden |
+
+Same names, same values, same count — the lines realign after each field, so nothing is added or dropped. Only sequence differs, and verification is a byte comparison.
+
+**Why the order cannot be fixed in the builder.** Three probe tables in `Testing.accdb`, one field with the same five properties, exported with `acExportAllTableAndFieldProperties`:
+
+| Creation path | Emitted order |
+|---|---|
+| `Application.ImportXML` | ColumnWidth, ColumnOrder, ColumnHidden, Required, AllowZeroLength |
+| DAO, natives assigned before the save | AllowZeroLength, Required, ColumnWidth, ColumnOrder, ColumnHidden |
+| DAO, natives assigned last, after the save | AllowZeroLength, Required, ColumnWidth, ColumnOrder, ColumnHidden |
+
+`ImportXML` reproduces the document order of the file it read. For a DAO-created field, `Required` and `AllowZeroLength` are intrinsic members of the Properties collection and always lead. Assignment order is irrelevant — the second and third rows are identical. A fourth probe never assigned them at all and Access still emitted both, at default values, in the leading position. Appending them as ordinary properties to move them fails with error 3367, "an object with that name already exists in the collection", and intrinsic properties cannot be deleted. There is no lever on the DAO side.
+
+**Decision**: Sort `od:tableProperty` and `od:fieldProperty` siblings by name in the export sanitizer (`clsSourceParser.SortXmlPropertyNodes`), gated behind `EFV_5_1_0`. Both creation paths then produce identical bytes. `od:index` nodes share the `appinfo` block and are left alone; the sorted properties are re-inserted at the position the first one occupied, so index order is untouched.
+
+**The fast path now requires the new format.** `FastTableDefImportApplies` returns False below `EFV_5_1_0`. On an older format the DAO build would import correctly but re-export in a different order from the file it came from, rewriting `tbldefs/` on the user's next export. Trading source churn for speed is not a trade we want to make silently, so the path waits for the format the ordering fix lives in.
+
+`EFV_5_1_0` was initially left dormant, which turned out to make the whole fast path unreachable: `[_Last]` was still 50000 and the options combo whitelisted only 4.1.2 and 5.0.0, so no project could be on 5.1.0 and `FastTableDefImportApplies` always returned False. A `tblListYN` import into `sec.accdb` on 2026-07-31 still took the full `ImportXML` cost for exactly that reason. It is now activated: `[_Last] = 50100` and the combo offers 5.1.0. The format also carries the sidecar `Info.Class` change, which goes live with it.
+
+Note for anyone migrating a project: switching a project to 5.1.0 is not enough on its own. The DAO builder verifies by re-exporting the table it built and comparing bytes against the source file, so a project whose `tbldefs/` are still in unsorted 5.0.0 order will fail verification on every table and fall back. A full export has to run first to migrate the source, after which the fast path engages.
+
+**Measured end to end.** Once `sec.accdb` was on 5.1.0 with its source migrated, importing `tblListYN` with a changed definition logged `Built tblListYN directly, without importing the XML` and completed in **1.14 seconds**, against **462.48 seconds** for the same import an hour earlier on the `ImportXML` fallback. The DAO build itself is 0.10s (`Create Table (DAO)`), with 0.01s each for parsing the XML and verifying the result. The sanitizer's sort costs nothing measurable: single-object exports of the same table run 1.43–1.45s on 5.1.0 against 1.29–1.52s historically, with `Sanitize XML` reporting 0.00s.
+
+The one-time migration export is visible and worth expecting: the add-in's own export jumped from ~2.5s over 40 objects to 10.05s over 266, because changing the format invalidates the global option hash and marks every category stale. All six of its `tbldefs/` diffs verified as pure reordering — identical line multisets, resequenced.
+
+**What this rules out**: Making verification order-insensitive instead. It is a smaller change and would work on every format, but it leaves the database and its source file genuinely disagreeing on order, so every subsequent export rewrites those files. The byte comparison is also the guard the builder's own header leans on ("even a construct we recognize but reproduce imperfectly is caught before it can be committed"), and weakening it to accommodate a difference we know is meaningless makes it weaker against differences that are not.
+
+**Harness bug found along the way.** `RunTableDefRoundtrip` inferred "the DAO path was used" from `GetLastDeclineReason()` being empty, but that reason is set by the parser, not by the caller's verification step. A build that parsed cleanly and was then rejected and discarded left no reason behind, so the fixture passed on the `ImportXML` fallback — the exact failure the check was written to prevent, and why `tblListYN` appeared to round-trip cleanly while the same file failed in a real merge. `clsDbTableDef` now reports rejection through `modTableDefBuilder.RecordVerificationFailure`, so the reason describes the outcome of the import rather than only the parse. The fixtures also force `ExportFormatVersion = EFV_5_1_0` for the duration of the run, since the DAO path only matches source under the canonical ordering.
+
+---
+
+## 2026-07-30 — Build local table definitions through DAO instead of Application.ImportXML
+
+**Trigger**: The follow-on from the entry below. Skipping the rebuild when the definition already matches source removed the cost for unchanged tables, but a table whose definition genuinely changed still paid the full 276–281 seconds of `Application.ImportXML ... acStructureOnly`. That entry closed by naming DDL generation as the next option; this is it.
+
+**Scope correction from the build log.** The obvious worry — that a full build of 372 tables pays this 372 times — turns out to be wrong, and it changes what the fix should target. `Build_20260727_105856_191.log` (963 seconds total) attributes only **21.80 seconds to Tables**, about 0.06 per table. The reason is ordering: `GetContainers` in `modContainers.bas` creates every table (#14) before the first query (#15), so a full build creates tables into an empty query catalog, which is precisely the condition under which `ImportXML` is cheap. The real full-build cost is `modLoadFromText.LoadFromText` at 493 seconds over 4,480 calls, plus 163 in `Other Operations` — unrelated, and still open.
+
+What *is* pathological is any import into an already-populated catalog: a merge build (which pays per table, so several tables is the worst case, not a lesser one), `ImportByType("tables")`, and single-object import.
+
+**Decision**: A new `modTableDefBuilder.bas` parses the exported table definition XML into a schema model and creates the table with `CreateTableDef` / `CreateField` / `CreateIndex`, applying properties through the existing `SetDAOProperty`. `clsDbTableDef.IDbComponent_Import` tries it before `Application.ImportXML` and falls back on any doubt. Import-side only — no export format change, no new option, and every prior export still imports.
+
+Three mechanisms carry the risk, because the failure mode we are guarding against is not an error but a table that is quietly missing something (exactly how `TransferDatabase` dropped `ColumnOrder`, see below):
+
+1. **Strict parsing.** The parser walks the whole document and returns `Nothing` on any element or `od:` attribute it does not explicitly recognize, rather than building a partial table. Attachments, multi-value fields (`od:jetType="complex"`, `od:jetComplexType`) and calculated columns (`od:expression`) are refused by name.
+2. **Verification.** The finished table is exported through `IDbComponent_Export` into the conflict-detection temp folder and hash-compared against the source file, reusing `StoredDefinitionMatchesSource`. `Application.ExportXML` costs 0.00 seconds even in the large database, so this is nearly free. On mismatch the table is dropped and `ImportXML` runs as before. The worst case is therefore the old timing plus a few milliseconds.
+3. **Circuit breaker.** Source predating the current export format could fail verification on every table, and a merge touching many of them should not pay build-plus-export-plus-delete on top of each `ImportXML`. Three consecutive expensive failures stand the path down for the rest of the operation. A parse decline does not count — it costs about a millisecond and says nothing about the next table.
+
+**Property names are deliberately not whitelisted**, unlike elements and attributes. Everything except five native DAO `Field` members (`Required`, `AllowZeroLength`, `DefaultValue`, `ValidationRule`, `ValidationText`) goes through `SetDAOProperty`, which is generic and works for names we have never seen. A native member we failed to route would either raise (caught) or fail verification (caught). Whitelisting them would trade that for a fallback every time Access adds a property.
+
+**Big Integer comes out right the first time.** `ExportXML` has no schema representation for `dbBigInt` and writes a bare `xsd:decimal` restricted to `totalDigits="0"`, which is why `ImportXML` mis-creates those fields as `dbDecimal(38,0)` and `FixCorruptedBigIntFields` has to repair them afterwards. The parser recognizes the sentinel and creates `dbBigInt` directly. The repair stays for the fallback path.
+
+**When it runs.** Two cheap gates, resolved once per operation and cached on the component instance (one instance serves one operation — `GetContainers` builds a fresh set per build, and `LoadSingleObject` is handed a fresh one per call):
+
+- `Operation.OperationType = eotBuild` skips it. A full build is already fast, and the proven call is preferable where there is nothing to gain.
+- Within `eotMerge`, saved query count must reach `MIN_QUERIES_FOR_FAST_TABLEDEF` (500). Query count is the cheapest available proxy for what actually drives the cost — total table references across the catalog. The measurements in the entry below set the scale: 4 queries costs 0.02 seconds, ~2,000 costs 2 to 19 depending on table references, ~4,000 costs 4.5 to 43, and 3,692 real ones cost 276–281. Below the line `ImportXML` is cheap; above it, every table avoided is seconds to minutes.
+
+**Options reconsidered**: `DoCmd.TransferDatabase` out of a scratch database remains rejected for the fidelity reasons recorded below. This approach reaches the same speed without leaving the current database, and unlike `TransferDatabase` its output is checked rather than trusted.
+
+**Testing.** Two layers, because neither covers the other:
+
+- `Testing/Fixtures/tabledefs/` — round-trip fixtures seeded from real Access exports, proving that create-then-re-export is byte-identical. Each asserts an `import_path` check, so a fixture cannot quietly pass on the fallback and prove nothing. Fixtures under `tabledefs/fallback/` invert it and assert the builder *refuses* the construct. The eligibility gate is forced open for the run (`FastPathTestOverride`) because no test database is large enough to open it naturally.
+- `modTestTableDefBuilder.bas` — parser tests from hand-written schema fragments, covering the data types no sample database happens to contain and every rejection path. Hand-written XML is unsuitable for round-trip fixtures (the drift check compares against what Access actually emits) but is exactly right for testing the type map.
+
+**What this rules out**: Trusting a DAO-built table without re-exporting and comparing it. Attributing full-build time to table imports. Whitelisting property names, which would make the path brittle against future Access versions for no safety gain.
+
+**First end-to-end proof.** The table that started this — `tblListYN` from `sec.accdb`, three fields, seventeen table properties, no indexes — was run through the round-trip harness against `Testing.accdb` from a fixture root outside the repo. All four checks passed in 0.298 seconds: `import_path` (the DAO builder handled it, no fallback), `xml_vs_fixture` (the table it created re-exported byte-identical to sec's own source file), and `xml_pass2_idempotent`. So for this shape the builder reproduces what `ImportXML` produces, and the verification step confirms it rather than taking it on trust.
+
+Note the gate had to be forced open: `Testing.accdb` has 4 saved queries against a threshold of 500, which is exactly why `FastPathTestOverride` exists.
+
+**Known open failure.** In `sec.accdb`, a single-object import of `tblListYN` with a genuinely changed definition (one `BackTint` value, 100 → 200) took the fallback: `Merge_20260730_163854_113.log` shows `Parse Table Def XML` 0.01 s and `Create Table (DAO)` 0.11 s, then `Verify Table Def (DAO)` rejecting the result and `App.ImportXML() Structure` spending 451.50 s. So the builder is installed and runs; verification refuses its output. The same source file, byte for byte, round-trips cleanly through the harness in `Testing.accdb`. The difference between the two runs is that sec's table already existed and was being replaced through `IDbComponent_Merge` (stage relations, delete, rebuild), where the harness only ever creates a fresh sandbox table — that path is currently untested.
+
+`LogDefinitionMismatch` was added for this: a rejected rebuild now lists the differing lines in the log. Previously the only record was "the rebuilt table did not match the source file", and the temp export is swept at the end of the operation, so the evidence was gone before anyone could read it — leaving reproduction as the only option on exactly the databases where reproducing costs minutes per attempt.
+
+**Still to verify** against `sec.accdb`, next to the numbers in the entry below: the `tblListYN` single-object import (baseline 455 s end to end, 276–281 of it in `ImportXML`); a merge build touching several tables, where the per-table cost compounds and the gate has to earn its keep; and the Tables category of a full build (baseline 21.80 s across 372 tables), confirming the `eotBuild` gate leaves it untouched.
+
+**Drive the harness from MCP with `vcs_call_vba`, not `vcs_run_vba`.** `vcs_call_vba` is a single `Application.Run` against the add-in's API and works:
+
+```
+vcs_call_vba(<target.accdb>,
+             "<AppData>\MSAccessVCS\Version Control.API",
+             ["RunRoundtripTests", "C:\path\to\fixtures\"])
+```
+
+Qualify with the **full path**, which also loads the add-in on demand. The bare file name `"Version Control.API"` — the tool's own documented example — never resolves, because `Application.Run` matches on the VBA project name (`MSAccessVCS`, per `PROJECT_NAME`) rather than the file name (`Version Control`, per `ADDIN_BASENAME`). `"MSAccessVCS.API"` does work, but only after something else has loaded the add-in, which is why `RunInAddIn` calls `LoadVCSAddIn` before using that form. The full path is the only one that is correct from a cold start.
+
+`vcs_run_vba` cannot be used for this. MCP-executed VBA is itself delivered through `modAPI.API`, so the submitted code runs *inside* an `API` call and any nested `Application.Run(... ".API", ...)` hits the `Static IsRunning` re-entrancy guard. The guard used to return `Empty` without executing, which is indistinguishable from a method that legitimately returned nothing — it read as a broken add-in rather than a refused call, and cost hours. Routing around it through `HandleRibbonCommand` is worse: it reliably kills the temp module with error 2517 and leaves the host VBA project needing a close and reopen.
+
+`API` and `APIAsync` now return an explanatory message instead, prefixed with `API_REFUSED_PREFIX` so callers can tell a refusal from data. Note that this deliberately is *not* an `Err.Raise`: an error raised inside a library database does not propagate across `Application.Run` into the calling project's handler, so even a caller with `On Error GoTo` active gets a modal dialog that blocks Access until someone dismisses it. That was tried first and reverted.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/modTableDefBuilder.bas` — new
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — `TryFastTableDefImport`, `UseFastTableDefImport`, `FastTableDefImportApplies`, `RecordFastPathFailure`, `StoredDefinitionMatchesSource` timer label
+- `Version Control.accda.src/modules/Utility/modEncoding.bas` — `UnescapeXmlName`
+- `Version Control.accda.src/modules/Tests/modTestRoundtrip.bas` — `RunTableDefFixtures`
+- `Version Control.accda.src/modules/Tests/Components/modTestTableDefBuilder.bas` — new
+
+---
+
+## 2026-07-30 — Skip the table rebuild when the stored definition already matches source
+
+**Trigger**: Reloading `tblListYN` — three fields, two rows, no relationships — from source took 455 seconds in a database holding roughly 5,000 objects (3,692 queries, 514 table definitions, 416 forms, 318 reports). The `Merge_*.log` performance report accounted for 0.76 seconds and left 454.85 in `Other Operations`, because nothing on the merge path carried a `Perf` timer. Exporting the same object was instant.
+
+Timed each candidate call directly against the live database:
+
+| Call | Seconds |
+|---|---|
+| `Application.ImportXML ... acStructureOnly` | 276.07, 281.16 on repeat |
+| `Application.ExportXML` | 0.00 |
+| `DoCmd.DeleteObject acTable` | 0.00 |
+| `SELECT ... INTO` (same table via DDL) | 0.00 |
+| `Application.ImportXML ... acAppendData` (2 rows) | 0.01 |
+
+So it is not object creation that is slow — DDL creates the same table instantly. It is `ImportXML` with `acStructureOnly` specifically, and the cost belongs to the target database rather than to the file.
+
+**What drives the cost.** Importing the *same file* into `Testing.accdb` (44 objects) took 0.02 seconds — roughly four orders of magnitude faster. Building up `Testing.accdb` with synthetic objects isolated which part of the catalog is responsible:
+
+| Target database contents | `acStructureOnly` seconds |
+|---|---|
+| 44 objects (baseline) | 0.02 |
+| + 2,000 queries reading `SELECT 1 AS X` (no table reference) | 2.00 |
+| + 4,000 such queries | 4.54 |
+| + 400 linked tables, 4 queries | 0.03 |
+| + 400 linked tables, 2,000 queries each selecting from one of them | 19.19 |
+| + 400 linked tables, 4,000 such queries | 43.13 |
+| `sec.accdb` (3,692 real queries, 527 tables) | 276–281 |
+
+Object count alone is not the driver, and linked tables are not either — 400 of them cost nothing on their own, and scanning all 440 `Connect` strings in `sec.accdb` takes 0.02 seconds. What costs is **saved queries that reference tables**: at a fixed query count, giving each query a table reference multiplied the time by roughly ten. The remaining gap to the live database is consistent with its queries being real ones carrying joins and multiple references rather than a single `SELECT *`. The working model is that adding a table invalidates the query-to-table name resolution, and `ImportXML` pays to rebuild it, at a cost proportional to the total number of table references across all saved queries. `DoCmd.DeleteObject` and `SELECT ... INTO` change the catalog too and stay free, so whatever the mechanism is, it is reached from `ImportXML` specifically.
+
+**Options explored**:
+
+- **Generate DDL from the table-definition XML instead of calling `ImportXML`**: rejected. The XML carries field properties, indexes, lookup metadata and `od:` annotations that the existing importer reproduces faithfully. Reimplementing that is a large change with a wide blast radius, to work around an engine cost we do not fully understand.
+- **Suppress catalog churn around the call** (hide the Navigation Pane, `Application.Echo False`): not pursued. `DoCmd.DeleteObject` and DDL creation both complete in under 0.01 seconds in the same database, so the cost is inside `ImportXML`, not in Access reacting to the object list changing.
+- **Import into a scratch database and copy the table across with `DoCmd.TransferDatabase`**: rejected on fidelity, despite being dramatically faster. Since the cost lives in the target catalog, importing into an empty database sidesteps it entirely: spawning a second Access instance, creating a database and importing the XML there took 2.89 seconds, and transferring the finished table into `sec.accdb` took 0.05 — about 2.9 seconds against 281, and it would work even when the definition genuinely changed. But the transferred table is not the same table. A/B-importing `Testing/Testing.accdb.src/tbldefs/tblInternal.xml` both ways and comparing every field, index and datasheet property found `TransferDatabase` silently dropping `ColumnOrder` (source says `1` for `ID`, transfer produced `0`) and, worse, setting `Required = True` on `ObjectType`, which the schema declares `minOccurs="0"`. A field that source says is optional arriving as mandatory would reject valid inserts. Worth revisiting only if the divergences turn out to be a short, enumerable list that can be replayed onto the table afterward.
+- **Compare the source file against the current table and skip the rebuild when they match** (chosen): `Application.ExportXML` costs nothing even here, so the check is close to free relative to what it avoids.
+
+**Decision**: `clsDbTableDef.IDbComponent_Merge` calls `StoredDefinitionMatchesSource` before staging relations or deleting anything. That exports the current table to the conflict-detection temp folder through the normal `IDbComponent_Export` path — so the comparison is against a file produced the same way the source file was — and compares content hashes. On a match it applies metadata and updates the index (the same tail `Import` runs, factored into `ApplyMetadataAndUpdateIndex`) and returns without touching the table.
+
+Limited to local tables (`.xml` source). Linked tables import from `.json` without `ImportXML`, and exporting one can reach across to the back end, so the check could cost more than the import it would skip. False negatives are harmless — the caller rebuilds exactly as before — so a missing table, a source file outside the export folder, or an export that produces no file all fall through to the old path.
+
+Dependent table data still merges afterward, because `LoadSingleObject` calls `MergeDependentObjects` separately from `Merge`. Reloading two rows into an existing table costs 0.01 seconds.
+
+**Measured**: the `tblListYN` single-object import that started this, re-run against `sec.accdb` with the check in place, went from **455.61 seconds to 0.98** (`Merge_20260730_163347_309.log`). The log reports `Compare Table Definition` at 0.04 seconds and `Merge Table Data` at 0.04; the two largest remaining entries are `Save Index` at 0.71 and `Load Index` at 0.60, so the index round trip is now the floor for a single-object import into a database this size, not the table work. That run exercised this skip, not the DAO builder below — the definition was unchanged, so `IDbComponent_Merge` returned before reaching the import path at all.
+
+**Consequence for table data — `MergeDependentObjects` had to switch from `Import` to `Merge`.** It called `cItem.Parent.Import`, which was correct only because the definition merge above it *always* deleted and recreated the table first: data was being loaded into a guaranteed-empty table. Skipping the rebuild breaks that assumption, and the table now arrives at the data step with its rows intact. `Import` in that state is wrong both ways it can run — the XML path uses `acAppendData`, so rows are appended alongside the ones already there (duplicate keys, or silently duplicated rows on an unkeyed table), and the tab-delimited path issues `delete from [table]` first, which fails outright against any table on the child side of a relationship. `clsDbTableData.IDbComponent_Merge` already handles exactly this — its own header says "Import cannot be reused here" — by loading a staging table and reconciling against the key, and it degrades to inserting everything when the table is empty because the definition genuinely was rebuilt. The call now goes there.
+
+**Also fixed**, since both were what made this hard to diagnose:
+
+- The merge path now carries `Perf` timers (`App.ImportXML() Structure`, `App.ImportXML() Data`, `Import Table Data (TDF)`, `Stage Relations`, `Delete Table Object`, `Restore Relations`, `Compare Table Definition`), so a slow merge names its own bottleneck instead of reporting `Other Operations`.
+- `LoadSingleObject` saved the index *after* `Perf.EndTiming`, so the existing `Save Index` timer never reached the report. The save now happens before timing stops. `ClearTempExportFolder` also runs unconditionally, because the new comparison writes there even when the index is disabled on the MCP/API path.
+
+**What this rules out**: Treating a table merge as unconditionally destructive. Attributing the cost to object count, to linked tables, or to anything about the table being imported. Swapping `ImportXML` for `TransferDatabase` out of a scratch database without first proving property-level fidelity. Any future change that makes `IDbComponent_Export` expensive for local tables would undermine this check and should revisit it.
+
+Does not address the underlying `ImportXML` cost — a table whose definition genuinely changed still pays it, and a full build of many tables into a large database still pays it per table. That is the case to watch: a full build is exactly where the definition always differs, so the skip never fires. If it becomes the complaint, generating DDL from the XML is the next option, and the measurements above are the baseline to beat.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — `IDbComponent_Merge`, new `StoredDefinitionMatchesSource`, new `ApplyMetadataAndUpdateIndex`
+- `Version Control.accda.src/modules/Components/clsDbTableData.cls` — `IDbComponent_Import` timers
+- `Version Control.accda.src/modules/Core/modBuild.bas` — `LoadSingleObject` cleanup ordering, `MergeDependentObjects` now merges table data instead of importing it
+
+---
+
 ## 2026-07-30 — Split the table data reconcile update when the engine refuses it
 
 **Trigger**: A merge build reported `Error 3360: Query is too complex` for `tblWorkforce` (67 fields) and rolled the whole table back, leaving it unmerged. The reconcile builds one `UPDATE` carrying an assignment per non-key field plus a two-term comparison per non-key field, which for that table is 66 assignments and 132 `OR`-ed comparisons. Reproduced read-only against the live database: the comparison chain alone fails on its own in a `SELECT`, and the same shape truncated to 20 fields runs. The table holds no rows, so this is the engine declining to compile the statement, not anything to do with data volume. The merge log's `Perf` table showed the same thing — `Reconcile: Insert` ran 17 times against `Reconcile: Update` 16.

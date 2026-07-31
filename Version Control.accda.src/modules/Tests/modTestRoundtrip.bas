@@ -179,9 +179,10 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
     ' Pre-load shared supporting objects (if any).
     LoadScaffold strFixtureFolder & "_scaffold" & PathSep
 
-    ' Currently only queries are supported; forms/reports/etc. would be added
-    ' here as additional Run<Type>Fixtures calls populating colResults.
+    ' Forms/reports/etc. would be added here as additional Run<Type>Fixtures calls
+    ' populating colResults.
     RunQueryFixtures strFixtureFolder & "queries" & PathSep, strScratch, blnRebaseline, colResults
+    RunTableDefFixtures strFixtureFolder & "tabledefs" & PathSep, strScratch, blnRebaseline, colResults
 
 CleanUp:
     ' Drop scaffold objects.
@@ -511,6 +512,293 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RunTableDefFixtures
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Enumerate every .xml fixture under strTableDefsFolder (recursive) and run
+'           : the round-trip on each. Adds a result Dictionary per fixture.
+'           :
+'           : These fixtures exist to hold modTableDefBuilder honest: they exercise the
+'           : DAO creation path end to end against the real Access exporter, which is
+'           : the only way to prove a construct we claim to understand actually comes
+'           : back out identical. The eligibility gate is forced open for the duration
+'           : (see FastPathTestOverride) because no test database is large enough to
+'           : open it naturally.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RunTableDefFixtures(ByVal strTableDefsFolder As String, ByVal strScratch As String, _
+    ByVal blnRebaseline As Boolean, ByVal colResults As Collection)
+
+    Dim colFiles As Collection
+    Dim varFile As Variant
+    Dim dFixtureResult As Dictionary
+    Dim lngTotal As Long
+    Dim lngPriorFormat As Long
+
+    If Not FSO.FolderExists(strTableDefsFolder) Then
+        Log.Add T("No 'tabledefs' folder under fixture root; skipping table definitions."), False
+        Exit Sub
+    End If
+
+    Set colFiles = EnumerateFixturesByExtension(strTableDefsFolder, "xml")
+    lngTotal = colFiles.Count
+
+    If lngTotal = 0 Then
+        Log.Add T("No table definition fixtures found under {0}", var0:=strTableDefsFolder), False
+        Exit Sub
+    End If
+
+    Log.Add T("Running {0} table definition fixture(s)...", var0:=CStr(lngTotal))
+
+    ' The DAO path only matches source under the canonical property ordering added in
+    ' EFV_5_1_0, so the fixtures have to run in that format regardless of what the host
+    ' database is configured for. Restored below.
+    lngPriorFormat = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+
+    FastPathTestOverride = True
+    For Each varFile In colFiles
+        Set dFixtureResult = RunTableDefRoundtrip(CStr(varFile), strScratch, blnRebaseline)
+        colResults.Add dFixtureResult
+        LogFixtureResult dFixtureResult
+    Next varFile
+    FastPathTestOverride = False
+
+    Options.ExportFormatVersion = lngPriorFormat
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunTableDefRoundtrip
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Execute the two-pass round-trip for a single table definition fixture.
+'           :
+'           : Unlike a query, a table carries its own name inside the source file, so
+'           : sandboxing means rewriting the name in the XML rather than just renaming
+'           : the file -- and the comparison has to rewrite it back. StageTableDefFixture
+'           : and the substitution below are the whole of that difference; everything
+'           : else follows the query harness.
+'           :
+'           : A fixture under a "fallback" subfolder inverts the import_path check: it
+'           : asserts that modTableDefBuilder *declined* and Application.ImportXML did
+'           : the work. Those fixtures guard the constructs we deliberately refuse.
+'---------------------------------------------------------------------------------------
+'
+Private Function RunTableDefRoundtrip(ByVal strFixtureXml As String, ByVal strScratch As String, _
+    ByVal blnRebaseline As Boolean) As Dictionary
+
+    Dim dResult As Dictionary
+    Dim strOriginalName As String
+    Dim strSandboxName As String
+    Dim strPass1Folder As String
+    Dim strPass2Folder As String
+    Dim strSandboxXmlIn As String
+    Dim strPass1Xml As String
+    Dim strPass2Xml As String
+    Dim strPass1Text As String
+    Dim strFixtureText As String
+    Dim cTable As clsDbTableDef
+    Dim cComponent As IDbComponent
+    Dim colChecks As Collection
+    Dim blnSandboxImported As Boolean
+    Dim blnExpectFallback As Boolean
+    Dim blnUsedDaoPath As Boolean
+    Dim eelPriorErrorLevel As eErrorLevel
+
+    Set dResult = New Dictionary
+    Set colChecks = New Collection
+
+    strOriginalName = FSO.GetBaseName(strFixtureXml)
+    blnExpectFallback = (InStr(1, strFixtureXml, PathSep & "fallback" & PathSep, vbTextCompare) > 0)
+
+    dResult.Add "fixture", strFixtureXml
+    dResult.Add "name", strOriginalName
+    dResult.Add "type", "tabledef"
+    dResult.Add "checks", colChecks
+
+    LogUnhandledErrors
+    On Error GoTo FixtureErrHandler
+
+    ' Per-fixture isolation, for the same reason the query harness does it: a critical
+    ' error left on the singleton would poison every later fixture.
+    eelPriorErrorLevel = Operation.ErrorLevel
+    Operation.ErrorLevel = eelNoError
+
+    strSandboxName = TEST_PREFIX & strOriginalName & "_" & UniqueHashSuffix(strFixtureXml & Now)
+    dResult.Add "sandboxName", strSandboxName
+
+    If ObjectExists(acTable, strSandboxName) Then
+        dResult("status") = "skip"
+        dResult("reason") = "Sandbox table already exists: " & strSandboxName
+        Set RunTableDefRoundtrip = dResult
+        Exit Function
+    End If
+
+    strPass1Folder = strScratch & "pass1" & PathSep
+    strPass2Folder = strScratch & "pass2" & PathSep
+    VerifyPath strPass1Folder
+    VerifyPath strPass2Folder
+
+    strSandboxXmlIn = strPass1Folder & strSandboxName & ".xml"
+    strPass1Xml = strPass1Folder & strSandboxName & ".out.xml"
+    strPass2Xml = strPass2Folder & strSandboxName & ".out.xml"
+
+    StageTableDefFixture strFixtureXml, strOriginalName, strSandboxName, strSandboxXmlIn
+
+    ' --- Import (sandbox name) ---
+    Set cTable = New clsDbTableDef
+    Set cComponent = cTable
+    cComponent.Import strSandboxXmlIn
+    blnSandboxImported = ObjectExists(acTable, strSandboxName)
+
+    If Not blnSandboxImported Then
+        dResult("status") = "fail"
+        dResult("reason") = "Import did not produce a table named '" & strSandboxName & "'"
+        GoTo FixtureCleanUp
+    End If
+
+    AddCheck colChecks, "import", "pass", vbNullString
+
+    ' --- Which path did the import take? ---
+    ' A successful DAO build leaves no decline reason behind. This check is what stops
+    ' a fixture from quietly passing on the ImportXML fallback and proving nothing
+    ' about the code it was written for.
+    blnUsedDaoPath = (Len(GetLastDeclineReason()) = 0)
+    If blnExpectFallback Then
+        If blnUsedDaoPath Then
+            AddCheck colChecks, "import_path", "fail", _
+                "Expected modTableDefBuilder to decline this construct, but it built the table."
+        Else
+            AddCheck colChecks, "import_path", "pass", "Declined: " & GetLastDeclineReason()
+        End If
+    Else
+        If blnUsedDaoPath Then
+            AddCheck colChecks, "import_path", "pass", vbNullString
+        Else
+            AddCheck colChecks, "import_path", "fail", _
+                "Fell back to Application.ImportXML: " & GetLastDeclineReason()
+        End If
+    End If
+
+    BindComponentAfterImport cComponent, acTable, strSandboxName
+
+    ' --- Pass 1 export ---
+    cComponent.Export strPass1Xml
+
+    If Not FSO.FileExists(strPass1Xml) Then
+        dResult("status") = "fail"
+        dResult("reason") = "Pass 1 export did not produce: " & strPass1Xml
+        GoTo FixtureCleanUp
+    End If
+
+    ' --- Pass 1 comparison (re-export vs canonical fixture) ---
+    ' Substitute the sandbox name back before comparing, so the only differences left
+    ' are real ones.
+    strPass1Text = RenameTableDefXml(ReadFile(strPass1Xml), strSandboxName, strOriginalName)
+    strFixtureText = ReadFile(strFixtureXml)
+
+    If GetStringHash(strPass1Text) = GetStringHash(strFixtureText) Then
+        AddCheck colChecks, "xml_vs_fixture", "pass", vbNullString
+    ElseIf blnRebaseline Then
+        WriteFile strPass1Text, strFixtureXml
+        AddCheck colChecks, "xml_vs_fixture", "pass", "Rebaselined."
+        Log.Add T("REBASELINE: overwrote {0}", var0:=strFixtureXml), False
+    Else
+        AddCheckWithDiff colChecks, "xml_vs_fixture", "fail", _
+            "Re-exported table definition differs from the fixture", _
+            MakeUnifiedDiff(strFixtureText, strPass1Text, _
+                "fixture/" & strOriginalName & ".xml", "pass1.xml (renamed back)")
+    End If
+
+    ' --- Pass 2 export (idempotency) ---
+    cComponent.Export strPass2Xml
+
+    If Not FSO.FileExists(strPass2Xml) Then
+        AddCheck colChecks, "pass2_export", "fail", _
+            "Pass 2 export did not produce: " & strPass2Xml
+    ElseIf GetFileHash(strPass1Xml) = GetFileHash(strPass2Xml) Then
+        AddCheck colChecks, "xml_pass2_idempotent", "pass", vbNullString
+    Else
+        AddCheckWithDiff colChecks, "xml_pass2_idempotent", "fail", _
+            "Pass 2 XML differs from Pass 1 (export is not idempotent)", _
+            MakeUnifiedDiff(ReadFile(strPass1Xml), ReadFile(strPass2Xml), "pass1.xml", "pass2.xml")
+    End If
+
+    dResult("status") = RollUpStatus(colChecks)
+    If dResult("status") = "fail" Then dResult("reason") = "One or more comparisons failed."
+
+FixtureCleanUp:
+    On Error Resume Next
+    Set cComponent = Nothing
+    Set cTable = Nothing
+    If blnSandboxImported Then
+        DeleteSandboxObject acTable, strSandboxName
+        DBEngine.Idle dbRefreshCache
+    End If
+
+    If Operation.ErrorLevel < eelPriorErrorLevel Then
+        Operation.ErrorLevel = eelPriorErrorLevel
+    End If
+
+    Set RunTableDefRoundtrip = dResult
+    Exit Function
+
+FixtureErrHandler:
+    dResult("status") = "error"
+    dResult("reason") = "Unhandled error: " & Err.Number & " " & Err.Description
+    AddCheck colChecks, "exception", "error", Err.Description
+    Resume FixtureCleanUp
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StageTableDefFixture
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Copy a table definition fixture to the staging path under a sandbox name.
+'---------------------------------------------------------------------------------------
+'
+Private Sub StageTableDefFixture(ByVal strFixtureXml As String, ByVal strOriginalName As String, _
+    ByVal strSandboxName As String, ByVal strTargetFile As String)
+    WriteFile RenameTableDefXml(ReadFile(strFixtureXml), strOriginalName, strSandboxName), _
+        strTargetFile
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RenameTableDefXml
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Rewrite the table name inside exported table definition XML.
+'           :
+'           : The name appears twice: as the name of the table's own xsd:element, and as
+'           : the ref from the dataroot envelope. Both are matched with their surrounding
+'           : attribute syntax so a same-named field would not be caught by accident --
+'           : which also means a fixture must not name a field after its own table.
+'---------------------------------------------------------------------------------------
+'
+Private Function RenameTableDefXml(ByVal strXml As String, ByVal strFrom As String, _
+    ByVal strTo As String) As String
+
+    Dim strFromEsc As String
+    Dim strToEsc As String
+
+    strFromEsc = EscapeXmlName(strFrom)
+    strToEsc = EscapeXmlName(strTo)
+
+    strXml = Replace(strXml, "ref=""" & strFromEsc & """", "ref=""" & strToEsc & """")
+    strXml = Replace(strXml, "<xsd:element name=""" & strFromEsc & """", _
+        "<xsd:element name=""" & strToEsc & """")
+
+    RenameTableDefXml = strXml
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : BindComponentAfterImport
 ' Author    : Adam Waller
 ' Date      : 4/25/2026
@@ -532,12 +820,12 @@ Private Sub BindComponentAfterImport(ByVal cComponent As IDbComponent, _
 
     Select Case intType
         Case acQuery:  Set cComponent.DbObject = CurrentData.AllQueries(strName)
+        Case acTable:  Set cComponent.DbObject = CurrentData.AllTables(strName)
         ' Future round-trip helpers (uncomment as each type is added):
         ' Case acForm:   Set cComponent.DbObject = CurrentProject.AllForms(strName)
         ' Case acReport: Set cComponent.DbObject = CurrentProject.AllReports(strName)
         ' Case acModule: Set cComponent.DbObject = CurrentProject.AllModules(strName)
         ' Case acMacro:  Set cComponent.DbObject = CurrentProject.AllMacros(strName)
-        ' Case acTable:  Set cComponent.DbObject = CurrentData.AllTables(strName)
         Case Else
             Log.Error eelError, _
                 "BindComponentAfterImport: unsupported AcObjectType " & intType, _
@@ -769,13 +1057,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function EnumerateSqlFixtures(ByVal strRoot As String) As Collection
-    Dim col As Collection
-    Set col = New Collection
-    EnumerateSqlFixturesRecurse strRoot, col
-    Set EnumerateSqlFixtures = col
+    Set EnumerateSqlFixtures = EnumerateFixturesByExtension(strRoot, "sql")
 End Function
 
-Private Sub EnumerateSqlFixturesRecurse(ByVal strFolder As String, ByVal col As Collection)
+Private Function EnumerateFixturesByExtension(ByVal strRoot As String, _
+    ByVal strExtension As String) As Collection
+    Dim col As Collection
+    Set col = New Collection
+    EnumerateFixturesRecurse strRoot, LCase$(strExtension), col
+    Set EnumerateFixturesByExtension = col
+End Function
+
+Private Sub EnumerateFixturesRecurse(ByVal strFolder As String, ByVal strExtension As String, _
+    ByVal col As Collection)
     Dim oFolder As Object
     Dim oFile As Object
     Dim oSub As Object
@@ -784,7 +1078,7 @@ Private Sub EnumerateSqlFixturesRecurse(ByVal strFolder As String, ByVal col As 
     Set oFolder = FSO.GetFolder(strFolder)
 
     For Each oFile In oFolder.Files
-        If LCase$(FSO.GetExtensionName(oFile.Name)) = "sql" Then
+        If LCase$(FSO.GetExtensionName(oFile.Name)) = strExtension Then
             col.Add oFile.Path
         End If
     Next oFile
@@ -793,7 +1087,7 @@ Private Sub EnumerateSqlFixturesRecurse(ByVal strFolder As String, ByVal col As 
         ' Skip scaffold (handled separately) and dotfile / underscore-prefixed
         ' housekeeping folders.
         If LCase$(oSub.Name) <> "_scaffold" And Left$(oSub.Name, 1) <> "." Then
-            EnumerateSqlFixturesRecurse oSub.Path & PathSep, col
+            EnumerateFixturesRecurse oSub.Path & PathSep, strExtension, col
         End If
     Next oSub
 End Sub
@@ -874,27 +1168,41 @@ End Sub
 '
 Private Sub CleanupStaleObjects()
     Dim qdf As DAO.QueryDef
-    Dim colVictims As Collection
+    Dim tdf As DAO.TableDef
+    Dim colQueries As Collection
+    Dim colTables As Collection
     Dim varName As Variant
 
-    Set colVictims = New Collection
+    Set colQueries = New Collection
+    Set colTables = New Collection
 
     For Each qdf In CurrentDb.QueryDefs
-        If Left$(qdf.Name, Len(TEST_PREFIX)) = TEST_PREFIX _
-            Or Left$(qdf.Name, Len(SCAFFOLD_PREFIX)) = SCAFFOLD_PREFIX Then
-            colVictims.Add qdf.Name
-        End If
+        If IsHarnessObjectName(qdf.Name) Then colQueries.Add qdf.Name
     Next qdf
 
-    If colVictims.Count = 0 Then Exit Sub
-    Log.Add T("Cleaning up {0} stale test object(s) from a prior run.", _
-        var0:=CStr(colVictims.Count)), False
+    For Each tdf In CurrentDb.TableDefs
+        If IsHarnessObjectName(tdf.Name) Then colTables.Add tdf.Name
+    Next tdf
 
-    For Each varName In colVictims
+    If colQueries.Count + colTables.Count = 0 Then Exit Sub
+    Log.Add T("Cleaning up {0} stale test object(s) from a prior run.", _
+        var0:=CStr(colQueries.Count + colTables.Count)), False
+
+    ' Queries first: a stale query could hold a reference to a stale table.
+    For Each varName In colQueries
         DeleteSandboxObject acQuery, CStr(varName)
+    Next varName
+    For Each varName In colTables
+        DeleteSandboxObject acTable, CStr(varName)
     Next varName
     DBEngine.Idle dbRefreshCache
 End Sub
+
+
+Private Function IsHarnessObjectName(ByVal strName As String) As Boolean
+    IsHarnessObjectName = (Left$(strName, Len(TEST_PREFIX)) = TEST_PREFIX) _
+        Or (Left$(strName, Len(SCAFFOLD_PREFIX)) = SCAFFOLD_PREFIX)
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -928,8 +1236,9 @@ Private Function DeleteSandboxObject(ByVal intType As AcObjectType, _
     Select Case intType
         Case acQuery
             CurrentDb.QueryDefs.Delete strName
+        Case acTable
+            CurrentDb.TableDefs.Delete strName
         ' Future component types (uncomment as round-trip helpers are added):
-        ' Case acTable:  CurrentDb.TableDefs.Delete strName
         ' Case acModule: CurrentVBProject.VBComponents.Remove _
         '                  CurrentVBProject.VBComponents(strName)
         ' Case acForm, acReport, acMacro:

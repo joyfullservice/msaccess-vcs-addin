@@ -12,6 +12,12 @@ Option Explicit
 ' MCP Debug log file path (set when first used)
 Private m_strMCPDebugLogPath As String
 
+' Returned by API (and embedded in the APIAsync JSON) when a call arrives while another
+' is still in progress. Published as a prefix rather than an error number because the
+' refusal cannot be raised -- see RefuseReentrantCall. External callers (the MCP server
+' in particular) match on this to report a refusal instead of treating it as data.
+Public Const API_REFUSED_PREFIX As String = "VCS_API_REFUSED: "
+
 
 ' Note, some enums are listed here when they are directly exposed
 ' through the Options and VCS classes. (Allowing them to be used externally)
@@ -311,9 +317,10 @@ Public Function API(strMethod As String, _
     Optional varArg2 As Variant, _
     Optional varArg3 As Variant) As Variant
 
-    ' The function is called by Application.Run which can be re-entrant but we really
-    ' don't want it to be since that'd cause errors. To avoid this, we will ignore any
-    ' commands while the current command is running.
+    ' The function is called by Application.Run, which can be re-entrant. We really don't
+    ' want it to be, since a nested call would run against Operation state the outer call
+    ' owns. Refuse it, and say so in the return value rather than coming back Empty --
+    ' see RefuseReentrantCall for why silence was worse and why this is not an Err.Raise.
     Static IsRunning As Boolean
     Dim varResult As Variant
     Dim strLibName As String
@@ -323,7 +330,7 @@ Public Function API(strMethod As String, _
     On Error GoTo ErrHandler
 
     If IsRunning Then
-        ' Ignore the re-entry; do NOT go to clean-up.
+        API = RefuseReentrantCall(strMethod, "API")
         Exit Function
     End If
 
@@ -401,9 +408,10 @@ End Function
 Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
     Optional varArg1 As Variant, Optional varArg2 As Variant) As String
 
-    ' The function is called by Application.Run which can be re-entrant but we really
-    ' don't want it to be since that'd cause errors. To avoid this, we will ignore any
-    ' commands while the current command is running.
+    ' The function is called by Application.Run, which can be re-entrant. We really don't
+    ' want it to be, since a nested call would run against Operation state the outer call
+    ' owns. Refuse it, and say so in the return value rather than coming back Empty --
+    ' see RefuseReentrantCall for why silence was worse and why this is not an Err.Raise.
     Static IsRunning As Boolean
     Dim varResult As Variant
     Dim strLibName As String
@@ -416,7 +424,11 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
     On Error GoTo ErrHandler
 
     If IsRunning Then
-        ' Ignore the re-entry; do NOT go to clean-up.
+        ' Callers parse this return value as JSON, so the refusal has to arrive as JSON.
+        Set dResult = New Dictionary
+        dResult.Add "success", False
+        dResult.Add "error", RefuseReentrantCall(strMethod, "APIAsync")
+        APIAsync = modJsonConverter.ConvertToJson(dResult)
         Exit Function
     End If
 
@@ -518,6 +530,40 @@ ErrHandler:
     ' Re-throw
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefuseReentrantCall
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Build the message for a call that arrived while another is still running.
+'           :
+'           : This used to be a bare `Exit Function`, returning Empty -- indistinguishable
+'           : from a method that legitimately returned nothing. The most common way to
+'           : reach it makes that silence actively misleading: code submitted through
+'           : vcs_run_vba is itself delivered via API, so anything it calls back into API
+'           : is nested by construction, and every call coming back Empty reads as a
+'           : broken add-in rather than a refused call.
+'           :
+'           : Returning a marked string rather than raising is deliberate, and was
+'           : arrived at the hard way. An Err.Raise here does not reach the caller: an
+'           : error raised inside a library database does not propagate across
+'           : Application.Run into the calling project's handler, so even a caller with
+'           : `On Error GoTo` active gets a modal "Run-time error" dialog that blocks
+'           : Access until a human dismisses it. Since this guard only ever trips on a
+'           : nested call -- precisely the case that crosses that boundary -- raising is
+'           : guaranteed to hit it. A blocking dialog is worse for automation than the
+'           : silence it replaced. Callers match API_REFUSED_PREFIX to tell a refusal
+'           : from a real return value.
+'---------------------------------------------------------------------------------------
+'
+Private Function RefuseReentrantCall(strMethod As String, strEntryPoint As String) As String
+    RefuseReentrantCall = API_REFUSED_PREFIX & _
+        "VCS " & strEntryPoint & " refused a re-entrant call to '" & strMethod & "': " & _
+        "another API command is still running. Note that code executed through " & _
+        "vcs_run_vba already runs inside an API call, so it cannot call back into the " & _
+        "API; invoke API methods directly (vcs_call_vba) instead."
 End Function
 
 
