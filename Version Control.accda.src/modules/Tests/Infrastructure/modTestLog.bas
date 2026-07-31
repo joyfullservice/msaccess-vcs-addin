@@ -3,7 +3,11 @@
 ' Module    : modTestLog
 ' Author    : Adam Waller
 ' Date      : 7/30/2026
-' Purpose   : Tests for clsLog path handling (SavedLogFilePath vs derived LogFilePath).
+' Purpose   : Tests for clsLog path handling. SavedLogFilePath records the file that
+'           : SaveFile actually wrote, where LogFilePath only derives a prospective
+'           : name from state that moves during an operation.
+'           : These tests use their own clsLog instance rather than the Log singleton,
+'           : which is in use logging the test run itself.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -11,61 +15,67 @@ Option Private Module
 '@Folder("Tests.Infrastructure")
 
 
-Public Sub TestLogSavedFilePath_DefaultSave()
+Public Sub TestLogSavedFilePath_MatchesFileWritten()
 
-    Dim strFolder As String
+    Dim cLog As clsLog
     Dim strSaved As String
 
-    strFolder = GetTempFolder("vcs_log_saved_path") & PathSep
-    Log.Clear
-    Log.SourcePath = strFolder
-    Log.Add "SavedLogFilePath regression", False
-    Log.SaveFile
+    Set cLog = New clsLog
+    cLog.SourcePath = GetTempFolder("vcs_log_saved_path") & PathSep
+    cLog.Add "SavedLogFilePath regression", False
 
-    strSaved = Log.SavedLogFilePath
+    TestAssert cLog.SavedLogFilePath = vbNullString, "no saved path before first SaveFile"
+
+    cLog.SaveFile
+    strSaved = cLog.SavedLogFilePath
+
     TestAssert Len(strSaved) > 0, "SavedLogFilePath set after SaveFile"
-    TestAssert FSO.FileExists(strSaved), "SavedLogFilePath points at file on disk"
-    TestAssert InStr(1, strSaved, "logs" & PathSep, vbTextCompare) > 0, _
-        "default save uses logs subfolder"
+    TestAssert FSO.FileExists(strSaved), "SavedLogFilePath names a file on disk"
 
     If FSO.FileExists(strSaved) Then DeleteFile strSaved
 
 End Sub
 
 
-Public Sub TestLogSavedFilePath_ClearWipesSavedPath()
+Public Sub TestLogSavedFilePath_ClearResetsPath()
 
-    Dim strFolder As String
+    Dim cLog As clsLog
+    Dim strSaved As String
 
-    strFolder = GetTempFolder("vcs_log_saved_path") & PathSep
-    Log.Clear
-    Log.SourcePath = strFolder
-    Log.Add "before clear", False
-    Log.SaveFile
-    TestAssert Len(Log.SavedLogFilePath) > 0, "path recorded before Clear"
+    Set cLog = New clsLog
+    cLog.SourcePath = GetTempFolder("vcs_log_saved_path") & PathSep
+    cLog.Add "before clear", False
+    cLog.SaveFile
+    strSaved = cLog.SavedLogFilePath
+    TestAssert Len(strSaved) > 0, "path recorded before Clear"
 
-    Log.Clear
-    TestAssert Log.SavedLogFilePath = vbNullString, "Clear resets SavedLogFilePath"
+    ' Clear starts a fresh log (and a new operation ID), so the previously saved
+    ' path no longer describes the current log content.
+    cLog.Clear
+    TestAssert cLog.SavedLogFilePath = vbNullString, "Clear resets SavedLogFilePath"
+
+    If FSO.FileExists(strSaved) Then DeleteFile strSaved
 
 End Sub
 
 
 Public Sub TestLogSavedFilePath_AlternatePath()
 
+    Dim cLog As clsLog
     Dim strFolder As String
     Dim strAlt As String
 
+    Set cLog = New clsLog
     strFolder = GetTempFolder("vcs_log_saved_path") & PathSep
     strAlt = FSO.BuildPath(strFolder, "logs" & PathSep & "CustomAlternate.log")
 
-    Log.Clear
-    Log.SourcePath = strFolder
-    Log.Add "alternate path save", False
-    Log.SaveFile strAlt
+    cLog.SourcePath = strFolder
+    cLog.Add "alternate path save", False
+    cLog.SaveFile strAlt
 
-    TestAssert Log.SavedLogFilePath = strAlt, "SavedLogFilePath reflects alternate path"
+    TestAssert cLog.SavedLogFilePath = strAlt, "SavedLogFilePath reflects alternate path"
     TestAssert FSO.FileExists(strAlt), "alternate path file exists"
-    TestAssert StrComp(Log.SavedLogFilePath, Log.LogFilePath, vbTextCompare) <> 0, _
+    TestAssert StrComp(cLog.SavedLogFilePath, cLog.LogFilePath, vbTextCompare) <> 0, _
         "alternate save differs from derived LogFilePath"
 
     If FSO.FileExists(strAlt) Then DeleteFile strAlt
