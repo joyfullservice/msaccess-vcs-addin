@@ -312,10 +312,19 @@
   .suite-item-all .suite-name { font-weight: 500; color: var(--text-primary); }
   .suite-item-failed {
     padding-left: 14px;
+  }
+  .suite-item-failed .suite-name { font-weight: 500; color: var(--text-primary); }
+  .suite-item-new {
+    padding-left: 14px;
+  }
+  .suite-item-new .suite-name { font-weight: 500; color: var(--text-primary); }
+
+  /* Divider lives on the wrapper so it stays correct when the failed/new entries
+     are hidden. */
+  .focus-section {
     margin-bottom: 4px;
     border-bottom: 1px solid var(--border);
   }
-  .suite-item-failed .suite-name { font-weight: 500; color: var(--text-primary); }
 
   .recent-section {
     margin-bottom: 6px;
@@ -483,6 +492,7 @@
   .badge.skip { background: var(--skip-bg); color: var(--skip-fg); }
   .badge.error { background: var(--error-bg); color: var(--error-fg); }
   .badge.running { background: var(--running-bg); color: var(--running-fg); }
+  .badge.new { background: var(--running-bg); color: var(--running-fg); }
 
   /* Loading prior results: pulse so a sub-second hydrate is still noticeable. */
   .badge.hydrating {
@@ -1412,6 +1422,9 @@ const state = {
   hydrating: false,        // loading prior results from test-state.json
   hydrateShownAt: 0,       // when the indicator went up (minimum-visible hold)
   hydrateHideTimer: null,
+  // Until prior results have landed every test looks never-run, so the "New tests"
+  // entry stays hidden rather than briefly claiming the whole tree is new.
+  priorLoaded: false,
   
   reset() {
     this.results.clear();
@@ -1722,12 +1735,22 @@ function keysForFolder(path) {
   return keys;
 }
 
+// A focus view pins the list to an explicit key snapshot (failed set, never-run set)
+// rather than a suite/folder selection.
+function hasFocusView() {
+  return !!(state.focusKind && state.focusKeys && state.focusKeys.length);
+}
+
 function isFailedFocus() {
   return state.focusKind === 'failed' && !!(state.focusKeys && state.focusKeys.length);
 }
 
+function isNewFocus() {
+  return state.focusKind === 'new' && !!(state.focusKeys && state.focusKeys.length);
+}
+
 function hasNavigationBase() {
-  return !!(state.selectedSuite || state.selectedFolder || isFailedFocus());
+  return !!(state.selectedSuite || state.selectedFolder || hasFocusView());
 }
 
 function parseFilterText(text) {
@@ -1835,7 +1858,7 @@ function resolveFilterTokensToKeys(tokens, baseKeys) {
 }
 
 function getNavigationBaseKeys() {
-  if (isFailedFocus()) return state.focusKeys.slice();
+  if (hasFocusView()) return state.focusKeys.slice();
   if (state.selectedSuite && state.testTree[state.selectedSuite]) {
     return state.testTree[state.selectedSuite].tests.map(t => t.key);
   }
@@ -1906,7 +1929,7 @@ function isAnyFilterActive() {
   if (getActiveStatusFilter() !== 'all') return true;
   if (state.selectedSuite) return true;
   if (state.selectedFolder) return true;
-  if (isFailedFocus()) return true;
+  if (hasFocusView()) return true;
   if (state.filterText.trim()) return true;
   return false;
 }
@@ -2108,23 +2131,37 @@ function renderSidebar(tree) {
   const root = $('suite-tree');
   root.innerHTML = '';
   
+  const focusSection = el('div', { className: 'focus-section' });
+  root.appendChild(focusSection);
+
   // "All tests" entry clears any suite filter and shows the full list.
-  root.appendChild(el('div', {
+  focusSection.appendChild(el('div', {
     className: 'suite-item suite-item-all' +
-      (!state.selectedSuite && !state.selectedFolder && !isFailedFocus() && !state.filterText.trim() ? ' active' : ''),
+      (!state.selectedSuite && !state.selectedFolder && !hasFocusView() && !state.filterText.trim() ? ' active' : ''),
     onclick: () => showAllSuites()
   }, [
     el('span', { className: 'suite-name', text: 'All tests' })
   ]));
   
   // "Failed tests" entry focuses the list on the failed/errored set (hidden when none).
-  root.appendChild(el('div', {
+  focusSection.appendChild(el('div', {
     className: 'suite-item suite-item-failed',
     style: 'display:none',
     onclick: () => focusFailedTests()
   }, [
     el('span', { className: 'suite-name', text: 'Failed tests' }),
     el('span', { className: 'badge fail', text: '0' })
+  ]));
+
+  // "New tests" entry focuses the list on tests that have never been run (hidden when none).
+  focusSection.appendChild(el('div', {
+    className: 'suite-item suite-item-new',
+    style: 'display:none',
+    title: 'Tests that have never been run',
+    onclick: () => focusNewTests()
+  }, [
+    el('span', { className: 'suite-name', text: 'New tests' }),
+    el('span', { className: 'badge new', text: '0' })
   ]));
 
   state.tagIndex = buildTagIndex(tree);
@@ -2217,6 +2254,7 @@ function refreshSidebarBadges() {
     if (oldBadge) oldBadge.replaceWith(newBadge);
   }
   updateFailedEntry();
+  updateNewEntry();
 }
 
 function countFailedTests() {
@@ -2236,8 +2274,40 @@ function updateFailedEntry() {
   item.style.display = n > 0 ? '' : 'none';
   const badge = item.querySelector('.badge');
   if (badge) badge.textContent = String(n);
-  item.classList.toggle('active', state.focusKind === 'failed' && !!(state.focusKeys && state.focusKeys.length));
+  item.classList.toggle('active', isFailedFocus());
   updateTagEntries();
+}
+
+// A test counts as "new" until it has actually run: no completed result this session,
+// and nothing hydrated for it from test-state.json.
+function hasRunResult(key) {
+  const r = state.results.get(key);
+  if (r && r.status !== 'pending' && r.status !== 'running') return true;
+  return state.priorResults.has(key);
+}
+
+function countNewTests() {
+  let n = 0;
+  for (const key of allTestKeys()) {
+    if (!hasRunResult(key)) n++;
+  }
+  return n;
+}
+
+// Update the "New tests" sidebar entry: show/hide by count, refresh its badge, and
+// mark it active while the new-focus view is showing.
+function updateNewEntry() {
+  const item = document.querySelector('.suite-item-new');
+  if (!item) return;
+  if (!state.priorLoaded) {
+    item.style.display = 'none';
+    return;
+  }
+  const n = countNewTests();
+  item.style.display = n > 0 ? '' : 'none';
+  const badge = item.querySelector('.badge');
+  if (badge) badge.textContent = String(n);
+  item.classList.toggle('active', isNewFocus());
 }
 
 function selectSuite(key) {
@@ -2311,10 +2381,33 @@ function focusFailedTests() {
   return true;
 }
 
+// Focus the list on tests that have never been run, so a newly added test module can be
+// run without hand-typing a filter. Mirrors focusFailedTests().
+function focusNewTests() {
+  const keys = [];
+  for (const key of allTestKeys()) {
+    if (!hasRunResult(key)) keys.push(key);
+  }
+  if (keys.length === 0) return false;
+  state.focusKeys = keys;
+  state.focusKind = 'new';
+  state.selectedSuite = null;
+  state.selectedFolder = null;
+  $('test-list').dataset.filter = 'all';
+  syncStatusFilterUI('all');
+  updateSidebarActive();
+  renderTestList();
+  updateRunButton();
+  updatePageHeader();
+  updateClearFilterChip();
+  return true;
+}
+
 function updateSidebarActive() {
   const hasBase = hasNavigationBase();
   for (const item of document.querySelectorAll('.suite-item')) {
     if (item.classList.contains('suite-item-failed') ||
+        item.classList.contains('suite-item-new') ||
         item.classList.contains('suite-item-tag') ||
         item.classList.contains('suite-item-recent')) continue;
     if (item.classList.contains('suite-item-all')) {
@@ -2329,6 +2422,7 @@ function updateSidebarActive() {
     header.classList.toggle('active', path === state.selectedFolder);
   }
   updateFailedEntry();
+  updateNewEntry();
   updateRecentEntries();
   updateTagEntries();
 }
@@ -2857,6 +2951,9 @@ function getRunScopeInfo() {
   if (isFailedFocus()) {
     label = 'Run failed';
     scope = 'failed tests';
+  } else if (isNewFocus()) {
+    label = 'Run new';
+    scope = 'new tests';
   } else if (state.selectedFolder) {
     label = 'Run folder';
     scope = formatFolderPath(state.selectedFolder);
@@ -3154,10 +3251,13 @@ window.TestUI = {
 
   onHydrateEnd: guardTestUI('onHydrateEnd', function () {
     setHydrating(false);
+    state.priorLoaded = true;
+    refreshSidebarBadges();
   }),
 
   onRunStart: guardTestUI('onRunStart', function (data) {
     setHydrating(false, { force: true });
+    state.priorLoaded = true;
     const keys = (data && data.testKeys) || [];
     const vbaTotal = (data && data.totalTests) || keys.length;
     if (vbaTotal !== keys.length && keys.length) {
@@ -3258,6 +3358,7 @@ window.TestUI = {
   onResultsBatch: guardTestUI('onResultsBatch', function (payload) {
     const results = (payload && payload.results) || [];
     window.diag('onResultsBatch', 'n=' + results.length);
+    state.priorLoaded = true;
     for (const result of results) {
       if (!result || !result.testKey) continue;
       storeTestResult(result);
