@@ -118,10 +118,11 @@ Testing\Fixtures\
     regression\        Specific bugs that must never come back. Each fixture
                        in here ideally has a sibling .notes.md linking to
                        the issue it pins down.
+  tabledefs\           Local table definitions (.xml), one fixture per file.
+    fallback\          Definitions the DAO builder is expected to refuse.
   forms\               (future) form fixtures
   reports\             (future) report fixtures
   modules\             (future) standard / class module fixtures
-  tabledefs\           (future) table definitions
   scratch\             Per-run intermediate files (gitignored).
   logs\                Per-session log files (gitignored).
 ```
@@ -152,6 +153,31 @@ For queries (v1):
 
 The harness uses the file basename (`<name>`) only to derive the sandbox
 object name. Embedded names inside the .sql are unchanged.
+
+### Table definitions
+
+- **`<name>.xml`** — the exported table definition, exactly as
+  `Application.ExportXML` writes it after the add-in's XML sanitizer runs.
+
+Unlike a query, a table carries its own name *inside* the source file, so the
+harness rewrites it to the sandbox name on the way in and rewrites it back
+before comparing. It matches the name together with its attribute syntax
+(`name="..."` on the table's own `xsd:element`, and `ref="..."` from the
+dataroot envelope), which means **a fixture must not contain a field named
+after its own table**.
+
+These fixtures exist for `modTableDefBuilder`, which creates tables through DAO
+instead of `Application.ImportXML`. Each run asserts an `import_path` check:
+fixtures in `tabledefs\` must be built by the DAO path, and fixtures in
+`tabledefs\fallback\` must be *refused* by it. That second case is the point of
+the `fallback\` folder — attachments, multi-value fields and calculated columns
+are constructs DAO cannot reproduce, and the fixture proves we still notice.
+
+Add a fixture by exporting the table from a real database and copying the
+`.xml` in; do not hand-write one, because the drift check compares against what
+Access actually emits. Data types that are awkward to obtain a real export for
+are covered instead by `modTestTableDefBuilder`, which tests the parser's type
+map directly from schema fragments.
 
 ## The `_scaffold/` convention
 

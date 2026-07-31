@@ -1,0 +1,35 @@
+﻿<?xml version="1.0"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:od="urn:schemas-microsoft-com:officedata">
+  <xsd:element name="dataroot">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element ref="tblFixSubdatasheet" minOccurs="0" maxOccurs="unbounded"></xsd:element>
+      </xsd:sequence>
+      <xsd:attribute name="generated" type="xsd:dateTime"></xsd:attribute>
+    </xsd:complexType>
+  </xsd:element>
+  <xsd:element name="tblFixSubdatasheet">
+    <xsd:annotation>
+      <xsd:appinfo>
+        <od:index index-name="PK2" index-key="ID " primary="yes" unique="yes" clustered="no" order="asc"></od:index>
+        <od:tableProperty name="LinkChildFields" type="10" value="ID"></od:tableProperty>
+        <od:tableProperty name="LinkMasterFields" type="10" value="ID"></od:tableProperty>
+        <od:tableProperty name="SubdatasheetExpanded" type="1" value="0"></od:tableProperty>
+        <od:tableProperty name="SubdatasheetHeight" type="4" value="0"></od:tableProperty>
+        <od:tableProperty name="SubdatasheetName" type="10" value="Table.tblFixLookupCombo"></od:tableProperty>
+      </xsd:appinfo>
+    </xsd:annotation>
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element name="ID" minOccurs="0" od:jetType="longinteger" od:sqlSType="int" type="xsd:int"></xsd:element>
+        <xsd:element name="Descrip" minOccurs="0" od:jetType="text" od:sqlSType="nvarchar">
+          <xsd:simpleType>
+            <xsd:restriction base="xsd:string">
+              <xsd:maxLength value="50"></xsd:maxLength>
+            </xsd:restriction>
+          </xsd:simpleType>
+        </xsd:element>
+      </xsd:sequence>
+    </xsd:complexType>
+  </xsd:element>
+</xsd:schema>

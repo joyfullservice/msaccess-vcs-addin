@@ -1,13 +1,13 @@
 ﻿{
   "Info": {
-    "AddinVersion": "5.0.0",
+    "AddinVersion": "5.1.0",
     "AccessVersion": "16.0 64-bit"
   },
   "Options": {
     "ExportFolder": "",
     "UseFastSave": false,
     "SplitLayoutFromVBA": true,
-    "ExportFormatVersion": "5.0.0",
+    "ExportFormatVersion": "5.1.0",
     "RunBeforeExport": "",
     "RunAfterExport": "",
     "SanitizeLevel": 2,
@@ -48,6 +48,8 @@
     "ExportAfterMerge": false,
     "ForceImportOriginalQuerySQL": false,
     "UseMergeBuild": false,
+    "MergeTableData": true,
+    "SkipReopenBeforeMerge": false,
     "RunBeforeBuild": "",
     "RunAfterBuild": "RunAfterBuild",
     "RunBeforeMerge": "",
@@ -86,6 +88,9 @@
     "HashAlgorithm": "SHA256",
     "UseShortHash": true,
     "UseGitIntegration": false,
-    "ShowVCSLegacy": true
+    "ShowVCSLegacy": true,
+    "UseWebTestRunner": true,
+    "ExportTestResultsJUnit": true,
+    "ExportTestResultsHtml": true
   }
 }
