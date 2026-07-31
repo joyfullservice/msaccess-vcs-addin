@@ -120,7 +120,7 @@ Public Sub LoadDefaults()
         ' Export
         .UseFastSave = True
         .SplitLayoutFromVBA = True
-        .ExportFormatVersion = LATEST_EXPORT_FORMAT
+        .ExportFormatVersion = LatestExportFormat
         .SanitizeLevel = eslStandard
         .SanitizeColors = eslMinimal
         .SaveQuerySQL = True
@@ -478,7 +478,7 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
     ' 3/2026 (5.0.0)
     ' Existing projects without an export format version default to the
     ' 4.1.2 baseline (last v4 release) so upgrades don't change export output.
-    ' New projects (no options file) get LATEST_EXPORT_FORMAT via LoadDefaults.
+    ' New projects (no options file) get LatestExportFormat via LoadDefaults.
     If Not dOptions.Exists("ExportFormatVersion") Then
         dOptions.Add "ExportFormatVersion", "4.1.2"
     End If

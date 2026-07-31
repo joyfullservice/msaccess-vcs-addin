@@ -163,9 +163,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     End Select
 
     ' Notify about newer export format version
-    If Options.ExportFormatVersion < LATEST_EXPORT_FORMAT Then
+    If Options.ExportFormatVersion < LatestExportFormat Then
         Log.Add T("Note: Export format {0} is available (currently using {1}). Update via Options > Export when ready.", _
-            var0:=ExportFormatToVersion(LATEST_EXPORT_FORMAT), _
+            var0:=ExportFormatToVersion(LatestExportFormat), _
             var1:=ExportFormatToVersion(Options.ExportFormatVersion)), , , "blue"
     End If
 

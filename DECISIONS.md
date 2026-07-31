@@ -83,6 +83,30 @@ contradictory guidance.
 
 ---
 
+## 2026-07-31 — One declarative list of export formats, guarded by a test that parses the enum
+
+**Trigger**: Adding an export format version took three coordinated edits, and one of them failed silently. `frmVCSOptionsExport.Form_Load` populated its combo by looping `For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]` — 10,000 iterations across the sparse packed-integer space — and filtering through a hand-written `Case EFV_4_1_2, EFV_5_0_0, EFV_5_1_0`. Forget that `Case` and the new format still gates correctly everywhere in code; it just never appears in the UI, so no user can select it. `[_Last] = 50100` was a second hand-copied duplicate of the newest value.
+
+**Options explored**:
+- **Runtime reflection over the add-in's own source** — parse the enum from `GetCodeVBProject.VBComponents("modConstants").CodeModule` when the form loads. Truly one edit per version, and the precedent exists (`clsWorker.GetWorkerScriptContent` already reads its own code module at runtime). Rejected: the installer offers a compiled `.accde` install (`Install\Compile accde`), where `VBComponents` is unavailable, and "Trust access to the VBA project object model" is a Trust Center setting the add-in never manages. Both failure modes are silent and would need a fallback list anyway — the very thing being eliminated.
+- **Deploy-time codegen** — regenerate the list between `BEGIN`/`END` markers, as `clsTestRunner.SyncFactoryEntries` does for `modTestAssert`. One edit per version and drift is impossible. Rejected as disproportionate: export formats appear roughly twice per major version, and the machinery would have to be understood by anyone touching `modConstants`.
+- **Dictionary of version to description**, surfacing the enum's trailing comments in the combo. Rejected with the UI change: nothing consumes the descriptions, and a value slot nobody reads becomes a second thing to keep current.
+
+**Decision**: `GetExportFormatVersions()` in `modConstants.bas` returns a `Collection` of packed values in ascending order, mirroring the `GetExporterRevisions()` shape already in that module. `LatestExportFormat()` returns its last entry, replacing the `LATEST_EXPORT_FORMAT` const, and `[_Last]` is deleted. The combo iterates the collection. Adding a version is now the enum member plus one `col.Add` line, adjacent in the same block.
+
+VBA cannot enumerate enum members at runtime, so the list still repeats the enum. `modTestExportFormat` closes that gap where the cost is acceptable: it parses the `eExportFormatVersion` block out of the add-in's own source and asserts the enum and the list agree in both directions, that the list is strictly ascending (so `LatestExportFormat` is meaningful), and that each `EFV_a_b_c` name matches its packed value. Reflection in a test is safe in a way it is not at runtime — the test module only exists in the add-in's own project, so it only ever runs in a development session where the source is present and the VBA object model is reachable. When the code module cannot be read it fails with an actionable message rather than passing without checking anything.
+
+Converting `LATEST_EXPORT_FORMAT` from a `Const` to a function was safe because all eight call sites are runtime expressions — no `Case` labels, no array bounds.
+
+**What this rules out**: The enum-to-list duplication is now guarded rather than removed, so the guarantee is only as good as the test being run. If export formats ever become frequent enough that this friction bites, deploy-time codegen is the next step and the guard test becomes its verification. The parser assumes the current declaration shape (`EFV_x_y_z = nnnnn`, one per line, optional trailing comment); a reformatted enum silently parses fewer members, which the count assertion catches in one direction but not if the whole block stops matching — the "parsed at least one member" assertion covers that case.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/modConstants.bas` — `GetExportFormatVersions`, `LatestExportFormat`; `[_Last]` and `LATEST_EXPORT_FORMAT` removed
+- `Version Control.accda.src/forms/frmVCSOptionsExport.cls` — combo populated from the list
+- `Version Control.accda.src/modules/Tests/Infrastructure/modTestExportFormat.bas` — guard test
+
+---
+
 ## 2026-07-31 — Compile gate in the rebuild worker, not in Build or in the installer
 
 **Trigger**: `Rebuild Add-In` decides the rebuild succeeded by reading the build log for `Done. (` and the absence of `CRITICAL:`. That only proves source files imported. Nothing anywhere in the pipeline compiles the VBA, so an agent-introduced syntax error installs cleanly and only surfaces the next time someone opens the add-in.
@@ -4681,6 +4705,8 @@ In `ExportSource()`, global hash changes set `blnFullExport = True` (same as use
 > **⚠ Partially superseded** (2026-03-10): References to `modImportExport.bas` below should now read `modExport.bas`. See "Split modImportExport into modExport, modBuild, modSourceUpgrade" above.
 
 > **⚠ Partially superseded** (2026-03-10): The file extension migration was folded into `EFV_5_0_0` rather than adding a new `EFV_5_1_0`, since 5.0.0 has not shipped yet. The general pattern (add enum member, update `[_Last]`, gate with `>=`) remains correct for future post-release changes. See "Source file extension migration from .bas to descriptive extensions" above.
+
+> **⚠ Partially superseded** (2026-07-31): `[_Last]` and the `LATEST_EXPORT_FORMAT` constant no longer exist. The maintenance pattern is now: add the enum member, add a matching `col.Add` line to `GetExportFormatVersions()`, and gate with `>=`. `LatestExportFormat()` and the options combo derive from that list. See "One declarative list of export formats, guarded by a test that parses the enum" above.
 
 **Trigger**: When users updated the add-in, export format changes (sanitization adjustments, structural tweaks to forms/reports/command bars) would produce hundreds of source file diffs unrelated to the user's actual work. Users couldn't distinguish their five real changes from hundreds of format-upgrade changes, especially mid-feature when the working tree was dirty.
 

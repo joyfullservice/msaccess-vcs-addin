@@ -26,7 +26,7 @@ Private Sub Form_Load()
 
     Dim intSanitizeLevel As eSanitizeLevel
     Dim intEnvLevel As eUseEnvConnections
-    Dim lngFormat As eExportFormatVersion
+    Dim varFormat As Variant
     Dim opt As clsOptions
 
     Set opt = Form_frmVCSOptions.OptionsInstance
@@ -62,17 +62,13 @@ Private Sub Form_Load()
     ' Populate export format version combo
     With Me.cboExportFormatVersion
         .RowSource = vbNullString
-        For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]
-            ' Packed version integers are sparse; whitelist real enum members only.
-            Select Case lngFormat
-                Case EFV_4_1_2, EFV_5_0_0, EFV_5_1_0
-                    If lngFormat = LATEST_EXPORT_FORMAT Then
-                        .AddItem lngFormat & ";" & ExportFormatToVersion(lngFormat) & " (latest)"
-                    Else
-                        .AddItem lngFormat & ";" & ExportFormatToVersion(lngFormat)
-                    End If
-            End Select
-        Next lngFormat
+        For Each varFormat In GetExportFormatVersions
+            If varFormat = LatestExportFormat Then
+                .AddItem varFormat & ";" & ExportFormatToVersion(CLng(varFormat)) & " (latest)"
+            Else
+                .AddItem varFormat & ";" & ExportFormatToVersion(CLng(varFormat))
+            End If
+        Next varFormat
     End With
 
     LoadOptions

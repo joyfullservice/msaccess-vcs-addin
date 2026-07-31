@@ -91,12 +91,12 @@ Private m_lngFormatVersion As Long
 
 
 Private Sub Class_Initialize()
-    m_lngFormatVersion = LATEST_EXPORT_FORMAT
+    m_lngFormatVersion = LatestExportFormat
 End Sub
 
 
 ' Callers may set a lower version for backwards-compatible formatting.
-' Defaults to LATEST_EXPORT_FORMAT when not explicitly set.
+' Defaults to LatestExportFormat when not explicitly set.
 Public Property Let FormatVersion(lngVersion As Long)
     m_lngFormatVersion = lngVersion
 End Property

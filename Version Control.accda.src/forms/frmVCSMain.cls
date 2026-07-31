@@ -567,7 +567,7 @@ Public Sub Form_Load()
     ' Show notification if a newer export format version is available
     On Error Resume Next
     cmdFormatUpdate.Visible = DatabaseFileOpen And _
-        (Options.ExportFormatVersion < LATEST_EXPORT_FORMAT)
+        (Options.ExportFormatVersion < LatestExportFormat)
     On Error GoTo 0
 
     ' Set caption on build button

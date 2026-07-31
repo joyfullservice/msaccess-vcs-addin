@@ -233,14 +233,13 @@ Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinComm
 
 ' Export format versions using packed integers (Major * 10000 + Minor * 100 + Patch)
 ' Used to gate export behavior changes so users can upgrade on their own schedule.
+' When adding a member here, add a matching line to GetExportFormatVersions below.
+' (modTestExportFormat fails if the enum and that list disagree.)
 Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
     EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, command bar replica export, etc.
     EFV_5_1_0 = 50100      ' Sidecar Info.Class names; canonical tbldefs property order.
-    [_Last] = 50100
 End Enum
-
-Public Const LATEST_EXPORT_FORMAT As Long = eExportFormatVersion.[_Last]
 
 ' Bump this whenever the SVG layout generator output changes
 ' to force regeneration of cached SVG files.
@@ -263,6 +262,44 @@ Public Enum eImportCommandBarsResult
     eicImportedVerified = 1
     eicImportedUnableToVerify = 2
 End Enum
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetExportFormatVersions
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : Selectable export format versions, in ascending order. Add one line here
+'           : for each new eExportFormatVersion member. The options form combo box and
+'           : LatestExportFormat both read this list, so nothing else needs updating.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetExportFormatVersions() As Collection
+
+    Dim col As Collection
+    Set col = New Collection
+    col.Add EFV_4_1_2
+    col.Add EFV_5_0_0
+    col.Add EFV_5_1_0
+    Set GetExportFormatVersions = col
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : LatestExportFormat
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : The newest export format version (last entry in GetExportFormatVersions).
+'---------------------------------------------------------------------------------------
+'
+Public Function LatestExportFormat() As Long
+
+    Dim col As Collection
+
+    Set col = GetExportFormatVersions
+    LatestExportFormat = col.Item(col.Count)
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

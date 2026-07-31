@@ -379,10 +379,11 @@ eotOther = 9   ' Other / catch-all operations
 
 How to gate a new export behavior change:
 
-1. Add a new member to the `eExportFormatVersion` enum in `modConstants.bas` (e.g., `EFV_5_1_0 = 50100`) and update `[_Last]`
-2. Wrap the new behavior: `If Options.ExportFormatVersion >= EFV_5_1_0 Then`
+1. Add a new member to the `eExportFormatVersion` enum in `modConstants.bas` (e.g., `EFV_5_1_0 = 50100`)
+2. Add a matching `col.Add EFV_5_1_0` line to `GetExportFormatVersions()`, directly below the enum
+3. Wrap the new behavior: `If Options.ExportFormatVersion >= EFV_5_1_0 Then`
 
-`LATEST_EXPORT_FORMAT` is derived automatically from `eExportFormatVersion.[_Last]`.
+`GetExportFormatVersions()` is the single list of selectable formats. `LatestExportFormat()` returns its last entry, and the Options > Export combo box is populated from it, so neither needs updating by hand. VBA cannot enumerate enum members at runtime, so the list does repeat the enum — `modTestExportFormat` parses the enum out of the add-in's own source and fails if the two drift, if the list is out of order, or if a member's name and packed value disagree.
 
 Import logic does **not** need gating — it must remain backwards compatible with all prior export formats.
 
