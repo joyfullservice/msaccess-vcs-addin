@@ -83,6 +83,28 @@ contradictory guidance.
 
 ---
 
+## 2026-07-31 — Compile gate in the rebuild worker, not in Build or in the installer
+
+**Trigger**: `Rebuild Add-In` decides the rebuild succeeded by reading the build log for `Done. (` and the absence of `CRITICAL:`. That only proves source files imported. Nothing anywhere in the pipeline compiles the VBA, so an agent-introduced syntax error installs cleanly and only surfaces the next time someone opens the add-in.
+
+**Options explored**:
+- **Compile at the end of `modBuild.Build`** — reaches every build, but the 2026-07-29 entry already settled that a project which does not compile still has to be buildable and mergeable. Rejected: it would turn a broken project into an unrecoverable one.
+- **Compile in `AfterBuild`** (`Options.RunAfterBuild`, add-in project only) — runs inside the newly built database, so it is naturally scoped to the add-in's own build. Rejected: `AfterBuild` executes *in* the project it would be compiling, and compiling a project with running code is exactly what raises the modal reset prompt.
+- **Gate the `/cmd INSTALL` branch of `modInstall.AutoRun`** — would cover manual installs too. Rejected: an end user installing a downloaded `.accda` can fail to compile for environmental reasons (a missing reference on their machine), and blocking a legitimate install is worse than the problem being solved.
+- **Open a clean Access instance to compile the built file** — a faithful simulation of what the user gets, with no leftover run-state. Rejected: `OpenCurrentDatabase` runs the target's AutoExec (the existing code already closes `frmVCSInstall` for that reason), and AutoExec on non-compiling code can raise a modal dialog with nothing present to dismiss it, hanging the disconnected worker.
+
+**Decision**: Gate in `clsWorker.BuildAndInstall`, between the log-success check and the `/cmd INSTALL` launch, reusing the instance that performed the build. `CompileBuiltAddIn` activates the rebuilt project (the build closed and recreated the database, so the project `Main` activated no longer exists), clears run-state with the VBE Reset control, then issues `acCmdCompileAndSaveAllModules` (126) with a fall back to `acCmdCompileAllModules` (125) so a refused save is not read as a compile failure, and returns `Application.IsCompiled`. Compiling *and saving* means the installed copy ships compiled rather than compiling on the user's first load. On failure the instance is left open with the VBE showing, so the developer lands on the error instead of reopening the file to find it.
+
+Both commands are issued from out of process, which is where VBE and project-save operations have proven reliable here (see `SaveVbaProject` in the same file and `modVbeUtility.SaveCurrentVBProject`). The reset is safe from this position for the same reason the 2026-07-29 crashes were not: no VBA is running in the target instance, so the reset cannot end its own caller.
+
+**What this rules out**: The gate does not protect anything but the developer rebuild loop — a hand-built `.accda`, a downloaded release, or a `/cmd INSTALL` run by any other route still installs unchecked. Revisit if uncompilable add-ins start reaching users through those paths. Note also that `VerifyWorker` regenerates `Worker.vbs` from the *running* add-in's `clsWorker` code while `strInstalledLib` points at the *installed* add-in, so the gate only becomes live on the second rebuild after this change is installed; a first rebuild that installs a broken build is the bootstrap, not a failure of the gate.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Integration/clsWorker.cls` — `CompileBuiltAddIn` and `QuitAccessInstance` added; `BuildAndInstall` reordered so the build instance outlives the log checks
+- `Wiki/Editing-and-Contributing.md` — development workflow no longer asks for a manual `Debug > Compile`
+
+---
+
 ## 2026-07-31 — Property application order is not load-bearing; keep the sort alphabetical
 
 **Trigger**: The canonical sort in the entry below orders property nodes alphabetically. That is the same ordering issue #691 blames for losing combo-box lookup properties on rebuild: alphabetically `BoundColumn`, `ColumnCount`, `ColumnHeads` and `ColumnWidths` all precede `DisplayControl`, `RowSourceType` and `RowSource`, and the theory was that Access re-derives lookup metadata when those three are set, resetting `ColumnCount` to 1 and discarding `ColumnWidths`. Since the sort sits behind an export format gate, it was worth proving before shipping.

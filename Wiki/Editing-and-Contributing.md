@@ -37,12 +37,13 @@ You need a recent **released** add-in installed first (to run **Build From Sourc
 
 After making changes (in source files or in the add-in's own VBA project):
 
-1. **Check for compile errors** in the VBA project (**Debug → Compile**).
-2. Click **Rebuild Add-In** on the ribbon (or run `VCS.RebuildAddIn`). This rebuilds the add-in from source and installs it locally. Access closes and reopens as part of the rebuild.
-3. Click **Run Tests** on the ribbon to run the unit-test suite. The full suite runs quickly, so there is no need to filter it down.
-4. If everything passes, click **Export** to write your changes back to `Version Control.accda.src`.
-5. Commit **only intentional source changes** (avoid unrelated generated noise) with a clear commit message.
-6. Push and open a pull request to **`dev`**.
+1. Click **Rebuild Add-In** on the ribbon (or run `VCS.RebuildAddIn`). This rebuilds the add-in from source and installs it locally. Access closes and reopens as part of the rebuild.
+
+   The rebuild compiles the result before installing it. If it does not compile, nothing is installed and Access is left open on the rebuilt file with the VBA editor showing, so you can use **Debug → Compile** to find the error, fix the source files, and rebuild.
+2. Click **Run Tests** on the ribbon to run the unit-test suite. The full suite runs quickly, so there is no need to filter it down.
+3. If everything passes, click **Export** to write your changes back to `Version Control.accda.src`.
+4. Commit **only intentional source changes** (avoid unrelated generated noise) with a clear commit message.
+5. Push and open a pull request to **`dev`**.
 
 ---
 

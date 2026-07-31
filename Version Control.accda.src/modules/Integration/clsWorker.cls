@@ -880,10 +880,7 @@ Function BuildAndInstall(objApp, strSourcePath)
         strBuildErr = "Error " & Err.Number & ": " & Err.Description
         Err.Clear
         On Error GoTo 0
-        On Error Resume Next
-        objNewAccess.Quit
-        On Error GoTo 0
-        Set objNewAccess = Nothing
+        QuitAccessInstance objNewAccess
         MsgBox "Failed to trigger build command." & vbCrLf & vbCrLf & _
             strBuildErr, vbCritical, "Rebuild Add-In"
         Exit Function
@@ -907,15 +904,11 @@ Function BuildAndInstall(objApp, strSourcePath)
         End If
     Next
 
-    ' Close the build Access instance
-    On Error Resume Next
-    objNewAccess.Quit
-    On Error GoTo 0
-    Set objNewAccess = Nothing
-    WScript.Sleep 2000
-
-    ' Check build result
+    ' Check build result. The build instance is deliberately left running until the
+    ' compile gate below has had its turn, since that gate needs the rebuilt project
+    ' open, and a failing gate leaves the instance open for the developer.
     If Len(strNewLog) = 0 Then
+        QuitAccessInstance objNewAccess
         MsgBox "Build timed out. No completed build log was found." & vbCrLf & vbCrLf & _
             "Check the logs folder for details:" & vbCrLf & strLogsPath, _
             vbCritical, "Rebuild Add-In"
@@ -929,10 +922,30 @@ Function BuildAndInstall(objApp, strSourcePath)
                   (InStr(1, strLogContent, "CRITICAL:", vbTextCompare) = 0)
 
     If Not blnSuccess Then
+        QuitAccessInstance objNewAccess
         MsgBox "Build failed. Check the build log for details:" & vbCrLf & vbCrLf & _
             strNewLog, vbCritical, "Rebuild Add-In"
         Exit Function
     End If
+
+    ' --- COMPILE GATE ---
+    ' A build log only proves the source files imported. Compile before installing so
+    ' code that does not build never reaches the installed add-in.
+    If Not CompileBuiltAddIn(objNewAccess) Then
+        On Error Resume Next
+        objNewAccess.VBE.MainWindow.Visible = True
+        On Error GoTo 0
+        MsgBox "The rebuilt add-in does not compile, so it was not installed." & vbCrLf & vbCrLf & _
+            strRepoAddinPath & vbCrLf & vbCrLf & _
+            "Microsoft Access has been left open on the rebuilt file. Use " & _
+            "Debug > Compile in the VBA editor to find the error, fix the source " & _
+            "files, and run Rebuild Add-In again.", vbCritical, "Rebuild Add-In"
+        Exit Function
+    End If
+
+    ' Close the build Access instance
+    QuitAccessInstance objNewAccess
+    WScript.Sleep 2000
 
     ' --- INSTALL PHASE ---
     ' Wait for lock files from the build to clear
@@ -943,6 +956,84 @@ Function BuildAndInstall(objApp, strSourcePath)
 
     ' Launch Access with /cmd INSTALL (blocks until user clicks OK on success dialog)
     WshShell.Run """" & strMSAccessPath & """ """ & strRepoAddinPath & """ /cmd INSTALL", 1, True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QuitAccessInstance
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : Close an Access instance created by this script and release the reference.
+'           : Quitting can fail when the instance is already gone, and every caller
+'           : treats that the same way, so the error is swallowed here.
+'---------------------------------------------------------------------------------------
+'
+Sub QuitAccessInstance(objApp)
+    On Error Resume Next
+    objApp.Quit
+    On Error GoTo 0
+    Set objApp = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CompileBuiltAddIn
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : Compile the freshly rebuilt add-in in the instance that built it, and
+'           : return whether the project ended up in a compiled state. This is the gate
+'           : that keeps code which does not compile from being installed: the build log
+'           : only reports that source files imported, and the build itself never
+'           : compiles (a project that does not compile still has to be buildable).
+'           :
+'           : The project is saved as well as compiled, so the installed copy ships
+'           : compiled. Both commands are issued from out of process, which is where VBE
+'           : and project-save operations have proven reliable for this add-in (see
+'           : SaveVbaProject above, and modVbeUtility.SaveCurrentVBProject).
+'---------------------------------------------------------------------------------------
+'
+Function CompileBuiltAddIn(objApp)
+
+    Const VBE_CMD_RESET_ID = 228            ' Language-independent VBE Reset
+    Const AC_CMD_COMPILE_AND_SAVE = 126     ' acCmdCompileAndSaveAllModules
+    Const AC_CMD_COMPILE = 125              ' acCmdCompileAllModules
+
+    Dim objProj
+    Dim objCtl
+
+    On Error Resume Next
+
+    ' The build closed and recreated the database, so the project Main activated no
+    ' longer exists. Compiling follows the active project, not the current database,
+    ' so point the VBE at the rebuilt one before issuing the command.
+    Set objProj = CurrentVBProject(objApp)
+    If objProj Is Nothing Then Exit Function
+    Set objApp.VBE.ActiveVBProject = objProj
+
+    ' Clear run-state left behind by RunAfterBuild. Without this the compile can raise
+    ' the modal "this action will reset your project" prompt, and nothing is present to
+    ' dismiss it in a disconnected rebuild. Safe from here: no VBA is running in that
+    ' instance, so the reset cannot end its own caller.
+    Set objCtl = objApp.VBE.CommandBars.FindControl(, VBE_CMD_RESET_ID)
+    If Not objCtl Is Nothing Then objCtl.Execute
+    WScript.Sleep 1000
+
+    ' Compile and save, so the installed copy ships compiled.
+    objApp.DoCmd.RunCommand AC_CMD_COMPILE_AND_SAVE
+    Err.Clear
+
+    ' A save that is refused (2046) must not read as a compile failure, so fall back to
+    ' a plain compile before deciding.
+    If Not objApp.IsCompiled Then
+        objApp.DoCmd.RunCommand AC_CMD_COMPILE
+        Err.Clear
+    End If
+
+    CompileBuiltAddIn = objApp.IsCompiled
+
+    Set objCtl = Nothing
+    Set objProj = Nothing
 
 End Function
 
