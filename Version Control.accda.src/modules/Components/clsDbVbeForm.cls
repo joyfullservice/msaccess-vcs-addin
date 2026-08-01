@@ -107,8 +107,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim cIdx As clsVCSIndexItem
     Set cIdx = VCSIndex.Update(Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True))
 
-    ' Cache the @Folder annotation in the index
-    cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
+    ' Cache the @Folder annotation in the index.
+    ' Guard against a Nothing item under an abnormal/re-entrant index state.
+    If Not cIdx Is Nothing Then _
+        cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
     ' Remove duplicate files at any other location in the base folder tree
     CleanupDuplicateSourceFiles IDbComponent_BaseFolder, strExportFolder, _
