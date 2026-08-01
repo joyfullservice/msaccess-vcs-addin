@@ -98,7 +98,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Cache the @Folder annotation in the index so subsequent scans
     ' can skip the expensive VBE COM call for unchanged objects.
-    cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
+    ' Guard against a Nothing item under an abnormal/re-entrant index state.
+    If Not cIdx Is Nothing Then _
+        cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
 End Sub
 
