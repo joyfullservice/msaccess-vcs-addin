@@ -49,6 +49,7 @@ Private Type udtTestRunner
     State As eTestRunnerState
     Tests As Dictionary             ' Key: "ModuleName.ProcName", Value: Dictionary (test record)
     SuiteMap As Dictionary          ' Key: folder path, Value: Collection of test keys
+    ModuleLifecycle As Dictionary   ' Key: RD module name, Value: Dictionary of lifecycle proc names
     CurrentTestKey As String
     AssertionCounter As Long
     AssertionResults As Collection  ' Collection of assertion result Dictionaries for current test
@@ -246,6 +247,10 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim lngErrAtStart As Long
     Dim lngErrJournalAtStart As Long
     Dim eelAtStart As eErrorLevel
+    Dim strInitializedModule As String
+    Dim blnRd As Boolean
+    Dim lngCleanErr As Long
+    Dim strCleanDesc As String
 
     ' Re-entrancy guard: a run must never nest. The web runner streams progress with
     ' DoEvents between tests, which can dispatch a queued bridge call (RunAll/etc.).
@@ -357,6 +362,8 @@ Public Sub RunSelected(colTestKeys As Collection)
         this.CurrentTestKey = strTestKey
         this.AssertionCounter = 0
         Set this.AssertionResults = New Collection
+        lngErrNum = 0
+        strErrDesc = vbNullString
         lngErrAtStart = Log.ErrorCount
         lngErrJournalAtStart = Log.ErrorJournalCount
         eelAtStart = Operation.ErrorLevel
@@ -367,9 +374,19 @@ Public Sub RunSelected(colTestKeys As Collection)
 
         ' Emit module heading when the module changes
         If StrComp(CStr(dTest("moduleName")), strCurrentModule, vbTextCompare) <> 0 Then
+            ' Run @ModuleCleanup for the Rubberduck module we are leaving
+            If Len(strInitializedModule) > 0 Then
+                InvokeModuleLifecycle strInitializedModule, "cleanup"
+                strInitializedModule = vbNullString
+            End If
             strCurrentModule = CStr(dTest("moduleName"))
             Log.Add strCurrentModule, True, True, vbNullString, True
             Log.Flush   ' Update the console
+            ' Run @ModuleInitialize once for the Rubberduck module we are entering
+            If IsRdModule(strCurrentModule) Then
+                InvokeModuleLifecycle strCurrentModule, "init"
+                strInitializedModule = strCurrentModule
+            End If
         End If
 
         If dTest("sourceType") = "class" Then
@@ -413,12 +430,30 @@ Public Sub RunSelected(colTestKeys As Collection)
 
             strCmd = BuildRunCmd(strProcName)
             curStart = Perf.MicroTimer
-            On Error Resume Next
-            Application.Run strCmd
-            lngErrNum = Err.Number
-            strErrDesc = Err.Description
-            If lngErrNum <> 0 Then Err.Clear
-            On Error GoTo 0
+            blnRd = IsRdModule(CStr(dTest("moduleName")))
+
+            ' Rubberduck @TestInitialize runs before the test body
+            If blnRd Then lngErrNum = RunTestPhase(CStr(dTest("moduleName")), "testInit", strErrDesc)
+
+            ' Skip the test body if setup already failed
+            If lngErrNum = 0 Then
+                On Error Resume Next
+                Application.Run strCmd
+                lngErrNum = Err.Number
+                strErrDesc = Err.Description
+                If lngErrNum <> 0 Then Err.Clear
+                On Error GoTo 0
+            End If
+
+            ' Rubberduck @TestCleanup runs after the test body regardless of outcome;
+            ' a cleanup error only surfaces when the test did not already fail.
+            If blnRd Then
+                lngCleanErr = RunTestPhase(CStr(dTest("moduleName")), "testCleanup", strCleanDesc)
+                If lngErrNum = 0 And lngCleanErr <> 0 Then
+                    lngErrNum = lngCleanErr
+                    strErrDesc = strCleanDesc
+                End If
+            End If
         End If
 
         ' Store assertion results and duration
@@ -467,6 +502,11 @@ NextTest:
     Next varKey
 
 AfterTestLoop:
+    ' Run @ModuleCleanup for the final Rubberduck module (loop exited or cancelled)
+    If Len(strInitializedModule) > 0 Then
+        InvokeModuleLifecycle strInitializedModule, "cleanup"
+        strInitializedModule = vbNullString
+    End If
     Log.KeepProgressVisible = False
     If Not Log.ProgressBar Is Nothing Then Log.ProgressBar.Hide
     Perf.OperationEnd
@@ -1528,13 +1568,9 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
     Dim strTrimmed As String
     Dim strProcName As String
     Dim strFolder As String
-    Dim strTestKey As String
-    Dim dTest As Dictionary
     Dim blnIsClass As Boolean
     Dim blnMatched As Boolean
     Dim colModuleTags As Collection
-    Dim colProcTags As Collection
-    Dim colCombined As Collection
     Dim strHeader As String
 
     On Error Resume Next
@@ -1563,6 +1599,12 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
     Next lngLine
     Set colModuleTags = ExtractTags(strHeader)
 
+    ' Rubberduck test modules declare '@TestModule in the header. They rarely contain a
+    ' literal "TestAssert " token (assertions run through Assert.* via the shim), so the
+    ' assertion-count gate below is bypassed for them and discovery is annotation-driven.
+    Dim blnRdModule As Boolean
+    blnRdModule = HasAnnotation(strHeader, "TESTMODULE")
+
     ' Count TestAssert calls to determine if this is a test module and how many assertions it contains
     Dim lngAssertCount As Long
     For lngLine = LBound(varLines) To UBound(varLines)
@@ -1570,55 +1612,202 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
             lngAssertCount = lngAssertCount + 1
         End If
     Next lngLine
-    If lngAssertCount = 0 Then Exit Sub
+    If lngAssertCount = 0 And Not blnRdModule Then Exit Sub
     this.ScannedAssertionCount = this.ScannedAssertionCount + lngAssertCount
 
+    Dim dLifecycle As Dictionary
+    If blnRdModule Then Set dLifecycle = New Dictionary
+
+    Dim strAnnBlock As String
     For lngLine = LBound(varLines) To UBound(varLines)
         strTrimmed = Trim$(varLines(lngLine))
 
-        ' For class modules, match both Sub and Function
-        If blnIsClass Then
-            blnMatched = IsParameterlessMethod(strTrimmed, strProcName)
-        Else
-            blnMatched = IsParameterlessSub(strTrimmed, strProcName)
-        End If
-
-        If blnMatched Then
-            ' Skip class lifecycle methods
-            If blnIsClass And Left$(LCase$(strProcName), 6) = "class_" Then GoTo NextLine
-
-            strTestKey = cmp.Name & "." & strProcName
-
-            ' Collect procedure-level tags from the preceding comment block
-            Set colProcTags = ExtractProcedureTags(varLines, lngLine)
-
-            ' Combine module-level and procedure-level tags
-            Set colCombined = MergeTagCollections(colModuleTags, colProcTags)
-
-            Set dTest = New Dictionary
-            dTest.Add "moduleName", cmp.Name
-            dTest.Add "procName", strProcName
-            dTest.Add "line", CLng(lngLine + 1)
-            dTest.Add "folder", strFolder
-            dTest.Add "sourceType", IIf(blnIsClass, "class", "module")
-            dTest.Add "status", CLng(etsPending)
-            dTest.Add "durationMs", CLng(0)
-            Set dTest("tags") = colCombined
-            Set dTest("assertionResults") = New Collection
-
-            this.Tests.Add strTestKey, dTest
-
-            ' Add to suite map
-            If Not this.SuiteMap.Exists(strFolder) Then
-                this.SuiteMap.Add strFolder, New Collection
+        If blnRdModule Then
+            ' --- Rubberduck discovery: annotation-driven, any visibility ---
+            If GetProcDeclName(strTrimmed, strProcName) Then
+                strAnnBlock = PrecedingAnnotationBlock(varLines, lngLine)
+                If HasAnnotation(strAnnBlock, "TESTMETHOD") Then
+                    ' @IgnoreTest excludes the method from the run
+                    If Not HasAnnotation(strAnnBlock, "IGNORETEST") Then
+                        RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines
+                    End If
+                ElseIf HasAnnotation(strAnnBlock, "MODULEINITIALIZE") Then
+                    dLifecycle("init") = strProcName
+                ElseIf HasAnnotation(strAnnBlock, "MODULECLEANUP") Then
+                    dLifecycle("cleanup") = strProcName
+                ElseIf HasAnnotation(strAnnBlock, "TESTINITIALIZE") Then
+                    dLifecycle("testInit") = strProcName
+                ElseIf HasAnnotation(strAnnBlock, "TESTCLEANUP") Then
+                    dLifecycle("testCleanup") = strProcName
+                End If
             End If
-            this.SuiteMap(strFolder).Add strTestKey
+        Else
+            ' --- TestAssert discovery: parameterless Public procs ---
+            If blnIsClass Then
+                blnMatched = IsParameterlessMethod(strTrimmed, strProcName)
+            Else
+                blnMatched = IsParameterlessSub(strTrimmed, strProcName)
+            End If
+
+            If blnMatched Then
+                ' Skip class lifecycle methods
+                If blnIsClass And Left$(LCase$(strProcName), 6) = "class_" Then GoTo NextLine
+                RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines
+            End If
         End If
 
 NextLine:
     Next lngLine
 
+    ' Record RD lifecycle hooks so the run loop can drive them (even when empty, so the
+    ' module is recognized as Rubberduck-style at run time).
+    If blnRdModule Then
+        If Not this.ModuleLifecycle.Exists(cmp.Name) Then this.ModuleLifecycle.Add cmp.Name, dLifecycle
+    End If
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RegisterTest
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Register a single discovered test procedure into the Tests dictionary and
+'           : suite map. Shared by the TestAssert and Rubberduck discovery paths.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RegisterTest(cmp As VBIDE.VBComponent, ByVal strProcName As String, _
+                         ByVal lngLine As Long, ByVal strFolder As String, _
+                         ByVal blnIsClass As Boolean, colModuleTags As Collection, _
+                         varLines As Variant)
+
+    Dim strTestKey As String
+    Dim colProcTags As Collection
+    Dim colCombined As Collection
+    Dim dTest As Dictionary
+
+    strTestKey = cmp.Name & "." & strProcName
+    If this.Tests.Exists(strTestKey) Then Exit Sub
+
+    ' Collect and merge procedure-level and module-level tags
+    Set colProcTags = ExtractProcedureTags(varLines, lngLine)
+    Set colCombined = MergeTagCollections(colModuleTags, colProcTags)
+
+    Set dTest = New Dictionary
+    dTest.Add "moduleName", cmp.Name
+    dTest.Add "procName", strProcName
+    dTest.Add "line", CLng(lngLine + 1)
+    dTest.Add "folder", strFolder
+    dTest.Add "sourceType", IIf(blnIsClass, "class", "module")
+    dTest.Add "status", CLng(etsPending)
+    dTest.Add "durationMs", CLng(0)
+    Set dTest("tags") = colCombined
+    Set dTest("assertionResults") = New Collection
+
+    this.Tests.Add strTestKey, dTest
+
+    If Not this.SuiteMap.Exists(strFolder) Then
+        this.SuiteMap.Add strFolder, New Collection
+    End If
+    this.SuiteMap(strFolder).Add strTestKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasAnnotation
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Return True if the given code block contains a Rubberduck annotation with
+'           : the supplied name (pass the name without the leading '@, e.g. "TESTMETHOD").
+'---------------------------------------------------------------------------------------
+'
+Private Function HasAnnotation(strCode As String, strName As String) As Boolean
+    HasAnnotation = (InStr(1, strCode, "'@" & strName, vbTextCompare) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetProcDeclName
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Recognize a Sub or Function declaration of any visibility and return its
+'           : name via the ByRef parameter. Used for Rubberduck discovery, where test
+'           : and lifecycle procedures may be Private/Friend.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetProcDeclName(strTrimmed As String, ByRef strName As String) As Boolean
+
+    Dim strWork As String
+    Dim strUpper As String
+    Dim lngPos As Long
+    Dim lngParen As Long
+
+    strWork = strTrimmed
+    strUpper = UCase$(strWork)
+
+    ' Strip a leading scope keyword
+    If Left$(strUpper, 7) = "PUBLIC " Then
+        strWork = Trim$(Mid$(strWork, 8))
+    ElseIf Left$(strUpper, 8) = "PRIVATE " Then
+        strWork = Trim$(Mid$(strWork, 9))
+    ElseIf Left$(strUpper, 7) = "FRIEND " Then
+        strWork = Trim$(Mid$(strWork, 8))
+    End If
+    strUpper = UCase$(strWork)
+
+    ' Strip an optional Static keyword
+    If Left$(strUpper, 7) = "STATIC " Then
+        strWork = Trim$(Mid$(strWork, 8))
+        strUpper = UCase$(strWork)
+    End If
+
+    If Left$(strUpper, 4) = "SUB " Then
+        lngPos = 5
+    ElseIf Left$(strUpper, 9) = "FUNCTION " Then
+        lngPos = 10
+    Else
+        Exit Function
+    End If
+
+    lngParen = InStr(lngPos, strWork, "(")
+    If lngParen = 0 Then Exit Function
+
+    strName = Trim$(Mid$(strWork, lngPos, lngParen - lngPos))
+    GetProcDeclName = (Len(strName) > 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrecedingAnnotationBlock
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Collect the contiguous comment lines immediately above a declaration line
+'           : (Rubberduck annotations sit directly above the Sub/Function). Stops at the
+'           : first blank or non-comment line.
+'---------------------------------------------------------------------------------------
+'
+Private Function PrecedingAnnotationBlock(varLines As Variant, ByVal lngDeclLine As Long) As String
+
+    Dim lngScan As Long
+    Dim strTrimmed As String
+    Dim strBlock As String
+
+    For lngScan = lngDeclLine - 1 To LBound(varLines) Step -1
+        strTrimmed = Trim$(varLines(lngScan))
+        If Len(strTrimmed) = 0 Then
+            Exit For
+        ElseIf Left$(strTrimmed, 1) = "'" Then
+            strBlock = strTrimmed & vbCrLf & strBlock
+        Else
+            Exit For
+        End If
+    Next lngScan
+
+    PrecedingAnnotationBlock = strBlock
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -1775,6 +1964,98 @@ Private Sub InvokeOptionalGlobalHook(strProcName As String)
     If lngErrNum <> 0 Then
         Log.Add T("Global hook {0} error {1}: {2}", _
             var0:=strProcName, var1:=lngErrNum, var2:=strErrDesc), False, , "orange"
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsRdModule
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Return True if the named module was discovered as a Rubberduck test module
+'           : (it declares '@TestModule) and therefore participates in RD lifecycle.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsRdModule(strModule As String) As Boolean
+    If this.ModuleLifecycle Is Nothing Then Exit Function
+    IsRdModule = this.ModuleLifecycle.Exists(strModule)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LifecycleProc
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Return the procedure name registered for a Rubberduck lifecycle slot
+'           : ("init", "cleanup", "testInit", "testCleanup") on a module, or "" if none.
+'---------------------------------------------------------------------------------------
+'
+Private Function LifecycleProc(strModule As String, strKey As String) As String
+    Dim dLc As Dictionary
+    If this.ModuleLifecycle Is Nothing Then Exit Function
+    If Not this.ModuleLifecycle.Exists(strModule) Then Exit Function
+    Set dLc = this.ModuleLifecycle(strModule)
+    If dLc.Exists(strKey) Then LifecycleProc = CStr(dLc(strKey))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunTestPhase
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Invoke a Rubberduck @TestInitialize/@TestCleanup proc for a module and
+'           : return its error number (0 when absent or successful). Any error is folded
+'           : into the owning test's outcome by the caller.
+'---------------------------------------------------------------------------------------
+'
+Private Function RunTestPhase(strModule As String, strKey As String, ByRef strErrDesc As String) As Long
+
+    Dim strProc As String
+    strProc = LifecycleProc(strModule, strKey)
+    If Len(strProc) = 0 Then Exit Function
+    If Not GlobalProcExists(strProc) Then Exit Function
+
+    On Error Resume Next
+    Application.Run BuildRunCmd(strProc)
+    RunTestPhase = Err.Number
+    strErrDesc = Err.Description
+    If Err.Number <> 0 Then Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InvokeModuleLifecycle
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Invoke a Rubberduck @ModuleInitialize/@ModuleCleanup proc once for a
+'           : module. Failures are logged (never counted against a test), mirroring the
+'           : global-hook contract; a broken @ModuleInitialize will naturally error each
+'           : test in the module.
+'---------------------------------------------------------------------------------------
+'
+Private Sub InvokeModuleLifecycle(strModule As String, strKey As String)
+
+    Dim strProc As String
+    Dim lngErrNum As Long
+    Dim strErrDesc As String
+
+    strProc = LifecycleProc(strModule, strKey)
+    If Len(strProc) = 0 Then Exit Sub
+    If Not GlobalProcExists(strProc) Then Exit Sub
+
+    On Error Resume Next
+    Application.Run BuildRunCmd(strProc)
+    lngErrNum = Err.Number
+    strErrDesc = Err.Description
+    If lngErrNum <> 0 Then Err.Clear
+    On Error GoTo 0
+
+    If lngErrNum <> 0 Then
+        Log.Add T("Test lifecycle {0} error {1}: {2}", _
+            var0:=strModule & "." & strKey, var1:=lngErrNum, var2:=strErrDesc), False, , "orange"
     End If
 
 End Sub
@@ -2308,6 +2589,7 @@ Private Sub ScanDiscover()
 
     Set this.Tests = New Dictionary
     Set this.SuiteMap = New Dictionary
+    Set this.ModuleLifecycle = New Dictionary
     this.ScannedAssertionCount = 0
     ResetCounts
 
