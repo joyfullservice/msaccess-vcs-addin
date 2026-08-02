@@ -62,7 +62,8 @@ End Sub
 '
 Private Function ResolveAddInPath() As String
     If Len(m_strAddInPath) = 0 Then
-        m_strAddInPath = GetSetting("MSAccessVCS", "Install", "Install Folder", _
+        ' Qualify with VBA. so a host project's own GetSetting cannot shadow the built-in.
+        m_strAddInPath = VBA.GetSetting("MSAccessVCS", "Install", "Install Folder", _
             Environ$("AppData") & "\MSAccessVCS") & "\Version Control"
     End If
     ResolveAddInPath = m_strAddInPath
