@@ -15,7 +15,7 @@ is updated as each phase lands.
 | I-1   | Model + tri-state reporting channel (add-in)            | **Verified** (headless run green)                                 |
 | I-2   | Shim emulation of RD `AssertClass` (`StubRdAssert.cls`) | **Verified**                                                      |
 | I-3   | Serialization surfaces (JSON, state, JUnit)             | **Verified** (JSON confirmed; JUnit pending inspection)           |
-| I-3b  | UI surfaces (HTML report, web runner badge/filter)      | Not started (deferred, cosmetic)                                  |
+| I-3b  | UI surfaces (HTML report, web runner badge/filter)      | **Implemented** (pending add-in rebuild to verify)                |
 | I-4   | Parity verification on the practice DB                  | **VCS side verified**; RD Test Explorer parity pending user check |
 | 0-B*  | Multi-RD-module dispatcher (shared lifecycle names)     | **Verified** (`5.1.0-pflugs30-c`, combined run, no err 91)        |
 
@@ -115,11 +115,20 @@ last-resort fallback now only breaks on a genuine failure, not on Inconclusive.
       carries `"outcome"`.
 - [x] `modTestJUnit`: `INCONCLUSIVE` → `<skipped/>`.
 
-## Phase I-3b — UI surfaces (deferred, cosmetic)
+## Phase I-3b — UI surfaces
 
-- [ ] HTML report (`modTestReport`): Inconclusive badge/color/count.
-- [ ] Web runner (`modTestRunnerUI` + `TestRunner/runner.html`): Inconclusive state color,
-      count chip, "Inconclusive (N)" filter.
+- [x] Web runner streaming (`modTestRunnerUI`): `WebStatusFromRunnerStatus` maps
+      `etsInconclusive` -> `"inconc"` (was falling through to `"pending"`, which made the
+      inconclusive tests leak into "New tests" with no icon); per-assertion `"outcome"`
+      token (`WebOutcomeToken`) passed through so inconclusive assertions render correctly.
+- [x] Web runner (`TestRunner/runner.html`): `inconc` status class + ⚠ icon, amber
+      CSS vars (light/dark), status-icon/detail-status/badge/stale/assertion-block styles,
+      `data-filter="inconclusive"` list-filter rules, stats-bar chip (`stat-inconclusive`),
+      "Inconclusive" filter tab, progress-bar segment (`prog-inconc`), and `inconclusive`
+      folded into every `counts` object / increment branch / suite summary.
+- [x] HTML report (`TestRunner/results.html`): `inconc` webStatus + ⚠ icon, amber CSS vars,
+      donut segment, per-suite bar segment, summary stat pill, "Inconclusive" filter tab,
+      `matchesFilter` case, and assertion-level outcome rendering.
 
 ## Phase I-4 — Parity verification
 
@@ -194,3 +203,14 @@ last-resort fallback now only breaks on a genuine failure, not on Inconclusive.
   `ModuleInitialize` ran correctly, the four Inconclusive cases classified INCONCLUSIVE, and the
   Inconclusive-then-Fail case FAILED (precedence). `vcs_list_objects` confirms the temp
   `modVCSTestDispatch` was cleaned up. Multi-RD-module support (issue #308) is now unblocked.
+- 2026-08-02 — **Phase I-3b (UI surfaces) implemented** (pending add-in rebuild). Root fix:
+  `modTestRunnerUI.WebStatusFromRunnerStatus` mapped `etsInconclusive` to `"pending"`, so the
+  web runner rendered inconclusive tests with no icon and leaked them into "New tests". Added
+  the `"inconc"` token + `WebOutcomeToken` assertion passthrough. `TestRunner/runner.html` and
+  `TestRunner/results.html` (HTML report) both gained the `inconc` status class, amber ⚠ icon,
+  light/dark CSS vars, badges/detail-status/assertion styling, an "Inconclusive" filter tab,
+  a stats chip / summary pill, a progress/donut segment, and `inconclusive` folded into every
+  counts object, increment branch, and suite summary. Both HTML files are build-embedded assets,
+  so a rebuild + reinstall is required before the UI reflects the change. Next: rebuild, then
+  open the web runner and confirm the four inconclusive tests show the ⚠ icon, an orange count
+  chip, and a working "Inconclusive" filter.

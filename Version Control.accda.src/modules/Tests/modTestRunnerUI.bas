@@ -1205,6 +1205,7 @@ Private Function AdaptTestResult(ByVal strTestKey As String, ByVal dTest As Dict
             Set dAOut = New Dictionary
             dAOut.Add "seq", dA("seq")
             dAOut.Add "passed", CBool(dA("passed"))
+            If dA.Exists("outcome") Then dAOut.Add "outcome", WebOutcomeToken(dA("outcome"))
             If Len(CStr(Nz(dA("context"), vbNullString))) > 0 Then
                 dAOut.Add "context", CStr(dA("context"))
             End If
@@ -1632,11 +1633,37 @@ End Function
 
 Private Function WebStatusFromRunnerStatus(ByVal lngStatus As Long) As String
     Select Case lngStatus
-        Case etsPassed:  WebStatusFromRunnerStatus = "pass"
-        Case etsFailed:  WebStatusFromRunnerStatus = "fail"
-        Case etsErrored: WebStatusFromRunnerStatus = "error"
-        Case etsEmpty:   WebStatusFromRunnerStatus = "skip"
-        Case Else:       WebStatusFromRunnerStatus = "pending"
+        Case etsPassed:       WebStatusFromRunnerStatus = "pass"
+        Case etsFailed:       WebStatusFromRunnerStatus = "fail"
+        Case etsErrored:      WebStatusFromRunnerStatus = "error"
+        Case etsInconclusive: WebStatusFromRunnerStatus = "inconc"
+        Case etsEmpty:        WebStatusFromRunnerStatus = "skip"
+        Case Else:            WebStatusFromRunnerStatus = "pending"
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WebOutcomeToken
+' Purpose   : Map a per-assertion outcome (numeric eAssertOutcome or its string form)
+'           : to the short token the web runner renders ("pass"/"fail"/"inconc").
+'---------------------------------------------------------------------------------------
+'
+Private Function WebOutcomeToken(ByVal varOutcome As Variant) As String
+    Dim lngOutcome As Long
+    If IsNumeric(varOutcome) Then
+        lngOutcome = CLng(varOutcome)
+    Else
+        Select Case LCase$(CStr(varOutcome))
+            Case "failed", "2":       lngOutcome = eaoFailed
+            Case "inconclusive", "3": lngOutcome = eaoInconclusive
+            Case Else:                lngOutcome = eaoPassed
+        End Select
+    End If
+    Select Case lngOutcome
+        Case eaoFailed:       WebOutcomeToken = "fail"
+        Case eaoInconclusive: WebOutcomeToken = "inconc"
+        Case Else:            WebOutcomeToken = "pass"
     End Select
 End Function
 
