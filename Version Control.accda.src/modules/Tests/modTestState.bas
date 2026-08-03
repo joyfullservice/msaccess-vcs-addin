@@ -385,6 +385,7 @@ Private Function BuildSummaryFromState(ByVal dTests As Dictionary) As Dictionary
     Dim lngErrored As Long
     Dim lngEmpty As Long
     Dim lngInconclusive As Long
+    Dim lngSkipped As Long
     Dim lngAssertions As Long
     Dim lngPassedAssertions As Long
     Dim lngFailedAssertions As Long
@@ -409,6 +410,7 @@ Private Function BuildSummaryFromState(ByVal dTests As Dictionary) As Dictionary
             Case "ERRORED": lngErrored = lngErrored + 1
             Case "EMPTY": lngEmpty = lngEmpty + 1
             Case "INCONCLUSIVE": lngInconclusive = lngInconclusive + 1
+            Case "SKIPPED": lngSkipped = lngSkipped + 1
         End Select
 
         If dTest.Exists("assertions") Then
@@ -442,6 +444,7 @@ NextSummaryTest:
     dSummary.Add "inconclusive", lngInconclusiveAssertions
     dSummary.Add "errored", lngErrored
     dSummary.Add "empty", lngEmpty
+    dSummary.Add "skipped", lngSkipped
 
     Set BuildSummaryFromState = dSummary
 
@@ -474,11 +477,13 @@ End Function
 Private Function StatusToString(lngStatus As Long) As String
 
     Select Case lngStatus
-        Case etsPassed:  StatusToString = "PASSED"
-        Case etsFailed:  StatusToString = "FAILED"
-        Case etsErrored: StatusToString = "ERRORED"
-        Case etsEmpty:   StatusToString = "EMPTY"
-        Case Else:       StatusToString = "PENDING"
+        Case etsPassed:       StatusToString = "PASSED"
+        Case etsFailed:       StatusToString = "FAILED"
+        Case etsErrored:      StatusToString = "ERRORED"
+        Case etsEmpty:        StatusToString = "EMPTY"
+        Case etsInconclusive: StatusToString = "INCONCLUSIVE"
+        Case etsSkipped:      StatusToString = "SKIPPED"
+        Case Else:            StatusToString = "PENDING"
     End Select
 
 End Function

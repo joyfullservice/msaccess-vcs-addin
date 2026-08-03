@@ -1638,6 +1638,7 @@ Private Function WebStatusFromRunnerStatus(ByVal lngStatus As Long) As String
         Case etsErrored:      WebStatusFromRunnerStatus = "error"
         Case etsInconclusive: WebStatusFromRunnerStatus = "inconc"
         Case etsEmpty:        WebStatusFromRunnerStatus = "skip"
+        Case etsSkipped:      WebStatusFromRunnerStatus = "skip"
         Case Else:            WebStatusFromRunnerStatus = "pending"
     End Select
 End Function

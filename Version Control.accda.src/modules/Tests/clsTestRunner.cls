@@ -43,6 +43,7 @@ Public Enum eTestStatus
     etsErrored = 3
     etsEmpty = 4
     etsInconclusive = 5
+    etsSkipped = 6
 End Enum
 
 ' Per-assertion outcome. Boolean TestAssert maps to Passed/Failed; the Rubberduck
@@ -71,6 +72,7 @@ Private Type udtTestRunner
     ErroredCount As Long
     EmptyCount As Long
     InconclusiveCount As Long
+    SkippedCount As Long
     TotalAssertions As Long
     PassedAssertions As Long
     FailedAssertions As Long
@@ -139,6 +141,9 @@ Public Property Get EmptyCount() As Long
 End Property
 Public Property Get InconclusiveCount() As Long
     InconclusiveCount = this.InconclusiveCount
+End Property
+Public Property Get SkippedCount() As Long
+    SkippedCount = this.SkippedCount
 End Property
 Public Property Get ScannedAssertionCount() As Long
     ScannedAssertionCount = this.ScannedAssertionCount
@@ -351,11 +356,12 @@ Public Sub RunSelected(colTestKeys As Collection)
 
     modTestRunnerUI.StreamRunStart colTestKeys
 
-    ' Reset status on all selected tests
+    ' Reset status on all selected tests. Skipped tests (@IgnoreTest) keep their
+    ' status; they are recorded without executing.
     For Each varKey In colTestKeys
         If this.Tests.Exists(CStr(varKey)) Then
             Set dTest = this.Tests(CStr(varKey))
-            dTest("status") = etsPending
+            dTest("status") = IIf(IsSkipped(dTest), etsSkipped, etsPending)
             Set dTest("assertionResults") = New Collection
         End If
     Next varKey
@@ -396,6 +402,21 @@ Public Sub RunSelected(colTestKeys As Collection)
         If dTest.Exists("fromPriorRun") Then dTest("fromPriorRun") = False
 
         modTestRunnerUI.StreamTestStart strTestKey, dTest
+
+        ' Skipped tests (@IgnoreTest) are recorded without executing. Handled before
+        ' the module-change block so an all-skipped module never triggers
+        ' @ModuleInitialize (which may run live setup for integration suites).
+        If IsSkipped(dTest) Then
+            dTest("status") = etsSkipped
+            dTest("durationMs") = CLng(0)
+            this.SkippedCount = this.SkippedCount + 1
+            LogTestResult strProcName, "SKIP", "gray"
+            modTestRunnerUI.StreamTestComplete strTestKey, dTest
+            lngCurrent = lngCurrent + 1
+            Log.Progress lngCurrent, lngTotal, strProcName
+            Operation.Pulse
+            GoTo NextTest
+        End If
 
         ' Emit module heading when the module changes
         If StrComp(CStr(dTest("moduleName")), strCurrentModule, vbTextCompare) <> 0 Then
@@ -942,13 +963,14 @@ Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullS
     If Len(strJUnitPath) > 0 Then dRoot.Add "junitPath", strJUnitPath
     If Len(strStatePath) > 0 Then dRoot.Add "statePath", strStatePath
 
-    dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount + this.InconclusiveCount
+    dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount + this.InconclusiveCount + this.SkippedCount
     dSummary.Add "assertions", this.TotalAssertions
     dSummary.Add "passed", this.PassedAssertions
     dSummary.Add "failed", this.FailedAssertions
     dSummary.Add "errored", this.ErroredCount
     dSummary.Add "empty", this.EmptyCount
     dSummary.Add "inconclusive", this.InconclusiveCount
+    dSummary.Add "skipped", this.SkippedCount
     Set dRoot("summary") = dSummary
 
     If Not this.Tests Is Nothing Then
@@ -1699,8 +1721,12 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
             If GetProcDeclName(strTrimmed, strProcName) Then
                 strAnnBlock = PrecedingAnnotationBlock(varLines, lngLine)
                 If HasAnnotation(strAnnBlock, "TESTMETHOD") Then
-                    ' @IgnoreTest excludes the method from the run
-                    If Not HasAnnotation(strAnnBlock, "IGNORETEST") Then
+                    ' @IgnoreTest is registered as a skipped test (recorded, not run)
+                    ' so the suite still surfaces and counts it, matching Rubberduck.
+                    If HasAnnotation(strAnnBlock, "IGNORETEST") Then
+                        RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines, _
+                            True, ExtractIgnoreReason(strAnnBlock)
+                    Else
                         RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines
                     End If
                 ElseIf HasAnnotation(strAnnBlock, "MODULEINITIALIZE") Then
@@ -1751,7 +1777,9 @@ End Sub
 Private Sub RegisterTest(cmp As VBIDE.VBComponent, ByVal strProcName As String, _
                          ByVal lngLine As Long, ByVal strFolder As String, _
                          ByVal blnIsClass As Boolean, colModuleTags As Collection, _
-                         varLines As Variant)
+                         varLines As Variant, _
+                         Optional ByVal blnSkipped As Boolean = False, _
+                         Optional ByVal strSkipReason As String = vbNullString)
 
     Dim strTestKey As String
     Dim colProcTags As Collection
@@ -1771,10 +1799,14 @@ Private Sub RegisterTest(cmp As VBIDE.VBComponent, ByVal strProcName As String, 
     dTest.Add "line", CLng(lngLine + 1)
     dTest.Add "folder", strFolder
     dTest.Add "sourceType", IIf(blnIsClass, "class", "module")
-    dTest.Add "status", CLng(etsPending)
+    dTest.Add "status", CLng(IIf(blnSkipped, etsSkipped, etsPending))
     dTest.Add "durationMs", CLng(0)
     Set dTest("tags") = colCombined
     Set dTest("assertionResults") = New Collection
+    If blnSkipped Then
+        dTest.Add "skipped", True
+        If Len(strSkipReason) > 0 Then dTest.Add "errorMessage", strSkipReason
+    End If
 
     this.Tests.Add strTestKey, dTest
 
@@ -1796,6 +1828,51 @@ End Sub
 '
 Private Function HasAnnotation(strCode As String, strName As String) As Boolean
     HasAnnotation = (InStr(1, strCode, "'@" & strName, vbTextCompare) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsSkipped
+' Author    : Matthew Pfluger
+' Date      : 8/3/2026
+' Purpose   : True when a discovered test carries the skipped flag (@IgnoreTest). Guards
+'           : against Scripting.Dictionary key auto-vivification on read.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsSkipped(dTest As Dictionary) As Boolean
+    If dTest.Exists("skipped") Then IsSkipped = (dTest("skipped") = True)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractIgnoreReason
+' Author    : Matthew Pfluger
+' Date      : 8/3/2026
+' Purpose   : Return the optional quoted reason on an '@IgnoreTest annotation
+'           : (e.g. '@IgnoreTest "Integration test"). Empty string when absent.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractIgnoreReason(strBlock As String) As String
+
+    Dim lngPos As Long
+    Dim strAfter As String
+    Dim lngEol As Long
+    Dim lngQ1 As Long
+    Dim lngQ2 As Long
+
+    lngPos = InStr(1, strBlock, "'@IGNORETEST", vbTextCompare)
+    If lngPos = 0 Then Exit Function
+
+    strAfter = Mid$(strBlock, lngPos + Len("'@IgnoreTest"))
+    lngEol = InStr(strAfter, vbCr)
+    If lngEol = 0 Then lngEol = InStr(strAfter, vbLf)
+    If lngEol > 0 Then strAfter = Left$(strAfter, lngEol - 1)
+
+    lngQ1 = InStr(strAfter, """")
+    If lngQ1 = 0 Then Exit Function
+    lngQ2 = InStr(lngQ1 + 1, strAfter, """")
+    If lngQ2 > lngQ1 Then ExtractIgnoreReason = Mid$(strAfter, lngQ1 + 1, lngQ2 - lngQ1 - 1)
+
 End Function
 
 
@@ -2445,6 +2522,7 @@ Private Function StatusToString(lngStatus As Long) As String
         Case etsErrored:      StatusToString = "ERRORED"
         Case etsEmpty:        StatusToString = "EMPTY"
         Case etsInconclusive: StatusToString = "INCONCLUSIVE"
+        Case etsSkipped:      StatusToString = "SKIPPED"
         Case Else:            StatusToString = "PENDING"
     End Select
 End Function
@@ -2458,6 +2536,7 @@ Private Function StringToStatus(ByVal strStatus As String) As eTestStatus
         Case "ERRORED":      StringToStatus = etsErrored
         Case "EMPTY":        StringToStatus = etsEmpty
         Case "INCONCLUSIVE": StringToStatus = etsInconclusive
+        Case "SKIPPED":      StringToStatus = etsSkipped
         Case Else:           StringToStatus = etsPending
     End Select
 
@@ -2658,6 +2737,9 @@ Private Sub AccumulateCountsFromTest(ByVal dTest As Dictionary)
             this.EmptyCount = this.EmptyCount + 1
         Case etsInconclusive
             this.InconclusiveCount = this.InconclusiveCount + 1
+        Case etsSkipped
+            this.SkippedCount = this.SkippedCount + 1
+            Exit Sub
         Case Else
             Exit Sub
     End Select
@@ -2725,7 +2807,7 @@ Private Sub LogRunSummary()
     Dim lngTotal As Long
     Dim dblElapsed As Double
 
-    lngTotal = this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount + this.InconclusiveCount
+    lngTotal = this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount + this.InconclusiveCount + this.SkippedCount
     dblElapsed = Round((Perf.MicroTimer - this.RunStartTime), 3)
 
     With Log
@@ -2743,6 +2825,8 @@ Private Sub LogRunSummary()
             IIf(this.InconclusiveCount > 0, "orange", vbNullString)
         LogSummaryLine "  Empty:        ", CStr(this.EmptyCount), _
             IIf(this.EmptyCount > 0, "gray", vbNullString)
+        LogSummaryLine "  Skipped:      ", CStr(this.SkippedCount), _
+            IIf(this.SkippedCount > 0, "gray", vbNullString)
         .Add "  Elapsed:      " & FormatDuration(CLng(dblElapsed * 1000))
         .Spacer True, SPACER_LEN
     End With
@@ -2909,6 +2993,7 @@ Private Sub ResetCounts()
     this.ErroredCount = 0
     this.EmptyCount = 0
     this.InconclusiveCount = 0
+    this.SkippedCount = 0
     this.TotalAssertions = 0
     this.PassedAssertions = 0
     this.FailedAssertions = 0
