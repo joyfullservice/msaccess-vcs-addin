@@ -1246,8 +1246,9 @@ End Function
 ' Date      : 5/7/2026
 ' Purpose   : Determine whether a VBComponent is a test module using discovery rules:
 '           :   1. Standard modules or standalone class modules (not forms/reports)
-'           :   2. @Folder annotation containing "Tests" segment (if project uses folders)
-'           :   3. Name containing "Test" (fallback if no @Folder tags in project)
+'           :   2. @TestModule annotation (Rubberduck module, authoritative)
+'           :   3. @Folder annotation containing "Tests" segment (if project uses folders)
+'           :   4. Name containing "Test" (fallback if no @Folder tags in project)
 '---------------------------------------------------------------------------------------
 '
 Private Function IsTestModule(cmp As VBIDE.VBComponent, _
@@ -1264,10 +1265,22 @@ Private Function IsTestModule(cmp As VBIDE.VBComponent, _
 
     On Error Resume Next
 
+    ' Read the module header once for annotation checks
+    If cmp.CodeModule.CountOfLines > 0 Then
+        strCode = cmp.CodeModule.Lines(1, IIf(cmp.CodeModule.CountOfLines < 30, cmp.CodeModule.CountOfLines, 30))
+    End If
+
+    ' A Rubberduck test module (@TestModule) is authoritative regardless of its @Folder
+    ' path. Its domain @Folder (e.g. "AMPHobby") has no "Tests" segment, so the gate below
+    ' would otherwise reject it before annotation-driven discovery runs.
+    If HasAnnotation(strCode, "TESTMODULE") Then
+        IsTestModule = True
+        Exit Function
+    End If
+
     If blnHasFolderTags Then
         ' Use @Folder annotation: look for a "Tests" segment
-        If cmp.CodeModule.CountOfLines > 0 Then
-            strCode = cmp.CodeModule.Lines(1, IIf(cmp.CodeModule.CountOfLines < 30, cmp.CodeModule.CountOfLines, 30))
+        If Len(strCode) > 0 Then
             strFolder = ExtractFolderAnnotation(strCode)
             If Len(strFolder) > 0 Then
                 IsTestModule = FolderContainsTestsSegment(strFolder)
