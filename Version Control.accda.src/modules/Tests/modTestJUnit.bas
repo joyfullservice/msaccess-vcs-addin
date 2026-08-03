@@ -159,7 +159,7 @@ Private Function BuildTestCaseXml(ByVal dTest As Dictionary) As String
         EscapeXml(strProc) & """ time=""" & FormatSeconds(dblSec) & """"
 
     Select Case strStatus
-        Case "FAILED", "ERRORED", "EMPTY"
+        Case "FAILED", "ERRORED", "EMPTY", "INCONCLUSIVE"
             strMessage = CStr(Nz(dTest("errorMessage"), strStatus))
             strDetail = BuildFailureDetail(dTest)
             If strStatus = "ERRORED" Then
@@ -167,7 +167,7 @@ Private Function BuildTestCaseXml(ByVal dTest As Dictionary) As String
                     "      <error message=""" & EscapeXml(strMessage) & """>" & _
                     EscapeXml(strDetail) & "</error>" & vbCrLf & _
                     "    </testcase>" & vbCrLf
-            ElseIf strStatus = "EMPTY" Then
+            ElseIf strStatus = "EMPTY" Or strStatus = "INCONCLUSIVE" Then
                 BuildTestCaseXml = strLine & ">" & vbCrLf & _
                     "      <skipped message=""" & EscapeXml(strMessage) & """/>" & vbCrLf & _
                     "    </testcase>" & vbCrLf

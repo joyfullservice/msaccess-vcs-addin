@@ -42,6 +42,15 @@ Public Enum eTestStatus
     etsFailed = 2
     etsErrored = 3
     etsEmpty = 4
+    etsInconclusive = 5
+End Enum
+
+' Per-assertion outcome. Boolean TestAssert maps to Passed/Failed; the Rubberduck
+' shim reports Inconclusive for type-mismatch/value-identity asserts and Assert.Inconclusive.
+Public Enum eAssertOutcome
+    eaoPassed = 1
+    eaoFailed = 2
+    eaoInconclusive = 3
 End Enum
 
 ' Private UDT for internal state
@@ -50,6 +59,8 @@ Private Type udtTestRunner
     Tests As Dictionary             ' Key: "ModuleName.ProcName", Value: Dictionary (test record)
     SuiteMap As Dictionary          ' Key: folder path, Value: Collection of test keys
     ModuleLifecycle As Dictionary   ' Key: RD module name, Value: Dictionary of lifecycle proc names
+    DispatchMap As Dictionary       ' Key: "<module>|<proc>", Value: unique wrapper proc name
+    DispatchModuleName As String    ' Name of the generated dispatcher module (empty if none)
     CurrentTestKey As String
     AssertionCounter As Long
     AssertionResults As Collection  ' Collection of assertion result Dictionaries for current test
@@ -59,9 +70,11 @@ Private Type udtTestRunner
     FailedCount As Long
     ErroredCount As Long
     EmptyCount As Long
+    InconclusiveCount As Long
     TotalAssertions As Long
     PassedAssertions As Long
     FailedAssertions As Long
+    InconclusiveAssertions As Long
     ScannedAssertionCount As Long
     LastRunDurationMs As Long
     LastRunKeys As Collection
@@ -123,6 +136,9 @@ Public Property Get ErroredCount() As Long
 End Property
 Public Property Get EmptyCount() As Long
     EmptyCount = this.EmptyCount
+End Property
+Public Property Get InconclusiveCount() As Long
+    InconclusiveCount = this.InconclusiveCount
 End Property
 Public Property Get ScannedAssertionCount() As Long
     ScannedAssertionCount = this.ScannedAssertionCount
@@ -249,6 +265,7 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim eelAtStart As eErrorLevel
     Dim strInitializedModule As String
     Dim blnRd As Boolean
+    Dim strDispatch As String
     Dim lngCleanErr As Long
     Dim strCleanDesc As String
 
@@ -291,6 +308,14 @@ Public Sub RunSelected(colTestKeys As Collection)
 
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
+
+    ' Generate the Rubberduck dispatcher (uniquely-named wrappers that call each RD
+    ' proc module-qualified). Access Application.Run cannot resolve a proc name shared
+    ' across standard modules, and every RD module reuses the same lifecycle names, so
+    ' without this a multi-module RD run invokes the wrong module's lifecycle (or none).
+    ' Best-effort: on failure we fall back to direct Application.Run. Must run before the
+    ' compile below so the injected wrappers are compiled with the rest of the project.
+    BuildDispatcher
 
     ' Compile project before running tests
     On Error Resume Next
@@ -419,18 +444,29 @@ Public Sub RunSelected(colTestKeys As Collection)
             Set obj = Nothing
         Else
             ' --- Standard module test: Application.Run ---
-            If Not GlobalProcExists(strProcName) Then
+            blnRd = IsRdModule(CStr(dTest("moduleName")))
+
+            ' RD-module procs are invoked through the generated dispatcher because Access
+            ' Application.Run cannot resolve a proc name shared across modules (and the
+            ' dispatcher also reaches Option Private Module procs, which GlobalProcExists
+            ' reports as not callable). Non-RD procs use the direct project-qualified call.
+            strDispatch = vbNullString
+            If blnRd Then strDispatch = DispatchName(CStr(dTest("moduleName")), strProcName)
+
+            If Len(strDispatch) > 0 Then
+                strCmd = BuildRunCmd(strDispatch)
+            ElseIf Not GlobalProcExists(strProcName) Then
                 dTest("status") = etsErrored
                 dTest("errorMessage") = "Not callable (Option Private Module or not found): " & strProcName
                 this.ErroredCount = this.ErroredCount + 1
                 LogTestResult strProcName, "SKIP", "orange"
                 Log.Add "    " & dTest("errorMessage"), False
                 GoTo NextTest
+            Else
+                strCmd = BuildRunCmd(strProcName)
             End If
 
-            strCmd = BuildRunCmd(strProcName)
             curStart = Perf.MicroTimer
-            blnRd = IsRdModule(CStr(dTest("moduleName")))
 
             ' Rubberduck @TestInitialize runs before the test body
             If blnRd Then lngErrNum = RunTestPhase(CStr(dTest("moduleName")), "testInit", strErrDesc)
@@ -485,6 +521,11 @@ Public Sub RunSelected(colTestKeys As Collection)
             this.FailedCount = this.FailedCount + 1
             LogTestResult strProcName, "FAIL", "red", dTest("durationMs")
             LogAssertionDetails this.AssertionResults
+        ElseIf AnyAssertionInconclusive(this.AssertionResults) Then
+            dTest("status") = etsInconclusive
+            this.InconclusiveCount = this.InconclusiveCount + 1
+            LogTestResult strProcName, "INCONC", "orange", dTest("durationMs")
+            LogAssertionDetails this.AssertionResults
         Else
             dTest("status") = etsPassed
             this.PassedCount = this.PassedCount + 1
@@ -523,6 +564,8 @@ AfterTestLoop:
     LogRunSummary
 
 CleanUp:
+    ' Remove the generated Rubberduck dispatcher module (no-op when none was created)
+    RemoveDispatcher
     ' Restore original error trapping settings
     Options.BreakOnError = blnBreakOnError
     Application.SetOption "Error Trapping", intErrorTrapping
@@ -826,20 +869,34 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub RecordAssertion(ByVal blnCondition As Boolean, ByVal varContext As Variant)
+    RecordAssertionOutcome IIf(blnCondition, eaoPassed, eaoFailed), varContext
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RecordAssertionOutcome
+' Author    : Matthew Pfluger
+' Date      : 8/2/2026
+' Purpose   : Tri-state assertion recorder. The Rubberduck shim reports Inconclusive
+'           : outcomes here; the Boolean RecordAssertion delegates to it.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RecordAssertionOutcome(ByVal lngOutcome As Long, ByVal varContext As Variant)
 
     Dim dResult As Dictionary
 
     this.AssertionCounter = this.AssertionCounter + 1
     this.TotalAssertions = this.TotalAssertions + 1
-    If blnCondition Then
-        this.PassedAssertions = this.PassedAssertions + 1
-    Else
-        this.FailedAssertions = this.FailedAssertions + 1
-    End If
+    Select Case lngOutcome
+        Case eaoInconclusive: this.InconclusiveAssertions = this.InconclusiveAssertions + 1
+        Case eaoFailed:       this.FailedAssertions = this.FailedAssertions + 1
+        Case Else:            this.PassedAssertions = this.PassedAssertions + 1
+    End Select
 
     Set dResult = New Dictionary
     dResult.Add "seq", this.AssertionCounter
-    dResult.Add "passed", blnCondition
+    dResult.Add "outcome", lngOutcome
+    dResult.Add "passed", (lngOutcome = eaoPassed)
     dResult.Add "context", IIf(IsMissing(varContext) Or IsEmpty(varContext), vbNullString, CStr(varContext))
 
     this.AssertionResults.Add dResult
@@ -885,12 +942,13 @@ Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullS
     If Len(strJUnitPath) > 0 Then dRoot.Add "junitPath", strJUnitPath
     If Len(strStatePath) > 0 Then dRoot.Add "statePath", strStatePath
 
-    dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
+    dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount + this.InconclusiveCount
     dSummary.Add "assertions", this.TotalAssertions
     dSummary.Add "passed", this.PassedAssertions
     dSummary.Add "failed", this.FailedAssertions
     dSummary.Add "errored", this.ErroredCount
     dSummary.Add "empty", this.EmptyCount
+    dSummary.Add "inconclusive", this.InconclusiveCount
     Set dRoot("summary") = dSummary
 
     If Not this.Tests Is Nothing Then
@@ -944,6 +1002,7 @@ Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullS
                 Set dAOut = New Dictionary
                 dAOut.Add "seq", dA("seq")
                 dAOut.Add "passed", dA("passed")
+                If dA.Exists("outcome") Then dAOut.Add "outcome", OutcomeToString(CLng(dA("outcome")))
                 If Len(dA("context")) > 0 Then dAOut.Add "context", dA("context")
                 colAssertOut.Add dAOut
             Next i
@@ -2012,12 +2071,21 @@ End Function
 Private Function RunTestPhase(strModule As String, strKey As String, ByRef strErrDesc As String) As Long
 
     Dim strProc As String
+    Dim strCmd As String
     strProc = LifecycleProc(strModule, strKey)
     If Len(strProc) = 0 Then Exit Function
-    If Not GlobalProcExists(strProc) Then Exit Function
+
+    strCmd = DispatchName(strModule, strProc)
+    If Len(strCmd) > 0 Then
+        strCmd = BuildRunCmd(strCmd)
+    ElseIf GlobalProcExists(strProc) Then
+        strCmd = BuildRunCmd(strProc)
+    Else
+        Exit Function
+    End If
 
     On Error Resume Next
-    Application.Run BuildRunCmd(strProc)
+    Application.Run strCmd
     RunTestPhase = Err.Number
     strErrDesc = Err.Description
     If Err.Number <> 0 Then Err.Clear
@@ -2039,15 +2107,24 @@ End Function
 Private Sub InvokeModuleLifecycle(strModule As String, strKey As String)
 
     Dim strProc As String
+    Dim strCmd As String
     Dim lngErrNum As Long
     Dim strErrDesc As String
 
     strProc = LifecycleProc(strModule, strKey)
     If Len(strProc) = 0 Then Exit Sub
-    If Not GlobalProcExists(strProc) Then Exit Sub
+
+    strCmd = DispatchName(strModule, strProc)
+    If Len(strCmd) > 0 Then
+        strCmd = BuildRunCmd(strCmd)
+    ElseIf GlobalProcExists(strProc) Then
+        strCmd = BuildRunCmd(strProc)
+    Else
+        Exit Sub
+    End If
 
     On Error Resume Next
-    Application.Run BuildRunCmd(strProc)
+    Application.Run strCmd
     lngErrNum = Err.Number
     strErrDesc = Err.Description
     If lngErrNum <> 0 Then Err.Clear
@@ -2059,6 +2136,198 @@ Private Sub InvokeModuleLifecycle(strModule As String, strKey As String)
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DispatchName
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Return the unique dispatcher wrapper name generated for a Rubberduck
+'           : module.proc pair, or "" when no dispatcher was built for it (e.g. the
+'           : dispatcher failed to inject and we fell back to direct invocation).
+'---------------------------------------------------------------------------------------
+'
+Private Function DispatchName(strModule As String, strProc As String) As String
+    If this.DispatchMap Is Nothing Then Exit Function
+    Dim strKey As String
+    strKey = strModule & "|" & strProc
+    If this.DispatchMap.Exists(strKey) Then DispatchName = CStr(this.DispatchMap(strKey))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildDispatcher
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Generate a temporary standard module of uniquely-named wrappers, one per
+'           : Rubberduck lifecycle and test-body procedure, each calling its target
+'           : module-qualified (e.g. [ModuleName].[ProcName]).
+'           :
+'           : Access `Application.Run "Name"` resolves a bare or project-qualified proc
+'           : name and FAILS ("cannot find the procedure") when that name is defined in
+'           : more than one standard module; module-qualified strings are not supported
+'           : either. Every Rubberduck test module reuses the same lifecycle names
+'           : (ModuleInitialize/TestInitialize/...), so a multi-module run cannot invoke
+'           : them by name. A module-qualified call inside compiled VBA source IS
+'           : unambiguous, so we route RD invocations through these wrappers (whose own
+'           : names are unique) instead.
+'           :
+'           : Best-effort: any failure clears the map so callers fall back to direct
+'           : Application.Run. Only standard modules are wrapped (class-module lifecycle
+'           : would not compile as a static call).
+'---------------------------------------------------------------------------------------
+'
+Private Sub BuildDispatcher()
+
+    Const DISPATCH_MODULE As String = "modVCSTestDispatch"
+    Dim proj As VBIDE.VBProject
+    Dim dProcs As Dictionary
+    Dim varKey As Variant
+    Dim varSlot As Variant
+    Dim dLc As Dictionary
+    Dim dTest As Dictionary
+    Dim strModule As String
+    Dim strProc As String
+    Dim strCode As String
+    Dim strWrap As String
+    Dim lngN As Long
+    Dim lngPipe As Long
+
+    Set this.DispatchMap = New Dictionary
+    this.DispatchModuleName = vbNullString
+
+    If this.ModuleLifecycle Is Nothing Then Exit Sub
+    If this.ModuleLifecycle.Count = 0 Then Exit Sub   ' No Rubberduck modules present
+
+    Set proj = CurrentVBProject
+    Set dProcs = New Dictionary
+
+    ' Collect unique (module, proc) pairs from RD lifecycle slots. Only standard modules
+    ' are eligible (a static module-qualified call to a class member would not compile).
+    For Each varKey In this.ModuleLifecycle.Keys
+        strModule = CStr(varKey)
+        If IsStdModule(proj, strModule) Then
+            Set dLc = this.ModuleLifecycle(strModule)
+            For Each varSlot In dLc.Items
+                AddDispatchPair dProcs, strModule, CStr(varSlot)
+            Next varSlot
+        End If
+    Next varKey
+
+    ' Add RD test-body procs (module source only; class tests run via the factory path).
+    If Not this.Tests Is Nothing Then
+        For Each varKey In this.Tests.Keys
+            Set dTest = this.Tests(CStr(varKey))
+            If CStr(dTest("sourceType")) <> "class" Then
+                strModule = CStr(dTest("moduleName"))
+                If IsRdModule(strModule) Then
+                    If IsStdModule(proj, strModule) Then _
+                        AddDispatchPair dProcs, strModule, CStr(dTest("procName"))
+                End If
+            End If
+        Next varKey
+    End If
+
+    If dProcs.Count = 0 Then Exit Sub
+
+    ' Build the wrapper source. Bracket identifiers so unusual names stay valid.
+    For Each varKey In dProcs.Keys
+        lngN = lngN + 1
+        strWrap = "zz_VCS_Dispatch_" & lngN
+        lngPipe = InStr(CStr(varKey), "|")
+        strModule = Left$(CStr(varKey), lngPipe - 1)
+        strProc = Mid$(CStr(varKey), lngPipe + 1)
+        strCode = strCode & _
+            "Public Sub " & strWrap & "()" & vbCrLf & _
+            "    [" & strModule & "].[" & strProc & "]" & vbCrLf & _
+            "End Sub" & vbCrLf & vbCrLf
+        this.DispatchMap.Add CStr(varKey), strWrap
+    Next varKey
+
+    ' Inject the module. On any failure, fall back to direct invocation.
+    On Error GoTo Fail
+    RemoveDispatchModuleIfPresent proj, DISPATCH_MODULE
+    Dim cmp As VBIDE.VBComponent
+    Set cmp = proj.VBComponents.Add(vbext_ct_StdModule)
+    cmp.Name = DISPATCH_MODULE
+    If cmp.CodeModule.CountOfLines > 0 Then _
+        cmp.CodeModule.DeleteLines 1, cmp.CodeModule.CountOfLines
+    cmp.CodeModule.AddFromString strCode
+    this.DispatchModuleName = DISPATCH_MODULE
+    Exit Sub
+
+Fail:
+    Set this.DispatchMap = New Dictionary
+    this.DispatchModuleName = vbNullString
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddDispatchPair
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Record a unique (module, proc) pair for dispatcher generation. Skips empty
+'           : proc names (unfilled lifecycle slots) and duplicates.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddDispatchPair(dProcs As Dictionary, strModule As String, strProc As String)
+    If Len(strProc) = 0 Then Exit Sub
+    Dim strKey As String
+    strKey = strModule & "|" & strProc
+    If Not dProcs.Exists(strKey) Then dProcs.Add strKey, True
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveDispatcher
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Remove the generated dispatcher module (if any) and clear the map. Safe to
+'           : call unconditionally at the end of a run.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveDispatcher()
+    On Error Resume Next
+    If Len(this.DispatchModuleName) > 0 Then
+        RemoveDispatchModuleIfPresent CurrentVBProject, this.DispatchModuleName
+    End If
+    this.DispatchModuleName = vbNullString
+    Set this.DispatchMap = Nothing
+    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveDispatchModuleIfPresent
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Remove a component by name if it exists in the project (no-op otherwise).
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveDispatchModuleIfPresent(proj As VBIDE.VBProject, strName As String)
+    Dim cmp As VBIDE.VBComponent
+    On Error Resume Next
+    Set cmp = proj.VBComponents(strName)
+    If Not cmp Is Nothing Then proj.VBComponents.Remove cmp
+    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsStdModule
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : True when the named component exists and is a standard (not class) module.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsStdModule(proj As VBIDE.VBProject, strName As String) As Boolean
+    Dim cmp As VBIDE.VBComponent
+    On Error Resume Next
+    Set cmp = proj.VBComponents(strName)
+    If Not cmp Is Nothing Then IsStdModule = (cmp.Type = vbext_ct_StdModule)
+    On Error GoTo 0
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -2110,9 +2379,39 @@ Private Function AnyAssertionFailed(colResults As Collection) As Boolean
     Dim i As Long
     For i = 1 To colResults.Count
         Set dResult = colResults(i)
-        If Not CBool(dResult("passed")) Then
+        If dResult.Exists("outcome") Then
+            If CLng(dResult("outcome")) = eaoFailed Then
+                AnyAssertionFailed = True
+                Exit Function
+            End If
+        ElseIf Not CBool(dResult("passed")) Then
             AnyAssertionFailed = True
             Exit Function
+        End If
+    Next i
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AnyAssertionInconclusive
+' Author    : Matthew Pfluger
+' Date      : 8/2/2026
+' Purpose   : True when any assertion in the test reported an Inconclusive outcome.
+'           : Checked only after AnyAssertionFailed, so Failed takes precedence.
+'---------------------------------------------------------------------------------------
+'
+Private Function AnyAssertionInconclusive(colResults As Collection) As Boolean
+
+    Dim dResult As Dictionary
+    Dim i As Long
+    For i = 1 To colResults.Count
+        Set dResult = colResults(i)
+        If dResult.Exists("outcome") Then
+            If CLng(dResult("outcome")) = eaoInconclusive Then
+                AnyAssertionInconclusive = True
+                Exit Function
+            End If
         End If
     Next i
 
@@ -2128,11 +2427,12 @@ End Function
 '
 Private Function StatusToString(lngStatus As Long) As String
     Select Case lngStatus
-        Case etsPassed:  StatusToString = "PASSED"
-        Case etsFailed:  StatusToString = "FAILED"
-        Case etsErrored: StatusToString = "ERRORED"
-        Case etsEmpty:   StatusToString = "EMPTY"
-        Case Else:       StatusToString = "PENDING"
+        Case etsPassed:       StatusToString = "PASSED"
+        Case etsFailed:       StatusToString = "FAILED"
+        Case etsErrored:      StatusToString = "ERRORED"
+        Case etsEmpty:        StatusToString = "EMPTY"
+        Case etsInconclusive: StatusToString = "INCONCLUSIVE"
+        Case Else:            StatusToString = "PENDING"
     End Select
 End Function
 
@@ -2140,13 +2440,32 @@ End Function
 Private Function StringToStatus(ByVal strStatus As String) As eTestStatus
 
     Select Case UCase$(Trim$(strStatus))
-        Case "PASSED":  StringToStatus = etsPassed
-        Case "FAILED":  StringToStatus = etsFailed
-        Case "ERRORED": StringToStatus = etsErrored
-        Case "EMPTY":   StringToStatus = etsEmpty
-        Case Else:      StringToStatus = etsPending
+        Case "PASSED":       StringToStatus = etsPassed
+        Case "FAILED":       StringToStatus = etsFailed
+        Case "ERRORED":      StringToStatus = etsErrored
+        Case "EMPTY":        StringToStatus = etsEmpty
+        Case "INCONCLUSIVE": StringToStatus = etsInconclusive
+        Case Else:           StringToStatus = etsPending
     End Select
 
+End Function
+
+
+Private Function OutcomeToString(lngOutcome As Long) As String
+    Select Case lngOutcome
+        Case eaoFailed:       OutcomeToString = "failed"
+        Case eaoInconclusive: OutcomeToString = "inconclusive"
+        Case Else:            OutcomeToString = "passed"
+    End Select
+End Function
+
+
+Private Function StringToOutcome(ByVal strOutcome As String) As eAssertOutcome
+    Select Case LCase$(Trim$(strOutcome))
+        Case "failed", "2":       StringToOutcome = eaoFailed
+        Case "inconclusive", "3": StringToOutcome = eaoInconclusive
+        Case Else:                StringToOutcome = eaoPassed
+    End Select
 End Function
 
 
@@ -2261,6 +2580,7 @@ Private Function CloneAssertionsFromState(ByVal dSrc As Dictionary) As Collectio
                 Set dAOut = New Dictionary
                 dAOut.Add "seq", CLng(Nz(dA("seq"), i))
                 dAOut.Add "passed", CBool(Nz(dA("passed"), False))
+                If dA.Exists("outcome") Then dAOut.Add "outcome", CLng(StringToOutcome(CStr(dA("outcome"))))
                 If dA.Exists("context") Then
                     If Len(CStr(dA("context"))) > 0 Then
                         dAOut.Add "context", CStr(dA("context"))
@@ -2323,6 +2643,8 @@ Private Sub AccumulateCountsFromTest(ByVal dTest As Dictionary)
             this.ErroredCount = this.ErroredCount + 1
         Case etsEmpty
             this.EmptyCount = this.EmptyCount + 1
+        Case etsInconclusive
+            this.InconclusiveCount = this.InconclusiveCount + 1
         Case Else
             Exit Sub
     End Select
@@ -2332,7 +2654,13 @@ Private Sub AccumulateCountsFromTest(ByVal dTest As Dictionary)
         For i = 1 To colAssertions.Count
             Set dA = colAssertions(i)
             this.TotalAssertions = this.TotalAssertions + 1
-            If CBool(Nz(dA("passed"), False)) Then
+            If dA.Exists("outcome") Then
+                Select Case CLng(dA("outcome"))
+                    Case eaoInconclusive: this.InconclusiveAssertions = this.InconclusiveAssertions + 1
+                    Case eaoFailed:       this.FailedAssertions = this.FailedAssertions + 1
+                    Case Else:            this.PassedAssertions = this.PassedAssertions + 1
+                End Select
+            ElseIf CBool(Nz(dA("passed"), False)) Then
                 this.PassedAssertions = this.PassedAssertions + 1
             Else
                 this.FailedAssertions = this.FailedAssertions + 1
@@ -2384,7 +2712,7 @@ Private Sub LogRunSummary()
     Dim lngTotal As Long
     Dim dblElapsed As Double
 
-    lngTotal = this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
+    lngTotal = this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount + this.InconclusiveCount
     dblElapsed = Round((Perf.MicroTimer - this.RunStartTime), 3)
 
     With Log
@@ -2398,6 +2726,8 @@ Private Sub LogRunSummary()
             IIf(this.FailedAssertions > 0, "red", vbNullString)
         LogSummaryLine "  Errored:      ", CStr(this.ErroredCount), _
             IIf(this.ErroredCount > 0, "red", vbNullString)
+        LogSummaryLine "  Inconclusive: ", CStr(this.InconclusiveCount), _
+            IIf(this.InconclusiveCount > 0, "orange", vbNullString)
         LogSummaryLine "  Empty:        ", CStr(this.EmptyCount), _
             IIf(this.EmptyCount > 0, "gray", vbNullString)
         .Add "  Elapsed:      " & FormatDuration(CLng(dblElapsed * 1000))
@@ -2565,9 +2895,11 @@ Private Sub ResetCounts()
     this.FailedCount = 0
     this.ErroredCount = 0
     this.EmptyCount = 0
+    this.InconclusiveCount = 0
     this.TotalAssertions = 0
     this.PassedAssertions = 0
     this.FailedAssertions = 0
+    this.InconclusiveAssertions = 0
 End Sub
 
 

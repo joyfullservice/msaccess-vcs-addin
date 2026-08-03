@@ -286,6 +286,9 @@ Private Function SerializeTestRecord(ByVal strKey As String, ByVal dTest As Dict
             Set dAOut = New Dictionary
             dAOut.Add "seq", dA("seq")
             dAOut.Add "passed", dA("passed")
+            If dA.Exists("outcome") Then
+                dAOut.Add "outcome", OutcomeCodeToString(CLng(dA("outcome")))
+            End If
             If Len(CStr(Nz(dA("context"), vbNullString))) > 0 Then
                 dAOut.Add "context", CStr(dA("context"))
             End If
@@ -381,13 +384,16 @@ Private Function BuildSummaryFromState(ByVal dTests As Dictionary) As Dictionary
     Dim lngFailed As Long
     Dim lngErrored As Long
     Dim lngEmpty As Long
+    Dim lngInconclusive As Long
     Dim lngAssertions As Long
     Dim lngPassedAssertions As Long
     Dim lngFailedAssertions As Long
+    Dim lngInconclusiveAssertions As Long
     Dim colAssertions As Collection
     Dim dA As Dictionary
     Dim i As Long
     Dim strStatus As String
+    Dim lngOutcome As Long
 
     Set dSummary = New Dictionary
 
@@ -402,6 +408,7 @@ Private Function BuildSummaryFromState(ByVal dTests As Dictionary) As Dictionary
             Case "FAILED": lngFailed = lngFailed + 1
             Case "ERRORED": lngErrored = lngErrored + 1
             Case "EMPTY": lngEmpty = lngEmpty + 1
+            Case "INCONCLUSIVE": lngInconclusive = lngInconclusive + 1
         End Select
 
         If dTest.Exists("assertions") Then
@@ -410,7 +417,14 @@ Private Function BuildSummaryFromState(ByVal dTests As Dictionary) As Dictionary
                 For i = 1 To colAssertions.Count
                     Set dA = colAssertions(i)
                     lngAssertions = lngAssertions + 1
-                    If CBool(Nz(dA("passed"), False)) Then
+                    If dA.Exists("outcome") Then
+                        lngOutcome = OutcomeCodeFromString(CStr(dA("outcome")))
+                        Select Case lngOutcome
+                            Case eaoInconclusive: lngInconclusiveAssertions = lngInconclusiveAssertions + 1
+                            Case eaoFailed: lngFailedAssertions = lngFailedAssertions + 1
+                            Case Else: lngPassedAssertions = lngPassedAssertions + 1
+                        End Select
+                    ElseIf CBool(Nz(dA("passed"), False)) Then
                         lngPassedAssertions = lngPassedAssertions + 1
                     Else
                         lngFailedAssertions = lngFailedAssertions + 1
@@ -425,11 +439,35 @@ NextSummaryTest:
     dSummary.Add "assertions", lngAssertions
     dSummary.Add "passed", lngPassedAssertions
     dSummary.Add "failed", lngFailedAssertions
+    dSummary.Add "inconclusive", lngInconclusiveAssertions
     dSummary.Add "errored", lngErrored
     dSummary.Add "empty", lngEmpty
 
     Set BuildSummaryFromState = dSummary
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OutcomeCodeToString / OutcomeCodeFromString
+' Purpose   : Serialize eAssertOutcome values to/from the stable strings used in
+'           : test-state.json ('passed' | 'failed' | 'inconclusive').
+'---------------------------------------------------------------------------------------
+'
+Private Function OutcomeCodeToString(ByVal lngOutcome As Long) As String
+    Select Case lngOutcome
+        Case eaoFailed: OutcomeCodeToString = "failed"
+        Case eaoInconclusive: OutcomeCodeToString = "inconclusive"
+        Case Else: OutcomeCodeToString = "passed"
+    End Select
+End Function
+
+Private Function OutcomeCodeFromString(ByVal strOutcome As String) As Long
+    Select Case LCase$(Trim$(strOutcome))
+        Case "failed", "2": OutcomeCodeFromString = eaoFailed
+        Case "inconclusive", "3": OutcomeCodeFromString = eaoInconclusive
+        Case Else: OutcomeCodeFromString = eaoPassed
+    End Select
 End Function
 
 

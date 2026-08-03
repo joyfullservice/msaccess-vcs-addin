@@ -137,6 +137,25 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : HandleTestOutcome
+' Author    : Matthew Pfluger
+' Date      : 8/2/2026
+' Purpose   : Tri-state entry point for the Rubberduck shim (via Application.Run). Must
+'           : live in a standard module. lngOutcome is an eAssertOutcome value.
+'---------------------------------------------------------------------------------------
+'
+Public Function HandleTestOutcome(ByVal lngOutcome As Long, _
+                                   Optional ByVal varContext As Variant) As Boolean
+    If TestRunner.State <> etrsRunning Then
+        HandleTestOutcome = False
+        Exit Function
+    End If
+    HandleTestOutcome = True
+    TestRunner.RecordAssertionOutcome lngOutcome, varContext
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : VCS
 ' Author    : Adam Waller
 ' Date      : 3/28/2022
