@@ -271,9 +271,12 @@ Public Sub FinishBuild(blnFullBuild As Boolean _
     Me.strLastLogFilePath = Log.SavedLogFilePath
     Me.strCopyToClipboardPath = Log.SavedLogFilePath
 
-    ' Auto-close in silent/unattended mode
+    ' Auto-close in silent/unattended mode. Defer via the timer so the close runs
+    ' after modBuild.Build calls Operation.Finish; closing synchronously here unloads
+    ' the form while Operation.Status is still eosRunning, tripping the Form_Unload
+    ' cancel prompt -- a deadlock in an unattended session.
     If Operation.InteractionMode = eimSilent Then
-        cmdClose_Click
+        AutoClose
     End If
 
 End Sub
