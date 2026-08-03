@@ -160,9 +160,9 @@
 
             .app {
                 display: grid;
-                grid-template-columns: var(--sidebar-w) var(
-                        --splitter-w
-                    ) minmax(0, 1fr) var(--splitter-w) var(--detail-w);
+                grid-template-columns:
+                    var(--sidebar-w) var(--splitter-w)
+                    minmax(0, 1fr) var(--splitter-w) var(--detail-w);
                 grid-template-rows: minmax(
                     0,
                     1fr
@@ -4173,6 +4173,7 @@
                 if (executed === 0) return "ready";
                 if (state.counts.failed + state.counts.errored > 0)
                     return "failed";
+                if (state.counts.inconclusive > 0) return "inconclusive";
                 return "passed";
             }
 
@@ -4187,6 +4188,7 @@
                     hydrating: "Loading previous results…",
                     passed: "Passed",
                     failed: "Failed",
+                    inconclusive: "Inconclusive",
                 };
                 const classes = {
                     ready: "skip",
@@ -4195,6 +4197,7 @@
                     hydrating: "hydrating",
                     passed: "pass",
                     failed: "fail",
+                    inconclusive: "inconc",
                 };
 
                 badge.textContent = labels[status];
