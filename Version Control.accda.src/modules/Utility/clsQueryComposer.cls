@@ -2976,6 +2976,15 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         cOut.Add "End", vbCrLf
     End If
 
+    ' Parameters -- declared query parameters (MSysQueries Attribute 2). Access
+    ' stores these in a Begin Parameters block immediately after the
+    ' OutputColumns block for designer-built queries. LoadFromText rejects the
+    ' block ("Expected: End of file. Found: Parameters.") when it appears after
+    ' the Joins/OrderBy/Groups blocks, so it must be emitted here -- before
+    ' Joins -- not merely before the properties. Omitting it entirely drops the
+    ' PARAMETERS clause when a parameterized query takes the Design View path.
+    EmitParameters cOut
+
     ' Joins — multi-condition ON clauses must be decomposed into separate
     ' rows because Access's Design View .qdef stores each condition as its
     ' own entry (separate Attribute 7 rows in MSysQueries).
@@ -3053,13 +3062,6 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         Next dGrp
         cOut.Add "End", vbCrLf
     End If
-
-    ' Parameters -- declared query parameters (MSysQueries Attribute 2). Access
-    ' stores these in a Begin Parameters block for designer-built queries;
-    ' omitting it drops the PARAMETERS clause when a parameterized query is
-    ' imported via the Design View path. Emitted after the query-structure
-    ' blocks and before the properties, matching native SaveAsText output.
-    EmitParameters cOut
 
     ' Properties -- these act as the delimiter between the query structure
     ' blocks and the Begin...End blocks (column metadata / layout).
