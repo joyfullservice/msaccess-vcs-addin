@@ -178,6 +178,42 @@ Because the shim owns both modes, the same module produces **identical** results
 
 When it runs an `@TestModule`, the VCS runner honors the Rubberduck lifecycle: `@ModuleInitialize` once → for each test `@TestInitialize` → test → `@TestCleanup` → `@ModuleCleanup` once. `@IgnoreTest` methods are skipped.
 
+### Migrate one module
+
+Start with one fast, deterministic **standard-module** test suite. Keep your existing
+Rubberduck module and test bodies; make the mechanical changes below, then verify both
+runners before converting more modules.
+
+1. Copy the maintained [Rubberduck-to-VCS template](https://github.com/joyfullservice/msaccess-vcs-addin/tree/dev/Testing/Templates/Rubberduck-Vcs) into your source project: `StubRdAssert.cls` and `basTestHelpers.bas`. The template's `ExampleTestModule.bas` is a complete converted example.
+2. Exclude `StubRdAssert` and `basTestHelpers` from your production build using your project's normal test-only build rules.
+3. In the test module, replace the compile-time Rubberduck assertion field with a late-bound one and initialize it through the factory:
+
+   ```vba
+   ' Before
+   Private Assert As Rubberduck.AssertClass
+
+   '@ModuleInitialize
+   Private Sub ModuleInitialize()
+     Set Assert = New Rubberduck.AssertClass
+   End Sub
+
+   ' After
+   Private Assert As Object
+
+   '@ModuleInitialize
+   Public Sub ModuleInitialize()
+     Set Assert = CreateTestAssert()
+   End Sub
+   ```
+
+4. Change each annotated `@TestMethod`, `@ModuleInitialize`, `@ModuleCleanup`, `@TestInitialize`, and `@TestCleanup` procedure to `Public`. Leave unannotated helpers `Private`. Preserve every Rubberduck annotation and test body.
+5. Compile the project. Run the converted module in the Rubberduck Test Explorer first, then run that module by name through `VCS.RunTests` or `VCS.RunTestsHeadless`.
+6. Compare results before migrating the next module. If the module uses an assertion method, `FakesProvider`, or mocks not covered by the template, extend the project-side shim and verify that behavior in both runners first.
+
+The template supports the listed `AssertClass` subset only; it does not make every
+Rubberduck API available. It also supports standard-module `@TestModule`s only;
+class-module Rubberduck lifecycles are not driven by the VCS runner.
+
 ### The `Inconclusive` status
 
 Rubberduck treats some assertions as **Inconclusive** rather than passed or failed:
