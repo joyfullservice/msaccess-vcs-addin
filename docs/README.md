@@ -23,6 +23,7 @@ than written once and abandoned.
 | Doc | Topic |
 |---|---|
 | [`access-query-storage.md`](access-query-storage.md) | How Access stores queries (MSysQueries fields, Design View vs SQL View, `LoadFromText` / `SaveAsText` asymmetries, parser invariants and known gaps). |
+| [`rubberduck-test-runner.md`](rubberduck-test-runner.md) | The parallel `@TestModule` / `@TestMethod` discovery path, the emulation-not-delegation shim model, multi-module dispatch, and the tri-state `Inconclusive` outcome. |
 
 ## Plausible future siblings
 

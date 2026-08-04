@@ -58,7 +58,7 @@ When the run finishes, the console shows a summary of passed, failed, and skippe
 
 ### How tests are discovered
 
-`VCS.RunTests` does **not** use a `@Test` attribute. Discovery is a static scan of the current VBA project (`clsTestRunner.Scan`): it walks modules via the VBE `CodeModule` API and registers matching procedures.
+`VCS.RunTests` does **not** use a `@Test` attribute for its **native** convention (described below). Discovery is a static scan of the current VBA project (`clsTestRunner.Scan`): it walks modules via the VBE `CodeModule` API and registers matching procedures. A separate, opt-in path recognizes Rubberduck `@TestModule` / `@TestMethod` annotations — see [Running Rubberduck test modules](#running-rubberduck-test-modules).
 
 ```mermaid
 flowchart TD
@@ -156,6 +156,51 @@ flowchart TD
 ```
 
 Class-based discovery also keeps a `TestClassFactory` in `modTestAssert` in sync (an auto-generated `Select Case` between BEGIN/END markers — don't edit it by hand).
+
+---
+
+## Running Rubberduck test modules
+
+Many Access projects already maintain a [Rubberduck](https://github.com/rubberduck-vba/Rubberduck) unit-test suite written to its `@TestModule` / `@TestMethod` convention. The VCS runner can **also** discover and run those modules — so a Rubberduck suite can be driven headlessly, through the web runner, and via MCP, and reported alongside `TestAssert`-based tests — **without rewriting the test bodies**.
+
+This is a **second, opt-in discovery path**: it activates only for a module that declares `'@TestModule`. Modules without that annotation stay on the native convention above. The two runners remain independent — the VCS runner is a second surface that recognizes the same annotations, **not** a replacement for the Rubberduck Test Explorer, and Rubberduck is **never a required dependency**.
+
+See the Rubberduck [Unit Testing wiki](https://github.com/rubberduck-vba/Rubberduck/wiki/Unit-Testing) for how to author these tests.
+
+### How it works
+
+Rubberduck reports each assertion through an internal event that only its own engine listens to, so the VCS runner cannot reuse the real `Rubberduck.AssertClass` directly. Instead, each project supplies a small **shim** (`StubRdAssert.cls`, obtained through a `CreateTestAssert()` factory) that replicates the `AssertClass` surface. Per call the shim branches:
+
+- **Under a VCS run** — the shim computes the outcome itself and reports it to the add-in.
+- **Under the Rubberduck Test Explorer** (or with the add-in not loaded) — the shim delegates to a real `Rubberduck.AssertClass`, so Rubberduck captures results exactly as before.
+
+Because the shim owns both modes, the same module produces **identical** results under both runners. The shim lives in your project (in a build-stripped `Stub*` module), not in the add-in.
+
+When it runs an `@TestModule`, the VCS runner honors the Rubberduck lifecycle: `@ModuleInitialize` once → for each test `@TestInitialize` → test → `@TestCleanup` → `@ModuleCleanup` once. `@IgnoreTest` methods are skipped.
+
+### The `Inconclusive` status
+
+Rubberduck treats some assertions as **Inconclusive** rather than passed or failed:
+
+- `AreEqual` / `AreNotEqual` where the two operands have **different types** (e.g. `AreEqual 42, "42"` or `AreEqual 42, Null`)
+- `AreSame` / `AreNotSame` on **value types** (not object references)
+- an explicit `Assert.Inconclusive([message])` call
+
+The VCS runner models this as a first-class status (amber ⚠ in the web runner and HTML report, with its own count, filter, and progress segment). Behavior to know:
+
+- **Precedence** within a test: `Errored > Failed > Inconclusive > Passed` — an inconclusive assertion never masks a real failure.
+- **Inconclusive is non-failing.** It does not flip `allPassed` or fail a headless CI run (matching Rubberduck's default). A run of *only* inconclusive tests is still not `allPassed`, because nothing passed.
+- **JUnit:** an inconclusive test serializes to `<skipped/>` (the closest standard-schema equivalent).
+
+> **One intentional divergence from the Rubberduck Test Explorer:** the VCS runner records every assertion and continues, whereas Rubberduck stops at the first non-passing assertion. A test that is inconclusive and *then* would fail reports **Failed** under the VCS runner (later Fail wins under precedence) but **Inconclusive** under Rubberduck. Author tests to reach a single conclusive outcome and this never arises.
+
+### Running them
+
+Once a module is shim-migrated, it runs through the same entry points as any other VCS test — [`VCS.RunTests`](#run-from-access), [`VCS.RunTestsHeadless`](#headless-ci--automation), the ribbon **Run Tests** button, and [MCP](#mcp--agents). Filter by module, folder, procedure, or tag exactly as with native tests.
+
+### Internals
+
+Maintainers and agents: the discovery path, lifecycle driver, multi-module dispatcher (which sidesteps an Access `Application.Run` name-collision on shared lifecycle proc names), and the tri-state model are documented in [`docs/rubberduck-test-runner.md`](https://github.com/joyfullservice/msaccess-vcs-addin/blob/dev/docs/rubberduck-test-runner.md).
 
 ---
 
