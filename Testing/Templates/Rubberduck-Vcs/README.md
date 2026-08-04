@@ -13,6 +13,13 @@ test runner. Follow the migration procedure in [Wiki/Testing.md](../../../Wiki/T
 The shim is not part of the add-in. Keep it and its helper in test-only source and
 exclude them from a production build using the consuming project's normal build rules.
 
+## Module requirements
+
+- Convert a **standard-module** `@TestModule`; class-module Rubberduck lifecycles are not supported.
+- Declare `Private Assert As Object`, then assign `Set Assert = CreateTestAssert()` in `@ModuleInitialize`.
+- Make annotated test and lifecycle procedures `Public` so the VCS runner's temporary dispatcher can call them. Keep helpers `Private`.
+- Keep `Option Private Module` when your project uses it; it still prevents the module's public members from being exposed outside the project.
+
 ## Supported assertion methods
 
 The template implements these `Rubberduck.AssertClass` methods:
