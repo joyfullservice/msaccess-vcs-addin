@@ -6,8 +6,8 @@ Internal reference for the parallel test-discovery path that lets the VCS runner
 outcome the runner models to match Rubberduck's `AssertClass` semantics.
 
 This is maintainer/agent-facing internals. For the end-user how-to (enabling it in a
-project, running it from the web runner / headless / MCP), see the **Running
-Rubberduck test modules** section of [`Wiki/Testing.md`](../Wiki/Testing.md).
+project, running it from the web runner / headless / MCP), see
+[`Wiki/Rubberduck-Testing-Support.md`](../Wiki/Rubberduck-Testing-Support.md).
 
 Rubberduck references:
 
