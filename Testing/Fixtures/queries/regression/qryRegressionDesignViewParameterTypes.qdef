@@ -1,0 +1,57 @@
+﻿Operation =1
+Option =0
+Where ="(((tblParamTypes.IsActive=pActive AND tblParamTypes.OrderDate>=[Start "
+    "Date] AND tblParamTypes.Price>=[Min Price] AND tblParamTypes.Weight<=["
+    "Max Weight])))"
+Begin InputTables
+    Name ="tblParamTypes"
+End
+Begin OutputColumns
+    Expression ="tblParamTypes.ID"
+    Expression ="tblParamTypes.Label"
+End
+Begin Parameters
+    Name ="pActive"
+    Flag =1
+    Name ="[Start Date]"
+    Flag =8
+    Name ="[Min Price]"
+    Flag =5
+    Name ="[Max Weight]"
+    Flag =7
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblParamTypes.ID"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblParamTypes.Label"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblParamTypes.IsActive"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblParamTypes.OrderDate"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblParamTypes.Price"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblParamTypes.Weight"
+        dbLong "AggregateType" ="-1"
+    End
+End
