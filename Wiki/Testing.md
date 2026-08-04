@@ -58,24 +58,29 @@ When the run finishes, the console shows a summary of passed, failed, and skippe
 
 ### How tests are discovered
 
-`VCS.RunTests` does **not** use a `@Test` attribute for its **native** convention (described below). Discovery is a static scan of the current VBA project (`clsTestRunner.Scan`): it walks modules via the VBE `CodeModule` API and registers matching procedures. A separate, opt-in path recognizes Rubberduck `@TestModule` / `@TestMethod` annotations — see [Running Rubberduck test modules](#running-rubberduck-test-modules).
+`VCS.RunTests` uses two static-discovery paths. Its **native `TestAssert` convention** does not use a `@Test` attribute; the separate, opt-in Rubberduck path recognizes `@TestModule` / `@TestMethod` annotations. See [Running Rubberduck test modules](#running-rubberduck-test-modules) for the latter.
+
+#### Native `TestAssert` discovery
+
+The diagram and Stage 1 / Stage 2 rules below apply only to native `TestAssert`-style tests. They do not describe discovery of a Rubberduck `@TestModule`.
 
 ```mermaid
 flowchart TD
-  A[VCS.RunTests / ExecuteTests] --> B[TestRunner.Scan]
-  B --> C{Project has any<br/>'@Folder annotation?}
-  C -->|Yes| D[Module qualifies if @Folder<br/>path contains a Tests segment]
-  C -->|No| E[Module qualifies if name<br/>contains Test]
-  D --> F[ScanModuleForTests]
-  E --> F
-  F --> G{Module contains at least<br/>one TestAssert call?}
-  G -->|No| H[Register zero tests<br/>from this module]
-  G -->|Yes| I{Standard module<br/>or class module?}
-  I -->|Standard| J[Parameterless Public Sub]
-  I -->|Class| K[Parameterless Public Sub<br/>or Public Function]
-  J --> L[Skip Private / Class_* / params]
-  K --> L
-  L --> M[Register Module.Proc<br/>in Tests dictionary]
+  A[VCS.RunTests / ExecuteTests] --> B[Native TestAssert path]
+  B --> C[TestRunner.Scan]
+  C --> D{Project has any<br/>'@Folder annotation?}
+  D -->|Yes| E[Module qualifies if @Folder<br/>path contains a Tests segment]
+  D -->|No| F[Module qualifies if name<br/>contains Test]
+  E --> G[ScanModuleForTests]
+  F --> G
+  G --> H{Module contains at least<br/>one TestAssert call?}
+  H -->|No| I[Register zero tests<br/>from this module]
+  H -->|Yes| J{Standard module<br/>or class module?}
+  J -->|Standard| K[Parameterless Public Sub]
+  J -->|Class| L[Parameterless Public Sub<br/>or Public Function]
+  K --> M[Skip Private / Class_* / params]
+  L --> M
+  M --> N[Register Module.Proc<br/>in Tests dictionary]
 ```
 
 #### Stage 1 — Test modules
