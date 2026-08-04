@@ -146,13 +146,31 @@ structured blocks must keep parameters ahead of the properties. Type coverage
 beyond the fixture's `Long`/`Text` rests on the `ParameterFlagFromType` map
 rather than on round-trip fixtures for every DAO type.
 
+**Follow-up (2026-08-04) — the block must precede `Begin Joins`, not merely
+the property list.** The initial fix emitted `EmitParameters` just before the
+property block. That is correct only for queries with no `Begin Joins` /
+`Begin OrderBy` / `Begin Groups` — there the block still lands immediately
+after `OutputColumns`. A parameterized query that *also* had a join or
+`ORDER BY` pushed the block past those structure blocks, and Access rejected
+the qdef with `Expected: End of file. Found: Parameters.`, failing the Design
+View import and silently falling back to SQL View (losing layout on four
+production queries). `EmitParameters` now runs immediately after the
+`Begin OutputColumns ... End` block and *before* `Begin Joins`, matching the
+native `SaveAsText` position exactly. The constraint is therefore stronger
+than "ahead of the properties": parameters must precede the
+Joins/OrderBy/Groups blocks as well.
+
 **Relevant files**:
 - `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` —
   `EmitParameters` and its helpers (`ParseParameterList`,
   `SplitParameterClause`, `SplitParameterToken`, `ParameterFlagFromType`);
-  `EmitDesignViewQdef` calls `EmitParameters` before the property block
-- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParameters.*` —
-  Design View parameter round-trip fixture pinning the fix
+  `EmitDesignViewQdef` calls `EmitParameters` immediately after the
+  `OutputColumns` block and before `Begin Joins`
+- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParameters.*`,
+  `qryRegressionDesignViewParameterTypes.*` — single-table parameter
+  round-trip fixtures
+- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersJoinOrderBy.*`
+  — pins the block position for a query with an INNER JOIN and ORDER BY
 
 ---
 
