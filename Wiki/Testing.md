@@ -179,7 +179,7 @@ Rubberduck reports each assertion through an internal event that only its own en
 - **Under a VCS run** — the shim computes the outcome itself and reports it to the add-in.
 - **Under the Rubberduck Test Explorer** (or with the add-in not loaded) — the shim delegates to a real `Rubberduck.AssertClass`, so Rubberduck captures results exactly as before.
 
-Because the shim owns both modes, the same module produces **identical** results under both runners. The shim lives in your project (in a build-stripped `Stub*` module), not in the add-in.
+Because the shim owns both modes, the same module normally produces matching results under both runners. The VCS runner intentionally differs when an Inconclusive assertion is followed by a later failure; see [The `Inconclusive` status](#the-inconclusive-status). The shim lives in your project (in a build-stripped `Stub*` module), not in the add-in.
 
 When it runs an `@TestModule`, the VCS runner honors the Rubberduck lifecycle: `@ModuleInitialize` once → for each test `@TestInitialize` → test → `@TestCleanup` → `@ModuleCleanup` once. `@IgnoreTest` methods are skipped.
 
