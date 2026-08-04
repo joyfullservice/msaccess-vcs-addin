@@ -376,6 +376,7 @@ contract.
 | Explicit `table.*` plus all-fields `*`      | [regression/qryRegressionExplicitAndAllFields.sql](../Testing/Fixtures/queries/regression/qryRegressionExplicitAndAllFields.sql) |
 | Make-Table (`SELECT ... INTO`)              | [regression/qryRegressionExternalMakeTable.sql](../Testing/Fixtures/queries/regression/qryRegressionExternalMakeTable.sql) |
 | Query parameters (Attribute 2)               | [regression/qryRegressionParameterizedCrosstab.sql](../Testing/Fixtures/queries/regression/qryRegressionParameterizedCrosstab.sql) |
+| Query parameters, Design View (`Begin Parameters` block) | [regression/qryRegressionDesignViewParameters.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParameters.sql) |
 | INSERT INTO ... SELECT (Append)             | [append/qryAppendCars.sql](../Testing/Fixtures/queries/append/qryAppendCars.sql)                                         |
 | Scalar append without source table          | [regression/qryRegressionScalarAppendNoTable.sql](../Testing/Fixtures/queries/regression/qryRegressionScalarAppendNoTable.sql) |
 | UPDATE                                      | [update/qryUpdateCarsPrice.sql](../Testing/Fixtures/queries/update/qryUpdateCarsPrice.sql)                               |
@@ -400,7 +401,7 @@ contribute a fixture (see the bug-as-fixture workflow in
 
 | Shape                                              | Status / what would be needed                                                                                                  |
 |----------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| Query parameters beyond Text (`Attribute 2`)       | Text parameters are pinned by `qryRegressionParameterizedCrosstab`. Riddington documents additional DAO data-type flags (Boolean, Byte, Integer, Long, Currency, Single, Double, Date/Time, OLE, Memo, GUID, BigInt); add fixtures if those are observed in the wild. |
+| Query parameters beyond Long/Text (`Attribute 2`)  | `qryRegressionParameterizedCrosstab` pins Text via the SQL-memo path; `qryRegressionDesignViewParameters` pins Long + Text through the Design View `Begin Parameters` block. `ParameterFlagFromType` maps the remaining DAO flags Riddington documents (Boolean, Byte, Integer, Currency, Single, Double, Date/Time, OLE, Memo, GUID, BigInt), but only Long/Text are exercised by a round-trip fixture; add fixtures for the others if observed in the wild. |
 | `WITH OWNERACCESS OPTION` (Attribute 3 Flag = 4)   | No fixture. Verify the option flag round-trips (currently unknown whether it's preserved in `OptionFlag`).                     |
 | Multi-value field (MVF) references                 | No fixture. Riddington Part 1 § 21. Likely shows up in Attribute 12 Flag = 2.                                                  |
 | Attachment field references                        | No fixture. Same Attribute 12 Flag = 2 family as MVF.                                                                          |
