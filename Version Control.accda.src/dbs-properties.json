@@ -1,232 +1,232 @@
 ﻿{
-    "Info": {
-        "Class": "clsDbProperty",
-        "Description": "Database Properties (DAO)"
+  "Info": {
+    "Class": "clsDbProperty",
+    "Description": "Database Properties (DAO)"
+  },
+  "Items": {
+    "AccessVersion": {
+      "Value": "09.50",
+      "Type": 10
     },
-    "Items": {
-        "AccessVersion": {
-            "Value": "09.50",
-            "Type": 10
-        },
-        "AllowBuiltInToolbars": {
-            "Value": true,
-            "Type": 1
-        },
-        "AllowDatasheetSchema": {
-            "Value": true,
-            "Type": 1
-        },
-        "AllowFullMenus": {
-            "Value": true,
-            "Type": 1
-        },
-        "AllowShortcutMenus": {
-            "Value": true,
-            "Type": 1
-        },
-        "AllowSpecialKeys": {
-            "Value": true,
-            "Type": 1
-        },
-        "AllowToolbarChanges": {
-            "Value": true,
-            "Type": 1
-        },
-        "ANSI Query Mode": {
-            "Value": 0,
-            "Type": 4
-        },
-        "AppTitle": {
-            "Value": "Version Control System",
-            "Type": 10
-        },
-        "AppVersion": {
-            "Value": "5.1.0",
-            "Type": 10
-        },
-        "Auto Compact": {
-            "Value": 0,
-            "Type": 4
-        },
-        "Build": {
-            "Value": 606,
-            "Type": 4
-        },
-        "CheckTruncatedNumFields": {
-            "Value": 1,
-            "Type": 4
-        },
-        "Clear Cache on Close": {
-            "Value": 0,
-            "Type": 4
-        },
-        "ClickOnce Deployment": {
-            "Value": "False",
-            "Type": 10
-        },
-        "CollatingOrder": {
-            "Value": 1033,
-            "Type": 3
-        },
-        "Connect": {
-            "Value": "",
-            "Type": 12
-        },
-        "Continuous Form Navigation Keys": {
-            "Value": 0,
-            "Type": 4
-        },
-        "Continuous Form Record Navigation Keys": {
-            "Value": 0,
-            "Type": 4
-        },
-        "Default Zoom Level": {
-            "Value": 100,
-            "Type": 4
-        },
-        "DesignMasterID": {
-            "Value": "",
-            "Type": 15
-        },
-        "DesignWithData": {
-            "Value": true,
-            "Type": 1
-        },
-        "HasOfflineLists": {
-            "Value": 70,
-            "Type": 3
-        },
-        "Name": {
-            "Value": "rel:Version Control.accda",
-            "Type": 12
-        },
-        "NavPane Category": {
-            "Value": 0,
-            "Type": 4
-        },
-        "NavPane Closed": {
-            "Value": 0,
-            "Type": 4
-        },
-        "NavPane Sort By": {
-            "Value": 1,
-            "Type": 4
-        },
-        "NavPane View By": {
-            "Value": 0,
-            "Type": 4
-        },
-        "NavPane Width": {
-            "Value": 215,
-            "Type": 4
-        },
-        "Never Cache": {
-            "Value": 0,
-            "Type": 4
-        },
-        "Option to enable Monaco SQL Editor": {
-            "Value": 1,
-            "Type": 4
-        },
-        "Picture Property Storage Format": {
-            "Value": 0,
-            "Type": 4
-        },
-        "ProjVer": {
-            "Value": 142,
-            "Type": 3
-        },
-        "QueryTimeout": {
-            "Value": 60,
-            "Type": 3
-        },
-        "RecordsAffected": {
-            "Value": 0,
-            "Type": 4
-        },
-        "ReplicaID": {
-            "Value": "",
-            "Type": 15
-        },
-        "Row Limit": {
-            "Value": 10000,
-            "Type": 4
-        },
-        "Show Navigation Pane Search Bar": {
-            "Value": 1,
-            "Type": 4
-        },
-        "Show Values in Indexed": {
-            "Value": 1,
-            "Type": 4
-        },
-        "Show Values in Non-Indexed": {
-            "Value": 1,
-            "Type": 4
-        },
-        "Show Values in Remote": {
-            "Value": 0,
-            "Type": 4
-        },
-        "Show Values Limit": {
-            "Value": 1000,
-            "Type": 4
-        },
-        "ShowDocumentTabs": {
-            "Value": true,
-            "Type": 1
-        },
-        "StartUpShowDBWindow": {
-            "Value": true,
-            "Type": 1
-        },
-        "StartUpShowStatusBar": {
-            "Value": true,
-            "Type": 1
-        },
-        "Theme Resource Name": {
-            "Value": "Office Theme",
-            "Type": 10
-        },
-        "Themed Form Controls": {
-            "Value": 1,
-            "Type": 4
-        },
-        "Transactions": {
-            "Value": true,
-            "Type": 1
-        },
-        "Updatable": {
-            "Value": true,
-            "Type": 1
-        },
-        "Use BigInt for linking and importing data": {
-            "Value": 0,
-            "Type": 4
-        },
-        "Use DateTime2 for linking and importing data": {
-            "Value": 0,
-            "Type": 4
-        },
-        "Use Microsoft Access 2007 compatible cache": {
-            "Value": 0,
-            "Type": 4
-        },
-        "UseAppIconForFrmRpt": {
-            "Value": false,
-            "Type": 1
-        },
-        "UseMDIMode": {
-            "Value": 0,
-            "Type": 2
-        },
-        "Version": {
-            "Value": "14.0",
-            "Type": 12
-        },
-        "WebDesignMode": {
-            "Value": 0,
-            "Type": 2
-        }
+    "AllowBuiltInToolbars": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowDatasheetSchema": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowFullMenus": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowShortcutMenus": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowSpecialKeys": {
+      "Value": true,
+      "Type": 1
+    },
+    "AllowToolbarChanges": {
+      "Value": true,
+      "Type": 1
+    },
+    "ANSI Query Mode": {
+      "Value": 0,
+      "Type": 4
+    },
+    "AppTitle": {
+      "Value": "Version Control System",
+      "Type": 10
+    },
+    "AppVersion": {
+      "Value": "5.1.0",
+      "Type": 10
+    },
+    "Auto Compact": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Build": {
+      "Value": 606,
+      "Type": 4
+    },
+    "CheckTruncatedNumFields": {
+      "Value": 1,
+      "Type": 4
+    },
+    "Clear Cache on Close": {
+      "Value": 0,
+      "Type": 4
+    },
+    "ClickOnce Deployment": {
+      "Value": "False",
+      "Type": 10
+    },
+    "CollatingOrder": {
+      "Value": 1033,
+      "Type": 3
+    },
+    "Connect": {
+      "Value": "",
+      "Type": 12
+    },
+    "Continuous Form Navigation Keys": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Continuous Form Record Navigation Keys": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Default Zoom Level": {
+      "Value": 100,
+      "Type": 4
+    },
+    "DesignMasterID": {
+      "Value": "",
+      "Type": 15
+    },
+    "DesignWithData": {
+      "Value": true,
+      "Type": 1
+    },
+    "HasOfflineLists": {
+      "Value": 70,
+      "Type": 3
+    },
+    "Name": {
+      "Value": "rel:Version Control.accda",
+      "Type": 12
+    },
+    "NavPane Category": {
+      "Value": 0,
+      "Type": 4
+    },
+    "NavPane Closed": {
+      "Value": 0,
+      "Type": 4
+    },
+    "NavPane Sort By": {
+      "Value": 1,
+      "Type": 4
+    },
+    "NavPane View By": {
+      "Value": 0,
+      "Type": 4
+    },
+    "NavPane Width": {
+      "Value": 215,
+      "Type": 4
+    },
+    "Never Cache": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Option to enable Monaco SQL Editor": {
+      "Value": 1,
+      "Type": 4
+    },
+    "Picture Property Storage Format": {
+      "Value": 0,
+      "Type": 4
+    },
+    "ProjVer": {
+      "Value": 142,
+      "Type": 3
+    },
+    "QueryTimeout": {
+      "Value": 60,
+      "Type": 3
+    },
+    "RecordsAffected": {
+      "Value": 0,
+      "Type": 4
+    },
+    "ReplicaID": {
+      "Value": "",
+      "Type": 15
+    },
+    "Row Limit": {
+      "Value": 10000,
+      "Type": 4
+    },
+    "Show Navigation Pane Search Bar": {
+      "Value": 1,
+      "Type": 4
+    },
+    "Show Values in Indexed": {
+      "Value": 1,
+      "Type": 4
+    },
+    "Show Values in Non-Indexed": {
+      "Value": 1,
+      "Type": 4
+    },
+    "Show Values in Remote": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Show Values Limit": {
+      "Value": 1000,
+      "Type": 4
+    },
+    "ShowDocumentTabs": {
+      "Value": true,
+      "Type": 1
+    },
+    "StartUpShowDBWindow": {
+      "Value": true,
+      "Type": 1
+    },
+    "StartUpShowStatusBar": {
+      "Value": true,
+      "Type": 1
+    },
+    "Theme Resource Name": {
+      "Value": "Office Theme",
+      "Type": 10
+    },
+    "Themed Form Controls": {
+      "Value": 1,
+      "Type": 4
+    },
+    "Transactions": {
+      "Value": true,
+      "Type": 1
+    },
+    "Updatable": {
+      "Value": true,
+      "Type": 1
+    },
+    "Use BigInt for linking and importing data": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Use DateTime2 for linking and importing data": {
+      "Value": 0,
+      "Type": 4
+    },
+    "Use Microsoft Access 2007 compatible cache": {
+      "Value": 0,
+      "Type": 4
+    },
+    "UseAppIconForFrmRpt": {
+      "Value": false,
+      "Type": 1
+    },
+    "UseMDIMode": {
+      "Value": 0,
+      "Type": 2
+    },
+    "Version": {
+      "Value": "14.0",
+      "Type": 12
+    },
+    "WebDesignMode": {
+      "Value": 0,
+      "Type": 2
     }
+  }
 }
