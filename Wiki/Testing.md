@@ -219,6 +219,26 @@ The template supports the listed `AssertClass` subset only; it does not make eve
 Rubberduck API available. It also supports standard-module `@TestModule`s only;
 class-module Rubberduck lifecycles are not driven by the VCS runner.
 
+### Filtering and skipped tests
+
+VCS filters use module names, `@Folder`, procedure names, and explicit
+`'@Tag("...")` annotations. A Rubberduck `@TestMethod("Category")` argument is **not**
+automatically a VCS tag. Add a `@Tag` annotation when a Rubberduck category must also
+be selectable through `VCS.RunTests` or `VCS.RunTestsHeadless`:
+
+```vba
+'@TestMethod("Integration")
+Public Sub TestRemoteService()
+  '@Tag("integration")
+  ' ...
+End Sub
+```
+
+`@IgnoreTest` is discovered as **Skipped** rather than omitted. The VCS runner does not
+execute it, preserves an optional quoted reason, shows it in the test tree, and emits it
+as JUnit `<skipped/>`. A module containing only ignored tests does not run its lifecycle
+hooks.
+
 ### The `Inconclusive` status
 
 Rubberduck treats some assertions as **Inconclusive** rather than passed or failed:
