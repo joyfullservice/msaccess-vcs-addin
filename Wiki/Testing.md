@@ -219,6 +219,24 @@ The template supports the listed `AssertClass` subset only; it does not make eve
 Rubberduck API available. It also supports standard-module `@TestModule`s only;
 class-module Rubberduck lifecycles are not driven by the VCS runner.
 
+### Verify the first conversion
+
+Use one converted module as the acceptance check before migrating a suite:
+
+1. Compile the database in Access. The VCS runner stops before executing tests when the project has compile errors.
+2. Run that module in the Rubberduck Test Explorer and record its pass, fail, inconclusive, and skipped counts.
+3. In the Access Immediate Window, run the same module through the VCS runner:
+
+  ```vba
+  ?VCS.RunTests("ExampleTestModule")
+  ```
+
+  With the web runner enabled, this opens the test tree; select the module and choose **Run**. Otherwise, follow the result in the `frmVCSMain` console.
+4. For an unattended check, run the same filter through `VCS.RunTestsHeadless("ExampleTestModule")`. Its returned JSON includes `allPassed`, `cancelled`, `junitPath`, and `statePath`; it always writes JUnit XML.
+5. Compare the two runners' results, allowing for the documented record-and-continue Inconclusive case below. Inspect `<export-folder>\test-results\test-results.xml`, `test-state.json`, and (when enabled) `test-results.html` for the persisted result.
+
+For MCP-driven runs, enable the relevant permissions under **Options** → **MCP** first; see [MCP and Automation](MCP-and-Automation). Run against a development copy, not a production database.
+
 ### Filtering and skipped tests
 
 VCS filters use module names, `@Folder`, procedure names, and explicit
