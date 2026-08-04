@@ -211,7 +211,7 @@ runners before converting more modules.
    End Sub
    ```
 
-4. Change each annotated `@TestMethod`, `@ModuleInitialize`, `@ModuleCleanup`, `@TestInitialize`, and `@TestCleanup` procedure to `Public` so the VCS runner's temporary dispatcher can call them. Leave unannotated helpers `Private`. Keep `Option Private Module` if your test project already uses it: it still prevents the module's public members from being exposed outside the project. Preserve every Rubberduck annotation and test body.
+4. Change each annotated `@TestMethod`, `@ModuleInitialize`, `@ModuleCleanup`, `@TestInitialize`, and `@TestCleanup` procedure to `Public` so the VCS runner's temporary dispatcher can call them. Each must be callable with no arguments; parameterized Rubberduck test methods are not supported by the VCS runner. Leave unannotated helpers `Private`. Keep `Option Private Module` if your test project already uses it: it still prevents the module's public members from being exposed outside the project. Preserve every Rubberduck annotation and test body.
 5. Compile the project. Run the converted module in the Rubberduck Test Explorer first, then run that module by name through `VCS.RunTests` or `VCS.RunTestsHeadless`.
 6. Compare results before migrating the next module. If the module uses an assertion method, `FakesProvider`, or mocks not covered by the template, extend the project-side shim and verify that behavior in both runners first.
 
