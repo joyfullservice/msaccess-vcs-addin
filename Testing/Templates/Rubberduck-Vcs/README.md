@@ -17,7 +17,7 @@ exclude them from a production build using the consuming project's normal build 
 
 - Convert a **standard-module** `@TestModule`; class-module Rubberduck lifecycles are not supported.
 - Declare `Private Assert As Object`, then assign `Set Assert = CreateTestAssert()` in `@ModuleInitialize`.
-- Make annotated test and lifecycle procedures `Public` so the VCS runner's temporary dispatcher can call them. Keep helpers `Private`.
+- Make annotated test and lifecycle procedures `Public` and callable with no arguments so the VCS runner's temporary dispatcher can call them. Parameterized Rubberduck test methods are not supported. Keep helpers `Private`.
 - Keep `Option Private Module` when your project uses it; it still prevents the module's public members from being exposed outside the project.
 
 ## Supported assertion methods
