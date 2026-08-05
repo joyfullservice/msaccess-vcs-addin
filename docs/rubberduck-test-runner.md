@@ -76,6 +76,16 @@ once on entry → for each `@TestMethod`: `@TestInitialize` → test → `@TestC
 `@IgnoreTest` excludes a method. RD lifecycle is driven for standard-module
 `@TestModule`s; class-module `@TestModule`s are out of scope.
 
+## Category as tag
+
+During discovery, `ExtractTestMethodCategory` reads the optional `@TestMethod("Category")`
+argument and `RegisterTest` folds it (lowercased) into the test's tag collection alongside
+any `'@Tag` annotations. A Rubberduck category is therefore filterable through
+`VCS.RunTests` / `VCS.RunTestsHeadless` with no redundant `'@Tag` — e.g.
+`VCS.RunTests("-Integration")` excludes every `@TestMethod("Integration")` test. The
+merge dedupes against an equal explicit tag, so pairing a category with a matching
+`'@Tag` is harmless.
+
 ## Multi-module dispatch (name-collision workaround)
 
 Every RD module shares lifecycle proc names (`ModuleInitialize`, `TestInitialize`, …).

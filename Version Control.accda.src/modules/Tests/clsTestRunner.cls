@@ -1725,9 +1725,10 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
                     ' so the suite still surfaces and counts it, matching Rubberduck.
                     If HasAnnotation(strAnnBlock, "IGNORETEST") Then
                         RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines, _
-                            True, ExtractIgnoreReason(strAnnBlock)
+                            True, ExtractIgnoreReason(strAnnBlock), ExtractTestMethodCategory(strAnnBlock)
                     Else
-                        RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines
+                        RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines, _
+                            strCategoryTag:=ExtractTestMethodCategory(strAnnBlock)
                     End If
                 ElseIf HasAnnotation(strAnnBlock, "MODULEINITIALIZE") Then
                     dLifecycle("init") = strProcName
@@ -1779,7 +1780,8 @@ Private Sub RegisterTest(cmp As VBIDE.VBComponent, ByVal strProcName As String, 
                          ByVal blnIsClass As Boolean, colModuleTags As Collection, _
                          varLines As Variant, _
                          Optional ByVal blnSkipped As Boolean = False, _
-                         Optional ByVal strSkipReason As String = vbNullString)
+                         Optional ByVal strSkipReason As String = vbNullString, _
+                         Optional ByVal strCategoryTag As String = vbNullString)
 
     Dim strTestKey As String
     Dim colProcTags As Collection
@@ -1792,6 +1794,14 @@ Private Sub RegisterTest(cmp As VBIDE.VBComponent, ByVal strProcName As String, 
     ' Collect and merge procedure-level and module-level tags
     Set colProcTags = ExtractProcedureTags(varLines, lngLine)
     Set colCombined = MergeTagCollections(colModuleTags, colProcTags)
+
+    ' Rubberduck's @TestMethod("category") is surfaced as a filterable tag so category
+    ' filters (e.g. VCS.RunTests("-Integration")) work without a redundant '@Tag.
+    If Len(strCategoryTag) > 0 Then
+        On Error Resume Next
+        colCombined.Add LCase$(strCategoryTag), LCase$(strCategoryTag)
+        On Error GoTo 0
+    End If
 
     Set dTest = New Dictionary
     dTest.Add "moduleName", cmp.Name
@@ -1872,6 +1882,40 @@ Private Function ExtractIgnoreReason(strBlock As String) As String
     If lngQ1 = 0 Then Exit Function
     lngQ2 = InStr(lngQ1 + 1, strAfter, """")
     If lngQ2 > lngQ1 Then ExtractIgnoreReason = Mid$(strAfter, lngQ1 + 1, lngQ2 - lngQ1 - 1)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractTestMethodCategory
+' Author    : Matthew Pfluger
+' Date      : 8/5/2026
+' Purpose   : Parse the optional category argument from a Rubberduck '@TestMethod("...")
+'           : annotation. Rubberduck groups tests by this category (e.g. "Integration");
+'           : we surface it as a filterable tag so VCS.RunTests("-Integration") works
+'           : without a redundant '@Tag. Returns "" when no category is present.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractTestMethodCategory(strBlock As String) As String
+
+    Dim lngPos As Long
+    Dim strAfter As String
+    Dim lngEol As Long
+    Dim lngQ1 As Long
+    Dim lngQ2 As Long
+
+    lngPos = InStr(1, strBlock, "'@TESTMETHOD", vbTextCompare)
+    If lngPos = 0 Then Exit Function
+
+    strAfter = Mid$(strBlock, lngPos + Len("'@TestMethod"))
+    lngEol = InStr(strAfter, vbCr)
+    If lngEol = 0 Then lngEol = InStr(strAfter, vbLf)
+    If lngEol > 0 Then strAfter = Left$(strAfter, lngEol - 1)
+
+    lngQ1 = InStr(strAfter, """")
+    If lngQ1 = 0 Then Exit Function
+    lngQ2 = InStr(lngQ1 + 1, strAfter, """")
+    If lngQ2 > lngQ1 Then ExtractTestMethodCategory = Trim$(Mid$(strAfter, lngQ1 + 1, lngQ2 - lngQ1 - 1))
 
 End Function
 

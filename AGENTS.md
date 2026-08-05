@@ -750,7 +750,7 @@ where the flow diverged.
 1. **Module name** — exact match on the module/class name
 2. **Suite/folder** — match against `@Folder` annotation values (exact or final-segment, e.g., `"SQL"` matches `"Tests.SQL"`)
 3. **Procedure name** — match on procedure name or full `Module.Procedure` key
-4. **Tag** — match against `'@Tag("...")` annotations
+4. **Tag** — match against `'@Tag("...")` annotations and Rubberduck `@TestMethod("category")` categories (categories are folded into the tag set during discovery)
 
 Prefix any argument with `-` to **exclude** it. Inclusions combine with OR; exclusions combine with AND. If only exclusions are specified, the base set is all tests.
 

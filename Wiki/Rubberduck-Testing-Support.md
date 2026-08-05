@@ -69,15 +69,21 @@ For MCP-driven runs, enable the relevant permissions under **Options** -> **MCP*
 
 ## Filtering And Skipped Tests
 
-VCS filters use module names, `@Folder`, procedure names, and explicit `'@Tag("...")` annotations. A Rubberduck `@TestMethod("Category")` argument is **not** automatically a VCS tag. Add a `@Tag` annotation when a Rubberduck category must also be selectable through `VCS.RunTests` or `VCS.RunTestsHeadless`:
+VCS filters use module names, `@Folder`, procedure names, and `'@Tag("...")` annotations. A Rubberduck `@TestMethod("Category")` argument is treated as a filterable tag automatically, so a category is selectable through `VCS.RunTests` or `VCS.RunTestsHeadless` with no extra annotation:
 
 ```vba
 '@TestMethod("Integration")
 Public Sub TestRemoteService()
-  '@Tag("integration")
   ' ...
 End Sub
 ```
+
+```vba
+?VCS.RunTests("Integration")    ' run only @TestMethod("Integration") tests
+?VCS.RunTests("-Integration")   ' run everything except that category
+```
+
+The category is matched case-insensitively, exactly like an explicit `'@Tag`. Add a redundant `'@Tag` only if you want the same test selectable under a different name.
 
 `@IgnoreTest` is discovered as **Skipped** rather than omitted. The VCS runner does not execute it, preserves an optional quoted reason, shows it in the test tree, and emits it as JUnit `<skipped/>`. A module containing only ignored tests does not run its lifecycle hooks.
 
