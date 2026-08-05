@@ -2283,6 +2283,27 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : HandleTestOutcome
+' Author    : Matthew Pfluger
+' Date      : 8/2/2026
+' Purpose   : Tri-state assertion dispatcher for the Rubberduck shim. lngOutcome is an
+'           : eAssertOutcome (Passed/Failed/Inconclusive). Returns True when a run is
+'           : active (and records the outcome), False otherwise so the shim can fall
+'           : back to the real Rubberduck AssertClass or Debug.Assert.
+'---------------------------------------------------------------------------------------
+'
+Public Function HandleTestOutcome(ByVal lngOutcome As Long, _
+                                   ByVal varContext As Variant) As Boolean
+    If TestRunner.State <> etrsRunning Then
+        HandleTestOutcome = False
+        Exit Function
+    End If
+    HandleTestOutcome = True
+    TestRunner.RecordAssertionOutcome lngOutcome, varContext
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunTests
 ' Author    : Adam Waller
 ' Date      : 5/7/2026

@@ -83,7 +83,42 @@ contradictory guidance.
 
 ---
 
-## 2026-07-31 — One declarative list of export formats, guarded by a test that parses the enum
+## 2026-08-05 — Treat a Rubberduck `@TestMethod("category")` argument as a filterable tag
+
+**Trigger**: Rubberduck lets a test declare a category via `@TestMethod("Integration")`, and its own Test Explorer groups by that category. A consuming project wanted the same category usable as a VCS filter — e.g. `VCS.RunTestsHeadless("-Integration")` to skip live integration tests in CI — without having to duplicate every category as a separate `'@Tag("integration")` annotation. Before this change the category argument was parsed only to detect the annotation's presence and was then discarded, so it matched nothing in the four-level filter.
+
+**Options explored**:
+- **Interim `'@Tag` duplication in the consuming project.** Add a `'@Tag("Integration")` to each `@TestMethod` that already declares that category. `'@Tag` is a fully supported (and encouraged) VCS filter mechanism — Rubberduck merely surfaces it as an unrecognized-annotation *warning*, which is harmless — so this works today with no add-in change. It was rejected only because, for a category the module already carries, the extra annotation is pure duplication every project would have to add and keep in sync. Kept as a stop-gap until the category itself became filterable.
+- **A dedicated category filter level** separate from tags. Rejected: categories and tags are the same concept for filtering purposes (a case-insensitive label on a test), and the existing tag matcher, exclusion syntax (`-`), and web-runner Tags UI already do exactly what's needed. A parallel mechanism would duplicate all of it.
+- **Fold the category into the tag set at discovery time (chosen).** `ExtractTestMethodCategory` reads the quoted argument from the `@TestMethod` annotation block (mirroring `ExtractIgnoreReason`), and `RegisterTest` adds it, lowercased, to the merged tag collection via a new optional `strCategoryTag` parameter. The add-through-key dedupe means pairing a category with an equal explicit `'@Tag` is harmless.
+
+**Decision**: Surface the RD category as a tag during discovery. A Rubberduck category is now selectable through every existing filter path (`VCS.RunTests`, `VCS.RunTestsHeadless`, ribbon default filter, web-runner Tags) with zero extra annotations. Only the two RD discovery call sites pass a category; the native `TestAssert` path is unchanged.
+
+**What this rules out**: Categories and tags now share one namespace — a category and a `'@Tag` with the same text collapse to one filter token, which is intended. If a future need arises to filter on "category *specifically*, not tag," this would need a separate stored field. No such need is anticipated; Rubberduck itself treats a category as a single label.
+
+> **⚠ Superseded** (2026-08-05): The interim `'@Tag` duplication guidance is obsolete for categories. A `@TestMethod("category")` argument is now a filterable tag automatically. See "Treat a Rubberduck `@TestMethod(\"category\")` argument as a filterable tag" above.
+
+**Relevant files**: `Version Control.accda.src/modules/Tests/clsTestRunner.cls` (`ExtractTestMethodCategory`, `RegisterTest`, RD discovery call sites), `docs/rubberduck-test-runner.md`, `Wiki/Rubberduck-Testing-Support.md`, `AGENTS.md`.
+
+---
+
+## 2026-08-02 — Rubberduck `@TestModule` support as a parallel discovery path, with a tri-state `Inconclusive` outcome
+
+**Trigger**: Access projects commonly maintain a [Rubberduck](https://github.com/rubberduck-vba/Rubberduck) unit-test suite (`@TestModule` / `@TestMethod`). Those tests were invisible to the VCS runner — they could not be driven headlessly, through the web runner, or via MCP, nor reported alongside `TestAssert`-based tests. The goal was to make an existing Rubberduck suite *also* runnable through the VCS runner without rewriting test bodies, forking Rubberduck, or making Rubberduck a required dependency.
+
+**Options explored**:
+- **Relax the native discovery rules** so Rubberduck's `Private Sub` / `Option Private Module` / zero-`TestAssert` modules register. Rejected: the 2026-05-08 entry deliberately fixed the native convention as "any parameterless `Public Sub` in a test module with a `TestAssert` line," and loosening it would change discovery for every project on the fast path.
+- **Reuse the real `Rubberduck.AssertClass` under the VCS run.** Rejected: `AssertClass` reports through `AssertHandler.OnAssertCompleted`, an event only Rubberduck's own engine subscribes to. Under a VCS run nobody is listening, so results would be silently lost.
+- **Invoke Rubberduck's engine (delegation).** Rejected: it would make Rubberduck a hard runtime dependency and couple the runner to RD internals.
+- **Treat Inconclusive as Failed** (keep the binary channel). Rejected: it produces false failures for type-mismatch `AreEqual`, value-type `AreSame`, and explicit `Assert.Inconclusive`, and diverges from Rubberduck's own classification.
+
+**Decision**: Add a **second discovery path** that activates only when a module declares `'@TestModule`; every other module stays on the native fast path. Bridge assertions through a per-project shim (`StubRdAssert.cls` + a `CreateTestAssert()` factory) that **emulates** `AssertClass` under a VCS run (computing the outcome and reporting it via `HandleTestOutcome`) and **delegates** to a real `Rubberduck.AssertClass` under the RD Test Explorer — so a module runs identically under both runners, and Rubberduck stays optional (the shim falls back to `Debug.Assert`). The shim lives in the consuming project, in build-stripped modules; the add-in ships only discovery, lifecycle, dispatch, and reporting.
+
+Model `Inconclusive` end to end: `etsInconclusive` in `eTestStatus`, an `eAssertOutcome` per assertion, serialization through `test-state.json` / JUnit, and amber ⚠ rendering in the web runner and HTML report. Locked sub-decisions: **(1)** status precedence `Errored > Failed > Inconclusive > Passed`; **(2)** record-and-continue (accepting one divergence — an inconclusive-then-fail test reads Failed in VCS but Inconclusive in RD, which stops at the first inconclusive assert); **(3)** Inconclusive is non-failing (does not flip `allPassed`, matching RD's default); **(4)** JUnit maps `INCONCLUSIVE` → `<skipped/>`. No `eExportFormatVersion` gating: test results are gitignored `test-results/` artifacts, outside the export-format contract.
+
+A generated dispatcher (`modVCSTestDispatch`, temporary) sidesteps an Access `Application.Run` limitation: it cannot resolve a proc name duplicated across standard modules, and every RD module shares lifecycle proc names. The dispatcher injects uniquely-named wrappers that call each proc module-qualified, and is removed on cleanup.
+
+**What this rules out**: the native VCS test convention does not gain `@Test`-style annotations (that path is unchanged). The runner will not depend on the Rubberduck engine, and will not host RD's `AssertHandler` — outcome computation for the VCS path stays in the project-side shim. Full source references and the emulation model are in [`docs/rubberduck-test-runner.md`](docs/rubberduck-test-runner.md); user-facing usage is in `Wiki/Testing.md`.
 
 **Trigger**: Adding an export format version took three coordinated edits, and one of them failed silently. `frmVCSOptionsExport.Form_Load` populated its combo by looping `For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]` — 10,000 iterations across the sparse packed-integer space — and filtering through a hand-written `Case EFV_4_1_2, EFV_5_0_0, EFV_5_1_0`. Forget that `Case` and the new format still gates correctly everywhere in code; it just never appears in the UI, so no user can select it. `[_Last] = 50100` was a second hand-copied duplicate of the newest value.
 

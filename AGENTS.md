@@ -521,6 +521,8 @@ The add-in benefits from three distinct testing layers, each catching a differen
 | **2. Object round-trip tests** | "Does this database object survive a serialize/deserialize cycle unchanged?" | `modTestRoundtrip.bas` + `Testing/Fixtures/` |
 | **3. Whole-database integration** | "Does building an entire database from source produce a working database?" | `Testing/Testing.accdb.src` |
 
+**Rubberduck `@TestModule` support.** In addition to the native `TestAssert` convention, the Layer 1 runner has a second, opt-in discovery path that recognizes Rubberduck `@TestModule` / `@TestMethod` modules (activated only when `'@TestModule` is present) and drives their lifecycle. Assertions bridge through a project-side shim (`StubRdAssert` + `CreateTestAssert()`) that emulates `AssertClass` under a VCS run and delegates to the real Rubberduck engine under the RD Test Explorer — Rubberduck is never a hard dependency. This path also introduces a tri-state `Inconclusive` status (`etsInconclusive` / `eAssertOutcome`; precedence `Errored > Failed > Inconclusive > Passed`; non-failing for `allPassed`; JUnit `<skipped/>`). Full internals: [`docs/rubberduck-test-runner.md`](docs/rubberduck-test-runner.md); user-facing usage: `Wiki/Testing.md`.
+
 **Log files are gitignored.** All `logs/` directories and `*.log` files are excluded by `.gitignore`. Agent tools that respect `.gitignore` (Glob, Grep, semantic search) will silently skip them. Use shell commands to find and read log files:
 
 ```powershell
@@ -748,7 +750,7 @@ where the flow diverged.
 1. **Module name** — exact match on the module/class name
 2. **Suite/folder** — match against `@Folder` annotation values (exact or final-segment, e.g., `"SQL"` matches `"Tests.SQL"`)
 3. **Procedure name** — match on procedure name or full `Module.Procedure` key
-4. **Tag** — match against `'@Tag("...")` annotations
+4. **Tag** — match against `'@Tag("...")` annotations and Rubberduck `@TestMethod("category")` categories (categories are folded into the tag set during discovery)
 
 Prefix any argument with `-` to **exclude** it. Inclusions combine with OR; exclusions combine with AND. If only exclusions are specified, the base set is all tests.
 

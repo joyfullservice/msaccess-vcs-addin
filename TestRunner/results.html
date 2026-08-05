@@ -19,6 +19,7 @@
     --fail-bg: #fcebeb; --fail-fg: #a32d2d; --fail-dot: #e24b4a;
     --skip-bg: #f1efe8; --skip-fg: #5f5e5a; --skip-dot: #888780;
     --error-bg: #faeeda; --error-fg: #854f0b; --error-dot: #ba7517;
+    --inconc-bg: #f8f0cf; --inconc-fg: #7a6512; --inconc-dot: #caa72a;
     --pending-bg: #eef0f4; --pending-fg: #6b7280; --pending-dot: #9ca3af;
     --stale-bg: #f5f0e8; --stale-fg: #8a6d3b;
     --radius-md: 6px;
@@ -34,6 +35,7 @@
       --fail-bg: #3a1313; --fail-fg: #f09595;
       --skip-bg: #2c2c2a; --skip-fg: #b4b2a9;
       --error-bg: #3a2510; --error-fg: #ef9f27;
+      --inconc-bg: #33300f; --inconc-fg: #e3c766; --inconc-dot: #e3c766;
       --pending-bg: #2a2a30; --pending-fg: #9ca3af;
       --stale-bg: #332a1a; --stale-fg: #c9a86c;
     }
@@ -97,6 +99,7 @@
   .stat-dot.fail { background: var(--fail-dot); }
   .stat-dot.error { background: var(--error-dot); }
   .stat-dot.skip { background: var(--skip-dot); }
+  .stat-dot.inconc { background: var(--inconc-dot); }
   .stat-dot.pending { background: var(--pending-dot); }
   .stat-dot.stale { background: var(--stale-fg); }
   .stat-num { font-weight: 600; }
@@ -136,6 +139,7 @@
   .bar-seg.fail { background: var(--fail-dot); }
   .bar-seg.error { background: var(--error-dot); }
   .bar-seg.skip { background: var(--skip-dot); }
+  .bar-seg.inconc { background: var(--inconc-dot); }
   .bar-seg.pending { background: var(--pending-dot); opacity: 0.5; }
   .bar-count { width: 36px; text-align: right; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
   .list { list-style: none; }
@@ -221,6 +225,7 @@
   .status-icon.fail { color: var(--fail-fg); }
   .status-icon.error { color: var(--error-fg); }
   .status-icon.skip { color: var(--skip-fg); }
+  .status-icon.inconc { color: var(--inconc-fg); }
   .status-icon.pending { color: var(--pending-fg); }
   .test-name { flex: 1; font-family: var(--font-mono); font-size: 11px; }
   .badge {
@@ -250,6 +255,7 @@
     font-size: 11px;
   }
   .assertion.fail { border-color: rgba(226,75,74,0.3); background: var(--fail-bg); }
+  .assertion.inconc { border-color: rgba(202,167,42,0.35); background: var(--inconc-bg); }
   .error-block {
     background: var(--fail-bg);
     border-radius: var(--radius-md);
@@ -303,7 +309,9 @@ function webStatus(status, stale) {
   if (s === 'PASSED') return 'pass';
   if (s === 'FAILED') return 'fail';
   if (s === 'ERRORED') return 'error';
+  if (s === 'INCONCLUSIVE') return 'inconc';
   if (s === 'EMPTY') return 'skip';
+  if (s === 'SKIPPED') return 'skip';
   return 'pending';
 }
 
@@ -312,6 +320,7 @@ function statusIcon(st) {
   if (st === 'fail') return '✗';
   if (st === 'error') return '!';
   if (st === 'skip') return '–';
+  if (st === 'inconc') return '⚠';
   return '○';
 }
 
@@ -327,7 +336,7 @@ function buildIndex(state) {
   const suites = {};
   const counts = {
     fresh: 0, stale: 0, pending: 0,
-    pass: 0, fail: 0, error: 0, skip: 0,
+    pass: 0, fail: 0, error: 0, skip: 0, inconc: 0,
     executed: 0, assertions: 0
   };
 
@@ -346,10 +355,10 @@ function buildIndex(state) {
     };
     rows.push(row);
 
-    if (!suites[row.module]) suites[row.module] = { name: row.module, rows: [], counts: { pass: 0, fail: 0, error: 0, skip: 0, pending: 0 } };
+    if (!suites[row.module]) suites[row.module] = { name: row.module, rows: [], counts: { pass: 0, fail: 0, error: 0, skip: 0, inconc: 0, pending: 0 } };
     suites[row.module].rows.push(row);
-    suites[row.module].counts[ws === 'stale' ? (status === 'PASSED' ? 'pass' : status === 'FAILED' ? 'fail' : status === 'ERRORED' ? 'error' : 'skip') : ws] =
-      (suites[row.module].counts[ws === 'stale' ? (status === 'PASSED' ? 'pass' : status === 'FAILED' ? 'fail' : status === 'ERRORED' ? 'error' : 'skip') : ws] || 0) + 1;
+    suites[row.module].counts[ws === 'stale' ? (status === 'PASSED' ? 'pass' : status === 'FAILED' ? 'fail' : status === 'ERRORED' ? 'error' : status === 'INCONCLUSIVE' ? 'inconc' : 'skip') : ws] =
+      (suites[row.module].counts[ws === 'stale' ? (status === 'PASSED' ? 'pass' : status === 'FAILED' ? 'fail' : status === 'ERRORED' ? 'error' : status === 'INCONCLUSIVE' ? 'inconc' : 'skip') : ws] || 0) + 1;
 
     if (status === 'PENDING') {
       counts.pending++;
@@ -360,6 +369,7 @@ function buildIndex(state) {
       if (ws === 'pass' || (stale && status === 'PASSED')) counts.pass++;
       else if (ws === 'fail' || (stale && status === 'FAILED')) counts.fail++;
       else if (ws === 'error' || (stale && status === 'ERRORED')) counts.error++;
+      else if (ws === 'inconc' || (stale && status === 'INCONCLUSIVE')) counts.inconc++;
       else if (ws === 'skip' || (stale && status === 'EMPTY')) counts.skip++;
     }
     if (t.assertions) counts.assertions += t.assertions.length;
@@ -375,14 +385,16 @@ function renderDonut(counts) {
   const fail = counts.fail || 0;
   const error = counts.error || 0;
   const skip = counts.skip || 0;
+  const inconc = counts.inconc || 0;
   const rate = executed > 0 ? Math.round((pass / executed) * 100) : 0;
-  const total = pass + fail + error + skip || 1;
+  const total = pass + fail + error + skip + inconc || 1;
   const r = 54, c = 2 * Math.PI * r;
   let offset = 0;
   const segs = [
     { n: pass, color: 'var(--pass-dot)' },
     { n: fail, color: 'var(--fail-dot)' },
     { n: error, color: 'var(--error-dot)' },
+    { n: inconc, color: 'var(--inconc-dot)' },
     { n: skip, color: 'var(--skip-dot)' }
   ];
   let arcs = '';
@@ -409,7 +421,7 @@ function renderSuiteBars(suites) {
     const c = s.counts;
     const total = s.rows.length || 1;
   const parts = [
-      ['pass', c.pass], ['fail', c.fail], ['error', c.error], ['skip', c.skip], ['pending', c.pending]
+      ['pass', c.pass], ['fail', c.fail], ['error', c.error], ['inconc', c.inconc], ['skip', c.skip], ['pending', c.pending]
     ].filter(([, n]) => n > 0).map(([k, n]) =>
       `<div class="bar-seg ${k}" style="width:${(n / total) * 100}%"></div>`
     ).join('');
@@ -449,10 +461,14 @@ function renderFailures(rows) {
 function renderAssertions(test) {
   const assertions = test.assertions || [];
   if (!assertions.length) return '';
-  return assertions.map(a => `<div class="assertion ${a.passed ? '' : 'fail'}">
-    <strong>${a.passed ? '✓' : '✗'}</strong> #${a.seq}
+  return assertions.map(a => {
+    const ao = a.outcome === 'inconclusive' ? 'inconc' : (a.passed ? 'pass' : 'fail');
+    const glyph = ao === 'pass' ? '✓' : ao === 'inconc' ? '⚠' : '✗';
+    return `<div class="assertion ${ao === 'pass' ? '' : ao}">
+    <strong>${glyph}</strong> #${a.seq}
     ${a.context ? ' — ' + escapeHtml(a.context) : ''}
-  </div>`).join('');
+  </div>`;
+  }).join('');
 }
 
 function renderDetail(row) {
@@ -468,6 +484,7 @@ function renderDetail(row) {
 function matchesFilter(row, filter) {
   if (filter === 'all') return true;
   if (filter === 'failed') return row.status === 'FAILED' || row.status === 'ERRORED';
+  if (filter === 'inconclusive') return row.status === 'INCONCLUSIVE';
   if (filter === 'skipped') return row.status === 'EMPTY';
   if (filter === 'pending') return row.status === 'PENDING';
   return true;
@@ -496,6 +513,7 @@ function renderApp(state) {
           <div class="stat-pill"><span class="stat-dot pass"></span><span class="stat-num">${idx.counts.pass}</span><span class="stat-label">passed</span></div>
           <div class="stat-pill"><span class="stat-dot fail"></span><span class="stat-num">${idx.counts.fail}</span><span class="stat-label">failed</span></div>
           <div class="stat-pill"><span class="stat-dot error"></span><span class="stat-num">${idx.counts.error}</span><span class="stat-label">errored</span></div>
+          <div class="stat-pill"><span class="stat-dot inconc"></span><span class="stat-num">${idx.counts.inconc}</span><span class="stat-label">inconclusive</span></div>
           <div class="stat-pill"><span class="stat-dot skip"></span><span class="stat-num">${idx.counts.skip}</span><span class="stat-label">skipped</span></div>
           <div class="stat-pill"><span class="stat-dot pending"></span><span class="stat-num">${idx.counts.pending}</span><span class="stat-label">not run</span></div>
         </div>
@@ -530,6 +548,7 @@ function renderApp(state) {
         <div class="filter-tabs" id="filters">
           <button class="filter-tab active" data-filter="all">All</button>
           <button class="filter-tab" data-filter="failed">Failed</button>
+          <button class="filter-tab" data-filter="inconclusive">Inconclusive</button>
           <button class="filter-tab" data-filter="skipped">Skipped</button>
           <button class="filter-tab" data-filter="pending">Not run</button>
         </div>

@@ -43,6 +43,9 @@
     --error-bg: #faeeda;
     --error-fg: #854f0b;
     --error-dot: #ba7517;
+    --inconc-bg: #f8f0cf;
+    --inconc-fg: #7a6512;
+    --inconc-dot: #caa72a;
     
     --running-bg: #e6f1fb;
     --running-fg: #185fa5;
@@ -88,6 +91,9 @@
     --error-bg: #3a2510;
     --error-fg: #ef9f27;
     --error-dot: #ef9f27;
+    --inconc-bg: #33300f;
+    --inconc-fg: #e3c766;
+    --inconc-dot: #e3c766;
     --running-bg: #0c2840;
     --running-fg: #85b7eb;
     --running-dot: #85b7eb;
@@ -119,6 +125,9 @@
       --error-bg: #3a2510;
       --error-fg: #ef9f27;
       --error-dot: #ef9f27;
+      --inconc-bg: #33300f;
+      --inconc-fg: #e3c766;
+      --inconc-dot: #e3c766;
       --running-bg: #0c2840;
       --running-fg: #85b7eb;
       --running-dot: #85b7eb;
@@ -493,6 +502,7 @@
   .badge.error { background: var(--error-bg); color: var(--error-fg); }
   .badge.running { background: var(--running-bg); color: var(--running-fg); }
   .badge.new { background: var(--running-bg); color: var(--running-fg); }
+  .badge.inconc { background: var(--inconc-bg); color: var(--inconc-fg); }
 
   /* Loading prior results: pulse so a sub-second hydrate is still noticeable. */
   .badge.hydrating {
@@ -685,6 +695,7 @@
   .stat-dot.fail { background: var(--fail-dot); }
   .stat-dot.skip { background: var(--skip-dot); }
   .stat-dot.error { background: var(--error-dot); }
+  .stat-dot.inconc { background: var(--inconc-dot); }
   .stat-dot.running { background: var(--running-dot); animation: pulse 1.4s ease-in-out infinite; }
   
   @keyframes pulse {
@@ -715,6 +726,7 @@
   .progress-segment.fail { background: var(--fail-dot); }
   .progress-segment.error { background: var(--error-dot); }
   .progress-segment.skip { background: var(--skip-dot); }
+  .progress-segment.inconc { background: var(--inconc-dot); }
   .progress-track--run {
     outline: 1px solid var(--accent);
     outline-offset: 1px;
@@ -763,6 +775,8 @@
   .test-list[data-filter="errored"] .suite-group:not(:has(.test-row.error)) { display: none; }
   .test-list[data-filter="skipped"] .test-row:not(.skip) { display: none; }
   .test-list[data-filter="skipped"] .suite-group:not(:has(.test-row.skip)) { display: none; }
+  .test-list[data-filter="inconclusive"] .test-row:not(.inconc) { display: none; }
+  .test-list[data-filter="inconclusive"] .suite-group:not(:has(.test-row.inconc)) { display: none; }
   
   .suite-group { margin-bottom: 2px; }
   
@@ -835,10 +849,12 @@
   .status-icon.fail { color: var(--fail-fg); }
   .status-icon.skip { color: var(--skip-fg); }
   .status-icon.error { color: var(--error-fg); }
+  .status-icon.inconc { color: var(--inconc-fg); }
 
   .test-row.stale .status-icon.pass,
   .test-row.stale .status-icon.fail,
   .test-row.stale .status-icon.error,
+  .test-row.stale .status-icon.inconc,
   .test-row.stale .status-icon.skip {
     opacity: 0.55;
   }
@@ -1064,6 +1080,7 @@
   .detail-status.fail { background: var(--fail-bg); color: var(--fail-fg); }
   .detail-status.error { background: var(--error-bg); color: var(--error-fg); }
   .detail-status.skip { background: var(--skip-bg); color: var(--skip-fg); }
+  .detail-status.inconc { background: var(--inconc-bg); color: var(--inconc-fg); }
   
   .detail-title {
     font-size: 14px;
@@ -1115,6 +1132,13 @@
   }
   
   .assertion-block.fail .assertion-source { color: var(--fail-fg); }
+  
+  .assertion-block.inconc {
+    border-color: rgba(202,167,42,0.35);
+    background: var(--inconc-bg);
+  }
+  
+  .assertion-block.inconc .assertion-source { color: var(--inconc-fg); }
   
   .assertion-header {
     display: flex;
@@ -1254,6 +1278,7 @@
       <div class="filter-tabs" id="filter-tabs">
         <button class="filter-tab active" data-filter="all">All</button>
         <button class="filter-tab" data-filter="failed">Failed</button>
+        <button class="filter-tab" data-filter="inconclusive">Inconclusive</button>
         <button class="filter-tab" data-filter="skipped">Skipped</button>
       </div>
     </div>
@@ -1263,6 +1288,7 @@
       <div class="stat" data-filter="failed" role="button" tabindex="0" title="Show failed tests"><div class="stat-dot fail"></div><span class="stat-num" id="stat-failed">0</span><span class="stat-label">failed</span></div>
       <div class="stat" data-filter="errored" role="button" tabindex="0" title="Show errored tests"><div class="stat-dot error"></div><span class="stat-num" id="stat-errored">0</span><span class="stat-label">errored</span></div>
       <div class="stat" data-filter="skipped" role="button" tabindex="0" title="Show skipped tests"><div class="stat-dot skip"></div><span class="stat-num" id="stat-skipped">0</span><span class="stat-label">skipped</span></div>
+      <div class="stat" data-filter="inconclusive" role="button" tabindex="0" title="Show inconclusive tests"><div class="stat-dot inconc"></div><span class="stat-num" id="stat-inconclusive">0</span><span class="stat-label">inconclusive</span></div>
       <div class="stat stat-sep"><span class="stat-num" id="stat-tests">0</span><span class="stat-label">tests</span></div>
       <div class="stat"><span class="stat-num" id="stat-assertions">0</span><span class="stat-label">assertions</span></div>
       <div class="hydrate-status" id="hydrate-status" hidden><span class="hydrate-spinner"></span>Loading previous results&hellip;</div>
@@ -1270,6 +1296,7 @@
         <div class="progress-segment pass" id="prog-pass" style="width:0"></div>
         <div class="progress-segment fail" id="prog-fail" style="width:0"></div>
         <div class="progress-segment error" id="prog-error" style="width:0"></div>
+        <div class="progress-segment inconc" id="prog-inconc" style="width:0"></div>
       </div>
       <div class="duration" id="duration">--</div>
     </div>
@@ -1417,7 +1444,7 @@ const state = {
   lastRunKeys: null,       // keys from the most recent completed run
   lastRunOutcome: null,    // { total, passed, failed, errored } for last run only
   
-  counts: { passed: 0, failed: 0, errored: 0, skipped: 0, total: 0 },
+  counts: { passed: 0, failed: 0, errored: 0, skipped: 0, inconclusive: 0, total: 0 },
   
   hydrating: false,        // loading prior results from test-state.json
   hydrateShownAt: 0,       // when the indicator went up (minimum-visible hold)
@@ -1428,7 +1455,7 @@ const state = {
   
   reset() {
     this.results.clear();
-    this.counts = { passed: 0, failed: 0, errored: 0, skipped: 0, total: 0 };
+    this.counts = { passed: 0, failed: 0, errored: 0, skipped: 0, inconclusive: 0, total: 0 };
     this.startTime = Date.now();
   }
 };
@@ -2218,6 +2245,9 @@ function renderSuiteBadge(key, suite) {
   } else if (r.failed > 0) {
     span.className = 'badge fail';
     span.textContent = r.failed + ' fail';
+  } else if (r.inconclusive > 0) {
+    span.className = 'badge inconc';
+    span.textContent = r.inconclusive + ' inconc';
   } else if (r.passed > 0) {
     span.className = 'badge pass';
     span.textContent = r.passed;
@@ -2230,7 +2260,7 @@ function renderSuiteBadge(key, suite) {
 
 function aggregateSuiteResult(suiteKey) {
   const suite = state.testTree[suiteKey];
-  const out = { passed: 0, failed: 0, errored: 0, skipped: 0, running: false };
+  const out = { passed: 0, failed: 0, errored: 0, skipped: 0, inconclusive: 0, running: false };
   if (!suite) return out;
   for (const test of suite.tests) {
     const r = state.results.get(test.key);
@@ -2240,6 +2270,7 @@ function aggregateSuiteResult(suiteKey) {
     else if (r.status === 'fail') out.failed++;
     else if (r.status === 'error') out.errored++;
     else if (r.status === 'skip') out.skipped++;
+    else if (r.status === 'inconc') out.inconclusive++;
   }
   return out;
 }
@@ -2853,14 +2884,15 @@ function renderAssertionBlock(a, test) {
   // Contract per assertion: seq (1-based), passed (bool), context (optional string).
   // Same fields as test-state.json and results.html — VBA cannot capture call-site
   // source/line info (assertions arrive via Application.Run), so no sourceText here.
+  const ao = a.outcome === 'inconc' ? 'inconc' : (a.passed ? 'pass' : 'fail');
   const block = el('div', {
-    className: 'assertion-block ' + (a.passed ? 'pass' : 'fail')
+    className: 'assertion-block ' + ao
   });
 
   const header = el('div', { className: 'assertion-header' });
   const status = el('span', {
-    className: 'status-icon ' + (a.passed ? 'pass' : 'fail'),
-    text: a.passed ? '✓' : '✗'
+    className: 'status-icon ' + ao,
+    text: ao === 'pass' ? '✓' : ao === 'inconc' ? '⚠' : '✗'
   });
   header.appendChild(status);
   header.appendChild(document.createTextNode('Assertion ' + a.seq));
@@ -2995,7 +3027,7 @@ function updateRunButton() {
 }
 
 function computeRunCounts(keys) {
-  const c = { passed: 0, failed: 0, errored: 0, skipped: 0, pending: 0, running: 0, total: keys.length };
+  const c = { passed: 0, failed: 0, errored: 0, skipped: 0, inconclusive: 0, pending: 0, running: 0, total: keys.length };
   for (const k of keys) {
     const r = state.results.get(k);
     if (!r || r.status === 'pending') c.pending++;
@@ -3004,6 +3036,7 @@ function computeRunCounts(keys) {
     else if (r.status === 'fail') c.failed++;
     else if (r.status === 'error') c.errored++;
     else if (r.status === 'skip') c.skipped++;
+    else if (r.status === 'inconc') c.inconclusive++;
     else c.pending++;
   }
   return c;
@@ -3035,13 +3068,14 @@ function formatLastRunSummary(outcome) {
 // Recompute the counters from the current results map (keeps the stats bar correct
 // after a subset run that preserved other tests' results).
 function recomputeCounts() {
-  const c = { passed: 0, failed: 0, errored: 0, skipped: 0, total: countAllTests() };
+  const c = { passed: 0, failed: 0, errored: 0, skipped: 0, inconclusive: 0, total: countAllTests() };
   for (const r of state.results.values()) {
     if (!r) continue;
     if (r.status === 'pass') c.passed++;
     else if (r.status === 'fail') c.failed++;
     else if (r.status === 'error') c.errored++;
     else if (r.status === 'skip') c.skipped++;
+    else if (r.status === 'inconc') c.inconclusive++;
   }
   state.counts = c;
 }
@@ -3108,6 +3142,7 @@ function updateStats() {
   $('stat-failed').textContent = state.counts.failed;
   $('stat-errored').textContent = state.counts.errored;
   $('stat-skipped').textContent = state.counts.skipped;
+  $('stat-inconclusive').textContent = state.counts.inconclusive;
   
   // Standard test-report totals (PHPUnit-style "Tests: N, Assertions: N"): total tests
   // known, and total assertions executed so far.
@@ -3119,24 +3154,27 @@ function updateStats() {
   $('stat-assertions').textContent = assertions;
   
   const track = $('progress-track');
-  let progTotal, progPassed, progFailed, progErrored;
+  let progTotal, progPassed, progFailed, progErrored, progInconc;
   if (state.running && state.runKeys && state.runKeys.length) {
     const rc = computeRunCounts(state.runKeys);
     progTotal = state.runKeys.length || 1;
     progPassed = rc.passed;
     progFailed = rc.failed;
     progErrored = rc.errored;
+    progInconc = rc.inconclusive;
     if (track) track.classList.add('progress-track--run');
   } else {
     progTotal = state.counts.total || 1;
     progPassed = state.counts.passed;
     progFailed = state.counts.failed;
     progErrored = state.counts.errored;
+    progInconc = state.counts.inconclusive;
     if (track) track.classList.remove('progress-track--run');
   }
   $('prog-pass').style.width = (progPassed / progTotal * 100) + '%';
   $('prog-fail').style.width = (progFailed / progTotal * 100) + '%';
   $('prog-error').style.width = (progErrored / progTotal * 100) + '%';
+  $('prog-inconc').style.width = (progInconc / progTotal * 100) + '%';
 }
 
 function startDurationTimer() {
@@ -3170,9 +3208,10 @@ function deriveRunStatus() {
   if (state.running) return 'running';
   if (state.hydrating) return 'hydrating';
   const executed = state.counts.passed + state.counts.failed +
-    state.counts.errored + state.counts.skipped;
+    state.counts.errored + state.counts.skipped + state.counts.inconclusive;
   if (executed === 0) return 'ready';
   if (state.counts.failed + state.counts.errored > 0) return 'failed';
+  if (state.counts.inconclusive > 0) return 'inconclusive';
   return 'passed';
 }
 
@@ -3182,11 +3221,11 @@ function updatePageHeader() {
   const meta = $('header-meta');
   const labels = {
     ready: 'Ready', running: 'Running', cancelling: 'Cancelling…',
-    hydrating: 'Loading previous results…', passed: 'Passed', failed: 'Failed'
+    hydrating: 'Loading previous results…', passed: 'Passed', failed: 'Failed', inconclusive: 'Inconclusive'
   };
   const classes = {
     ready: 'skip', running: 'running', cancelling: 'running',
-    hydrating: 'hydrating', passed: 'pass', failed: 'fail'
+    hydrating: 'hydrating', passed: 'pass', failed: 'fail', inconclusive: 'inconc'
   };
 
   badge.textContent = labels[status];

@@ -62,6 +62,7 @@ Welcome! This wiki documents installation and usage of the **MSAccess Version Co
 |------|-------------|
 | [Editing and Contributing](Editing-and-Contributing) | Fork, build add-in from source, `Deploy`, pull requests |
 | [Testing](Testing) | Unit tests, round-trip fixtures, integration database |
+| [Rubberduck Testing Support](Rubberduck-Testing-Support) | Migrate and run `@TestModule` suites through the VCS test runner |
 | [Regression Testing](Regression-Testing) | Query round-trip harness and fixture contribution workflow |
 | [Project Scope](Project-Scope) | What belongs in this add-in vs out of scope |
 | [Terminology and Style Guide](Terminology-and-Style-Guide) | Wiki and UI writing conventions |

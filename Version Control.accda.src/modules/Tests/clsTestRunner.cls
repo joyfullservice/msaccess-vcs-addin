@@ -42,6 +42,16 @@ Public Enum eTestStatus
     etsFailed = 2
     etsErrored = 3
     etsEmpty = 4
+    etsInconclusive = 5
+    etsSkipped = 6
+End Enum
+
+' Per-assertion outcome. Boolean TestAssert maps to Passed/Failed; the Rubberduck
+' shim reports Inconclusive for type-mismatch/value-identity asserts and Assert.Inconclusive.
+Public Enum eAssertOutcome
+    eaoPassed = 1
+    eaoFailed = 2
+    eaoInconclusive = 3
 End Enum
 
 ' Private UDT for internal state
@@ -49,6 +59,9 @@ Private Type udtTestRunner
     State As eTestRunnerState
     Tests As Dictionary             ' Key: "ModuleName.ProcName", Value: Dictionary (test record)
     SuiteMap As Dictionary          ' Key: folder path, Value: Collection of test keys
+    ModuleLifecycle As Dictionary   ' Key: RD module name, Value: Dictionary of lifecycle proc names
+    DispatchMap As Dictionary       ' Key: "<module>|<proc>", Value: unique wrapper proc name
+    DispatchModuleName As String    ' Name of the generated dispatcher module (empty if none)
     CurrentTestKey As String
     AssertionCounter As Long
     AssertionResults As Collection  ' Collection of assertion result Dictionaries for current test
@@ -58,9 +71,12 @@ Private Type udtTestRunner
     FailedCount As Long
     ErroredCount As Long
     EmptyCount As Long
+    InconclusiveCount As Long
+    SkippedCount As Long
     TotalAssertions As Long
     PassedAssertions As Long
     FailedAssertions As Long
+    InconclusiveAssertions As Long
     ScannedAssertionCount As Long
     LastRunDurationMs As Long
     LastRunKeys As Collection
@@ -122,6 +138,12 @@ Public Property Get ErroredCount() As Long
 End Property
 Public Property Get EmptyCount() As Long
     EmptyCount = this.EmptyCount
+End Property
+Public Property Get InconclusiveCount() As Long
+    InconclusiveCount = this.InconclusiveCount
+End Property
+Public Property Get SkippedCount() As Long
+    SkippedCount = this.SkippedCount
 End Property
 Public Property Get ScannedAssertionCount() As Long
     ScannedAssertionCount = this.ScannedAssertionCount
@@ -246,6 +268,11 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim lngErrAtStart As Long
     Dim lngErrJournalAtStart As Long
     Dim eelAtStart As eErrorLevel
+    Dim strInitializedModule As String
+    Dim blnRd As Boolean
+    Dim strDispatch As String
+    Dim lngCleanErr As Long
+    Dim strCleanDesc As String
 
     ' Re-entrancy guard: a run must never nest. The web runner streams progress with
     ' DoEvents between tests, which can dispatch a queued bridge call (RunAll/etc.).
@@ -287,6 +314,14 @@ Public Sub RunSelected(colTestKeys As Collection)
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
 
+    ' Generate the Rubberduck dispatcher (uniquely-named wrappers that call each RD
+    ' proc module-qualified). Access Application.Run cannot resolve a proc name shared
+    ' across standard modules, and every RD module reuses the same lifecycle names, so
+    ' without this a multi-module RD run invokes the wrong module's lifecycle (or none).
+    ' Best-effort: on failure we fall back to direct Application.Run. Must run before the
+    ' compile below so the injected wrappers are compiled with the rest of the project.
+    BuildDispatcher
+
     ' Compile project before running tests
     On Error Resume Next
     DoCmd.RunCommand acCmdCompileAllModules
@@ -321,11 +356,12 @@ Public Sub RunSelected(colTestKeys As Collection)
 
     modTestRunnerUI.StreamRunStart colTestKeys
 
-    ' Reset status on all selected tests
+    ' Reset status on all selected tests. Skipped tests (@IgnoreTest) keep their
+    ' status; they are recorded without executing.
     For Each varKey In colTestKeys
         If this.Tests.Exists(CStr(varKey)) Then
             Set dTest = this.Tests(CStr(varKey))
-            dTest("status") = etsPending
+            dTest("status") = IIf(IsSkipped(dTest), etsSkipped, etsPending)
             Set dTest("assertionResults") = New Collection
         End If
     Next varKey
@@ -357,6 +393,8 @@ Public Sub RunSelected(colTestKeys As Collection)
         this.CurrentTestKey = strTestKey
         this.AssertionCounter = 0
         Set this.AssertionResults = New Collection
+        lngErrNum = 0
+        strErrDesc = vbNullString
         lngErrAtStart = Log.ErrorCount
         lngErrJournalAtStart = Log.ErrorJournalCount
         eelAtStart = Operation.ErrorLevel
@@ -365,11 +403,36 @@ Public Sub RunSelected(colTestKeys As Collection)
 
         modTestRunnerUI.StreamTestStart strTestKey, dTest
 
+        ' Skipped tests (@IgnoreTest) are recorded without executing. Handled before
+        ' the module-change block so an all-skipped module never triggers
+        ' @ModuleInitialize (which may run live setup for integration suites).
+        If IsSkipped(dTest) Then
+            dTest("status") = etsSkipped
+            dTest("durationMs") = CLng(0)
+            this.SkippedCount = this.SkippedCount + 1
+            LogTestResult strProcName, "SKIP", "gray"
+            modTestRunnerUI.StreamTestComplete strTestKey, dTest
+            lngCurrent = lngCurrent + 1
+            Log.Progress lngCurrent, lngTotal, strProcName
+            Operation.Pulse
+            GoTo NextTest
+        End If
+
         ' Emit module heading when the module changes
         If StrComp(CStr(dTest("moduleName")), strCurrentModule, vbTextCompare) <> 0 Then
+            ' Run @ModuleCleanup for the Rubberduck module we are leaving
+            If Len(strInitializedModule) > 0 Then
+                InvokeModuleLifecycle strInitializedModule, "cleanup"
+                strInitializedModule = vbNullString
+            End If
             strCurrentModule = CStr(dTest("moduleName"))
             Log.Add strCurrentModule, True, True, vbNullString, True
             Log.Flush   ' Update the console
+            ' Run @ModuleInitialize once for the Rubberduck module we are entering
+            If IsRdModule(strCurrentModule) Then
+                InvokeModuleLifecycle strCurrentModule, "init"
+                strInitializedModule = strCurrentModule
+            End If
         End If
 
         If dTest("sourceType") = "class" Then
@@ -402,23 +465,52 @@ Public Sub RunSelected(colTestKeys As Collection)
             Set obj = Nothing
         Else
             ' --- Standard module test: Application.Run ---
-            If Not GlobalProcExists(strProcName) Then
+            blnRd = IsRdModule(CStr(dTest("moduleName")))
+
+            ' RD-module procs are invoked through the generated dispatcher because Access
+            ' Application.Run cannot resolve a proc name shared across modules (and the
+            ' dispatcher also reaches Option Private Module procs, which GlobalProcExists
+            ' reports as not callable). Non-RD procs use the direct project-qualified call.
+            strDispatch = vbNullString
+            If blnRd Then strDispatch = DispatchName(CStr(dTest("moduleName")), strProcName)
+
+            If Len(strDispatch) > 0 Then
+                strCmd = BuildRunCmd(strDispatch)
+            ElseIf Not GlobalProcExists(strProcName) Then
                 dTest("status") = etsErrored
                 dTest("errorMessage") = "Not callable (Option Private Module or not found): " & strProcName
                 this.ErroredCount = this.ErroredCount + 1
                 LogTestResult strProcName, "SKIP", "orange"
                 Log.Add "    " & dTest("errorMessage"), False
                 GoTo NextTest
+            Else
+                strCmd = BuildRunCmd(strProcName)
             End If
 
-            strCmd = BuildRunCmd(strProcName)
             curStart = Perf.MicroTimer
-            On Error Resume Next
-            Application.Run strCmd
-            lngErrNum = Err.Number
-            strErrDesc = Err.Description
-            If lngErrNum <> 0 Then Err.Clear
-            On Error GoTo 0
+
+            ' Rubberduck @TestInitialize runs before the test body
+            If blnRd Then lngErrNum = RunTestPhase(CStr(dTest("moduleName")), "testInit", strErrDesc)
+
+            ' Skip the test body if setup already failed
+            If lngErrNum = 0 Then
+                On Error Resume Next
+                Application.Run strCmd
+                lngErrNum = Err.Number
+                strErrDesc = Err.Description
+                If lngErrNum <> 0 Then Err.Clear
+                On Error GoTo 0
+            End If
+
+            ' Rubberduck @TestCleanup runs after the test body regardless of outcome;
+            ' a cleanup error only surfaces when the test did not already fail.
+            If blnRd Then
+                lngCleanErr = RunTestPhase(CStr(dTest("moduleName")), "testCleanup", strCleanDesc)
+                If lngErrNum = 0 And lngCleanErr <> 0 Then
+                    lngErrNum = lngCleanErr
+                    strErrDesc = strCleanDesc
+                End If
+            End If
         End If
 
         ' Store assertion results and duration
@@ -450,6 +542,11 @@ Public Sub RunSelected(colTestKeys As Collection)
             this.FailedCount = this.FailedCount + 1
             LogTestResult strProcName, "FAIL", "red", dTest("durationMs")
             LogAssertionDetails this.AssertionResults
+        ElseIf AnyAssertionInconclusive(this.AssertionResults) Then
+            dTest("status") = etsInconclusive
+            this.InconclusiveCount = this.InconclusiveCount + 1
+            LogTestResult strProcName, "INCONC", "orange", dTest("durationMs")
+            LogAssertionDetails this.AssertionResults
         Else
             dTest("status") = etsPassed
             this.PassedCount = this.PassedCount + 1
@@ -467,6 +564,11 @@ NextTest:
     Next varKey
 
 AfterTestLoop:
+    ' Run @ModuleCleanup for the final Rubberduck module (loop exited or cancelled)
+    If Len(strInitializedModule) > 0 Then
+        InvokeModuleLifecycle strInitializedModule, "cleanup"
+        strInitializedModule = vbNullString
+    End If
     Log.KeepProgressVisible = False
     If Not Log.ProgressBar Is Nothing Then Log.ProgressBar.Hide
     Perf.OperationEnd
@@ -483,6 +585,8 @@ AfterTestLoop:
     LogRunSummary
 
 CleanUp:
+    ' Remove the generated Rubberduck dispatcher module (no-op when none was created)
+    RemoveDispatcher
     ' Restore original error trapping settings
     Options.BreakOnError = blnBreakOnError
     Application.SetOption "Error Trapping", intErrorTrapping
@@ -786,20 +890,34 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub RecordAssertion(ByVal blnCondition As Boolean, ByVal varContext As Variant)
+    RecordAssertionOutcome IIf(blnCondition, eaoPassed, eaoFailed), varContext
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RecordAssertionOutcome
+' Author    : Matthew Pfluger
+' Date      : 8/2/2026
+' Purpose   : Tri-state assertion recorder. The Rubberduck shim reports Inconclusive
+'           : outcomes here; the Boolean RecordAssertion delegates to it.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RecordAssertionOutcome(ByVal lngOutcome As Long, ByVal varContext As Variant)
 
     Dim dResult As Dictionary
 
     this.AssertionCounter = this.AssertionCounter + 1
     this.TotalAssertions = this.TotalAssertions + 1
-    If blnCondition Then
-        this.PassedAssertions = this.PassedAssertions + 1
-    Else
-        this.FailedAssertions = this.FailedAssertions + 1
-    End If
+    Select Case lngOutcome
+        Case eaoInconclusive: this.InconclusiveAssertions = this.InconclusiveAssertions + 1
+        Case eaoFailed:       this.FailedAssertions = this.FailedAssertions + 1
+        Case Else:            this.PassedAssertions = this.PassedAssertions + 1
+    End Select
 
     Set dResult = New Dictionary
     dResult.Add "seq", this.AssertionCounter
-    dResult.Add "passed", blnCondition
+    dResult.Add "outcome", lngOutcome
+    dResult.Add "passed", (lngOutcome = eaoPassed)
     dResult.Add "context", IIf(IsMissing(varContext) Or IsEmpty(varContext), vbNullString, CStr(varContext))
 
     this.AssertionResults.Add dResult
@@ -845,12 +963,14 @@ Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullS
     If Len(strJUnitPath) > 0 Then dRoot.Add "junitPath", strJUnitPath
     If Len(strStatePath) > 0 Then dRoot.Add "statePath", strStatePath
 
-    dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
+    dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount + this.InconclusiveCount + this.SkippedCount
     dSummary.Add "assertions", this.TotalAssertions
     dSummary.Add "passed", this.PassedAssertions
     dSummary.Add "failed", this.FailedAssertions
     dSummary.Add "errored", this.ErroredCount
     dSummary.Add "empty", this.EmptyCount
+    dSummary.Add "inconclusive", this.InconclusiveCount
+    dSummary.Add "skipped", this.SkippedCount
     Set dRoot("summary") = dSummary
 
     If Not this.Tests Is Nothing Then
@@ -904,6 +1024,7 @@ Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullS
                 Set dAOut = New Dictionary
                 dAOut.Add "seq", dA("seq")
                 dAOut.Add "passed", dA("passed")
+                If dA.Exists("outcome") Then dAOut.Add "outcome", OutcomeToString(CLng(dA("outcome")))
                 If Len(dA("context")) > 0 Then dAOut.Add "context", dA("context")
                 colAssertOut.Add dAOut
             Next i
@@ -1147,8 +1268,9 @@ End Function
 ' Date      : 5/7/2026
 ' Purpose   : Determine whether a VBComponent is a test module using discovery rules:
 '           :   1. Standard modules or standalone class modules (not forms/reports)
-'           :   2. @Folder annotation containing "Tests" segment (if project uses folders)
-'           :   3. Name containing "Test" (fallback if no @Folder tags in project)
+'           :   2. @TestModule annotation (Rubberduck module, authoritative)
+'           :   3. @Folder annotation containing "Tests" segment (if project uses folders)
+'           :   4. Name containing "Test" (fallback if no @Folder tags in project)
 '---------------------------------------------------------------------------------------
 '
 Private Function IsTestModule(cmp As VBIDE.VBComponent, _
@@ -1165,10 +1287,22 @@ Private Function IsTestModule(cmp As VBIDE.VBComponent, _
 
     On Error Resume Next
 
+    ' Read the module header once for annotation checks
+    If cmp.CodeModule.CountOfLines > 0 Then
+        strCode = cmp.CodeModule.Lines(1, IIf(cmp.CodeModule.CountOfLines < 30, cmp.CodeModule.CountOfLines, 30))
+    End If
+
+    ' A Rubberduck test module (@TestModule) is authoritative regardless of its @Folder
+    ' path. Its domain @Folder (e.g. "AMPHobby") has no "Tests" segment, so the gate below
+    ' would otherwise reject it before annotation-driven discovery runs.
+    If HasAnnotation(strCode, "TESTMODULE") Then
+        IsTestModule = True
+        Exit Function
+    End If
+
     If blnHasFolderTags Then
         ' Use @Folder annotation: look for a "Tests" segment
-        If cmp.CodeModule.CountOfLines > 0 Then
-            strCode = cmp.CodeModule.Lines(1, IIf(cmp.CodeModule.CountOfLines < 30, cmp.CodeModule.CountOfLines, 30))
+        If Len(strCode) > 0 Then
             strFolder = ExtractFolderAnnotation(strCode)
             If Len(strFolder) > 0 Then
                 IsTestModule = FolderContainsTestsSegment(strFolder)
@@ -1528,13 +1662,9 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
     Dim strTrimmed As String
     Dim strProcName As String
     Dim strFolder As String
-    Dim strTestKey As String
-    Dim dTest As Dictionary
     Dim blnIsClass As Boolean
     Dim blnMatched As Boolean
     Dim colModuleTags As Collection
-    Dim colProcTags As Collection
-    Dim colCombined As Collection
     Dim strHeader As String
 
     On Error Resume Next
@@ -1563,6 +1693,12 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
     Next lngLine
     Set colModuleTags = ExtractTags(strHeader)
 
+    ' Rubberduck test modules declare '@TestModule in the header. They rarely contain a
+    ' literal "TestAssert " token (assertions run through Assert.* via the shim), so the
+    ' assertion-count gate below is bypassed for them and discovery is annotation-driven.
+    Dim blnRdModule As Boolean
+    blnRdModule = HasAnnotation(strHeader, "TESTMODULE")
+
     ' Count TestAssert calls to determine if this is a test module and how many assertions it contains
     Dim lngAssertCount As Long
     For lngLine = LBound(varLines) To UBound(varLines)
@@ -1570,55 +1706,301 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
             lngAssertCount = lngAssertCount + 1
         End If
     Next lngLine
-    If lngAssertCount = 0 Then Exit Sub
+    If lngAssertCount = 0 And Not blnRdModule Then Exit Sub
     this.ScannedAssertionCount = this.ScannedAssertionCount + lngAssertCount
 
+    Dim dLifecycle As Dictionary
+    If blnRdModule Then Set dLifecycle = New Dictionary
+
+    Dim strAnnBlock As String
     For lngLine = LBound(varLines) To UBound(varLines)
         strTrimmed = Trim$(varLines(lngLine))
 
-        ' For class modules, match both Sub and Function
-        If blnIsClass Then
-            blnMatched = IsParameterlessMethod(strTrimmed, strProcName)
-        Else
-            blnMatched = IsParameterlessSub(strTrimmed, strProcName)
-        End If
-
-        If blnMatched Then
-            ' Skip class lifecycle methods
-            If blnIsClass And Left$(LCase$(strProcName), 6) = "class_" Then GoTo NextLine
-
-            strTestKey = cmp.Name & "." & strProcName
-
-            ' Collect procedure-level tags from the preceding comment block
-            Set colProcTags = ExtractProcedureTags(varLines, lngLine)
-
-            ' Combine module-level and procedure-level tags
-            Set colCombined = MergeTagCollections(colModuleTags, colProcTags)
-
-            Set dTest = New Dictionary
-            dTest.Add "moduleName", cmp.Name
-            dTest.Add "procName", strProcName
-            dTest.Add "line", CLng(lngLine + 1)
-            dTest.Add "folder", strFolder
-            dTest.Add "sourceType", IIf(blnIsClass, "class", "module")
-            dTest.Add "status", CLng(etsPending)
-            dTest.Add "durationMs", CLng(0)
-            Set dTest("tags") = colCombined
-            Set dTest("assertionResults") = New Collection
-
-            this.Tests.Add strTestKey, dTest
-
-            ' Add to suite map
-            If Not this.SuiteMap.Exists(strFolder) Then
-                this.SuiteMap.Add strFolder, New Collection
+        If blnRdModule Then
+            ' --- Rubberduck discovery: annotation-driven, any visibility ---
+            If GetProcDeclName(strTrimmed, strProcName) Then
+                strAnnBlock = PrecedingAnnotationBlock(varLines, lngLine)
+                If HasAnnotation(strAnnBlock, "TESTMETHOD") Then
+                    ' @IgnoreTest is registered as a skipped test (recorded, not run)
+                    ' so the suite still surfaces and counts it, matching Rubberduck.
+                    If HasAnnotation(strAnnBlock, "IGNORETEST") Then
+                        RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines, _
+                            True, ExtractIgnoreReason(strAnnBlock), ExtractTestMethodCategory(strAnnBlock)
+                    Else
+                        RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines, _
+                            strCategoryTag:=ExtractTestMethodCategory(strAnnBlock)
+                    End If
+                ElseIf HasAnnotation(strAnnBlock, "MODULEINITIALIZE") Then
+                    dLifecycle("init") = strProcName
+                ElseIf HasAnnotation(strAnnBlock, "MODULECLEANUP") Then
+                    dLifecycle("cleanup") = strProcName
+                ElseIf HasAnnotation(strAnnBlock, "TESTINITIALIZE") Then
+                    dLifecycle("testInit") = strProcName
+                ElseIf HasAnnotation(strAnnBlock, "TESTCLEANUP") Then
+                    dLifecycle("testCleanup") = strProcName
+                End If
             End If
-            this.SuiteMap(strFolder).Add strTestKey
+        Else
+            ' --- TestAssert discovery: parameterless Public procs ---
+            If blnIsClass Then
+                blnMatched = IsParameterlessMethod(strTrimmed, strProcName)
+            Else
+                blnMatched = IsParameterlessSub(strTrimmed, strProcName)
+            End If
+
+            If blnMatched Then
+                ' Skip class lifecycle methods
+                If blnIsClass And Left$(LCase$(strProcName), 6) = "class_" Then GoTo NextLine
+                RegisterTest cmp, strProcName, lngLine, strFolder, blnIsClass, colModuleTags, varLines
+            End If
         End If
 
 NextLine:
     Next lngLine
 
+    ' Record RD lifecycle hooks so the run loop can drive them (even when empty, so the
+    ' module is recognized as Rubberduck-style at run time).
+    If blnRdModule Then
+        If Not this.ModuleLifecycle.Exists(cmp.Name) Then this.ModuleLifecycle.Add cmp.Name, dLifecycle
+    End If
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RegisterTest
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Register a single discovered test procedure into the Tests dictionary and
+'           : suite map. Shared by the TestAssert and Rubberduck discovery paths.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RegisterTest(cmp As VBIDE.VBComponent, ByVal strProcName As String, _
+                         ByVal lngLine As Long, ByVal strFolder As String, _
+                         ByVal blnIsClass As Boolean, colModuleTags As Collection, _
+                         varLines As Variant, _
+                         Optional ByVal blnSkipped As Boolean = False, _
+                         Optional ByVal strSkipReason As String = vbNullString, _
+                         Optional ByVal strCategoryTag As String = vbNullString)
+
+    Dim strTestKey As String
+    Dim colProcTags As Collection
+    Dim colCombined As Collection
+    Dim dTest As Dictionary
+
+    strTestKey = cmp.Name & "." & strProcName
+    If this.Tests.Exists(strTestKey) Then Exit Sub
+
+    ' Collect and merge procedure-level and module-level tags
+    Set colProcTags = ExtractProcedureTags(varLines, lngLine)
+    Set colCombined = MergeTagCollections(colModuleTags, colProcTags)
+
+    ' Rubberduck's @TestMethod("category") is surfaced as a filterable tag so category
+    ' filters (e.g. VCS.RunTests("-Integration")) work without a redundant '@Tag.
+    If Len(strCategoryTag) > 0 Then
+        On Error Resume Next
+        colCombined.Add LCase$(strCategoryTag), LCase$(strCategoryTag)
+        On Error GoTo 0
+    End If
+
+    Set dTest = New Dictionary
+    dTest.Add "moduleName", cmp.Name
+    dTest.Add "procName", strProcName
+    dTest.Add "line", CLng(lngLine + 1)
+    dTest.Add "folder", strFolder
+    dTest.Add "sourceType", IIf(blnIsClass, "class", "module")
+    dTest.Add "status", CLng(IIf(blnSkipped, etsSkipped, etsPending))
+    dTest.Add "durationMs", CLng(0)
+    Set dTest("tags") = colCombined
+    Set dTest("assertionResults") = New Collection
+    If blnSkipped Then
+        dTest.Add "skipped", True
+        If Len(strSkipReason) > 0 Then dTest.Add "errorMessage", strSkipReason
+    End If
+
+    this.Tests.Add strTestKey, dTest
+
+    If Not this.SuiteMap.Exists(strFolder) Then
+        this.SuiteMap.Add strFolder, New Collection
+    End If
+    this.SuiteMap(strFolder).Add strTestKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasAnnotation
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Return True if the given code block contains a Rubberduck annotation with
+'           : the supplied name (pass the name without the leading '@, e.g. "TESTMETHOD").
+'---------------------------------------------------------------------------------------
+'
+Private Function HasAnnotation(strCode As String, strName As String) As Boolean
+    HasAnnotation = (InStr(1, strCode, "'@" & strName, vbTextCompare) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsSkipped
+' Author    : Matthew Pfluger
+' Date      : 8/3/2026
+' Purpose   : True when a discovered test carries the skipped flag (@IgnoreTest). Guards
+'           : against Scripting.Dictionary key auto-vivification on read.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsSkipped(dTest As Dictionary) As Boolean
+    If dTest.Exists("skipped") Then IsSkipped = (dTest("skipped") = True)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractIgnoreReason
+' Author    : Matthew Pfluger
+' Date      : 8/3/2026
+' Purpose   : Return the optional quoted reason on an '@IgnoreTest annotation
+'           : (e.g. '@IgnoreTest "Integration test"). Empty string when absent.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractIgnoreReason(strBlock As String) As String
+
+    Dim lngPos As Long
+    Dim strAfter As String
+    Dim lngEol As Long
+    Dim lngQ1 As Long
+    Dim lngQ2 As Long
+
+    lngPos = InStr(1, strBlock, "'@IGNORETEST", vbTextCompare)
+    If lngPos = 0 Then Exit Function
+
+    strAfter = Mid$(strBlock, lngPos + Len("'@IgnoreTest"))
+    lngEol = InStr(strAfter, vbCr)
+    If lngEol = 0 Then lngEol = InStr(strAfter, vbLf)
+    If lngEol > 0 Then strAfter = Left$(strAfter, lngEol - 1)
+
+    lngQ1 = InStr(strAfter, """")
+    If lngQ1 = 0 Then Exit Function
+    lngQ2 = InStr(lngQ1 + 1, strAfter, """")
+    If lngQ2 > lngQ1 Then ExtractIgnoreReason = Mid$(strAfter, lngQ1 + 1, lngQ2 - lngQ1 - 1)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractTestMethodCategory
+' Author    : Matthew Pfluger
+' Date      : 8/5/2026
+' Purpose   : Parse the optional category argument from a Rubberduck '@TestMethod("...")
+'           : annotation. Rubberduck groups tests by this category (e.g. "Integration");
+'           : we surface it as a filterable tag so VCS.RunTests("-Integration") works
+'           : without a redundant '@Tag. Returns "" when no category is present.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractTestMethodCategory(strBlock As String) As String
+
+    Dim lngPos As Long
+    Dim strAfter As String
+    Dim lngEol As Long
+    Dim lngQ1 As Long
+    Dim lngQ2 As Long
+
+    lngPos = InStr(1, strBlock, "'@TESTMETHOD", vbTextCompare)
+    If lngPos = 0 Then Exit Function
+
+    strAfter = Mid$(strBlock, lngPos + Len("'@TestMethod"))
+    lngEol = InStr(strAfter, vbCr)
+    If lngEol = 0 Then lngEol = InStr(strAfter, vbLf)
+    If lngEol > 0 Then strAfter = Left$(strAfter, lngEol - 1)
+
+    lngQ1 = InStr(strAfter, """")
+    If lngQ1 = 0 Then Exit Function
+    lngQ2 = InStr(lngQ1 + 1, strAfter, """")
+    If lngQ2 > lngQ1 Then ExtractTestMethodCategory = Trim$(Mid$(strAfter, lngQ1 + 1, lngQ2 - lngQ1 - 1))
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetProcDeclName
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Recognize a Sub or Function declaration of any visibility and return its
+'           : name via the ByRef parameter. Used for Rubberduck discovery, where test
+'           : and lifecycle procedures may be Private/Friend.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetProcDeclName(strTrimmed As String, ByRef strName As String) As Boolean
+
+    Dim strWork As String
+    Dim strUpper As String
+    Dim lngPos As Long
+    Dim lngParen As Long
+
+    strWork = strTrimmed
+    strUpper = UCase$(strWork)
+
+    ' Strip a leading scope keyword
+    If Left$(strUpper, 7) = "PUBLIC " Then
+        strWork = Trim$(Mid$(strWork, 8))
+    ElseIf Left$(strUpper, 8) = "PRIVATE " Then
+        strWork = Trim$(Mid$(strWork, 9))
+    ElseIf Left$(strUpper, 7) = "FRIEND " Then
+        strWork = Trim$(Mid$(strWork, 8))
+    End If
+    strUpper = UCase$(strWork)
+
+    ' Strip an optional Static keyword
+    If Left$(strUpper, 7) = "STATIC " Then
+        strWork = Trim$(Mid$(strWork, 8))
+        strUpper = UCase$(strWork)
+    End If
+
+    If Left$(strUpper, 4) = "SUB " Then
+        lngPos = 5
+    ElseIf Left$(strUpper, 9) = "FUNCTION " Then
+        lngPos = 10
+    Else
+        Exit Function
+    End If
+
+    lngParen = InStr(lngPos, strWork, "(")
+    If lngParen = 0 Then Exit Function
+
+    strName = Trim$(Mid$(strWork, lngPos, lngParen - lngPos))
+    GetProcDeclName = (Len(strName) > 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrecedingAnnotationBlock
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Collect the contiguous comment lines immediately above a declaration line
+'           : (Rubberduck annotations sit directly above the Sub/Function). Stops at the
+'           : first blank or non-comment line.
+'---------------------------------------------------------------------------------------
+'
+Private Function PrecedingAnnotationBlock(varLines As Variant, ByVal lngDeclLine As Long) As String
+
+    Dim lngScan As Long
+    Dim strTrimmed As String
+    Dim strBlock As String
+
+    For lngScan = lngDeclLine - 1 To LBound(varLines) Step -1
+        strTrimmed = Trim$(varLines(lngScan))
+        If Len(strTrimmed) = 0 Then
+            Exit For
+        ElseIf Left$(strTrimmed, 1) = "'" Then
+            strBlock = strTrimmed & vbCrLf & strBlock
+        Else
+            Exit For
+        End If
+    Next lngScan
+
+    PrecedingAnnotationBlock = strBlock
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -1781,6 +2163,308 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IsRdModule
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Return True if the named module was discovered as a Rubberduck test module
+'           : (it declares '@TestModule) and therefore participates in RD lifecycle.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsRdModule(strModule As String) As Boolean
+    If this.ModuleLifecycle Is Nothing Then Exit Function
+    IsRdModule = this.ModuleLifecycle.Exists(strModule)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LifecycleProc
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Return the procedure name registered for a Rubberduck lifecycle slot
+'           : ("init", "cleanup", "testInit", "testCleanup") on a module, or "" if none.
+'---------------------------------------------------------------------------------------
+'
+Private Function LifecycleProc(strModule As String, strKey As String) As String
+    Dim dLc As Dictionary
+    If this.ModuleLifecycle Is Nothing Then Exit Function
+    If Not this.ModuleLifecycle.Exists(strModule) Then Exit Function
+    Set dLc = this.ModuleLifecycle(strModule)
+    If dLc.Exists(strKey) Then LifecycleProc = CStr(dLc(strKey))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunTestPhase
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Invoke a Rubberduck @TestInitialize/@TestCleanup proc for a module and
+'           : return its error number (0 when absent or successful). Any error is folded
+'           : into the owning test's outcome by the caller.
+'---------------------------------------------------------------------------------------
+'
+Private Function RunTestPhase(strModule As String, strKey As String, ByRef strErrDesc As String) As Long
+
+    Dim strProc As String
+    Dim strCmd As String
+    strProc = LifecycleProc(strModule, strKey)
+    If Len(strProc) = 0 Then Exit Function
+
+    strCmd = DispatchName(strModule, strProc)
+    If Len(strCmd) > 0 Then
+        strCmd = BuildRunCmd(strCmd)
+    ElseIf GlobalProcExists(strProc) Then
+        strCmd = BuildRunCmd(strProc)
+    Else
+        Exit Function
+    End If
+
+    On Error Resume Next
+    Application.Run strCmd
+    RunTestPhase = Err.Number
+    strErrDesc = Err.Description
+    If Err.Number <> 0 Then Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InvokeModuleLifecycle
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Invoke a Rubberduck @ModuleInitialize/@ModuleCleanup proc once for a
+'           : module. Failures are logged (never counted against a test), mirroring the
+'           : global-hook contract; a broken @ModuleInitialize will naturally error each
+'           : test in the module.
+'---------------------------------------------------------------------------------------
+'
+Private Sub InvokeModuleLifecycle(strModule As String, strKey As String)
+
+    Dim strProc As String
+    Dim strCmd As String
+    Dim lngErrNum As Long
+    Dim strErrDesc As String
+
+    strProc = LifecycleProc(strModule, strKey)
+    If Len(strProc) = 0 Then Exit Sub
+
+    strCmd = DispatchName(strModule, strProc)
+    If Len(strCmd) > 0 Then
+        strCmd = BuildRunCmd(strCmd)
+    ElseIf GlobalProcExists(strProc) Then
+        strCmd = BuildRunCmd(strProc)
+    Else
+        Exit Sub
+    End If
+
+    On Error Resume Next
+    Application.Run strCmd
+    lngErrNum = Err.Number
+    strErrDesc = Err.Description
+    If lngErrNum <> 0 Then Err.Clear
+    On Error GoTo 0
+
+    If lngErrNum <> 0 Then
+        Log.Add T("Test lifecycle {0} error {1}: {2}", _
+            var0:=strModule & "." & strKey, var1:=lngErrNum, var2:=strErrDesc), False, , "orange"
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DispatchName
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Return the unique dispatcher wrapper name generated for a Rubberduck
+'           : module.proc pair, or "" when no dispatcher was built for it (e.g. the
+'           : dispatcher failed to inject and we fell back to direct invocation).
+'---------------------------------------------------------------------------------------
+'
+Private Function DispatchName(strModule As String, strProc As String) As String
+    If this.DispatchMap Is Nothing Then Exit Function
+    Dim strKey As String
+    strKey = strModule & "|" & strProc
+    If this.DispatchMap.Exists(strKey) Then DispatchName = CStr(this.DispatchMap(strKey))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildDispatcher
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Generate a temporary standard module of uniquely-named wrappers, one per
+'           : Rubberduck lifecycle and test-body procedure, each calling its target
+'           : module-qualified (e.g. [ModuleName].[ProcName]).
+'           :
+'           : Access `Application.Run "Name"` resolves a bare or project-qualified proc
+'           : name and FAILS ("cannot find the procedure") when that name is defined in
+'           : more than one standard module; module-qualified strings are not supported
+'           : either. Every Rubberduck test module reuses the same lifecycle names
+'           : (ModuleInitialize/TestInitialize/...), so a multi-module run cannot invoke
+'           : them by name. A module-qualified call inside compiled VBA source IS
+'           : unambiguous, so we route RD invocations through these wrappers (whose own
+'           : names are unique) instead.
+'           :
+'           : Best-effort: any failure clears the map so callers fall back to direct
+'           : Application.Run. Only standard modules are wrapped (class-module lifecycle
+'           : would not compile as a static call).
+'---------------------------------------------------------------------------------------
+'
+Private Sub BuildDispatcher()
+
+    Const DISPATCH_MODULE As String = "modVCSTestDispatch"
+    Dim proj As VBIDE.VBProject
+    Dim dProcs As Dictionary
+    Dim varKey As Variant
+    Dim varSlot As Variant
+    Dim dLc As Dictionary
+    Dim dTest As Dictionary
+    Dim strModule As String
+    Dim strProc As String
+    Dim strCode As String
+    Dim strWrap As String
+    Dim lngN As Long
+    Dim lngPipe As Long
+
+    Set this.DispatchMap = New Dictionary
+    this.DispatchModuleName = vbNullString
+
+    If this.ModuleLifecycle Is Nothing Then Exit Sub
+    If this.ModuleLifecycle.Count = 0 Then Exit Sub   ' No Rubberduck modules present
+
+    Set proj = CurrentVBProject
+    Set dProcs = New Dictionary
+
+    ' Collect unique (module, proc) pairs from RD lifecycle slots. Only standard modules
+    ' are eligible (a static module-qualified call to a class member would not compile).
+    For Each varKey In this.ModuleLifecycle.Keys
+        strModule = CStr(varKey)
+        If IsStdModule(proj, strModule) Then
+            Set dLc = this.ModuleLifecycle(strModule)
+            For Each varSlot In dLc.Items
+                AddDispatchPair dProcs, strModule, CStr(varSlot)
+            Next varSlot
+        End If
+    Next varKey
+
+    ' Add RD test-body procs (module source only; class tests run via the factory path).
+    If Not this.Tests Is Nothing Then
+        For Each varKey In this.Tests.Keys
+            Set dTest = this.Tests(CStr(varKey))
+            If CStr(dTest("sourceType")) <> "class" Then
+                strModule = CStr(dTest("moduleName"))
+                If IsRdModule(strModule) Then
+                    If IsStdModule(proj, strModule) Then _
+                        AddDispatchPair dProcs, strModule, CStr(dTest("procName"))
+                End If
+            End If
+        Next varKey
+    End If
+
+    If dProcs.Count = 0 Then Exit Sub
+
+    ' Build the wrapper source. Bracket identifiers so unusual names stay valid.
+    For Each varKey In dProcs.Keys
+        lngN = lngN + 1
+        strWrap = "zz_VCS_Dispatch_" & lngN
+        lngPipe = InStr(CStr(varKey), "|")
+        strModule = Left$(CStr(varKey), lngPipe - 1)
+        strProc = Mid$(CStr(varKey), lngPipe + 1)
+        strCode = strCode & _
+            "Public Sub " & strWrap & "()" & vbCrLf & _
+            "    [" & strModule & "].[" & strProc & "]" & vbCrLf & _
+            "End Sub" & vbCrLf & vbCrLf
+        this.DispatchMap.Add CStr(varKey), strWrap
+    Next varKey
+
+    ' Inject the module. On any failure, fall back to direct invocation.
+    On Error GoTo Fail
+    RemoveDispatchModuleIfPresent proj, DISPATCH_MODULE
+    Dim cmp As VBIDE.VBComponent
+    Set cmp = proj.VBComponents.Add(vbext_ct_StdModule)
+    cmp.Name = DISPATCH_MODULE
+    If cmp.CodeModule.CountOfLines > 0 Then _
+        cmp.CodeModule.DeleteLines 1, cmp.CodeModule.CountOfLines
+    cmp.CodeModule.AddFromString strCode
+    this.DispatchModuleName = DISPATCH_MODULE
+    Exit Sub
+
+Fail:
+    Set this.DispatchMap = New Dictionary
+    this.DispatchModuleName = vbNullString
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddDispatchPair
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Record a unique (module, proc) pair for dispatcher generation. Skips empty
+'           : proc names (unfilled lifecycle slots) and duplicates.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddDispatchPair(dProcs As Dictionary, strModule As String, strProc As String)
+    If Len(strProc) = 0 Then Exit Sub
+    Dim strKey As String
+    strKey = strModule & "|" & strProc
+    If Not dProcs.Exists(strKey) Then dProcs.Add strKey, True
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveDispatcher
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Remove the generated dispatcher module (if any) and clear the map. Safe to
+'           : call unconditionally at the end of a run.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveDispatcher()
+    On Error Resume Next
+    If Len(this.DispatchModuleName) > 0 Then
+        RemoveDispatchModuleIfPresent CurrentVBProject, this.DispatchModuleName
+    End If
+    this.DispatchModuleName = vbNullString
+    Set this.DispatchMap = Nothing
+    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveDispatchModuleIfPresent
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : Remove a component by name if it exists in the project (no-op otherwise).
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveDispatchModuleIfPresent(proj As VBIDE.VBProject, strName As String)
+    Dim cmp As VBIDE.VBComponent
+    On Error Resume Next
+    Set cmp = proj.VBComponents(strName)
+    If Not cmp Is Nothing Then proj.VBComponents.Remove cmp
+    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsStdModule
+' Author    : Adam Waller
+' Date      : 8/2/2026
+' Purpose   : True when the named component exists and is a standard (not class) module.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsStdModule(proj As VBIDE.VBProject, strName As String) As Boolean
+    Dim cmp As VBIDE.VBComponent
+    On Error Resume Next
+    Set cmp = proj.VBComponents(strName)
+    If Not cmp Is Nothing Then IsStdModule = (cmp.Type = vbext_ct_StdModule)
+    On Error GoTo 0
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : AttachLoggedErrors
 ' Author    : Adam Waller
 ' Date      : 5/29/2026
@@ -1829,9 +2513,39 @@ Private Function AnyAssertionFailed(colResults As Collection) As Boolean
     Dim i As Long
     For i = 1 To colResults.Count
         Set dResult = colResults(i)
-        If Not CBool(dResult("passed")) Then
+        If dResult.Exists("outcome") Then
+            If CLng(dResult("outcome")) = eaoFailed Then
+                AnyAssertionFailed = True
+                Exit Function
+            End If
+        ElseIf Not CBool(dResult("passed")) Then
             AnyAssertionFailed = True
             Exit Function
+        End If
+    Next i
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AnyAssertionInconclusive
+' Author    : Matthew Pfluger
+' Date      : 8/2/2026
+' Purpose   : True when any assertion in the test reported an Inconclusive outcome.
+'           : Checked only after AnyAssertionFailed, so Failed takes precedence.
+'---------------------------------------------------------------------------------------
+'
+Private Function AnyAssertionInconclusive(colResults As Collection) As Boolean
+
+    Dim dResult As Dictionary
+    Dim i As Long
+    For i = 1 To colResults.Count
+        Set dResult = colResults(i)
+        If dResult.Exists("outcome") Then
+            If CLng(dResult("outcome")) = eaoInconclusive Then
+                AnyAssertionInconclusive = True
+                Exit Function
+            End If
         End If
     Next i
 
@@ -1847,11 +2561,13 @@ End Function
 '
 Private Function StatusToString(lngStatus As Long) As String
     Select Case lngStatus
-        Case etsPassed:  StatusToString = "PASSED"
-        Case etsFailed:  StatusToString = "FAILED"
-        Case etsErrored: StatusToString = "ERRORED"
-        Case etsEmpty:   StatusToString = "EMPTY"
-        Case Else:       StatusToString = "PENDING"
+        Case etsPassed:       StatusToString = "PASSED"
+        Case etsFailed:       StatusToString = "FAILED"
+        Case etsErrored:      StatusToString = "ERRORED"
+        Case etsEmpty:        StatusToString = "EMPTY"
+        Case etsInconclusive: StatusToString = "INCONCLUSIVE"
+        Case etsSkipped:      StatusToString = "SKIPPED"
+        Case Else:            StatusToString = "PENDING"
     End Select
 End Function
 
@@ -1859,13 +2575,33 @@ End Function
 Private Function StringToStatus(ByVal strStatus As String) As eTestStatus
 
     Select Case UCase$(Trim$(strStatus))
-        Case "PASSED":  StringToStatus = etsPassed
-        Case "FAILED":  StringToStatus = etsFailed
-        Case "ERRORED": StringToStatus = etsErrored
-        Case "EMPTY":   StringToStatus = etsEmpty
-        Case Else:      StringToStatus = etsPending
+        Case "PASSED":       StringToStatus = etsPassed
+        Case "FAILED":       StringToStatus = etsFailed
+        Case "ERRORED":      StringToStatus = etsErrored
+        Case "EMPTY":        StringToStatus = etsEmpty
+        Case "INCONCLUSIVE": StringToStatus = etsInconclusive
+        Case "SKIPPED":      StringToStatus = etsSkipped
+        Case Else:           StringToStatus = etsPending
     End Select
 
+End Function
+
+
+Private Function OutcomeToString(lngOutcome As Long) As String
+    Select Case lngOutcome
+        Case eaoFailed:       OutcomeToString = "failed"
+        Case eaoInconclusive: OutcomeToString = "inconclusive"
+        Case Else:            OutcomeToString = "passed"
+    End Select
+End Function
+
+
+Private Function StringToOutcome(ByVal strOutcome As String) As eAssertOutcome
+    Select Case LCase$(Trim$(strOutcome))
+        Case "failed", "2":       StringToOutcome = eaoFailed
+        Case "inconclusive", "3": StringToOutcome = eaoInconclusive
+        Case Else:                StringToOutcome = eaoPassed
+    End Select
 End Function
 
 
@@ -1980,6 +2716,7 @@ Private Function CloneAssertionsFromState(ByVal dSrc As Dictionary) As Collectio
                 Set dAOut = New Dictionary
                 dAOut.Add "seq", CLng(Nz(dA("seq"), i))
                 dAOut.Add "passed", CBool(Nz(dA("passed"), False))
+                If dA.Exists("outcome") Then dAOut.Add "outcome", CLng(StringToOutcome(CStr(dA("outcome"))))
                 If dA.Exists("context") Then
                     If Len(CStr(dA("context"))) > 0 Then
                         dAOut.Add "context", CStr(dA("context"))
@@ -2042,6 +2779,11 @@ Private Sub AccumulateCountsFromTest(ByVal dTest As Dictionary)
             this.ErroredCount = this.ErroredCount + 1
         Case etsEmpty
             this.EmptyCount = this.EmptyCount + 1
+        Case etsInconclusive
+            this.InconclusiveCount = this.InconclusiveCount + 1
+        Case etsSkipped
+            this.SkippedCount = this.SkippedCount + 1
+            Exit Sub
         Case Else
             Exit Sub
     End Select
@@ -2051,7 +2793,13 @@ Private Sub AccumulateCountsFromTest(ByVal dTest As Dictionary)
         For i = 1 To colAssertions.Count
             Set dA = colAssertions(i)
             this.TotalAssertions = this.TotalAssertions + 1
-            If CBool(Nz(dA("passed"), False)) Then
+            If dA.Exists("outcome") Then
+                Select Case CLng(dA("outcome"))
+                    Case eaoInconclusive: this.InconclusiveAssertions = this.InconclusiveAssertions + 1
+                    Case eaoFailed:       this.FailedAssertions = this.FailedAssertions + 1
+                    Case Else:            this.PassedAssertions = this.PassedAssertions + 1
+                End Select
+            ElseIf CBool(Nz(dA("passed"), False)) Then
                 this.PassedAssertions = this.PassedAssertions + 1
             Else
                 this.FailedAssertions = this.FailedAssertions + 1
@@ -2103,7 +2851,7 @@ Private Sub LogRunSummary()
     Dim lngTotal As Long
     Dim dblElapsed As Double
 
-    lngTotal = this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
+    lngTotal = this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount + this.InconclusiveCount + this.SkippedCount
     dblElapsed = Round((Perf.MicroTimer - this.RunStartTime), 3)
 
     With Log
@@ -2117,8 +2865,12 @@ Private Sub LogRunSummary()
             IIf(this.FailedAssertions > 0, "red", vbNullString)
         LogSummaryLine "  Errored:      ", CStr(this.ErroredCount), _
             IIf(this.ErroredCount > 0, "red", vbNullString)
+        LogSummaryLine "  Inconclusive: ", CStr(this.InconclusiveCount), _
+            IIf(this.InconclusiveCount > 0, "orange", vbNullString)
         LogSummaryLine "  Empty:        ", CStr(this.EmptyCount), _
             IIf(this.EmptyCount > 0, "gray", vbNullString)
+        LogSummaryLine "  Skipped:      ", CStr(this.SkippedCount), _
+            IIf(this.SkippedCount > 0, "gray", vbNullString)
         .Add "  Elapsed:      " & FormatDuration(CLng(dblElapsed * 1000))
         .Spacer True, SPACER_LEN
     End With
@@ -2284,9 +3036,12 @@ Private Sub ResetCounts()
     this.FailedCount = 0
     this.ErroredCount = 0
     this.EmptyCount = 0
+    this.InconclusiveCount = 0
+    this.SkippedCount = 0
     this.TotalAssertions = 0
     this.PassedAssertions = 0
     this.FailedAssertions = 0
+    this.InconclusiveAssertions = 0
 End Sub
 
 
@@ -2308,6 +3063,7 @@ Private Sub ScanDiscover()
 
     Set this.Tests = New Dictionary
     Set this.SuiteMap = New Dictionary
+    Set this.ModuleLifecycle = New Dictionary
     this.ScannedAssertionCount = 0
     ResetCounts
 
