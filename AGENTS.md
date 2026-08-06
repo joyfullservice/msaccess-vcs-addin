@@ -368,6 +368,7 @@ eotOther = 9   ' Other / catch-all operations
    - **`efesAll`:** indexed set plus derived sidecar files only (e.g. form/report `.svg` previews). Orphan cleanup and `MoveComponentSource` read `efesAll`. Indexed companion files **must** be produced on the alternate/temp export path so `GetDifferingFiles` file counts stay balanced.
    - Sidecar cleanup for derived-only files is automatic via `modOrphaned.ClearOrphanedComponentArtifacts` (`efesAll − efesIndexed`).
    - Per-object **folders** (command-bar `_Images`, extracted theme folders) are not flat extensions. Add a branch to `ClearOrphanedComponentFolders` in `modOrphaned.bas` and move the folder in `MoveSource`.
+6. Run the gate in [docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md). A new component type adds a row to the "Which file do I edit?" table in the shipped `AGENTS.md` only if users will hand-edit its source files; if they will not, ship nothing.
 
 ### Modifying Export/Import Behavior
 
@@ -382,6 +383,7 @@ How to gate a new export behavior change:
 1. Add a new member to the `eExportFormatVersion` enum in `modConstants.bas` (e.g., `EFV_5_1_0 = 50100`)
 2. Add a matching `col.Add EFV_5_1_0` line to `GetExportFormatVersions()`, directly below the enum
 3. Wrap the new behavior: `If Options.ExportFormatVersion >= EFV_5_1_0 Then`
+4. Run the gate in [docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md). A format change that alters what a user's source files look like, or which file is authoritative for an object type, needs a matching edit to the shipped agent docs; one that only changes internals does not.
 
 `GetExportFormatVersions()` is the single list of selectable formats. `LatestExportFormat()` returns its last entry, and the Options > Export combo box is populated from it, so neither needs updating by hand. VBA cannot enumerate enum members at runtime, so the list does repeat the enum — `modTestExportFormat` parses the enum out of the add-in's own source and fails if the two drift, if the list is out of order, or if a member's name and packed value disagree.
 
@@ -873,6 +875,12 @@ This companion file explains:
 - VBA file structure and attributes
 - Safe editing guidelines
 - Import/export workflow
+
+### These files ship to users — read before editing them
+
+That file and the reference documents in `Version Control.accda.src/vcs-agent-docs/` are embedded as resources and extracted into **every user's export folder on every export**. Their audience is an agent working in someone else's database, not a contributor here, and they are budgeted at 150 lines for the entry file and 110 per reference (enforced by `modTestAgentDocs`).
+
+**[docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md)** has the gate for deciding whether a change belongs there at all, the routing table for which file it goes in, and the list of things that must never ship (add-in internals, repo-relative paths, examples taken from this repo, changelog voice).
 
 ---
 

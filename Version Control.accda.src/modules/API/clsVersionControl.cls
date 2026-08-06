@@ -876,8 +876,8 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
                 End If
             End If
 
-            ' Export AGENTS.md
-            modResource.ExtractResource "AGENTS.md", Options.GetExportFolder
+            ' Export AGENTS.md and its reference documents
+            modResource.ExtractAgentDocs Options.GetExportFolder
 
             Log.Spacer
             Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
