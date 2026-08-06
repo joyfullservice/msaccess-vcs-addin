@@ -16,8 +16,49 @@ Private Const ModuleName As String = "modErrorHandling"
 
 Private Type udtThis
     blnInError As Boolean       ' Monitor error state
+    lngSuppressBreaks As Long   ' Nesting depth for MCP/API non-interactive scopes
 End Type
 Private this As udtThis
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SuppressErrorBreaks
+' Author    : Adam Waller
+' Date      : 8/6/2026
+' Purpose   : Begin a scope where LogUnhandledErrors must not Stop and DebugMode
+'           : must not select On Error GoTo 0. Used by MCP/API entry points so
+'           : automation never blocks waiting for a human at a debugger break.
+'           : Nesting counter (not a Boolean) because APIAsync -> API -> RunVBA
+'           : can push multiple scopes on one thread.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SuppressErrorBreaks()
+    this.lngSuppressBreaks = this.lngSuppressBreaks + 1
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreErrorBreaks
+' Author    : Adam Waller
+' Date      : 8/6/2026
+' Purpose   : End one SuppressErrorBreaks scope. Floors at zero.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RestoreErrorBreaks()
+    If this.lngSuppressBreaks > 0 Then this.lngSuppressBreaks = this.lngSuppressBreaks - 1
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ErrorBreaksSuppressed
+' Author    : Adam Waller
+' Date      : 8/6/2026
+' Purpose   : True while at least one SuppressErrorBreaks scope is active.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get ErrorBreaksSuppressed() As Boolean
+    ErrorBreaksSuppressed = (this.lngSuppressBreaks > 0)
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -35,6 +76,7 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
     ' Read directly from Options. Guard with OptionsLoaded to prevent
     ' circular initialization (Options getter -> load -> DebugMode -> Options).
     If OptionsLoaded Then DebugMode = Options.BreakOnError
+    If ErrorBreaksSuppressed Then DebugMode = False
 
 End Function
 
@@ -62,6 +104,7 @@ Public Sub LogUnhandledErrors(Optional ByRef CallingFunction As String = vbNullS
 
         ' Check live BreakOnError setting
         If OptionsLoaded Then blnBreak = Options.BreakOnError
+        If ErrorBreaksSuppressed Then blnBreak = False
         If blnBreak Then
             ' Stop the code here so we can investigate the source of the error.
             Debug.Print "Error " & Err.Number & ": " & Err.Description

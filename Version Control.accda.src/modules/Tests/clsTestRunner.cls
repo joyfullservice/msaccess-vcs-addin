@@ -239,7 +239,6 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim strCurrentModule As String
     Dim curStart As Currency
     Dim intErrorTrapping As Integer
-    Dim blnBreakOnError As Boolean
     Dim obj As Object
     Dim lngCurrent As Long
     Dim lngTotal As Long
@@ -281,8 +280,7 @@ Public Sub RunSelected(colTestKeys As Collection)
     ' Disable break-on-error so test errors don't stop in the debugger
     intErrorTrapping = Application.GetOption("Error Trapping")
     Application.SetOption "Error Trapping", 2  ' Break on Unhandled Errors
-    blnBreakOnError = Options.BreakOnError
-    Options.BreakOnError = False
+    SuppressErrorBreaks
 
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
@@ -484,7 +482,7 @@ AfterTestLoop:
 
 CleanUp:
     ' Restore original error trapping settings
-    Options.BreakOnError = blnBreakOnError
+    RestoreErrorBreaks
     Application.SetOption "Error Trapping", intErrorTrapping
 
 End Sub

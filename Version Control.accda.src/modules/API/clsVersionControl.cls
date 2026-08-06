@@ -1394,6 +1394,8 @@ End Function
 '           : Returns JSON: {"success":true/false, "result":"...", "error":"...",
 '           :   "compileError":"..."}
 '           : Gated by McpAllowRunVBA option.
+'           : Suppresses BreakOnError Stop/debug breaks for the call so MCP and
+'           : automation never block waiting for a human (errors are logged instead).
 '---------------------------------------------------------------------------------------
 '
 Public Function RunVBA(ByVal strCode As String) As String
@@ -1405,6 +1407,7 @@ Public Function RunVBA(ByVal strCode As String) As String
     Dim varReturn As Variant
     Dim blnModuleCreated As Boolean
 
+    SuppressErrorBreaks
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
@@ -1416,6 +1419,7 @@ Public Function RunVBA(ByVal strCode As String) As String
         dResult.Add "success", False
         dResult.Add "error", "RunVBA is disabled. Enable McpAllowRunVBA in VCS Options > MCP to allow agent-generated code execution."
         RunVBA = ConvertToJson(dResult)
+        RestoreErrorBreaks
         Exit Function
     End If
 
@@ -1568,6 +1572,7 @@ CleanUp:
     End If
     ResetCurrentVBProjectState
     RunVBA = ConvertToJson(dResult)
+    RestoreErrorBreaks
     Exit Function
 
 ErrHandler:

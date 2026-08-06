@@ -447,6 +447,19 @@ When you discover a new invariant or edge case worth preserving, follow the four
 
 `clsVersionControl.RunVBA` (exposed to agents via the `vcs_run_vba` MCP tool) wraps caller-supplied VBA code in a temporary module, compiles it, runs it, and returns a JSON result. Two debugging affordances make iteration on agent-authored snippets much faster:
 
+### MCP/API calls never break into the debugger
+
+All MCP and external API entry points (`modAPI.API`, `modAPI.APIAsync`, and the async timer handler in `modTimer`) open an in-memory **error-break suppression** scope via `SuppressErrorBreaks` in `modErrorHandling`. While that scope is active:
+
+- `LogUnhandledErrors` **never** executes its `Stop` statement, even when **Break on Error** is enabled in Options.
+- `DebugMode` returns `False`, so add-in code uses `On Error Resume Next` rather than `On Error GoTo 0`.
+
+Leftover errors are logged (`"Unhandled error, likely before \`On Error\` directive"`) or returned as JSON (`RunVBA`) instead of halting Access until a human dismisses a debugger break. Scopes nest (e.g. `APIAsync` → `API` → `RunVBA`) via a counter, not a Boolean.
+
+This scope does **not** mutate `Options.BreakOnError` — export persists options to disk, and toggling the option would write through to `vcs-options.json`. VBE error trapping during operations remains **Break in Class Modules** so any break that does survive lands where the error was raised.
+
+After an MCP call completes, interactive debugging from the ribbon behaves normally.
+
 ### 1. Auto-injected line numbers and `errorLine`
 
 Before the wrapper is built, `RunVBA` runs the submitted code through the private helper `AddVbaLineNumbers` (in the same class). That helper prepends sequential 1-based VBA line numbers to every executable statement. The number value equals the 1-based ordinal of the line within the original `code` string (the counter advances on every physical input line, blanks/comments/continuations included), so when a runtime error fires, the JSON result contains an `errorLine` field that maps directly back to the caller's source.

@@ -83,6 +83,28 @@ contradictory guidance.
 
 ---
 
+## 2026-08-06 — In-memory error-break suppression for MCP/API calls
+
+**Trigger**: MCP tools (`vcs_run_vba`, `vcs_export_database`, etc.) route through `modAPI.API` / `APIAsync`. When **Break on Error** is enabled, `LogUnhandledErrors` executes `Stop` on leftover `Err` before most `On Error` directives. That halts Access until a human continues — the MCP server sees a hung call with no JSON response.
+
+**Options explored**:
+- **Temporarily set `Options.BreakOnError = False`** (same pattern as `clsTestRunner`) — rejected: export calls `Options.SaveOptionsForProject`, which would persist `"BreakOnError": false` into `vcs-options.json`. The `Options` singleton can also be replaced mid-call via `LoadOptionOverrides`, dropping the suppression.
+- **Switch VBE error trapping to Break on Unhandled Errors during MCP calls** — rejected: when a break does occur, Break in Class Modules stops at the line that raised the error; Break on Unhandled Errors surfaces it in the parent handler, which is less useful for diagnosis. The scope cannot prevent VBA-native unhandled breaks anyway.
+- **In-memory nesting counter in `modErrorHandling`, honored by `LogUnhandledErrors` and `DebugMode` (chosen)** — `SuppressErrorBreaks` / `RestoreErrorBreaks` at MCP/API entry points. Cannot be serialized, survives options reload, nests correctly for `APIAsync` → `API` → `RunVBA`.
+
+**Decision**: Add `SuppressErrorBreaks`, `RestoreErrorBreaks`, and `ErrorBreaksSuppressed` to `modErrorHandling`. Push at the first statement of `API`, `APIAsync`, `HandleAPIAsyncOperation`, and `RunVBA`; pop on every exit path including `ErrHandler`. When suppressed, log unhandled errors instead of `Stop`, and have `DebugMode` return `False`. Replace `clsTestRunner`'s `Options.BreakOnError` toggle with the same scope (avoids disk write-through during round-trip exports). Leave `Operation.Begin`'s Break in Class Modules trapping unchanged.
+
+**What this rules out**: Mutating `Options.BreakOnError` for automation scopes. Changing VBE trapping mode during MCP calls to reduce breaks at the cost of break location. If a pop is skipped by a hard crash, breaks stay suppressed until Access restarts — acceptable degraded state.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/modErrorHandling.bas` — suppression primitive
+- `Version Control.accda.src/modules/API/modAPI.bas` — `API`, `APIAsync` scopes
+- `Version Control.accda.src/modules/Utility/modTimer.bas` — async timer scope
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `RunVBA` scope
+- `Version Control.accda.src/modules/Tests/clsTestRunner.cls` — uses suppression instead of option mutation
+
+---
+
 ## 2026-07-31 — One declarative list of export formats, guarded by a test that parses the enum
 
 **Trigger**: Adding an export format version took three coordinated edits, and one of them failed silently. `frmVCSOptionsExport.Form_Load` populated its combo by looping `For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]` — 10,000 iterations across the sparse packed-integer space — and filtering through a hand-written `Case EFV_4_1_2, EFV_5_0_0, EFV_5_1_0`. Forget that `Case` and the new format still gates correctly everywhere in code; it just never appears in the UI, so no user can select it. `[_Last] = 50100` was a second hand-copied duplicate of the newest value.
