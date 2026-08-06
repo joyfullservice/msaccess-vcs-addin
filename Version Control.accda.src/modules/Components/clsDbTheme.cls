@@ -26,6 +26,7 @@ Private m_Name As String
 Private m_FileName As String
 Private m_Extension As String
 Private m_FileData() As Byte
+Private m_blnNoThemeData As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -43,6 +44,8 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+
+    If m_blnNoThemeData Then Exit Sub
 
     Dim strFile As String
     Dim strZip As String
@@ -73,12 +76,22 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Save as file
     If Not rst.EOF Then
         Set rstAtc = rst!Data.Value
-        If FSO.FileExists(strFile) Then DeleteFile strFile, True
-        If FSO.FolderExists(strFile) Then FSO.DeleteFolder strFile, True
-        VerifyPath strFile
-        Perf.OperationStart "Export Theme"
-        rstAtc!FileData.SaveToFile strFile
-        Perf.OperationEnd
+        If Not rstAtc.EOF Then
+            If FSO.FileExists(strFile) Then DeleteFile strFile, True
+            If FSO.FolderExists(strFile) Then FSO.DeleteFolder strFile, True
+            VerifyPath strFile
+            Perf.OperationStart "Export Theme"
+            rstAtc!FileData.SaveToFile strFile
+            Perf.OperationEnd
+        Else
+            Log.Error eelWarning, T("Theme '{0}' (MSysResources Id {1}) has no embedded theme file and will be skipped. Compact and repair the database, then re-add or remove this theme.", _
+                var0:=m_Name, var1:=Nz(rst!Id)), ModuleName(Me) & ".Export"
+            rstAtc.Close
+            Set rstAtc = Nothing
+            rst.Close
+            Set rst = Nothing
+            Exit Sub
+        End If
         rstAtc.Close
         Set rstAtc = Nothing
     End If
@@ -630,13 +643,22 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
 
     ' Load in the object details.
     Set rst = RHS
+    m_blnNoThemeData = False
     m_Name = Nz(rst!Name)
     m_Extension = Nz(rst!Extension)
     '@Ignore SetAssignmentWithIncompatibleObjectType
     Set fld2 = rst!Data
     Set rst2 = fld2.Value
-    m_FileName = Nz(rst2.Fields("FileName"))
-    m_FileData = rst2.Fields("FileData")
+    If rst2.EOF Then
+        ' Resource record exists with no embedded file (corrupt or partially
+        ' written row). Name is not unique in MSysResources, so log the Id.
+        m_blnNoThemeData = True
+        Log.Error eelWarning, T("Theme '{0}' (MSysResources Id {1}) has no embedded theme file and will be skipped. Compact and repair the database, then re-add or remove this theme.", _
+            var0:=m_Name, var1:=Nz(rst!Id)), ModuleName(Me) & ".DbObject"
+    Else
+        m_FileName = Nz(rst2.Fields("FileName"))
+        m_FileData = rst2.Fields("FileData")
+    End If
 
     ' Clear the object references
     Set rst2 = Nothing

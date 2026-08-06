@@ -32,6 +32,7 @@ Private m_Name As String
 Private m_FileName As String
 Private m_Extension As String
 Private m_FileData() As Byte
+Private m_blnNoImageData As Boolean
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -49,6 +50,8 @@ Implements IDbComponent
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
+
+    If m_blnNoImageData Then Exit Sub
 
     Dim strContent As String
     Dim strFile As String
@@ -225,13 +228,13 @@ Private Function LoadItem(strName As String) As Boolean
                 If Nz(!Name) = strName Then
                     ' Set the DB object, reloading the properties
                     Set IDbComponent_DbObject = rst
+                    LoadItem = True
                     Exit Do
                 End If
                 .MoveNext
             Loop
             .Close
         End With
-        LoadItem = True
     End If
 
 End Function
@@ -504,6 +507,8 @@ End Function
 '
 Public Function IDbComponent_IsModified() As Boolean
 
+    If m_blnNoImageData Then Exit Function
+
     ' Check file hash of definition
     With VCSIndex.Item(Me)
         If .FileHash <> GetStringHash(GetSource, True) Then
@@ -672,13 +677,22 @@ Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set m_Rst = RHS
 
     ' Load in the object details.
+    m_blnNoImageData = False
     m_Name = Nz(m_Rst!Name)
     m_Extension = Nz(m_Rst!Extension)
     '@Ignore SetAssignmentWithIncompatibleObjectType
     Set fld2 = m_Rst!Data
     Set rst2 = fld2.Value
-    m_FileName = Nz(rst2.Fields("FileName"))
-    m_FileData = rst2.Fields("FileData")
+    If rst2.EOF Then
+        ' Resource record exists with no embedded file (corrupt or partially
+        ' written row). Name is not unique in MSysResources, so log the Id.
+        m_blnNoImageData = True
+        Log.Error eelWarning, T("Shared image '{0}' (MSysResources Id {1}) has no embedded image file and will be skipped. Compact and repair the database, then re-add or remove this image.", _
+            var0:=m_Name, var1:=Nz(m_Rst!Id)), ModuleName(Me) & ".DbObject"
+    Else
+        m_FileName = Nz(rst2.Fields("FileName"))
+        m_FileData = rst2.Fields("FileData")
+    End If
 
     ' Clear the object references
     Set rst2 = Nothing
