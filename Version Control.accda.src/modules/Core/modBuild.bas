@@ -1059,10 +1059,14 @@ End Sub
 '           : of the call, skipping the expensive full-file parse/serialize cycle
 '           : and conflict detection. Used by MCP/API callers that treat the import
 '           : as a deliberate action (like a user saving directly in the designer).
+'           : strSavedLogPath returns the log file written by this call. Callers
+'           : cannot read Log.SavedLogFilePath afterwards, since Operation.Finish
+'           : releases the Log singleton before this returns.
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, _
-    strSourceFilePath As String, Optional blnNoIndex As Boolean = False)
+    strSourceFilePath As String, Optional blnNoIndex As Boolean = False, _
+    Optional ByRef strSavedLogPath As String)
 
     Dim dCategories As Dictionary
     Dim dCategory As Dictionary
@@ -1199,6 +1203,7 @@ CleanUp:
     With Log
         .Add vbNewLine & Perf.GetReports, False
         .SaveFile
+        strSavedLogPath = .SavedLogFilePath
         .Active = False
         .Flush
     End With

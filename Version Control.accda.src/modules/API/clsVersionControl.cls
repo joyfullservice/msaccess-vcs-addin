@@ -955,6 +955,7 @@ Public Function ImportObject(ByVal strObjectType As String, Optional ByVal strOb
     Dim dItems As Dictionary
     Dim varKey As Variant
     Dim strSourceFile As String
+    Dim strLogPath As String
     Dim blnFound As Boolean
     Dim dResult As Dictionary
 
@@ -1060,14 +1061,17 @@ Public Function ImportObject(ByVal strObjectType As String, Optional ByVal strOb
         Exit Function
     End If
 
+    ' LoadSingleObject finishes the operation, which releases the Log singleton,
+    ' so the log path has to come back through the out-param.
     LoadSingleObject cComponent, strObjectName, strSourceFile, _
-        blnNoIndex:=(Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI)
+        blnNoIndex:=(Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI), _
+        strSavedLogPath:=strLogPath
 
     dResult.Add "success", (Operation.ErrorLevel < eelError)
     If Operation.ErrorLevel >= eelError Then
         dResult.Add "error", "Import completed with errors. Check the log for details."
     End If
-    dResult.Add "logPath", Log.SavedLogFilePath
+    dResult.Add "logPath", strLogPath
     ImportObject = ConvertToJson(dResult)
     Exit Function
 
