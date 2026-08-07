@@ -36,22 +36,45 @@ Attribute VB_Name = "Form_frmMyForm"
 
 ## What is safe to change
 
-Small, local edits are feasible: caption text inside quotes, geometry such as
-`Left`, `Top`, `Width`, and `Height`, and visual properties like colors and font
-sizes. Anything whose expected format you can infer from neighboring values is
-usually fine.
+Property edits are safe wherever you can infer the expected format from
+neighboring values: caption text inside quotes, geometry such as `Left`, `Top`,
+`Width`, and `Height`, colors, and font sizes. Guessing at a property whose
+format you cannot infer breaks the layout or fails the import, so leave those
+alone, along with the `Version` lines at the top. Keep `Begin`/`End` balanced
+throughout.
 
-Leave these alone:
+## Adding, removing, and renaming controls
 
-- The `Version` lines at the top.
-- The `Begin`/`End` nesting, which must stay balanced.
-- Control `Name` values, which the VBA code binds to by name.
-- The order of controls, which drives control indexing and tab order.
-- Properties whose format you cannot infer. Guessing here breaks the layout or
-  fails the import outright.
+Structural edits work if you copy rather than compose. The property set Access
+expects for a control type is not something to invent, so use an existing
+control of the same type in the same file as your template.
 
-For anything structural — adding or removing controls, reordering them, changing
-a subform binding — ask the user to make the change in Access instead.
+To add a control:
+
+1. Copy an entire `Begin <Type>` ... `End` block, including any nested
+   `Begin`/`End` subtree. An attached label lives *inside* its text box, combo
+   box, or check box, and an option group's buttons live inside the group.
+2. Paste it into the intended section's inner `Begin` block. Appending at the
+   end of the section is the safest placement.
+3. Give the new control, and every nested control copied with it, a `Name` that
+   is unique within the file.
+4. Set the geometry, and update the matching `LayoutCached*` values to agree
+   with it — including on any control you shift to make room. The form's `Width`
+   and the enclosing section's `Height` bound the visible area and do not grow
+   to fit, so raise them if the new control extends past them. On a form laid
+   out in Layout view, keep the grid bookkeeping (`LayoutGroup`, `GroupTable`,
+   `RowStart`/`ColumnEnd`) consistent with the row you copied into.
+5. Set `TabIndex` to a value not already used in that section. `TabIndex`, not
+   file order, determines tab order.
+6. If you kept an event property such as `OnClick ="[Event Procedure]"`, add the
+   handler to the `.cls` code-behind. Access binds handlers by control name, so
+   `Private Sub cmdSave_Click()` pairs with `Name ="cmdSave"`.
+
+To remove a control, delete its whole block including nested children, then
+remove its event handlers and any references to it from the `.cls`.
+
+Renaming means updating every reference to the old name: handler procedure names
+and code in the `.cls`, and any key for that control in the companion `.json`.
 
 ## Conditional formatting
 
@@ -78,3 +101,6 @@ are documented in
 If a form or report looks wrong after import, the usual causes are an unbalanced
 `Begin`/`End` pair or a mangled property value. Restore the `.form` or `.report`
 file from git and redo the change in smaller steps.
+
+To check a structural edit, ask for a re-export after the merge build. A
+`git diff` on the file then shows what Access normalized or dropped.
