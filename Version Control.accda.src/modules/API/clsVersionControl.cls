@@ -477,6 +477,20 @@ Public Sub RebuildAddIn()
 
     Dim strPath As String
 
+    ' Of everything the helper script does, this is the one job with no in-process
+    ' equivalent: the add-in cannot rebuild and reinstall itself while it is loaded, which
+    ' is why the work is handed to a process that outlives this one. Checked before the
+    ' source folder is resolved, so the user is not asked to pick a folder for an
+    ' operation that cannot run. (#727)
+    If Not modInstall.UseWorkerScript Then
+        MsgBox2 T("Helper Script Required"), _
+            T("Rebuilding the add-in requires the helper script, which is currently " & _
+            "disabled."), _
+            T("Use Build From Source to build the add-in, then open the resulting file " & _
+            "to install it."), vbExclamation
+        Exit Sub
+    End If
+
     ' Try to derive source folder from the current project
     If StrComp(FSO.GetBaseName(CurrentProject.Name), ADDIN_BASENAME, vbTextCompare) = 0 Then
         strPath = CurrentProject.Path & PathSep & CurrentProject.Name & ".src" & PathSep

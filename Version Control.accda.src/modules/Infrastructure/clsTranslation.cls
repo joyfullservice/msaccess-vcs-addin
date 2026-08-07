@@ -180,6 +180,11 @@ Public Sub ApplyTo(frmObject As Form)
 
         End Select
 
+        ' A tooltip is a separate user-facing string from the caption, and exists on
+        ' most interactive control types regardless of whether the caption above was
+        ' translated.
+        ApplyToControlTip ctl, strReference, dReferences
+
         ' Maintain list of references so we can purge unused entries
         If Len(strReference) Then If Not dReferences.Exists(strReference) Then dReferences.Add strReference, vbNullString
 
@@ -192,6 +197,57 @@ Public Sub ApplyTo(frmObject As Form)
     ' Purge any unused references
     If Me.Contribute Then PurgeStrings frmObject.Name & ".", dReferences
     PurgeStrings frmObject.Name & ".", dReferences
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyToControlTip
+' Author    : Adam Waller
+' Date      : 8/7/2026
+' Purpose   : Translate a control's tooltip, when it has one.
+'           :
+'           : Screened by an exclusion list rather than a list of types that do have a
+'           : tooltip, because the latter is long and a missing entry would silently
+'           : leave a tooltip in English. Labels are why the screen is worth having at
+'           : all: they are the most numerous control on these forms, and probing each
+'           : one for a property it does not have would raise an error every time, which
+'           : stops the debugger for anyone running with Break on All Errors.
+'           :
+'           : Keyed with a `.ControlTipText` suffix so a control's tooltip and its
+'           : caption are tracked as separate references, the same way the form's own
+'           : caption is keyed. Both must reach dReferences or PurgeStrings drops them.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ApplyToControlTip(ctl As Control, strReference As String, dReferences As Dictionary)
+
+    Dim strTip As String
+    Dim strKey As String
+
+    ' Decorative control types carry no tooltip.
+    Select Case ctl.ControlType
+        Case acLabel, acLine, acRectangle, acPageBreak
+            Exit Sub
+    End Select
+
+    ' An unusual type (a custom or ActiveX control) may still lack the property, so read
+    ' it defensively rather than trusting the list above to be complete.
+    LogUnhandledErrors
+    On Error Resume Next
+    Err.Clear
+    strTip = ctl.ControlTipText
+    If Err Then
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    If Len(strTip) = 0 Then Exit Sub
+
+    strKey = strReference & ".ControlTipText"
+    ctl.ControlTipText = T(strTip, strKey)
+    If Not dReferences.Exists(strKey) Then dReferences.Add strKey, vbNullString
 
 End Sub
 

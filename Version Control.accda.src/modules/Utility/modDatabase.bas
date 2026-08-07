@@ -544,15 +544,77 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 7/29/2026
 ' Purpose   : Save any unsaved VBA project changes in the current database, so that module
-'           : windows do not need to be closed individually.
+'           : windows do not need to be closed individually. Returns the project's real
+'           : Saved state, so False means code is still unsaved right now.
 '           :
 '           : Delegates to SaveCurrentVBProject. The single-module save this used to perform
 '           : does not save the whole project when form and report class modules are dirty,
 '           : and it locks the database against other clients — see that procedure.
+'           :
+'           : Warns when the save did not take, because the caller's next step is to read
+'           : code out of the project. Silence here is what made the original bug hard to
+'           : find: an export believed it had captured edits that were never written.
 '---------------------------------------------------------------------------------------
 '
-Public Sub SaveUnsavedVbaProject()
-    SaveCurrentVBProject
+Public Function SaveUnsavedVbaProject() As Boolean
+    SaveUnsavedVbaProject = SaveCurrentVBProject
+    If Not SaveUnsavedVbaProject Then WarnUnsavedVbaProject
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WarnUnsavedVbaProject
+' Author    : Adam Waller
+' Date      : 8/7/2026
+' Purpose   : Tell the user that the VBA project could not be saved automatically, and
+'           : what to do about it. Exported source will not include unsaved changes to
+'           : form or report class modules, which is silent data loss from the user's
+'           : point of view, so this is worth interrupting for.
+'           :
+'           : Saving the project is the one thing the helper script does that has no
+'           : working in-process equivalent (see modVbeUtility.SaveCurrentVBProject for
+'           : the mechanisms that were tried and dropped), so a user who turned the
+'           : script off (#727) reaches this every time the project is dirty. The message
+'           : names that cause when it applies, since the remedy is the same either way
+'           : but the reason is not.
+'---------------------------------------------------------------------------------------
+'
+Private Sub WarnUnsavedVbaProject()
+
+    Dim strCause As String
+    Dim blnDirty As Boolean
+
+    ' Only claim that changes were missed when the project can be confirmed dirty.
+    ' SaveCurrentVBProject also returns False when it could not read the project state
+    ' at all, and a warning about unsaved code would be misleading in that case.
+    LogUnhandledErrors
+    On Error Resume Next
+    blnDirty = Not CurrentVBProject.Saved
+    If Err Then Err.Clear
+    On Error GoTo 0
+    If Not blnDirty Then Exit Sub
+
+    If modInstall.UseWorkerScript Then
+        strCause = T("The VBA project could not be saved automatically.")
+    Else
+        strCause = T("The VBA project could not be saved automatically because the " & _
+            "helper script is disabled.")
+    End If
+
+    Log.Error eelWarning, strCause & " " & _
+        T("Unsaved changes to form or report class modules will not be included."), _
+        ModuleName & ".SaveUnsavedVbaProject"
+
+    ' A prompt is only useful to somebody who can act on it before reading the results.
+    ' Agent and API callers get the log entry instead.
+    If Operation.InteractionMode = eimNormal _
+        And Operation.Source <> eosMCPTool _
+        And Operation.Source <> eosExternalAPI Then
+        MsgBox2 T("Unsaved VBA Changes"), strCause, _
+            T("Press Save in the Visual Basic Editor, then run this again so the " & _
+            "source files include your latest code."), vbExclamation
+    End If
+
 End Sub
 
 

@@ -300,6 +300,31 @@ The ribbon add-in is a thin wrapper: it loads the UI from `Ribbon.xml`, relays
 button clicks to `Version Control.accda` via `Application.Run`, and loads
 localized strings from `Ribbon.json`.
 
+## Helper script (`clsWorker`)
+
+A handful of jobs cannot run in the process that is running the add-in.
+`clsWorker` extracts the VBScript below its `' *** BEGIN WORKER SCRIPT ***` marker
+into `Worker.vbs` in the install folder and launches it with `wscript`. Anything
+added to the class **above** that marker stays VBA and is not part of the script.
+Results come back through `modAPI.WorkerCallback` → `Worker.ReturnWorker`.
+
+| Consumer | Why out of process |
+|---|---|
+| `Run_SaveVbaProject` (via `modVbeUtility.SaveCurrentVBProject`) | The VBE Save command saves nothing while the caller's own VBA is on the stack. No in-process substitute works — that procedure's header lists four that were tried. |
+| `IsDatabaseAccessible` | The engine does not report its lock state to same-process callers. |
+| `Run_UninstallAddin` | Deletes the add-in file, which Access holds open until it exits. |
+| `Run_BuildAndInstall` (`VCS.RebuildAddIn`) | The add-in cannot rebuild and reinstall itself while loaded. |
+
+Endpoint protection in some managed environments blocks Access from launching a
+freshly written script, so `modInstall.UseWorkerScript` (per-user registry,
+default on, set on `frmVCSInstall`) turns the whole mechanism off. `CallWorker`
+checks it and no-ops, which makes a call site that forgets to branch degrade
+rather than launch `wscript` — and is the single seam where a different
+out-of-process backend would attach. Each consumer has a script-free fallback;
+the one with correctness stakes is the VBA project save, which warns the user to
+save in the VBE rather than letting an export silently omit unsaved class-module
+edits. See the 2026-08-07 `DECISIONS.md` entry.
+
 ## Export-on-save hook (`Hook/`)
 
 Optional DLLs that hook into Access to automatically export objects when saved.

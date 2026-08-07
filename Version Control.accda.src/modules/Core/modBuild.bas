@@ -619,13 +619,14 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     ' If the database is not accessible to other clients, reopen it in shared mode.
     ' Uses an out-of-process worker to detect the engine-level lock state that an
-    ' in-process check cannot see.
+    ' in-process check cannot see, and reopens unconditionally when the worker is
+    ' unavailable to probe it.
     '
     ' The check itself costs a worker round trip, and there is one case where its answer
     ' is already known: an in-place merge verifies accessibility before it begins, so if
     ' it then imported nothing, nothing has happened since that could have changed it.
     If DatabaseFileOpen And Not (blnNoChanges And m_blnVerifiedAccessible) Then
-        If Not Worker.IsDatabaseAccessible Then
+        If Not DatabaseAccessibleToOtherClients Then
             Log.Add T("Reopening database in shared mode...")
             Log.Flush
             Perf.OperationStart "Reopen DB (shared mode)"
@@ -762,6 +763,30 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : DatabaseAccessibleToOtherClients
+' Author    : Adam Waller
+' Date      : 8/7/2026
+' Purpose   : Report whether external clients can open the current database file, and
+'           : assume they cannot when there is no way to find out.
+'           :
+'           : The JET/ACE engine does not expose this lock state to same-process callers,
+'           : so the only reliable test is the out-of-process worker probe. When the user
+'           : has disabled the helper script (#727) no probe is possible, and every caller
+'           : here treats "not accessible" as the safe answer: the post-build check
+'           : reopens in shared mode, and the in-place merge falls back to the reopen path
+'           : it used before the probe existed. Returning False without launching anything
+'           : states that intent, rather than leaving it to depend on a skipped worker job
+'           : yielding an empty result.
+'---------------------------------------------------------------------------------------
+'
+Private Function DatabaseAccessibleToOtherClients() As Boolean
+    If modInstall.UseWorkerScript Then
+        DatabaseAccessibleToOtherClients = Worker.IsDatabaseAccessible
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ResetProjectForInPlaceMerge
 ' Author    : Adam Waller
 ' Date      : 7/29/2026
@@ -844,7 +869,7 @@ Private Function FlushVbaProjectAfterReset() As Boolean
     ' before the merge reaches its backup, which an exclusive lock would block.
     TraceInPlaceMerge "merge stage: rechecking lock state after save"
     If DatabaseFileOpen Then
-        If Not Worker.IsDatabaseAccessible Then
+        If Not DatabaseAccessibleToOtherClients Then
             Log.Add T("Database is not accessible to other clients after saving VBA changes.")
             Log.Add T("Falling back to closing and reopening the database.")
             m_blnTraceInPlaceMerge = False
@@ -945,7 +970,7 @@ Private Function PrepareMergeInPlace() As Boolean
     ' reflects the state the merge would actually run in.
     TraceInPlaceMerge "prep: checking lock state"
     If DatabaseFileOpen Then
-        If Worker.IsDatabaseAccessible Then
+        If DatabaseAccessibleToOtherClients Then
             m_blnVerifiedAccessible = True
         Else
             Log.Add T("Database is not accessible to other clients.")
