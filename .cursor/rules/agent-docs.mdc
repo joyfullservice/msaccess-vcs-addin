@@ -1,8 +1,8 @@
 ---
 description: Rules for editing the AGENTS.md and vcs-agent-docs files shipped into user export folders
 globs:
-  - "**/AGENTS.md"
-  - "**/vcs-agent-docs/**/*.md"
+  - "Version Control.accda.src/AGENTS.md"
+  - "Version Control.accda.src/vcs-agent-docs/**/*.md"
 alwaysApply: false
 ---
 
@@ -24,5 +24,6 @@ the gate for deciding whether a change belongs there at all, the routing table f
 which file it goes in, and the list of things that must never ship (add-in
 internals, repo-relative paths, examples taken from this repo, changelog voice).
 
-The root `AGENTS.md` is a different audience — contributors to this repository —
-and is not subject to those rules.
+The root `AGENTS.md` and everything in `docs/` serve a different audience —
+contributors to this repository — and follow the repo-side half of that same
+document.

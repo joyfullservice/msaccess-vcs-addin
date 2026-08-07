@@ -1,4 +1,21 @@
-# Maintaining the Shipped Agent Documentation
+# Maintaining agent documentation
+
+This repository maintains two separate bodies of agent-facing documentation with
+two different audiences and two different sets of rules:
+
+| | Audience | Governed by |
+|---|---|---|
+| `Version Control.accda.src/AGENTS.md` + `vcs-agent-docs/` | an agent in **somebody else's** Access database | [Part 1](#part-1--documentation-that-ships-to-users) |
+| Root `AGENTS.md`, `docs/`, `.cursor/rules/` | contributors and agents in **this** repository | [Part 2](#part-2--this-repositorys-own-documentation) |
+
+Both are budgeted and both are enforced by a test. The shared principle is
+progressive disclosure: the always-loaded entry file carries only what is always
+relevant, and each reference is pulled in only by an agent with a reason to read
+it.
+
+---
+
+# Part 1 — Documentation that ships to users
 
 `Version Control.accda.src/AGENTS.md` and everything under
 `Version Control.accda.src/vcs-agent-docs/` are **not** documentation for this
@@ -92,6 +109,61 @@ past that point. Anthropic's Agent Skills specification independently lands in t
 same place, capping a `SKILL.md` body at roughly 500 lines and pushing detail into
 `references/`.
 
-The mechanism is progressive disclosure: the entry file is always in context, so it
-carries only what is always relevant, and each reference is pulled in only by an
-agent that has a reason to read it.
+---
+
+# Part 2 — This repository's own documentation
+
+The root `AGENTS.md` is loaded on **every turn of every session in this repo**, so
+it is subject to the same ratchet problem as the shipped entry file — and reached
+934 lines before this was written. `docs/` and `.cursor/rules/` carry the depth it
+sheds.
+
+## The budgets
+
+| File | Budget | Why |
+|---|---|---|
+| Root `AGENTS.md` | **150 lines** | Loaded every turn. It is a router, not a manual. |
+| Each `.cursor/rules/*.mdc` | **120 lines** | Auto-attached by glob; cheap only while short. |
+| Each `docs/*.md` | no limit | Read on demand by an agent that chose to. |
+
+`modTestRepoDocs` enforces the first two, plus two structural rules: every
+`docs/` link in the root `AGENTS.md` must resolve, and no `docs/*.md` may be
+orphaned from both the root `AGENTS.md` and the `docs/README.md` index.
+
+An addition that breaks a budget must remove something in the same edit, or move
+the content to `docs/`.
+
+## Where it goes
+
+| The content is | It belongs in |
+|---|---|
+| An invariant the compiler does not enforce, whose violation loses data or churns user projects | root `AGENTS.md`, Invariants |
+| A pointer telling an agent which reference to open for a given task | root `AGENTS.md`, routing table |
+| A procedure, a mechanism, a format, a protocol, or a table of internals | a `docs/*.md` reference |
+| Guidance needed only while editing a particular kind of file | a glob-scoped `.cursor/rules/*.mdc` that links to the `docs/` reference |
+| Why a decision was made, and what was rejected | `DECISIONS.md` |
+| A how-to for end users | `Wiki/` |
+
+Substance goes in `docs/`. Rules stay thin and exist to *trigger* the read at the
+right moment, because they are Cursor-only — an agent running under Claude Code or
+another harness never sees them, but it will follow a link from `AGENTS.md`.
+
+## Two rules that do most of the work
+
+- **Anything recoverable by listing a folder or opening one source file does not
+  belong in the always-loaded set.** Class inventories, folder trees, and enum
+  member lists drift out of date and cost tokens on every turn. The `clsDb*` table
+  in the old root `AGENTS.md` was already incomplete when it was removed.
+- **New depth goes in `docs/`.** Add the file, add a routing-table row in the root
+  `AGENTS.md` pointing at it, and add a row to the `docs/README.md` index.
+  Unlinked documents are read in under 10% of sessions; linked ones in over 90%.
+
+## Do not duplicate across venues
+
+The single largest source of drift is the same content living in two places and
+one copy being updated. Before writing, check whether the topic already has a
+home: `rg -l "<distinctive phrase>" AGENTS.md docs .cursor/rules`. If it does,
+edit that copy and link to it.
+
+When consolidating, prefer the version that cites a `DECISIONS.md` date or a
+specific identifier — it is almost always the more recently maintained one.

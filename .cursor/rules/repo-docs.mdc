@@ -1,0 +1,38 @@
+---
+description: Rules for editing this repository's own agent-facing docs - the root AGENTS.md, docs/, and Cursor rules
+globs:
+  - "AGENTS.md"
+  - "docs/**/*.md"
+  - ".cursor/rules/*.mdc"
+alwaysApply: false
+---
+
+# Repository documentation
+
+These files are read by contributors and agents working in *this* repo. The root
+`AGENTS.md` is the only one loaded on every turn, so it is the expensive one.
+
+Budgets, enforced by `modTestRepoDocs`:
+
+- Root `AGENTS.md` — **150 lines**. It is a router, not a manual.
+- Each `.cursor/rules/*.mdc` — **120 lines**.
+- Every `docs/*.md` must be reachable from the root `AGENTS.md` routing table,
+  from a rule, or from the `docs/README.md` index. Orphaned docs fail the test.
+- Every `docs/` link in the root `AGENTS.md` must resolve to a real file.
+
+Before adding to any of them, read
+[docs/agent-docs-maintenance.md](../../docs/agent-docs-maintenance.md), which has
+the gate for whether the content belongs in agent documentation at all and the
+routing table for which file it goes in.
+
+Two rules do most of the work:
+
+- **Anything recoverable by listing a folder or opening one source file does not
+  belong in the always-loaded set.** Class inventories, folder trees, and enum
+  members drift and cost tokens on every turn.
+- **New depth goes in `docs/`, not in `AGENTS.md`.** Add a routing-table row
+  pointing at it and a row to the `docs/README.md` index.
+
+`Version Control.accda.src/AGENTS.md` and `vcs-agent-docs/` are a different
+audience with stricter rules; see
+[agent-docs.mdc](agent-docs.mdc).
