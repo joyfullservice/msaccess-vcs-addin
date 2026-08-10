@@ -83,6 +83,72 @@ contradictory guidance.
 
 ---
 
+## 2026-08-10 — Function-call operands in ON clauses must resolve against InputTables
+
+**Trigger**: A production merge of `qryUserDynamoGainLossBySecurityYearEnd` logged
+`Join reference 'DateAdd('yyyy', -1, cur' not found in InputTables block` and then
+reported success. The stored query failed at runtime with DAO error 3080. The ON
+clause had a multi-condition join whose third equality put `DateAdd(...)` on one
+side.
+
+**Root cause**: `ExtractTableFromOnSide` treated any text before the first
+qualifying dot as a table name, so a function-call operand produced a garbage
+token. The 2026-05-07 per-condition emit path fell back to the parent join's
+tables only when extraction returned empty, so the garbage token was emitted as
+`RightTable`. `LoadFromText` accepted it; the failure was deferred to execution.
+
+**Options explored**:
+
+- **Gate the shape out of Design View** (`IsDesignerCompatible = False` when an
+  ON operand is an expression) — rejected: multi-condition ON *requires* Design
+  View because SQL View `dbMemo "SQL"` is rejected by `LoadFromText` for that
+  shape. Leaving Design View means we must emit valid join rows.
+- **Always reuse the parent join's LeftTable/RightTable for every split
+  condition** — rejected: that is exactly the 2026-05-07 cross-table ON bug;
+  individual conditions can reference different table pairs.
+- **Resolve each side independently, preferring a qualifier scan over the parent
+  join** — implemented first, then rejected. It fixed the reported case but
+  changed single-table predicates: for `tblCarsColour.ID > 0` the scan claims
+  that table for the left side and the right side then falls to the parent's
+  identical value, emitting `LeftTable = RightTable`. That drifted the
+  `qryRegressionMultiCondJoin` baseline and reintroduces the pair collapse that
+  breaks `BuildJoinChain` on the next export. Per-side resolution has no way to
+  tell "this side is unknown" from "this condition only names one table".
+- **Rank whole pairs by coverage of the condition's refs (chosen)** — a
+  candidate pair is acceptable when every `InputTables` ref named in the
+  condition equals its left or right value, which is the same invariant the
+  round-trip harness enforces. `ResolveConditionJoinTables` tries per-condition
+  extraction first (so a cross-table condition still wins over the parent pair,
+  preserving the 2026-05-07 fix), then the parent pair (which covers
+  single-table predicates and non-equi conditions), then extraction plus a ref
+  named in the condition, normalized to parent orientation when it is merely a
+  swap because outer-join `Flag` values are orientation-sensitive.
+
+**Decision**: Per-condition join refs are resolved through
+`ResolveConditionJoinTables`, which ranks whole candidate pairs by ref coverage,
+rather than raw `ExtractTableFromOnSide` plus an empty-only fallback. This
+supersedes the fallback rule in the 2026-05-07 cross-table ON entry.
+
+`ValidateJoinRow` in the round-trip harness gained the three invariants that
+would have caught both this bug and the per-side misstep above: refs must be
+non-empty (an empty ref previously skipped validation entirely), refs must exist
+in the `InputTables` block, and `LeftTable` must differ from `RightTable`. All 56
+committed `.qdef` baselines already satisfy them.
+
+**What this rules out**: Emitting any `LeftTable`/`RightTable` that is not in
+`InputTables` when a better known ref can be recovered from the condition. Also
+rules out treating "extraction returned something" as proof that the something is
+a table name, and rules out per-side resolution as the shape of this fix.
+
+**Relevant files**:
+- `clsSqlSyntax.cls` — `ExtractTableFromOnSide` / `IsSimpleOnSideIdentifier`
+- `clsQueryComposer.cls` — `ResolveConditionJoinTables`, `CollectConditionInputRefs`, `PairCoversRefs`, emit loop, parse-time join branches
+- `modTestRoundtrip.bas` — `ValidateJoinRow`, `ParseQdefInputTableRefs`
+- `Testing/Fixtures/queries/regression/qryRegressionFunctionInOnClause.*`
+- `docs/access-query-storage.md` § 5 / § 6
+
+---
+
 ## 2026-08-07 — Per-user toggle to disable the helper script (`Worker.vbs`)
 
 **Trigger**: Issue #727. A user's endpoint protection (Sophos "Lockdown") blocks Access from launching `Worker.vbs`, the script `clsWorker` extracts into the install folder for the jobs that cannot run in-process. The visible failure was an uninstall that reported "Success!" and then left the add-in and its lock file behind, but the same block affects every worker consumer, and the user cannot whitelist anything to work around it. Without an escape hatch, v5 is unusable in that environment.
@@ -2874,6 +2940,12 @@ single-object import.)*
 ---
 
 ## 2026-05-07 — Cross-table ON condition LeftTable/RightTable in Design View qdef
+
+> **⚠ Partially superseded** (2026-08-10): The "fall back to the parent join's
+> tables only if extraction returns empty" rule is incomplete — a non-empty
+> garbage token from a function-call operand bypassed it. See
+> "Function-call operands in ON clauses must resolve against InputTables" above.
+> Per-condition extraction itself remains correct for simple column equalities.
 
 **Trigger**: A production database had four queries that passed SQL builder validation but failed with DAO error 3082 ("JOIN operation refers to a field that is not in one of the joined tables") after a full build from source. The queries used compound `ON` clauses where individual conditions referenced different table pairs, and one table was also used inside a saved subquery referenced in another condition.
 

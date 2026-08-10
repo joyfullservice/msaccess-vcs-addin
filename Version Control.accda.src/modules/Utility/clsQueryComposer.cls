@@ -2474,8 +2474,10 @@ Private Sub ParseJoinExpression(strExpr As String)
     ' first "=" sits on the wrong side.
     Dim strLeftSimple As String
     Dim strRightSimple As String
+    Dim dJoinRefs As Dictionary
     strLeftSimple = TryExtractSimpleTable(strLeft)
     strRightSimple = TryExtractSimpleTable(strRight)
+    Set dJoinRefs = BuildInputTableRefLookup()
 
     If Len(strLeftSimple) > 0 And Len(strRightSimple) > 0 Then
         strLeftTable = strLeftSimple
@@ -2483,12 +2485,26 @@ Private Sub ParseJoinExpression(strExpr As String)
     ElseIf Len(strLeftSimple) > 0 Then
         strLeftTable = strLeftSimple
         strRightTable = OnClauseTableExcluding(strOnExpr, strLeftTable)
+        ' Compound or expression ON clauses yield no extractable name for the
+        ' nested side; recover a known InputTables ref rather than leaving it
+        ' empty for the emitter.
+        If Len(strRightTable) = 0 Then
+            strRightTable = FindAlternateInputRefInCondition(strOnExpr, _
+                dJoinRefs, strLeftTable)
+        End If
     ElseIf Len(strRightSimple) > 0 Then
         strRightTable = strRightSimple
         strLeftTable = OnClauseTableExcluding(strOnExpr, strRightTable)
+        If Len(strLeftTable) = 0 Then
+            strLeftTable = FindAlternateInputRefInCondition(strOnExpr, _
+                dJoinRefs, strRightTable)
+        End If
     Else
-        strLeftTable = ExtractTableFromOnSide(strOnExpr, True)
-        strRightTable = ExtractTableFromOnSide(strOnExpr, False)
+        ' Both operands nested — resolve against known InputTables so a
+        ' function-call operand cannot leave LeftTable/RightTable empty or
+        ' filled with a garbage token from ExtractTableFromOnSide.
+        ResolveConditionJoinTables strOnExpr, dJoinRefs, _
+            vbNullString, vbNullString, strLeftTable, strRightTable
     End If
 
     Set dJoin = New Dictionary
@@ -2841,10 +2857,9 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
                 For lngC = LBound(asConditions) To UBound(asConditions)
                     strCondition = StripOuterParens(Trim$(asConditions(lngC)))
                     If Len(strCondition) > 0 Then
-                        strCondLeft = ExtractTableFromOnSide(strCondition, True)
-                        strCondRight = ExtractTableFromOnSide(strCondition, False)
-                        If Len(strCondLeft) = 0 Then strCondLeft = CStr(dJn("leftTable"))
-                        If Len(strCondRight) = 0 Then strCondRight = CStr(dJn("rightTable"))
+                        ResolveConditionJoinTables strCondition, dInputRefs, _
+                            CStr(dJn("leftTable")), CStr(dJn("rightTable")), _
+                            strCondLeft, strCondRight
                         WarnIfJoinRefMissing strCondLeft, dInputRefs
                         WarnIfJoinRefMissing strCondRight, dInputRefs
                         cOut.Add "    LeftTable =""" & strCondLeft & """", vbCrLf
@@ -2917,6 +2932,221 @@ Private Sub WarnIfJoinRefMissing(ByVal strRef As String, dInputRefs As Dictionar
         "' not found in InputTables block; qdef may be rejected by LoadFromText. " & _
         SqlSnippet(), ModuleName(Me) & ".EmitDesignViewQdef"
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveConditionJoinTables
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : Resolve LeftTable/RightTable for one ON condition. Candidates are
+'           : whole pairs, ranked by whether they cover every InputTables ref
+'           : named in the condition (the same invariant the round-trip harness
+'           : checks):
+'           :   1. Per-condition extraction, when both sides resolve to known
+'           :      refs and the pair covers the condition. Required so a
+'           :      cross-table condition wins over the parent pair.
+'           :   2. The parent join's pair, when it covers the condition. Keeps
+'           :      single-table predicates (tblB.ID > 0) and non-equi
+'           :      conditions on the parent's orientation.
+'           :   3. Extraction where available plus a ref named in the condition,
+'           :      normalized to parent orientation when it is just a swap.
+'           :      Outer-join Flag values (2=LEFT, 3=RIGHT) are orientation-
+'           :      sensitive.
+'           :   4. Neither covers: prefer the parent pair, else the mixed pair.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ResolveConditionJoinTables(ByVal strCondition As String, _
+    ByVal dInputRefs As Dictionary, ByVal strParentLeft As String, _
+    ByVal strParentRight As String, ByRef strLeft As String, ByRef strRight As String)
+
+    Dim colRefs As Collection
+    Dim strExtractLeft As String
+    Dim strExtractRight As String
+    Dim strMixedLeft As String
+    Dim strMixedRight As String
+    Dim blnParentPair As Boolean
+
+    Set colRefs = CollectConditionInputRefs(strCondition, dInputRefs)
+    strExtractLeft = ExtractedInputRef(strCondition, True, dInputRefs)
+    strExtractRight = ExtractedInputRef(strCondition, False, dInputRefs)
+    blnParentPair = (Len(strParentLeft) > 0 And Len(strParentRight) > 0)
+
+    ' 1. Per-condition extraction
+    If Len(strExtractLeft) > 0 And Len(strExtractRight) > 0 Then
+        If PairCoversRefs(colRefs, strExtractLeft, strExtractRight) Then
+            strLeft = strExtractLeft
+            strRight = strExtractRight
+            Exit Sub
+        End If
+    End If
+
+    ' 2. Parent join pair
+    If blnParentPair Then
+        If PairCoversRefs(colRefs, strParentLeft, strParentRight) Then
+            strLeft = strParentLeft
+            strRight = strParentRight
+            Exit Sub
+        End If
+    End If
+
+    ' 3. Extraction plus a ref named in the condition
+    strMixedLeft = strExtractLeft
+    If Len(strMixedLeft) = 0 Then
+        strMixedLeft = FirstRefExcluding(colRefs, strExtractRight)
+    End If
+    strMixedRight = strExtractRight
+    If Len(strMixedRight) = 0 Then
+        strMixedRight = FirstRefExcluding(colRefs, strMixedLeft)
+    End If
+
+    If Len(strMixedLeft) > 0 And Len(strMixedRight) > 0 Then
+        If PairCoversRefs(colRefs, strMixedLeft, strMixedRight) Then
+            If blnParentPair _
+                And StrComp(strMixedLeft, strParentRight, vbTextCompare) = 0 _
+                And StrComp(strMixedRight, strParentLeft, vbTextCompare) = 0 Then
+                strLeft = strParentLeft
+                strRight = strParentRight
+            Else
+                strLeft = strMixedLeft
+                strRight = strMixedRight
+            End If
+            Exit Sub
+        End If
+    End If
+
+    ' 4. Nothing covers the condition
+    If blnParentPair Then
+        strLeft = strParentLeft
+        strRight = strParentRight
+    Else
+        strLeft = strMixedLeft
+        strRight = strMixedRight
+        If Len(strLeft) = 0 Then strLeft = strParentLeft
+        If Len(strRight) = 0 Then strRight = strParentRight
+    End If
+
+End Sub
+
+
+Private Function ExtractedInputRef(ByVal strCondition As String, _
+    ByVal blnLeftSide As Boolean, ByVal dInputRefs As Dictionary) As String
+    Dim strRef As String
+    If dInputRefs Is Nothing Then Exit Function
+    strRef = ExtractTableFromOnSide(strCondition, blnLeftSide)
+    If Len(strRef) = 0 Then Exit Function
+    If dInputRefs.Exists(strRef) Then ExtractedInputRef = strRef
+End Function
+
+
+Private Function PairCoversRefs(ByVal colRefs As Collection, _
+    ByVal strLeft As String, ByVal strRight As String) As Boolean
+    Dim varRef As Variant
+    If colRefs Is Nothing Then
+        PairCoversRefs = True
+        Exit Function
+    End If
+    For Each varRef In colRefs
+        If StrComp(CStr(varRef), strLeft, vbTextCompare) <> 0 _
+            And StrComp(CStr(varRef), strRight, vbTextCompare) <> 0 Then
+            Exit Function
+        End If
+    Next varRef
+    PairCoversRefs = True
+End Function
+
+
+Private Function FirstRefExcluding(ByVal colRefs As Collection, _
+    ByVal strExclude As String) As String
+    Dim varRef As Variant
+    If colRefs Is Nothing Then Exit Function
+    For Each varRef In colRefs
+        If Len(strExclude) = 0 _
+            Or StrComp(CStr(varRef), strExclude, vbTextCompare) <> 0 Then
+            FirstRefExcluding = CStr(varRef)
+            Exit Function
+        End If
+    Next varRef
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindAlternateInputRefInCondition
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : First InputTables ref named in strCondition other than strExclude.
+'           : Used where a side could not be extracted (function-call operand)
+'           : but the expression still names a known input table, e.g.
+'           : DateAdd('yyyy', -1, cur.OrderDate).
+'---------------------------------------------------------------------------------------
+'
+Private Function FindAlternateInputRefInCondition(ByVal strCondition As String, _
+    ByVal dInputRefs As Dictionary, ByVal strExclude As String) As String
+    FindAlternateInputRefInCondition = FirstRefExcluding( _
+        CollectConditionInputRefs(strCondition, dInputRefs), strExclude)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CollectConditionInputRefs
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : Distinct qualifiers of qualifier.field tokens in strCondition that
+'           : exist in dInputRefs, in order of appearance. Bracketed qualifiers
+'           : ([My Table].fld) are returned unbracketed.
+'---------------------------------------------------------------------------------------
+'
+Private Function CollectConditionInputRefs(ByVal strCondition As String, _
+    ByVal dInputRefs As Dictionary) As Collection
+
+    Dim colRefs As New Collection
+    Dim dSeen As New Dictionary
+    Dim lngPos As Long
+    Dim lngDot As Long
+    Dim lngStart As Long
+    Dim strTable As String
+    Dim ch As String
+    Dim lngBracket As Long
+
+    Set CollectConditionInputRefs = colRefs
+    If dInputRefs Is Nothing Then Exit Function
+    dSeen.CompareMode = vbTextCompare
+
+    lngPos = 1
+    Do
+        lngDot = InStr(lngPos, strCondition, ".")
+        If lngDot = 0 Then Exit Do
+
+        lngStart = lngDot - 1
+        If lngStart >= 1 And Mid$(strCondition, lngStart, 1) = "]" Then
+            lngBracket = InStrRev(strCondition, "[", lngStart)
+            If lngBracket > 0 Then
+                strTable = Mid$(strCondition, lngBracket + 1, lngStart - lngBracket - 1)
+            Else
+                strTable = vbNullString
+            End If
+        Else
+            Do While lngStart >= 1
+                ch = Mid$(strCondition, lngStart, 1)
+                If ch Like "[A-Za-z0-9_]" Then
+                    lngStart = lngStart - 1
+                Else
+                    Exit Do
+                End If
+            Loop
+            strTable = Mid$(strCondition, lngStart + 1, lngDot - lngStart - 1)
+        End If
+
+        If Len(strTable) > 0 And Not IsNumeric(strTable) Then
+            If dInputRefs.Exists(strTable) And Not dSeen.Exists(strTable) Then
+                dSeen.Add strTable, True
+                colRefs.Add strTable
+            End If
+        End If
+
+        lngPos = lngDot + 1
+    Loop
+
+End Function
 
 
 Private Function BuildInputTableRefLookup() As Dictionary

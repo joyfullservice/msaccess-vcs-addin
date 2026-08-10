@@ -410,8 +410,10 @@ contribute a fixture (see the bug-as-fixture workflow in
 | Pass-through queries                               | Covered by `passthrough/qryPassThroughNoConnect`, `qryPassThroughReturnsRecords` (Attribute 1 Flag 8), and `qryPassThroughNoRecords` (Flag 10 / `ReturnsRecords=false`, issue #724). SQL is the verbatim Attribute 1 `Expression`; connect is Attribute 1 `Name1` (or Attribute 4 when present). |
 | Scalar `SELECT 1 ... AS X` subqueries in projection | No fixture. Riddington Part 1 § 27 example uses `Exists (SELECT 1 ...)` inside a DELETE; only the outer DELETE shape is currently exercised. |
 | `INSERT INTO ... VALUES (...)` (literal append)    | No fixture. Differs structurally from `INSERT INTO ... SELECT` (uses Attribute 6 Flag = -32768 for VALUES literals).           |
-| Non-equi joins (`A.x > B.y`)                       | No fixture. Cannot be displayed in Design View — would be SQL-View-only and may need to land alongside the multi-cond `ON` asymmetry in § 6. |
-| Function calls in ON-clause operands (`Left(a.x,3)=b.y`) | **Known parser gap.** `ExtractTableFromOnSide` splits on the first `=` and takes the token before the first dot; it is not expression-aware. Non-equi/expression joins are largely gated by `IsDesignerCompatible`, but a fixture is still warranted if this shape is observed in production. |
+| Non-equi joins (`A.x > B.y`)                       | **Covered** by [regression/qryRegressionNonEquiJoin.sql](../Testing/Fixtures/queries/regression/qryRegressionNonEquiJoin.sql) (inside a compound `ON`, with a `.qdef` baseline). Access cannot *display* these in Design View, but it does store them as Attribute 7 rows and `LoadFromText` accepts them. `ExtractTableFromOnSide` keys off `=`, so both sides come back empty and the pair is taken from the parent join. |
+| Top-level `OR` in a compound `ON`                  | No fixture. `HasTopLevelBoolean` returns True for `OR`, so `RequiresDesignView` is set and Design View is forced — but `EmitDesignViewQdef` splits on `" AND "` only, so the whole `OR` expression lands in a single join row with the pair taken from the first `=`. Whether Access accepts and round-trips that is unverified. |
+| Post-import validation of the stored query         | None. Import treats a `LoadFromText` success as success, and Access accepts structurally invalid `Joins` rows silently (see § 6). Reading `QueryDefs(name).SQL` after import would surface error 3080 / 3082 corruption at merge time instead of at first execution. |
+| Function calls in ON-clause operands (`Left(a.x,3)=b.y`) | **Covered.** `ExtractTableFromOnSide` returns empty for expression operands; `ResolveConditionJoinTables` validates against `InputTables` and falls back via qualifier scan / parent join. Pinned by [regression/qryRegressionFunctionInOnClause.sql](../Testing/Fixtures/queries/regression/qryRegressionFunctionInOnClause.sql). See § 6. |
 | External-database joins (`IN '...'` clause)        | No fixture. Attribute 4 carries the connect string; verify it round-trips.                                                     |
 
 When adding a fixture for any of the above, follow the contribution
@@ -459,6 +461,53 @@ property (line 559), and consumed by the arbitration rule in
 
 **Pinned by:** [regression/qryRegressionMultiCondJoin.sql](../Testing/Fixtures/queries/regression/qryRegressionMultiCondJoin.sql)
 + sibling `.notes.md`.
+
+### Function-call operands in compound `ON` corrupt Design View join rows
+
+**Symptom.** A multi-condition `ON` with a function on one side of an
+equality — e.g. `prior.OrderDate = DateAdd('yyyy', -1, cur.OrderDate)` —
+imported without error, then failed at runtime with DAO error 3080
+("Joined table 'DateAdd('yyyy', -1, cur' not listed in FROM clause").
+
+**Cause.** Two compounding gaps:
+
+1. `ExtractTableFromOnSide` was not expression-aware. For the right side
+   of that condition it stripped the trailing `)`, found the first
+   qualifying dot, and returned the prefix `DateAdd('yyyy', -1, cur` as
+   the table name.
+2. The per-condition emit loop in `EmitDesignViewQdef` fell back to the
+   parent join's tables only when extraction returned *empty*. A
+   non-empty garbage token bypassed the fallback and was written as
+   `RightTable`. `LoadFromText` accepted it silently.
+
+Multi-condition `ON` forces Design View (`RequiresDesignView`), so the
+SQL View path — which would have stored the SQL verbatim — was never
+taken. `IsDesignerCompatible` does not gate function-call operands.
+
+**Fix.** `ExtractTableFromOnSide` returns empty unless the side is a
+single bare or qualified identifier. `ResolveConditionJoinTables` then
+ranks whole candidate pairs by whether they *cover* the condition — every
+`InputTables` ref named in the condition must equal the pair's left or
+right value, the same invariant the round-trip harness checks:
+
+1. Per-condition extraction, when both sides resolve to known refs. This
+   ordering preserves the cross-table `ON` fix below, where a condition's
+   own pair must win over the parent join's.
+2. The parent join's pair. This covers single-table predicates
+   (`tblB.ID > 0`) and non-equi conditions (`A.x > B.y`), neither of
+   which yields an extractable name, and keeps them on the parent's
+   orientation.
+3. Extraction plus a ref named in the condition, normalized to parent
+   orientation when it is merely a swap, because outer-join `Flag` values
+   (2 = LEFT, 3 = RIGHT) are orientation-sensitive.
+
+Resolving each side independently instead is not sufficient: it cannot
+distinguish "this side is unknown" from "this condition names only one
+table", and collapses single-table predicates to
+`LeftTable = RightTable`.
+
+**Pinned by:** [regression/qryRegressionFunctionInOnClause.sql](../Testing/Fixtures/queries/regression/qryRegressionFunctionInOnClause.sql)
++ sibling `.notes.md` / `.qdef`.
 
 ### `TOP N PERCENT` lives in SQL View in Access
 
@@ -661,10 +710,12 @@ asymmetry (above), this bug was in the VCS emitter, not in Access.
 the error manifests only at query execution, making it hard to
 diagnose.
 
-**Implementation.** `clsQueryComposer.EmitDesignViewQdef` now uses
-`ExtractTableFromOnSide` to derive the correct `LeftTable`/`RightTable`
-for each individual condition in a split compound `ON`, falling back to
-the parent join's tables only if extraction fails.
+**Implementation.** `clsQueryComposer.EmitDesignViewQdef` resolves each
+split condition through `ResolveConditionJoinTables`, which prefers the
+condition's own extracted pair whenever both sides resolve to known
+`InputTables` refs — which is what this finding requires — and only then
+considers the parent pair. (The earlier empty-only fallback was
+insufficient for function-call operands; see the finding above.)
 
 **Pinned by:** [regression/qryRegressionCrossTableOn.sql](../Testing/Fixtures/queries/regression/qryRegressionCrossTableOn.sql)
 \+ sibling `.notes.md`.

@@ -126,8 +126,12 @@ Public Function OnClauseTableExcluding(strOnExpr As String, _
 
     If StrComp(strTblA, strExcludeTable, vbTextCompare) = 0 Then
         OnClauseTableExcluding = strTblB
-    Else
+    ElseIf StrComp(strTblB, strExcludeTable, vbTextCompare) = 0 Then
         OnClauseTableExcluding = strTblA
+    ElseIf Len(strTblA) > 0 Then
+        OnClauseTableExcluding = strTblA
+    Else
+        OnClauseTableExcluding = strTblB
     End If
 End Function
 
@@ -139,8 +143,10 @@ End Function
 ' Purpose   : Extract a table name from one side of the first '=' in an ON expression.
 '           : blnLeftSide=True returns the table before '=', False returns after '='.
 '           :
-'           : Known gap: function calls on the ON side (e.g. Left(a.x, 3) = b.y)
-'           : are not expression-aware. See docs/access-query-storage.md.
+'           : Returns empty when the side is not a single bare or qualified identifier
+'           : (e.g. DateAdd('yyyy', -1, cur.EffectiveDate) or Left(a.x, 3)). Callers
+'           : must fall back to a known InputTables ref rather than trusting a
+'           : non-empty garbage token. See docs/access-query-storage.md.
 '---------------------------------------------------------------------------------------
 '
 Public Function ExtractTableFromOnSide(strOnExpr As String, blnLeftSide As Boolean) As String
@@ -165,12 +171,58 @@ Public Function ExtractTableFromOnSide(strOnExpr As String, blnLeftSide As Boole
     Loop
     strSide = Trim$(strSide)
 
+    ' Reject function calls, operators, and multi-token expressions so we never
+    ' return a prefix like "DateAdd('yyyy', -1, cur" as a table name.
+    If Not IsSimpleOnSideIdentifier(strSide) Then Exit Function
+
     lngDot = FindQualifyingDot(strSide)
     If lngDot > 0 Then
         ExtractTableFromOnSide = UnBracket(Trim$(Left$(strSide, lngDot - 1)))
     Else
         ExtractTableFromOnSide = UnBracket(strSide)
     End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsSimpleOnSideIdentifier
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : True when strSide is a bare or qualified identifier suitable for
+'           : ExtractTableFromOnSide — optionally bracketed parts separated by a
+'           : single qualifying dot. False for function calls, operators, commas,
+'           : or spaces outside brackets/quotes.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsSimpleOnSideIdentifier(ByVal strSide As String) As Boolean
+    Dim lngPos As Long
+    Dim ch As String
+    Dim blnInBracket As Boolean
+    Dim blnInString As Boolean
+
+    If Len(strSide) = 0 Then Exit Function
+
+    For lngPos = 1 To Len(strSide)
+        ch = Mid$(strSide, lngPos, 1)
+        If blnInString Then
+            If ch = "'" Then blnInString = False
+        ElseIf blnInBracket Then
+            If ch = "]" Then blnInBracket = False
+        Else
+            Select Case ch
+                Case "["
+                    blnInBracket = True
+                Case "'"
+                    blnInString = True
+                Case "(", ")", ",", "+", "-", "*", "/", "&", "<", ">", "!", " "
+                    Exit Function
+            End Select
+        End If
+    Next lngPos
+
+    ' Unclosed bracket/string is not a simple identifier.
+    If blnInBracket Or blnInString Then Exit Function
+    IsSimpleOnSideIdentifier = True
 End Function
 
 

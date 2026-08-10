@@ -39,6 +39,61 @@ Public Sub TestSpacedTableNameJoin_ImportPath()
 End Sub
 
 
+Public Sub TestFunctionOperandInMultiCondOn_JoinRefsInInputTables()
+    ' Pins: DateAdd (or any function) on one side of a split ON condition must
+    ' never become LeftTable/RightTable. Refs must resolve to InputTables aliases.
+    Dim strSql As String
+    Dim colJoins As Collection
+
+    strSql = "SELECT cur.OrderID, cur.OrderDate FROM tblOrders AS cur " & _
+             "LEFT JOIN tblOrders AS prior ON (cur.CustomerID = prior.CustomerID) " & _
+             "AND (prior.OrderDate = DateAdd('yyyy', -1, cur.OrderDate))"
+
+    AssertJoinRefsResolve strSql, "function operand multi-cond ON"
+
+    Set colJoins = QdefJoinRows(strSql, True)
+    TestAssert colJoins.Count = 2, "two split join rows for compound ON"
+    AssertAllJoinRowsArePair colJoins, "cur", "prior", "function operand"
+    AssertNoJoinRefContains colJoins, "DateAdd", "function operand"
+End Sub
+
+
+Public Sub TestSingleTablePredicateInCompoundOn_KeepsParentPair()
+    ' Pins: a condition naming only one table (tblB.flag > 0) must keep the
+    ' parent join's pair. Resolving it from the condition alone would emit
+    ' LeftTable = RightTable, which Access collapses and which breaks
+    ' BuildJoinChain on the next export.
+    Dim strSql As String
+    Dim colJoins As Collection
+
+    strSql = "SELECT t1.a FROM t1 INNER JOIN t2 " & _
+             "ON (t1.x = t2.x) AND (t2.flag > 0)"
+
+    AssertJoinRefsResolve strSql, "single-table predicate in compound ON"
+
+    Set colJoins = QdefJoinRows(strSql, True)
+    TestAssert colJoins.Count = 2, "two split join rows for predicate compound ON"
+    AssertAllJoinRowsArePair colJoins, "t1", "t2", "single-table predicate"
+End Sub
+
+
+Public Sub TestNonEquiConditionInCompoundOn_UsesBothTables()
+    ' Pins: a non-equi condition has no "=" for ExtractTableFromOnSide to split
+    ' on, so the pair must come from the parent join rather than collapsing.
+    Dim strSql As String
+    Dim colJoins As Collection
+
+    strSql = "SELECT A.k FROM tblReadings AS A INNER JOIN tblReadings AS B " & _
+             "ON (A.k = B.k) AND (A.v > B.v)"
+
+    AssertJoinRefsResolve strSql, "non-equi condition in compound ON"
+
+    Set colJoins = QdefJoinRows(strSql, True)
+    TestAssert colJoins.Count = 2, "two split join rows for non-equi compound ON"
+    AssertAllJoinRowsArePair colJoins, "A", "B", "non-equi condition"
+End Sub
+
+
 Public Sub TestJoinFlavorMatrix_Select()
     Dim vCases As Variant
     Dim i As Long
@@ -168,6 +223,51 @@ Public Sub TestClosedLoop_SpacedTableNameJoin()
     Set colRows = RebuildRowsFromQdef(colRows, strQdef)
     strSql2 = m_qc.ReconstructSQL(colRows)
     TestAssert strSql1 = strSql2, "closed loop SQL stable"
+End Sub
+
+
+Private Function QdefJoinRows(ByVal strSql As String, _
+    ByVal blnRequiresDesignView As Boolean) As Collection
+    Dim strQdef As String
+    Set m_qc = New clsQueryComposer
+    m_qc.DecomposeSQL strSql, False
+    If blnRequiresDesignView Then
+        TestAssert m_qc.RequiresDesignView, "multi-condition ON requires Design View"
+    End If
+    strQdef = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+    TestAssert m_qc.WarningCount = 0, "qdef generated without warnings"
+    Set QdefJoinRows = ParseJoinTables(strQdef)
+End Function
+
+
+Private Sub AssertAllJoinRowsArePair(colJoins As Collection, _
+    ByVal strExpLeft As String, ByVal strExpRight As String, _
+    ByVal strContext As String)
+    Dim varRow As Variant
+    Dim dJoin As Dictionary
+    For Each varRow In colJoins
+        Set dJoin = varRow
+        TestAssert StrComp(CStr(dJoin("left")), strExpLeft, vbTextCompare) = 0, _
+            strContext & " LeftTable is " & strExpLeft & ", got " & CStr(dJoin("left"))
+        TestAssert StrComp(CStr(dJoin("right")), strExpRight, vbTextCompare) = 0, _
+            strContext & " RightTable is " & strExpRight & ", got " & CStr(dJoin("right"))
+        TestAssert StrComp(CStr(dJoin("left")), CStr(dJoin("right")), vbTextCompare) <> 0, _
+            strContext & " LeftTable and RightTable must differ"
+    Next varRow
+End Sub
+
+
+Private Sub AssertNoJoinRefContains(colJoins As Collection, _
+    ByVal strNeedle As String, ByVal strContext As String)
+    Dim varRow As Variant
+    Dim dJoin As Dictionary
+    For Each varRow In colJoins
+        Set dJoin = varRow
+        TestAssert InStr(1, CStr(dJoin("left")), strNeedle, vbTextCompare) = 0, _
+            strContext & " LeftTable must not contain " & strNeedle
+        TestAssert InStr(1, CStr(dJoin("right")), strNeedle, vbTextCompare) = 0, _
+            strContext & " RightTable must not contain " & strNeedle
+    Next varRow
 End Sub
 
 
