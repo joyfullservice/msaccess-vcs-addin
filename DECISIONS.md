@@ -83,6 +83,50 @@ contradictory guidance.
 
 ---
 
+## 2026-08-10 — SharedDb invalidation after single-object table create
+
+**Trigger**: Table-definition round-trip fixtures raised Error 3265
+(`Item not found in this collection`) on
+`SharedDb.TableDefs(m_Table.Name).Connect` inside `clsDbTableDef.IDbComponent_Export`.
+The harness creates sandbox tables through `modTableDefBuilder` (DAO on a fresh
+`CurrentDb`) or `Application.ImportXML`, then exports through `SharedDb`, whose
+`TableDefs` collection is a snapshot from when the cached handle was opened.
+Fixture 1 usually survived (handle created after its table existed); later
+fixtures failed. The DAO fast path's verification export hit the same 3265 under
+`On Error Resume Next` and appeared to succeed with an empty `Connect`.
+
+**Options explored**:
+- **Per-collection `TableDefs.Refresh` on the cached handle**: Already rejected in
+  2026-06-25 ("SharedDb invalidation during build/merge and database close") —
+  other collections (`QueryDefs`, `Containers.Documents`) have the same staleness.
+- **Harness-only `ReleaseDbReferences`**: Would mask the production gap for
+  `LoadSingleObject` (no per-category release) and for
+  `FixCorruptedBigIntFields` / metadata apply after `ImportXML`. Rejected as sole
+  fix.
+- **Invalidate at create boundaries plus harness catalog refresh** (chosen):
+  `ReleaseDbReferences` after `CreateTableFromSchema` appends a table, and after a
+  successful `Application.ImportXML` fallback in `IDbComponent_Import`. The
+  round-trip harness also calls a `RefreshDbCatalog` helper (idle + release) after
+  import, cleanup, and scaffold load — same pattern as
+  `modTestTableDef.RefreshTableCollections`.
+
+**Decision**: Single-object table create and the round-trip harness are their own
+invalidation boundaries, in addition to the per-category release during
+build/merge. The DAO fast path must invalidate between create and verify so
+verification does not rely on swallowed 3265.
+
+**What this rules out**: Relying on `On Error Resume Next` around export to paper
+over a stale `SharedDb` after DAO create. Treating per-category release in
+`modBuild` as sufficient for `LoadSingleObject` or fixture harnesses.
+
+**Relevant files**: `Version Control.accda.src/modules/Components/modTableDefBuilder.bas`,
+`Version Control.accda.src/modules/Components/clsDbTableDef.cls`,
+`Version Control.accda.src/modules/Tests/modTestRoundtrip.bas`,
+`Version Control.accda.src/modules/Infrastructure/modObjects.bas`.
+See also 2026-06-25 — SharedDb invalidation during build/merge and database close.
+
+---
+
 ## 2026-08-10 — Function-call operands in ON clauses must resolve against InputTables
 
 **Trigger**: A production merge of `qryUserDynamoGainLossBySecurityYearEnd` logged

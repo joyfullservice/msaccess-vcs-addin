@@ -312,6 +312,11 @@ Private Sub IDbComponent_Import(strFile As String)
                 blnImportFailed = CatchAny(eelError, "Unable to import XML for " & FSO.GetFileName(strFile), ModuleName(Me) & ".Import")
             End If
 
+            ' Application.ImportXML creates the table outside SharedDb's TableDefs
+            ' snapshot. Invalidate before FixCorruptedBigIntFields / metadata apply /
+            ' single-object callers that have no per-category ReleaseDbReferences.
+            If Not blnImportFailed Then ReleaseDbReferences
+
             If Not blnImportFailed And colBigIntFields.Count > 0 Then
                 FixCorruptedBigIntFields strName, colBigIntFields
             End If

@@ -487,7 +487,7 @@ FixtureCleanUp:
     On Error Resume Next
     If blnSandboxImported Then
         DeleteSandboxObject acQuery, strSandboxName
-        DBEngine.Idle dbRefreshCache
+        RefreshDbCatalog
     End If
     Set cComponent = Nothing
     Set cQuery = Nothing
@@ -651,6 +651,11 @@ Private Function RunTableDefRoundtrip(ByVal strFixtureXml As String, ByVal strSc
     Set cTable = New clsDbTableDef
     Set cComponent = cTable
     cComponent.Import strSandboxXmlIn
+    ' Import creates the table outside SharedDb (DAO on a fresh CurrentDb, or
+    ' Application.ImportXML). Invalidate so Pass 1 export sees the new catalog.
+    ' Required especially for fallback\ fixtures: the fast path may create a
+    ' table, re-acquire SharedDb during verification, delete, then ImportXML.
+    RefreshDbCatalog
     blnSandboxImported = ObjectExists(acTable, strSandboxName)
 
     If Not blnSandboxImported Then
@@ -735,7 +740,7 @@ FixtureCleanUp:
     Set cTable = Nothing
     If blnSandboxImported Then
         DeleteSandboxObject acTable, strSandboxName
-        DBEngine.Idle dbRefreshCache
+        RefreshDbCatalog
     End If
 
     If Operation.ErrorLevel < eelPriorErrorLevel Then
@@ -1140,7 +1145,10 @@ Private Sub LoadScaffold(ByVal strScaffoldFolder As String)
         End If
     Next oFile
 
-    If lngLoaded > 0 Then Log.Add T("Loaded {0} scaffold object(s).", var0:=CStr(lngLoaded)), False
+    If lngLoaded > 0 Then
+        RefreshDbCatalog
+        Log.Add T("Loaded {0} scaffold object(s).", var0:=CStr(lngLoaded)), False
+    End If
 
 End Sub
 
@@ -1150,7 +1158,7 @@ Private Sub UnloadScaffold()
     For Each varName In m_colScaffoldQueries
         DeleteSandboxObject acQuery, CStr(varName)
     Next varName
-    DBEngine.Idle dbRefreshCache
+    RefreshDbCatalog
     Set m_colScaffoldQueries = New Collection
 End Sub
 
@@ -1195,7 +1203,7 @@ Private Sub CleanupStaleObjects()
     For Each varName In colTables
         DeleteSandboxObject acTable, CStr(varName)
     Next varName
-    DBEngine.Idle dbRefreshCache
+    RefreshDbCatalog
 End Sub
 
 
@@ -1203,6 +1211,27 @@ Private Function IsHarnessObjectName(ByVal strName As String) As Boolean
     IsHarnessObjectName = (Left$(strName, Len(TEST_PREFIX)) = TEST_PREFIX) _
         Or (Left$(strName, Len(SCAFFOLD_PREFIX)) = SCAFFOLD_PREFIX)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefreshDbCatalog
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : Pick up schema changes made outside the SharedDb handle, and release
+'           : that handle so the next SharedDb caller sees the current catalog.
+'           :
+'           : The harness creates and deletes tables/queries through CurrentDb and
+'           : Application.ImportXML. SharedDb caches a CurrentDb whose TableDefs /
+'           : QueryDefs collections are snapshots from when the handle was opened;
+'           : without invalidation, clsDbTableDef.Export raises Error 3265 for a
+'           : table created after that snapshot. Same pattern as
+'           : modTestTableDef.RefreshTableCollections.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RefreshDbCatalog()
+    DBEngine.Idle dbRefreshCache
+    ReleaseDbReferences
+End Sub
 
 
 '---------------------------------------------------------------------------------------
