@@ -774,13 +774,19 @@ End Property
 '           :      and no content is read. This is the fast path, and on a project with
 '           :      thousands of components it is the difference between a merge scan that
 '           :      touches the disk once per folder and one that reads every file.
+'           :      When the entry lacks AllFilesHash and more than one indexed file
+'           :      exists, the combined content hash is recorded now so later scans can
+'           :      arbitrate companion edits precisely (upgrade-path backfill).
 '           :   2. Property hash differs and AllFilesHash is recorded -- the combined
 '           :      content hash of all indexed files decides. This catches companion-only
-'           :      edits (a metadata `.json`) and dismisses timestamp-only drift, such as
-'           :      a checkout that rewrote mtimes without changing content.
-'           :   3. Property hash differs and the entry predates AllFilesHash -- fall back
-'           :      to the primary file content hash alone, until the next sync populates
-'           :      the combined hash.
+'           :      edits (a metadata `.json` or form `.cls`) and dismisses timestamp-only
+'           :      drift, such as a checkout that rewrote mtimes without changing content.
+'           :   3. Property hash differs, AllFilesHash is absent, and more than one
+'           :      indexed file exists -- report modified. The primary FileHash alone
+'           :      cannot rule out a companion-only edit, and refreshing the property
+'           :      hash would record that edited state as synced (issue #748).
+'           :   4. Property hash differs, AllFilesHash is absent, and only one indexed
+'           :      file exists -- fall back to the primary file content hash alone.
 '           :
 '           : Optionally accepts a folder metadata map (path -> Array(date, size)) from
 '           : ScanFolderMetadata. A merge build passes one recursive scan covering the
@@ -870,6 +876,18 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent, _
                         ' the last sync, so nothing was written since. Clean without
                         ' reading a single byte.
                         blnModified = False
+                        ' Legacy multi-file entry in a provably clean tree: record the
+                        ' combined content hash now so later scans can arbitrate
+                        ' companion edits precisely. Single-file entries are skipped:
+                        ' their primary-hash comparison below is already just as
+                        ' correct and costs the same one file read, so backfilling
+                        ' them would pay for content reads that buy nothing.
+                        If Len(cIdx.AllFilesHash) = 0 Then
+                            If GetSourceFileCount(cCategory, strFile, dMeta) > 1 Then
+                                cIdx.AllFilesHash = _
+                                    GetSourceFilesContentHash(cCategory, strFile, dMeta)
+                            End If
+                        End If
 
                     ElseIf Len(cIdx.AllFilesHash) > 0 Then
                         ' A date or size moved. The combined content hash is the arbiter:
@@ -884,10 +902,16 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent, _
                             cIdx.SourceModified = GetSourceModifiedDate(cCategory, strFile)
                         End If
 
+                    ElseIf GetSourceFileCount(cCategory, strFile, dMeta) > 1 Then
+                        ' Legacy entry for a multi-file component. FileHash covers only
+                        ' the primary file, so a companion-only edit cannot be ruled out.
+                        ' Merge it rather than refreshing the property hash, which would
+                        ' record the edited state as synced and lose the edit with no
+                        ' conflict prompt. (Issue #748.)
+                        blnModified = True
+
                     Else
-                        ' Legacy entry written before AllFilesHash existed. Only the primary
-                        ' file can be confirmed, so companion-only edits stay hidden until
-                        ' the next export or import re-syncs this entry.
+                        ' Legacy single-file entry: the primary content hash is conclusive.
                         strStoredHash = cIdx.FileHash
                         If Len(strStoredHash) > 0 Then
                             blnModified = (strStoredHash <> GetFileHash(strFile))

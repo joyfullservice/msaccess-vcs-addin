@@ -83,6 +83,75 @@ contradictory guidance.
 
 ---
 
+## 2026-08-11 — Legacy index entries without AllFilesHash treat multi-file components as modified
+
+**Trigger**: Issue #748 — Merge reported "No changes found" after editing only a form's
+companion `.cls` file. The reporter's diagnosis pointed at the primary-file-only
+content-hash fallback in `GetModifiedSourceFiles`. A local repro against Database5
+confirmed it, but only for an index whose entries were written before `AllFilesHash`
+existed (5.0.1 and earlier). Fresh exports under current code already record the
+combined hash and detect `.cls`-only edits correctly.
+
+The failure mode is worse than a single missed merge. The legacy branch compared
+only the primary `.form` content hash; when that matched, it *refreshed*
+`FilePropertiesHash` to the edited tree's dates and sizes. The edited `.cls` was
+then recorded as synced, every later merge took the clean fast path, and the next
+export could overwrite the user's VBA with no conflict prompt. A fast-save export
+only re-indexes changed database objects, so a form whose Access side never
+changes never heals.
+
+A secondary gotcha made this look like an export-format problem during diagnosis:
+after the add-in self-updated on disk (`Updated VCS (5.0.1 -> 5.1.0)`), Access kept
+running the stale in-memory 5.0.1 project until the instance was restarted. Full
+exports under that session wrote no `AllFilesHash` and logged no
+`Get File Content Hash` operations, even though the source tree already contained
+the function. Always restart Access after an add-in self-update before trusting a
+repro against new detection logic.
+
+**Options explored**:
+- **Document that upgrading users need one full export**: Rejected. Fast-save
+  exports skip unchanged objects, so the advice would not heal a form whose
+  database side never changes, and users already have a silent data-loss window
+  between upgrade and that export.
+- **Backfill only**: Silently populate `AllFilesHash` when the property hash still
+  matches. Rejected as sole fix — an edit made before the first post-upgrade merge
+  would still be missed and then recorded as synced by the legacy refresh.
+- **Conservative only**: When a legacy entry lacks `AllFilesHash` and more than one
+  indexed file exists, always report modified. Correct, but every multi-file
+  component would re-import on every merge until something else populated the
+  combined hash (a full export, or an actual content change).
+- **Conservative plus backfill on the clean fast path (chosen)**: Report multi-file
+  legacy entries as modified when the property hash differs (cannot prove clean),
+  and when the property hash matches, record `AllFilesHash` now so later scans
+  arbitrate companion edits precisely. Gate both on `GetSourceFileCount > 1`
+  (files that *exist*, not `FileExtensions.Count`) so bare modules keep the
+  precise primary-hash comparison.
+
+**Decision**: The 2026-07-29/07-30 property-hash short-circuit is deliberately *not*
+trusted as a content audit for legacy entries lacking `AllFilesHash`. Matching
+dates and sizes prove the tree is in its last-synced state, which is enough to
+*record* the combined hash, but a mismatch cannot be resolved by the primary file
+alone. Correctness wins over the one-time scan cost: a no-change merge still saves
+the index (`blnSuccess = True` before `VCSIndex.Save`), so both the backfill and
+any one-time imports persist. Steady state after the first post-upgrade merge adds
+only a `Len(AllFilesHash)` test per file on the fast path.
+
+**What this rules out**: Refreshing `FilePropertiesHash` from the legacy
+primary-hash branch when the component has companion files on disk. Treating
+`FileExtensions.Count` as a multi-file signal — `clsDbModule` reports `bas`,
+`cls`, and `json` but only one of `bas`/`cls` is ever present. Relying on "until
+the next export re-syncs this entry" as a healing path for unchanged database
+objects.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls`,
+`Version Control.accda.src/modules/Core/modContainers.bas`
+(`GetSourceFileCount`, `GetSourceFilesContentHash`),
+`Version Control.accda.src/modules/Tests/Core/modTestMergeDetection.bas`.
+See also 2026-07-29 — Merge scan reads no file content when dates and sizes are
+unchanged; issue #748.
+
+---
+
 ## 2026-08-10 — SharedDb invalidation after single-object table create
 
 **Trigger**: Table-definition round-trip fixtures raised Error 3265
