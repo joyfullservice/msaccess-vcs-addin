@@ -238,7 +238,7 @@ Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinComm
 Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
     EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, command bar replica export, etc.
-    EFV_5_1_0 = 50100      ' Sidecar Info.Class names; canonical tbldefs property order.
+    EFV_5_1_0 = 50100      ' Sidecar Info.Class names; canonical tbldefs property order; IMEX spec SpecID.
 End Enum
 
 ' Bump this whenever the SVG layout generator output changes

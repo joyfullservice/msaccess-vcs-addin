@@ -83,6 +83,49 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — IMEX specs: identify by SpecName, assign SpecID explicitly
+
+**Trigger**: Merging an unnamed IMEX spec raised DAO 3022. `SpecName` is the
+primary key of `MSysIMEXSpecs` (verified via DAO; `SpecID` is AutoNumber with
+no index of its own). Export synthesizes a file name `"Spec " & SpecID` for a
+blank name, but merge looked up `SpecName = "Spec 3"` and deleted nothing, then
+inserted a second blank name.
+
+**Options explored**:
+- *Match the derived file name back to SpecID on merge.* Rejected as the
+  identity. The autonumber changes on every full build (observed as Spec 13 →
+  14 → 3), so the file name is not stable.
+- *Treat blank SpecName as a singleton and persist SpecID under EFV_5_1_0.*
+  Chosen. The primary key guarantees at most one unnamed spec, so a source file
+  with a blank `SpecName` refers to that row regardless of its current ID. The
+  synthesized `"Spec N"` string remains a file name only, plus the orphan-removal
+  fallback when the file is gone and cannot be read. SpecID is written into the
+  JSON under the unreleased 5.1.0 format so rebuilds stop renaming the file.
+- *Add EFV_5_2_0 for the SpecID key.* Rejected; 5.1.0 is unreleased.
+- *Let AutoNumber assign SpecID, falling back to `.AddNew` when a stored ID is
+  taken.* Rejected after a probe: the seed advances to last-inserted+1, not
+  max+1, and a duplicate SpecID raises nothing. Restoring IDs 5 then 3 made the
+  next `.AddNew` return 4, silently pooling two specs' columns.
+
+**Decision**: Merge resolves an existing spec by SpecName (blank = the unnamed
+singleton). Import computes SpecID itself — the stored value if unused, else
+`Max(SpecID)+1` — and inserts it with `INSERT INTO`. `.AddNew` is only a
+fallback if that statement is rejected, and the resulting ID is verified unique
+before any `MSysIMEXColumns` rows are written. A failed header insert must not
+continue into the column loop: adding local error handling would otherwise
+remove the accidental protection of the caller's `On Error Resume Next`.
+
+**What this rules out**: Using `"Spec N"` as a record identity. Relying on the
+AutoNumber seed, or on the engine, to keep SpecID unique. A collision-proof
+file name for unnamed specs (possible via a `%` namespace `GetSafeFileName`
+escapes) — it would rename every existing `Spec N.json`. Duplicate derived
+names are logged instead.
+
+**Relevant files**: `clsDbImexSpec.cls`, `modConstants.bas` (EFV_5_1_0 comment),
+`modTestImexSpec.bas`.
+
+---
+
 ## 2026-08-12 — Headless build entry points return JSON instead of scheduling work
 
 **Trigger**: Building an automated deployment pipeline (issue #51) requires knowing

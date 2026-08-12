@@ -64,37 +64,37 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim lngId As Long
     Dim varKey As Variant
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
     ' Read data from JSON file
     Set dFile = ReadJsonFile(strFile)
-    If Not dFile Is Nothing Then
+    If dFile Is Nothing Then GoTo CleanUp
+    If Not dFile.Exists("Items") Then GoTo CleanUp
 
-        ' Create IMEX tables if needed
-        VerifyImexTables
-        Set dSpec = dFile("Items")
-        Set dbs = SharedDb
+    ' Create IMEX tables if needed
+    VerifyImexTables
+    Set dSpec = dFile("Items")
+    If dSpec Is Nothing Then GoTo CleanUp
+    Set dbs = SharedDb
 
-        ' Add header record
-        Set rst = dbs.OpenRecordset("MSysIMEXSpecs")
-        With rst
-            .AddNew
-                For Each fld In .Fields
-                    If dSpec.Exists(fld.Name) Then
-                        fld.Value = dSpec(fld.Name)
-                    End If
-                Next fld
-            .Update
-            ' Save ID from header so we can use it for columns
-            .Bookmark = .LastModified
-            lngId = !SpecID
-            ' Update class with current ID and name
-            Me.Id = lngId
-            Me.Name = Nz(!SpecName, "Spec " & lngId)
-        End With
+    ' Insert the header with an explicit SpecID. Do not write columns unless
+    ' this succeeds: a failed header insert would leave the recordset on some
+    ' other row, and columns would be attached to that spec.
+    lngId = InsertSpecHeader(dSpec)
+    If lngId = 0 Then GoTo CleanUp
 
-        ' Add columns records
+    Me.Id = lngId
+    If dSpec.Exists("SpecName") Then
+        Me.Name = GetSpecDisplayName(dSpec("SpecName"), lngId)
+    Else
+        Me.Name = GetSpecDisplayName(vbNullString, lngId)
+    End If
+
+    ' Add columns records
+    If dSpec.Exists("Columns") Then
         Set rst = dbs.OpenRecordset("MSysIMEXColumns")
         With rst
             For Each varKey In dSpec("Columns").Keys
@@ -108,12 +108,18 @@ Private Sub IDbComponent_Import(strFile As String)
                         End If
                     Next fld
                 .Update
+                If CatchAny(eelError, T("Unable to save specification column '{0}' from {1}", _
+                    var0:=CStr(varKey), var1:=strFile), ModuleName(Me) & ".Import", True, True) Then GoTo CleanUp
             Next varKey
         End With
     End If
 
     ' Update index
     VCSIndex.Update Me, eatImport, GetStringHash(GetSource, True)
+
+CleanUp:
+    CatchAny eelError, T("Unable to import specification from {0}", var0:=strFile), _
+        ModuleName(Me) & ".Import", True, True
 
 End Sub
 
@@ -128,8 +134,15 @@ End Sub
 '
 Private Sub IDbComponent_Merge(strFile As String)
 
-    ' Remove any existing spec by this name
-    DeleteSpecByName GetObjectNameFromFileName(strFile)
+    Dim lngId As Long
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Replace the existing spec this file represents. Blank SpecName is a
+    ' singleton (it is the primary key), so an unnamed source file maps to
+    ' the unnamed spec regardless of its current SpecID or file name.
+    lngId = ResolveExistingSpecId(strFile)
+    If lngId > 0 Then DeleteSpecById lngId
 
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
@@ -137,6 +150,9 @@ Private Sub IDbComponent_Merge(strFile As String)
         ' Remove from index if the source file doesn't exist.
         VCSIndex.Remove Me, strFile
     End If
+
+    CatchAny eelError, T("Unable to merge specification from {0}", var0:=strFile), _
+        ModuleName(Me) & ".Merge", True, True
 
 End Sub
 
@@ -184,15 +200,26 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             With rst
                 Do While Not .EOF
                     ' Keep in mind that the spec name may be blank
-                    strName = Nz(!SpecName)
-                    If strName = vbNullString Then strName = "Spec " & Nz(!SpecID, 0)
+                    strName = GetSpecDisplayName(!SpecName, Nz(!SpecID, 0))
                     ' Add spec name
                     Set cSpec = New clsDbImexSpec
                     cSpec.Name = strName
                     cSpec.Id = Nz(!SpecID, 0)
-                    If blnNeedAll Then m_Items(False).Add cSpec.Parent.SourceFile, cSpec
+                    If blnNeedAll Then
+                        If m_Items(False).Exists(cSpec.Parent.SourceFile) Then
+                            Log.Error eelWarning, T("Duplicate IMEX spec source file '{0}'. Skipping spec '{1}' (ID {2}).", _
+                                var0:=FSO.GetFileName(cSpec.Parent.SourceFile), var1:=strName, var2:=cSpec.Id), _
+                                ModuleName(Me) & ".GetAllFromDB"
+                        Else
+                            m_Items(False).Add cSpec.Parent.SourceFile, cSpec
+                        End If
+                    End If
                     If blnModifiedOnly Then
-                        If cSpec.IDbComponent_IsModified Then m_Items(True).Add cSpec.Parent.SourceFile, cSpec
+                        If cSpec.IDbComponent_IsModified Then
+                            If Not m_Items(True).Exists(cSpec.Parent.SourceFile) Then
+                                m_Items(True).Add cSpec.Parent.SourceFile, cSpec
+                            End If
+                        End If
                     End If
                     .MoveNext
                 Loop
@@ -236,6 +263,8 @@ Private Function GetDictionary() As Dictionary
     Dim strSql As String
     Dim fld As DAO.Field
 
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
     Set dSpec = New Dictionary
     Set dCols = New Dictionary
     Set dbs = SharedDb
@@ -247,12 +276,18 @@ Private Function GetDictionary() As Dictionary
     strSql = "SELECT * FROM MSysIMEXSpecs WHERE SpecID=" & Me.Id
     Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
     With rst
-        For Each fld In .Fields
-            If fld.Name <> "SpecID" Then
-                ' Add all columns except the primary key.
-                dSpec.Add CStr(fld.Name), fld.Value
+        If Not .EOF Then
+            ' SpecID is a surrogate, not the primary key (SpecName is). Persist it
+            ' under 5.1.0 so unnamed specs keep a stable identity across rebuilds.
+            If Options.ExportFormatVersion >= EFV_5_1_0 Then
+                dSpec.Add "SpecID", !SpecID
             End If
-        Next fld
+            For Each fld In .Fields
+                If fld.Name <> "SpecID" Then
+                    dSpec.Add CStr(fld.Name), fld.Value
+                End If
+            Next fld
+        End If
         .Close
     End With
 
@@ -282,32 +317,268 @@ Private Function GetDictionary() As Dictionary
     ' Return dictionary
     Set GetDictionary = dSpec
 
+    CatchAny eelError, T("Unable to read specification ID {0}", var0:=Me.Id), _
+        ModuleName(Me) & ".GetDictionary", True, True
+
 End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : DeleteSpecByName
+' Procedure : GetSpecDisplayName
 ' Author    : Adam Waller
-' Date      : 5/8/2023
-' Purpose   : Delete a saved import specification by name.
+' Date      : 8/12/2026
+' Purpose   : File-name identity for a spec. Blank SpecName falls back to "Spec {id}".
+'           : Used only to pick a file name, never to identify a record on merge.
 '---------------------------------------------------------------------------------------
 '
-Private Sub DeleteSpecByName(strName As String)
+Private Function GetSpecDisplayName(varSpecName As Variant, lngId As Long) As String
+    Dim strName As String
+    strName = Nz(varSpecName)
+    If strName = vbNullString Then strName = "Spec " & lngId
+    GetSpecDisplayName = strName
+End Function
 
-    Dim lngId As Long
 
-    ' Skip lookup if we don't even have the corresponding system table.
-    If Not TableExists("MSysIMEXSpecs") Then Exit Sub
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveExistingSpecId
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Return the SpecID the source file represents, or 0 if none. Blank
+'           : SpecName is the primary key singleton, so an unnamed file maps to the
+'           : unnamed spec regardless of autonumber. Named files match SpecName.
+'           : Missing files (orphan removal) fall back to the derived file name.
+'---------------------------------------------------------------------------------------
+'
+Private Function ResolveExistingSpecId(strFile As String) As Long
 
-    ' Attempt to look up spec by name
-    lngId = Nz(dLookup("SpecID", "MSysIMEXSpecs", "SpecName=""" & DblQ(strName) & """"))
-    If lngId > 0 Then
-        ' Remove related records
-        SharedDb.Execute "delete from MSysIMEXColumns where SpecID=" & lngId, dbFailOnError
-        SharedDb.Execute "delete from MSysIMEXSpecs where SpecID=" & lngId, dbFailOnError
+    Dim dFile As Dictionary
+    Dim dSpec As Dictionary
+    Dim strName As String
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim strFileName As String
+
+    If Not TableExists("MSysIMEXSpecs") Then Exit Function
+
+    If FSO.FileExists(strFile) Then
+        Set dFile = ReadJsonFile(strFile)
+        If dFile Is Nothing Then Exit Function
+        If Not dFile.Exists("Items") Then Exit Function
+        Set dSpec = dFile("Items")
+        If dSpec Is Nothing Then Exit Function
+        If dSpec.Exists("SpecName") Then strName = Nz(dSpec("SpecName"))
+        ResolveExistingSpecId = LookupSpecIdByName(strName)
+    Else
+        ' Orphan removal: the file is gone, so match on the derived file name.
+        strFileName = FSO.GetFileName(strFile)
+        Set dbs = SharedDb
+        Set rst = dbs.OpenRecordset("MSysIMEXSpecs", dbOpenSnapshot, dbReadOnly)
+        With rst
+            Do While Not .EOF
+                If GetSafeFileName(GetSpecDisplayName(!SpecName, Nz(!SpecID, 0))) & ".json" = strFileName Then
+                    ResolveExistingSpecId = Nz(!SpecID, 0)
+                    Exit Do
+                End If
+                .MoveNext
+            Loop
+            .Close
+        End With
     End If
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LookupSpecIdByName
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Look up SpecID by SpecName, including the blank-name singleton.
+'---------------------------------------------------------------------------------------
+'
+Private Function LookupSpecIdByName(strName As String) As Long
+
+    Dim rst As DAO.Recordset
+    Dim strSql As String
+
+    If strName = vbNullString Then
+        strSql = "SELECT SpecID FROM MSysIMEXSpecs WHERE SpecName="""" OR SpecName Is Null"
+    Else
+        strSql = "SELECT SpecID FROM MSysIMEXSpecs WHERE SpecName=""" & DblQ(strName) & """"
+    End If
+    Set rst = SharedDb.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
+    If Not rst.EOF Then LookupSpecIdByName = Nz(rst!SpecID, 0)
+    rst.Close
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteSpecById
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Delete a saved import specification and its columns by SpecID.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DeleteSpecById(lngId As Long)
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    If lngId <= 0 Then Exit Sub
+    If Not TableExists("MSysIMEXSpecs") Then Exit Sub
+
+    SharedDb.Execute "DELETE FROM MSysIMEXColumns WHERE SpecID=" & lngId, dbFailOnError
+    SharedDb.Execute "DELETE FROM MSysIMEXSpecs WHERE SpecID=" & lngId, dbFailOnError
+
+    CatchAny eelError, T("Unable to delete specification ID {0}", var0:=lngId), _
+        ModuleName(Me) & ".DeleteSpecById", True, True
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AllocateSpecId
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Choose an unused SpecID. Prefer the value stored in source when it is
+'           : free; otherwise Max(SpecID)+1. Never use the AutoNumber seed: it advances
+'           : to last-inserted+1, not max+1, and SpecID has no unique index.
+'---------------------------------------------------------------------------------------
+'
+Private Function AllocateSpecId(dSpec As Dictionary) As Long
+
+    Dim lngId As Long
+    Dim rst As DAO.Recordset
+
+    If dSpec.Exists("SpecID") Then
+        If IsNumeric(dSpec("SpecID")) Then lngId = CLng(Nz(dSpec("SpecID"), 0))
+        If lngId > 0 Then
+            Set rst = SharedDb.OpenRecordset( _
+                "SELECT COUNT(*) FROM MSysIMEXSpecs WHERE SpecID=" & lngId, dbOpenSnapshot, dbReadOnly)
+            If Nz(rst(0), 0) = 0 Then
+                rst.Close
+                AllocateSpecId = lngId
+                Exit Function
+            End If
+            rst.Close
+        End If
+    End If
+
+    Set rst = SharedDb.OpenRecordset("SELECT Max(SpecID) FROM MSysIMEXSpecs", dbOpenSnapshot, dbReadOnly)
+    AllocateSpecId = Nz(rst(0), 0) + 1
+    rst.Close
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InsertSpecHeader
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Insert the MSysIMEXSpecs row with an explicit SpecID. Returns the ID, or
+'           : 0 if the insert failed. DAO recordsets cannot assign AutoNumber values,
+'           : so this uses INSERT INTO, with AddNew only if that statement is rejected.
+'---------------------------------------------------------------------------------------
+'
+Private Function InsertSpecHeader(dSpec As Dictionary) As Long
+
+    Dim lngId As Long
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim rst As DAO.Recordset
+    Dim strFields As String
+    Dim strValues As String
+    Dim strSql As String
+    Dim strName As String
+    Dim lngCount As Long
+    Dim blnInserted As Boolean
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    lngId = AllocateSpecId(dSpec)
+    If dSpec.Exists("SpecName") Then strName = Nz(dSpec("SpecName"))
+    Set dbs = SharedDb
+    Set tdf = dbs.TableDefs("MSysIMEXSpecs")
+
+    strFields = "[SpecID]"
+    strValues = CStr(lngId)
+    For Each fld In tdf.Fields
+        If fld.Name <> "SpecID" Then
+            If dSpec.Exists(fld.Name) Then
+                strFields = strFields & ",[" & fld.Name & "]"
+                strValues = strValues & "," & SqlLiteral(dSpec(fld.Name))
+            End If
+        End If
+    Next fld
+
+    strSql = "INSERT INTO MSysIMEXSpecs (" & strFields & ") VALUES (" & strValues & ")"
+    dbs.Execute strSql, dbFailOnError
+    If Err.Number = 0 Then
+        blnInserted = True
+    Else
+        ' INSERT INTO may be rejected on some system-table configurations.
+        ' Fall back to AddNew, then verify the assigned ID is unique.
+        Err.Clear
+        Set rst = dbs.OpenRecordset("MSysIMEXSpecs")
+        With rst
+            .AddNew
+                For Each fld In .Fields
+                    If fld.Name <> "SpecID" Then
+                        If dSpec.Exists(fld.Name) Then fld.Value = dSpec(fld.Name)
+                    End If
+                Next fld
+            .Update
+            If Err.Number = 0 Then
+                .Bookmark = .LastModified
+                lngId = Nz(!SpecID, 0)
+                blnInserted = True
+            End If
+        End With
+    End If
+
+    If CatchAny(eelError, T("Unable to save specification '{0}'", var0:=GetSpecDisplayName(strName, lngId)), _
+        ModuleName(Me) & ".InsertSpecHeader", True, True) Then Exit Function
+
+    If Not blnInserted Or lngId = 0 Then Exit Function
+
+    Set rst = dbs.OpenRecordset("SELECT COUNT(*) FROM MSysIMEXSpecs WHERE SpecID=" & lngId, dbOpenSnapshot, dbReadOnly)
+    lngCount = Nz(rst(0), 0)
+    rst.Close
+    If lngCount <> 1 Then
+        ' SpecID collided. Roll back this header by SpecName (the primary key)
+        ' rather than by SpecID, which would also delete the other spec's row.
+        dbs.Execute "DELETE FROM MSysIMEXSpecs WHERE SpecName=""" & DblQ(strName) & """", dbFailOnError
+        CatchAny eelError, T("Specification ID {0} is already in use; insert was rolled back.", var0:=lngId), _
+            ModuleName(Me) & ".InsertSpecHeader", True, True
+        Exit Function
+    End If
+
+    InsertSpecHeader = lngId
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SqlLiteral
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Format a value as an Access SQL literal for INSERT INTO.
+'---------------------------------------------------------------------------------------
+'
+Private Function SqlLiteral(varValue As Variant) As String
+    If IsNull(varValue) Then
+        SqlLiteral = "NULL"
+    Else
+        Select Case VarType(varValue)
+            Case vbBoolean
+                SqlLiteral = IIf(varValue, "True", "False")
+            Case vbString
+                SqlLiteral = """" & DblQ(CStr(varValue)) & """"
+            Case Else
+                SqlLiteral = CStr(varValue)
+        End Select
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
