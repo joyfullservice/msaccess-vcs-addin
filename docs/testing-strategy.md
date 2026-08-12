@@ -59,6 +59,9 @@ For each fixture under `Testing/Fixtures/`, the harness:
 1. Imports the fixture into the running database under a sandboxed name
    (`vcs_test_<basename>_<hash>`).
 2. Validates the emitter's `.qdef` output:
+   - `import_path` — for a fixture carrying a `DesignLayout`, asserts Access
+     really stored a designer grid (`MSysObjects.LvExtra` populated), so a lost
+     layout fails here rather than as a later layout diff.
    - `qdef_joins` — structural check: each join row's `LeftTable`/`RightTable`
      matches its `Expression` (Design View only).
    - `qdef_vs_fixture` — drift check: compares generated `.qdef` against the

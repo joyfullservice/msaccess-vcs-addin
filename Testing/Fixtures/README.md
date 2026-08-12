@@ -59,10 +59,31 @@ JSON document summarizing every fixture (parseable by automation).
 
 ## Qdef emitter validation
 
-The harness runs two checks on the `.qdef` that the emitter would produce for
+The harness runs three checks on the `.qdef` that the emitter would produce for
 each fixture. The `.qdef` is a structured text file that `Application.LoadFromText`
 consumes to create the query — bugs in the emitter can cause `LoadFromText` to
 silently create broken queries that fail at execution time.
+
+### `import_path` — did Design View actually win?
+
+When `Application.LoadFromText` rejects a Design View `.qdef`, the add-in retries
+the same query as SQL View and logs only a warning. The query still imports, so
+the fixture looks healthy until the missing grid layout surfaces as a `.json`
+diff several checks later — a long way from the actual cause.
+
+For any fixture whose `.json` carries a `DesignLayout`, the harness therefore
+asserts that Access really did store a designer grid for the imported query, by
+checking that `MSysObjects.LvExtra` is populated. That is the same signal the
+export path reads, so a lost layout now fails by assertion and names itself. It
+catches the rejected-`.qdef` fallback above and the other route to the same
+outcome: the composer declining Design View for the shape in the first place, as
+it does for every crosstab.
+
+Fixtures with no `DesignLayout` are skipped, and *not* because they are all SQL
+View. A shape that `RequiresDesignView` — a multi-condition `ON`, say — is
+emitted as a Design View `.qdef` even with no layout to put in it, and Access
+then has no grid to record. `LvExtra` stays empty for those whether or not the
+Design View path won, so it cannot be asserted on.
 
 ### `qdef_joins` — structural invariant check
 

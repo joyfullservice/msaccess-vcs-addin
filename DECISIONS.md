@@ -83,6 +83,140 @@ contradictory guidance.
 
 ---
 
+## 2026-08-11 — Emit the parameter type keywords ACE accepts, not the ones that read best
+
+**Trigger**: While pinning the type map for the `Begin Parameters` work below,
+each `PARAMETERS` keyword was round-tripped through `CreateQueryDef` to learn
+the DAO type it actually produces. Four of the keywords the exporter emitted
+turned out not to parse at all: `Boolean`, `Memo`, `OLEObject` and `Decimal`
+each raise error 3139, "Syntax error in PARAMETERS clause". Two others were
+simply mis-mapped — `BigInt` reports as `dbNumeric` (19) rather than `dbBigInt`
+(16), and `Value` is a spelling of `dbText` (10) rather than an untyped
+parameter. The map had been written from the DAO type names, which look
+authoritative but are not the keywords the SQL parser accepts.
+
+This was not cosmetic. On the SQL View import path the whole statement is
+handed to Access as one memo, so a query declaring a Yes/No parameter did not
+merely lose its type — the object failed to import outright with "Could not
+create or set the property SQL". Any query with a Yes/No, Memo or OLE Object
+parameter was therefore unbuildable from source, and had been since the map was
+written.
+
+**Options explored**:
+- **Keep the readable spellings and special-case the SQL View path** — rejected:
+  it leaves exported `.sql` that Access itself cannot parse, which defeats the
+  point of a text format users are expected to read, diff and hand-edit.
+- **Emit only what ACE accepts, and accept the rest on import** (chosen) — the
+  exporter emits the canonical keyword; the readable spellings stay in the
+  reverse map so source written by earlier versions of the add-in still
+  rebuilds. Import compatibility is a standing requirement, so nothing is lost
+  by keeping them.
+
+**Decision**: `ParameterTypeSql` and `ParameterFlagFromType` are now generated
+from one list (`EnsureParameterTypeTables`) rather than being two hand-kept
+`Select Case` blocks that had already drifted. Each entry names the canonical
+keyword followed by its import-only aliases, so the two directions cannot
+disagree; where two DAO types claim the same keyword the first registration
+wins the reverse lookup. Only the keywords verified against the parser are
+emitted: `Bit`, `LongText`, `LongBinary`, `BigInt` for the four that were
+wrong, and the unchanged spellings elsewhere. `Single`/`Double`/`GUID` are kept
+as-is even though Access normalizes them to `IEEESingle`/`IEEEDouble`/`Guid`,
+because all three parse correctly and changing them would churn every existing
+export for no functional gain.
+
+**What this rules out**: Adding a type to the map from the DAO constant name
+alone. A new entry needs the keyword confirmed against the parser first —
+`CreateQueryDef` with `PARAMETERS [P] <keyword>;` either succeeds and reports a
+type or raises 3139. `Decimal` in particular has no parseable spelling, so
+there is no way to declare a decimal parameter in Access SQL at all.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` —
+  `EnsureParameterTypeTables`, `AddParameterType`, `ParameterTypeKey`
+- `Version Control.accda.src/modules/Tests/SQL/clsTestQueryComposerParameters.cls`
+  — `TestExportedTypeKeywordsAreParseable` closes the loop against a list of
+  parser-accepted keywords
+- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParameterTypes.*`
+  — fixture updated from `Boolean` to `Bit`
+
+---
+
+## 2026-08-11 — Design View queries carry parameters in a `Begin Parameters` block after `OutputColumns`
+
+**Trigger**: A parameterized query rebuilt from source lost its `PARAMETERS`
+declaration whenever it took the Design View import path (joyfullservice#744).
+`clsQueryComposer.EmitDesignViewQdef` assembled the structured `.qdef` that
+`Application.LoadFromText` consumes but never emitted the declared parameters,
+so the rebuilt query came back with an empty parameter collection. The SQL View
+path was unaffected — there the whole statement is handed to Access as one SQL
+memo — so the loss only showed up for designer-built queries whose stored grid
+layout forces `blnDesignView = True`. Every existing parameter fixture was
+SQL-View shaped, so nothing exercised the gap.
+
+**Options explored**:
+- **Prepend a SQL `PARAMETERS ...;` line to the structured `.qdef`** — the
+  obvious guess, mirroring the SQL memo grammar. Rejected empirically:
+  `LoadFromText` fails with `Expected: 'Operation'. Found: PARAMETERS.` The
+  structured format has no grammar for an inline parameters declaration.
+- **Force every parameterized query onto the SQL View path** — sidesteps the
+  emitter gap by never taking Design View for a query that declares parameters.
+  Rejected: it discards the designer layout that Design View exists to
+  preserve, regressing the queries this add-in tries hardest to round-trip.
+- **Emit the native `Begin Parameters` block** (chosen) — parameters live in a
+  single `Begin Parameters ... End` block of repeated `Name =` / `Flag =` pairs,
+  where `Flag` is the DAO type. All parameters share one block; there is not
+  one block per parameter.
+
+**Decision**: `EmitDesignViewQdef` emits the block immediately after
+`Begin OutputColumns ... End` and before `Begin Joins`. That position is not a
+style choice — it is the only one Access accepts. Feeding `LoadFromText` the
+same qdef with the block moved elsewhere fails every time: after `Joins` or
+`OrderBy` with `Expected: End of file. Found: Parameters.`, after `Groups` with
+`Expected: 'End'. Found: Parameters.`, and before `InputTables` with
+`Expected: End of file. Found: InputTables.` The position was then confirmed
+against native `Application.SaveAsText` output for six designer-built shapes —
+single table, join with `ORDER BY`, `GROUP BY`, `TOP n`, parameterized `UPDATE`
+and crosstab — which agree regardless of query type or how elaborate the output
+columns block is.
+
+Parameter names are emitted **verbatim**: Access records a parameter exactly as
+declared, so `[Enter ID]` keeps its brackets while an unbracketed
+`StatusFilter` stays bare, even though Access brackets the matching reference
+inside the `WHERE` clause. Re-bracketing on the way out would not round-trip.
+The clause is parsed once, in `ParseParametersClause`, into a structured
+`m_colParameters`; `EmitParameters` is then a loop. Splitting reuses the
+existing bracket- and paren-aware `SplitTopLevel` rather than a private
+splitter, so a comma inside `[Last, First]` or `Text ( 255 )` does not break
+the list apart.
+
+**No export-format-version gate and no `GetExporterRevisions` bump.** Both
+mechanisms govern *export* output; the `.qdef` is an import-only intermediate
+generated to a temp file at import time (`clsDbQuery` exports `.sql` + `.json`
+only). This change alters import behavior exclusively, and import stays
+backward compatible: older sources that never carried parameters simply produce
+no block.
+
+**What this rules out**: The earlier working hypothesis — that native Access
+always serializes a parameterized query as a SQL memo and the structured format
+has no place for parameters — is disproven and should not be revisited.
+Emitting parameters as a leading SQL line is a dead end. Any future change that
+reorders the structured blocks must keep parameters immediately after
+`OutputColumns`; "somewhere ahead of the properties" is not sufficient.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` —
+  `ParseParametersClause`, `EmitParameters`, `SplitParameterToken`
+- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — labels the
+  composer before `DecomposeSQL` so parse-time warnings name their query
+- `Version Control.accda.src/modules/Tests/modTestRoundtrip.bas` — `import_path`
+  check, so a silent Design View → SQL View fallback fails by assertion
+- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParameters*.*` —
+  round-trip fixtures for the single-table, join/`ORDER BY`, `GROUP BY`,
+  `TOP n`, `UPDATE` and crosstab shapes
+- `docs/access-query-storage.md` — `.qdef` block order and Attribute 2 reference
+
+---
+
 ## 2026-08-11 — Legacy index entries without AllFilesHash treat multi-file components as modified
 
 **Trigger**: Issue #748 — Merge reported "No changes found" after editing only a form's

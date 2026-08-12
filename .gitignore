@@ -14,6 +14,10 @@ logs/
 test-results/
 *.log
 
+# Per-run output from the object round-trip harness (VCS.RunRoundtripTests).
+# Every run writes a new timestamped folder of exported copies of each fixture.
+Testing/Fixtures/scratch/
+
 # The local VCS index file is paired with the database and should not
 # be committed to version control.
 vcs-index.*

@@ -688,8 +688,12 @@ Private Sub ImportNewFormat(strSqlFile As String)
         End If
     End If
 
-    ' Decompose SQL to determine if Design View is possible
+    ' Decompose SQL to determine if Design View is possible. Label the composer first:
+    ' DecomposeSQL resets the raw SQL it would otherwise quote, so any warning raised
+    ' while parsing (an unrecognized parameter type, for instance) has no other way to
+    ' identify which query produced it.
     Set cComposer = New clsQueryComposer
+    cComposer.ContextLabel = strQueryName
     cComposer.DecomposeSQL strSql, blnIsPassThrough
     cComposer.RawSQL = strSql
     If blnIsPassThrough Then cComposer.ConnectString = strConnect

@@ -1,0 +1,9 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionParametersCrosstabFixedPivot"
+  },
+  "Items": {
+    "QueryType": 16
+  }
+}
