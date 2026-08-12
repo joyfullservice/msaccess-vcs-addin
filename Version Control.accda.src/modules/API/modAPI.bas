@@ -370,6 +370,10 @@ Public Function API(strMethod As String, _
     ' This ensures we don't interfere with any staging of settings during a running operation
     ' Use CallByName to invoke the method dynamically
     ' Handle different numbers of arguments
+    ' Every parameter of a method reachable from here must be declared ByVal. These
+    ' arguments arrive as Variants, and CallByName cannot bind a Variant to a ByRef typed
+    ' parameter: it raises a type mismatch before the method runs a single line, which
+    ' reads to the caller as the method having done nothing.
     If Not IsMissing(varArg3) Then
         ' Three arguments
         varResult = CallByName(VCS, strMethod, VbMethod, varArg1, varArg2, varArg3)

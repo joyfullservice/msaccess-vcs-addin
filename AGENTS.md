@@ -36,8 +36,8 @@ a change: modify the running `Version Control.accda`, test, then run `Deploy` in
 the VBA Immediate Window — it increments the version, exports to source files,
 and installs the development build. Commit the source files and open a pull
 request against `dev`. Releases are cut from `master`; the add-in is
-self-installing. Agents rebuild unattended via `VCS.RebuildAddIn`; it refuses
-unless this is the only Access instance.
+self-installing. Agents rebuild unattended via `VCS.RebuildAddIn`, which refuses
+unless this is the only Access process in the session; it closes nothing itself.
 
 ## Invariants
 

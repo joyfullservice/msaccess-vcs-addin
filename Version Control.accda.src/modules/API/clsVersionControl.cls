@@ -476,7 +476,7 @@ End Sub
 '           : refuses unless this is the only Access instance in the Windows session.
 '---------------------------------------------------------------------------------------
 '
-Public Function RebuildAddIn(Optional strSourceFolder As String) As String
+Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
 
     Dim strPath As String
     Dim strDetail As String
@@ -569,7 +569,12 @@ Public Function RebuildAddIn(Optional strSourceFolder As String) As String
         GoTo Finish
     End If
 
-    ' Refuse unless this is the only Access instance in the current Windows session.
+    ' The installed add-in file cannot be replaced while another process holds it, and
+    ' nothing here can tell an idle leftover automation instance apart from one that is
+    ' busy: a busy instance rejects the automation calls that would answer the question,
+    ' so it looks exactly like an empty one. Rather than guess and risk terminating live
+    ' work, refuse and report what was seen for each instance so the caller can close
+    ' them deliberately.
     lngOthers = GetOtherAccessInstances(strDetail)
     If lngOthers <> 0 Then
         If lngOthers < 0 Then
@@ -583,7 +588,8 @@ Public Function RebuildAddIn(Optional strSourceFolder As String) As String
             Next varLine
             dResult.Add "success", False
             dResult.Add "status", "refused"
-            dResult.Add "error", T("Rebuild refused: {0} other Access instance(s) are running.", var0:=lngOthers)
+            dResult.Add "error", T("Rebuild refused: {0} other Access instance(s) are running. " & _
+                "Close them, then try again.", var0:=lngOthers)
             dResult.Add "otherInstances", colOthers
         End If
         If Not blnUnattended Then

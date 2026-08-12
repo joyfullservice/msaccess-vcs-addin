@@ -26,6 +26,43 @@ Private Declare PtrSafe Function GetCurrentProcessId Lib "kernel32" () As Long
 Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
     ByVal dwProcessId As Long, ByRef pSessionId As Long) As Long
 
+' Used to describe the other Access instances that blocked a rebuild.
+Private Declare PtrSafe Function EnumWindows Lib "user32" (ByVal lpEnumFunc As LongPtr, ByVal lParam As LongPtr) As Long
+Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" (ByVal hwnd As LongPtr, ByRef lpdwProcessId As Long) As Long
+Private Declare PtrSafe Function IsWindowVisible Lib "user32" (ByVal hwnd As LongPtr) As Long
+Private Declare PtrSafe Function GetWindow Lib "user32" (ByVal hwnd As LongPtr, ByVal uCmd As Long) As LongPtr
+Private Declare PtrSafe Function GetClassNameA Lib "user32" (ByVal hwnd As LongPtr, ByVal lpClassName As String, ByVal nMaxCount As Long) As Long
+Private Declare PtrSafe Function FindWindowExA Lib "user32" (ByVal hWndParent As LongPtr, ByVal hWndChildAfter As LongPtr, ByVal lpszClass As String, ByVal lpszWindow As String) As LongPtr
+Private Declare PtrSafe Function AccessibleObjectFromWindow Lib "oleacc" (ByVal hwnd As LongPtr, ByVal dwObjectID As Long, riid As Any, ppvObject As Object) As Long
+
+Private Type udtIID
+    Data1 As Long
+    Data2 As Integer
+    Data3 As Integer
+    Data4(0 To 7) As Byte
+End Type
+
+Private Const GW_OWNER As Long = 4
+Private Const OBJID_NATIVEOM As Long = &HFFFFFFF0
+Private Const S_OK As Long = 0
+
+' EnumWindows callback state for a single PID inspection.
+Private m_lngEnumTargetPid As Long
+Private m_blnEnumHasVisible As Boolean
+Private m_hwndEnumOMain As LongPtr
+
+' What could be observed about another Access process. blnRespondedToAutomation
+' records whether the native object model could be reached at all: nothing may act on
+' the other two flags unless it is True, since an unreachable instance is
+' indistinguishable from an idle one.
+Private Type udtAccessInstance
+    lngPid As Long
+    blnRespondedToAutomation As Boolean
+    blnHasVisibleWindow As Boolean
+    blnDatabaseKnown As Boolean
+    strDatabase As String
+End Type
+
 Private Const ModuleName As String = "modInstall"
 
 ' Used to add a trusted location for the add-in path (when necessary)
@@ -136,6 +173,16 @@ Public Function AutoRun() As Boolean
         Exit Function
     End If
 
+    ' A COM client is holding this instance and there is nobody to read a message box.
+    ' Both branches below assume a person: one closes the instance out from under the
+    ' client, the other strands it behind a form. That is what stops an agent from
+    ' opening the add-in to run its own test suite, since those tests only run when the
+    ' add-in is the current database.
+    If OpenedByAutomation Then
+        VerifyResources
+        Exit Function
+    End If
+
     ' See if the we are opening the file from the installed location.
     If CodeProject.FullName = GetInstalledAddInFileName Then
 
@@ -165,6 +212,27 @@ Public Function AutoRun() As Boolean
         Form_frmVCSInstall.Visible = True
     End If
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenedByAutomation
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : True when a COM client started this instance rather than a person.
+'           : Returns False when the property cannot be read: suppressing the install
+'           : UI for a real user is the worse of the two failures, so an unknown answer
+'           : behaves as though someone is watching.
+'---------------------------------------------------------------------------------------
+'
+Public Function OpenedByAutomation() As Boolean
+    LogUnhandledErrors
+    On Error Resume Next
+    OpenedByAutomation = Not Application.UserControl
+    If Err.Number <> 0 Then
+        Err.Clear
+        OpenedByAutomation = False
+    End If
 End Function
 
 
@@ -1165,11 +1233,50 @@ End Function
 ' Date      : 8/12/2026
 ' Purpose   : Count MSACCESS.EXE processes in this Windows session other than the
 '           : current process. Returns -1 if the process query itself failed (fail-safe:
-'           : callers must refuse, never kill). strDetail lists PID and open file for
-'           : each other instance. Never quits or terminates anything found.
+'           : callers must refuse). strDetail describes each instance: its open
+'           : database, whether it has a visible window, and whether its object model
+'           : could be reached. Never quits or terminates anything.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetOtherAccessInstances(ByRef strDetail As String) As Long
+
+    Dim dProcs As Dictionary
+    Dim strError As String
+    Dim varPid As Variant
+    Dim udtInfo As udtAccessInstance
+    Dim cDetail As clsConcat
+
+    strDetail = vbNullString
+    GetOtherAccessInstances = -1
+
+    If Not CollectOtherAccessProcesses(dProcs, strError) Then
+        strDetail = strError
+        Exit Function
+    End If
+
+    Set cDetail = New clsConcat
+    cDetail.AppendOnAdd = vbCrLf
+    For Each varPid In dProcs.Keys
+        udtInfo = ClassifyAccessInstance(CLng(varPid), Nz(dProcs(varPid), vbNullString))
+        cDetail.Add DescribeAccessInstance(udtInfo)
+    Next varPid
+
+    strDetail = cDetail.GetStr
+    GetOtherAccessInstances = dProcs.Count
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CollectOtherAccessProcesses
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Dictionary of other MSACCESS.EXE PIDs in this session mapped to their
+'           : command lines. Returns False if the process query failed.
+'---------------------------------------------------------------------------------------
+'
+Private Function CollectOtherAccessProcesses(ByRef dProcs As Dictionary, _
+    ByRef strError As String) As Boolean
 
     Dim objWMI As Object
     Dim colProcs As Object
@@ -1178,40 +1285,33 @@ Public Function GetOtherAccessInstances(ByRef strDetail As String) As Long
     Dim lngThisSession As Long
     Dim lngPid As Long
     Dim lngSession As Long
-    Dim lngCount As Long
     Dim strCmd As String
-    Dim strDb As String
-    Dim strLine As String
-    Dim cDetail As clsConcat
 
-    strDetail = vbNullString
-    GetOtherAccessInstances = -1
+    strError = vbNullString
+    Set dProcs = New Dictionary
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     lngThisPid = GetCurrentProcessId
     If ProcessIdToSessionId(lngThisPid, lngThisSession) = 0 Then
-        strDetail = "Could not determine the current Windows session."
-        CatchAny eelError, strDetail, ModuleName & ".GetOtherAccessInstances", True, True
+        strError = "Could not determine the current Windows session."
+        CatchAny eelError, strError, ModuleName & ".CollectOtherAccessProcesses", True, True
         Exit Function
     End If
 
     Set objWMI = GetObject("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2")
     If objWMI Is Nothing Or Err.Number <> 0 Then
-        strDetail = "Process query failed: " & Err.Description
-        CatchAny eelError, strDetail, ModuleName & ".GetOtherAccessInstances", True, True
+        strError = "Process query failed: " & Err.Description
+        CatchAny eelError, strError, ModuleName & ".CollectOtherAccessProcesses", True, True
         Exit Function
     End If
 
     Set colProcs = objWMI.ExecQuery("SELECT ProcessId, CommandLine, SessionId FROM Win32_Process WHERE Name = 'MSACCESS.EXE'")
     If colProcs Is Nothing Or Err.Number <> 0 Then
-        strDetail = "Process query failed: " & Err.Description
-        CatchAny eelError, strDetail, ModuleName & ".GetOtherAccessInstances", True, True
+        strError = "Process query failed: " & Err.Description
+        CatchAny eelError, strError, ModuleName & ".CollectOtherAccessProcesses", True, True
         Exit Function
     End If
-
-    Set cDetail = New clsConcat
-    cDetail.AppendOnAdd = vbCrLf
 
     For Each objProc In colProcs
         lngPid = 0
@@ -1225,22 +1325,224 @@ Public Function GetOtherAccessInstances(ByRef strDetail As String) As Long
         If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
         If lngPid <> lngThisPid And lngSession = lngThisSession Then
-            lngCount = lngCount + 1
-            strDb = ExtractOpenDatabaseFromCommandLine(strCmd)
-            If Len(strDb) = 0 Then strDb = "(no database)"
-            cDetail.Add "PID ", CStr(lngPid), ": ", strDb
+            If Not dProcs.Exists(CStr(lngPid)) Then dProcs.Add CStr(lngPid), strCmd
         End If
     Next objProc
 
     If Err.Number <> 0 Then
-        strDetail = "Process query failed: " & Err.Description
-        CatchAny eelError, strDetail, ModuleName & ".GetOtherAccessInstances", True, True
+        strError = "Process query failed: " & Err.Description
+        CatchAny eelError, strError, ModuleName & ".CollectOtherAccessProcesses", True, True
         Exit Function
     End If
 
-    strDetail = cDetail.GetStr
-    GetOtherAccessInstances = lngCount
+    CollectOtherAccessProcesses = True
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClassifyAccessInstance
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Gather what can be observed about another Access process without changing
+'           : it. Command-line paths alone do not settle whether a database is open,
+'           : because COM OpenCurrentDatabase does not appear there, so the native
+'           : object model is also probed. A busy instance rejects automation calls and
+'           : therefore looks the same as an idle one; blnRespondedToAutomation records
+'           : which of the two it was, and callers must not treat an unreachable
+'           : instance as idle.
+'---------------------------------------------------------------------------------------
+'
+Private Function ClassifyAccessInstance(lngPid As Long, strCmd As String) As udtAccessInstance
+
+    Dim objApp As Object
+    Dim udtInfo As udtAccessInstance
+    Dim strDb As String
+    Dim strVersion As String
+
+    udtInfo.lngPid = lngPid
+    udtInfo.strDatabase = ExtractOpenDatabaseFromCommandLine(strCmd)
+
+    InspectAccessWindows lngPid
+    udtInfo.blnHasVisibleWindow = m_blnEnumHasVisible
+
+    Set objApp = AccessAppFromHwnd(m_hwndEnumOMain)
+    If objApp Is Nothing Then
+        ClassifyAccessInstance = udtInfo
+        Exit Function
+    End If
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Err.Clear
+
+    ' Version answers on any responsive instance, database or not, so it separates
+    ' "told us it has nothing open" from "never answered".
+    strVersion = objApp.Version
+    udtInfo.blnRespondedToAutomation = (Err.Number = 0) And (Len(strVersion) > 0)
+    Err.Clear
+
+    If udtInfo.blnRespondedToAutomation Then
+        strDb = objApp.CurrentProject.FullName
+        If Err.Number = 0 Then
+            udtInfo.blnDatabaseKnown = True
+            If Len(strDb) > 0 Then udtInfo.strDatabase = strDb
+        End If
+        Err.Clear
+        If objApp.Visible Then udtInfo.blnHasVisibleWindow = True
+        Err.Clear
+    End If
+
+    Set objApp = Nothing
+    ClassifyAccessInstance = udtInfo
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DescribeAccessInstance
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : One line per instance for the refusal message, carrying the evidence a
+'           : user (or agent) needs to decide what to close by hand.
+'---------------------------------------------------------------------------------------
+'
+Private Function DescribeAccessInstance(udtInfo As udtAccessInstance) As String
+
+    Dim strDb As String
+    Dim strState As String
+
+    If Len(udtInfo.strDatabase) > 0 Then
+        strDb = udtInfo.strDatabase
+    ElseIf udtInfo.blnDatabaseKnown Then
+        strDb = T("no database open")
+    Else
+        strDb = T("open database unknown")
+    End If
+
+    If udtInfo.blnHasVisibleWindow Then strState = T("visible") Else strState = T("hidden")
+    If udtInfo.blnRespondedToAutomation Then
+        strState = strState & ", " & T("responded to automation")
+    Else
+        strState = strState & ", " & T("did not respond to automation")
+    End If
+
+    DescribeAccessInstance = "PID " & udtInfo.lngPid & ": " & strDb & " (" & strState & ")"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InspectAccessWindows
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Record whether PID has a visible top-level window and capture its OMain
+'           : hwnd for AccessibleObjectFromWindow.
+'---------------------------------------------------------------------------------------
+'
+Private Sub InspectAccessWindows(lngPid As Long)
+    m_lngEnumTargetPid = lngPid
+    m_blnEnumHasVisible = False
+    m_hwndEnumOMain = 0
+    EnumWindows AddressOf EnumAccessWindowsCallback, 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EnumAccessWindowsCallback
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : EnumWindows callback. Must live in a standard module for AddressOf.
+'           : An error raised here would unwind through Win32 stack frames and take
+'           : Access down with it, so this never lets one escape and never reports
+'           : failure to the caller.
+'---------------------------------------------------------------------------------------
+'
+Private Function EnumAccessWindowsCallback(ByVal hwnd As LongPtr, ByVal lParam As LongPtr) As Long
+
+    Dim lngPid As Long
+    Dim strClass As String
+    Dim lngLen As Long
+
+    EnumAccessWindowsCallback = 1
+    On Error Resume Next
+
+    GetWindowThreadProcessId hwnd, lngPid
+    If lngPid = m_lngEnumTargetPid Then
+        If GetWindow(hwnd, GW_OWNER) = 0 Then
+            If IsWindowVisible(hwnd) <> 0 Then m_blnEnumHasVisible = True
+        End If
+        strClass = String$(64, vbNullChar)
+        lngLen = GetClassNameA(hwnd, strClass, 64)
+        If lngLen > 0 Then
+            If StrComp(Left$(strClass, lngLen), "OMain", vbTextCompare) = 0 Then
+                m_hwndEnumOMain = hwnd
+            End If
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AccessAppFromHwnd
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Native Access.Application from an OMain hwnd, or Nothing.
+'---------------------------------------------------------------------------------------
+'
+Private Function AccessAppFromHwnd(ByVal hwnd As LongPtr) As Object
+
+    Dim iid As udtIID
+    Dim obj As Object
+    Dim hwndChild As LongPtr
+
+    If hwnd = 0 Then Exit Function
+
+    ' A process that exits between enumeration and this call fails the marshalled
+    ' call rather than the guard.
+    LogUnhandledErrors
+    On Error Resume Next
+
+    iid.Data1 = &H20400
+    iid.Data4(0) = &HC0
+    iid.Data4(7) = &H46
+
+    If AccessibleObjectFromWindow(hwnd, OBJID_NATIVEOM, iid, obj) = S_OK Then
+        Set AccessAppFromHwnd = ApplicationFromComObject(obj)
+        If Not AccessAppFromHwnd Is Nothing Then Exit Function
+    End If
+
+    hwndChild = FindWindowExA(hwnd, 0, vbNullString, vbNullString)
+    Do While hwndChild <> 0
+        Set obj = Nothing
+        If AccessibleObjectFromWindow(hwndChild, OBJID_NATIVEOM, iid, obj) = S_OK Then
+            Set AccessAppFromHwnd = ApplicationFromComObject(obj)
+            If Not AccessAppFromHwnd Is Nothing Then Exit Function
+        End If
+        hwndChild = FindWindowExA(hwnd, hwndChild, vbNullString, vbNullString)
+    Loop
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplicationFromComObject
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : The native OM may be Application or a Window; always return Application.
+'---------------------------------------------------------------------------------------
+'
+Private Function ApplicationFromComObject(obj As Object) As Object
+    If obj Is Nothing Then Exit Function
+    LogUnhandledErrors
+    On Error Resume Next
+    Set ApplicationFromComObject = obj.Application
+    If ApplicationFromComObject Is Nothing Then Set ApplicationFromComObject = obj
+    If Err Then
+        Err.Clear
+        Set ApplicationFromComObject = Nothing
+    End If
 End Function
 
 
@@ -1248,32 +1550,50 @@ End Function
 ' Procedure : ExtractOpenDatabaseFromCommandLine
 ' Author    : Adam Waller
 ' Date      : 8/12/2026
-' Purpose   : Return the last quoted token in a process command line that looks like
-'           : an Access database path.
+' Purpose   : Return the last token in a process command line that names a database
+'           : file. Tokens are split on spaces outside of double quotes, so an
+'           : unquoted path (a path with no spaces in it) is found as well as a
+'           : quoted one. An empty return does not mean no database is open: COM
+'           : OpenCurrentDatabase never reaches the command line.
 '---------------------------------------------------------------------------------------
 '
-Private Function ExtractOpenDatabaseFromCommandLine(strCmd As String) As String
+Public Function ExtractOpenDatabaseFromCommandLine(strCmd As String) As String
 
     Dim lngPos As Long
-    Dim lngStart As Long
+    Dim strChar As String
     Dim strToken As String
-    Dim strExt As String
+    Dim blnInQuotes As Boolean
 
-    lngPos = 1
-    Do
-        lngStart = InStr(lngPos, strCmd, """")
-        If lngStart = 0 Then Exit Do
-        lngPos = InStr(lngStart + 1, strCmd, """")
-        If lngPos = 0 Then Exit Do
-        strToken = Mid$(strCmd, lngStart + 1, lngPos - lngStart - 1)
-        strExt = LCase$(FSO.GetExtensionName(strToken))
-        If strExt = "accdb" Or strExt = "accda" Or strExt = "accde" _
-            Or strExt = "mdb" Or strExt = "adp" Then
-            ExtractOpenDatabaseFromCommandLine = strToken
+    ' One past the end flushes the final token without duplicating the test below.
+    For lngPos = 1 To Len(strCmd) + 1
+        If lngPos > Len(strCmd) Then strChar = " " Else strChar = Mid$(strCmd, lngPos, 1)
+        If strChar = """" Then
+            blnInQuotes = Not blnInQuotes
+        ElseIf (strChar = " " Or strChar = vbTab) And Not blnInQuotes Then
+            If Len(strToken) > 0 Then
+                If IsDatabaseFileName(strToken) Then ExtractOpenDatabaseFromCommandLine = strToken
+                strToken = vbNullString
+            End If
+        Else
+            strToken = strToken & strChar
         End If
-        lngPos = lngPos + 1
-    Loop
+    Next lngPos
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsDatabaseFileName
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : True when the path carries an extension Access opens as a database.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsDatabaseFileName(strPath As String) As Boolean
+    Select Case LCase$(FSO.GetExtensionName(strPath))
+        Case "accdb", "accda", "accde", "accdr", "accdt", "mdb", "mda", "mde", "adp", "ade"
+            IsDatabaseFileName = True
+    End Select
 End Function
 
 

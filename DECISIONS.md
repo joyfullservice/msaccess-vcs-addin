@@ -83,6 +83,87 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — AutoRun stands down when a COM client opened the add-in
+
+**Trigger**: An agent could not run the add-in's own test suite. Those tests only
+run when the add-in is the current database, and opening `Version Control.accda`
+through COM fails both ways: from the installed location `AutoRun` shows
+"Installation Complete!" and calls `DoCmd.Quit`, killing the instance the client
+is holding (`Cannot find Access instance ... may have been closed`); from any
+other location it shows `frmVCSInstall` and strands the session. An MCP test run
+that did work only worked because a human Access window already had the file
+open and the server attached to it.
+
+**Options explored**:
+- *Run the add-in's tests through a user database.* Rejected. `TestRunner.Scan`
+  walks `CurrentVBProject`, so `vcs_call_vba(Testing.accdb, "VCS.API",
+  ["RunTestsHeadless"])` discovers that database's tests, not the add-in's.
+- *Keep a human window open for test runs.* Rejected as a steady state. Testing
+  needs that window open and the rebuild guard needs it closed, so every
+  iteration costs two manual steps and they conflict.
+- *Suppress both dialogs when `Application.UserControl` is False.* Chosen.
+
+**Decision**: `AutoRun` consults `OpenedByAutomation` after the `/cmd` branch
+and, when a COM client started the instance, extracts resources and returns
+without showing anything. `OpenedByAutomation` returns False when
+`Application.UserControl` cannot be read, because suppressing the install UI for
+a real user is worse than leaving automation stranded. `/cmd INSTALL` is
+unaffected — it is a command-line launch handled before this check.
+
+**What this rules out**: Treating the "Installation Complete" message box as
+proof the file was trusted in any automated context. Measured on Access 16.0:
+`UserControl` is False for a COM-created instance and stays False after
+`Visible = True`, so the worker's build instance now skips `frmVCSInstall` too and
+its defensive close of that form becomes a no-op rather than a requirement.
+
+**Relevant files**: `modInstall.bas` (`AutoRun`, `OpenedByAutomation`),
+`clsWorker.cls` (defensive `frmVCSInstall` close), `docs/agentic-rebuild.md`.
+
+---
+
+## 2026-08-12 — Rebuild guard reports other Access instances instead of closing them
+
+**Trigger**: MCP automation leaves hidden `MSACCESS.EXE` processes behind. Those
+still load the installed add-in, so `UpdateAddInFile` fails and the rebuild
+refuses. Closing the ones with no database open looked safe, and an
+implementation that did so was written and then withdrawn before it shipped.
+
+**Options explored**:
+- *Close any hidden instance with no database open.* Withdrawn. Deciding
+  "no database open" requires reaching the other process's object model,
+  because `OpenCurrentDatabase` leaves no trace on the command line. A **busy**
+  instance rejects those automation calls, so it is indistinguishable from an
+  empty one — and a busy instance is the worst thing to terminate. The
+  implementation also treated an unreachable object model as permission to
+  close, which inverted the intended fail-safe.
+- *Trust `AccessibleObjectFromWindow(OBJID_NATIVEOM)` on the `OMain` window.*
+  Not relied on. The technique is established for Excel and Word; that it works
+  for Access is unverified. Making an unverified probe the safety-critical
+  discriminator, with a destructive failure mode, is backwards.
+- *Report and refuse, gather evidence first.* Chosen.
+
+**Decision**: `GetOtherAccessInstances` counts other `MSACCESS.EXE` processes in
+this Windows session and never quits or terminates anything. It classifies each
+one read-only and reports what it saw — open database, visible window, and
+whether the object model answered at all — so a person or agent can close them
+deliberately. `ClassifyAccessInstance` separates "told us it has nothing open"
+from "never answered" via a probe that succeeds on any responsive instance
+(`Application.Version`) before asking about the database. The unreached case is
+reported as `open database unknown`, never as idle.
+
+**What this rules out**: Fully unattended rebuild while any other Access process
+exists in the session, including a second MCP-owned one. Revisit closing idle
+instances only after the logged evidence shows the native object model is
+reachable for Access — `clsTestInstall` records what real instances report.
+Killing `MSACCESS.EXE` as a cleanup strategy stays out.
+
+**Relevant files**: `modInstall.bas` (`GetOtherAccessInstances`,
+`ClassifyAccessInstance`, `DescribeAccessInstance`,
+`ExtractOpenDatabaseFromCommandLine`), `clsVersionControl.cls` (`RebuildAddIn`),
+`clsTestInstall.cls`, `docs/agentic-rebuild.md`.
+
+---
+
 ## 2026-08-12 — Force headless test runs for API and MCP callers
 
 **Trigger**: `vcs_run_tests` calls `RunFilteredTests`, an interactive entry

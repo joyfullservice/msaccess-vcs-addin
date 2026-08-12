@@ -12,7 +12,10 @@ Attribute VB_Exposed = False
 ' Author    : Adam Waller
 ' Date      : 8/12/2026
 ' Purpose   : Tests for unattended add-in rebuild helpers: process guard, trusted
-'           : location check, /cmd token parse, and rebuild-status.json round trip.
+'           : location check, /cmd token parse, command-line database detection, and
+'           : rebuild-status.json round trip. Nothing here may close a process: the
+'           : guard only reports, and a test that terminated an Access instance would
+'           : take the developer's other work with it.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -56,8 +59,10 @@ End Sub
 
 
 Public Sub TestGetOtherAccessInstances_DoesNotRaise()
+
     Dim strDetail As String
     Dim lngCount As Long
+
     lngCount = GetOtherAccessInstances(strDetail)
     TestAssert lngCount >= -1, "returns -1 or a count"
     If lngCount = 0 Then
@@ -65,9 +70,49 @@ Public Sub TestGetOtherAccessInstances_DoesNotRaise()
     ElseIf lngCount > 0 Then
         TestAssert Len(strDetail) > 0, "detail lists other instances"
         TestAssert InStr(strDetail, "PID ") > 0, "detail includes PID"
+        ' Whether the native object model can be reached at all decides if the guard
+        ' could ever close an idle instance instead of refusing, so log the evidence
+        ' from real instances rather than assuming an answer.
+        Log.Add "Other Access instances seen by the rebuild guard:" & vbCrLf & strDetail, False
     Else
         TestAssert Len(strDetail) > 0, "query failure includes a reason"
     End If
+
+End Sub
+
+
+Public Sub TestExtractOpenDatabaseFromCommandLine_QuotedPath()
+    TestAssert ExtractOpenDatabaseFromCommandLine( _
+        """C:\Program Files\Microsoft Office\root\Office16\MSACCESS.EXE"" ""C:\My Data\db.accdb""") _
+        = "C:\My Data\db.accdb", "quoted path with spaces"
+End Sub
+
+
+Public Sub TestExtractOpenDatabaseFromCommandLine_UnquotedPath()
+    TestAssert ExtractOpenDatabaseFromCommandLine("MSACCESS.EXE C:\dev\db.accdb") = _
+        "C:\dev\db.accdb", "unquoted path"
+    TestAssert ExtractOpenDatabaseFromCommandLine( _
+        """C:\Office16\MSACCESS.EXE"" C:\dev\db.accdb /nostartup") = _
+        "C:\dev\db.accdb", "unquoted path followed by a switch"
+End Sub
+
+
+Public Sub TestExtractOpenDatabaseFromCommandLine_NoDatabase()
+    TestAssert ExtractOpenDatabaseFromCommandLine(vbNullString) = vbNullString, "empty"
+    TestAssert ExtractOpenDatabaseFromCommandLine("""C:\Office16\MSACCESS.EXE""") = _
+        vbNullString, "executable only"
+    TestAssert ExtractOpenDatabaseFromCommandLine( _
+        """C:\Office16\MSACCESS.EXE"" /cmd ""INSTALL SILENT""") = vbNullString, _
+        "switch arguments are not databases"
+    TestAssert ExtractOpenDatabaseFromCommandLine("MSACCESS.EXE C:\dev\notes.txt") = _
+        vbNullString, "non-database extension"
+End Sub
+
+
+Public Sub TestExtractOpenDatabaseFromCommandLine_Extensions()
+    TestAssert ExtractOpenDatabaseFromCommandLine("MSACCESS.EXE C:\a.accda") = "C:\a.accda", "accda"
+    TestAssert ExtractOpenDatabaseFromCommandLine("MSACCESS.EXE C:\a.MDB") = "C:\a.MDB", "mdb, any case"
+    TestAssert ExtractOpenDatabaseFromCommandLine("MSACCESS.EXE C:\a.adp") = "C:\a.adp", "adp"
 End Sub
 
 
