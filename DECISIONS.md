@@ -83,6 +83,114 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — Decline the DAO table build when a text or memo field omits AllowZeroLength
+
+**Trigger**: With the verification guard fixed (entry below), the round-trip harness
+finally ran the DAO-versus-source comparison and four table fixtures failed it.
+`ImageFile` and `USysApplicationLog` differed by exactly one line per text field: the
+rebuilt table carried `<od:fieldProperty name="AllowZeroLength" type="1" value="0"/>`
+and the fixture carried nothing at all.
+
+**Empirical findings** (probed with `vcs_run_vba` against a scratch table):
+
+- `CreateField` on `dbText` or `dbMemo` materializes both `AllowZeroLength` and
+  `Required` whether or not either is assigned, and `ExportXML` with
+  `acExportAllTableAndFieldProperties` then writes both. Other types materialize
+  only `Required`.
+- The property cannot be removed afterwards: `Field.Properties.Delete
+  "AllowZeroLength"` raises error 3384, "Cannot delete a built-in property".
+- `Application.ImportXML` does *not* materialize it. Importing `ImageFile.xml` and
+  re-exporting reproduces the fixture, `AllowZeroLength` still absent.
+
+So a source file that omits `AllowZeroLength` on a text or memo field describes a
+table `modTableDefBuilder` can never reproduce byte for byte. Files exported from a
+table Access itself built through `ImportXML` are exactly that shape; tables built in
+the Access UI carry the property (value 1) and are unaffected.
+
+**Options explored**:
+
+- **Strip a default `AllowZeroLength="0"` in the sanitizer** — rejected. It changes
+  exported output, so it needs an export format version gate and churns every user's
+  `tbldefs/`, and it discards a real distinction: a text field explicitly set to
+  disallow zero-length strings is not the same as one that never had the property.
+- **Let the existing verification catch it** — rejected. It is correct but wasteful,
+  and worse, each occurrence calls `RecordFastPathFailure`. Three such tables in one
+  build trip the circuit breaker and disable the fast path for every table after
+  them, including tables that would have succeeded.
+- **Decline during parsing** (chosen): `ParseFieldElement` refuses the table as soon
+  as it sees a text or memo field with no `AllowZeroLength` property.
+
+**Decision**: The builder declines these tables up front. The final import path is
+unchanged — `Application.ImportXML` handled them before and still does — but the
+build/export/compare/delete cycle is skipped and the fast-path failure counter is
+left for genuine failures. Fixtures `ImageFile`, `USysApplicationLog` and
+`tblFixSubdatasheet` moved to `tabledefs/fallback/` accordingly.
+`tblFixLookupCombo` has no text fields and stays on the DAO path.
+
+**What this rules out**: Reproducing an `ImportXML`-shaped text field through DAO at
+all; treating `AllowZeroLength` as an optional property the builder may default.
+Also rules out reading a missing `AllowZeroLength` as `False` — DAO's default value
+happens to be `False`, but writing it is what breaks the comparison, not the value.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/modTableDefBuilder.bas` —
+  `ParseFieldElement`
+- `Version Control.accda.src/modules/Tests/Components/modTestTableDefBuilder.bas` —
+  `TestTextFieldWithoutAllowZeroLengthDeclines`
+- `Testing/Fixtures/tabledefs/fallback/` — `ImageFile.xml`,
+  `USysApplicationLog.xml`, `tblFixSubdatasheet.xml`
+
+---
+
+## 2026-08-12 — Verify DAO table builds even when the source file is outside the export folder
+
+**Trigger**: `VCS.RunRoundtripTests` reported 8 table-definition failures. Seven of
+them failed `import_path` with "Fell back to Application.ImportXML: the rebuilt
+table did not match the source file", even though the harness log showed only the
+Pass 1 / Pass 2 sanitizer lines — never a verification export. The eighth
+(`tblInternal`) failed with the legitimate complex-field decline but lived under
+`tabledefs/` rather than `tabledefs/fallback/`.
+
+**Options explored**:
+
+- **Stage fixtures under `Options.GetExportFolder` in the harness** — rejected as
+  the sole fix. The same guard also affects single-object imports from arbitrary
+  paths, and a harness-only workaround would leave that production case broken.
+- **Treat out-of-folder sources as unverifiable and keep falling through** —
+  rejected. That was the prior behaviour; it made every out-of-folder DAO build
+  look like a verification failure, so the round-trip harness could not prove the
+  builder at all.
+- **Fall back to a flat temp-folder name when the prefix rewrite is a no-op**
+  (chosen): keep the never-overwrite-source invariant, and still run the hash
+  comparison for files that are not under the export folder.
+
+**Decision**: `StoredDefinitionMatchesSource` still prefers a mirrored path under
+`VCSIndex.GetTempExportFolder` when the source sits under the export folder. When
+the rewrite does not change the path, it uses
+`GetTempExportFolder & FSO.GetFileName(strFile)` instead, and only abandons the
+check if that temp path still collides with the source. The round-trip harness
+continues to decide the expected import path purely by folder
+(`tabledefs/` vs `tabledefs/fallback/`); fixtures that deliberately exercise the
+ImportXML fallback belong under `fallback/`. `tblInternal` was moved there
+because it carries an attachment field, matching `tblAttachment`.
+
+**What this rules out**: Treating "source outside export folder" as an automatic
+false negative in table-definition verification. Per-fixture `import_path`
+declarations — folder placement remains the contract. Closing the gap does not
+require an export format version gate; the change is import-side only.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` —
+  `StoredDefinitionMatchesSource`
+- `Version Control.accda.src/modules/Tests/Components/modTestTableDef.bas` —
+  `TestDaoImportFromOutsideExportFolder`
+- `Testing/Fixtures/tabledefs/fallback/tblInternal.xml` — moved from
+  `tabledefs/`
+
+---
+
 ## 2026-08-11 — Emit the parameter type keywords ACE accepts, not the ones that read best
 
 **Trigger**: While pinning the type map for the `Begin Parameters` work below,
@@ -620,6 +728,12 @@ Qualify with the **full path**, which also loads the add-in on demand. The bare 
 ---
 
 ## 2026-07-30 — Skip the table rebuild when the stored definition already matches source
+
+> **⚠ Partially superseded** (2026-08-12): The claim that a source file outside
+> the export folder is an automatic false negative no longer holds.
+> `StoredDefinitionMatchesSource` now falls back to a flat temp-folder name for
+> that case. See "Verify DAO table builds even when the source file is outside
+> the export folder" above.
 
 **Trigger**: Reloading `tblListYN` — three fields, two rows, no relationships — from source took 455 seconds in a database holding roughly 5,000 objects (3,692 queries, 514 table definitions, 416 forms, 318 reports). The `Merge_*.log` performance report accounted for 0.76 seconds and left 454.85 in `Other Operations`, because nothing on the merge path carried a `Perf` timer. Exporting the same object was instant.
 

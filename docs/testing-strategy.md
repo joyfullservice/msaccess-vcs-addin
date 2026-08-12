@@ -49,10 +49,15 @@ the same pattern by adding a per-type helper.
 Table definition fixtures additionally assert **which import path ran**: fixtures
 under `tabledefs/` must be built by `modTableDefBuilder` through DAO, while those
 under `tabledefs/fallback/` must be refused by it and fall back to
-`Application.ImportXML`. Because the DAO builder's output only matches source
-under the canonical property ordering, the harness forces
-`ExportFormatVersion = EFV_5_1_0` for the duration of the run and restores it
-afterwards.
+`Application.ImportXML`. Expected path is decided only by that folder placement —
+there is no per-fixture declaration. Put attachment, multi-value, and other
+deliberately unsupported constructs under `fallback/`. One case is easy to miss: a
+text or memo field whose XML carries no `AllowZeroLength` property also belongs
+under `fallback/`, because `CreateField` always materializes that property and it
+cannot be deleted, so the DAO build can never re-export identically. Because the DAO builder's
+output only matches source under the canonical property ordering, the harness
+forces `ExportFormatVersion = EFV_5_1_0` for the duration of the run and restores
+it afterwards.
 
 For each fixture under `Testing/Fixtures/`, the harness:
 

@@ -536,6 +536,21 @@ Private Function ParseFieldElement(ByVal objField As MSXML2.IXMLDOMNode) As Dict
     dField.Add "Scale", lngScale
     dField.Add "Properties", ParseProperties(objField, "fieldProperty")
 
+    ' AllowZeroLength is a built-in DAO property on text and memo fields: CreateField
+    ' materializes it whether or not we set it, and it cannot be removed afterwards
+    ' ("Cannot delete a built-in property", error 3384). Application.ImportXML does not
+    ' materialize it, so a source file that omits it describes a table this module can
+    ' never reproduce byte for byte. Declining here rather than letting the caller's
+    ' re-export comparison catch it keeps the fallback cheap and, more importantly,
+    ' keeps it off the fast-path failure counter -- a build with a few such tables would
+    ' otherwise trip the circuit breaker and disable the fast path for everything after.
+    If lngType = dbText Or lngType = dbMemo Then
+        If Not dField("Properties").Exists("AllowZeroLength") Then
+            m_strDeclineReason = "field '" & strName & "' has no AllowZeroLength property"
+            Exit Function
+        End If
+    End If
+
     ' Note what is deliberately NOT read here: od:nonNullable. On an autonumber primary
     ' key Access writes nonNullable="yes" with no Required field property at all, because
     ' the non-nullability comes from the primary index rather than from Required. Setting

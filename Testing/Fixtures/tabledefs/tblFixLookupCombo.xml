@@ -16,7 +16,13 @@
     </xsd:annotation>
     <xsd:complexType>
       <xsd:sequence>
-        <xsd:element name="ID" minOccurs="0" od:jetType="longinteger" od:sqlSType="int" type="xsd:int"></xsd:element>
+        <xsd:element name="ID" minOccurs="0" od:jetType="longinteger" od:sqlSType="int" type="xsd:int">
+          <xsd:annotation>
+            <xsd:appinfo>
+              <od:fieldProperty name="Required" type="1" value="0"></od:fieldProperty>
+            </xsd:appinfo>
+          </xsd:annotation>
+        </xsd:element>
         <xsd:element name="Category" minOccurs="0" od:jetType="longinteger" od:sqlSType="int" type="xsd:int">
           <xsd:annotation>
             <xsd:appinfo>
@@ -29,6 +35,7 @@
               <od:fieldProperty name="LimitToList" type="1" value="1"></od:fieldProperty>
               <od:fieldProperty name="ListRows" type="3" value="8"></od:fieldProperty>
               <od:fieldProperty name="ListWidth" type="10" value="1440twip"></od:fieldProperty>
+              <od:fieldProperty name="Required" type="1" value="0"></od:fieldProperty>
               <od:fieldProperty name="RowSource" type="12" value="1;One;2;Two"></od:fieldProperty>
               <od:fieldProperty name="RowSourceType" type="10" value="Value List"></od:fieldProperty>
               <od:fieldProperty name="ShowOnlyRowSourceValues" type="1" value="0"></od:fieldProperty>

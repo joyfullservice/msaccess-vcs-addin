@@ -645,8 +645,9 @@ End Sub
 '           : cost more than the import it would skip.
 '           :
 '           : A false negative is harmless -- the caller just rebuilds as before -- so
-'           : anything unexpected (missing table, source file outside the export
-'           : folder, export that produces no file) returns false.
+'           : anything unexpected (missing table, export that produces no file) returns
+'           : false. Source files outside the export folder are still verifiable: the
+'           : check falls back to a flat name in the temp folder rather than giving up.
 '           :
 '           : Also used to verify a table built by the DAO fast path, which is the same
 '           : question asked at a different moment. strTimerLabel keeps the two apart in
@@ -664,11 +665,16 @@ Private Function StoredDefinitionMatchesSource(strName As String, strFile As Str
     If Not FSO.FileExists(strFile) Then Exit Function
     If Not TableExists(strName) Then Exit Function
 
-    ' Reuse the conflict-detection temp folder so the export lands beside the other
-    ' comparison copies and is cleaned up with them. When the source file is not under
-    ' the export folder there is no temp path to redirect to, and exporting would
-    ' overwrite the very file being compared against.
+    ' Prefer a mirrored path under the conflict-detection temp folder so the export
+    ' lands beside the other comparison copies and is cleaned up with them. When the
+    ' source file is not under the export folder (single-object import from an
+    ' arbitrary path, or a test fixture) there is no prefix to rewrite -- fall back
+    ' to a flat name in the same temp folder. The last check is the real invariant:
+    ' never export onto the source file being compared against.
     strTempFile = Replace(strFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
+    If StrComp(strTempFile, strFile, vbTextCompare) = 0 Then
+        strTempFile = VCSIndex.GetTempExportFolder & FSO.GetFileName(strFile)
+    End If
     If StrComp(strTempFile, strFile, vbTextCompare) = 0 Then Exit Function
 
     Perf.OperationStart strTimerLabel

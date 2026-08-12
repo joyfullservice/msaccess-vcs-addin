@@ -14,6 +14,7 @@ Option Private Module
 
 
 Private Const TEST_TABLE_BIGINT As String = "vcs_test_bigint_repair"
+Private Const TEST_TABLE_OUTSIDE_EXPORT As String = "vcs_test_td_outside_export"
 
 
 '---------------------------------------------------------------------------------------
@@ -109,6 +110,87 @@ Public Sub TestBigIntImportXmlRepair()
 
     DeleteFile strTemp
     DropTestTable TEST_TABLE_BIGINT
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestDaoImportFromOutsideExportFolder
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Pin that the DAO fast path still verifies (and keeps) a table whose source
+'           : XML sits outside Options.GetExportFolder. StoredDefinitionMatchesSource used
+'           : to treat that case as an automatic mismatch by refusing to write a temp
+'           : export when the export-folder prefix rewrite was a no-op, which made every
+'           : round-trip fixture under Testing\Fixtures\scratch\ fall through to
+'           : Application.ImportXML even when the DAO build was correct.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDaoImportFromOutsideExportFolder()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim strXml As String
+    Dim cTable As clsDbTableDef
+    Dim cComponent As IDbComponent
+    Dim lngPriorFormat As Long
+    Dim blnPriorOverride As Boolean
+
+    DropTestTable TEST_TABLE_OUTSIDE_EXPORT
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_OUTSIDE_EXPORT)
+    Set fld = tdf.CreateField("ID", dbLong)
+    fld.Attributes = fld.Attributes Or dbAutoIncrField
+    tdf.Fields.Append fld
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+
+    ' Export through the same path the verification step uses, under the format that
+    ' makes DAO and ImportXML output comparable, so a successful re-import is able to
+    ' hash-match the source file.
+    lngPriorFormat = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+
+    ' Import derives the object name from the file basename, so the source file
+    ' must be named for the table. Place it under the system temp directory --
+    ' never under the project's export folder -- which is the case under test.
+    strXml = GetTempFile
+    DeleteFile strXml
+    strXml = FSO.GetParentFolderName(strXml) & PathSep & TEST_TABLE_OUTSIDE_EXPORT & ".xml"
+    If FSO.FileExists(strXml) Then DeleteFile strXml
+    Application.ExportXML acExportTable, TEST_TABLE_OUTSIDE_EXPORT, , strXml, , , , _
+        acExportAllTableAndFieldProperties
+    With New clsSourceParser
+        .LoadSourceFile strXml, edbTableDef
+        DeleteFile strXml
+        WriteFile .Sanitize(ectXML), strXml
+    End With
+
+    DropTestTable TEST_TABLE_OUTSIDE_EXPORT
+
+    TestAssert InStr(1, strXml, Options.GetExportFolder, vbTextCompare) = 0, _
+        "fixture path is outside the export folder"
+
+    blnPriorOverride = FastPathTestOverride
+    FastPathTestOverride = True
+
+    Set cTable = New clsDbTableDef
+    Set cComponent = cTable
+    cComponent.Import strXml
+    ReleaseDbReferences
+
+    FastPathTestOverride = blnPriorOverride
+    Options.ExportFormatVersion = lngPriorFormat
+
+    TestAssert TableExists(TEST_TABLE_OUTSIDE_EXPORT), "import created the table"
+    TestAssert Len(GetLastDeclineReason()) = 0, _
+        "DAO path kept the table (verification ran outside the export folder)"
+
+    DeleteFile strXml
+    DropTestTable TEST_TABLE_OUTSIDE_EXPORT
 
 End Sub
 

@@ -85,7 +85,8 @@ Public Sub TestTextFieldSizing()
 
     ' No simpleType restriction at all.
     Set dField = ParseSingleField( _
-        "<xsd:element name=""F"" minOccurs=""0"" od:jetType=""text""></xsd:element>")
+        "<xsd:element name=""F"" minOccurs=""0"" od:jetType=""text"">" & _
+        AllowZeroLengthXml & "</xsd:element>")
     TestAssert dField("Size") = 255, "missing maxLength defaults to 255"
 
 End Sub
@@ -270,6 +271,7 @@ Public Sub TestPropertyParsing()
     Set dSchema = ParseTableXml( _
         "<xsd:element name=""F"" minOccurs=""0"" od:jetType=""text"">" & _
         "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""AllowZeroLength"" type=""1"" value=""1""></od:fieldProperty>" & _
         "<od:fieldProperty name=""Required"" type=""1"" value=""1""></od:fieldProperty>" & _
         "<od:fieldProperty name=""ColumnWidth"" type=""3"" value=""-1""></od:fieldProperty>" & _
         "<od:fieldProperty name=""Caption"" type=""10"" value=""My Field""></od:fieldProperty>" & _
@@ -309,6 +311,52 @@ Public Sub TestRequiredIsNotInferredFromNonNullable()
         "type=""xsd:int""></xsd:element>")("Properties")
 
     TestAssert Not dProps.Exists("Required"), "nonNullable does not create a Required property"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTextFieldWithoutAllowZeroLengthDeclines
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : AllowZeroLength is a built-in DAO property on text and memo fields.
+'           : CreateField materializes it whether or not we ask for it, and it cannot be
+'           : removed ("Cannot delete a built-in property", error 3384), so the re-export
+'           : always carries it. Application.ImportXML does not materialize it, which is
+'           : why source files exported from an ImportXML-built table omit it entirely.
+'           : Such a file describes a table this module can never reproduce byte for
+'           : byte, so it must decline during parsing rather than build a table the
+'           : caller then has to throw away.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTextFieldWithoutAllowZeroLengthDeclines()
+
+    TestAssert Not Parses( _
+        "<xsd:element name=""F"" minOccurs=""0"" od:jetType=""text""></xsd:element>"), _
+        "text field without AllowZeroLength declines"
+
+    TestAssert Not Parses( _
+        "<xsd:element name=""F"" minOccurs=""0"" od:jetType=""memo""></xsd:element>"), _
+        "memo field without AllowZeroLength declines"
+
+    ' Required on its own is not enough -- this is the exact shape Access writes for a
+    ' table it created through ImportXML.
+    TestAssert Not Parses( _
+        "<xsd:element name=""F"" minOccurs=""0"" od:jetType=""text"">" & _
+        "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""Required"" type=""1"" value=""0""></od:fieldProperty>" & _
+        "</xsd:appinfo></xsd:annotation></xsd:element>"), _
+        "Required alone does not satisfy the check"
+
+    TestAssert InStr(1, GetLastDeclineReason(), "AllowZeroLength", vbTextCompare) > 0, _
+        "the reason names the property"
+
+    ' Types that have no AllowZeroLength property are unaffected.
+    TestAssert Parses( _
+        "<xsd:element name=""F"" minOccurs=""0"" od:jetType=""longinteger""></xsd:element>"), _
+        "a long integer field needs no AllowZeroLength"
+
+    TestAssert Parses(TextFieldXml(50)), "declaring AllowZeroLength is accepted"
 
 End Sub
 
@@ -471,8 +519,27 @@ End Function
 
 
 Private Function PlainFieldXml(strName As String, strJetType As String) As String
+
+    Dim strAnnotation As String
+
+    ' Text and memo fields have to declare AllowZeroLength or the builder declines them,
+    ' so the helper supplies it for those types. Tests about anything else should not
+    ' have to restate it. See TestTextFieldWithoutAllowZeroLengthDeclines.
+    Select Case LCase$(strJetType)
+        Case "text", "memo", "hyperlink"
+            strAnnotation = AllowZeroLengthXml
+    End Select
+
     PlainFieldXml = "<xsd:element name=""" & strName & """ minOccurs=""0"" od:jetType=""" & _
-        strJetType & """></xsd:element>"
+        strJetType & """>" & strAnnotation & "</xsd:element>"
+
+End Function
+
+
+Private Function AllowZeroLengthXml() As String
+    AllowZeroLengthXml = "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""AllowZeroLength"" type=""1"" value=""1""></od:fieldProperty>" & _
+        "</xsd:appinfo></xsd:annotation>"
 End Function
 
 
@@ -495,7 +562,7 @@ End Function
 
 Private Function TextFieldXml(ByVal lngSize As Long) As String
     TextFieldXml = "<xsd:element name=""Name"" minOccurs=""0"" od:jetType=""text"" " & _
-        "od:sqlSType=""nvarchar"">" & _
+        "od:sqlSType=""nvarchar"">" & AllowZeroLengthXml & _
         "<xsd:simpleType><xsd:restriction base=""xsd:string"">" & _
         "<xsd:maxLength value=""" & lngSize & """></xsd:maxLength>" & _
         "</xsd:restriction></xsd:simpleType></xsd:element>"
