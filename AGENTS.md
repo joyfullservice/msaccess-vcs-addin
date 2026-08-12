@@ -37,7 +37,7 @@ the VBA Immediate Window — it increments the version, exports to source files,
 and installs the development build. Commit the source files and open a pull
 request against `dev`. Releases are cut from `master`; the add-in is
 self-installing. Agents rebuild unattended via `VCS.RebuildAddIn`, which refuses
-unless this is the only Access process in the session; it closes nothing itself.
+when another Access process holds a file it must replace; it closes nothing itself.
 
 ## Invariants
 

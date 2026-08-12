@@ -83,6 +83,52 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — Rebuild blocks on instances holding its files, not on their existence
+
+**Trigger**: The refusal was scoped to the wrong question. It asked whether another
+`MSACCESS.EXE` exists, when what stops a rebuild is whether one holds a file the
+rebuild overwrites. A colleague with an unrelated database open blocked every
+rebuild for no reason, and the earlier attempt to relax this went after the
+instance (close it) rather than the question (does it hold the file).
+
+**Options explored**:
+- *Enumerate `VBE.VBProjects` in the other instance and match `FileName`.* Chosen.
+  Measured first: the same instance reported one project before the add-in was
+  invoked and two after, the second being the installed add-in path. A rebuild then
+  ran to completion with an unrelated instance open throughout.
+- *Infer from the command line.* Rejected, already known wrong in both directions.
+  COM `OpenCurrentDatabase` leaves no argument, and an instance pointed at a
+  database it never opened reports that path as open.
+- *Count records in the `.laccda` lock file.* Rejected. Undocumented format, and
+  our own process holds the file too, so the signal cannot be read cleanly.
+- *Skip the check and let the install fail on a locked file.* Rejected as the
+  primary mechanism. By then Access has quit and the build has run, so the failure
+  is late and confusing. It remains the backstop for the race below.
+
+**Decision**: `InspectLoadedProjects` reads `VBE.VBProjects` in each other instance
+and compares each project's `FileName`, case-insensitively, against the installed
+add-in and the build target — the VBE reports paths in upper case. An instance
+blocks only if it holds one of those files or could not be asked;
+`InstanceBlocksFileReplace` treats the unknown case as blocking, since a
+never-answering instance looks exactly like an idle one. Nothing is closed, which
+keeps the 2026-08-12 decision below intact — only the refusal scope narrows.
+
+**What this rules out**: Reading a bare instance count as a rebuild precondition;
+the count and the blocking count are now separate returns from
+`GetOtherAccessInstances`. Guaranteeing the file is free at replace time — an
+instance can load the add-in between check and install, so the install failure path
+stays. Relying on this in locked-down environments: reading `VBE` can be refused by
+the target instance's "Trust access to the VBA project object model" setting, which
+reports as unknown and therefore blocks. Only a positive answer that the setting is
+off in a real instance would justify a different fallback.
+
+**Relevant files**: `modInstall.bas` (`InspectLoadedProjects`, `IsTargetFilePath`,
+`GetBuildTargetFileName`, `InstanceBlocksFileReplace`, `GetOtherAccessInstances`),
+`clsVersionControl.cls` (`RebuildAddIn`), `clsTestInstall.cls`,
+`docs/agentic-rebuild.md`.
+
+---
+
 ## 2026-08-12 — AutoRun stands down when a COM client opened the add-in
 
 **Trigger**: An agent could not run the add-in's own test suite. Those tests only
@@ -122,6 +168,12 @@ its defensive close of that form becomes a no-op rather than a requirement.
 ---
 
 ## 2026-08-12 — Rebuild guard reports other Access instances instead of closing them
+
+> **⚠ Partially superseded** (2026-08-12): closing nothing still stands, but the
+> refusal no longer fires on the mere existence of another instance — only on one
+> that holds a file the rebuild replaces. `AccessibleObjectFromWindow` for Access
+> was subsequently verified rather than left unverified. See "Rebuild blocks on
+> instances holding its files, not on their existence" above.
 
 **Trigger**: MCP automation leaves hidden `MSACCESS.EXE` processes behind. Those
 still load the installed add-in, so `UpdateAddInFile` fails and the rebuild

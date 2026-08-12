@@ -53,14 +53,19 @@ Private m_hwndEnumOMain As LongPtr
 
 ' What could be observed about another Access process. blnRespondedToAutomation
 ' records whether the native object model could be reached at all: nothing may act on
-' the other two flags unless it is True, since an unreachable instance is
-' indistinguishable from an idle one.
+' the other flags unless it is True, since an unreachable instance is
+' indistinguishable from an idle one. blnProjectsKnown carries the same distinction for
+' the loaded project list, and it is the flag a rebuild turns on: it separates "this
+' instance holds none of the files we must replace" from "we could not find out".
 Private Type udtAccessInstance
     lngPid As Long
     blnRespondedToAutomation As Boolean
     blnHasVisibleWindow As Boolean
     blnDatabaseKnown As Boolean
     strDatabase As String
+    blnProjectsKnown As Boolean
+    blnHoldsTargetFile As Boolean
+    strHeldFile As String
 End Type
 
 Private Const ModuleName As String = "modInstall"
@@ -1234,11 +1239,19 @@ End Function
 ' Purpose   : Count MSACCESS.EXE processes in this Windows session other than the
 '           : current process. Returns -1 if the process query itself failed (fail-safe:
 '           : callers must refuse). strDetail describes each instance: its open
-'           : database, whether it has a visible window, and whether its object model
-'           : could be reached. Never quits or terminates anything.
+'           : database, whether it has a visible window, whether its object model
+'           : could be reached, and which of strTargetFiles it holds open.
+'           : Never quits or terminates anything.
+'           : strTargetFiles is a vbCrLf-delimited list of files the caller needs to
+'           : replace. lngBlocking returns how many instances stand in the way of that:
+'           : those holding one of the files, plus those that could not be asked, since
+'           : an unknown answer must not be read as safe. Supply no list and every
+'           : instance counts as blocking.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetOtherAccessInstances(ByRef strDetail As String) As Long
+Public Function GetOtherAccessInstances(ByRef strDetail As String, _
+    Optional ByRef lngBlocking As Long, _
+    Optional ByVal strTargetFiles As String) As Long
 
     Dim dProcs As Dictionary
     Dim strError As String
@@ -1248,21 +1261,109 @@ Public Function GetOtherAccessInstances(ByRef strDetail As String) As Long
 
     strDetail = vbNullString
     GetOtherAccessInstances = -1
+    lngBlocking = -1
 
     If Not CollectOtherAccessProcesses(dProcs, strError) Then
         strDetail = strError
         Exit Function
     End If
 
+    lngBlocking = 0
     Set cDetail = New clsConcat
     cDetail.AppendOnAdd = vbCrLf
     For Each varPid In dProcs.Keys
-        udtInfo = ClassifyAccessInstance(CLng(varPid), Nz(dProcs(varPid), vbNullString))
+        udtInfo = ClassifyAccessInstance(CLng(varPid), Nz(dProcs(varPid), vbNullString), _
+            strTargetFiles)
         cDetail.Add DescribeAccessInstance(udtInfo)
+        If InstanceBlocksFileReplace(udtInfo, strTargetFiles) Then
+            lngBlocking = lngBlocking + 1
+        End If
     Next varPid
 
     strDetail = cDetail.GetStr
     GetOtherAccessInstances = dProcs.Count
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InstanceBlocksFileReplace
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Whether this instance can stop a file in strTargetFiles from being
+'           : replaced. Holding one of them does; so does failing to answer, because
+'           : silence and "nothing loaded" arrive looking identical.
+'---------------------------------------------------------------------------------------
+'
+Private Function InstanceBlocksFileReplace(udtInfo As udtAccessInstance, _
+    ByVal strTargetFiles As String) As Boolean
+
+    If Len(Trim$(strTargetFiles)) = 0 Then
+        ' Nothing to compare against, so no instance can be ruled out.
+        InstanceBlocksFileReplace = True
+    ElseIf udtInfo.blnHoldsTargetFile Then
+        InstanceBlocksFileReplace = True
+    Else
+        InstanceBlocksFileReplace = Not udtInfo.blnProjectsKnown
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsTargetFilePath
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : True when strFileName is one of the vbCrLf-delimited paths in
+'           : strTargetFiles. The comparison is case-insensitive because the VBE
+'           : reports a project's FileName in upper case.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsTargetFilePath(ByVal strFileName As String, _
+    ByVal strTargetFiles As String) As Boolean
+
+    Dim varTarget As Variant
+    Dim strTarget As String
+
+    strFileName = Trim$(strFileName)
+    If Len(strFileName) = 0 Then Exit Function
+
+    For Each varTarget In Split(strTargetFiles, vbCrLf)
+        strTarget = Trim$(CStr(varTarget))
+        If Len(strTarget) > 0 Then
+            If StrComp(strFileName, strTarget, vbTextCompare) = 0 Then
+                IsTargetFilePath = True
+                Exit Function
+            End If
+        End If
+    Next varTarget
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetBuildTargetFileName
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : The database file a build from strSourceFolder writes to. An export
+'           : folder is named after its database plus ".src", so dropping that
+'           : extension names the file a rebuild overwrites. Returns an empty string
+'           : for any folder not named that way, since then there is nothing to infer.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetBuildTargetFileName(ByVal strSourceFolder As String) As String
+
+    Dim strFolder As String
+    Dim strBase As String
+
+    strFolder = StripSlash(Trim$(strSourceFolder))
+    If Len(strFolder) = 0 Then Exit Function
+    If StrComp(FSO.GetExtensionName(strFolder), "src", vbTextCompare) <> 0 Then Exit Function
+
+    strBase = FSO.GetBaseName(strFolder)
+    If Len(strBase) = 0 Then Exit Function
+
+    GetBuildTargetFileName = FSO.BuildPath(FSO.GetParentFolderName(strFolder), strBase)
 
 End Function
 
@@ -1350,10 +1451,12 @@ End Function
 '           : object model is also probed. A busy instance rejects automation calls and
 '           : therefore looks the same as an idle one; blnRespondedToAutomation records
 '           : which of the two it was, and callers must not treat an unreachable
-'           : instance as idle.
+'           : instance as idle. strTargetFiles asks the further question that actually
+'           : decides a rebuild: does this instance hold one of those files open?
 '---------------------------------------------------------------------------------------
 '
-Private Function ClassifyAccessInstance(lngPid As Long, strCmd As String) As udtAccessInstance
+Private Function ClassifyAccessInstance(lngPid As Long, strCmd As String, _
+    Optional ByVal strTargetFiles As String) As udtAccessInstance
 
     Dim objApp As Object
     Dim udtInfo As udtAccessInstance
@@ -1391,12 +1494,73 @@ Private Function ClassifyAccessInstance(lngPid As Long, strCmd As String) As udt
         Err.Clear
         If objApp.Visible Then udtInfo.blnHasVisibleWindow = True
         Err.Clear
+        InspectLoadedProjects objApp, strTargetFiles, udtInfo
     End If
 
     Set objApp = Nothing
     ClassifyAccessInstance = udtInfo
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InspectLoadedProjects
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Record whether this instance has any of strTargetFiles loaded as a VBA
+'           : project. A loaded project holds its file open, and that is the only reason
+'           : another Access process can stop a rebuild: an instance that never loaded
+'           : the add-in locks nothing, however long it has been running. Unlike the
+'           : command line, this reflects what is actually loaded.
+'           : Reading VBE can be refused by the target instance's "Trust access to the
+'           : VBA project object model" setting, which is why the answer is only
+'           : trustworthy when blnProjectsKnown comes back True.
+'---------------------------------------------------------------------------------------
+'
+Private Sub InspectLoadedProjects(objApp As Object, ByVal strTargetFiles As String, _
+    ByRef udtInfo As udtAccessInstance)
+
+    Dim objProjects As Object
+    Dim strFile As String
+    Dim lngCount As Long
+    Dim lngIndex As Long
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Err.Clear
+
+    Set objProjects = objApp.VBE.VBProjects
+    If Err.Number <> 0 Or objProjects Is Nothing Then
+        Err.Clear
+        Exit Sub
+    End If
+
+    lngCount = objProjects.Count
+    If Err.Number <> 0 Then
+        Err.Clear
+        Exit Sub
+    End If
+
+    ' The collection was enumerated, so from here a non-match means the file really is
+    ' not loaded rather than that we could not tell.
+    udtInfo.blnProjectsKnown = True
+
+    For lngIndex = 1 To lngCount
+        strFile = vbNullString
+        strFile = objProjects.Item(lngIndex).FileName
+        If Err.Number <> 0 Then
+            ' A project with no saved file cannot be one of the files we need.
+            Err.Clear
+        ElseIf IsTargetFilePath(strFile, strTargetFiles) Then
+            udtInfo.blnHoldsTargetFile = True
+            udtInfo.strHeldFile = strFile
+            Exit For
+        End If
+    Next lngIndex
+
+    Err.Clear
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -1425,6 +1589,14 @@ Private Function DescribeAccessInstance(udtInfo As udtAccessInstance) As String
         strState = strState & ", " & T("responded to automation")
     Else
         strState = strState & ", " & T("did not respond to automation")
+    End If
+
+    If udtInfo.blnHoldsTargetFile Then
+        strState = strState & ", " & T("holds {0}", var0:=udtInfo.strHeldFile)
+    ElseIf udtInfo.blnProjectsKnown Then
+        strState = strState & ", " & T("holds no rebuild file")
+    Else
+        strState = strState & ", " & T("loaded projects unknown")
     End If
 
     DescribeAccessInstance = "PID " & udtInfo.lngPid & ": " & strDb & " (" & strState & ")"

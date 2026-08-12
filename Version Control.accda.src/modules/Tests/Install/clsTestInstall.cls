@@ -11,9 +11,10 @@ Attribute VB_Exposed = False
 ' Module    : clsTestInstall
 ' Author    : Adam Waller
 ' Date      : 8/12/2026
-' Purpose   : Tests for unattended add-in rebuild helpers: process guard, trusted
-'           : location check, /cmd token parse, command-line database detection, and
-'           : rebuild-status.json round trip. Nothing here may close a process: the
+' Purpose   : Tests for unattended add-in rebuild helpers: process guard, held-file
+'           : matching, build target derivation, trusted location check, /cmd token
+'           : parse, command-line database detection, and rebuild-status.json round
+'           : trip. Nothing here may close a process: the
 '           : guard only reports, and a test that terminated an Access instance would
 '           : take the developer's other work with it.
 '---------------------------------------------------------------------------------------
@@ -62,21 +63,59 @@ Public Sub TestGetOtherAccessInstances_DoesNotRaise()
 
     Dim strDetail As String
     Dim lngCount As Long
+    Dim lngBlocking As Long
 
-    lngCount = GetOtherAccessInstances(strDetail)
+    lngCount = GetOtherAccessInstances(strDetail, lngBlocking, _
+        GetInstalledAddInFileName())
     TestAssert lngCount >= -1, "returns -1 or a count"
     If lngCount = 0 Then
         TestAssert Len(strDetail) = 0, "no detail when count is zero"
+        TestAssert lngBlocking = 0, "nothing blocks when no other instance exists"
     ElseIf lngCount > 0 Then
         TestAssert Len(strDetail) > 0, "detail lists other instances"
         TestAssert InStr(strDetail, "PID ") > 0, "detail includes PID"
-        ' Whether the native object model can be reached at all decides if the guard
-        ' could ever close an idle instance instead of refusing, so log the evidence
-        ' from real instances rather than assuming an answer.
+        TestAssert lngBlocking >= 0 And lngBlocking <= lngCount, _
+            "blocking count is a subset of the instances found"
+        ' An instance only blocks a rebuild if it holds a file the rebuild replaces, so
+        ' log what real instances reported rather than assuming how they classify.
         Log.Add "Other Access instances seen by the rebuild guard:" & vbCrLf & strDetail, False
     Else
         TestAssert Len(strDetail) > 0, "query failure includes a reason"
+        TestAssert lngBlocking = -1, "query failure blocks the rebuild"
     End If
+
+End Sub
+
+
+Public Sub TestIsTargetFilePath()
+
+    Const TARGETS As String = "C:\Users\Me\AppData\Roaming\MSAccessVCS\Version Control.accda" & _
+        vbCrLf & "C:\Repos\addin\Version Control.accda"
+
+    ' The VBE reports a project's FileName in upper case, which is the whole reason this
+    ' comparison cannot be an equality test.
+    TestAssert IsTargetFilePath( _
+        "C:\USERS\ME\APPDATA\ROAMING\MSACCESSVCS\VERSION CONTROL.ACCDA", TARGETS), _
+        "upper case FileName matches"
+    TestAssert IsTargetFilePath("C:\Repos\addin\Version Control.accda", TARGETS), _
+        "second entry in the list"
+    TestAssert Not IsTargetFilePath("C:\Repos\addin\Other.accdb", TARGETS), "unrelated file"
+    TestAssert Not IsTargetFilePath(vbNullString, TARGETS), "empty file name"
+    TestAssert Not IsTargetFilePath("C:\a.accda", vbNullString), "empty target list"
+    TestAssert Not IsTargetFilePath("C:\a.accda", vbCrLf & vbCrLf), "blank entries are skipped"
+
+End Sub
+
+
+Public Sub TestGetBuildTargetFileName()
+
+    TestAssert GetBuildTargetFileName("C:\Repos\addin\Version Control.accda.src") = _
+        "C:\Repos\addin\Version Control.accda", "source folder names its database"
+    TestAssert GetBuildTargetFileName("C:\Repos\addin\Version Control.accda.src\") = _
+        "C:\Repos\addin\Version Control.accda", "trailing separator"
+    TestAssert GetBuildTargetFileName("C:\Repos\addin\NotAnExport") = vbNullString, _
+        "folder without .src infers nothing"
+    TestAssert GetBuildTargetFileName(vbNullString) = vbNullString, "empty"
 
 End Sub
 

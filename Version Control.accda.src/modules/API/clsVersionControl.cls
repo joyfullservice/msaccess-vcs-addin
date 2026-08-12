@@ -472,8 +472,10 @@ End Sub
 '           : Source path is resolved from (1) the optional argument, (2) current
 '           : database, (3) registry, or (4) a folder picker dialog (interactive only).
 '           : Returns JSON describing launch or refusal. Unattended callers (MCP/API)
-'           : must pass a source folder if it cannot be derived, and the rebuild
-'           : refuses unless this is the only Access instance in the Windows session.
+'           : must pass a source folder if it cannot be derived. The rebuild refuses
+'           : when another Access process in the session holds one of the files it must
+'           : replace, or cannot be asked which files it holds. Other instances are only
+'           : reported, never closed.
 '---------------------------------------------------------------------------------------
 '
 Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
@@ -482,7 +484,9 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
     Dim strDetail As String
     Dim strStatusFile As String
     Dim strRepoFolder As String
+    Dim strTargetFiles As String
     Dim lngOthers As Long
+    Dim lngBlocking As Long
     Dim blnUnattended As Boolean
     Dim eimPrior As eInteractionMode
     Dim dResult As Dictionary
@@ -569,14 +573,16 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
         GoTo Finish
     End If
 
-    ' The installed add-in file cannot be replaced while another process holds it, and
-    ' nothing here can tell an idle leftover automation instance apart from one that is
-    ' busy: a busy instance rejects the automation calls that would answer the question,
-    ' so it looks exactly like an empty one. Rather than guess and risk terminating live
-    ' work, refuse and report what was seen for each instance so the caller can close
-    ' them deliberately.
-    lngOthers = GetOtherAccessInstances(strDetail)
-    If lngOthers <> 0 Then
+    ' Another Access process only matters if it holds a file this rebuild has to
+    ' replace, because a loaded VBA project is what keeps that file open. An instance
+    ' that never loaded the add-in locks nothing, so it is left alone rather than
+    ' refused over. Instances that cannot be asked are counted as blocking: a busy one
+    ' rejects the automation calls that would answer, arriving indistinguishable from an
+    ' idle one, and an unknown answer must not be read as safe. Nothing is ever closed
+    ' here -- report what was seen and let the caller decide.
+    strTargetFiles = GetInstalledAddInFileName() & vbCrLf & GetBuildTargetFileName(strPath)
+    lngOthers = GetOtherAccessInstances(strDetail, lngBlocking, strTargetFiles)
+    If lngOthers < 0 Or lngBlocking <> 0 Then
         If lngOthers < 0 Then
             dResult.Add "success", False
             dResult.Add "status", "refused"
@@ -588,8 +594,9 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
             Next varLine
             dResult.Add "success", False
             dResult.Add "status", "refused"
-            dResult.Add "error", T("Rebuild refused: {0} other Access instance(s) are running. " & _
-                "Close them, then try again.", var0:=lngOthers)
+            dResult.Add "error", T("Rebuild refused: {0} other Access instance(s) hold a file " & _
+                "this rebuild must replace, or could not be asked. Close them, then try again.", _
+                var0:=lngBlocking)
             dResult.Add "otherInstances", colOthers
         End If
         If Not blnUnattended Then
