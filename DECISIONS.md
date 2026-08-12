@@ -83,94 +83,137 @@ contradictory guidance.
 
 ---
 
-## 2026-08-04 — Design View queries carry parameters in a `Begin Parameters` block, not a leading SQL `PARAMETERS` line
+## 2026-08-11 — Emit the parameter type keywords ACE accepts, not the ones that read best
 
-**Trigger**: A parameterized query rebuilt from source lost its `PARAMETERS`
-declaration whenever it took the Design View import path (joyfullservice#744;
-downstream cash4rc/original-system#330, where a dimension-entry query silently
-stopped prompting). `clsQueryComposer.EmitDesignViewQdef` assembled the
-structured `.qdef` that `Application.LoadFromText` consumes but never emitted
-the declared parameters, so the rebuilt query came back with an empty parameter
-collection. The SQL View path was unaffected — there the whole statement,
-`PARAMETERS ...;` included, is handed to Access as one SQL memo — so the loss
-only showed up for designer-built queries whose stored grid layout forces
-`blnDesignView = True`. The existing parameter fixtures were all SQL-View
-shaped, so nothing exercised the gap.
+**Trigger**: While pinning the type map for the `Begin Parameters` work below,
+each `PARAMETERS` keyword was round-tripped through `CreateQueryDef` to learn
+the DAO type it actually produces. Four of the keywords the exporter emitted
+turned out not to parse at all: `Boolean`, `Memo`, `OLEObject` and `Decimal`
+each raise error 3139, "Syntax error in PARAMETERS clause". Two others were
+simply mis-mapped — `BigInt` reports as `dbNumeric` (19) rather than `dbBigInt`
+(16), and `Value` is a spelling of `dbText` (10) rather than an untyped
+parameter. The map had been written from the DAO type names, which look
+authoritative but are not the keywords the SQL parser accepts.
+
+This was not cosmetic. On the SQL View import path the whole statement is
+handed to Access as one memo, so a query declaring a Yes/No parameter did not
+merely lose its type — the object failed to import outright with "Could not
+create or set the property SQL". Any query with a Yes/No, Memo or OLE Object
+parameter was therefore unbuildable from source, and had been since the map was
+written.
 
 **Options explored**:
-- **Prepend a SQL `PARAMETERS ...;` line to the structured `.qdef`** — the
-  obvious guess, mirroring the SQL memo grammar. Rejected empirically: Access
-  rejects it. `LoadFromText` on a structured qdef with a leading `PARAMETERS`
-  line fails with `Expected: 'Operation'. Found: PARAMETERS.` (and in some
-  automation contexts blocks on a modal parse error). The structured format has
-  no grammar for an inline parameters declaration.
-- **Force every parameterized query onto the SQL View path** — would sidestep
-  the emitter gap entirely by never taking Design View for a query that
-  declares parameters. Rejected: it throws away the designer layout and grid
-  metadata that Design View exists to preserve, regressing the very queries
-  this add-in tries hardest to round-trip faithfully.
-- **Emit the native `Begin Parameters` block** (chosen) — capturing a
-  designer-built parameterized query with `Application.SaveAsText` shows Access
-  stores parameters in a dedicated `Begin Parameters ... End` block of
-  repeated `Name ="<bracketed>"` / `Flag =<DAO type>` pairs, positioned after
-  `Begin OutputColumns ... End` and before the `dbBoolean` properties. This is
-  the format Access itself round-trips, so it is the one to emit.
+- **Keep the readable spellings and special-case the SQL View path** — rejected:
+  it leaves exported `.sql` that Access itself cannot parse, which defeats the
+  point of a text format users are expected to read, diff and hand-edit.
+- **Emit only what ACE accepts, and accept the rest on import** (chosen) — the
+  exporter emits the canonical keyword; the readable spellings stay in the
+  reverse map so source written by earlier versions of the add-in still
+  rebuilds. Import compatibility is a standing requirement, so nothing is lost
+  by keeping them.
 
-**Decision**: `EmitDesignViewQdef` now calls `EmitParameters`, which parses the
-raw clause held in `m_strParameters` (e.g. `[Enter ID] Long, [Enter Category]
-Text ( 255 )`) into name/flag pairs and emits the `Begin Parameters` block in
-the native position. Parameter names are emitted verbatim (brackets preserved
-as authored); the flag comes from `ParameterFlagFromType`, the inverse of the
-existing `ParameterTypeSql` map, covering every keyword that map emits plus
-common JET aliases and defaulting an unknown type to Value (0) with a builder
-warning. A bracket/paren-aware top-level comma split (`SplitParameterClause`)
-keeps commas inside `[ ]` names and `( )` size specifiers from breaking the
-list apart.
+**Decision**: `ParameterTypeSql` and `ParameterFlagFromType` are now generated
+from one list (`EnsureParameterTypeTables`) rather than being two hand-kept
+`Select Case` blocks that had already drifted. Each entry names the canonical
+keyword followed by its import-only aliases, so the two directions cannot
+disagree; where two DAO types claim the same keyword the first registration
+wins the reverse lookup. Only the keywords verified against the parser are
+emitted: `Bit`, `LongText`, `LongBinary`, `BigInt` for the four that were
+wrong, and the unchanged spellings elsewhere. `Single`/`Double`/`GUID` are kept
+as-is even though Access normalizes them to `IEEESingle`/`IEEEDouble`/`Guid`,
+because all three parse correctly and changing them would churn every existing
+export for no functional gain.
 
-**No export-format-version gate and no `GetExporterRevisions` bump.** Both
-mechanisms govern *export* output; the `.qdef` is an import-only intermediate.
-`clsDbQuery` exports `.sql` + `.json` only (and deletes any legacy `.qdef`),
-generating the `.qdef` on the fly to a temp file at import time. This change
-therefore alters build/import behavior exclusively, and import must stay
-backward compatible with every prior export — which it does, since older
-sources that never carried parameters simply produce no block.
-
-**What this rules out**: The earlier working hypothesis — that native Access
-always serializes a parameterized query as a SQL memo and the structured
-format has no place for parameters — is now disproven and should not be
-revisited; the `Begin Parameters` block is the canonical Design View
-representation. Emitting parameters as a leading SQL line is a dead end
-(Access rejects it). The block's position is pinned relative to
-`OutputColumns` and the property list; a future change that reorders the
-structured blocks must keep parameters ahead of the properties. Type coverage
-beyond the fixture's `Long`/`Text` rests on the `ParameterFlagFromType` map
-rather than on round-trip fixtures for every DAO type.
-
-**Follow-up (2026-08-04) — the block must precede `Begin Joins`, not merely
-the property list.** The initial fix emitted `EmitParameters` just before the
-property block. That is correct only for queries with no `Begin Joins` /
-`Begin OrderBy` / `Begin Groups` — there the block still lands immediately
-after `OutputColumns`. A parameterized query that *also* had a join or
-`ORDER BY` pushed the block past those structure blocks, and Access rejected
-the qdef with `Expected: End of file. Found: Parameters.`, failing the Design
-View import and silently falling back to SQL View (losing layout on four
-production queries). `EmitParameters` now runs immediately after the
-`Begin OutputColumns ... End` block and *before* `Begin Joins`, matching the
-native `SaveAsText` position exactly. The constraint is therefore stronger
-than "ahead of the properties": parameters must precede the
-Joins/OrderBy/Groups blocks as well.
+**What this rules out**: Adding a type to the map from the DAO constant name
+alone. A new entry needs the keyword confirmed against the parser first —
+`CreateQueryDef` with `PARAMETERS [P] <keyword>;` either succeeds and reports a
+type or raises 3139. `Decimal` in particular has no parseable spelling, so
+there is no way to declare a decimal parameter in Access SQL at all.
 
 **Relevant files**:
 - `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` —
-  `EmitParameters` and its helpers (`ParseParameterList`,
-  `SplitParameterClause`, `SplitParameterToken`, `ParameterFlagFromType`);
-  `EmitDesignViewQdef` calls `EmitParameters` immediately after the
-  `OutputColumns` block and before `Begin Joins`
-- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParameters.*`,
-  `qryRegressionDesignViewParameterTypes.*` — single-table parameter
-  round-trip fixtures
-- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersJoinOrderBy.*`
-  — pins the block position for a query with an INNER JOIN and ORDER BY
+  `EnsureParameterTypeTables`, `AddParameterType`, `ParameterTypeKey`
+- `Version Control.accda.src/modules/Tests/SQL/clsTestQueryComposerParameters.cls`
+  — `TestExportedTypeKeywordsAreParseable` closes the loop against a list of
+  parser-accepted keywords
+- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParameterTypes.*`
+  — fixture updated from `Boolean` to `Bit`
+
+---
+
+## 2026-08-11 — Design View queries carry parameters in a `Begin Parameters` block after `OutputColumns`
+
+**Trigger**: A parameterized query rebuilt from source lost its `PARAMETERS`
+declaration whenever it took the Design View import path (joyfullservice#744).
+`clsQueryComposer.EmitDesignViewQdef` assembled the structured `.qdef` that
+`Application.LoadFromText` consumes but never emitted the declared parameters,
+so the rebuilt query came back with an empty parameter collection. The SQL View
+path was unaffected — there the whole statement is handed to Access as one SQL
+memo — so the loss only showed up for designer-built queries whose stored grid
+layout forces `blnDesignView = True`. Every existing parameter fixture was
+SQL-View shaped, so nothing exercised the gap.
+
+**Options explored**:
+- **Prepend a SQL `PARAMETERS ...;` line to the structured `.qdef`** — the
+  obvious guess, mirroring the SQL memo grammar. Rejected empirically:
+  `LoadFromText` fails with `Expected: 'Operation'. Found: PARAMETERS.` The
+  structured format has no grammar for an inline parameters declaration.
+- **Force every parameterized query onto the SQL View path** — sidesteps the
+  emitter gap by never taking Design View for a query that declares parameters.
+  Rejected: it discards the designer layout that Design View exists to
+  preserve, regressing the queries this add-in tries hardest to round-trip.
+- **Emit the native `Begin Parameters` block** (chosen) — parameters live in a
+  single `Begin Parameters ... End` block of repeated `Name =` / `Flag =` pairs,
+  where `Flag` is the DAO type. All parameters share one block; there is not
+  one block per parameter.
+
+**Decision**: `EmitDesignViewQdef` emits the block immediately after
+`Begin OutputColumns ... End` and before `Begin Joins`. That position is not a
+style choice — it is the only one Access accepts. Feeding `LoadFromText` the
+same qdef with the block moved elsewhere fails every time: after `Joins` or
+`OrderBy` with `Expected: End of file. Found: Parameters.`, after `Groups` with
+`Expected: 'End'. Found: Parameters.`, and before `InputTables` with
+`Expected: End of file. Found: InputTables.` The position was then confirmed
+against native `Application.SaveAsText` output for six designer-built shapes —
+single table, join with `ORDER BY`, `GROUP BY`, `TOP n`, parameterized `UPDATE`
+and crosstab — which agree regardless of query type or how elaborate the output
+columns block is.
+
+Parameter names are emitted **verbatim**: Access records a parameter exactly as
+declared, so `[Enter ID]` keeps its brackets while an unbracketed
+`StatusFilter` stays bare, even though Access brackets the matching reference
+inside the `WHERE` clause. Re-bracketing on the way out would not round-trip.
+The clause is parsed once, in `ParseParametersClause`, into a structured
+`m_colParameters`; `EmitParameters` is then a loop. Splitting reuses the
+existing bracket- and paren-aware `SplitTopLevel` rather than a private
+splitter, so a comma inside `[Last, First]` or `Text ( 255 )` does not break
+the list apart.
+
+**No export-format-version gate and no `GetExporterRevisions` bump.** Both
+mechanisms govern *export* output; the `.qdef` is an import-only intermediate
+generated to a temp file at import time (`clsDbQuery` exports `.sql` + `.json`
+only). This change alters import behavior exclusively, and import stays
+backward compatible: older sources that never carried parameters simply produce
+no block.
+
+**What this rules out**: The earlier working hypothesis — that native Access
+always serializes a parameterized query as a SQL memo and the structured format
+has no place for parameters — is disproven and should not be revisited.
+Emitting parameters as a leading SQL line is a dead end. Any future change that
+reorders the structured blocks must keep parameters immediately after
+`OutputColumns`; "somewhere ahead of the properties" is not sufficient.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` —
+  `ParseParametersClause`, `EmitParameters`, `SplitParameterToken`
+- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — labels the
+  composer before `DecomposeSQL` so parse-time warnings name their query
+- `Version Control.accda.src/modules/Tests/modTestRoundtrip.bas` — `import_path`
+  check, so a silent Design View → SQL View fallback fails by assertion
+- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParameters*.*` —
+  round-trip fixtures for the single-table, join/`ORDER BY`, `GROUP BY`,
+  `TOP n`, `UPDATE` and crosstab shapes
+- `docs/access-query-storage.md` — `.qdef` block order and Attribute 2 reference
 
 ---
 

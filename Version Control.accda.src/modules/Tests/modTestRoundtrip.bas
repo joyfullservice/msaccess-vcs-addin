@@ -351,6 +351,7 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
     Dim cComponent As IDbComponent
     Dim colChecks As Collection
     Dim blnSandboxImported As Boolean
+    Dim blnExpectStoredLayout As Boolean
     Dim lngErrCountBefore As Long
     Dim eelPriorErrorLevel As eErrorLevel
 
@@ -454,7 +455,26 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
     '  2. Drift check: compare the generated .qdef against a stored
     '     baseline .qdef file if one exists (qdef_vs_fixture check).
     RunQdefValidation strFixtureSql, strFixtureJson, strOriginalName, _
-        blnRebaseline, colChecks
+        blnRebaseline, colChecks, blnExpectStoredLayout
+
+    ' --- Did the designer grid survive the import? ---
+    ' A fixture carrying a DesignLayout can lose it two ways, both of which leave the
+    ' import looking clean and surface several checks later as a layout diff: the
+    ' composer declines Design View for the shape, or LoadFromText rejects the generated
+    ' .qdef and clsDbQuery retries as SQL View with only a warning. Access records the
+    ' grid in MSysObjects.LvExtra, so its presence after import settles which happened.
+    ' Fixtures with no DesignLayout are not checked -- a RequiresDesignView shape is
+    ' stored structurally but has no grid to record, so LvExtra says nothing about it.
+    If blnExpectStoredLayout Then
+        If HasStoredDesignLayout(strSandboxName) Then
+            AddCheck colChecks, "import_path", "pass", vbNullString
+        Else
+            AddCheck colChecks, "import_path", "fail", _
+                "Fixture carries a DesignLayout, but the imported query has none. " & _
+                "Either the composer declined Design View for this shape, or " & _
+                "LoadFromText rejected the generated .qdef and it fell back to SQL View."
+        End If
+    End If
 
     ' --- Pass 1 export (re-export the sandbox query) ---
     cComponent.Export strPass1Sql
@@ -1579,7 +1599,8 @@ End Function
 '
 Private Sub RunQdefValidation(ByVal strFixtureSql As String, _
     ByVal strFixtureJson As String, ByVal strOriginalName As String, _
-    ByVal blnRebaseline As Boolean, ByVal colChecks As Collection)
+    ByVal blnRebaseline As Boolean, ByVal colChecks As Collection, _
+    Optional ByRef blnExpectLayoutOut As Boolean)
 
     Dim cComposer As clsQueryComposer
     Dim strSql As String
@@ -1637,6 +1658,12 @@ Private Sub RunQdefValidation(ByVal strFixtureSql As String, _
     blnDesignView = cComposer.IsDesignerCompatible And _
         (blnHasDesignLayout Or cComposer.RequiresDesignView)
 
+    ' Report whether the fixture carries a layout, not whether a Design View qdef was
+    ' emitted. A RequiresDesignView shape with no layout is emitted as Design View but
+    ' leaves LvExtra empty -- Access has no grid to store -- so LvExtra can only be
+    ' asserted on when the fixture supplied one.
+    blnExpectLayoutOut = blnHasDesignLayout
+
     ' Generate the qdef (Design View or SQL View, matching the import path).
     ' Layout is omitted — it doesn't affect the Joins, InputTables, or
     ' OutputColumns blocks and is already validated via json_vs_fixture.
@@ -1691,6 +1718,44 @@ QdefValErr:
     AddCheck colChecks, "qdef_vs_fixture", "error", _
         "Qdef validation error: " & Err.Number & " " & Err.Description
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasStoredDesignLayout
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Report whether Access holds a designer grid for the given query. LvExtra
+'           : carries the grid itself, so it answers "was a layout stored", not "was the
+'           : Design View path taken" -- a Design View .qdef with no layout block (the
+'           : RequiresDesignView shapes) is stored structurally yet leaves LvExtra empty.
+'           : Only meaningful for a fixture that supplied a DesignLayout.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasStoredDesignLayout(ByVal strQueryName As String) As Boolean
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Set dbs = CurrentDb
+    Set rst = dbs.OpenRecordset( _
+        "SELECT LvExtra FROM MSysObjects WHERE Name=""" & DblQ(strQueryName) & _
+        """ AND Type=5", dbOpenSnapshot)
+
+    If Not rst Is Nothing Then
+        If Not rst.EOF Then HasStoredDesignLayout = Not IsNull(rst!LvExtra)
+        rst.Close
+    End If
+
+    Set rst = Nothing
+    Set dbs = Nothing
+
+    CatchAny eelWarning, "Unable to read stored design layout for '" & strQueryName & "'", _
+        ModuleName & ".HasStoredDesignLayout"
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

@@ -46,7 +46,7 @@ Private m_lngTopN As Long
 Private m_lngTopPercent As Long
 Private m_strTransformAgg As String     ' TRANSFORM aggregate expression
 Private m_strPivotField As String       ' PIVOT field
-Private m_strParameters As String       ' PARAMETERS clause
+Private m_colParameters As Collection   ' Of Dictionary: name, type, flag (declared PARAMETERS)
 Private m_strRawSql As String           ' Raw SQL (for pass-through/DDL/UNION)
 Private m_blnDesignerCompatible As Boolean
 Private m_blnIsPassThrough As Boolean
@@ -55,10 +55,17 @@ Private m_blnRequiresDesignView As Boolean   ' True when SQL has shapes (e.g. mu
 Private m_colWarnings As Collection     ' Builder warnings captured for diagnostics
 Private m_syntax As clsSqlSyntax        ' Pure SQL token/identifier parsing core
 Private m_strContextLabel As String     ' Query name for export-path warning context
+Private m_dParamTypes As Dictionary     ' DAO data type -> canonical PARAMETERS keyword
+Private m_dParamFlags As Dictionary     ' PARAMETERS keyword -> DAO data type
+
+' Access does not store 0 for a declared parameter -- an untyped "Value" parameter is
+' recorded as dbText -- but a zero flag is used as the fallback for an unknown type.
+Private Const PARAM_TYPE_UNTYPED As Long = 0
 
 
 Private Sub Class_Initialize()
     Set m_syntax = New clsSqlSyntax
+    Set m_colParameters = New Collection
 End Sub
 
 
@@ -791,63 +798,116 @@ Private Sub AppendParameterDeclaration(ByRef strParams As String, ByVal strExpre
 End Sub
 
 
-Private Function ParameterTypeSql(ByVal lngFlag As Long) As String
-    Select Case lngFlag
-        Case 0:     ParameterTypeSql = "Value"
-        Case 1:     ParameterTypeSql = "Boolean"
-        Case 2:     ParameterTypeSql = "Byte"
-        Case 3:     ParameterTypeSql = "Short"
-        Case 4:     ParameterTypeSql = "Long"
-        Case 5:     ParameterTypeSql = "Currency"
-        Case 6:     ParameterTypeSql = "Single"
-        Case 7:     ParameterTypeSql = "Double"
-        Case 8:     ParameterTypeSql = "DateTime"
-        Case 10:    ParameterTypeSql = "Text ( 255 )"
-        Case 11:    ParameterTypeSql = "OLEObject"
-        Case 12:    ParameterTypeSql = "Memo"
-        Case 15:    ParameterTypeSql = "GUID"
-        Case 16:    ParameterTypeSql = "BigInt"
-    End Select
-End Function
+'---------------------------------------------------------------------------------------
+' Procedure : EnsureParameterTypeTables
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Build the lookup tables translating between a DAO data type and the type
+'             keyword used in a SQL PARAMETERS clause.
+'           : Both directions are generated from one list so they cannot drift. The
+'             canonical keyword is the one we emit; the trailing aliases are only accepted
+'             on the way back in. Where two DAO types claim the same keyword, the first
+'             registration wins the reverse lookup.
+'           : The keywords were verified against the ACE parser rather than assumed.
+'             Several plausible spellings are rejected outright with error 3139 --
+'             "Boolean", "Memo", "OLEObject" and "Decimal" among them -- so those are
+'             import-only aliases that must never be emitted. Note also that a BigInt
+'             parameter reports as dbNumeric, not dbBigInt, and that "Value" is simply a
+'             spelling of dbText.
+'---------------------------------------------------------------------------------------
+'
+Private Sub EnsureParameterTypeTables()
+
+    If Not m_dParamTypes Is Nothing Then Exit Sub
+
+    Set m_dParamTypes = New Dictionary
+    Set m_dParamFlags = New Dictionary
+
+    AddParameterType dbBoolean, "Bit", "yesno", "logical", "boolean"
+    AddParameterType dbByte, "Byte"
+    AddParameterType dbInteger, "Short", "smallint"
+    AddParameterType dbLong, "Long", "integer", "int", "longinteger", "counter"
+    AddParameterType dbCurrency, "Currency", "money"
+    AddParameterType dbSingle, "Single", "ieeesingle", "real"
+    AddParameterType dbDouble, "Double", "ieeedouble", "float", "number", "numeric"
+    AddParameterType dbDate, "DateTime", "date", "time"
+    AddParameterType dbBinary, "Binary", "varbinary"
+    AddParameterType dbText, "Text ( 255 )", "char", "varchar", "string", "shorttext", "value"
+    AddParameterType dbLongBinary, "LongBinary", "oleobject", "image"
+    AddParameterType dbMemo, "LongText", "memo", "note"
+    AddParameterType dbGUID, "GUID", "replicationid"
+    AddParameterType dbNumeric, "BigInt", "largeint"
+
+    ' Types Access will not parse in a PARAMETERS clause, kept so that a flag arriving
+    ' from an older export or a hand-edited file still resolves to something.
+    AddParameterType dbBigInt, "BigInt"
+    AddParameterType dbDecimal, "Decimal"
+    AddParameterType PARAM_TYPE_UNTYPED, "Value"
+
+End Sub
 
 
-Private Function ParameterFlagFromType(ByVal strType As String) As Long
-    ' Inverse of ParameterTypeSql: map a PARAMETERS type keyword to its DAO
-    ' data-type flag for the Design View Begin Parameters block. Strips any
-    ' size specifier "( n )" and matches case-insensitively. Covers every
-    ' keyword ParameterTypeSql emits (so our own source round-trips exactly)
-    ' plus common Access/JET aliases. Unknown types default to Value (0).
-    Dim strKey As String
+Private Sub AddParameterType(ByVal lngType As Long, ByVal strCanonical As String, _
+    ParamArray varAliases() As Variant)
+
+    Dim varAlias As Variant
+
+    m_dParamTypes(lngType) = strCanonical
+    RegisterParameterKeyword ParameterTypeKey(strCanonical), lngType
+    For Each varAlias In varAliases
+        RegisterParameterKeyword ParameterTypeKey(CStr(varAlias)), lngType
+    Next varAlias
+
+End Sub
+
+
+Private Sub RegisterParameterKeyword(ByVal strKey As String, ByVal lngType As Long)
+    If Len(strKey) = 0 Then Exit Sub
+    If Not m_dParamFlags.Exists(strKey) Then m_dParamFlags(strKey) = lngType
+End Sub
+
+
+Private Function ParameterTypeKey(ByVal strType As String) As String
+    ' Normalize a type keyword for lookup: drop any size specifier "( n )", remove
+    ' internal spaces, and lower-case it.
     Dim lngParen As Long
 
     strType = Trim$(strType)
     lngParen = InStr(1, strType, "(")
-    If lngParen > 0 Then strType = Trim$(Left$(strType, lngParen - 1))
-    strKey = LCase$(Replace$(strType, " ", vbNullString))
+    If lngParen > 0 Then strType = Left$(strType, lngParen - 1)
+    ParameterTypeKey = LCase$(Replace$(Trim$(strType), " ", vbNullString))
 
-    Select Case strKey
-        Case vbNullString, "value":                      ParameterFlagFromType = 0
-        Case "boolean", "bit", "yesno":                  ParameterFlagFromType = 1
-        Case "byte":                                     ParameterFlagFromType = 2
-        Case "short", "smallint":                        ParameterFlagFromType = 3
-        Case "long", "longinteger", "integer", "int", "counter": ParameterFlagFromType = 4
-        Case "currency", "money":                        ParameterFlagFromType = 5
-        Case "single", "ieeesingle", "real":            ParameterFlagFromType = 6
-        Case "double", "ieeedouble", "float":           ParameterFlagFromType = 7
-        Case "datetime", "date", "time":                ParameterFlagFromType = 8
-        Case "binary":                                   ParameterFlagFromType = 9
-        Case "text", "char", "varchar", "shorttext":    ParameterFlagFromType = 10
-        Case "oleobject", "longbinary", "image":        ParameterFlagFromType = 11
-        Case "memo", "longtext":                         ParameterFlagFromType = 12
-        Case "guid", "replicationid":                    ParameterFlagFromType = 15
-        Case "bigint":                                   ParameterFlagFromType = 16
-        Case "decimal", "numeric":                       ParameterFlagFromType = 20
-        Case Else
-            ParameterFlagFromType = 0
-            AddBuilderWarning "Unrecognized parameter type '" & strType & _
-                "'; defaulting to Value (flag 0). " & SqlSnippet(), _
-                ModuleName(Me) & ".ParameterFlagFromType"
-    End Select
+End Function
+
+
+Private Function ParameterTypeSql(ByVal lngFlag As Long) As String
+    EnsureParameterTypeTables
+    If m_dParamTypes.Exists(lngFlag) Then ParameterTypeSql = m_dParamTypes(lngFlag)
+End Function
+
+
+Private Function ParameterFlagFromType(ByVal strType As String) As Long
+
+    Dim strKey As String
+
+    EnsureParameterTypeTables
+    strKey = ParameterTypeKey(strType)
+
+    ' No type given at all; Access records these as text.
+    If Len(strKey) = 0 Then
+        ParameterFlagFromType = PARAM_TYPE_UNTYPED
+        Exit Function
+    End If
+
+    If m_dParamFlags.Exists(strKey) Then
+        ParameterFlagFromType = m_dParamFlags(strKey)
+    Else
+        ParameterFlagFromType = PARAM_TYPE_UNTYPED
+        AddBuilderWarning "Unrecognized parameter type '" & Trim$(strType) & _
+            "'; defaulting to Value (flag 0). " & SqlSnippet(), _
+            ModuleName(Me) & ".ParameterFlagFromType"
+    End If
+
 End Function
 
 
@@ -883,86 +943,28 @@ Private Sub SplitParameterToken(ByVal strToken As String, _
 End Sub
 
 
-Private Function SplitParameterClause(ByVal strClause As String) As Collection
-    ' Split a PARAMETERS clause on top-level commas, honoring [ ] bracketed
-    ' names (which may legally contain commas) and ( ) size specifiers.
-    Dim colParts As New Collection
-    Dim lngI As Long
-    Dim strChar As String
-    Dim lngBracket As Long
-    Dim lngParen As Long
-    Dim cPart As clsConcat
+'---------------------------------------------------------------------------------------
+' Procedure : EmitParameters
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Emit the Design View "Begin Parameters" block holding the query's declared
+'             parameters (MSysQueries Attribute 2).
+'           : Access writes all parameters as repeating Name/Flag pairs inside a single
+'             block -- not one block per parameter -- and Flag is the DAO data type
+'             constant. A parameter's size specifier (e.g. "Text ( 255 )") is not
+'             represented here; it survives only in the SQL PARAMETERS clause.
+'---------------------------------------------------------------------------------------
+'
+Private Sub EmitParameters(cOut As clsConcat)
 
-    Set cPart = New clsConcat
-    For lngI = 1 To Len(strClause)
-        strChar = Mid$(strClause, lngI, 1)
-        If strChar = "[" Then
-            lngBracket = lngBracket + 1
-            cPart.Add strChar
-        ElseIf strChar = "]" Then
-            If lngBracket > 0 Then lngBracket = lngBracket - 1
-            cPart.Add strChar
-        ElseIf strChar = "(" Then
-            lngParen = lngParen + 1
-            cPart.Add strChar
-        ElseIf strChar = ")" Then
-            If lngParen > 0 Then lngParen = lngParen - 1
-            cPart.Add strChar
-        ElseIf strChar = "," And lngBracket = 0 And lngParen = 0 Then
-            colParts.Add Trim$(cPart.GetStr)
-            Set cPart = New clsConcat
-        Else
-            cPart.Add strChar
-        End If
-    Next lngI
-    If Len(Trim$(cPart.GetStr)) > 0 Then colParts.Add Trim$(cPart.GetStr)
-
-    Set SplitParameterClause = colParts
-End Function
-
-
-Private Function ParseParameterList(ByVal strClause As String) As Collection
-    ' Parse a raw PARAMETERS clause (the text between "PARAMETERS " and ";",
-    ' e.g. "[Enter ID] Long, [Enter Category] Text ( 255 )") into a collection
-    ' of {name, flag} dictionaries for the Begin Parameters block.
-    Dim colParams As New Collection
-    Dim colTokens As Collection
-    Dim varToken As Variant
-    Dim strName As String
-    Dim strType As String
     Dim dParam As Dictionary
 
-    Set colTokens = SplitParameterClause(strClause)
-    For Each varToken In colTokens
-        SplitParameterToken CStr(varToken), strName, strType
-        If Len(strName) > 0 Then
-            Set dParam = New Dictionary
-            dParam.Add "name", strName
-            dParam.Add "flag", ParameterFlagFromType(strType)
-            colParams.Add dParam
-        End If
-    Next varToken
-
-    Set ParseParameterList = colParams
-End Function
-
-
-Private Sub EmitParameters(cOut As clsConcat)
-    ' Design View "Begin Parameters" block. Access stores declared query
-    ' parameters (MSysQueries Attribute 2) here for designer-built queries.
-    ' EmitDesignViewQdef previously omitted this block, so a parameterized
-    ' query imported via the Design View path lost its PARAMETERS clause.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    If Len(m_strParameters) = 0 Then GoTo CleanUp
-
-    Dim colParams As Collection
-    Set colParams = ParseParameterList(m_strParameters)
-    If colParams.Count = 0 Then GoTo CleanUp
+    If m_colParameters.Count = 0 Then GoTo CleanUp
 
     cOut.Add "Begin Parameters", vbCrLf
-    Dim dParam As Dictionary
-    For Each dParam In colParams
+    For Each dParam In m_colParameters
         cOut.Add "    Name =""" & CStr(dParam("name")) & """", vbCrLf
         cOut.Add "    Flag =" & CStr(dParam("flag")), vbCrLf
     Next dParam
@@ -971,6 +973,7 @@ Private Sub EmitParameters(cOut As clsConcat)
 CleanUp:
     CatchAny eelError, "Error emitting parameters block. " & SqlSnippet(), _
         ModuleName(Me) & ".EmitParameters"
+
 End Sub
 
 
@@ -1943,7 +1946,7 @@ Private Sub ResetState()
     m_lngTopPercent = 0
     m_strTransformAgg = vbNullString
     m_strPivotField = vbNullString
-    m_strParameters = vbNullString
+    Set m_colParameters = New Collection
     m_strRawSql = vbNullString
     m_blnDesignerCompatible = False
     m_blnIsPassThrough = False
@@ -2055,13 +2058,48 @@ Private Function HasSubqueries() As Boolean
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : ParseParametersClause
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Consume a leading "PARAMETERS ...;" clause, recording each declaration as a
+'             {name, type, flag} entry in m_colParameters and stripping the clause from
+'             strSql.
+'           : Names are stored verbatim. Access records a parameter exactly as it was
+'             declared, so "[Enter ID]" keeps its brackets while an unbracketed
+'             "StatusFilter" stays unbracketed -- even though Access brackets the matching
+'             reference inside the WHERE clause. Re-bracketing here would not round-trip.
+'---------------------------------------------------------------------------------------
+'
 Private Sub ParseParametersClause(ByRef strSql As String)
+
     Dim lngEnd As Long
+    Dim strClause As String
+    Dim astrTokens() As String
+    Dim lngI As Long
+    Dim strName As String
+    Dim strType As String
+    Dim dParam As Dictionary
+
     lngEnd = InStr(1, strSql, ";")
-    If lngEnd > 0 Then
-        m_strParameters = Mid$(strSql, 12, lngEnd - 12)
-        strSql = LTrim$(Mid$(strSql, lngEnd + 1))
-    End If
+    If lngEnd = 0 Then Exit Sub
+
+    strClause = Trim$(Mid$(strSql, 12, lngEnd - 12))
+    strSql = LTrim$(Mid$(strSql, lngEnd + 1))
+    If Len(strClause) = 0 Then Exit Sub
+
+    astrTokens = SplitTopLevel(strClause, ",")
+    For lngI = LBound(astrTokens) To UBound(astrTokens)
+        SplitParameterToken astrTokens(lngI), strName, strType
+        If Len(strName) > 0 Then
+            Set dParam = New Dictionary
+            dParam.Add "name", strName
+            dParam.Add "type", strType
+            dParam.Add "flag", ParameterFlagFromType(strType)
+            m_colParameters.Add dParam
+        End If
+    Next lngI
+
 End Sub
 
 
@@ -3752,6 +3790,13 @@ End Property
 
 Public Property Get QueryType() As Long
     QueryType = m_lngQueryType
+End Property
+
+' Declared query parameters, as a collection of {name, type, flag} dictionaries.
+' Name and type are verbatim from the PARAMETERS clause; flag is the DAO data type.
+Public Property Get Parameters() As Collection
+    If m_colParameters Is Nothing Then Set m_colParameters = New Collection
+    Set Parameters = m_colParameters
 End Property
 
 Public Property Get IsPassThrough() As Boolean

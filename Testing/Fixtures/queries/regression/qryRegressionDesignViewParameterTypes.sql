@@ -1,4 +1,4 @@
-﻿PARAMETERS pActive Boolean,
+﻿PARAMETERS pActive Bit,
 [Start Date] DateTime,
 [Min Price] Currency,
 [Max Weight] Double;

@@ -574,8 +574,9 @@ For each fixture under `Testing/Fixtures/`, the harness:
 
 1. Imports the fixture into the running database under a sandboxed name (`vcs_test_<basename>_<hash>`).
 2. Validates the emitter's `.qdef` output:
-   - `qdef_joins` — structural check: each join row's `LeftTable`/`RightTable` matches its `Expression` (Design View only).
-   - `qdef_vs_fixture` — drift check: compares generated `.qdef` against stored `.qdef` baseline (if present).
+ - `import_path` — asserts a fixture carrying a `DesignLayout` really imported as Design View (`MSysObjects.LvExtra` populated), so a silent SQL View fallback fails by assertion rather than as a later layout diff.
+ - `qdef_joins` — structural check: each join row's `LeftTable`/`RightTable` matches its `Expression` (Design View only).
+ - `qdef_vs_fixture` — drift check: compares generated `.qdef` against stored `.qdef` baseline (if present).
 3. Exports it twice (Pass 1 and Pass 2), into a per-run scratch folder.
 4. Asserts Pass 2 == Pass 1 (idempotency, hard requirement).
 5. Asserts Pass 1 == fixture (drift check, soft requirement).

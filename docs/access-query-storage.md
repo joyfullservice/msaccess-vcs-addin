@@ -85,6 +85,51 @@ The parser handles every value below:
 Flag 2 (Make-Table / `SELECT INTO`) is in the upstream reference but has no
 fixture in this repo (see § 5).
 
+### Attribute 2 — declared parameters
+
+One row per parameter declared in the query's `PARAMETERS` clause. `Name1` is
+the parameter name and `Flag` is its DAO data type. `Expression`, when present,
+carries a complete declaration that overrides the name/type pair.
+
+Names are stored **exactly as authored**. A parameter declared `[Enter ID]`
+keeps its brackets; one declared `StatusFilter` stays unbracketed — even though
+Access rewrites the matching reference inside the `WHERE` clause to
+`[StatusFilter]`. Anything that re-brackets the name on the way out will not
+round-trip.
+
+The keywords accepted in a `PARAMETERS` clause are **not** the DAO type names,
+and the difference is not cosmetic: an unaccepted spelling raises error 3139
+("Syntax error in PARAMETERS clause") and, on the SQL View import path, fails
+the whole object with "Could not create or set the property SQL". The mapping
+below was obtained by round-tripping each keyword through `CreateQueryDef` and
+reading back both `Parameters(0).Type` and the SQL Access normalized it to.
+
+| DAO type | Keyword Access writes | Also accepted                          | Rejected spelling |
+|----------|-----------------------|----------------------------------------|-------------------|
+| 1        | `Bit`                 | `YesNo`, `Logical`                     | `Boolean`         |
+| 2        | `Byte`                | —                                      | —                 |
+| 3        | `Short`               | `SmallInt`                             | —                 |
+| 4        | `Long`                | `Integer`, `Int`                       | `LongInteger`, `Counter` |
+| 5        | `Currency`            | `Money`                                | —                 |
+| 6        | `IEEESingle`          | `Single`, `Real`                       | —                 |
+| 7        | `IEEEDouble`          | `Double`, `Float`, `Number`, `Numeric` | —                 |
+| 8        | `DateTime`            | `Date`, `Time`                         | —                 |
+| 9        | `Binary`              | `VarBinary`                            | —                 |
+| 10       | `Text ( 255 )`        | `Text`, `Char`, `VarChar`, `String`    | `ShortText`       |
+| 11       | `LongBinary`          | —                                      | `OLEObject`, `Image` |
+| 12       | `LongText`            | `Note`                                 | `Memo`            |
+| 15       | `Guid`                | `GUID`                                 | `ReplicationID`   |
+| 19       | `BigInt`              | —                                      | `LargeInt`        |
+
+Two entries surprise: `BigInt` reports as 19 (`dbNumeric`) rather than 16
+(`dbBigInt`), and `Value` is accepted but is simply a spelling of `dbText` (10)
+rather than an untyped parameter. There is no parseable keyword for a decimal
+parameter — `Decimal` is rejected and `Numeric` resolves to `IEEEDouble`.
+
+A size specifier such as `Text ( 255 )` exists only in the SQL clause. It has
+no representation in the Design View block, so a round trip through Design View
+normalizes every text parameter to the default width.
+
 ### Attribute 3 — query options (bitmask)
 
 The full set:
@@ -223,7 +268,10 @@ queries:
   present. **`ReturnsRecords` is not stored in `LvProp`** for pass-through
   queries; export derives it from MSysQueries Attribute 1 Flag (`10` = no
   records) and writes it to the `.json` `QueryProperties` block when
-  non-default.
+  non-default. Action queries saved from the designer also pick up
+  `UseTransaction` and `FailOnError`, so a hand-written fixture for an
+  UPDATE/DELETE/append query needs `FailOnError` in its `QueryProperties` block
+  or it diffs on the first run.
 - **`LvExtra`** — present only for queries last saved in Design View.
   Carries the design layout: window position, designer pane dimensions,
   table positions. Total size = 68 + (tableCount + 1) × 284 bytes. We
@@ -279,6 +327,115 @@ necessity:
 - **UNION**, **Data Definition (DDL)**, **Pass-through** — Access itself
   refuses to display these in Design View.
 - Non-equi joins (e.g., `ON A.x > B.y`) — display will fail.
+
+### Design View `.qdef` block order
+
+`Application.LoadFromText` parses the structured `.qdef` positionally, not by
+name. Blocks appear in a fixed order, and a block in the wrong place is a parse
+error rather than something Access tolerates or reorders:
+
+```
+Operation =N                       header scalars: Operation, Option,
+Option =N                          RowCount (with Option =16), Where, Having
+Where ="..."
+Begin InputTables ... End
+Begin OutputColumns ... End
+Begin Parameters ... End           declared parameters (MSysQueries Attribute 2)
+Begin Joins ... End
+Begin OrderBy ... End
+Begin Groups ... End
+dbBoolean "ReturnsRecords" ...     query properties
+dbBinary "GUID" = Begin ... End
+Begin ... End                      column metadata, then the layout section
+```
+
+The parameters block is the one most easily misplaced, because in a simple
+single-table query it happens to be adjacent to the properties and appears to
+work anywhere after the output columns. It is not: moving it produces
+
+| Position of `Begin Parameters`     | `LoadFromText` result                        |
+|------------------------------------|----------------------------------------------|
+| After `Begin OutputColumns ... End` | Loads; Access re-emits it in place           |
+| After `Begin Joins ... End`         | `Expected: End of file.  Found: Parameters.` |
+| After `Begin OrderBy ... End`       | `Expected: End of file.  Found: Parameters.` |
+| After `Begin Groups ... End`        | `Expected: 'End'.  Found: Parameters.`       |
+| Before `Begin InputTables`          | `Expected: End of file.  Found: InputTables.` |
+
+Native `Application.SaveAsText` output agrees across every shape checked —
+single table, join with `ORDER BY`, `GROUP BY`, `TOP n`, parameterized `UPDATE`
+and crosstab — so the position is a property of the grammar, not of the query
+type.
+
+Two adjacent traps in the header worth recording, since both surface as
+misleading errors:
+
+- `Option =16` (`TOP n`) requires a matching `RowCount` line. Without it the
+  load fails with a bare `Resource failure` reported against whichever line
+  follows, not against the option.
+- A parameterized crosstab must name its column headings (`PIVOT ... In (...)`)
+  if it is to be saved from the designer unattended. Otherwise Access runs the
+  query to discover the headings and prompts for the parameter value.
+
+### Crosstab (`Operation =6`) block shape
+
+We do not emit this yet (see § 5), but a native capture of a designer-built
+parameterized crosstab records what it would take. Roles are carried by
+`GroupLevel` markers that *follow* the expression they annotate, and `Begin
+Groups` repeats the same levels:
+
+```
+Operation =6
+Begin OutputColumns
+    Expression ="tblA.Category"                    row heading
+    GroupLevel =2
+    Expression ="tblB.StatusID In (1,2,3)"         column heading (fixed PIVOT list)
+    GroupLevel =1
+    Alias ="Cnt"                                   aggregated value: Alias, no GroupLevel
+    Expression ="Count(tblB.ID)"
+End
+Begin Parameters ... End
+Begin Joins ... End
+Begin Groups
+    Expression ="tblA.Category"
+    GroupLevel =2
+    Expression ="tblB.StatusID"                    no In (...) list here
+    GroupLevel =1
+End
+```
+
+Two details are easy to get wrong. The fixed `PIVOT` heading list is part of the
+column-heading `Expression` in `OutputColumns` but is absent from the matching
+`Groups` row. And it is written without spaces (`In (1,2,3)`) here, while the
+SQL form Access stores and re-emits uses `In (1, 2, 3)`.
+
+### Capturing native `.qdef` ground truth
+
+Every claim in the two sections above came from reading what Access itself
+writes, which is the only reliable arbiter for undocumented grammar. The
+captures are not committed — regenerate them when a question comes up:
+
+1. Create the query with `CurrentDb.CreateQueryDef`. This stores it as SQL View,
+   so it has no layout yet and `SaveAsText` would emit a `dbMemo "SQL"` qdef.
+2. Open it in Design View (`DoCmd.OpenQuery name, acViewDesign`) and force a save
+   with `DoCmd.RunCommand acCmdSave`, then close it. This is what makes Access
+   write the designer grid to `MSysObjects.LvExtra`.
+3. Confirm `LvExtra` is non-null before trusting the result — if it is null you
+   captured a SQL View qdef and step 2 did not take.
+4. `Application.SaveAsText acQuery, name, path`.
+5. Delete the scratch queries and tables afterwards.
+
+Four traps, each of which costs a debugging cycle:
+
+- `acCmdShowTableNames` is not a VBA constant and will not compile. Nothing
+  beyond `acCmdSave` is needed to dirty and persist the design.
+- `CurrentDb` returns a snapshot. Re-fetch it after `CreateQueryDef` or
+  `LoadFromText`, or reading `QueryDefs` raises 3265 "Item not found in this
+  collection" for the object you just created.
+- A parameter prompt blocks an unattended run. Either pre-supply values with
+  `DoCmd.SetParameter`, or shape the query so Access never has to evaluate it.
+- Do not assemble a long qdef as a VBA string literal; past ~25 continuations it
+  fails with 40192 "Too many line continuations". Write the file from the shell
+  and load it.
 
 ### Our arbitration rule
 
@@ -379,6 +536,10 @@ contract.
 | Query parameters, Design View (`Begin Parameters` block) | [regression/qryRegressionDesignViewParameters.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParameters.sql) |
 | Query parameters, Design View — typed (Boolean/DateTime/Currency/Double) + unbracketed name | [regression/qryRegressionDesignViewParameterTypes.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParameterTypes.sql) |
 | Query parameters, Design View — with INNER JOIN + ORDER BY (`Begin Parameters` before `Begin Joins`) | [regression/qryRegressionDesignViewParametersJoinOrderBy.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersJoinOrderBy.sql) |
+| Query parameters, Design View — with GROUP BY (`Begin Parameters` before `Begin Groups`) | [regression/qryRegressionDesignViewParametersGroupBy.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersGroupBy.sql) |
+| Query parameters, Design View — with `TOP n` (`Option`/`RowCount` header scalars) | [regression/qryRegressionDesignViewParametersTopN.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersTopN.sql) |
+| Query parameters, Design View — UPDATE action query (`Operation =4`) | [regression/qryRegressionDesignViewParametersUpdate.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersUpdate.sql) |
+| Query parameters on a crosstab with fixed `PIVOT` headings (SQL View) | [regression/qryRegressionParametersCrosstabFixedPivot.sql](../Testing/Fixtures/queries/regression/qryRegressionParametersCrosstabFixedPivot.sql) |
 | INSERT INTO ... SELECT (Append)             | [append/qryAppendCars.sql](../Testing/Fixtures/queries/append/qryAppendCars.sql)                                         |
 | Scalar append without source table          | [regression/qryRegressionScalarAppendNoTable.sql](../Testing/Fixtures/queries/regression/qryRegressionScalarAppendNoTable.sql) |
 | UPDATE                                      | [update/qryUpdateCarsPrice.sql](../Testing/Fixtures/queries/update/qryUpdateCarsPrice.sql)                               |
@@ -416,6 +577,7 @@ contribute a fixture (see the bug-as-fixture workflow in
 | Non-equi joins (`A.x > B.y`)                       | No fixture. Cannot be displayed in Design View — would be SQL-View-only and may need to land alongside the multi-cond `ON` asymmetry in § 6. |
 | Function calls in ON-clause operands (`Left(a.x,3)=b.y`) | **Known parser gap.** `ExtractTableFromOnSide` splits on the first `=` and takes the token before the first dot; it is not expression-aware. Non-equi/expression joins are largely gated by `IsDesignerCompatible`, but a fixture is still warranted if this shape is observed in production. |
 | External-database joins (`IN '...'` clause)        | No fixture. Attribute 4 carries the connect string; verify it round-trips.                                                     |
+| Crosstab in Design View (`Operation =6` + layout)  | **Known emitter gap.** Access itself stores a designer-built crosstab in Design View, keeps its `DesignLayout`, and puts `Begin Parameters` in the usual place — a native `SaveAsText` capture confirms it. `clsQueryComposer.DecomposeSQL` nonetheless marks every `TRANSFORM`/`PIVOT` query not designer-compatible, because the Design View qdef generator does not emit the Attribute 6 `GroupLevel` aggregate/pivot fields Access requires for `Operation =6`. A crosstab fixture carrying a `DesignLayout` therefore imports as SQL View and loses the layout; `qryRegressionParametersCrosstabFixedPivot` is pinned as SQL View for that reason. Closing this gap means emitting the `GroupLevel`-annotated output columns and matching `Groups` rows — the shape is spelled out under [Crosstab (`Operation =6`) block shape](#crosstab-operation-6-block-shape) in § 3 — and restoring the layout block. |
 
 When adding a fixture for any of the above, follow the contribution
 workflow in [Testing/Fixtures/README.md § Bug-as-fixture](../Testing/Fixtures/README.md).
