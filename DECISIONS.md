@@ -83,6 +83,45 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — Force headless test runs for API and MCP callers
+
+**Trigger**: `vcs_run_tests` calls `RunFilteredTests`, an interactive entry
+point. With the web runner enabled, `ExecuteTests` opened `frmVCSTestRunner`,
+waited for it, ran nothing, and returned an empty string. The MCP tool reported
+"Test runner returned no results." `RunTestsHeadless` already did the right
+thing, but every other API entry point did not.
+
+**Options explored**:
+- *Change only `vcs_run_tests` in the MCP repo to call `RunTestsHeadless`.*
+  Rejected. Every other `Application.Run` / `vcs_call_vba` caller of `RunTests`
+  or `RunFilteredTests` would still open the form.
+- *Add a new `Headless` flag on the operation.* Rejected. The 2026-04-15
+  decision already chose `Operation.Source` as the signal for suppressing UI
+  for API/MCP callers.
+- *Force headless whenever `Operation.Source` is API or MCP, and reset `Source`
+  in `HandleRibbonCommand`.* Chosen. Covers all three test entry points with no
+  MCP-server change. `Source` is sticky, so the ribbon must clear it or a later
+  interactive Run Tests click in the same Access instance would also go
+  headless.
+
+**Decision**: `clsOperation.AutomationSource` is true for `eosExternalAPI` and
+`eosMCPTool`. `ExecuteTests` sets `blnHeadless` from that property before any
+prompt or form. Headless JSON now includes `logPath` and `resultsPath` so
+callers can read the `TestRun_*.log` after the run. The ribbon resets
+`Operation.Source` to `eosUserInterface`.
+
+**What this rules out**: An API/MCP caller cannot open the web runner to watch
+a live run. Immediate Window `?VCS.RunTests` after an API call in the same
+instance still sees the sticky `Source` until a ribbon command resets it.
+Migrating the other inline `Source = eosMCPTool Or ... = eosExternalAPI`
+checks to `AutomationSource` is left as a later cleanup.
+
+**Relevant files**: `clsOperation.cls` (`AutomationSource`),
+`clsVersionControl.cls` (`ExecuteTests`), `modAPI.bas` (`HandleRibbonCommand`),
+`clsTestRunner.cls` (`GetResultsAsJson`).
+
+---
+
 ## 2026-08-12 — Agentic add-in rebuild via status file, not a new MCP tool
 
 **Trigger**: Agents iterating on add-in source had to wait for a person to rebuild
@@ -3796,6 +3835,11 @@ What would trigger revisiting: if a future composer rewrite collapses multiple s
 ---
 
 ## 2026-04-15 — Skip/auto-close UI for API and MCP-initiated operations
+
+> **⚠ Partially superseded** (2026-08-12): The test runner now also uses
+> `Operation.Source` to force headless runs for API/MCP callers, and the ribbon
+> resets `Source` so it does not leak into a later interactive click. See
+> "Force headless test runs for API and MCP callers" above.
 
 **Trigger**: When the MCP server calls `ImportObject` to merge a single component from source, `frmVCSMain` opens, becomes visible, and stays open — adding unnecessary overhead and requiring manual dismissal. Full builds and exports initiated by an agent also leave the form open after completion. The build confirmation dialog (`vbDefaultButton3` = Cancel) could block API callers entirely.
 

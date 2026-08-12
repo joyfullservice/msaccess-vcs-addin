@@ -811,11 +811,14 @@ End Sub
 ' Date      : 5/7/2026
 ' Purpose   : Serialize the current test results to a JSON string for persistence.
 '           : Optional artifact paths are included for automation callers (CI parses
-'           : the returned JSON to locate the JUnit XML and durable state files).
+'           : the returned JSON to locate the JUnit XML, durable state, log, and
+'           : ephemeral per-run results files).
 '---------------------------------------------------------------------------------------
 '
 Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullString, _
-    Optional ByVal strStatePath As String = vbNullString) As String
+    Optional ByVal strStatePath As String = vbNullString, _
+    Optional ByVal strLogPath As String = vbNullString, _
+    Optional ByVal strResultsPath As String = vbNullString) As String
 
     Dim dRoot As Dictionary
     Dim dSummary As Dictionary
@@ -842,6 +845,8 @@ Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullS
         (this.FailedCount = 0 And this.ErroredCount = 0 And this.PassedCount > 0)
     If Len(strJUnitPath) > 0 Then dRoot.Add "junitPath", strJUnitPath
     If Len(strStatePath) > 0 Then dRoot.Add "statePath", strStatePath
+    If Len(strLogPath) > 0 Then dRoot.Add "logPath", strLogPath
+    If Len(strResultsPath) > 0 Then dRoot.Add "resultsPath", strResultsPath
 
     dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
     dSummary.Add "assertions", this.TotalAssertions

@@ -103,6 +103,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub Form_Timer()
+    ' Hidden forms still fire TimerInterval. Stop immediately so a leftover poll
+    ' cannot keep RetrieveJavascriptValue running while the user is in the VBE.
+    If Not Me.Visible Then
+        Me.TimerInterval = 0
+        Exit Sub
+    End If
     EnsureInit
     DrainOutbox
     modTestRunnerUI.PumpDeferredHydrate
@@ -576,6 +582,10 @@ Private Sub DrainOutbox()
     Dim blnDidDrain As Boolean
 
     If m_ctlWeb Is Nothing Then Exit Sub
+    If Not Me.Visible Then
+        Me.TimerInterval = 0
+        Exit Sub
+    End If
     If Not modTestRunnerUI.WebRunnerActive() Then Exit Sub
     If Not modTestRunnerUI.WebRunnerDocumentReady() Then Exit Sub
 
@@ -679,7 +689,15 @@ CleanUp:
         End If
     End If
     m_lngLastInterval = ComputeNextPollInterval()
-    Me.TimerInterval = m_lngLastInterval
+    ' HideRunner sets TimerInterval = 0, but this CleanUp runs after a drain that
+    ' may have pumped messages (RetrieveJavascriptValue) during which the user
+    ' closed the form. Do not revive the poll while hidden — a 100ms WebView2
+    ' read loop stalls VBE autocomplete.
+    If Me.Visible Then
+        Me.TimerInterval = m_lngLastInterval
+    Else
+        Me.TimerInterval = 0
+    End If
     m_curLastDrainEnd = Perf.MicroTimer
     m_lngDrainDepth = m_lngDrainDepth - 1
     CatchAny eelWarning, vbNullString, FunctionName

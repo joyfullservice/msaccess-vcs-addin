@@ -230,6 +230,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : AutomationSource
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : True when the current operation was initiated by an API or MCP caller
+'           : rather than the ribbon, menu, or Immediate Window. Used to suppress UI
+'           : (forms, prompts) that an unattended session cannot interact with.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get AutomationSource() As Boolean
+    AutomationSource = (Me.Source = eosExternalAPI Or Me.Source = eosMCPTool)
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : UpdateRegistry
 ' Author    : Adam Waller
 ' Date      : 5/9/2025

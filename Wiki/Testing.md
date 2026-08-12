@@ -28,7 +28,7 @@ Tags use `'@Tag("name")` in module or procedure headers. Prefix `-` to exclude.
 
 ### Headless (CI / automation)
 
-`VCS.RunTestsHeadless` accepts the same filter arguments but runs with no forms and no prompts: the web runner is bypassed, a missing `modTestAssert` module is installed silently, and JUnit XML is always exported. The returned JSON includes `allPassed`, `cancelled`, `junitPath`, and `statePath` for machine consumption.
+`VCS.RunTestsHeadless` accepts the same filter arguments but runs with no forms and no prompts: the web runner is bypassed, a missing `modTestAssert` module is installed silently, and JUnit XML is always exported. Any run whose `Operation.Source` is API or MCP is forced onto this path as well, so `vcs_run_tests` and `Application.Run` callers never open the web runner. The returned JSON includes `allPassed`, `cancelled`, `junitPath`, `statePath`, `logPath`, and `resultsPath` for machine consumption.
 
 ```powershell
 $addin = "$env:AppData\MSAccessVCS\Version Control.API"

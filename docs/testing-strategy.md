@@ -145,7 +145,10 @@ sanitization checklist.
 designed for unattended sessions: no forms are opened, no prompts are raised (a
 missing `modTestAssert` is installed silently), the web runner is bypassed, and
 JUnit XML is always exported regardless of the `ExportTestResultsJUnit` option.
-The returned JSON includes `allPassed`, `cancelled`, `junitPath`, and `statePath`
+Any run whose `Operation.Source` is API or MCP is forced onto this path as well,
+so `vcs_run_tests` and `Application.Run` callers never open the web runner even
+if they call `RunTests` or `RunFilteredTests`. The returned JSON includes
+`allPassed`, `cancelled`, `junitPath`, `statePath`, `logPath`, and `resultsPath`
 in the root, so a pipeline can assert the outcome without parsing per-test detail.
 
 ```powershell
@@ -163,7 +166,9 @@ if (-not $result.allPassed) { exit 1 }
 ```
 
 From an MCP session, `MCP_TempFunction = VCS.RunTestsHeadless()` via
-`vcs_run_vba` works the same way.
+`vcs_run_vba` works the same way. The dedicated `vcs_run_tests` tool calls
+`RunFilteredTests` and is forced headless by `Operation.Source`; it does not
+need `RunTestsHeadless` by name.
 
 ---
 
@@ -184,6 +189,8 @@ Results from any run are:
   `<export-folder>/test-results/test-results.html` when
   `Options.ExportTestResultsHtml` is enabled (default on).
 - Returned as a JSON string from `VCS.RunTests`, with a `"tags"` array per entry.
+  Headless / API / MCP runs also include `logPath` (the `TestRun_*.log`) and
+  `resultsPath` (the ephemeral `TestResults_*.json`) in the root.
 
 `VCS.ExportTestResultsJUnit` and `VCS.ExportTestResultsHtml` regenerate those
 artifacts from current state without re-running tests.

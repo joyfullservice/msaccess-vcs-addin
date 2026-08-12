@@ -2574,6 +2574,12 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
     Dim blnUseWebRunner As Boolean
     Dim strJUnitPath As String
 
+    ' An automation session has no one to click Run in the web runner and no
+    ' console to watch, so any API/MCP-initiated run is headless regardless of
+    ' which entry point was called. Operation.Source is the established signal
+    ' for suppressing UI on behalf of these callers.
+    If Operation.AutomationSource Then blnHeadless = True
+
     If Not DatabaseFileOpen Then
         If blnHeadless Then
             ExecuteTests = "{""error"":""No database open""}"
@@ -2667,6 +2673,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
         .Add CurrentProject.Name
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
         .Add T("Full Path: {0}", var0:=CurrentProject.FullName), False
+        If Len(Operation.SourceName) > 0 Then .Add T("Source: {0}", var0:=Operation.SourceName), False
         .Add Now
         .Spacer
     End With
@@ -2744,7 +2751,8 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
     End With
 
     If blnHeadless Then
-        ExecuteTests = TestRunner.GetResultsAsJson(strJUnitPath, modTestState.GetStateFilePath)
+        ExecuteTests = TestRunner.GetResultsAsJson(strJUnitPath, _
+            modTestState.GetStateFilePath, Log.SavedLogFilePath, strJsonPath)
     Else
         FinalizeTestConsole blnAllPassed, Log.SavedLogFilePath, blnCanceled, strJsonPath
         ExecuteTests = TestRunner.GetResultsAsJson
