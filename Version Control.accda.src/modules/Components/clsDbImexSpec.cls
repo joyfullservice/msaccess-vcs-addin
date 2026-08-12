@@ -69,10 +69,20 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
 
-    ' Read data from JSON file
+    ' Read data from JSON file. Say so when it cannot be read: Merge deletes the
+    ' existing spec before calling this, so a file that does not parse would
+    ' otherwise remove a specification and report nothing.
     Set dFile = ReadJsonFile(strFile)
-    If dFile Is Nothing Then GoTo CleanUp
-    If Not dFile.Exists("Items") Then GoTo CleanUp
+    If dFile Is Nothing Then
+        Log.Error eelError, T("Could not read specification file: {0}", var0:=strFile), _
+            ModuleName(Me) & ".Import"
+        GoTo CleanUp
+    End If
+    If Not dFile.Exists("Items") Then
+        Log.Error eelError, T("No specification found in file: {0}", var0:=strFile), _
+            ModuleName(Me) & ".Import"
+        GoTo CleanUp
+    End If
 
     ' Create IMEX tables if needed
     VerifyImexTables
@@ -279,8 +289,10 @@ Private Function GetDictionary() As Dictionary
         If Not .EOF Then
             ' SpecID is a surrogate, not the primary key (SpecName is). Persist it
             ' under 5.1.0 so unnamed specs keep a stable identity across rebuilds.
+            ' .Value is required: adding the Field itself stores something the JSON
+            ' writer emits as nothing, producing `"SpecID": ,` and an unreadable file.
             If Options.ExportFormatVersion >= EFV_5_1_0 Then
-                dSpec.Add "SpecID", !SpecID
+                dSpec.Add "SpecID", !SpecID.Value
             End If
             For Each fld In .Fields
                 If fld.Name <> "SpecID" Then

@@ -235,9 +235,10 @@ Public Sub TestDuplicateDerivedFileNameWarns()
     Dim cSpec As IDbComponent
     Dim dItems As Dictionary
     Dim lngId As Long
-    Dim lngErrBefore As Long
+    Dim lngWarnBefore As Long
     Dim strNamed As String
     Dim strUnnamed As String
+    Dim eimPriorMode As eInteractionMode
 
     DeleteTestSpecs
     strUnnamed = WriteTestSpecFile(vbNullString)
@@ -252,10 +253,28 @@ Public Sub TestDuplicateDerivedFileNameWarns()
     TestAssert DCount("*", "MSysIMEXSpecs", "SpecName=""Spec " & lngId & """") = 1, _
         "named Spec N imported alongside unnamed spec"
 
-    lngErrBefore = Log.ErrorCount
+    ' This test provokes a real warning, and clsLog turns a warning into a modal
+    ' MsgBox whenever no console is attached to display it. Whether one is attached
+    ' depends on how the suite was launched, so force silent mode for the duration
+    ' rather than inherit the caller's mode -- an unattended run must not stop on a
+    ' prompt nobody is there to click. Same guard clsTestQueryComposerParameters and
+    ' modTestRoundtrip use.
+    eimPriorMode = Operation.InteractionMode
+    Operation.InteractionMode = eimSilent
+    Err.Clear
+    On Error GoTo RestoreMode
+
+    ' A skipped duplicate is logged at eelWarning, which ErrorCount does not count.
+    lngWarnBefore = Log.WarningCount
     Set cSpec = New clsDbImexSpec
     Set dItems = cSpec.GetAllFromDB
-    TestAssert Log.ErrorCount > lngErrBefore, "duplicate derived file name logged a warning"
+
+RestoreMode:
+    Operation.InteractionMode = eimPriorMode
+    If Err.Number <> 0 Then Err.Raise Err.Number, Err.Source, Err.Description
+    On Error GoTo 0
+
+    TestAssert Log.WarningCount > lngWarnBefore, "duplicate derived file name logged a warning"
     TestAssert dItems.Exists(cSpec.BaseFolder & GetSafeFileName("Spec " & lngId) & ".json"), _
         "derived file name is present once in the collection"
 
@@ -340,19 +359,25 @@ Private Sub DeleteTestSpecs()
     Set dbs = CurrentDb
     Set colIds = New Collection
 
+    ' .Value is required. A bang reference adds the Field object itself, which stops
+    ' resolving the moment its recordset closes, and these are read back below.
     strSql = "SELECT SpecID FROM MSysIMEXSpecs WHERE SpecName Like """ & TEST_PREFIX & "*"""
     Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
     Do While Not rst.EOF
-        colIds.Add rst!SpecID
+        colIds.Add rst!SpecID.Value
         rst.MoveNext
     Loop
     rst.Close
 
+    ' Any spec carrying the test column belongs to this module, whatever it is called.
+    ' Matching on the name alone missed the "Spec N" collider TestDuplicateDerivedFileNameWarns
+    ' creates, which leaked one spec per run and eventually broke the sibling tests that
+    ' assert the test column exists exactly once.
     strSql = "SELECT DISTINCT s.SpecID FROM MSysIMEXSpecs s INNER JOIN MSysIMEXColumns c " & _
-        "ON s.SpecID=c.SpecID WHERE (s.SpecName="""" OR s.SpecName Is Null) AND c.FieldName=""" & TEST_COL & """"
+        "ON s.SpecID=c.SpecID WHERE c.FieldName=""" & TEST_COL & """"
     Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot, dbReadOnly)
     Do While Not rst.EOF
-        colIds.Add rst!SpecID
+        colIds.Add rst!SpecID.Value
         rst.MoveNext
     Loop
     rst.Close
