@@ -83,6 +83,46 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — Emit crosstabs in Design View, and stop treating a designer prompt as an import constraint
+
+**Trigger**: `clsQueryComposer.DecomposeSQL` marked every `TRANSFORM`/`PIVOT` query as
+not designer-compatible, so a crosstab carrying a `DesignLayout` imported as SQL View
+and silently lost its designer grid. The blocker was that `EmitDesignViewQdef` did not
+emit the Attribute 6 `GroupLevel` role markers Access requires for `Operation =6`.
+
+**Options explored**:
+- *Gate the change behind an export format version.* Rejected. Nothing about the
+  exported `.sql` or `.json` changes; the add-in starts preserving a `DesignLayout` it
+  previously discarded on import, and import is never gated.
+- *Decline Design View for a parameterized crosstab whose `PIVOT` names no headings.*
+  Rejected after measuring. That shape does hang the Access **designer** — saving one
+  prompts for a parameter value, because Access runs the query to discover its column
+  headings, and `DoCmd.SetParameter` does not suppress it. But the add-in never opens
+  the designer: it writes a `.qdef` and calls `LoadFromText`, which never executes the
+  query. A load of exactly that shape was measured and it imported cleanly, `PARAMETERS`
+  clause and all. The prompt is an authoring constraint on fixtures, not an import one.
+- *Infer `GroupLevel` as a nesting depth.* Wrong, and only a two-row-heading capture
+  shows it: both row headings are `2`, not `2` and `3`.
+
+**Decision**: Emit `Operation =6` output columns with role markers — row headings `2`,
+column heading `1`, aggregate none — followed by a `Groups` block repeating the same
+levels, with any fixed heading list (`In (1, 2, 3)`) stripped from the `Groups` row but
+kept in `OutputColumns`. The whole shape, and the fact that `LoadFromText` accepts it
+with the layout block attached, was verified against Access before writing the emitter.
+
+**What this rules out**: Crosstabs are no longer a blanket SQL View shape, so a future
+crosstab bug cannot be dismissed as "the composer declines these". A crosstab still
+falls back to SQL View through the existing `LoadFromText` retry if the emitted qdef is
+rejected. Fixtures for this family must still be *authored* with a fixed `PIVOT` list if
+they are parameterized, because capturing a real `DesignLayout` requires a designer save.
+
+**Relevant files**: `clsQueryComposer.cls` (`EmitCrosstabOutputColumns`,
+`EmitCrosstabGroups`, `PivotFieldWithoutHeadings`, `DecomposeSQL`),
+`clsTestQueryComposerCrosstab.cls`, `qryCarsCrosstab.*`,
+`qryRegressionParametersCrosstabFixedPivot.*`, `docs/access-query-storage.md`.
+
+---
+
 ## 2026-08-12 — Decline the DAO table build when a text or memo field omits AllowZeroLength
 
 **Trigger**: With the verification guard fixed (entry below), the round-trip harness

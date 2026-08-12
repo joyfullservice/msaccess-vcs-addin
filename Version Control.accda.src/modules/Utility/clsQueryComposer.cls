@@ -556,12 +556,12 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
         GoTo CleanUp
     End If
 
-    ' Crosstab (TRANSFORM/PIVOT) queries use SQL View because the Design
-    ' View qdef generator does not emit the Attribute 6 aggregate/pivot
-    ' fields that Access requires for Operation=6.
-    If blnIsCrosstab Then
-        m_blnDesignerCompatible = False
-    ElseIf Len(m_strTargetDatabase) > 0 Then
+    ' Crosstabs are designer-compatible: EmitCrosstabOutputColumns supplies the
+    ' Attribute 6 role markers Access requires for Operation =6. This holds even
+    ' when the query is parameterized and its PIVOT names no headings -- that
+    ' shape prompts in the Access designer, which has to run the query to
+    ' discover its column headings, but LoadFromText never executes it.
+    If Len(m_strTargetDatabase) > 0 Then
         ' External target databases are preserved most faithfully in SQL View;
         ' the Design View qdef grammar for Attribute 1 Name2 is not documented.
         m_blnDesignerCompatible = False
@@ -3014,8 +3014,11 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     Next dTbl
     cOut.Add "End", vbCrLf
 
-    ' Output Columns
-    If m_colOutputColumns.Count > 0 Then
+    ' Output Columns. A crosstab annotates each column with the role marker
+    ' Access requires for Operation =6, so it gets its own emitter.
+    If m_lngQueryType = 6 Then
+        EmitCrosstabOutputColumns cOut
+    ElseIf m_colOutputColumns.Count > 0 Then
         cOut.Add "Begin OutputColumns", vbCrLf
         Dim dCol As Dictionary
         For Each dCol In m_colOutputColumns
@@ -3106,7 +3109,9 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     End If
 
     ' GROUP BY
-    If m_colGroups.Count > 0 Then
+    If m_lngQueryType = 6 Then
+        EmitCrosstabGroups cOut
+    ElseIf m_colGroups.Count > 0 Then
         cOut.Add "Begin Groups", vbCrLf
         Dim dGrp As Dictionary
         For Each dGrp In m_colGroups
@@ -3133,6 +3138,118 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         ModuleName(Me) & ".EmitDesignViewQdef"
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EmitCrosstabOutputColumns
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Emit the Operation =6 OutputColumns block, where each column carries a
+'           : GroupLevel marker naming its crosstab role.
+'           :
+'           : GroupLevel is a role, not a nesting depth: every row heading is 2 no
+'           : matter how many there are, the single column heading is 1, and the
+'           : aggregate carries none at all. The marker follows the expression it
+'           : annotates. Order is fixed -- row headings in SELECT order, then the
+'           : column heading, then the aggregate -- and the values match the
+'           : Attribute 6 flags. Captured from Access; see the crosstab section of
+'           : docs/access-query-storage.md.
+'---------------------------------------------------------------------------------------
+'
+Private Sub EmitCrosstabOutputColumns(cOut As clsConcat)
+
+    Dim dCol As Dictionary
+    Dim strAgg As String
+    Dim strAlias As String
+    Dim lngAs As Long
+
+    cOut.Add "Begin OutputColumns", vbCrLf
+
+    ' Row headings -- for a crosstab the parsed SELECT list is exactly these.
+    For Each dCol In m_colOutputColumns
+        If Len(dCol("alias")) > 0 Then
+            cOut.Add "    Alias =""" & CStr(dCol("alias")) & """", vbCrLf
+        End If
+        EmitWrappedString cOut, "    Expression", CompactSql(CStr(dCol("expression")))
+        cOut.Add "    GroupLevel =2", vbCrLf
+    Next dCol
+
+    ' Column heading. A fixed heading list (PIVOT x In (1, 2, 3)) stays part of
+    ' this expression; only the matching Groups row drops it.
+    If Len(m_strPivotField) > 0 Then
+        EmitWrappedString cOut, "    Expression", CompactSql(m_strPivotField)
+        cOut.Add "    GroupLevel =1", vbCrLf
+    End If
+
+    ' Aggregate. Its alias is the TRANSFORM clause's own AS, which the parser
+    ' leaves attached to the expression.
+    strAgg = m_strTransformAgg
+    lngAs = FindTopLevelKeyword(strAgg, " AS ")
+    If lngAs > 0 Then
+        strAlias = UnBracket(Trim$(Mid$(strAgg, lngAs + 4)))
+        strAgg = Trim$(Left$(strAgg, lngAs - 1))
+        cOut.Add "    Alias =""" & strAlias & """", vbCrLf
+    End If
+    If Len(strAgg) > 0 Then
+        EmitWrappedString cOut, "    Expression", CompactSql(strAgg)
+    End If
+
+    cOut.Add "End", vbCrLf
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EmitCrosstabGroups
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Emit the Operation =6 Groups block, which repeats the same levels as
+'           : OutputColumns. The GROUP BY entries are the row headings; the pivot
+'           : field is appended even though it never appears in the SQL GROUP BY.
+'---------------------------------------------------------------------------------------
+'
+Private Sub EmitCrosstabGroups(cOut As clsConcat)
+
+    Dim dGrp As Dictionary
+
+    If m_colGroups.Count = 0 And Len(m_strPivotField) = 0 Then Exit Sub
+
+    cOut.Add "Begin Groups", vbCrLf
+
+    For Each dGrp In m_colGroups
+        EmitWrappedString cOut, "    Expression", CompactSql(CStr(dGrp("expression")))
+        cOut.Add "    GroupLevel =2", vbCrLf
+    Next dGrp
+
+    If Len(m_strPivotField) > 0 Then
+        EmitWrappedString cOut, "    Expression", CompactSql(PivotFieldWithoutHeadings())
+        cOut.Add "    GroupLevel =1", vbCrLf
+    End If
+
+    cOut.Add "End", vbCrLf
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PivotFieldWithoutHeadings
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : The pivot expression with any fixed heading list removed, which is the
+'           : form the Groups block uses. `PIVOT x In (1, 2, 3)` groups on `x`.
+'---------------------------------------------------------------------------------------
+'
+Private Function PivotFieldWithoutHeadings() As String
+
+    Dim lngIn As Long
+
+    PivotFieldWithoutHeadings = m_strPivotField
+    lngIn = FindTopLevelKeyword(PivotFieldWithoutHeadings, " IN ")
+    If lngIn > 0 Then
+        PivotFieldWithoutHeadings = Trim$(Left$(PivotFieldWithoutHeadings, lngIn - 1))
+    End If
+
+End Function
 
 
 Private Sub WarnIfJoinRefMissing(ByVal strRef As String, dInputRefs As Dictionary)

@@ -1,12 +1,33 @@
-﻿dbMemo "SQL" ="TRANSFORM\015\012  Count(qryCars.Colour) AS CountOfColour\015\012SELEC"
-    "T\015\012  qryCars.Manufacturer,\015\012  qryCars.Year\015\012FROM\015"
-    "\012  qryCars\015\012WHERE\015\012  (\015\012    (\015\012      (qryCa"
-    "rs.Manufacturer) = \"BMW\"\015\012      Or (qryCars.Manufacturer) = \""
-    "Audi\"\015\012    )\015\012  )\015\012GROUP BY\015\012  qryCars.Manufa"
-    "cturer,\015\012  qryCars.Year\015\012ORDER BY\015\012  qryCars.Manufac"
-    "turer,\015\012  qryCars.Year\015\012PIVOT\015\012  qryCars.Model;\015"
-    "\012"
-dbMemo "Connect" =""
+﻿Operation =6
+Option =0
+Where ="(((qryCars.Manufacturer)=\"BMW\" Or (qryCars.Manufacturer)=\"Audi\"))"
+Begin InputTables
+    Name ="qryCars"
+End
+Begin OutputColumns
+    Expression ="qryCars.Manufacturer"
+    GroupLevel =2
+    Expression ="qryCars.Year"
+    GroupLevel =2
+    Expression ="qryCars.Model"
+    GroupLevel =1
+    Alias ="CountOfColour"
+    Expression ="Count(qryCars.Colour)"
+End
+Begin OrderBy
+    Expression ="qryCars.Manufacturer"
+    Flag =0
+    Expression ="qryCars.Year"
+    Flag =0
+End
+Begin Groups
+    Expression ="qryCars.Manufacturer"
+    GroupLevel =2
+    Expression ="qryCars.Year"
+    GroupLevel =2
+    Expression ="qryCars.Model"
+    GroupLevel =1
+End
 dbBoolean "ReturnsRecords" ="-1"
 dbInteger "ODBCTimeout" ="60"
 dbByte "RecordsetType" ="0"
@@ -16,3 +37,13 @@ dbByte "DefaultView" ="2"
 dbBoolean "FilterOnLoad" ="0"
 dbBoolean "OrderByOnLoad" ="-1"
 dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="qryCars.Manufacturer"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="qryCars.Year"
+        dbLong "AggregateType" ="-1"
+    End
+End

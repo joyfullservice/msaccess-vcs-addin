@@ -87,6 +87,7 @@ Public Function TestClassFactory(ByVal strClassName As String) As Object
         Case "clsTestEncoding": Set TestClassFactory = New clsTestEncoding
         Case "clsTestOptions": Set TestClassFactory = New clsTestOptions
         Case "clsTestQueryComposer": Set TestClassFactory = New clsTestQueryComposer
+        Case "clsTestQueryComposerCrosstab": Set TestClassFactory = New clsTestQueryComposerCrosstab
         Case "clsTestQueryComposerJoins": Set TestClassFactory = New clsTestQueryComposerJoins
         Case "clsTestQueryComposerParameters": Set TestClassFactory = New clsTestQueryComposerParameters
         Case "clsTestQueryLayout": Set TestClassFactory = New clsTestQueryLayout

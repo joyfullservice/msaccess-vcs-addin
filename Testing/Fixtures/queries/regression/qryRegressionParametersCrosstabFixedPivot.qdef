@@ -1,0 +1,46 @@
+﻿Operation =6
+Option =0
+Where ="(((tblParamSample.Category)=[Select Category]))"
+Begin InputTables
+    Name ="tblParamSample"
+    Name ="tblParamDetail"
+End
+Begin OutputColumns
+    Expression ="tblParamSample.Category"
+    GroupLevel =2
+    Expression ="tblParamDetail.StatusID In (1, 2, 3)"
+    GroupLevel =1
+    Alias ="Cnt"
+    Expression ="Count(tblParamDetail.ID)"
+End
+Begin Parameters
+    Name ="[Select Category]"
+    Flag =10
+End
+Begin Joins
+    LeftTable ="tblParamSample"
+    RightTable ="tblParamDetail"
+    Expression ="tblParamSample.ID = tblParamDetail.SampleID"
+    Flag =1
+End
+Begin Groups
+    Expression ="tblParamSample.Category"
+    GroupLevel =2
+    Expression ="tblParamDetail.StatusID"
+    GroupLevel =1
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblParamSample.Category"
+        dbLong "AggregateType" ="-1"
+    End
+End

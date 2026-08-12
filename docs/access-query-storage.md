@@ -378,35 +378,74 @@ misleading errors:
 
 ### Crosstab (`Operation =6`) block shape
 
-We do not emit this yet (see § 5), but a native capture of a designer-built
-parameterized crosstab records what it would take. Roles are carried by
-`GroupLevel` markers that *follow* the expression they annotate, and `Begin
-Groups` repeats the same levels:
+Roles are carried by `GroupLevel` markers that *follow* the expression they
+annotate, and `Begin Groups` repeats the same levels. Captured from Access
+16.0 across a two-row-heading crosstab with `ORDER BY` and a parameterized
+crosstab with a fixed `PIVOT` list:
 
 ```
 Operation =6
-Begin OutputColumns
-    Expression ="tblA.Category"                    row heading
-    GroupLevel =2
-    Expression ="tblB.StatusID In (1,2,3)"         column heading (fixed PIVOT list)
-    GroupLevel =1
-    Alias ="Cnt"                                   aggregated value: Alias, no GroupLevel
-    Expression ="Count(tblB.ID)"
+Option =0
+Begin InputTables
+    Name ="tblA"
 End
-Begin Parameters ... End
-Begin Joins ... End
-Begin Groups
-    Expression ="tblA.Category"
+Begin OutputColumns
+    Expression ="tblA.Manufacturer"                row heading
     GroupLevel =2
-    Expression ="tblB.StatusID"                    no In (...) list here
+    Expression ="tblA.Yr"                          second row heading, same level
+    GroupLevel =2
+    Expression ="tblA.Model"                       column heading
+    GroupLevel =1
+    Alias ="CountOfColour"                         aggregate: Alias, no GroupLevel
+    Expression ="Count(tblA.Colour)"
+End
+Begin Parameters ... End                           only when parameters exist
+Begin Joins ... End
+Begin OrderBy ... End                              ordinary Flag =0 rows
+Begin Groups
+    Expression ="tblA.Manufacturer"
+    GroupLevel =2
+    Expression ="tblA.Yr"
+    GroupLevel =2
+    Expression ="tblA.Model"                       no In (...) list here
     GroupLevel =1
 End
 ```
 
-Two details are easy to get wrong. The fixed `PIVOT` heading list is part of the
-column-heading `Expression` in `OutputColumns` but is absent from the matching
-`Groups` row. And it is written without spaces (`In (1,2,3)`) here, while the
-SQL form Access stores and re-emits uses `In (1, 2, 3)`.
+`GroupLevel` is a **role marker, not a nesting depth**: every row heading gets
+`2` no matter how many there are, the single column heading gets `1`, and the
+aggregate gets none. The values match the Attribute 6 flags in § 2. Ordinary
+non-crosstab `GROUP BY` rows use `GroupLevel =0`.
+
+Column order within `OutputColumns` is fixed: row headings in `SELECT` order,
+then the column heading, then the aggregate. `Begin OrderBy` and
+`Begin Parameters` keep the same positions they hold for any other query type.
+
+A fixed `PIVOT` heading list is part of the column-heading `Expression` in
+`OutputColumns` but is absent from the matching `Groups` row. It is written
+with the same spacing Access uses in the stored SQL — `In (1, 2, 3)`, spaces
+after the commas — so the expression passes through unchanged. (An earlier
+capture recorded here claimed the qdef used an unspaced `In (1,2,3)` while the
+SQL used the spaced form; re-capturing on Access 16.0 shows both spaced. Emit
+what the SQL holds.)
+
+`Application.LoadFromText` accepts this shape directly, including for a
+parameterized crosstab whose `PIVOT` has *no* heading list, and reconstructs
+the `PARAMETERS` clause and `PIVOT` list verbatim. A layout block loads with
+it, leaving `MSysObjects.LvExtra` populated — so a crosstab can be imported as
+Design View without losing its designer grid.
+
+The column metadata block that follows the properties does **not** match what we
+emit, and deliberately so. Native output for the crosstab above lists only the
+first row heading (`AggregateType =-1`) and the aggregate's alias (carrying an
+Access-assigned `GUID`, no `AggregateType`), skipping the second row heading and
+the pivot field entirely. `EmitColumnMetadata` instead synthesizes one
+`AggregateType =-1` entry per parsed output column, which for a crosstab means
+the row headings and not the aggregate. That heuristic is shared by every Design
+View query type — it also adds `WHERE`-referenced fields Access never lists — and
+the round trip shows Access normalizes the difference away: the re-exported
+`.json` carries no column metadata either way. Do not special-case crosstabs
+here without changing the heuristic for every query type.
 
 ### Capturing native `.qdef` ground truth
 
@@ -431,8 +470,15 @@ Four traps, each of which costs a debugging cycle:
 - `CurrentDb` returns a snapshot. Re-fetch it after `CreateQueryDef` or
   `LoadFromText`, or reading `QueryDefs` raises 3265 "Item not found in this
   collection" for the object you just created.
-- A parameter prompt blocks an unattended run. Either pre-supply values with
-  `DoCmd.SetParameter`, or shape the query so Access never has to evaluate it.
+- A parameter prompt blocks an unattended run, and `DoCmd.SetParameter` does not
+  reliably prevent it. It applies to the object opened by the next `DoCmd`
+  action, so it does not cover work `acCmdSave` does afterwards: saving a
+  parameterized crosstab whose `PIVOT` has no heading list still hangs on a
+  modal prompt, because Access runs the query to discover its column headings.
+  Shape the query so Access never has to evaluate it — for a crosstab, that
+  means naming the headings with `PIVOT ... In (...)`. This trap belongs to the
+  *designer*, not to the import path: `LoadFromText` never executes the query
+  and never prompts.
 - Do not assemble a long qdef as a VBA string literal; past ~25 continuations it
   fails with 40192 "Too many line continuations". Write the file from the shell
   and load it.
@@ -539,14 +585,14 @@ contract.
 | Query parameters, Design View — with GROUP BY (`Begin Parameters` before `Begin Groups`) | [regression/qryRegressionDesignViewParametersGroupBy.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersGroupBy.sql) |
 | Query parameters, Design View — with `TOP n` (`Option`/`RowCount` header scalars) | [regression/qryRegressionDesignViewParametersTopN.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersTopN.sql) |
 | Query parameters, Design View — UPDATE action query (`Operation =4`) | [regression/qryRegressionDesignViewParametersUpdate.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersUpdate.sql) |
-| Query parameters on a crosstab with fixed `PIVOT` headings (SQL View) | [regression/qryRegressionParametersCrosstabFixedPivot.sql](../Testing/Fixtures/queries/regression/qryRegressionParametersCrosstabFixedPivot.sql) |
+| Query parameters on a crosstab with fixed `PIVOT` headings (Design View) | [regression/qryRegressionParametersCrosstabFixedPivot.sql](../Testing/Fixtures/queries/regression/qryRegressionParametersCrosstabFixedPivot.sql) |
 | INSERT INTO ... SELECT (Append)             | [append/qryAppendCars.sql](../Testing/Fixtures/queries/append/qryAppendCars.sql)                                         |
 | Scalar append without source table          | [regression/qryRegressionScalarAppendNoTable.sql](../Testing/Fixtures/queries/regression/qryRegressionScalarAppendNoTable.sql) |
 | UPDATE                                      | [update/qryUpdateCarsPrice.sql](../Testing/Fixtures/queries/update/qryUpdateCarsPrice.sql)                               |
 | UPDATE DISTINCTROW                          | [regression/qryRegressionUpdateDistinctRow.sql](../Testing/Fixtures/queries/regression/qryRegressionUpdateDistinctRow.sql) |
 | DELETE                                      | [delete/qryDeleteUnusedCurrencies.sql](../Testing/Fixtures/queries/delete/qryDeleteUnusedCurrencies.sql)                 |
 | DELETE DISTINCTROW                          | [regression/qryRegressionDeleteDistinctRow.sql](../Testing/Fixtures/queries/regression/qryRegressionDeleteDistinctRow.sql) |
-| TRANSFORM (Crosstab)                        | [crosstab/qryCarsCrosstab.sql](../Testing/Fixtures/queries/crosstab/qryCarsCrosstab.sql)                                 |
+| TRANSFORM (Crosstab, Design View — two row headings + `ORDER BY`) | [crosstab/qryCarsCrosstab.sql](../Testing/Fixtures/queries/crosstab/qryCarsCrosstab.sql)                                 |
 | UNION                                       | [union/qryUnionMakers.sql](../Testing/Fixtures/queries/union/qryUnionMakers.sql)                                         |
 | UNION with global ORDER BY                  | [regression/qryRegressionUnionOrderBy.sql](../Testing/Fixtures/queries/regression/qryRegressionUnionOrderBy.sql)         |
 | Data Definition (DDL)                       | [ddl/qryCreateTempTable.sql](../Testing/Fixtures/queries/ddl/qryCreateTempTable.sql)                                     |
@@ -579,7 +625,7 @@ contribute a fixture (see the bug-as-fixture workflow in
 | Post-import validation of the stored query         | None. Import treats a `LoadFromText` success as success, and Access accepts structurally invalid `Joins` rows silently (see § 6). Reading `QueryDefs(name).SQL` after import would surface error 3080 / 3082 corruption at merge time instead of at first execution. |
 | Function calls in ON-clause operands (`Left(a.x,3)=b.y`) | **Covered.** `ExtractTableFromOnSide` returns empty for expression operands; `ResolveConditionJoinTables` validates against `InputTables` and falls back via qualifier scan / parent join. Pinned by [regression/qryRegressionFunctionInOnClause.sql](../Testing/Fixtures/queries/regression/qryRegressionFunctionInOnClause.sql). See § 6. |
 | External-database joins (`IN '...'` clause)        | No fixture. Attribute 4 carries the connect string; verify it round-trips.                                                     |
-| Crosstab in Design View (`Operation =6` + layout)  | **Known emitter gap.** Access itself stores a designer-built crosstab in Design View, keeps its `DesignLayout`, and puts `Begin Parameters` in the usual place — a native `SaveAsText` capture confirms it. `clsQueryComposer.DecomposeSQL` nonetheless marks every `TRANSFORM`/`PIVOT` query not designer-compatible, because the Design View qdef generator does not emit the Attribute 6 `GroupLevel` aggregate/pivot fields Access requires for `Operation =6`. A crosstab fixture carrying a `DesignLayout` therefore imports as SQL View and loses the layout; `qryRegressionParametersCrosstabFixedPivot` is pinned as SQL View for that reason. Closing this gap means emitting the `GroupLevel`-annotated output columns and matching `Groups` rows — the shape is spelled out under [Crosstab (`Operation =6`) block shape](#crosstab-operation-6-block-shape) in § 3 — and restoring the layout block. |
+| Crosstab in Design View (`Operation =6` + layout)  | **Covered.** `EmitCrosstabOutputColumns` supplies the Attribute 6 `GroupLevel` role markers and the matching `Groups` rows, so a crosstab carrying a `DesignLayout` keeps its designer grid. Pinned by [crosstab/qryCarsCrosstab.sql](../Testing/Fixtures/queries/crosstab/qryCarsCrosstab.sql) (two row headings plus `ORDER BY`) and [regression/qryRegressionParametersCrosstabFixedPivot.sql](../Testing/Fixtures/queries/regression/qryRegressionParametersCrosstabFixedPivot.sql) (parameterized, fixed heading list), with unit coverage in `clsTestQueryComposerCrosstab`. |
 
 When adding a fixture for any of the above, follow the contribution
 workflow in [Testing/Fixtures/README.md § Bug-as-fixture](../Testing/Fixtures/README.md).

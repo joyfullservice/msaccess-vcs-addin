@@ -4,6 +4,44 @@
     "Description": "qryRegressionParametersCrosstabFixedPivot"
   },
   "Items": {
-    "QueryType": 16
+    "QueryType": 16,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1323,
+        "bottom": 997
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 1307,
+        "bottom": 752
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 559,
+      "Tables": [
+        {
+          "Name": "tblParamSample",
+          "Alias": "",
+          "Left": 48,
+          "Top": 12,
+          "Right": 192,
+          "Bottom": 156,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblParamDetail",
+          "Alias": "",
+          "Left": 240,
+          "Top": 12,
+          "Right": 384,
+          "Bottom": 156,
+          "ScrollTop": 0
+        }
+      ]
+    }
   }
 }
