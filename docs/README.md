@@ -34,7 +34,7 @@ and abandoned.
 | [`architecture.md`](architecture.md) | Repository layout, component diagram, `IDbComponent`, the `clsVersionControl` public API and category-scoped sync, core modules, key enums, query-parser entry points, ribbon and hook add-ins. |
 | [`export-format-versioning.md`](export-format-versioning.md) | How to change what gets exported: `eExportFormatVersion` gates, `GetExporterRevisions`, schema fingerprints, plus the checklists for adding a component type or an option. |
 | [`error-handling.md`](error-handling.md) | The `DebugMode` + `LogUnhandledErrors` + `CatchAny` pattern, and how to read "Unhandled error, likely before `On Error` directive" in a log. |
-| [`mcp-runvba.md`](mcp-runvba.md) | Debugging `vcs_run_vba` failures: error-break suppression, the auto-injected `errorLine`, multi-error handlers, and `On Error GoTo -1`. |
+| [`mcp-runvba.md`](mcp-runvba.md) | Running VBA over MCP: reading schema metadata SQL cannot reach, error-break suppression, the auto-injected `errorLine`, multi-error handlers, and `On Error GoTo -1`. |
 | [`agentic-rebuild.md`](agentic-rebuild.md) | Unattended rebuild of the add-in itself via `VCS.RebuildAddIn`: single-instance guard, status-file contract, and failure modes. |
 | [`automation-contract.md`](automation-contract.md) | What a CI pipeline can rely on: the headless build entry points, their JSON result shape, hook ordering and `ValidateAfterBuild`, silent install, and interaction mode. |
 | [`testing-strategy.md`](testing-strategy.md) | The three testing layers, the `modTest*` convention, the object round-trip harness, the bug-as-fixture workflow, headless CI runs, and where results land. |

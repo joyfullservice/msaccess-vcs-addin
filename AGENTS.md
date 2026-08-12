@@ -18,7 +18,7 @@ This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
 | Orienting; adding a component type; finding the class for an object type | [docs/architecture.md](docs/architecture.md) |
 | Anything that changes exported file content or layout | [docs/export-format-versioning.md](docs/export-format-versioning.md) |
 | Diagnosing an error in a log file | [docs/error-handling.md](docs/error-handling.md) |
-| A failing `vcs_run_vba` call | [docs/mcp-runvba.md](docs/mcp-runvba.md) |
+| Inspecting a database's schema over MCP; a failing `vcs_run_vba` call | [docs/mcp-runvba.md](docs/mcp-runvba.md) |
 | Rebuilding the add-in from source via MCP | [docs/agentic-rebuild.md](docs/agentic-rebuild.md) |
 | Test layers, fixtures, round-trip harness, CI | [docs/testing-strategy.md](docs/testing-strategy.md) |
 | The test runner UI or its VBA/JS bridge | [docs/web-test-runner.md](docs/web-test-runner.md) |

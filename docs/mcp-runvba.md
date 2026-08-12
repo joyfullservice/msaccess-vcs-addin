@@ -1,12 +1,69 @@
-# Debugging RunVBA failures
+# Running VBA over MCP
 
 `clsVersionControl.RunVBA` (exposed to agents via the `vcs_run_vba` MCP tool)
 wraps caller-supplied VBA code in a temporary module, compiles it, runs it, and
-returns a JSON result. Read this when an agent-authored snippet fails and you
-need to know what the returned JSON is telling you.
+returns a JSON result. Read this before using it to inspect a database, and when
+an agent-authored snippet fails and you need to know what the returned JSON is
+telling you.
 
 For the general `DebugMode` / `CatchAny` / `LogUnhandledErrors` system used
 throughout the add-in, see [error-handling.md](error-handling.md).
+
+---
+
+## Reading schema facts you cannot query
+
+`vcs_execute_sql` reaches data, not schema metadata. Index membership,
+uniqueness, primary keys, AutoNumber attributes, and field properties are not
+exposed to SQL in ACE: `MSysIndexes` was a Jet-era table and does not exist in an
+`.accdb`, so querying it fails with error 3078. DAO through `vcs_run_vba` is the
+only way to read them.
+
+**Read these facts rather than deducing them.** A DAO error number tells you that
+a constraint was violated, not which one. And row order is not evidence of an
+index at all: without an explicit `ORDER BY` the order is undefined, and in
+practice ACE commonly returns physical insertion order, so a result that comes
+back looking sorted may reflect nothing but the sequence the rows were written
+in. Both invite a confident wrong answer, and one call settles it:
+
+```vba
+Dim dbs As DAO.Database
+Dim tdf As DAO.TableDef
+Dim idx As DAO.Index
+Dim strOut As String
+Dim i As Long, j As Long
+Set dbs = CurrentDb
+Set tdf = dbs.TableDefs("MSysIMEXSpecs")
+For i = 0 To tdf.Fields.Count - 1
+    strOut = strOut & "F " & tdf.Fields(i).Name & " auto=" & _
+        CBool((tdf.Fields(i).Attributes And dbAutoIncrField) <> 0) & vbCrLf
+Next i
+For i = 0 To tdf.Indexes.Count - 1
+    Set idx = tdf.Indexes(i)
+    strOut = strOut & "I " & idx.Name & " unique=" & idx.Unique & _
+        " primary=" & idx.Primary & " flds="
+    For j = 0 To idx.Fields.Count - 1
+        strOut = strOut & idx.Fields(j).Name & ","
+    Next j
+    strOut = strOut & vbCrLf
+Next i
+MCP_TempFunction = strOut
+```
+
+Two traps this surfaces that nothing else will. A column missing from
+`TableDef.Indexes` has **no** uniqueness enforcement even when it is an
+AutoNumber, so an explicit insert can duplicate it silently. And ODBC-sourced
+column metadata (the `db-inspector` MCP server) reports AutoNumber as plain
+`Long` and nullability unreliably for system tables, so it cannot answer either
+question.
+
+## Hold a database reference
+
+`Set tdf = CurrentDb.TableDefs("x")` fails on the *next* statement with error
+3420, "Object invalid or no longer set". `CurrentDb` returns a fresh `Database`
+object that is released when the statement ends, taking the `TableDef` with it.
+Assign it to a variable first, as above. The add-in's own code caches one
+reference through `SharedDb` in `modObjects` for the same reason.
 
 ---
 
