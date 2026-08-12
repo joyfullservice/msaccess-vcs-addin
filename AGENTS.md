@@ -19,6 +19,7 @@ This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
 | Anything that changes exported file content or layout | [docs/export-format-versioning.md](docs/export-format-versioning.md) |
 | Diagnosing an error in a log file | [docs/error-handling.md](docs/error-handling.md) |
 | A failing `vcs_run_vba` call | [docs/mcp-runvba.md](docs/mcp-runvba.md) |
+| Rebuilding the add-in from source via MCP | [docs/agentic-rebuild.md](docs/agentic-rebuild.md) |
 | Test layers, fixtures, round-trip harness, CI | [docs/testing-strategy.md](docs/testing-strategy.md) |
 | The test runner UI or its VBA/JS bridge | [docs/web-test-runner.md](docs/web-test-runner.md) |
 | Writing an individual test | [.cursor/rules/testing.mdc](.cursor/rules/testing.mdc) |
@@ -35,11 +36,8 @@ a change: modify the running `Version Control.accda`, test, then run `Deploy` in
 the VBA Immediate Window — it increments the version, exports to source files,
 and installs the development build. Commit the source files and open a pull
 request against `dev`. Releases are cut from `master`; the add-in is
-self-installing.
-
-Rebuilding requires closing every open Access instance, so it cannot be driven
-through the MCP tools. Ask the user to rebuild and confirm before re-running
-verification.
+self-installing. Agents rebuild unattended via `VCS.RebuildAddIn`; it refuses
+unless this is the only Access instance.
 
 ## Invariants
 

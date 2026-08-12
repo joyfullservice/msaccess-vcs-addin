@@ -82,6 +82,7 @@ VCS.FullExport          ' Export all source (full)
 VCS.ExportVBA           ' Export VBA components only
 VCS.ExportByType types  ' Export one or more categories (category-scoped sync)
 VCS.Build strFolder     ' Full build from source
+VCS.RebuildAddIn [folder] ' Rebuild and install this add-in from source
 VCS.MergeBuild          ' Merge changes into existing database
 VCS.ImportByType types  ' Import one or more categories (category-scoped sync)
 VCS.Options             ' Access project options
@@ -313,7 +314,7 @@ Results come back through `modAPI.WorkerCallback` → `Worker.ReturnWorker`.
 | `Run_SaveVbaProject` (via `modVbeUtility.SaveCurrentVBProject`) | The VBE Save command saves nothing while the caller's own VBA is on the stack. No in-process substitute works — that procedure's header lists four that were tried. |
 | `IsDatabaseAccessible` | The engine does not report its lock state to same-process callers. |
 | `Run_UninstallAddin` | Deletes the add-in file, which Access holds open until it exits. |
-| `Run_BuildAndInstall` (`VCS.RebuildAddIn`) | The add-in cannot rebuild and reinstall itself while loaded. |
+| `Run_BuildAndInstall` (`VCS.RebuildAddIn`) | The add-in cannot rebuild and reinstall itself while loaded. Unattended callers poll `logs/rebuild-status.json` after Access exits; the rebuild refuses unless this is the only Access instance. See [agentic-rebuild.md](agentic-rebuild.md). |
 
 Endpoint protection in some managed environments blocks Access from launching a
 freshly written script, so `modInstall.UseWorkerScript` (per-user registry,

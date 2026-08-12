@@ -469,13 +469,31 @@ End Sub
 ' Date      : 5/8/2026
 ' Purpose   : Rebuild the VCS add-in from source files and install it.
 '           : Access will close during this process.
-'           : Source path is resolved from (1) current database, (2) registry, or
-'           : (3) a folder picker dialog.
+'           : Source path is resolved from (1) the optional argument, (2) current
+'           : database, (3) registry, or (4) a folder picker dialog (interactive only).
+'           : Returns JSON describing launch or refusal. Unattended callers (MCP/API)
+'           : must pass a source folder if it cannot be derived, and the rebuild
+'           : refuses unless this is the only Access instance in the Windows session.
 '---------------------------------------------------------------------------------------
 '
-Public Sub RebuildAddIn()
+Public Function RebuildAddIn(Optional strSourceFolder As String) As String
 
     Dim strPath As String
+    Dim strDetail As String
+    Dim strStatusFile As String
+    Dim strRepoFolder As String
+    Dim lngOthers As Long
+    Dim blnUnattended As Boolean
+    Dim eimPrior As eInteractionMode
+    Dim dResult As Dictionary
+    Dim colOthers As Collection
+    Dim varLine As Variant
+
+    blnUnattended = (Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI)
+    eimPrior = Operation.InteractionMode
+    If blnUnattended Then Operation.InteractionMode = eimSilent
+
+    Set dResult = New Dictionary
 
     ' Of everything the helper script does, this is the one job with no in-process
     ' equivalent: the add-in cannot rebuild and reinstall itself while it is loaded, which
@@ -483,58 +501,134 @@ Public Sub RebuildAddIn()
     ' source folder is resolved, so the user is not asked to pick a folder for an
     ' operation that cannot run. (#727)
     If Not modInstall.UseWorkerScript Then
-        MsgBox2 T("Helper Script Required"), _
-            T("Rebuilding the add-in requires the helper script, which is currently " & _
-            "disabled."), _
-            T("Use Build From Source to build the add-in, then open the resulting file " & _
-            "to install it."), vbExclamation
-        Exit Sub
+        If Not blnUnattended Then
+            MsgBox2 T("Helper Script Required"), _
+                T("Rebuilding the add-in requires the helper script, which is currently " & _
+                "disabled."), _
+                T("Use Build From Source to build the add-in, then open the resulting file " & _
+                "to install it."), vbExclamation
+        End If
+        dResult.Add "success", False
+        dResult.Add "status", "refused"
+        dResult.Add "error", "Helper script is disabled."
+        GoTo Finish
     End If
 
-    ' Try to derive source folder from the current project
-    If StrComp(FSO.GetBaseName(CurrentProject.Name), ADDIN_BASENAME, vbTextCompare) = 0 Then
+    ' Optional argument, then current project, then registry.
+    If Len(strSourceFolder) > 0 Then
+        strPath = StripSlash(strSourceFolder) & PathSep
+    ElseIf StrComp(FSO.GetBaseName(CurrentProject.Name), ADDIN_BASENAME, vbTextCompare) = 0 Then
         strPath = CurrentProject.Path & PathSep & CurrentProject.Name & ".src" & PathSep
-    End If
-
-    ' Fall back to the registry (saved during previous builds)
-    If Len(strPath) = 0 Then
+    Else
         strPath = GetSetting(PROJECT_NAME, "Install", "Source Path", vbNullString)
     End If
 
-    ' Last resort: ask the user to pick the source folder
+    ' Last resort: ask the user to pick the source folder (interactive only).
     If Len(strPath) = 0 Then
+        If blnUnattended Then
+            dResult.Add "success", False
+            dResult.Add "status", "refused"
+            dResult.Add "error", "sourceFolderRequired"
+            GoTo Finish
+        End If
         With Application.FileDialog(msoFileDialogFolderPicker)
             .Title = T("Select Add-In Source Folder")
             .ButtonName = T("Select")
             If .Show = True Then
                 strPath = StripSlash(.SelectedItems(1)) & PathSep
             Else
-                Exit Sub
+                dResult.Add "success", False
+                dResult.Add "status", "refused"
+                dResult.Add "error", "cancelled"
+                GoTo Finish
             End If
         End With
     End If
 
     ' Validate source folder exists
     If Not FSO.FolderExists(strPath) Then
-        MsgBox2 T("Source Folder Not Found"), _
-            T("The source folder was not found:") & vbCrLf & strPath, _
-            , vbExclamation
-        Exit Sub
+        If Not blnUnattended Then
+            MsgBox2 T("Source Folder Not Found"), _
+                T("The source folder was not found:") & vbCrLf & strPath, _
+                , vbExclamation
+        End If
+        dResult.Add "success", False
+        dResult.Add "status", "refused"
+        dResult.Add "error", "The source folder was not found: " & strPath
+        GoTo Finish
     End If
     If Not FSO.FileExists(strPath & "vcs-options.json") Then
-        MsgBox2 T("Invalid Source Folder"), _
-            T("The source folder does not contain the expected VCS source files.") & vbCrLf & strPath, _
-            , vbExclamation
-        Exit Sub
+        If Not blnUnattended Then
+            MsgBox2 T("Invalid Source Folder"), _
+                T("The source folder does not contain the expected VCS source files.") & vbCrLf & strPath, _
+                , vbExclamation
+        End If
+        dResult.Add "success", False
+        dResult.Add "status", "refused"
+        dResult.Add "error", "The source folder does not contain the expected VCS source files: " & strPath
+        GoTo Finish
+    End If
+
+    ' Refuse unless this is the only Access instance in the current Windows session.
+    lngOthers = GetOtherAccessInstances(strDetail)
+    If lngOthers <> 0 Then
+        If lngOthers < 0 Then
+            dResult.Add "success", False
+            dResult.Add "status", "refused"
+            dResult.Add "error", "Could not enumerate Access processes. " & strDetail
+        Else
+            Set colOthers = New Collection
+            For Each varLine In Split(strDetail, vbCrLf)
+                If Len(varLine) > 0 Then colOthers.Add CStr(varLine)
+            Next varLine
+            dResult.Add "success", False
+            dResult.Add "status", "refused"
+            dResult.Add "error", T("Rebuild refused: {0} other Access instance(s) are running.", var0:=lngOthers)
+            dResult.Add "otherInstances", colOthers
+        End If
+        If Not blnUnattended Then
+            MsgBox2 T("Other Access Instances Running"), _
+                Nz(dResult("error"), vbNullString), _
+                strDetail, vbExclamation
+        End If
+        GoTo Finish
+    End If
+
+    ' /cmd INSTALL opens the repo .accda in a new process. If that folder is not a
+    ' trusted location, autoexec raises a native untrusted-file MsgBox that nobody
+    ' can dismiss, and the rebuild hangs.
+    strRepoFolder = FSO.GetParentFolderName(StripSlash(strPath))
+    If Not IsFolderTrusted(strRepoFolder) Then
+        If Not blnUnattended Then
+            MsgBox2 T("Trusted Location Required"), _
+                T("The add-in folder is not a Microsoft Access trusted location:") & vbCrLf & strRepoFolder, _
+                T("Add it in File > Options > Trust Center > Trusted Locations, then try again."), vbExclamation
+        End If
+        dResult.Add "success", False
+        dResult.Add "status", "refused"
+        dResult.Add "error", "The add-in folder is not a trusted location: " & strRepoFolder
+        GoTo Finish
     End If
 
     ' Verify resource files are available
     VerifyResources
 
-    ' Launch the worker to handle the build and install disconnected
-    Worker.Run_BuildAndInstall strPath
+    strStatusFile = GetRebuildStatusFilePath(strPath)
+    WriteRebuildStatusFile strStatusFile, "launched"
 
-End Sub
+    ' Launch the worker to handle the build and install disconnected
+    Worker.Run_BuildAndInstall strPath, blnUnattended, strStatusFile
+
+    dResult.Add "success", True
+    dResult.Add "status", "launched"
+    dResult.Add "statusFile", strStatusFile
+    dResult.Add "logFolder", StripSlash(strPath) & PathSep & "logs"
+
+Finish:
+    RebuildAddIn = ConvertToJson(dResult, JSON_WHITESPACE)
+    If blnUnattended Then Operation.InteractionMode = eimPrior
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

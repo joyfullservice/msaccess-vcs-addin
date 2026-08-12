@@ -59,11 +59,18 @@ End Function
 ' Purpose   : Rebuild the VCS add-in from source files and install the result.
 '           : Runs disconnected: quits the current Access instance, opens a new one
 '           : to perform the build, then launches the install via /cmd INSTALL.
+'           : blnUnattended suppresses worker MsgBox prompts and uses /cmd INSTALL SILENT.
 '---------------------------------------------------------------------------------------
 '
-Public Function Run_BuildAndInstall(strSourcePath As String)
+Public Function Run_BuildAndInstall(strSourcePath As String, _
+    Optional blnUnattended As Boolean = False, _
+    Optional strStatusFile As String)
+
     CallWorker PROJECT_NAME, 300, "BuildAndInstall", _
-        """" & strSourcePath & """"
+        """" & strSourcePath & """", _
+        IIf(blnUnattended, "1", "0"), _
+        """" & strStatusFile & """"
+
 End Function
 
 
@@ -502,6 +509,8 @@ Sub Main()
     Dim strKey
     Dim strValue
     Dim varReturn
+    Dim strUnattended
+    Dim strStatusFile
 
 
     Set objFSO = CreateObject("Scripting.FileSystemObject")
@@ -546,8 +555,12 @@ Sub Main()
         Case "BuildAndInstall"
             ' Rebuild the add-in from source and install the result.
             ' (This must be done after closing Access)
-            ' Args: Access application instance, source path
-            BuildAndInstall objApp, WScript.Arguments(3)
+            ' Args: Access application instance, source path, unattended flag, status file
+            strUnattended = "0"
+            strStatusFile = ""
+            If WScript.Arguments.Count >= 5 Then strUnattended = WScript.Arguments(4)
+            If WScript.Arguments.Count >= 6 Then strStatusFile = WScript.Arguments(5)
+            BuildAndInstall objApp, WScript.Arguments(3), strUnattended, strStatusFile
 
         Case "CheckDatabaseAccessible"
             varReturn = CheckDatabaseAccessible(WScript.Arguments(0))
@@ -826,10 +839,10 @@ End Function
 ' Purpose   : Rebuild the VCS add-in from source files and install the result.
 '           : Quits the current Access instance, opens a new one to build via the
 '           : installed library, polls the build log for completion, then launches
-'           : the install phase via /cmd INSTALL.
+'           : the install phase via /cmd INSTALL (or /cmd INSTALL SILENT when unattended).
 '---------------------------------------------------------------------------------------
 '
-Function BuildAndInstall(objApp, strSourcePath)
+Function BuildAndInstall(objApp, strSourcePath, strUnattended, strStatusFile)
 
     Dim objFSO
     Dim objNewAccess
@@ -840,9 +853,17 @@ Function BuildAndInstall(objApp, strSourcePath)
     Dim strLogsPath
     Dim strLockFile
     Dim intCnt
+    Dim blnUnattended
+    Dim strPhaseStarted
+    Dim strInstalledFile
+    Dim dtBefore
+    Dim strCmd
 
     Set objFSO = CreateObject("Scripting.FileSystemObject")
     Set WshShell = CreateObject("WScript.Shell")
+
+    blnUnattended = (strUnattended = "1")
+    strPhaseStarted = IsoDateTime(Now)
 
     ' Derive paths before quitting Access
     strMSAccessPath = objApp.SysCmd(9) & "MSACCESS.EXE"  ' acSysCmdAccessDir = 9
@@ -863,6 +884,12 @@ Function BuildAndInstall(objApp, strSourcePath)
     Else
         strLogsPath = strSourcePath & "\logs\"
     End If
+
+    WriteRebuildStatusFile strStatusFile, "building", "", "", strPhaseStarted
+
+    ' When unattended, pause so the in-flight COM return from API reaches the
+    ' MCP server before this instance is quit. vcs_call_vba has no timeout.
+    If blnUnattended Then WScript.Sleep 4000
 
     ' Close the current Access instance to release all locks
     objApp.Quit
@@ -886,8 +913,9 @@ Function BuildAndInstall(objApp, strSourcePath)
     On Error Resume Next
     Set objNewAccess = CreateObject("Access.Application")
     If Err.Number <> 0 Then
-        MsgBox "Failed to create Access application instance." & vbCrLf & vbCrLf & _
-            "Error " & Err.Number & ": " & Err.Description, vbCritical, "Rebuild Add-In"
+        FailRebuild Nothing, False, strStatusFile, blnUnattended, "build-failed", _
+            "Failed to create Access application instance." & vbCrLf & vbCrLf & _
+            "Error " & Err.Number & ": " & Err.Description, "", strPhaseStarted
         Exit Function
     End If
     On Error GoTo 0
@@ -913,9 +941,8 @@ Function BuildAndInstall(objApp, strSourcePath)
         strBuildErr = "Error " & Err.Number & ": " & Err.Description
         Err.Clear
         On Error GoTo 0
-        QuitAccessInstance objNewAccess
-        MsgBox "Failed to trigger build command." & vbCrLf & vbCrLf & _
-            strBuildErr, vbCritical, "Rebuild Add-In"
+        FailRebuild objNewAccess, True, strStatusFile, blnUnattended, "build-failed", _
+            "Failed to trigger build command." & vbCrLf & vbCrLf & strBuildErr, "", strPhaseStarted
         Exit Function
     End If
     On Error GoTo 0
@@ -941,10 +968,9 @@ Function BuildAndInstall(objApp, strSourcePath)
     ' compile gate below has had its turn, since that gate needs the rebuilt project
     ' open, and a failing gate leaves the instance open for the developer.
     If Len(strNewLog) = 0 Then
-        QuitAccessInstance objNewAccess
-        MsgBox "Build timed out. No completed build log was found." & vbCrLf & vbCrLf & _
-            "Check the logs folder for details:" & vbCrLf & strLogsPath, _
-            vbCritical, "Rebuild Add-In"
+        FailRebuild objNewAccess, True, strStatusFile, blnUnattended, "build-failed", _
+            "Build timed out. No completed build log was found." & vbCrLf & vbCrLf & _
+            "Check the logs folder for details:" & vbCrLf & strLogsPath, "", strPhaseStarted
         Exit Function
     End If
 
@@ -955,24 +981,26 @@ Function BuildAndInstall(objApp, strSourcePath)
                   (InStr(1, strLogContent, "CRITICAL:", vbTextCompare) = 0)
 
     If Not blnSuccess Then
-        QuitAccessInstance objNewAccess
-        MsgBox "Build failed. Check the build log for details:" & vbCrLf & vbCrLf & _
-            strNewLog, vbCritical, "Rebuild Add-In"
+        FailRebuild objNewAccess, True, strStatusFile, blnUnattended, "build-failed", _
+            "Build failed. Check the build log for details:" & vbCrLf & vbCrLf & strNewLog, _
+            strNewLog, strPhaseStarted
         Exit Function
     End If
 
     ' --- COMPILE GATE ---
     ' A build log only proves the source files imported. Compile before installing so
     ' code that does not build never reaches the installed add-in.
+    WriteRebuildStatusFile strStatusFile, "compiling", "", strNewLog, strPhaseStarted
     If Not CompileBuiltAddIn(objNewAccess) Then
         On Error Resume Next
         objNewAccess.VBE.MainWindow.Visible = True
         On Error GoTo 0
-        MsgBox "The rebuilt add-in does not compile, so it was not installed." & vbCrLf & vbCrLf & _
+        FailRebuild objNewAccess, False, strStatusFile, blnUnattended, "compile-failed", _
+            "The rebuilt add-in does not compile, so it was not installed." & vbCrLf & vbCrLf & _
             strRepoAddinPath & vbCrLf & vbCrLf & _
             "Microsoft Access has been left open on the rebuilt file. Use " & _
             "Debug > Compile in the VBA editor to find the error, fix the source " & _
-            "files, and run Rebuild Add-In again.", vbCritical, "Rebuild Add-In"
+            "files, and run Rebuild Add-In again.", strNewLog, strPhaseStarted
         Exit Function
     End If
 
@@ -987,9 +1015,166 @@ Function BuildAndInstall(objApp, strSourcePath)
         WScript.Sleep 1000
     Next
 
-    ' Launch Access with /cmd INSTALL (blocks until user clicks OK on success dialog)
-    WshShell.Run """" & strMSAccessPath & """ """ & strRepoAddinPath & """ /cmd INSTALL", 1, True
+    strInstalledFile = FindInstalledAddInFile(objFSO)
+    dtBefore = #1/1/2000#
+    If Len(strInstalledFile) > 0 Then
+        If objFSO.FileExists(strInstalledFile) Then
+            dtBefore = objFSO.GetFile(strInstalledFile).DateLastModified
+        End If
+    End If
 
+    WriteRebuildStatusFile strStatusFile, "installing", "", strNewLog, strPhaseStarted
+
+    If blnUnattended Then
+        strCmd = """" & strMSAccessPath & """ """ & strRepoAddinPath & """ /cmd ""INSTALL SILENT"""
+        WshShell.Run strCmd, 7, True
+    Else
+        ' Launch Access with /cmd INSTALL (blocks until user clicks OK on success dialog)
+        strCmd = """" & strMSAccessPath & """ """ & strRepoAddinPath & """ /cmd INSTALL"
+        WshShell.Run strCmd, 1, True
+    End If
+
+    strInstalledFile = FindInstalledAddInFile(objFSO)
+    If Len(strInstalledFile) = 0 Then
+        FailRebuild Nothing, False, strStatusFile, blnUnattended, "install-failed", _
+            "Install finished but the installed add-in file was not found.", strNewLog, strPhaseStarted
+        Exit Function
+    End If
+    If objFSO.GetFile(strInstalledFile).DateLastModified <= dtBefore Then
+        FailRebuild Nothing, False, strStatusFile, blnUnattended, "install-failed", _
+            "Install finished but the installed add-in file was not updated:" & vbCrLf & strInstalledFile, _
+            strNewLog, strPhaseStarted
+        Exit Function
+    End If
+
+    WriteRebuildStatusFile strStatusFile, "complete", "", strNewLog, strPhaseStarted
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FailRebuild
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Record a terminal rebuild failure. Optionally quit the build instance.
+'           : Shows a MsgBox only when attended. Compile-gate callers pass blnQuit=False
+'           : so Access stays open on the rebuilt file.
+'---------------------------------------------------------------------------------------
+'
+Sub FailRebuild(objApp, blnQuit, strStatusFile, blnUnattended, strStatus, strError, strBuildLog, strPhaseStarted)
+    If blnQuit Then QuitAccessInstance objApp
+    WriteRebuildStatusFile strStatusFile, strStatus, strError, strBuildLog, strPhaseStarted
+    If Not blnUnattended Then
+        MsgBox strError, vbCritical, "Rebuild Add-In"
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteRebuildStatusFile
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Hand-rolled JSON writer for the worker script. No-ops when the path is
+'           : empty. UTF-8 via ADODB.Stream so paths round-trip for the agent Read tool.
+'---------------------------------------------------------------------------------------
+'
+Sub WriteRebuildStatusFile(strFile, strStatus, strError, strBuildLog, strPhaseStarted)
+    Dim objFSO
+    Dim strFolder
+    Dim strJson
+    Dim strUpdated
+    Dim stm
+
+    If Len(strFile) = 0 Then Exit Sub
+
+    Set objFSO = CreateObject("Scripting.FileSystemObject")
+    strFolder = objFSO.GetParentFolderName(strFile)
+    If Len(strFolder) > 0 Then
+        If Not objFSO.FolderExists(strFolder) Then
+            On Error Resume Next
+            objFSO.CreateFolder strFolder
+            On Error GoTo 0
+        End If
+    End If
+
+    strUpdated = IsoDateTime(Now)
+    If Len(strPhaseStarted) = 0 Then strPhaseStarted = strUpdated
+
+    strJson = "{" & vbCrLf & _
+        "  ""status"": """ & JsonEscape(strStatus) & """," & vbCrLf & _
+        "  ""error"": """ & JsonEscape(strError) & """," & vbCrLf & _
+        "  ""buildLog"": """ & JsonEscape(strBuildLog) & """," & vbCrLf & _
+        "  ""phaseStarted"": """ & JsonEscape(strPhaseStarted) & """," & vbCrLf & _
+        "  ""updated"": """ & JsonEscape(strUpdated) & """" & vbCrLf & _
+        "}"
+
+    On Error Resume Next
+    Set stm = CreateObject("ADODB.Stream")
+    stm.Type = 2
+    stm.Charset = "utf-8"
+    stm.Open
+    stm.WriteText strJson
+    stm.SaveToFile strFile, 2
+    stm.Close
+    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : JsonEscape
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Escape a string for inclusion in a JSON value. Backslash first.
+'---------------------------------------------------------------------------------------
+'
+Function JsonEscape(strValue)
+    Dim strOut
+    strOut = strValue
+    If IsNull(strOut) Then strOut = ""
+    strOut = Replace(strOut, "\", "\\")
+    strOut = Replace(strOut, """", "\""")
+    strOut = Replace(strOut, vbCrLf, "\n")
+    strOut = Replace(strOut, vbCr, "\n")
+    strOut = Replace(strOut, vbLf, "\n")
+    JsonEscape = strOut
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsoDateTime
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : yyyy-mm-dd hh:nn:ss for status-file timestamps (VBScript has no Format$).
+'---------------------------------------------------------------------------------------
+'
+Function IsoDateTime(dtValue)
+    IsoDateTime = Year(dtValue) & "-" & Right("0" & Month(dtValue), 2) & "-" & _
+        Right("0" & Day(dtValue), 2) & " " & Right("0" & Hour(dtValue), 2) & ":" & _
+        Right("0" & Minute(dtValue), 2) & ":" & Right("0" & Second(dtValue), 2)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindInstalledAddInFile
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Return the installed add-in path next to Worker.vbs (.accda or .accde).
+'---------------------------------------------------------------------------------------
+'
+Function FindInstalledAddInFile(objFSO)
+    Dim strFolder
+    Dim strAccda
+    Dim strAccde
+    strFolder = objFSO.GetParentFolderName(WScript.ScriptFullName)
+    strAccda = strFolder & "\Version Control.accda"
+    strAccde = strFolder & "\Version Control.accde"
+    If objFSO.FileExists(strAccda) Then
+        FindInstalledAddInFile = strAccda
+    ElseIf objFSO.FileExists(strAccde) Then
+        FindInstalledAddInFile = strAccde
+    Else
+        FindInstalledAddInFile = ""
+    End If
 End Function
 
 

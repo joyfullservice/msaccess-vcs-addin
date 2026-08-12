@@ -83,6 +83,40 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — Agentic add-in rebuild via status file, not a new MCP tool
+
+**Trigger**: Agents iterating on add-in source had to wait for a person to rebuild
+`Version Control.accda`. The existing `RebuildAddIn` / `Worker.vbs` path already
+did the work, but it showed dialogs in three processes, had no completion signal
+after Access quit, and would have closed every Access window if we had treated
+"close Access" as "kill `MSACCESS.EXE`".
+
+**Options explored**:
+- *New MCP tool that drives the rebuild and waits.* Rejected. The Access instance
+  the MCP is talking to is deliberately quit; a tool that blocked on COM would
+  hang. `vcs_call_vba` already dispatches `RebuildAddIn` through `CallByName`.
+- *Enumerate and close other Access processes.* Rejected. Closing someone else's
+  database is data-loss. The guard counts other `MSACCESS.EXE` processes in this
+  Windows session and refuses; a failed WMI query is also a refusal.
+- *Rely on `Operation.InteractionMode` alone.* Rejected. The worker script and
+  the `/cmd INSTALL` process are separate and do not inherit that flag.
+
+**Decision**: Keep the existing three-process pipeline. Unattended callers set
+silent mode, pass `/cmd INSTALL SILENT`, and poll gitignored
+`logs/rebuild-status.json`. The repo folder must already be a trusted location
+or the install process hangs on autoexec's native `MsgBox`.
+
+**What this rules out**: Rebuilding while any other Access instance is open in
+the same session. Adding a dedicated MCP rebuild-add-in tool unless
+`vcs_call_vba` grows a timeout (it currently has none; the worker sleeps before
+quit so the JSON can return). Killing `MSACCESS.EXE` as a cleanup strategy.
+
+**Relevant files**: `clsVersionControl.cls` (`RebuildAddIn`), `modInstall.bas`
+(`GetOtherAccessInstances`, `ParseInstallCommand`, status-file helpers),
+`clsWorker.cls` (`BuildAndInstall`), `docs/agentic-rebuild.md`.
+
+---
+
 ## 2026-08-12 — Emit crosstabs in Design View, and stop treating a designer prompt as an import constraint
 
 **Trigger**: `clsQueryComposer.DecomposeSQL` marked every `TRANSFORM`/`PIVOT` query as
@@ -1739,6 +1773,10 @@ CF14 stays the authoritative decode source. Since the add-in cannot be rebuilt v
 byte-exact fixtures added to `modTestConditionalFormat` (all eight operators + a mixed
 three-rule block, captured from real SaveAsText output) must be verified by running the test
 suite after a manual add-in rebuild.
+
+> **⚠ Partially superseded** (2026-08-12): The add-in can now be rebuilt unattended via
+> `VCS.RebuildAddIn` when it is the only Access instance. See "Agentic add-in rebuild via
+> status file, not a new MCP tool" above. The fixtures themselves are unchanged.
 
 **Relevant files**: `modules/Core/clsConditionalFormat.cls` (decode/rebuild + operator
 maps), `modules/Tests/Core/modTestConditionalFormat.bas` (operator + trailer-echo fixtures

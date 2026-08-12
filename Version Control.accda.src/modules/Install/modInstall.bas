@@ -21,6 +21,11 @@ End Enum
 ' Used to determine if Access is running as administrator. (Required for installing the add-in)
 Private Declare PtrSafe Function IsUserAnAdmin Lib "shell32" () As Long
 
+' Used by GetOtherAccessInstances to skip this process and other Windows sessions.
+Private Declare PtrSafe Function GetCurrentProcessId Lib "kernel32" () As Long
+Private Declare PtrSafe Function ProcessIdToSessionId Lib "kernel32" ( _
+    ByVal dwProcessId As Long, ByRef pSessionId As Long) As Long
+
 Private Const ModuleName As String = "modInstall"
 
 ' Used to add a trusted location for the add-in path (when necessary)
@@ -75,6 +80,33 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ParseInstallCommand
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Normalize /cmd tokens for the installer. Returns "INSTALL",
+'           : "INSTALL SILENT", or an empty string when the command is not an install.
+'---------------------------------------------------------------------------------------
+'
+Public Function ParseInstallCommand(strCommand As String) As String
+
+    Dim strNorm As String
+
+    strNorm = UCase$(Trim$(strCommand))
+    Do While InStr(strNorm, "  ") > 0
+        strNorm = Replace(strNorm, "  ", " ")
+    Loop
+
+    Select Case strNorm
+        Case "INSTALL", "INSTALL SILENT"
+            ParseInstallCommand = strNorm
+        Case Else
+            ParseInstallCommand = vbNullString
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : AutoRun
 ' Author    : Adam Waller
 ' Date      : 4/15/2020
@@ -84,8 +116,15 @@ End Sub
 '
 Public Function AutoRun() As Boolean
 
-    ' Handle command-line install automation (/cmd INSTALL)
-    If UCase$(Trim$(Command$)) = "INSTALL" Then
+    Dim strInstallCmd As String
+
+    ' Handle command-line install automation (/cmd INSTALL or /cmd INSTALL SILENT)
+    strInstallCmd = ParseInstallCommand(Command$)
+    If Len(strInstallCmd) > 0 Then
+        If strInstallCmd = "INSTALL SILENT" Then
+            Operation.Source = eosExternalAPI
+            SetInteractionMode eimSilent
+        End If
         VerifyResources
         GetInstallSettings
         ' Pass the saved worker script preference through rather than relying on the
@@ -145,6 +184,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
 
     Dim strSource As String
     Dim strDest As String
+    Dim strSilentFail As String
 
     EnterInstallErrorTrapping
     On Error GoTo CleanExit
@@ -191,6 +231,14 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
 
     ' Check default database open mode.
     If Application.GetOption(OPEN_MODE_OPTION) = 1 Then
+        If Operation.InteractionMode = eimSilent Then
+            ' Changing the option does not affect this already-open session, so the
+            ' install still cannot continue. Record the change and ask the caller to retry.
+            Application.SetOption OPEN_MODE_OPTION, 0
+            Log.Add "Default Open Mode was Exclusive; changed to Shared. Retry the rebuild."
+            strSilentFail = "Default Open Mode was Exclusive and has been changed to Shared. Retry the rebuild."
+            GoTo CleanExit
+        End If
         If MsgBox2("Default Open Mode set to Exclusive", _
             "The default open mode option for Microsoft Access is currently set to open databases in Exclusive mode by default. " & vbCrLf & _
             "This add-in needs to be opened in shared mode in order to install successfully.", _
@@ -248,12 +296,24 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
     ' Restore before quit so the user's setting is not left staged in the registry.
     LeaveInstallErrorTrapping
 
+    RecordSilentInstallResult "complete"
+
     ' Close Access after installation is complete.
     DoCmd.Quit
     Exit Sub
 
 CleanExit:
     LeaveInstallErrorTrapping
+    If Operation.InteractionMode = eimSilent Then
+        If Len(strSilentFail) = 0 Then
+            If Err.Number <> 0 Then
+                strSilentFail = Err.Description
+            Else
+                strSilentFail = "Install did not complete."
+            End If
+        End If
+        RecordSilentInstallResult "install-failed", strSilentFail
+    End If
     If Err.Number <> 0 Then
         MsgBox2 T("Unable to Install"), Err.Description, , vbExclamation
         Err.Clear
@@ -1097,6 +1157,318 @@ Public Function HasTrustedLocationKey(Optional strName As String) As Boolean
         If Err Then Err.Clear
     End With
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetOtherAccessInstances
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Count MSACCESS.EXE processes in this Windows session other than the
+'           : current process. Returns -1 if the process query itself failed (fail-safe:
+'           : callers must refuse, never kill). strDetail lists PID and open file for
+'           : each other instance. Never quits or terminates anything found.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOtherAccessInstances(ByRef strDetail As String) As Long
+
+    Dim objWMI As Object
+    Dim colProcs As Object
+    Dim objProc As Object
+    Dim lngThisPid As Long
+    Dim lngThisSession As Long
+    Dim lngPid As Long
+    Dim lngSession As Long
+    Dim lngCount As Long
+    Dim strCmd As String
+    Dim strDb As String
+    Dim strLine As String
+    Dim cDetail As clsConcat
+
+    strDetail = vbNullString
+    GetOtherAccessInstances = -1
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    lngThisPid = GetCurrentProcessId
+    If ProcessIdToSessionId(lngThisPid, lngThisSession) = 0 Then
+        strDetail = "Could not determine the current Windows session."
+        CatchAny eelError, strDetail, ModuleName & ".GetOtherAccessInstances", True, True
+        Exit Function
+    End If
+
+    Set objWMI = GetObject("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2")
+    If objWMI Is Nothing Or Err.Number <> 0 Then
+        strDetail = "Process query failed: " & Err.Description
+        CatchAny eelError, strDetail, ModuleName & ".GetOtherAccessInstances", True, True
+        Exit Function
+    End If
+
+    Set colProcs = objWMI.ExecQuery("SELECT ProcessId, CommandLine, SessionId FROM Win32_Process WHERE Name = 'MSACCESS.EXE'")
+    If colProcs Is Nothing Or Err.Number <> 0 Then
+        strDetail = "Process query failed: " & Err.Description
+        CatchAny eelError, strDetail, ModuleName & ".GetOtherAccessInstances", True, True
+        Exit Function
+    End If
+
+    Set cDetail = New clsConcat
+    cDetail.AppendOnAdd = vbCrLf
+
+    For Each objProc In colProcs
+        lngPid = 0
+        lngSession = -1
+        strCmd = vbNullString
+        On Error Resume Next
+        lngPid = CLng(objProc.ProcessId)
+        lngSession = CLng(objProc.SessionId)
+        If Not IsNull(objProc.CommandLine) Then strCmd = CStr(objProc.CommandLine)
+        If Err Then Err.Clear
+        If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+        If lngPid <> lngThisPid And lngSession = lngThisSession Then
+            lngCount = lngCount + 1
+            strDb = ExtractOpenDatabaseFromCommandLine(strCmd)
+            If Len(strDb) = 0 Then strDb = "(no database)"
+            cDetail.Add "PID ", CStr(lngPid), ": ", strDb
+        End If
+    Next objProc
+
+    If Err.Number <> 0 Then
+        strDetail = "Process query failed: " & Err.Description
+        CatchAny eelError, strDetail, ModuleName & ".GetOtherAccessInstances", True, True
+        Exit Function
+    End If
+
+    strDetail = cDetail.GetStr
+    GetOtherAccessInstances = lngCount
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractOpenDatabaseFromCommandLine
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Return the last quoted token in a process command line that looks like
+'           : an Access database path.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExtractOpenDatabaseFromCommandLine(strCmd As String) As String
+
+    Dim lngPos As Long
+    Dim lngStart As Long
+    Dim strToken As String
+    Dim strExt As String
+
+    lngPos = 1
+    Do
+        lngStart = InStr(lngPos, strCmd, """")
+        If lngStart = 0 Then Exit Do
+        lngPos = InStr(lngStart + 1, strCmd, """")
+        If lngPos = 0 Then Exit Do
+        strToken = Mid$(strCmd, lngStart + 1, lngPos - lngStart - 1)
+        strExt = LCase$(FSO.GetExtensionName(strToken))
+        If strExt = "accdb" Or strExt = "accda" Or strExt = "accde" _
+            Or strExt = "mdb" Or strExt = "adp" Then
+            ExtractOpenDatabaseFromCommandLine = strToken
+        End If
+        lngPos = lngPos + 1
+    Loop
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsFolderTrusted
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : True when strFolder is an Access trusted location, or sits under one
+'           : that allows subfolders. Checks HKCU/HKLM user and policy hives.
+'           : CurrentProject.IsTrusted is not used: Enable Content does not survive
+'           : a new Access process, which is what /cmd INSTALL launches.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsFolderTrusted(strFolder As String) As Boolean
+
+    Dim strNorm As String
+    Dim strVer As String
+
+    If Len(strFolder) = 0 Then Exit Function
+    strNorm = StripSlash(strFolder) & PathSep
+    strVer = Application.Version
+
+    If TrustedLocationHiveCoversFolder(&H80000001, _
+        "Software\Microsoft\Office\" & strVer & "\Access\Security\Trusted Locations", strNorm) Then
+        IsFolderTrusted = True
+        Exit Function
+    End If
+    If TrustedLocationHiveCoversFolder(&H80000001, _
+        "Software\Policies\Microsoft\Office\" & strVer & "\Access\Security\Trusted Locations", strNorm) Then
+        IsFolderTrusted = True
+        Exit Function
+    End If
+    If TrustedLocationHiveCoversFolder(&H80000002, _
+        "Software\Policies\Microsoft\Office\" & strVer & "\Access\Security\Trusted Locations", strNorm) Then
+        IsFolderTrusted = True
+        Exit Function
+    End If
+    If TrustedLocationHiveCoversFolder(&H80000002, _
+        "Software\Microsoft\Office\" & strVer & "\Access\Security\Trusted Locations", strNorm) Then
+        IsFolderTrusted = True
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TrustedLocationHiveCoversFolder
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Enumerate trusted-location subkeys under a registry hive/key and return
+'           : True if any of them covers strFolderNorm (already slash-terminated).
+'---------------------------------------------------------------------------------------
+'
+Private Function TrustedLocationHiveCoversFolder(lngHive As Long, strKey As String, _
+    strFolderNorm As String) As Boolean
+
+    Dim objReg As Object
+    Dim varSubKeys As Variant
+    Dim varKey As Variant
+    Dim strPath As String
+    Dim lngAllow As Long
+    Dim strTrusted As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Set objReg = GetObject("winmgmts:\\.\root\default:StdRegProv")
+    If objReg Is Nothing Then Exit Function
+
+    objReg.EnumKey lngHive, strKey, varSubKeys
+    If Err.Number <> 0 Then
+        Err.Clear
+        Exit Function
+    End If
+    If IsEmpty(varSubKeys) Then Exit Function
+
+    For Each varKey In varSubKeys
+        strPath = vbNullString
+        lngAllow = 0
+        objReg.GetStringValue lngHive, strKey & "\" & CStr(varKey), "Path", strPath
+        objReg.GetDWORDValue lngHive, strKey & "\" & CStr(varKey), "AllowSubfolders", lngAllow
+        If Err Then Err.Clear
+        If Len(strPath) > 0 Then
+            strTrusted = StripSlash(strPath) & PathSep
+            If lngAllow <> 0 Then
+                If InStr(1, strFolderNorm, strTrusted, vbTextCompare) = 1 Then
+                    TrustedLocationHiveCoversFolder = True
+                    Exit Function
+                End If
+            Else
+                If StrComp(strFolderNorm, strTrusted, vbTextCompare) = 0 Then
+                    TrustedLocationHiveCoversFolder = True
+                    Exit Function
+                End If
+            End If
+        End If
+    Next varKey
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRebuildStatusFilePath
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Path of the rebuild status JSON under the source folder's logs/ directory.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetRebuildStatusFilePath(strSourceFolder As String) As String
+    GetRebuildStatusFilePath = StripSlash(strSourceFolder) & PathSep & "logs" & PathSep & "rebuild-status.json"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteRebuildStatusFile
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Write (or update) the flat rebuild-status.json the agent polls after
+'           : Access exits. Preserves phaseStarted from an existing file when the
+'           : caller does not supply one.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WriteRebuildStatusFile(strFile As String, strStatus As String, _
+    Optional strError As String, Optional strBuildLog As String, _
+    Optional strPhaseStarted As String)
+
+    Dim dStatus As Dictionary
+    Dim dExisting As Dictionary
+    Dim strStarted As String
+
+    If Len(strFile) = 0 Then Exit Sub
+
+    strStarted = strPhaseStarted
+    If Len(strStarted) = 0 Then
+        Set dExisting = ReadRebuildStatusFile(strFile)
+        If Not dExisting Is Nothing Then
+            If dExisting.Exists("phaseStarted") Then strStarted = Nz(dExisting("phaseStarted"), vbNullString)
+        End If
+    End If
+    If Len(strStarted) = 0 Then strStarted = Format$(Now, "yyyy-mm-dd hh:nn:ss")
+
+    Set dStatus = New Dictionary
+    dStatus.Add "status", strStatus
+    dStatus.Add "error", strError
+    dStatus.Add "buildLog", strBuildLog
+    dStatus.Add "phaseStarted", strStarted
+    dStatus.Add "updated", Format$(Now, "yyyy-mm-dd hh:nn:ss")
+
+    VerifyPath strFile
+    WriteFile ConvertToJson(dStatus, JSON_WHITESPACE), strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadRebuildStatusFile
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Parse rebuild-status.json into a Dictionary, or Nothing if missing/invalid.
+'---------------------------------------------------------------------------------------
+'
+Public Function ReadRebuildStatusFile(strFile As String) As Dictionary
+
+    Dim strJson As String
+
+    If Len(strFile) = 0 Then Exit Function
+    If Not FSO.FileExists(strFile) Then Exit Function
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    strJson = ReadFile(strFile)
+    If Len(strJson) = 0 Then Exit Function
+    Set ReadRebuildStatusFile = ParseJson(strJson)
+    CatchAny eelError, "Unable to parse rebuild status file", _
+        ModuleName & ".ReadRebuildStatusFile", True, True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RecordSilentInstallResult
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : During /cmd INSTALL SILENT, write the terminal status using the source
+'           : path saved by AfterBuild. No-ops when that path is missing.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RecordSilentInstallResult(strStatus As String, Optional strError As String)
+
+    Dim strSource As String
+
+    If Operation.InteractionMode <> eimSilent Then Exit Sub
+    strSource = GetSetting(PROJECT_NAME, "Install", "Source Path", vbNullString)
+    If Len(strSource) = 0 Then Exit Sub
+    WriteRebuildStatusFile GetRebuildStatusFilePath(strSource), strStatus, strError
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
