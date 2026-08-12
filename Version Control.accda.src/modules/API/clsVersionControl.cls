@@ -179,6 +179,169 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BuildHeadless
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Full build from source for unattended callers. Unlike Build, this runs
+'           : synchronously and returns a machine-readable result, so a CI pipeline can
+'           : tell success from failure without scraping the log or watching the UI.
+'           :
+'           : Pass strSourceFolder to build from a specific folder, or omit it to use
+'           : the export folder configured for the currently open database.
+'           :
+'           : Returns JSON: {"success":true/false, "logPath":"...", "errorCount":0,
+'           :   "warningCount":0, "durationMs":0, "databasePath":"...", "error":"..."}
+'---------------------------------------------------------------------------------------
+'
+Public Function BuildHeadless(Optional ByVal strSourceFolder As String) As String
+    BuildHeadless = RunHeadlessBuild(strSourceFolder, True)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeHeadless
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Merge changed source files into the open database for unattended callers.
+'           : The headless counterpart to MergeBuild, returning the same JSON shape as
+'           : BuildHeadless. Requires an open database.
+'---------------------------------------------------------------------------------------
+'
+Public Function MergeHeadless(Optional ByVal strSourceFolder As String) As String
+    MergeHeadless = RunHeadlessBuild(strSourceFolder, False)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunHeadlessBuild
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Shared implementation for BuildHeadless / MergeHeadless.
+'           :
+'           : Deliberately bypasses clsVersionControl.Build, which opens frmVCSMain and
+'           : hands the work to SetTimer "Build" -- that returns before the build starts,
+'           : so there is nothing to report. The timer exists to release the form
+'           : reference before a same-named form is imported, which cannot matter here
+'           : because no form is opened. modBuild.Build is called directly instead, and
+'           : reports back through its dOutcome out-param (Operation.Finish releases the
+'           : Log singleton, so the log path cannot be read after the call returns).
+'---------------------------------------------------------------------------------------
+'
+Private Function RunHeadlessBuild(ByVal strSourceFolder As String, _
+    ByVal blnFullBuild As Boolean) As String
+
+    Dim dResult As Dictionary
+    Dim dOutcome As Dictionary
+    Dim intPriorMode As eInteractionMode
+    Dim varKey As Variant
+    Dim intOperationType As eOperationType
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+
+    ' Captured before anything can fail, so the error handler always restores the
+    ' caller's own mode rather than assuming it was the default.
+    intPriorMode = Operation.InteractionMode
+
+    ' A merge updates the database that is open; a full build can create one.
+    ' Checked first, since CurrentProject cannot be read with nothing open.
+    If Not DatabaseFileOpen Then
+        If Not blnFullBuild Then
+            SetPreflightError dResult, "No database is currently open. A merge requires an open database."
+            RunHeadlessBuild = ConvertToJson(dResult)
+            Exit Function
+        End If
+
+    ' The add-in cannot rebuild itself out from under the code that is running.
+    ' (RebuildAddIn exists for that, and drives a separate Access instance.)
+    ElseIf StrComp(CodeProject.FullName, CurrentProject.FullName, vbTextCompare) = 0 Then
+        SetPreflightError dResult, "Cannot build the add-in from within itself. Use RebuildAddIn instead."
+        RunHeadlessBuild = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Fall back to the export folder configured for the open database.
+    If Len(strSourceFolder) = 0 Then
+        If DatabaseFileOpen Then strSourceFolder = Options.GetExportFolder
+    End If
+    If Len(strSourceFolder) = 0 Then
+        SetPreflightError dResult, "No source folder specified, and none could be determined " & _
+            "from the current database."
+        RunHeadlessBuild = ConvertToJson(dResult)
+        Exit Function
+    End If
+    If Not FolderHasVcsOptionsFile(strSourceFolder) Then
+        SetPreflightError dResult, "Source files not found in folder: " & strSourceFolder
+        RunHeadlessBuild = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Silent mode routes MsgBox2 prompts to the log and returns their default answer,
+    ' and suppresses the progress form. Set before Begin, which raises its own modal
+    ' dialog when it refuses -- exactly the prompt an unattended session cannot answer.
+    ' Restored on every path out, so a session that called this once is not left silent.
+    Operation.InteractionMode = eimSilent
+
+    intOperationType = IIf(blnFullBuild, eotBuild, eotMerge)
+    If Not Operation.Begin(intOperationType) Then
+        Operation.InteractionMode = intPriorMode
+        SetPreflightError dResult, "Could not begin operation (another operation may be running)"
+        RunHeadlessBuild = ConvertToJson(dResult)
+        Exit Function
+    End If
+
+    ' Seed the outcome so a build that dies before CleanUp still reports a failure
+    ' rather than an empty result.
+    Set dOutcome = New Dictionary
+    dOutcome.Add "success", False
+
+    modBuild.Build strSourceFolder, blnFullBuild, ecfAllObjects, , , dOutcome
+
+    Operation.InteractionMode = intPriorMode
+
+    For Each varKey In dOutcome.Keys
+        dResult.Add CStr(varKey), dOutcome(varKey)
+    Next varKey
+    If Not dResult("success") Then
+        dResult.Add "error", IIf(blnFullBuild, "Build", "Merge") & _
+            " did not complete successfully. Check the log for details."
+    End If
+
+    RunHeadlessBuild = ConvertToJson(dResult)
+    Exit Function
+
+ErrHandler:
+    ' Never leave the operation running, or every later call is refused.
+    If Operation.Status = eosRunning Then
+        Log.Active = False
+        Operation.Finish eorFailed
+    End If
+    Operation.InteractionMode = intPriorMode
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "error", Err.Description
+    dResult.Add "errorNumber", CLng(Err.Number)
+    RunHeadlessBuild = ConvertToJson(dResult)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetPreflightError
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Populate a preflight failure result for the headless build entry points.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetPreflightError(dResult As Dictionary, strError As String)
+    dResult.Add "success", False
+    dResult.Add "error", strError
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : BuildAs
 ' Author    : Adam Waller
 ' Date      : 7/8/2023

@@ -39,12 +39,21 @@ Private m_blnVerifiedAccessible As Boolean
 '           : ResetProjectForInPlaceMerge has reset its VBA project. (See the merge
 '           : preparation section below.) It preserves the log and performance timers
 '           : started by the first call.
+'           :
+'           : dOutcome is an out-param for unattended callers (see
+'           : clsVersionControl.BuildHeadless). Operation.Finish releases the Log and
+'           : Perf singletons, so a caller that returns a result to a pipeline cannot
+'           : read the log path or the error counts afterwards -- they have to be
+'           : captured here, on the way out. Populated on every path that reaches
+'           : CleanUp; a merge that hands off to the reset timer returns before that,
+'           : which is why headless merges force the reopen path.
 '---------------------------------------------------------------------------------------
 '
 Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 , Optional intFilter As eContainerFilter = ecfAllObjects _
                 , Optional strAlternatePath As String _
-                , Optional blnResumed As Boolean)
+                , Optional blnResumed As Boolean _
+                , Optional ByRef dOutcome As Dictionary)
 
     Const FunctionName As String = ModuleName & ".Build"
 
@@ -206,7 +215,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
             ElseIf Not FlushVbaProjectAfterReset Then
                 ReopenBeforeMerge strPath
             End If
-        ElseIf Options.SkipReopenBeforeMerge Then
+        ElseIf Options.SkipReopenBeforeMerge And dOutcome Is Nothing Then
+            ' The in-place path hands off to a timer and returns on this stack, so it
+            ' can never report an outcome to a synchronous caller. A caller that passed
+            ' dOutcome is waiting for a result, so it takes the reopen path instead --
+            ' slower, but it runs to completion here. (See BuildHeadless.)
+            '
             ' Crash tracing is off. The in-place merge and VBA project save are settled
             ' (see DECISIONS.md 2026-07-29), so the trace noise and the log rewrite that
             ' each entry costs are not worth paying on every merge. Uncomment to trace a
@@ -250,9 +264,16 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
     End If
 
-    ' Launch the GUI form
-    DoCmd.OpenForm "frmVCSMain"
-    Form_frmVCSMain.StartBuild blnFullBuild
+    ' Launch the GUI form, unless the caller asked for silence. Opening it makes it
+    ' visible (StartBuild -> ResetForOperation sets Me.Visible), so an unattended
+    ' build would flash a window on a runner's desktop for no benefit. Gated on the
+    ' interaction mode rather than on Operation.Source, because an API or MCP build
+    ' is still watched by someone unless it explicitly said otherwise, and the form
+    ' is where they watch it. Everything below tolerates the form being absent.
+    If Operation.InteractionMode <> eimSilent Then
+        DoCmd.OpenForm "frmVCSMain"
+        Form_frmVCSMain.StartBuild blnFullBuild
+    End If
 
     ' Minimize the VBE window to prevent it from stealing focus
     ' when VBA components are imported during the build.
@@ -617,6 +638,16 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Log any errors after build/merge
     CatchAny eelError, T("Error running {0}", var0:=CallByName(Options, "RunAfter" & strType, VbGet)), FunctionName, True, True
 
+    ' Validate the build. Unlike the RunAfter* hooks above, this one gates success:
+    ' a build that produced every object but cannot actually run is a failed build,
+    ' and a deployment pipeline needs to hear about it here rather than from users.
+    If Options.ValidateAfterBuild <> vbNullString Then
+        If Not RunBuildValidation() Then
+            Operation.ErrorLevel = eelCritical
+            GoTo CleanUp
+        End If
+    End If
+
     ' If the database is not accessible to other clients, reopen it in shared mode.
     ' Uses an out-of-process worker to detect the engine-level lock state that an
     ' in-process check cannot see, and reopens unconditionally when the worker is
@@ -710,9 +741,22 @@ CleanUp:
         Log.Flush
     End If
 
+    ' Capture the outcome for an unattended caller before Operation.Finish releases
+    ' the Log and Perf singletons. (Log.SaveFile above is what sets SavedLogFilePath.)
+    If Not dOutcome Is Nothing Then
+        With dOutcome
+            .Item("success") = blnSuccess And (Operation.ErrorLevel <> eelCritical)
+            .Item("logPath") = Log.SavedLogFilePath
+            .Item("errorCount") = Log.ErrorCount
+            .Item("warningCount") = Log.WarningCount
+            .Item("durationMs") = CLng(Perf.TotalTime * 1000)
+            If DatabaseFileOpen Then .Item("databasePath") = CurrentProject.FullName
+        End With
+    End If
+
     ' Wrap up build.
     DoCmd.Hourglass False
-    If Forms.Count > 0 Then
+    If IsLoaded(acForm, "frmVCSMain") Then
         ' Finish up on GUI
         Form_frmVCSMain.FinishBuild blnFullBuild, blnSuccess
     Else
@@ -733,6 +777,12 @@ CleanUp:
     End If
     Set VCSIndex = Nothing
 
+    ' A failed build must not finish as "complete". Operation.Result is only set to
+    ' eorSuccess on the path that reaches the end of the build, so every failure that
+    ' jumped to CleanUp still carries eorUnknown -- which Finish maps to a "complete"
+    ' MCP callback. Say what actually happened before finishing.
+    If Not blnSuccess Or Operation.ErrorLevel = eelCritical Then Operation.Result = eorFailed
+
     ' Wait to finish the build till after we have saved the index.
     Operation.Finish
 
@@ -745,6 +795,67 @@ CleanUp:
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunBuildValidation
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Run the Options.ValidateAfterBuild function in the freshly built database
+'           : and report whether it approved the build. Anything other than an explicit
+'           : True is a failure: a missing procedure, a raised error, no return value,
+'           : or a return that is not a Boolean. Silence must not read as approval when
+'           : the answer gates a deployment.
+'---------------------------------------------------------------------------------------
+'
+Private Function RunBuildValidation() As Boolean
+
+    Const FunctionName As String = ModuleName & ".RunBuildValidation"
+
+    Dim strProc As String
+    Dim varResult As Variant
+    Dim blnRan As Boolean
+    Dim blnPassed As Boolean
+    Dim lngErrorsBefore As Long
+
+    strProc = Options.ValidateAfterBuild
+    lngErrorsBefore = Log.ErrorCount
+
+    Log.Add T("Validating build with {0}...", var0:=strProc)
+    Log.Flush
+    Perf.OperationStart "ValidateAfterBuild"
+    varResult = RunProcInCurrentProject(strProc, blnRan)
+    Perf.OperationEnd
+
+    ' RunProcInCurrentProject logs and clears whatever the hook raised, and logs when the
+    ' procedure cannot be found, so the error count is how both come back to us.
+    If Not blnRan Or Log.ErrorCount > lngErrorsBefore Then
+        Log.Add T("Build validation failed: unable to run {0}.", var0:=strProc), , , "red", True
+        Exit Function
+    End If
+
+    If IsEmpty(varResult) Then
+        Log.Error eelError, T("{0} did not return a value.", var0:=strProc), FunctionName
+        Log.Add T("The validation procedure must be a Function that returns True on success."), False
+        Exit Function
+    End If
+
+    LogUnhandledErrors
+    On Error Resume Next
+    blnPassed = CBool(varResult)
+    If CatchAny(eelError, T("{0} returned a value that is not True or False.", var0:=strProc), _
+        FunctionName) Then blnPassed = False
+    On Error GoTo 0
+
+    If blnPassed Then
+        Log.Add T("Build validation passed.")
+    Else
+        Log.Add T("Build validation failed: {0} returned False.", var0:=strProc), , , "red", True
+    End If
+
+    RunBuildValidation = blnPassed
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

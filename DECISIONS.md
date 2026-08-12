@@ -83,6 +83,129 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — Headless build entry points return JSON instead of scheduling work
+
+**Trigger**: Building an automated deployment pipeline (issue #51) requires knowing
+whether a build succeeded. `VCS.Build` and `VCS.MergeBuild` are `Sub`s that open
+`frmVCSMain` and hand the work to `SetTimer "Build"`, so they return before the
+build starts and report nothing. Every external builder written against them —
+`msaccess-vcs-build` among them — ends up polling log files or counting objects to
+guess at an outcome, which is why they are all fragile in the same way.
+
+**Options explored**:
+- *Add `BuildHeadless` / `MergeHeadless` calling `modBuild.Build` directly, with an
+  out-param for the outcome.* Chosen. The timer exists to release the form
+  reference before a same-named form is imported, which cannot matter when no form
+  is opened, so the indirection has no purpose on this path.
+- *Change `Build` to return JSON.* Rejected. It is called from the ribbon and from
+  `APIAsync`, and its asynchrony is load-bearing for the interactive path.
+- *Have the caller read `Log.SavedLogFilePath` after the call.* Rejected because it
+  does not work: `Operation.Finish` calls `ReleaseObjects`, which drops the `Log`,
+  `Perf`, and `Options` singletons. The caller reads a fresh empty object.
+  `LoadSingleObject` had already hit this and solved it with a `strSavedLogPath`
+  out-param; `dOutcome As Dictionary` is the same solution for more fields.
+- *Poll a status file, as `RebuildAddIn` does.* Rejected here. That protocol exists
+  because Access must quit before the answer is known. Nothing quits during a
+  normal build, so a synchronous return is available and simpler.
+
+**Decision**: `modBuild.Build` gained an optional `dOutcome As Dictionary`,
+populated in `CleanUp` before `Operation.Finish`. Passing it also means "a
+synchronous caller is waiting," which settles two behaviours: the in-place merge
+path (`Options.SkipReopenBeforeMerge`) is skipped, because it finishes on a timer
+and cannot report back, and `frmVCSMain` is not opened. `Operation.Result` is now
+set to `eorFailed` on failure paths — it was left at `eorUnknown`, which
+`Operation.Finish` maps to a "complete" MCP callback, so failed builds were
+reporting success to MCP callers.
+
+**What this rules out**: Headless merges benefiting from the in-place optimization;
+they always reopen. Adding a result field computed after the call returns — every
+field must be captured inside `CleanUp` while the singletons are alive. Revisit if
+the in-place merge is ever restructured to complete on one call stack.
+
+**Relevant files**: `clsVersionControl.cls` (`BuildHeadless`, `MergeHeadless`,
+`RunHeadlessBuild`), `modBuild.bas`, `docs/automation-contract.md`,
+`Wiki/Continuous-Integration.md`, `modTestHeadlessBuild.bas`
+
+---
+
+## 2026-08-12 — ValidateAfterBuild fails the build; the RunAfter hooks do not
+
+**Trigger**: A build can produce every object and still be unshippable — a missing
+lookup table, configuration that did not come across, a linked table pointing at
+the wrong server. Compilation does not catch these, and a pipeline needs the
+verdict before the file reaches users. The existing `RunAfterBuild` /
+`RunAfterMerge` hooks cannot serve: they run through `RunSubInCurrentProject`,
+which discards any return value, and an error inside one is logged without
+affecting the result.
+
+**Options explored**:
+- *A separate `ValidateAfterBuild` option running a `Function` that returns
+  `True`.* Chosen. Keeps the existing hooks' contract intact for users relying on
+  them, and makes the gating explicit at the point the option is named.
+- *Make `RunAfterBuild` fail the build when it returns `False`.* Rejected. It is
+  documented as a `Sub`, and existing hooks that happen to be `Function`s returning
+  nothing would start failing builds on upgrade.
+- *Infer failure from `Log.ErrorCount` after the hook.* Rejected as the primary
+  signal — it cannot express "everything ran cleanly but the result is wrong."
+  It is used internally, though, to detect that the hook itself errored:
+  `RunProcInCurrentProject` logs and clears the error before returning.
+- *Treat a non-Boolean or missing return as success.* Rejected. A validation step
+  that stays quiet when misconfigured is worse than none, because it reads as a
+  passing gate. `False`, an error, a missing procedure, a `Sub`, and an
+  uncoercible return all fail.
+
+**Decision**: New `Options.ValidateAfterBuild` naming a `Public Function` in the
+built database, run last (after `RunAfterBuild` / `RunAfterMerge`). Anything other
+than an explicit `True` sets `eelCritical` and fails the build.
+`RunSubInCurrentProject` was refactored into `RunProcInCurrentProject`, which
+returns the value and reports through `blnRan` whether the procedure ran at all —
+a refusal must not be readable as a `False` verdict.
+
+**What this rules out**: Validation hooks taking parameters, matching the existing
+hooks. It is settable three ways — **Validate Build With** under **Build Hooks** on
+the options form, `vcs-options.json`, or `VCS.Options` — so a pipeline and an
+interactive user configure the same option.
+
+**Relevant files**: `clsOptions.cls`, `modBuild.bas` (`RunBuildValidation`),
+`modDatabase.bas`, `frmVCSOptionsBuild.form`, `frmVCSOptionsBuild.cls`,
+`docs/automation-contract.md`
+
+---
+
+## 2026-08-12 — Silent install takes its status file path from the command line
+
+**Trigger**: `/cmd "INSTALL SILENT"` reported its outcome to a path derived from
+the `Install\Source Path` registry value, which an add-in rebuilding itself writes
+during `AfterBuild`. A CI runner installing a downloaded release has written no
+such value, so `RecordSilentInstallResult` silently no-opped and the pipeline got
+no answer at all.
+
+**Options explored**:
+- *Accept the path after the keyword: `/cmd "INSTALL SILENT <path>"`.* Chosen.
+  Stateless and self-describing. Everything after `SILENT` is taken as the path
+  rather than split on spaces, so install paths need no inner quoting; surrounding
+  quotes are stripped if present.
+- *Have the pipeline write the registry value before launching.* Rejected. A hidden
+  coupling that also requires the install to run under the same user profile.
+- *A separate `/cmd INSTALL_CI` verb.* Rejected. Same behaviour, one more token to
+  document, and it would still need somewhere to put the path.
+
+**Decision**: `ParseInstallCommand` gained a `strStatusFile` out-param, and
+`AutoRun` writes `installing` to it as soon as the silent path is recognized —
+before doing any work. That early write is what makes the untrusted-location case
+detectable: if the `.accda` is not in a trusted location, no VBA runs and no file
+appears, which the add-in cannot report because its own code is what did not run.
+An absent status file is therefore the pipeline's signal that macros were blocked,
+distinct from a file reading `install-failed`.
+
+**What this rules out**: Reporting the untrusted-location condition from inside the
+add-in — trusting the folder stays a documented precondition of unattended install.
+
+**Relevant files**: `modInstall.bas` (`ParseInstallCommand`, `PopToken`, `AutoRun`,
+`RecordSilentInstallResult`), `clsTestInstall.cls`
+
+---
+
 ## 2026-08-12 — Rebuild blocks on instances holding its files, not on their existence
 
 **Trigger**: The refusal was scoped to the wrong question. It asked whether another

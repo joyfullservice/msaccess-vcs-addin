@@ -52,6 +52,7 @@ Welcome! This wiki documents installation and usage of the **MSAccess Version Co
 | Page | Description |
 |------|-------------|
 | [MCP and Automation](MCP-and-Automation) | AI/agent integration — permissions, security, when to enable |
+| [Continuous Integration](Continuous-Integration) | Headless build, merge, and test methods for an automated deployment pipeline |
 | [Export on Save Hook](Export-on-Save-Hook) | Experimental, community-contributed DLL to export objects when saved in Access |
 
 ---

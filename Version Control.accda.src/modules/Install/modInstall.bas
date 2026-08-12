@@ -127,23 +127,66 @@ End Sub
 ' Date      : 8/12/2026
 ' Purpose   : Normalize /cmd tokens for the installer. Returns "INSTALL",
 '           : "INSTALL SILENT", or an empty string when the command is not an install.
+'           :
+'           : "INSTALL SILENT" may be followed by a status file path, which is returned
+'           : through strStatusFile:
+'           :   /cmd "INSTALL SILENT C:\runner\work\install-status.json"
+'           : An add-in rebuilding itself finds that path in the registry, but a CI
+'           : runner installing a downloaded release has written no registry value, so
+'           : the command line is its only way to say where the answer should go.
+'           : Everything after the keyword is taken as the path (surrounding quotes
+'           : stripped) rather than split on spaces, since install paths contain them.
 '---------------------------------------------------------------------------------------
 '
-Public Function ParseInstallCommand(strCommand As String) As String
+Public Function ParseInstallCommand(strCommand As String, _
+    Optional ByRef strStatusFile As String) As String
 
-    Dim strNorm As String
+    Dim strRest As String
+    Dim strToken As String
 
-    strNorm = UCase$(Trim$(strCommand))
-    Do While InStr(strNorm, "  ") > 0
-        strNorm = Replace(strNorm, "  ", " ")
-    Loop
+    strStatusFile = vbNullString
+    strRest = Trim$(strCommand)
 
-    Select Case strNorm
-        Case "INSTALL", "INSTALL SILENT"
-            ParseInstallCommand = strNorm
-        Case Else
-            ParseInstallCommand = vbNullString
-    End Select
+    If UCase$(PopToken(strRest)) <> "INSTALL" Then Exit Function
+    If Len(strRest) = 0 Then
+        ParseInstallCommand = "INSTALL"
+        Exit Function
+    End If
+
+    strToken = PopToken(strRest)
+    If UCase$(strToken) <> "SILENT" Then Exit Function
+
+    ParseInstallCommand = "INSTALL SILENT"
+    strStatusFile = Trim$(strRest)
+    If Len(strStatusFile) > 1 Then
+        If Left$(strStatusFile, 1) = """" And Right$(strStatusFile, 1) = """" Then
+            strStatusFile = Mid$(strStatusFile, 2, Len(strStatusFile) - 2)
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PopToken
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Remove and return the first space-delimited word from strText, leaving
+'           : the remainder (left-trimmed) behind.
+'---------------------------------------------------------------------------------------
+'
+Private Function PopToken(ByRef strText As String) As String
+
+    Dim lngPos As Long
+
+    lngPos = InStr(strText, " ")
+    If lngPos = 0 Then
+        PopToken = strText
+        strText = vbNullString
+    Else
+        PopToken = Left$(strText, lngPos - 1)
+        strText = LTrim$(Mid$(strText, lngPos + 1))
+    End If
 
 End Function
 
@@ -159,13 +202,22 @@ End Function
 Public Function AutoRun() As Boolean
 
     Dim strInstallCmd As String
+    Dim strStatusFile As String
 
     ' Handle command-line install automation (/cmd INSTALL or /cmd INSTALL SILENT)
-    strInstallCmd = ParseInstallCommand(Command$)
+    strInstallCmd = ParseInstallCommand(Command$, strStatusFile)
     If Len(strInstallCmd) > 0 Then
         If strInstallCmd = "INSTALL SILENT" Then
             Operation.Source = eosExternalAPI
             SetInteractionMode eimSilent
+            ' Claim the status file immediately. Code here only runs at all if the
+            ' add-in file is in a trusted location, so a caller that supplied a path
+            ' and finds nothing written can tell "macros were blocked, the install
+            ' never started" apart from "the install started and then failed."
+            If Len(strStatusFile) > 0 Then
+                WriteRebuildStatusFile strStatusFile, "installing", , , _
+                    Format$(Now, "yyyy-mm-dd hh:nn:ss")
+            End If
         End If
         VerifyResources
         GetInstallSettings
@@ -1947,18 +1999,28 @@ End Function
 ' Procedure : RecordSilentInstallResult
 ' Author    : Adam Waller
 ' Date      : 8/12/2026
-' Purpose   : During /cmd INSTALL SILENT, write the terminal status using the source
-'           : path saved by AfterBuild. No-ops when that path is missing.
+' Purpose   : During /cmd INSTALL SILENT, write the terminal status to the file the
+'           : caller named on the command line, or failing that to the source path
+'           : saved by AfterBuild. No-ops when neither is available.
 '---------------------------------------------------------------------------------------
 '
 Private Sub RecordSilentInstallResult(strStatus As String, Optional strError As String)
 
     Dim strSource As String
+    Dim strFile As String
 
     If Operation.InteractionMode <> eimSilent Then Exit Sub
-    strSource = GetSetting(PROJECT_NAME, "Install", "Source Path", vbNullString)
-    If Len(strSource) = 0 Then Exit Sub
-    WriteRebuildStatusFile GetRebuildStatusFilePath(strSource), strStatus, strError
+
+    ' A path on the command line wins. It is the only signal available to a runner
+    ' installing a downloaded release, which never wrote the registry value that an
+    ' add-in rebuilding itself leaves behind.
+    ParseInstallCommand Command$, strFile
+    If Len(strFile) = 0 Then
+        strSource = GetSetting(PROJECT_NAME, "Install", "Source Path", vbNullString)
+        If Len(strSource) = 0 Then Exit Sub
+        strFile = GetRebuildStatusFilePath(strSource)
+    End If
+    WriteRebuildStatusFile strFile, strStatus, strError
 
 End Sub
 

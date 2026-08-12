@@ -54,6 +54,7 @@
     "RunAfterBuild": "AfterBuild",
     "RunBeforeMerge": "",
     "RunAfterMerge": "",
+    "ValidateAfterBuild": "",
     "TablesToExportData": {
       "USysRegInfo": {
         "Format": "Tab Delimited"

@@ -12,7 +12,7 @@ Begin Form
     GridY =24
     Width =6480
     DatasheetFontHeight =11
-    ItemSuffix =20
+    ItemSuffix =23
     Right =50000
     Bottom =50000
     RecSrcDt = Begin
@@ -123,7 +123,7 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Section
-            Height =12663
+            Height =13683
             BackColor =15130848
             Name ="Detail"
             AlternateBackColor =15130848
@@ -408,24 +408,72 @@ Begin Form
                     LayoutCachedHeight =6360
                     ForeTint =50.0
                 End
+                Begin TextBox
+                    OverlapFlags =85
+                    IMESentenceMode =3
+                    Left =2700
+                    Top =6600
+                    Width =2640
+                    Height =315
+                    TabIndex =7
+                    Name ="txtValidateAfterBuild"
+
+                    LayoutCachedLeft =2700
+                    LayoutCachedTop =6600
+                    LayoutCachedWidth =5340
+                    LayoutCachedHeight =6915
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =420
+                            Top =6600
+                            Width =2205
+                            Height =315
+                            ForeColor =5324600
+                            Name ="lblValidateAfterBuild"
+                            Caption ="Validate Build With:"
+                            LayoutCachedLeft =420
+                            LayoutCachedTop =6600
+                            LayoutCachedWidth =2625
+                            LayoutCachedHeight =6915
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin Label
+                    OverlapFlags =85
+                    Left =2700
+                    Top =7020
+                    Width =3540
+                    Height =480
+                    FontSize =10
+                    Name ="lblValidateAfterBuildHint"
+                    Caption ="(Function must return True; runs after merge too)"
+                    LayoutCachedLeft =2700
+                    LayoutCachedTop =7020
+                    LayoutCachedWidth =6240
+                    LayoutCachedHeight =7500
+                    ForeTint =50.0
+                End
                 Begin Line
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =8880
+                    Top =9900
                     Width =6420
                     Name ="Line6"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =8880
+                    LayoutCachedTop =9900
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =8880
+                    LayoutCachedHeight =9900
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =8520
+                    Top =9540
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -433,16 +481,16 @@ Begin Form
                     Name ="Label7"
                     Caption ="Please Note"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =8520
+                    LayoutCachedTop =9540
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =8820
+                    LayoutCachedHeight =9840
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =420
-                    Top =9180
+                    Top =10200
                     Width =6000
                     Height =3483
                     ForeColor =5324600
@@ -455,9 +503,9 @@ Begin Form
                         " on the build process. If you encounter a problem, please feel free to open an i"
                         "ssues on the GitHub project."
                     LayoutCachedLeft =420
-                    LayoutCachedTop =9180
+                    LayoutCachedTop =10200
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =12663
+                    LayoutCachedHeight =13683
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -555,20 +603,20 @@ Begin Form
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =7020
+                    Top =8040
                     Width =6420
                     Name ="Line10"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =7020
+                    LayoutCachedTop =8040
                     LayoutCachedWidth =6480
-                    LayoutCachedHeight =7020
+                    LayoutCachedHeight =8040
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =6660
+                    Top =7680
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -576,9 +624,9 @@ Begin Form
                     Name ="Label11"
                     Caption ="Merge Hooks"
                     LayoutCachedLeft =60
-                    LayoutCachedTop =6660
+                    LayoutCachedTop =7680
                     LayoutCachedWidth =6420
-                    LayoutCachedHeight =6960
+                    LayoutCachedHeight =7980
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -586,33 +634,33 @@ Begin Form
                     OverlapFlags =85
                     IMESentenceMode =3
                     Left =2700
-                    Top =7320
+                    Top =8340
                     Width =2640
                     Height =315
-                    TabIndex =7
+                    TabIndex =8
                     Name ="txtRunBeforeMerge"
                     ValidationRule ="Like \"*?.?*\" Or \"\" Or Is Null"
                     ValidationText ="This value must include both module and sub names joined with a period. For exam"
                         "ple, use MyModule.Bootstrap to run the Bootstrap sub in MyModule."
 
                     LayoutCachedLeft =2700
-                    LayoutCachedTop =7320
+                    LayoutCachedTop =8340
                     LayoutCachedWidth =5340
-                    LayoutCachedHeight =7635
+                    LayoutCachedHeight =8655
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =420
-                            Top =7320
+                            Top =8340
                             Width =2205
                             Height =315
                             ForeColor =5324600
                             Name ="Label13"
                             Caption ="Run Sub Before Merge:"
                             LayoutCachedLeft =420
-                            LayoutCachedTop =7320
+                            LayoutCachedTop =8340
                             LayoutCachedWidth =2625
-                            LayoutCachedHeight =7635
+                            LayoutCachedHeight =8655
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -622,30 +670,30 @@ Begin Form
                     OverlapFlags =85
                     IMESentenceMode =3
                     Left =2700
-                    Top =7860
+                    Top =8880
                     Width =2640
                     Height =315
-                    TabIndex =8
+                    TabIndex =9
                     Name ="txtRunAfterMerge"
 
                     LayoutCachedLeft =2700
-                    LayoutCachedTop =7860
+                    LayoutCachedTop =8880
                     LayoutCachedWidth =5340
-                    LayoutCachedHeight =8175
+                    LayoutCachedHeight =9195
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =420
-                            Top =7860
+                            Top =8880
                             Width =2055
                             Height =315
                             ForeColor =5324600
                             Name ="Label15"
                             Caption ="Run Sub After Merge:"
                             LayoutCachedLeft =420
-                            LayoutCachedTop =7860
+                            LayoutCachedTop =8880
                             LayoutCachedWidth =2475
-                            LayoutCachedHeight =8175
+                            LayoutCachedHeight =9195
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End

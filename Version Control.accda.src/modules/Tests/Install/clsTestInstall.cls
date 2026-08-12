@@ -56,6 +56,31 @@ Public Sub TestParseInstallCommand_NotInstall()
     TestAssert ParseInstallCommand(vbNullString) = vbNullString, "empty"
     TestAssert ParseInstallCommand("EXPORT") = vbNullString, "EXPORT"
     TestAssert ParseInstallCommand("INSTALLING") = vbNullString, "INSTALLING is not INSTALL"
+    TestAssert ParseInstallCommand("INSTALL LOUDLY") = vbNullString, "unknown modifier"
+End Sub
+
+
+Public Sub TestParseInstallCommand_StatusFile()
+
+    Dim strFile As String
+
+    TestAssert ParseInstallCommand("INSTALL SILENT C:\ci\status.json", strFile) = _
+        "INSTALL SILENT", "keyword still recognized with a path"
+    TestAssert strFile = "C:\ci\status.json", "unquoted path"
+
+    ParseInstallCommand "INSTALL SILENT ""C:\Program Files\status.json""", strFile
+    TestAssert strFile = "C:\Program Files\status.json", "quotes stripped"
+
+    ' Taken whole rather than split on spaces, so repeated spaces in a path survive.
+    ParseInstallCommand "INSTALL SILENT C:\two  spaces\status.json", strFile
+    TestAssert strFile = "C:\two  spaces\status.json", "interior spaces preserved"
+
+    ParseInstallCommand "INSTALL SILENT", strFile
+    TestAssert strFile = vbNullString, "no path supplied"
+
+    ParseInstallCommand "INSTALL", strFile
+    TestAssert strFile = vbNullString, "plain install carries no path"
+
 End Sub
 
 

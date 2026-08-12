@@ -58,6 +58,7 @@ Private Sub LoadOptions()
         Me.chkSkipReopenBeforeMerge = .SkipReopenBeforeMerge
         Me.txtRunBeforeBuild = .RunBeforeBuild
         Me.txtRunAfterBuild = .RunAfterBuild
+        Me.txtValidateAfterBuild = .ValidateAfterBuild
         Me.txtRunBeforeMerge = .RunBeforeMerge
         Me.txtRunAfterMerge = .RunAfterMerge
     End With
@@ -81,6 +82,7 @@ Private Sub SaveOptions()
         .SkipReopenBeforeMerge = Nz(Me.chkSkipReopenBeforeMerge)
         .RunBeforeBuild = Nz(Me.txtRunBeforeBuild)
         .RunAfterBuild = Nz(Me.txtRunAfterBuild)
+        .ValidateAfterBuild = Nz(Me.txtValidateAfterBuild)
         .RunBeforeMerge = Nz(Me.txtRunBeforeMerge)
         .RunAfterMerge = Nz(Me.txtRunAfterMerge)
     End With

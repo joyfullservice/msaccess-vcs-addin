@@ -103,11 +103,15 @@ vcs_run_tests("C:\Repos\msaccess-vcs-addin\Version Control.accda", "clsTestInsta
 open either copy without the install message box closing the instance or the
 installer form stranding it.
 
-The add-in must already be open in an Access instance before the call. The MCP
-server attaches to a running instance through the Running Object Table and does not
-open a database itself, so it reports `Cannot find Access instance ... may have been
-closed` when nothing has that file open. Open it, then hand ownership to the desktop
-so the instance outlives the launching script:
+`vcs_run_tests` opens the file itself when no instance has it open, `.accda`
+included. The server binds a file moniker first, which Access only honours for a
+database extension, and falls back to `OpenCurrentDatabase` when that bind fails.
+
+`vcs_run_vba` is the exception. It attaches through the Running Object Table
+without opening anything, so it reports `Cannot find Access instance ... may have
+been closed` unless the file is already open — for a `.accdb` as much as a
+`.accda`. Open it first, handing ownership to the desktop so the instance
+outlives the launching script:
 
 ```powershell
 $app = New-Object -ComObject Access.Application

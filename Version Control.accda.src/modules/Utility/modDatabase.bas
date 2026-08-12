@@ -819,9 +819,35 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub RunSubInCurrentProject(strSubName As String)
+    RunProcInCurrentProject strSubName, , False
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunProcInCurrentProject
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Run a procedure in the current project and return whatever it returns.
+'           : Identical to RunSubInCurrentProject except that the return value is
+'           : surfaced, which is what a validation hook needs. blnRan distinguishes
+'           : "ran and returned Empty" from "never ran" (missing, or rejected for
+'           : taking parameters) -- a caller that treats a hook failure as a build
+'           : failure must not read a refusal as a False return.
+'           :
+'           : blnWantResult exists so RunSubInCurrentProject keeps calling
+'           : Application.Run as a statement. Assigning its result to a Variant
+'           : raises "object variable not set" when the procedure returns an object,
+'           : which would newly break existing RunAfter* hooks that happen to do so.
+'---------------------------------------------------------------------------------------
+'
+Public Function RunProcInCurrentProject(strSubName As String, _
+    Optional ByRef blnRan As Boolean, _
+    Optional ByVal blnWantResult As Boolean = True) As Variant
 
     Dim strSub As String
     Dim strCmd As String
+
+    blnRan = False
 
     ' Don't need the parentheses after the sub name
     strSub = Replace(strSubName, "()", vbNullString)
@@ -832,14 +858,14 @@ Public Sub RunSubInCurrentProject(strSubName As String)
             T("Parameters are not supported for this command."), _
             T("If you need to use parameters, please create a wrapper sub or function with" & vbCrLf & _
             "no parameters that you can call instead of {0}.", var0:=strSubName), vbExclamation
-        Exit Sub
+        Exit Function
     End If
 
     ' Make sure procedure exists in current database
     If Not GlobalProcExists(strSub) Then
         Log.Error eelError, T("The procedure ""{0}"" not found.", var0:=strSub), ModuleName & ".RunSubInCurrentProject"
         Log.Add T("The procedure must be declared as public in a standard module."), False
-        Exit Sub
+        Exit Function
     End If
 
     ' Build call syntax
@@ -865,14 +891,19 @@ Public Sub RunSubInCurrentProject(strSubName As String)
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
 
-    Application.Run strCmd
+    If blnWantResult Then
+        RunProcInCurrentProject = Application.Run(strCmd)
+    Else
+        Application.Run strCmd
+    End If
+    blnRan = True
     Perf.OperationEnd
     Operation.Restore
 
     ' Log any other errors
     CatchAny eelError, T("Error running {0}", , , , strSub), ModuleName & ".RunSubInCurrentProject"
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------

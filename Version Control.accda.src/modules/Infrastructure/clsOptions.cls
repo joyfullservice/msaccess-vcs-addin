@@ -58,6 +58,9 @@ Public RunBeforeBuild As String
 Public RunAfterBuild As String
 Public RunBeforeMerge As String
 Public RunAfterMerge As String
+' Name of a function in the built database that returns True when the build is good.
+' Unlike the RunAfter* hooks, a False return or an error fails the build. (Empty = skip.)
+Public ValidateAfterBuild As String
 
 ' Table Data
 Public TablesToExportData As Dictionary
@@ -808,6 +811,7 @@ Public Function GetCategoryHashes() As Dictionary
                  "RunBeforeExport", "RunAfterExport", _
                  "RunBeforeBuild", "RunAfterBuild", _
                  "RunBeforeMerge", "RunAfterMerge", _
+                 "ValidateAfterBuild", _
                  "ShowVCSLegacy", "BreakOnError", "MaxLogFiles", _
                  "HashAlgorithm", "UseShortHash", "SchemaExports", _
                  "TablesToExportData", "DefaultTestFilter", _
@@ -1006,6 +1010,7 @@ Private Sub Class_Initialize()
         .Add "RunAfterBuild"
         .Add "RunBeforeMerge"
         .Add "RunAfterMerge"
+        .Add "ValidateAfterBuild"
         ' Table Data
         .Add "TablesToExportData"
         ' External Databases
