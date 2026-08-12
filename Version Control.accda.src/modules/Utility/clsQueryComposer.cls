@@ -3477,17 +3477,17 @@ End Function
 
 
 Private Function BuildInputTableRefLookup() As Dictionary
-    Dim dLookup As New Dictionary
+    Dim dTableRefs As New Dictionary
     Dim dTbl As Dictionary
     For Each dTbl In m_colInputTables
         If Len(CStr(dTbl("name"))) > 0 Then
-            If Not dLookup.Exists(CStr(dTbl("name"))) Then dLookup.Add CStr(dTbl("name")), True
+            If Not dTableRefs.Exists(CStr(dTbl("name"))) Then dTableRefs.Add CStr(dTbl("name")), True
         End If
         If Len(Nz(dTbl("alias"), vbNullString)) > 0 Then
-            If Not dLookup.Exists(CStr(dTbl("alias"))) Then dLookup.Add CStr(dTbl("alias")), True
+            If Not dTableRefs.Exists(CStr(dTbl("alias"))) Then dTableRefs.Add CStr(dTbl("alias")), True
         End If
     Next dTbl
-    Set BuildInputTableRefLookup = dLookup
+    Set BuildInputTableRefLookup = dTableRefs
 End Function
 
 

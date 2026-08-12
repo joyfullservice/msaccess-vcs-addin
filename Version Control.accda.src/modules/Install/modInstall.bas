@@ -1439,7 +1439,7 @@ End Function
 Private Function CollectOtherAccessProcesses(ByRef dProcs As Dictionary, _
     ByRef strError As String) As Boolean
 
-    Dim objWMI As Object
+    Dim objWmi As Object
     Dim colProcs As Object
     Dim objProc As Object
     Dim lngThisPid As Long
@@ -1460,14 +1460,14 @@ Private Function CollectOtherAccessProcesses(ByRef dProcs As Dictionary, _
         Exit Function
     End If
 
-    Set objWMI = GetObject("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2")
-    If objWMI Is Nothing Or Err.Number <> 0 Then
+    Set objWmi = GetObject("winmgmts:{impersonationLevel=impersonate}!\\.\root\cimv2")
+    If objWmi Is Nothing Or Err.Number <> 0 Then
         strError = "Process query failed: " & Err.Description
         CatchAny eelError, strError, ModuleName & ".CollectOtherAccessProcesses", True, True
         Exit Function
     End If
 
-    Set colProcs = objWMI.ExecQuery("SELECT ProcessId, CommandLine, SessionId FROM Win32_Process WHERE Name = 'MSACCESS.EXE'")
+    Set colProcs = objWmi.ExecQuery("SELECT ProcessId, CommandLine, SessionId FROM Win32_Process WHERE Name = 'MSACCESS.EXE'")
     If colProcs Is Nothing Or Err.Number <> 0 Then
         strError = "Process query failed: " & Err.Description
         CatchAny eelError, strError, ModuleName & ".CollectOtherAccessProcesses", True, True

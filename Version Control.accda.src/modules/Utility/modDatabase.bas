@@ -949,7 +949,7 @@ Public Function TableExists(strName As String, Optional dbs As DAO.Database) As 
     Dim tdf As TableDef
 
     ' Read type of table from internal system table
-    lngType = Nz(dLookup("Type", "MSysObjects", "Name=""" & strName & """ AND Type in (1,4,6)"), 0)
+    lngType = Nz(DLookup("Type", "MSysObjects", "Name=""" & strName & """ AND Type in (1,4,6)"), 0)
 
     ' Watch for errors connecting to linked tables
     LogUnhandledErrors
