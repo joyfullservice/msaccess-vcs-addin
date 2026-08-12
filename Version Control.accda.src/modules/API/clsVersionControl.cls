@@ -789,11 +789,46 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
     ' Verify resource files are available
     VerifyResources
 
+    ' Stamp the phase explicitly. The writer inherits phaseStarted from an existing file
+    ' when none is supplied, which for the first write of a new attempt means adopting the
+    ' timestamp of the previous rebuild -- and a caller comparing phaseStarted against the
+    ' clock to judge progress would read a brand-new attempt as long stalled.
     strStatusFile = GetRebuildStatusFilePath(strPath)
-    WriteRebuildStatusFile strStatusFile, "launched"
+    WriteRebuildStatusFile strStatusFile, "launched", _
+        strPhaseStarted:=Format$(Now, "yyyy-mm-dd hh:nn:ss")
 
     ' Launch the worker to handle the build and install disconnected
     Worker.Run_BuildAndInstall strPath, blnUnattended, strStatusFile
+
+    ' Shell() reports that a process was created, not that the script lived long enough
+    ' to do anything, and a worker that dies on startup leaves the status file reading
+    ' "launched" forever -- indistinguishable from a rebuild still in progress. The
+    ' worker writes "building" as its first act, so waiting for the status to move is
+    ' the only confirmation available that the handoff took.
+    If Not WaitForRebuildHandoff(strStatusFile, REBUILD_HANDOFF_SECONDS) Then
+        strDetail = T("The rebuild worker did not start within {0} seconds. Nothing was " & _
+            "rebuilt, and this instance of Microsoft Access was left open.", _
+            var0:=REBUILD_HANDOFF_SECONDS)
+        WriteRebuildStatusFile strStatusFile, "launch-failed", strDetail
+        dResult.Add "success", False
+        dResult.Add "status", "launch-failed"
+        dResult.Add "error", strDetail
+        dResult.Add "statusFile", strStatusFile
+        dResult.Add "logFolder", StripSlash(strPath) & PathSep & "logs"
+        If Not blnUnattended Then
+            MsgBox2 T("Rebuild Did Not Start"), strDetail, _
+                T("Check that the helper script is present in the add-in folder."), vbExclamation
+        End If
+        GoTo Finish
+    End If
+
+    ' The worker is alive and is now waiting for this instance to release the files it
+    ' holds. Closing ourselves is what makes a rebuild possible when the current
+    ' database is the add-in itself: a file moniker will not bind to an add-in, so the
+    ' worker cannot attach to us and cannot quit us. Armed only after the handoff is
+    ' confirmed, so a launch that failed never closes the caller's Access. The delay
+    ' leaves room for the result below to reach an MCP client over COM.
+    SetTimer "QuitForRebuild", sngSeconds:=QUIT_FOR_REBUILD_SECONDS
 
     dResult.Add "success", True
     dResult.Add "status", "launched"

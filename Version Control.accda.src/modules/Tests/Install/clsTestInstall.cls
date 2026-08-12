@@ -13,8 +13,8 @@ Attribute VB_Exposed = False
 ' Date      : 8/12/2026
 ' Purpose   : Tests for unattended add-in rebuild helpers: process guard, held-file
 '           : matching, build target derivation, trusted location check, /cmd token
-'           : parse, command-line database detection, and rebuild-status.json round
-'           : trip. Nothing here may close a process: the
+'           : parse, command-line database detection, rebuild-status.json round trip,
+'           : and the worker handoff check. Nothing here may close a process: the
 '           : guard only reports, and a test that terminated an Access instance would
 '           : take the developer's other work with it.
 '---------------------------------------------------------------------------------------
@@ -205,6 +205,63 @@ Public Sub TestRebuildStatusFile_RoundTrip()
     TestAssert dStatus("error") = "in progress", "error field"
     TestAssert dStatus("buildLog") = "C:\logs\Build_1.log", "buildLog field"
     TestAssert dStatus("phaseStarted") = strStarted, "phaseStarted kept on update"
+
+    ' Inheriting the previous value is right for a phase update and wrong for the first
+    ' write of a new attempt, which is why RebuildAddIn stamps "launched" explicitly.
+    ' Without the override a fresh attempt would carry the last rebuild's timestamp and
+    ' read as long stalled to anyone timing it against the clock.
+    WriteRebuildStatusFile strFile, "launched", vbNullString, vbNullString, "2026-08-12 11:30:00"
+    Set dStatus = ReadRebuildStatusFile(strFile)
+    TestAssert dStatus("phaseStarted") = "2026-08-12 11:30:00", _
+        "an explicit phaseStarted replaces a stale one"
+End Sub
+
+
+Public Sub TestRebuildStatusFile_LaunchFailedRoundTrip()
+    Dim strFile As String
+    Dim dStatus As Dictionary
+    Dim strError As String
+
+    strError = "The rebuild worker did not start within 15 seconds."
+    strFile = GetRebuildStatusFilePath(m_strTempFolder)
+
+    WriteRebuildStatusFile strFile, "launch-failed", strError
+    Set dStatus = ReadRebuildStatusFile(strFile)
+    TestAssert dStatus("status") = "launch-failed", "terminal launch-failed status"
+    TestAssert dStatus("error") = strError, "error text survives the round trip"
+End Sub
+
+
+Public Sub TestWaitForRebuildHandoff_NoFile()
+    ' A worker that never wrote anything cannot be confirmed, and neither can one whose
+    ' status file was removed between the launch and the check.
+    TestAssert Not WaitForRebuildHandoff(StripSlash(m_strTempFolder) & PathSep & _
+        "no-such-status.json", 0.4), "absent status file is not a handoff"
+End Sub
+
+
+Public Sub TestWaitForRebuildHandoff_StillLaunched()
+    Dim strFile As String
+
+    ' This is the failure the wait exists to catch: the launching code wrote "launched"
+    ' and the worker died before writing anything of its own.
+    strFile = GetRebuildStatusFilePath(m_strTempFolder)
+    WriteRebuildStatusFile strFile, "launched"
+    TestAssert Not WaitForRebuildHandoff(strFile, 0.4), "still launched is not a handoff"
+End Sub
+
+
+Public Sub TestWaitForRebuildHandoff_WorkerResponded()
+    Dim strFile As String
+
+    strFile = GetRebuildStatusFilePath(m_strTempFolder)
+    WriteRebuildStatusFile strFile, "building"
+    TestAssert WaitForRebuildHandoff(strFile, 0.4), "building confirms the handoff"
+
+    ' A worker that started and immediately failed still started, and its own status is
+    ' more useful to the caller than a generic launch failure.
+    WriteRebuildStatusFile strFile, "build-failed", "source folder was empty"
+    TestAssert WaitForRebuildHandoff(strFile, 0.4), "a terminal worker status also confirms it"
 End Sub
 
 

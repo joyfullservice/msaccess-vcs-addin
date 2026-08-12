@@ -86,6 +86,14 @@ Public Sub WinAPITimerCallback()
             ' Handle async operation with MCP callbacks
             HandleAPIAsyncOperation strParam1, strParam2, strCallbackInfo
 
+        Case "QuitForRebuild"
+            ' Close this instance so the rebuild worker can replace the files it holds.
+            ' Armed by clsVersionControl.RebuildAddIn before the worker is launched,
+            ' because the worker cannot close an instance it could not attach to, and it
+            ' cannot attach when the current database is the add-in itself.
+            ' (See clsWorker.Main.)
+            Application.Quit acQuitSaveAll
+
         Case Else
             ' Use the Run command to execute the specified operation with supplied parameters
             If strParam2 <> vbNullString Then

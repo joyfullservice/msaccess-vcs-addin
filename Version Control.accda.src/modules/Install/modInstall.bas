@@ -46,6 +46,14 @@ Private Const GW_OWNER As Long = 4
 Private Const OBJID_NATIVEOM As Long = &HFFFFFFF0
 Private Const S_OK As Long = 0
 
+' How long RebuildAddIn waits for the worker to prove it started, and how long after
+' that this instance closes itself. The wait is generous because a false "did not
+' start" would be worse than a slow answer: attaching to Access can take a second or
+' more on a cold COM server, and the only cost of waiting is how quickly a genuine
+' failure is reported.
+Public Const REBUILD_HANDOFF_SECONDS As Single = 15
+Public Const QUIT_FOR_REBUILD_SECONDS As Single = 3
+
 ' EnumWindows callback state for a single PID inspection.
 Private m_lngEnumTargetPid As Long
 Private m_blnEnumHasVisible As Boolean
@@ -1992,6 +2000,65 @@ Public Function ReadRebuildStatusFile(strFile As String) As Dictionary
     CatchAny eelError, "Unable to parse rebuild status file", _
         ModuleName & ".ReadRebuildStatusFile", True, True
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WaitForRebuildHandoff
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Wait for the rebuild worker to confirm it started, and return whether it
+'           : did. Shell() reports that a process was created, not that the script
+'           : survived its own startup, so a worker that dies immediately is otherwise
+'           : indistinguishable from one that is still running -- the status file simply
+'           : keeps whatever the launching code last wrote to it, forever.
+'           : The worker writes "building" as its first act, so any status other than
+'           : the "launched" written just before the launch is proof of life.
+'---------------------------------------------------------------------------------------
+'
+Public Function WaitForRebuildHandoff(strStatusFile As String, _
+    sngTimeoutSeconds As Single) As Boolean
+
+    Const POLL_SECONDS As Single = 0.2
+
+    Dim lngTries As Long
+    Dim lngCnt As Long
+    Dim dStatus As Dictionary
+
+    If Len(strStatusFile) = 0 Then Exit Function
+
+    lngTries = CLng(sngTimeoutSeconds / POLL_SECONDS)
+    For lngCnt = 1 To lngTries
+        ' Pause blocks this thread, which also stops Access servicing COM. Pump between
+        ' sleeps so an out-of-process caller is never left waiting on us -- a worker
+        ' blocked on this instance could not report that it had started, which is the
+        ' very thing being waited for.
+        DoEvents
+        Pause POLL_SECONDS
+        Set dStatus = ReadRebuildStatusFile(strStatusFile)
+        If Not dStatus Is Nothing Then
+            If dStatus.Exists("status") Then
+                If Nz(dStatus("status"), vbNullString) <> "launched" Then
+                    WaitForRebuildHandoff = True
+                    Exit Function
+                End If
+            End If
+        End If
+    Next lngCnt
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetThisProcessId
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Windows process ID of this Access instance, for handing to an external
+'           : process that must wait for it to exit.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetThisProcessId() As Long
+    GetThisProcessId = GetCurrentProcessId
 End Function
 
 

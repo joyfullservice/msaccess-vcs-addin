@@ -57,9 +57,14 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/8/2026
 ' Purpose   : Rebuild the VCS add-in from source files and install the result.
-'           : Runs disconnected: quits the current Access instance, opens a new one
-'           : to perform the build, then launches the install via /cmd INSTALL.
+'           : Runs disconnected: waits for the current Access instance to exit, opens a
+'           : new one to perform the build, then launches the install via /cmd INSTALL.
 '           : blnUnattended suppresses worker MsgBox prompts and uses /cmd INSTALL SILENT.
+'           :
+'           : The Access executable path and this process ID are passed as arguments
+'           : rather than read back off a COM reference, because this is the one job
+'           : that must still run when the worker cannot attach to its caller. See the
+'           : attach in Main.
 '---------------------------------------------------------------------------------------
 '
 Public Function Run_BuildAndInstall(strSourcePath As String, _
@@ -69,7 +74,9 @@ Public Function Run_BuildAndInstall(strSourcePath As String, _
     CallWorker PROJECT_NAME, 300, "BuildAndInstall", _
         """" & strSourcePath & """", _
         IIf(blnUnattended, "1", "0"), _
-        """" & strStatusFile & """"
+        """" & strStatusFile & """", _
+        """" & FSO.BuildPath(SysCmd(acSysCmdAccessDir), "MSACCESS.EXE") & """", _
+        modInstall.GetThisProcessId
 
 End Function
 
@@ -511,32 +518,61 @@ Sub Main()
     Dim varReturn
     Dim strUnattended
     Dim strStatusFile
+    Dim strAction
+    Dim strAttachError
+    Dim strAccessPath
+    Dim strLaunchPid
 
 
     Set objFSO = CreateObject("Scripting.FileSystemObject")
 
     ' We are expecting some very specific command line arguments in this worker script.
-    If WScript.Arguments.Count < 2 Then
+    If WScript.Arguments.Count < 3 Then
         MsgBox "Invalid arguments provided to worker script", vbExclamation
         WScript.Quit
     End If
 
-    ' The first argument should be the path of the current database
+    ' First argument is the path of the caller's current database, second the key,
+    ' third the action.
     strValue = WScript.Arguments(0)
-    If Not objFSO.FileExists(strValue) Then
-        MsgBox "Database file must exist", vbExclamation
-        WScript.Quit
-    Else
-        ' Get a reference to the database application
+    strKey = WScript.Arguments(1)
+    strAction = WScript.Arguments(2)
+
+    ' Attach to the instance that launched this script. Every action but one is an
+    ' in-process helper for a live database, and needs both the file and the reference.
+    '
+    ' BuildAndInstall is the exception, and must not even attempt this. GetObject binds
+    ' a file moniker, which Access only honours for a database extension, so the bind
+    ' fails whenever the caller's current database is the add-in itself -- and it can
+    ' take twenty seconds to say so, which is time spent before this script can report
+    ' that it started. Everything that action needs arrives in its own arguments, so it
+    ' does not care what the caller had open, or whether it had anything open at all.
+    Set objApp = Nothing
+    If strAction <> "BuildAndInstall" Then
+
+        If Not objFSO.FileExists(strValue) Then
+            MsgBox "Database file must exist", vbExclamation
+            WScript.Quit
+        End If
+
+        On Error Resume Next
         Set objApp = GetObject(strValue)
-        Set objApp.VBE.ActiveVBProject = CurrentVBProject(objApp)
+        strAttachError = "Error " & Err.Number & ": " & Err.Description
+        Err.Clear
+        If Not objApp Is Nothing Then
+            Set objApp.VBE.ActiveVBProject = CurrentVBProject(objApp)
+            Err.Clear
+        End If
+        On Error GoTo 0
+        If objApp Is Nothing Then
+            MsgBox "Could not attach to Microsoft Access for:" & vbCrLf & strValue & _
+                vbCrLf & vbCrLf & strAttachError, vbExclamation
+            WScript.Quit
+        End If
     End If
 
-    ' The second argument should be the key
-    strKey = WScript.Arguments(1)
-
     ' Determine specified action (More complex actions can be split out into subs)
-    Select Case WScript.Arguments(2)
+    Select Case strAction
 
         Case "DeleteDatabaseObject"
             ' Type, Name
@@ -555,12 +591,18 @@ Sub Main()
         Case "BuildAndInstall"
             ' Rebuild the add-in from source and install the result.
             ' (This must be done after closing Access)
-            ' Args: Access application instance, source path, unattended flag, status file
+            ' Args: Access application instance, source path, unattended flag, status
+            ' file, MSACCESS.EXE path, launching process id
             strUnattended = "0"
             strStatusFile = ""
+            strAccessPath = ""
+            strLaunchPid = ""
             If WScript.Arguments.Count >= 5 Then strUnattended = WScript.Arguments(4)
             If WScript.Arguments.Count >= 6 Then strStatusFile = WScript.Arguments(5)
-            BuildAndInstall objApp, WScript.Arguments(3), strUnattended, strStatusFile
+            If WScript.Arguments.Count >= 7 Then strAccessPath = WScript.Arguments(6)
+            If WScript.Arguments.Count >= 8 Then strLaunchPid = WScript.Arguments(7)
+            BuildAndInstall WScript.Arguments(3), strUnattended, strStatusFile, _
+                strAccessPath, strLaunchPid
 
         Case "CheckDatabaseAccessible"
             varReturn = CheckDatabaseAccessible(WScript.Arguments(0))
@@ -569,7 +611,7 @@ Sub Main()
             varReturn = SaveVbaProject(objApp)
 
         Case Else
-            MsgBox "Unknown Action: " & WScript.Arguments(1), vbExclamation
+            MsgBox "Unknown Action: " & strAction, vbExclamation
 
     End Select
 
@@ -837,12 +879,18 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/8/2026
 ' Purpose   : Rebuild the VCS add-in from source files and install the result.
-'           : Quits the current Access instance, opens a new one to build via the
-'           : installed library, polls the build log for completion, then launches
-'           : the install phase via /cmd INSTALL (or /cmd INSTALL SILENT when unattended).
+'           : Waits for the launching Access instance to exit, opens a new one to build
+'           : via the installed library, polls the build log for completion, then
+'           : launches the install phase via /cmd INSTALL (or SILENT when unattended).
+'           :
+'           : Takes no Access reference: Main does not attach for this action. What
+'           : used to be read back over COM -- the executable path -- and the means of
+'           : closing the caller are arguments instead, so a rebuild works no matter
+'           : what the caller had open.
 '---------------------------------------------------------------------------------------
 '
-Function BuildAndInstall(objApp, strSourcePath, strUnattended, strStatusFile)
+Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
+    strAccessPath, strLaunchPid)
 
     Dim objFSO
     Dim objNewAccess
@@ -865,8 +913,19 @@ Function BuildAndInstall(objApp, strSourcePath, strUnattended, strStatusFile)
     blnUnattended = (strUnattended = "1")
     strPhaseStarted = IsoDateTime(Now)
 
-    ' Derive paths before quitting Access
-    strMSAccessPath = objApp.SysCmd(9) & "MSACCESS.EXE"  ' acSysCmdAccessDir = 9
+    ' Write this before anything that can fail. It is also the handshake the caller
+    ' waits on, and the only proof available to it that this script survived its own
+    ' startup. (See clsVersionControl.RebuildAddIn.)
+    WriteRebuildStatusFile strStatusFile, "building", "", "", strPhaseStarted
+
+    ' Supplied by the caller, which used to be read back over COM as objApp.SysCmd(9).
+    ' Main no longer attaches for this action, so there is nothing to ask.
+    strMSAccessPath = strAccessPath
+    If Len(strMSAccessPath) = 0 Then
+        FailRebuild Nothing, False, strStatusFile, blnUnattended, "build-failed", _
+            "Could not determine the path of MSACCESS.EXE.", "", strPhaseStarted
+        Exit Function
+    End If
 
     ' Installed library path (Worker.vbs lives next to the installed .accda)
     strInstalledLib = objFSO.GetParentFolderName(WScript.ScriptFullName) & "\Version Control"
@@ -885,15 +944,16 @@ Function BuildAndInstall(objApp, strSourcePath, strUnattended, strStatusFile)
         strLogsPath = strSourcePath & "\logs\"
     End If
 
-    WriteRebuildStatusFile strStatusFile, "building", "", "", strPhaseStarted
-
-    ' When unattended, pause so the in-flight COM return from API reaches the
-    ' MCP server before this instance is quit. vcs_call_vba has no timeout.
-    If blnUnattended Then WScript.Sleep 4000
-
-    ' Close the current Access instance to release all locks
-    objApp.Quit
-    Set objApp = Nothing
+    ' RebuildAddIn closes its own instance, on a timer armed once it saw the status
+    ' write above. Waiting on the process id is what proves the files it held are free,
+    ' and unlike a COM quit it works whatever that instance had open.
+    If Not WaitForProcessExit(strLaunchPid, 60) Then
+        FailRebuild Nothing, False, strStatusFile, blnUnattended, "build-failed", _
+            "The Access instance that launched the rebuild (process " & strLaunchPid & _
+            ") did not exit, so the files it holds open could not be replaced.", _
+            "", strPhaseStarted
+        Exit Function
+    End If
 
     ' Build lock file path for the repo .accda
     strLockFile = Replace(strRepoAddinPath, ".accda", ".laccdb", 1, 1, vbTextCompare)
@@ -1048,6 +1108,61 @@ Function BuildAndInstall(objApp, strSourcePath, strUnattended, strStatusFile)
     End If
 
     WriteRebuildStatusFile strStatusFile, "complete", "", strNewLog, strPhaseStarted
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WaitForProcessExit
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Block until a process id is gone, and report whether it went. This is how
+'           : the rebuild knows the launching instance released the files it held,
+'           : without needing a COM reference to it.
+'           : An unanswerable process query returns True rather than stalling the
+'           : rebuild on a question Windows would not answer; the lock-file wait that
+'           : follows is the second line of defense.
+'---------------------------------------------------------------------------------------
+'
+Function WaitForProcessExit(strPid, intTimeoutSeconds)
+
+    Dim objWmi
+    Dim colProcs
+    Dim intCnt
+
+    ' Nothing to wait for
+    If Len(strPid) = 0 Then
+        WaitForProcessExit = True
+        Exit Function
+    End If
+
+    Set objWmi = Nothing
+    On Error Resume Next
+    Set objWmi = GetObject("winmgmts:\\.\root\cimv2")
+    Err.Clear
+    On Error GoTo 0
+    If objWmi Is Nothing Then
+        WaitForProcessExit = True
+        Exit Function
+    End If
+
+    For intCnt = 1 To intTimeoutSeconds
+        Set colProcs = Nothing
+        On Error Resume Next
+        Set colProcs = objWmi.ExecQuery( _
+            "SELECT ProcessId FROM Win32_Process WHERE ProcessId = " & strPid)
+        Err.Clear
+        On Error GoTo 0
+        If colProcs Is Nothing Then
+            WaitForProcessExit = True
+            Exit Function
+        End If
+        If colProcs.Count = 0 Then
+            WaitForProcessExit = True
+            Exit Function
+        End If
+        WScript.Sleep 1000
+    Next
 
 End Function
 

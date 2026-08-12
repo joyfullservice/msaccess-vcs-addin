@@ -83,6 +83,95 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — Rebuild handoff: confirm the worker, and let Access close itself
+
+**Trigger**: An agent asked to rebuild the add-in burned a long session on it and
+never succeeded. `RebuildAddIn` reported `"success": true, "status": "launched"`
+every time, and the status file then never changed. Two of the three attempts
+used `Version Control.accda` as the host database — the natural choice when no
+other database is open, and the one the user asked for.
+
+Measured directly, from a script that reproduced the worker's first act against
+an MCP-created Access instance:
+
+| Host database | `GetObject(<host path>)` |
+|---|---|
+| `Testing.accdb` | succeeds; VBE reachable; no extra process spawned |
+| `Version Control.accda` | **error 432**, "File name or class name not found during Automation operation" |
+
+A file moniker only binds to a database extension, so Access refuses to hand back
+an `Application` for an add-in. `Worker.vbs` made that call unguarded as its
+second statement, so the script died there — before its first status write, and
+before it could quit anything. Nothing observed this: `Shell()` returns a process
+id for a script that is about to die, `RebuildAddIn` declared success on that
+alone, and the `"launched"` it had just written stayed in the file forever. A
+stalled rebuild and a running one were byte-identical to the agent polling it.
+
+**Options explored**:
+
+- **Register the launching instance in the ROT so the moniker resolves**:
+  `Application.UserControl = True` puts an instance in the Running Object Table,
+  but binding is by file moniker and Access will not produce one for a `.accda`
+  regardless. Does not address the actual refusal.
+- **Have the worker enumerate Access processes and pick its caller**: works
+  without a moniker, but identifying "the one that launched me" from a process
+  list is guesswork the moment two instances have the same file open, and it
+  still leaves the worker needing COM to quit it.
+- **Forbid the add-in as a host and document the restriction**: cheapest, but
+  pushes an implementation detail of a COM moniker onto every caller, and leaves
+  the silent-death failure mode intact for every other reason a worker can die.
+- **Remove the dependency: pass what the worker needs, and invert who closes
+  Access**: the worker's only uses of the reference were reading the MSACCESS.EXE
+  path and quitting the instance. Both can come from the caller. Chosen.
+
+**Decision**: `BuildAndInstall` no longer attaches at all. It takes the
+executable path and the launching process id as command-line arguments; every
+other worker action still attaches, and now reports the error number when it
+cannot. Instead of being quit over COM, the launching instance closes itself via
+`SetTimer "QuitForRebuild"`, and the worker waits on the process id to know the
+files are free.
+
+The timer is armed only *after* `WaitForRebuildHandoff` sees the worker move the
+status off `"launched"` — its first act, before anything that can fail. That
+ordering is the point: a launch that failed must not close the caller's Access,
+and a `"launched"` result must mean a worker is really running. Failure to
+confirm within 15 seconds returns the new terminal status `launch-failed`.
+
+Skipping the attach outright, rather than tolerating its failure, was forced by
+what the confirmation wait exposed. With the wait in place the worker took 16
+seconds to write its first status *even from an `.accdb` host*, where the attach
+had measured as fast. The two features were deadlocking: `WaitForRebuildHandoff`
+blocks in `Sleep`, which stops Access pumping messages, so the worker's
+`GetObject` could not be serviced until the wait it was supposed to satisfy had
+already expired. Every rebuild failed, deterministically, in both hosts. The wait
+loop now calls `DoEvents` between sleeps as well, so this instance stays
+answerable to out-of-process callers.
+
+**What this rules out**: nothing the worker does before its `"building"` write
+may call back into the launching instance. That call cannot be serviced — the
+caller is inside the wait that the write releases — so it does not fail, it
+hangs, and it takes the whole rebuild with it.
+
+Beyond that: `BuildAndInstall` is the only worker action exempt from the attach,
+and a new one that needs COM must be added to the attaching branch in `Main`.
+Nothing may be added ahead of the `"building"` write, which is load-bearing as
+the handshake. The launching instance must reach its message loop for the quit
+timer to fire; if it ever does not, the worker reports `build-failed` on the
+process wait rather than hanging. The 15-second confirmation window is
+deliberately generous — a false "did not start" is worse than a slow answer, and
+the only cost is how quickly a genuine failure surfaces.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Integration/clsWorker.cls` — guarded attach in `Main`, `BuildAndInstall` arguments, `WaitForProcessExit`
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `RebuildAddIn` handshake and `launch-failed`
+- `Version Control.accda.src/modules/Install/modInstall.bas` — `WaitForRebuildHandoff`, `GetThisProcessId`, timing constants
+- `Version Control.accda.src/modules/Utility/modTimer.bas` — `QuitForRebuild` callback
+- `Version Control.accda.src/modules/Tests/Install/clsTestInstall.cls` — handoff and `launch-failed` coverage
+- `docs/agentic-rebuild.md`, `AGENTS.md` — host rule, status table, no-hot-patching invariant
+
+---
+
 ## 2026-08-12 — IMEX specs: identify by SpecName, assign SpecID explicitly
 
 **Trigger**: Merging an unnamed IMEX spec raised DAO 3022. `SpecName` is the

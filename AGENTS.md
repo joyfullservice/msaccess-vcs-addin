@@ -37,17 +37,16 @@ the VBA Immediate Window — it increments the version, exports to source files,
 and installs the development build. Commit the source files and open a pull
 request against `dev`. Releases are cut from `master`; the add-in is
 self-installing. Agents rebuild unattended via `VCS.RebuildAddIn`, which refuses
-when another Access process holds a file it must replace; it closes nothing itself.
+when another Access process holds a file it must replace.
 
 ## Invariants
 
-None of these are enforced by the compiler, and missing one causes silent data
-loss, churn in user projects, or untranslatable UI.
+None are compiler-enforced; missing one causes silent data loss, churn in user
+projects, or untranslatable UI.
 
-- **Never use `Dir()`.** It does not support Unicode filenames and will silently
-  skip or fail on paths with non-ASCII characters, which Access object names
-  frequently contain. Use `Scripting.FileSystemObject`, or `modFileWinAPI` for
-  performance-critical scans (`FilePatternExists`, `ScanFolderContents`).
+- **Never use `Dir()`.** It does not support Unicode filenames and silently skips
+  or fails on non-ASCII paths, which Access object names frequently produce. Use
+  `Scripting.FileSystemObject`, or `modFileWinAPI` for performance-critical scans.
 - **Wrap every user-facing string in `T()`**, using `{0}`-style placeholders for
   substitution: `Log.Add T("Error in file: {0}", var0:=strFileName)`.
 - **Use library constants, not magic numbers.** All modules share the same
@@ -56,11 +55,14 @@ loss, churn in user projects, or untranslatable UI.
 - **Gate any change to exported output behind an export format version.** Users
   must be able to upgrade the add-in without their source files churning. See
   [docs/export-format-versioning.md](docs/export-format-versioning.md) for the
-  three mechanisms and how to pick one. Import logic is never gated — it stays
-  backwards compatible with all prior formats.
+  three mechanisms. Import logic is never gated — it stays backwards compatible.
 - **Never create a second file with the same basename** in another folder of an
-  export tree. Placement is driven by the `'@Folder` annotation inside the file;
-  duplicates cause last-one-wins behavior on build and corrupt the change index.
+ export tree. Placement is driven by the `'@Folder` annotation inside the file;
+ duplicates cause last-one-wins behavior on build and corrupt the change index.
+- **Never patch the loaded add-in in place.** `VBComponents.Remove`/`.Import`,
+ `LoadFromText`, and `vcs_import_object` aimed at `Version Control.accda` reset a
+ VBA project that is currently executing, killing the MCP session and possibly
+ leaving the add-in broken. Edit the source and rebuild ([docs/agentic-rebuild.md](docs/agentic-rebuild.md)).
 
 ## Error handling
 

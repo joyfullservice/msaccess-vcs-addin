@@ -31,8 +31,11 @@ source. This path rebuilds the add-in itself.
 vcs_call_vba(database_path, "VCS.API", ["RebuildAddIn", "<source folder>"])
 ```
 
-`database_path` is whatever database the MCP session already has open (often
-`Testing.accdb`). The JSON result looks like:
+`database_path` only decides which Access instance hosts the call. It has no
+bearing on what gets rebuilt — that is the source folder argument. Use whatever
+database the session already has open, or the add-in itself when there is none;
+do not open an unrelated database to satisfy the parameter. The JSON result looks
+like:
 
 ```json
 {
@@ -59,9 +62,16 @@ silence must not be read as safe. `holds no rebuild file` does not block, so an
 instance reported that way needs no attention. Close whatever blocked and call
 again.
 
-The worker then quits this Access instance. A COM error on that same
-`vcs_call_vba` call is expected. `vcs_call_vba` has no timeout; the worker
-sleeps a few seconds before quitting so the JSON can return first.
+`"status": "launch-failed"` means the worker process was created but never got
+far enough to report for duty. Nothing was rebuilt and the host Access instance
+is still open, so this is safe to retry once the cause is fixed — most often the
+helper script missing from the add-in folder. `RebuildAddIn` waits up to 15
+seconds for the worker to write its first status before deciding this, so an
+answer either way arrives within that window and a `launched` result is real.
+
+Access then exits a few seconds later, once the result above has had time to
+reach the caller. `vcs_call_vba` has no timeout, and a COM error on that same
+call is possible if the timing is tight.
 
 ## Status file
 
@@ -71,19 +81,30 @@ Access instance to stay alive. Poll it with the Read tool.
 
 | `status` | Meaning |
 |---|---|
-| `launched` | Worker started; Access is about to quit |
-| `building` | New Access instance is building from source |
+| `launched` | Worker launched; not yet confirmed running |
+| `building` | Worker reported for duty; a new Access instance is building from source |
 | `compiling` | Compile gate on the rebuilt project |
 | `installing` | `/cmd INSTALL SILENT` is running |
 | `complete` | Installed add-in file is newer than when install started |
 | `refused` | Guard or preflight failed; nothing was rebuilt |
-| `build-failed` | Build timed out or the build log reported failure |
+| `launch-failed` | Worker never started; nothing was rebuilt and Access stayed open |
+| `build-failed` | Build timed out, the build log reported failure, or the host instance never exited |
 | `compile-failed` | Rebuilt project does not compile; Access is left open on that file |
 | `install-failed` | Silent install aborted, or the installed file was not updated |
 
 Other fields: `error`, `buildLog` (path of the build log when one exists),
 `phaseStarted`, `updated`. Terminal states are `complete` and the `*-failed` /
 `refused` values.
+
+A `refused` or `launch-failed` call returns that verdict in its own JSON, so
+there is nothing to poll for. Only poll after a `launched` result.
+
+**A file that stops changing is not the same as a build in progress.** Compare
+`updated` against the clock before waiting any longer, and check
+`Get-Process MSACCESS,wscript`: a rebuild that is genuinely running always has at
+least one of them. Neither present, with a non-terminal status, means the run
+died without being able to say so — capture the state and treat it as a bug in
+this path rather than retrying blindly.
 
 After `complete`, later MCP calls against a user database spawn a fresh Access
 and load the newly installed add-in. Re-run the verification that needed the
