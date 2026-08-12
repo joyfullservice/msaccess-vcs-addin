@@ -477,6 +477,20 @@ Public Sub RebuildAddIn()
 
     Dim strPath As String
 
+    ' Of everything the helper script does, this is the one job with no in-process
+    ' equivalent: the add-in cannot rebuild and reinstall itself while it is loaded, which
+    ' is why the work is handed to a process that outlives this one. Checked before the
+    ' source folder is resolved, so the user is not asked to pick a folder for an
+    ' operation that cannot run. (#727)
+    If Not modInstall.UseWorkerScript Then
+        MsgBox2 T("Helper Script Required"), _
+            T("Rebuilding the add-in requires the helper script, which is currently " & _
+            "disabled."), _
+            T("Use Build From Source to build the add-in, then open the resulting file " & _
+            "to install it."), vbExclamation
+        Exit Sub
+    End If
+
     ' Try to derive source folder from the current project
     If StrComp(FSO.GetBaseName(CurrentProject.Name), ADDIN_BASENAME, vbTextCompare) = 0 Then
         strPath = CurrentProject.Path & PathSep & CurrentProject.Name & ".src" & PathSep
@@ -876,8 +890,8 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
                 End If
             End If
 
-            ' Export AGENTS.md
-            modResource.ExtractResource "AGENTS.md", Options.GetExportFolder
+            ' Export AGENTS.md and its reference documents
+            modResource.ExtractAgentDocs Options.GetExportFolder
 
             Log.Spacer
             Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
@@ -941,6 +955,7 @@ Public Function ImportObject(ByVal strObjectType As String, Optional ByVal strOb
     Dim dItems As Dictionary
     Dim varKey As Variant
     Dim strSourceFile As String
+    Dim strLogPath As String
     Dim blnFound As Boolean
     Dim dResult As Dictionary
 
@@ -1046,14 +1061,17 @@ Public Function ImportObject(ByVal strObjectType As String, Optional ByVal strOb
         Exit Function
     End If
 
+    ' LoadSingleObject finishes the operation, which releases the Log singleton,
+    ' so the log path has to come back through the out-param.
     LoadSingleObject cComponent, strObjectName, strSourceFile, _
-        blnNoIndex:=(Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI)
+        blnNoIndex:=(Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI), _
+        strSavedLogPath:=strLogPath
 
     dResult.Add "success", (Operation.ErrorLevel < eelError)
     If Operation.ErrorLevel >= eelError Then
         dResult.Add "error", "Import completed with errors. Check the log for details."
     End If
-    dResult.Add "logPath", Log.SavedLogFilePath
+    dResult.Add "logPath", strLogPath
     ImportObject = ConvertToJson(dResult)
     Exit Function
 
@@ -1394,6 +1412,8 @@ End Function
 '           : Returns JSON: {"success":true/false, "result":"...", "error":"...",
 '           :   "compileError":"..."}
 '           : Gated by McpAllowRunVBA option.
+'           : Suppresses BreakOnError Stop/debug breaks for the call so MCP and
+'           : automation never block waiting for a human (errors are logged instead).
 '---------------------------------------------------------------------------------------
 '
 Public Function RunVBA(ByVal strCode As String) As String
@@ -1405,6 +1425,7 @@ Public Function RunVBA(ByVal strCode As String) As String
     Dim varReturn As Variant
     Dim blnModuleCreated As Boolean
 
+    SuppressErrorBreaks
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
@@ -1416,6 +1437,7 @@ Public Function RunVBA(ByVal strCode As String) As String
         dResult.Add "success", False
         dResult.Add "error", "RunVBA is disabled. Enable McpAllowRunVBA in VCS Options > MCP to allow agent-generated code execution."
         RunVBA = ConvertToJson(dResult)
+        RestoreErrorBreaks
         Exit Function
     End If
 
@@ -1568,6 +1590,7 @@ CleanUp:
     End If
     ResetCurrentVBProjectState
     RunVBA = ConvertToJson(dResult)
+    RestoreErrorBreaks
     Exit Function
 
 ErrHandler:

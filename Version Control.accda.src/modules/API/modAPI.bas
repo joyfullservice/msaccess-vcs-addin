@@ -326,11 +326,13 @@ Public Function API(strMethod As String, _
     Dim strLibName As String
     Dim strRunCmd As String
 
+    SuppressErrorBreaks
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
     If IsRunning Then
         API = RefuseReentrantCall(strMethod, "API")
+        RestoreErrorBreaks
         Exit Function
     End If
 
@@ -383,12 +385,14 @@ Public Function API(strMethod As String, _
 
 CleanUp:
     IsRunning = False
+    RestoreErrorBreaks
     Exit Function
 
 ErrHandler:
     ' An error occurred so we need to make it available for further attempts
     ' but do not handle the error.
     IsRunning = False
+    RestoreErrorBreaks
 
     ' Re-throw
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
@@ -420,6 +424,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
     Dim dResult As Dictionary
     Dim lngTimeoutMs As Long
 
+    SuppressErrorBreaks
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
@@ -429,6 +434,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
         dResult.Add "success", False
         dResult.Add "error", RefuseReentrantCall(strMethod, "APIAsync")
         APIAsync = modJsonConverter.ConvertToJson(dResult)
+        RestoreErrorBreaks
         Exit Function
     End If
 
@@ -520,12 +526,14 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
 
 CleanUp:
     IsRunning = False
+    RestoreErrorBreaks
     Exit Function
 
 ErrHandler:
     ' An error occurred so we need to make it available for further attempts
     ' but do not handle the error.
     IsRunning = False
+    RestoreErrorBreaks
 
     ' Re-throw
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext

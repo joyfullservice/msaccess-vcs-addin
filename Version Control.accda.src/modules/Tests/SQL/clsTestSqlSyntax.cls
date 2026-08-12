@@ -61,6 +61,38 @@ Public Sub TestExtractTableFromOnSide_DotOutsideBrackets()
 End Sub
 
 
+Public Sub TestExtractTableFromOnSide_SimpleIdentifiers()
+    TestAssert m_syntax.ExtractTableFromOnSide("tblA.x = tblB.y", True) = "tblA", _
+        "simple left qualifier"
+    TestAssert m_syntax.ExtractTableFromOnSide("tblA.x = tblB.y", False) = "tblB", _
+        "simple right qualifier"
+    TestAssert m_syntax.ExtractTableFromOnSide("[Car Models].fld = tblB.x", True) = "Car Models", _
+        "spaced bracketed left"
+    TestAssert m_syntax.ExtractTableFromOnSide("prior.OrderDate = cur.OrderDate", True) = "prior", _
+        "alias left"
+End Sub
+
+
+Public Sub TestExtractTableFromOnSide_ExpressionOperandReturnsEmpty()
+    ' Function call on the right — must not return "DateAdd('yyyy', -1, cur"
+    TestAssert Len(m_syntax.ExtractTableFromOnSide( _
+        "prior.OrderDate = DateAdd('yyyy', -1, cur.OrderDate)", False)) = 0, _
+        "DateAdd right side returns empty"
+    TestAssert m_syntax.ExtractTableFromOnSide( _
+        "prior.OrderDate = DateAdd('yyyy', -1, cur.OrderDate)", True) = "prior", _
+        "simple left still extracts beside DateAdd"
+    TestAssert Len(m_syntax.ExtractTableFromOnSide( _
+        "Left(a.x, 3) = b.y", True)) = 0, _
+        "Left() function left side returns empty"
+    TestAssert m_syntax.ExtractTableFromOnSide( _
+        "Left(a.x, 3) = b.y", False) = "b", _
+        "simple right still extracts beside Left()"
+    TestAssert Len(m_syntax.ExtractTableFromOnSide( _
+        "Nz(prior.CumValue, 0) = cur.CumValue", True)) = 0, _
+        "Nz() left side returns empty"
+End Sub
+
+
 Private Sub AssertSplitTableRef(ByVal strExpr As String, _
                                 ByVal strExpName As String, _
                                 ByVal strExpAlias As String, _

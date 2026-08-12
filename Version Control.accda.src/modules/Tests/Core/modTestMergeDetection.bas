@@ -3,8 +3,8 @@
 ' Module    : modTestMergeDetection
 ' Author    : Adam Waller
 ' Date      : 7/20/2026
-' Purpose   : Regression tests for multi-file merge change-detection (AllFilesHash and
-'           : companion .json indexing).
+' Purpose   : Regression tests for multi-file merge change-detection (AllFilesHash,
+'           : companion .json / .cls indexing, and the legacy-entry upgrade path).
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -250,6 +250,205 @@ Public Sub TestGetSourceFilesContentHashIncludesJson()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeDetectsClsOnlyChangeWithLegacyIndexEntry
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Issue #748 regression. An index entry written before AllFilesHash existed
+'           : must still report a form as modified when only its companion .cls changes.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeDetectsClsOnlyChangeWithLegacyIndexEntry()
+
+    Dim cForm As IDbComponent
+    Dim strFile As String
+    Dim strCls As String
+    Dim strOriginal As String
+    Dim dModified As Dictionary
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    strCls = SwapExtension(strFile, "cls")
+    If Not FSO.FileExists(strCls) Then
+        TestAssert True, "SKIP: frmVCSMain.cls fixture missing"
+        Exit Sub
+    End If
+
+    strOriginal = ReadFile(strCls)
+    SeedLegacyMergeIndexBaseline cForm, strFile
+
+    WriteFile strOriginal & " ", strCls
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    TestAssert dModified.Exists(strFile), _
+        "legacy index entry detects .cls-only change (issue #748)"
+
+    WriteFile strOriginal, strCls
+    SeedMergeIndexBaseline cForm, strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeDoesNotMarkLegacyEntrySyncedAfterMissedEdit
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Pin the silent-data-loss half of issue #748. The legacy multi-file branch
+'           : must not refresh FilePropertiesHash to the edited tree's dates/sizes, which
+'           : would record a companion-only edit as synced and hide it from later merges.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeDoesNotMarkLegacyEntrySyncedAfterMissedEdit()
+
+    Dim cForm As IDbComponent
+    Dim cIdx As clsVCSIndexItem
+    Dim strFile As String
+    Dim strCls As String
+    Dim strOriginal As String
+    Dim strSeededPropHash As String
+    Dim dModified As Dictionary
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    strCls = SwapExtension(strFile, "cls")
+    If Not FSO.FileExists(strCls) Then
+        TestAssert True, "SKIP: frmVCSMain.cls fixture missing"
+        Exit Sub
+    End If
+
+    strOriginal = ReadFile(strCls)
+    SeedLegacyMergeIndexBaseline cForm, strFile
+    strSeededPropHash = VCSIndex.Item(cForm, strFile).FilePropertiesHash
+
+    WriteFile strOriginal & " ", strCls
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    Set cIdx = VCSIndex.Item(cForm, strFile)
+
+    TestAssert dModified.Exists(strFile), "edited form reported modified"
+    TestAssert cIdx.FilePropertiesHash = strSeededPropHash, _
+        "legacy multi-file branch does not refresh FilePropertiesHash to the edited state"
+
+    WriteFile strOriginal, strCls
+    SeedMergeIndexBaseline cForm, strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeBackfillsAllFilesHashForLegacyEntry
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : When a legacy multi-file entry is still in its synced state (property hash
+'           : matches), the fast path records AllFilesHash so later scans can arbitrate
+'           : companion edits precisely without a full re-export.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeBackfillsAllFilesHashForLegacyEntry()
+
+    Dim cForm As IDbComponent
+    Dim cIdx As clsVCSIndexItem
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    ' Ensure the form is multi-file so the backfill path runs
+    blnCreatedJson = EnsureCompanionJson(strFile)
+    SeedLegacyMergeIndexBaseline cForm, strFile
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    Set cIdx = VCSIndex.Item(cForm, strFile)
+
+    TestAssert Not dModified.Exists(strFile), "clean legacy entry not reported modified"
+    TestAssert Len(cIdx.AllFilesHash) > 0, "AllFilesHash backfilled on clean fast path"
+    TestAssert cIdx.AllFilesHash = GetSourceFilesContentHash(cForm, strFile), _
+        "backfilled AllFilesHash matches current content"
+
+    SeedMergeIndexBaseline cForm, strFile
+    CleanupCreatedCompanionJson strFile, blnCreatedJson
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeLegacySingleFileUsesPrimaryHash
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : A legacy entry for a single-file component (no companion on disk) must
+'           : still resolve via the primary content hash and not be reported modified
+'           : on timestamp-only drift. The multi-file conservative branch must not
+'           : fire here -- FileExtensions.Count is not the criterion; existence is.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeLegacySingleFileUsesPrimaryHash()
+
+    Dim cModule As IDbComponent
+    Dim strFile As String
+    Dim strJson As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cModule, "modTestIndex")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Guard: a companion .json would make this multi-file
+    strJson = SwapExtension(strFile, "json")
+    If FSO.FileExists(strJson) Then
+        TestAssert True, "SKIP: modTestIndex has a companion .json"
+        Exit Sub
+    End If
+
+    SeedLegacyMergeIndexBaseline cModule, strFile
+    ' Force the property-hash mismatch path while content is unchanged
+    VCSIndex.Item(cModule, strFile).FilePropertiesHash = "stale_property_hash"
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert Not dModified.Exists(strFile), _
+        "legacy single-file entry dismisses timestamp-only drift via primary hash"
+
+    SeedMergeIndexBaseline cModule, strFile
+
+End Sub
+
+
 Private Sub RunMetadataOnlyMergeTest(cCategory As IDbComponent, strBaseName As String)
     Dim strFile As String
     Dim strJson As String
@@ -295,6 +494,18 @@ Private Sub SeedMergeIndexBaseline(cCategory As IDbComponent, strFile As String)
     cIdx.FileHash = GetFileHash(strFile)
     cIdx.FilePropertiesHash = GetSourceFilesPropertyHash(cCategory, strFile)
     cIdx.AllFilesHash = GetSourceFilesContentHash(cCategory, strFile)
+End Sub
+
+
+' Same as SeedMergeIndexBaseline but leaves AllFilesHash empty, simulating an index
+' entry written by a pre-AllFilesHash build (5.0.1 and earlier).
+Private Sub SeedLegacyMergeIndexBaseline(cCategory As IDbComponent, strFile As String)
+    Dim cIdx As clsVCSIndexItem
+
+    Set cIdx = VCSIndex.Item(cCategory, strFile)
+    cIdx.FileHash = GetFileHash(strFile)
+    cIdx.FilePropertiesHash = GetSourceFilesPropertyHash(cCategory, strFile)
+    cIdx.AllFilesHash = vbNullString
 End Sub
 
 

@@ -1,0 +1,9 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionFunctionInOnClause"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

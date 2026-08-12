@@ -1,6 +1,7 @@
 # Frequently Asked Questions
 
 - [Is there a ribbon toolbar?](#is-there-a-ribbon-toolbar)
+- [My antivirus blocks the add-in's worker script](#my-antivirus-blocks-the-add-ins-worker-script)
 - [Why are issues sometimes out of scope?](#why-are-some-issuesideas-considered-out-of-scope-for-this-project)
 - [Why do many files show as changed after a build?](#why-am-i-seeing-a-large-number-of-changed-files-after-building-my-project-from-source)
 - [How do I export data from all tables?](#how-do-i-also-export-data-from-all-the-tables-in-my-database)
@@ -18,6 +19,14 @@
 Yes. Version 4 and later ship a **twinBASIC COM ribbon add-in** (32- and 64-bit) installed with the add-in. It provides Export, Build, Merge, Options, Run Tests, and related commands.
 
 If you do not see it, see [Installation](Installation) (COM add-ins, trust, **Use Ribbon Addin**). You can still run the add-in from **Database Tools** → **Add-Ins**.
+
+---
+
+## My antivirus blocks the add-in's worker script
+
+Some endpoint protection products block Access from running `Worker.vbs`, the small script the add-in writes into its install folder for the few jobs it cannot do from inside its own process. Typical symptoms are repeated security alerts, an uninstall that reports success but leaves files behind, or **Rebuild Add-In** doing nothing.
+
+Re-run the installer, open **Advanced Options**, and uncheck **Use helper script (Worker.vbs)**. The script is deleted and the add-in switches to script-free fallbacks for those jobs. See [Installation](Installation#worker-script) for exactly what changes — the one to know about is that you save the VBA project yourself before exporting.
 
 ---
 

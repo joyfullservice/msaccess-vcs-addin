@@ -61,5 +61,7 @@ For production databases, prefer **no MCP permissions** or a dedicated sandbox c
 
 ## Further reading
 
-- Repository [`AGENTS.md`](https://github.com/joyfullservice/msaccess-vcs-addin/blob/dev/AGENTS.md) — `RunVBA`, `errorLine`, `ExportObject`, `RunTests` filters
+- Repository [`AGENTS.md`](https://github.com/joyfullservice/msaccess-vcs-addin/blob/dev/AGENTS.md) — entry point for contributors and agents, including `RunTests` filters
+- [`docs/mcp-runvba.md`](https://github.com/joyfullservice/msaccess-vcs-addin/blob/dev/docs/mcp-runvba.md) — `RunVBA`, `errorLine`, and error-break suppression
+- [`docs/architecture.md`](https://github.com/joyfullservice/msaccess-vcs-addin/blob/dev/docs/architecture.md) — `ExportObject`, `ExportByType`, and the rest of the public API
 - [`clsVersionControl`](https://github.com/joyfullservice/msaccess-vcs-addin/blob/dev/Version%20Control.accda.src/modules/API/clsVersionControl.cls) — public API implementation

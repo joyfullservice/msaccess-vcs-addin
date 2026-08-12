@@ -740,6 +740,9 @@ Private Function CreateTableFromSchema(ByVal dSchema As Dictionary, strTableName
     dbs.TableDefs.Append tdf
     blnCreated = True
     dbs.TableDefs.Refresh
+    ' Drop the SharedDb cache so the verification export (and any later SharedDb
+    ' caller) sees the table just appended through this local CurrentDb handle.
+    ReleaseDbReferences
 
     ' Re-fetch through a fresh handle. The appended TableDef reference does not reliably
     ' expose the saved object's property collections.

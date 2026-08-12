@@ -72,7 +72,8 @@ Private Sub cmdInstall_Click()
     If strMsg <> vbNullString Then GoTo CleanExit
 
     ' Run the installer
-    modInstall.InstallVCSAddin chkAddTrustedLocation, chkUseRibbon, chkOpenAfterInstall, txtInstallFolder, chkCreateCompiledVersion
+    modInstall.InstallVCSAddin chkAddTrustedLocation, chkUseRibbon, chkOpenAfterInstall, txtInstallFolder, _
+        chkCreateCompiledVersion, chkUseWorkerScript
     DoCmd.Hourglass False
     Exit Sub
 
@@ -156,6 +157,7 @@ Private Sub Form_Load()
         chkOpenAfterInstall = .blnOpenAfterInstall
         chkUseRibbon = .blnUseRibbonAddIn
         chkCreateCompiledVersion = .blnUseCompiledAddIn
+        chkUseWorkerScript = .blnUseWorkerScript
         With txtInstallFolder
             .Value = GetInstallSettings.strInstallFolder
             .Locked = True ' Only enable this text box if not installed.

@@ -327,6 +327,27 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RemoveWorkerScript
+' Author    : Adam Waller
+' Date      : 8/7/2026
+' Purpose   : Delete the extracted worker script, if it is present. Used when the user
+'           : turns the helper script off, and during uninstall. For a user whose
+'           : endpoint protection objects to the script (#727), leaving the file sitting
+'           : in the add-in folder is part of the problem, so disabling the feature
+'           : removes the artifact rather than merely stopping its use.
+'           : Lives here so the file path is defined in exactly one place.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RemoveWorkerScript()
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    ' DeleteFile is a no-op when the file is already gone.
+    DeleteFile WorkerFilePath, True
+    CatchAny eelWarning, T("Unable to remove worker script: {0}", var0:=WorkerFilePath), _
+        ModuleName(Me) & ".RemoveWorkerScript"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CallWorker
 ' Author    : Adam Waller
 ' Date      : 3/2/2023
@@ -340,6 +361,18 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
     Dim strHash As String
     Dim lngHandle As Long
     Dim cJob As clsJob
+
+    ' The user can turn the helper script off when their environment does not allow
+    ' Access to launch an extracted script (#727). Every job becomes a no-op, which
+    ' means a caller that forgets to branch degrades instead of launching wscript.
+    ' Nothing is added to the queue, so a caller that waits returns straight away and
+    ' reads an empty result -- see the fallbacks in modBuild and modVbeUtility.
+    ' This is also the seam for any future out-of-process backend: keeping the launch
+    ' in one place means a replacement would not touch a single call site.
+    If Not modInstall.UseWorkerScript Then
+        Log.Add "Worker script is disabled. Skipping job: " & strAction, False
+        Exit Function
+    End If
 
     ' Make sure this key/action is not already running
     strHash = GetStringHash(strKey & strAction)

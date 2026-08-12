@@ -32,6 +32,7 @@ Public Type udtInstallSettings
     blnUseRibbonAddIn As Boolean
     blnUseCompiledAddIn As Boolean
     blnOpenAfterInstall As Boolean
+    blnUseWorkerScript As Boolean
     strInstallFolder As String
     strSourcePath As String
     blnSettingsLoaded As Boolean
@@ -87,8 +88,12 @@ Public Function AutoRun() As Boolean
     If UCase$(Trim$(Command$)) = "INSTALL" Then
         VerifyResources
         GetInstallSettings
+        ' Pass the saved worker script preference through rather than relying on the
+        ' parameter default, so an unattended reinstall cannot silently re-enable a
+        ' helper script the user deliberately turned off.
         InstallVCSAddin this.blnTrustAddInFolder, this.blnUseRibbonAddIn, _
-            False, this.strInstallFolder, this.blnUseCompiledAddIn
+            False, this.strInstallFolder, this.blnUseCompiledAddIn, _
+            this.blnUseWorkerScript
         Exit Function
     End If
 
@@ -133,7 +138,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, blnOpenAfterInstall As Boolean, strInstallFolder As String, _
-            Optional ByVal blnCreateCompiledVersion As Boolean = False)
+            Optional ByVal blnCreateCompiledVersion As Boolean = False, _
+            Optional ByVal blnUseWorkerScript As Boolean = True)
 
     Const OPEN_MODE_OPTION As String = "Default Open Mode for Databases"
 
@@ -159,6 +165,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
         .blnUseCompiledAddIn = blnCreateCompiledVersion
         .blnOpenAfterInstall = blnOpenAfterInstall
         .blnTrustAddInFolder = blnTrustFolder
+        .blnUseWorkerScript = blnUseWorkerScript
         If .strInstallFolder <> strInstallFolder Then
             ' Attempt to migrate any saved user settings files
             MigrateUserFiles strInstallFolder, GetFilePathsInFolder(.strInstallFolder)
@@ -213,6 +220,12 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
         modCOMAddIn.UninstallComAddIn
     End If
 
+    ' Remove the helper script when the user has turned it off, so a disabled feature does
+    ' not leave its artifact in the add-in folder. Some endpoint protection objects to the
+    ' file being there at all, not just to it running (#727). VerifyWorker writes it again
+    ' on demand if the setting is turned back on.
+    If Not this.blnUseWorkerScript Then Worker.RemoveWorkerScript
+
     ' Register the Menu controls
     RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
     RegisterMenuItem "&VCS Options", "=AddInOptionsLaunch()"
@@ -261,9 +274,19 @@ Public Sub UninstallVCSAddin()
 
     Dim intResponse As VbMsgBoxResult
     Dim blnSaveSettings As Boolean
+    Dim blnUseWorker As Boolean
+    Dim strAddInFile As String
+    Dim strAddInFolder As String
 
     EnterInstallErrorTrapping
     On Error GoTo CleanExit
+
+    ' Read the install settings before the registry keys are removed below. Reading them
+    ' afterwards would fall back to defaults, which is the wrong add-in path for anyone
+    ' who installed to a custom folder, and would lose the user's worker preference.
+    blnUseWorker = UseWorkerScript
+    strAddInFile = GetInstalledAddInFileName
+    strAddInFolder = GetInstallSettings.strInstallFolder
 
     ' Ask the user if they want to preserve their user settings.
     intResponse = MsgBox2("Save User Settings", "Would you like your user settings/options preserved?", _
@@ -315,16 +338,32 @@ Public Sub UninstallVCSAddin()
     ' Remove On Save hook
     'modExportOnSaveHook.Uninstall
 
-    ' Notify the user of the completion of the uninstall process.
-    MsgBox2 "Success!", "Version Control System has now been uninstalled.", _
-        "Microsoft Access will be closed to remove the remaining files.", _
-        vbInformation
+    If blnUseWorker Then
 
-    LeaveInstallErrorTrapping
+        ' Notify the user of the completion of the uninstall process.
+        MsgBox2 "Success!", "Version Control System has now been uninstalled.", _
+            "Microsoft Access will be closed to remove the remaining files.", _
+            vbInformation
 
-    ' Use the worker script to actually remove the add-in files.
-    ' (They cannot be removed when they are in use, such as when procesing the uninstall.)
-    Worker.Run_UninstallAddin
+        LeaveInstallErrorTrapping
+
+        ' Use the worker script to actually remove the add-in files.
+        ' (They cannot be removed when they are in use, such as when procesing the uninstall.)
+        Worker.Run_UninstallAddin
+
+    Else
+
+        ' Without the helper script there is nothing that outlives this process to delete
+        ' files it still holds open, so the last step becomes the user's. Access closes
+        ' either way -- the files cannot be removed until it does. (#727)
+        ' The script itself is only ever read by wscript, never held open by Access, so it
+        ' can go now; NotifyManualAddInCleanup still lists it if this fails.
+        Worker.RemoveWorkerScript
+        NotifyManualAddInCleanup strAddInFile, strAddInFolder
+        LeaveInstallErrorTrapping
+        DoCmd.Quit
+
+    End If
     Exit Sub
 
 CleanExit:
@@ -333,6 +372,48 @@ CleanExit:
         MsgBox2 T("Unable to Uninstall"), Err.Description, , vbExclamation
         Err.Clear
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NotifyManualAddInCleanup
+' Author    : Adam Waller
+' Date      : 8/7/2026
+' Purpose   : Tell the user which files are left behind after an uninstall that could not
+'           : use the helper script, and open the folder so they can remove them once
+'           : Access has closed.
+'           :
+'           : Naming the files matters here: the add-in database and its lock file are the
+'           : ones the user in #727 was left with and had no way to identify.
+'---------------------------------------------------------------------------------------
+'
+Private Sub NotifyManualAddInCleanup(strAddInFile As String, strFolder As String)
+
+    Dim strFiles As String
+
+    ' List what is actually left in the folder.
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add FSO.GetFileName(strAddInFile)
+        .Add FSO.GetBaseName(strAddInFile) & ".laccdb"
+        If FSO.FileExists(BuildPath2(strFolder, "Worker.vbs")) Then .Add "Worker.vbs"
+        strFiles = .GetStr
+    End With
+
+    MsgBox2 T("Almost Finished"), _
+        T("Version Control System has been uninstalled, but these files cannot be " & _
+        "removed while Microsoft Access has them open:") & vbCrLf & vbCrLf & strFiles, _
+        T("Microsoft Access will now close. Please delete them from this folder:") & _
+        vbCrLf & strFolder, vbInformation
+
+    ' Open the folder so the files are in front of the user when Access closes. Not worth
+    ' failing the uninstall over if the shell declines to open it.
+    LogUnhandledErrors
+    On Error Resume Next
+    Application.FollowHyperlink strFolder
+    If Err Then Err.Clear
+    On Error GoTo 0
 
 End Sub
 
@@ -505,6 +586,27 @@ End Function
 '
 Public Function GetInstalledAddInFileName() As String
     GetInstalledAddInFileName = GetAddInFileName(GetInstallSettings.blnUseCompiledAddIn)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UseWorkerScript
+' Author    : Adam Waller
+' Date      : 8/7/2026
+' Purpose   : Returns true when the add-in is allowed to extract and run the helper
+'           : VBScript (`Worker.vbs`). Some managed environments have endpoint
+'           : protection that blocks Access from launching an extracted script, which
+'           : prevented those users from running v5 at all. (See issue #727.)
+'           : This is a per-user install setting rather than a project option, because
+'           : uninstall and add-in rebuild are not scoped to any project, and the reason
+'           : to disable it belongs to the machine rather than the source tree.
+'           : Callers do not normally need this: `clsWorker.CallWorker` checks it, so a
+'           : disabled worker turns every job into a no-op. Read it directly only where
+'           : a different code path is needed rather than a skipped one.
+'---------------------------------------------------------------------------------------
+'
+Public Function UseWorkerScript() As Boolean
+    UseWorkerScript = GetInstallSettings.blnUseWorkerScript
 End Function
 
 
@@ -813,6 +915,7 @@ Public Function GetInstallSettings(Optional blnUseCache As Boolean = True) As ud
             .blnUseRibbonAddIn = GetSetting(PROJECT_NAME, "Install", "Use Ribbon", True)
             .blnUseCompiledAddIn = GetSetting(PROJECT_NAME, "Install", "Compile accde", False)
             .blnOpenAfterInstall = GetSetting(PROJECT_NAME, "Install", "Open File", CInt(False))
+            .blnUseWorkerScript = GetSetting(PROJECT_NAME, "Install", "Use Worker Script", CInt(True))
             .strInstallFolder = GetSetting(PROJECT_NAME, "Install", "Install Folder", DefaultAddInFolderPath)
             .strSourcePath = GetSetting(PROJECT_NAME, "Install", "Source Path", vbNullString)
             .blnSettingsLoaded = True
@@ -837,6 +940,7 @@ Public Function SaveInstallSettings()
         SaveSetting PROJECT_NAME, "Install", "Use Ribbon", CInt(.blnUseRibbonAddIn)
         SaveSetting PROJECT_NAME, "Install", "Compile accde", CInt(.blnUseCompiledAddIn)
         SaveSetting PROJECT_NAME, "Install", "Open File", CInt(.blnOpenAfterInstall)
+        SaveSetting PROJECT_NAME, "Install", "Use Worker Script", CInt(.blnUseWorkerScript)
         If Len(.strSourcePath) Then
             SaveSetting PROJECT_NAME, "Install", "Source Path", .strSourcePath
         End If

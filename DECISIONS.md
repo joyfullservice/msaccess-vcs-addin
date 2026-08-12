@@ -217,6 +217,227 @@ reorders the structured blocks must keep parameters immediately after
 
 ---
 
+## 2026-08-11 — Legacy index entries without AllFilesHash treat multi-file components as modified
+
+**Trigger**: Issue #748 — Merge reported "No changes found" after editing only a form's
+companion `.cls` file. The reporter's diagnosis pointed at the primary-file-only
+content-hash fallback in `GetModifiedSourceFiles`. A local repro against Database5
+confirmed it, but only for an index whose entries were written before `AllFilesHash`
+existed (5.0.1 and earlier). Fresh exports under current code already record the
+combined hash and detect `.cls`-only edits correctly.
+
+The failure mode is worse than a single missed merge. The legacy branch compared
+only the primary `.form` content hash; when that matched, it *refreshed*
+`FilePropertiesHash` to the edited tree's dates and sizes. The edited `.cls` was
+then recorded as synced, every later merge took the clean fast path, and the next
+export could overwrite the user's VBA with no conflict prompt. A fast-save export
+only re-indexes changed database objects, so a form whose Access side never
+changes never heals.
+
+A secondary gotcha made this look like an export-format problem during diagnosis:
+after the add-in self-updated on disk (`Updated VCS (5.0.1 -> 5.1.0)`), Access kept
+running the stale in-memory 5.0.1 project until the instance was restarted. Full
+exports under that session wrote no `AllFilesHash` and logged no
+`Get File Content Hash` operations, even though the source tree already contained
+the function. Always restart Access after an add-in self-update before trusting a
+repro against new detection logic.
+
+**Options explored**:
+- **Document that upgrading users need one full export**: Rejected. Fast-save
+  exports skip unchanged objects, so the advice would not heal a form whose
+  database side never changes, and users already have a silent data-loss window
+  between upgrade and that export.
+- **Backfill only**: Silently populate `AllFilesHash` when the property hash still
+  matches. Rejected as sole fix — an edit made before the first post-upgrade merge
+  would still be missed and then recorded as synced by the legacy refresh.
+- **Conservative only**: When a legacy entry lacks `AllFilesHash` and more than one
+  indexed file exists, always report modified. Correct, but every multi-file
+  component would re-import on every merge until something else populated the
+  combined hash (a full export, or an actual content change).
+- **Conservative plus backfill on the clean fast path (chosen)**: Report multi-file
+  legacy entries as modified when the property hash differs (cannot prove clean),
+  and when the property hash matches, record `AllFilesHash` now so later scans
+  arbitrate companion edits precisely. Gate both on `GetSourceFileCount > 1`
+  (files that *exist*, not `FileExtensions.Count`) so bare modules keep the
+  precise primary-hash comparison.
+
+**Decision**: The 2026-07-29/07-30 property-hash short-circuit is deliberately *not*
+trusted as a content audit for legacy entries lacking `AllFilesHash`. Matching
+dates and sizes prove the tree is in its last-synced state, which is enough to
+*record* the combined hash, but a mismatch cannot be resolved by the primary file
+alone. Correctness wins over the one-time scan cost: a no-change merge still saves
+the index (`blnSuccess = True` before `VCSIndex.Save`), so both the backfill and
+any one-time imports persist. Steady state after the first post-upgrade merge adds
+only a `Len(AllFilesHash)` test per file on the fast path.
+
+**What this rules out**: Refreshing `FilePropertiesHash` from the legacy
+primary-hash branch when the component has companion files on disk. Treating
+`FileExtensions.Count` as a multi-file signal — `clsDbModule` reports `bas`,
+`cls`, and `json` but only one of `bas`/`cls` is ever present. Relying on "until
+the next export re-syncs this entry" as a healing path for unchanged database
+objects.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls`,
+`Version Control.accda.src/modules/Core/modContainers.bas`
+(`GetSourceFileCount`, `GetSourceFilesContentHash`),
+`Version Control.accda.src/modules/Tests/Core/modTestMergeDetection.bas`.
+See also 2026-07-29 — Merge scan reads no file content when dates and sizes are
+unchanged; issue #748.
+
+---
+
+## 2026-08-10 — SharedDb invalidation after single-object table create
+
+**Trigger**: Table-definition round-trip fixtures raised Error 3265
+(`Item not found in this collection`) on
+`SharedDb.TableDefs(m_Table.Name).Connect` inside `clsDbTableDef.IDbComponent_Export`.
+The harness creates sandbox tables through `modTableDefBuilder` (DAO on a fresh
+`CurrentDb`) or `Application.ImportXML`, then exports through `SharedDb`, whose
+`TableDefs` collection is a snapshot from when the cached handle was opened.
+Fixture 1 usually survived (handle created after its table existed); later
+fixtures failed. The DAO fast path's verification export hit the same 3265 under
+`On Error Resume Next` and appeared to succeed with an empty `Connect`.
+
+**Options explored**:
+- **Per-collection `TableDefs.Refresh` on the cached handle**: Already rejected in
+  2026-06-25 ("SharedDb invalidation during build/merge and database close") —
+  other collections (`QueryDefs`, `Containers.Documents`) have the same staleness.
+- **Harness-only `ReleaseDbReferences`**: Would mask the production gap for
+  `LoadSingleObject` (no per-category release) and for
+  `FixCorruptedBigIntFields` / metadata apply after `ImportXML`. Rejected as sole
+  fix.
+- **Invalidate at create boundaries plus harness catalog refresh** (chosen):
+  `ReleaseDbReferences` after `CreateTableFromSchema` appends a table, and after a
+  successful `Application.ImportXML` fallback in `IDbComponent_Import`. The
+  round-trip harness also calls a `RefreshDbCatalog` helper (idle + release) after
+  import, cleanup, and scaffold load — same pattern as
+  `modTestTableDef.RefreshTableCollections`.
+
+**Decision**: Single-object table create and the round-trip harness are their own
+invalidation boundaries, in addition to the per-category release during
+build/merge. The DAO fast path must invalidate between create and verify so
+verification does not rely on swallowed 3265.
+
+**What this rules out**: Relying on `On Error Resume Next` around export to paper
+over a stale `SharedDb` after DAO create. Treating per-category release in
+`modBuild` as sufficient for `LoadSingleObject` or fixture harnesses.
+
+**Relevant files**: `Version Control.accda.src/modules/Components/modTableDefBuilder.bas`,
+`Version Control.accda.src/modules/Components/clsDbTableDef.cls`,
+`Version Control.accda.src/modules/Tests/modTestRoundtrip.bas`,
+`Version Control.accda.src/modules/Infrastructure/modObjects.bas`.
+See also 2026-06-25 — SharedDb invalidation during build/merge and database close.
+
+---
+
+## 2026-08-10 — Function-call operands in ON clauses must resolve against InputTables
+
+**Trigger**: A production merge of `qryUserDynamoGainLossBySecurityYearEnd` logged
+`Join reference 'DateAdd('yyyy', -1, cur' not found in InputTables block` and then
+reported success. The stored query failed at runtime with DAO error 3080. The ON
+clause had a multi-condition join whose third equality put `DateAdd(...)` on one
+side.
+
+**Root cause**: `ExtractTableFromOnSide` treated any text before the first
+qualifying dot as a table name, so a function-call operand produced a garbage
+token. The 2026-05-07 per-condition emit path fell back to the parent join's
+tables only when extraction returned empty, so the garbage token was emitted as
+`RightTable`. `LoadFromText` accepted it; the failure was deferred to execution.
+
+**Options explored**:
+
+- **Gate the shape out of Design View** (`IsDesignerCompatible = False` when an
+  ON operand is an expression) — rejected: multi-condition ON *requires* Design
+  View because SQL View `dbMemo "SQL"` is rejected by `LoadFromText` for that
+  shape. Leaving Design View means we must emit valid join rows.
+- **Always reuse the parent join's LeftTable/RightTable for every split
+  condition** — rejected: that is exactly the 2026-05-07 cross-table ON bug;
+  individual conditions can reference different table pairs.
+- **Resolve each side independently, preferring a qualifier scan over the parent
+  join** — implemented first, then rejected. It fixed the reported case but
+  changed single-table predicates: for `tblCarsColour.ID > 0` the scan claims
+  that table for the left side and the right side then falls to the parent's
+  identical value, emitting `LeftTable = RightTable`. That drifted the
+  `qryRegressionMultiCondJoin` baseline and reintroduces the pair collapse that
+  breaks `BuildJoinChain` on the next export. Per-side resolution has no way to
+  tell "this side is unknown" from "this condition only names one table".
+- **Rank whole pairs by coverage of the condition's refs (chosen)** — a
+  candidate pair is acceptable when every `InputTables` ref named in the
+  condition equals its left or right value, which is the same invariant the
+  round-trip harness enforces. `ResolveConditionJoinTables` tries per-condition
+  extraction first (so a cross-table condition still wins over the parent pair,
+  preserving the 2026-05-07 fix), then the parent pair (which covers
+  single-table predicates and non-equi conditions), then extraction plus a ref
+  named in the condition, normalized to parent orientation when it is merely a
+  swap because outer-join `Flag` values are orientation-sensitive.
+
+**Decision**: Per-condition join refs are resolved through
+`ResolveConditionJoinTables`, which ranks whole candidate pairs by ref coverage,
+rather than raw `ExtractTableFromOnSide` plus an empty-only fallback. This
+supersedes the fallback rule in the 2026-05-07 cross-table ON entry.
+
+`ValidateJoinRow` in the round-trip harness gained the three invariants that
+would have caught both this bug and the per-side misstep above: refs must be
+non-empty (an empty ref previously skipped validation entirely), refs must exist
+in the `InputTables` block, and `LeftTable` must differ from `RightTable`. All 56
+committed `.qdef` baselines already satisfy them.
+
+**What this rules out**: Emitting any `LeftTable`/`RightTable` that is not in
+`InputTables` when a better known ref can be recovered from the condition. Also
+rules out treating "extraction returned something" as proof that the something is
+a table name, and rules out per-side resolution as the shape of this fix.
+
+**Relevant files**:
+- `clsSqlSyntax.cls` — `ExtractTableFromOnSide` / `IsSimpleOnSideIdentifier`
+- `clsQueryComposer.cls` — `ResolveConditionJoinTables`, `CollectConditionInputRefs`, `PairCoversRefs`, emit loop, parse-time join branches
+- `modTestRoundtrip.bas` — `ValidateJoinRow`, `ParseQdefInputTableRefs`
+- `Testing/Fixtures/queries/regression/qryRegressionFunctionInOnClause.*`
+- `docs/access-query-storage.md` § 5 / § 6
+
+---
+
+## 2026-08-07 — Per-user toggle to disable the helper script (`Worker.vbs`)
+
+**Trigger**: Issue #727. A user's endpoint protection (Sophos "Lockdown") blocks Access from launching `Worker.vbs`, the script `clsWorker` extracts into the install folder for the jobs that cannot run in-process. The visible failure was an uninstall that reported "Success!" and then left the add-in and its lock file behind, but the same block affects every worker consumer, and the user cannot whitelist anything to work around it. Without an escape hatch, v5 is unusable in that environment.
+
+**Options explored**:
+
+- **Storage: per-user registry under `PROJECT_NAME\Install` (chosen)** vs. per-project `vcs-options.json`. Uninstall and add-in rebuild are not scoped to a project, and the reason to disable is environmental rather than a property of any source tree, so a project option would be both wrong-scoped and unreachable at the moments it matters most. The install form already writes registry settings and does not itself use the worker, so the toggle is always reachable.
+- **Gating location: `CallWorker` (chosen)** vs. a check at each of the five call sites. Gating the single launch choke point means a consumer added later that forgets to branch degrades to a no-op instead of launching `wscript` — fail-safe rather than fail-open. It is also the seam where a different out-of-process backend would attach without touching any call site.
+- **Uninstall cleanup via `MoveFileEx` + `MOVEFILE_DELAY_UNTIL_REBOOT`** — this was the original plan's recommendation and was **rejected on review**: the flag writes `PendingFileRenameOperations` under HKLM and requires administrator rights. The add-in installs to `%AppData%` specifically so it never needs elevation, and a user locked down enough to have scripts blocked is the least likely to be an administrator. **Leave-and-notify** was chosen instead: name the files, open the folder, and quit Access so the user can delete them.
+- **VBA project save: block the export** vs. **warn and continue (chosen)** vs. **stay silent (rejected outright)**. Per the 2026-07-29 entry, the worker is the only mechanism that reliably saves the project, and three of the four alternatives tried fail *silently*. Staying silent would mean an export omitting unsaved form and report class-module edits while reporting success — strictly worse than the antivirus alerts being fixed. Blocking was rejected as too aggressive when the user may not have unsaved work that matters to them. `SaveCurrentVBProject` already returns the project's real `Saved` state, so the failure is detectable; the export path was simply discarding it because `SaveUnsavedVbaProject` was a `Sub`.
+- **Access-database worker as the fallback backend** — documented as a future alternative, not built. The worker logic is already VBA-compatible and the add-in self-routes `/cmd` actions via `AutoRun`, so copying the add-in to a temp file and launching `MSACCESS.EXE <copy> /cmd <ACTION>` would reuse all existing code and could restore the VBA project save. Deferred because it costs seconds of Access startup per call, adds a temp database to manage, and — decisively — it is **unverified** whether launching `MSACCESS.EXE` avoids the same heuristic, which cannot be tested without a reporter who can whitelist. If a dedicated worker database is ever wanted, ship it prebuilt like `Template/`: injecting code via `VBComponents.Import` requires "Trust access to the VBA project object model", commonly disabled by GPO in exactly these environments.
+
+**Decision**: Add `blnUseWorkerScript` to `udtInstallSettings` (registry `Install\Use Worker Script`, default **on**), surfaced as **Use helper script (Worker.vbs)** in the installer's Advanced Options and read through `modInstall.UseWorkerScript`. `CallWorker` early-outs when it is off. Each consumer gets a script-free fallback: the accessibility probe reports "not accessible" through a new `modBuild.DatabaseAccessibleToOtherClients` so all three of its call sites take their existing reopen paths deliberately rather than by way of an implicit `CBool(Empty)`; uninstall lists the leftover files and quits; self-rebuild declines with a pointer to Build From Source; and the VBA project save warns. Turning the setting off also deletes `Worker.vbs`, because for these users the file's presence is part of the complaint, not just its execution.
+
+**What this rules out**: Any future worker consumer must either tolerate a no-op or check the setting itself — `CallWorker` will not fail loudly. Locked-down users permanently forgo the in-place merge optimization and `RebuildAddIn`, and accept a manual VBE save before exporting a dirty project. The registry scope means the setting cannot vary per project, which is deliberate. Revisit the Access-database worker if the warn-and-continue save proves annoying in practice, or if anyone can confirm that `MSACCESS.EXE` escapes the heuristic.
+
+**Relevant files**: `modInstall.bas` (setting, accessor, `NotifyManualAddInCleanup`), `clsWorker.cls` (`CallWorker` gate, `RemoveWorkerScript`), `modDatabase.bas` (`SaveUnsavedVbaProject` now a `Function`, `WarnUnsavedVbaProject`), `modBuild.bas` (`DatabaseAccessibleToOtherClients`), `clsVersionControl.cls` (`RebuildAddIn`), `frmVCSInstall` (`chkUseWorkerScript`), `docs/architecture.md`, `Wiki/Installation.md`, `Wiki/FAQs.md`.
+
+---
+
+## 2026-08-06 — In-memory error-break suppression for MCP/API calls
+
+**Trigger**: MCP tools (`vcs_run_vba`, `vcs_export_database`, etc.) route through `modAPI.API` / `APIAsync`. When **Break on Error** is enabled, `LogUnhandledErrors` executes `Stop` on leftover `Err` before most `On Error` directives. That halts Access until a human continues — the MCP server sees a hung call with no JSON response.
+
+**Options explored**:
+- **Temporarily set `Options.BreakOnError = False`** (same pattern as `clsTestRunner`) — rejected: export calls `Options.SaveOptionsForProject`, which would persist `"BreakOnError": false` into `vcs-options.json`. The `Options` singleton can also be replaced mid-call via `LoadOptionOverrides`, dropping the suppression.
+- **Switch VBE error trapping to Break on Unhandled Errors during MCP calls** — rejected: when a break does occur, Break in Class Modules stops at the line that raised the error; Break on Unhandled Errors surfaces it in the parent handler, which is less useful for diagnosis. The scope cannot prevent VBA-native unhandled breaks anyway.
+- **In-memory nesting counter in `modErrorHandling`, honored by `LogUnhandledErrors` and `DebugMode` (chosen)** — `SuppressErrorBreaks` / `RestoreErrorBreaks` at MCP/API entry points. Cannot be serialized, survives options reload, nests correctly for `APIAsync` → `API` → `RunVBA`.
+
+**Decision**: Add `SuppressErrorBreaks`, `RestoreErrorBreaks`, and `ErrorBreaksSuppressed` to `modErrorHandling`. Push at the first statement of `API`, `APIAsync`, `HandleAPIAsyncOperation`, and `RunVBA`; pop on every exit path including `ErrHandler`. When suppressed, log unhandled errors instead of `Stop`, and have `DebugMode` return `False`. Replace `clsTestRunner`'s `Options.BreakOnError` toggle with the same scope (avoids disk write-through during round-trip exports). Leave `Operation.Begin`'s Break in Class Modules trapping unchanged.
+
+**What this rules out**: Mutating `Options.BreakOnError` for automation scopes. Changing VBE trapping mode during MCP calls to reduce breaks at the cost of break location. If a pop is skipped by a hard crash, breaks stay suppressed until Access restarts — acceptable degraded state.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/modErrorHandling.bas` — suppression primitive
+- `Version Control.accda.src/modules/API/modAPI.bas` — `API`, `APIAsync` scopes
+- `Version Control.accda.src/modules/Utility/modTimer.bas` — async timer scope
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `RunVBA` scope
+- `Version Control.accda.src/modules/Tests/clsTestRunner.cls` — uses suppression instead of option mutation
+
+---
+
 ## 2026-07-31 — One declarative list of export formats, guarded by a test that parses the enum
 
 **Trigger**: Adding an export format version took three coordinated edits, and one of them failed silently. `frmVCSOptionsExport.Form_Load` populated its combo by looping `For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]` — 10,000 iterations across the sparse packed-integer space — and filtering through a hand-written `Case EFV_4_1_2, EFV_5_0_0, EFV_5_1_0`. Forget that `Case` and the new format still gates correctly everywhere in code; it just never appears in the UI, so no user can select it. `[_Last] = 50100` was a second hand-copied duplicate of the newest value.
@@ -2966,6 +3187,12 @@ single-object import.)*
 ---
 
 ## 2026-05-07 — Cross-table ON condition LeftTable/RightTable in Design View qdef
+
+> **⚠ Partially superseded** (2026-08-10): The "fall back to the parent join's
+> tables only if extraction returns empty" rule is incomplete — a non-empty
+> garbage token from a function-call operand bypassed it. See
+> "Function-call operands in ON clauses must resolve against InputTables" above.
+> Per-condition extraction itself remains correct for simple column equalities.
 
 **Trigger**: A production database had four queries that passed SQL builder validation but failed with DAO error 3082 ("JOIN operation refers to a field that is not in one of the joined tables") after a full build from source. The queries used compound `ON` clauses where individual conditions referenced different table pairs, and one table was also used inside a saved subquery referenced in another condition.
 

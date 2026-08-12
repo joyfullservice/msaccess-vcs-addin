@@ -751,6 +751,49 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSourceFileCount
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Return how many indexed source files for this component exist on disk.
+'           : Used by merge change-detection to distinguish multi-file components
+'           : (form .form+.cls, module with companion .json) from single-file ones
+'           : when deciding whether a legacy index entry lacking AllFilesHash can
+'           : safely fall back to the primary file content hash alone.
+'           :
+'           : Counts files that exist, not FileExtensions.Count: clsDbModule reports
+'           : "bas", "cls", and "json" but only one of bas/cls is ever present, so a
+'           : bare module must keep the precise primary-hash comparison.
+'           :
+'           : When dMeta is supplied (a path -> Array(date, size) map from a single
+'           : Win32 folder scan, see ScanFolderMetadata), existence is answered from
+'           : the map instead of a per-extension FSO.FileExists.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSourceFileCount(cmp As IDbComponent, Optional strFile As String, _
+    Optional dMeta As Dictionary) As Long
+
+    Dim varExt As Variant
+    Dim strSourceFile As String
+    Dim strBaseFile As String
+    Dim lngCount As Long
+
+    strBaseFile = GetSourceBasePath(cmp, strFile)
+
+    For Each varExt In cmp.FileExtensions
+        strSourceFile = strBaseFile & "." & varExt
+        If dMeta Is Nothing Then
+            If FSO.FileExists(strSourceFile) Then lngCount = lngCount + 1
+        ElseIf dMeta.Exists(strSourceFile) Then
+            lngCount = lngCount + 1
+        End If
+    Next varExt
+
+    GetSourceFileCount = lngCount
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetSourceBasePath
 ' Author    : Adam Waller
 ' Date      : 7/29/2026

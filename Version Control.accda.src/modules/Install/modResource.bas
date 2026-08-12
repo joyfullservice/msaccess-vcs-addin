@@ -11,6 +11,13 @@ Option Private Module
 Option Explicit
 '@Folder("Install")
 
+Private Const ModuleName As String = "modResource"
+
+' Reference documents extracted alongside AGENTS.md. The resource key is prefixed so
+' it cannot collide with any other resource sharing the same file name.
+Private Const AGENT_DOCS_FOLDER As String = "vcs-agent-docs"
+Private Const AGENT_DOC_PREFIX As String = "Agent Doc "
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadResources
@@ -21,6 +28,8 @@ Option Explicit
 '---------------------------------------------------------------------------------------
 '
 Public Sub VerifyResources()
+
+    Dim varFile As Variant
 
     ' Ribbon XML and COM add-in for the ribbon
     VerifyResource "Ribbon XML", "\Ribbon\Ribbon.xml"
@@ -33,8 +42,12 @@ Public Sub VerifyResources()
     VerifyResource "Default .gitignore", "\.gitignore.default"
     VerifyResource "Default .gitattributes", "\.gitattributes.default"
 
-    ' AGENTS.md file for AI agent assistance
+    ' AGENTS.md entry file and its reference documents, for AI agent assistance
     VerifyResource "AGENTS.md", "\Version Control.accda.src\AGENTS.md"
+    For Each varFile In GetAgentDocFiles
+        VerifyResource AGENT_DOC_PREFIX & varFile, _
+            "\Version Control.accda.src\" & AGENT_DOCS_FOLDER & "\" & varFile
+    Next varFile
 
     ' Web test runner HTML (repo-root packaging asset; embedded at build like
     ' Ribbon.xml; extracted to a temp folder at runtime — not the install folder).
@@ -102,6 +115,76 @@ Public Sub ExtractResource(strKey As String, strFolder As String)
             End If
         End With
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAgentDocFiles
+' Author    : Adam Waller
+' Date      : 8/6/2026
+' Purpose   : The reference documents shipped alongside AGENTS.md. This single list
+'           : registers the resources, extracts them, and identifies which files in
+'           : the reference folder are current. Adding a document here and creating
+'           : it under the source folder is all that is required to ship it.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetAgentDocFiles() As Variant
+    GetAgentDocFiles = Array( _
+        "forms-reports.md", _
+        "queries.md", _
+        "testing.md", _
+        "troubleshooting.md", _
+        "vba-modules.md")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractAgentDocs
+' Author    : Adam Waller
+' Date      : 8/6/2026
+' Purpose   : Write AGENTS.md and its reference documents to an export folder. The
+'           : add-in owns these files outright and rewrites them on every export, so
+'           : any other markdown found in the reference folder was shipped by an
+'           : earlier version and is removed rather than left to go stale.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExtractAgentDocs(strExportFolder As String)
+
+    Dim strFolder As String
+    Dim dShipped As Dictionary
+    Dim colRetired As Collection
+    Dim varFile As Variant
+    Dim oFile As Scripting.File
+
+    ' Entry file sits at the root of the export folder
+    ExtractResource "AGENTS.md", strExportFolder
+
+    ' Reference documents live in a subfolder beside it
+    strFolder = strExportFolder & AGENT_DOCS_FOLDER & PathSep
+    If Not VerifyPath(strFolder) Then Exit Sub
+
+    Set dShipped = New Dictionary
+    dShipped.CompareMode = TextCompare
+    For Each varFile In GetAgentDocFiles
+        ExtractResource AGENT_DOC_PREFIX & varFile, strFolder
+        dShipped(CStr(varFile)) = True
+    Next varFile
+
+    ' Remove documents retired since the user last exported. Paths are collected
+    ' before deleting so the Files collection is not modified while enumerating it.
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    Set colRetired = New Collection
+    For Each oFile In FSO.GetFolder(StripSlash(strFolder)).Files
+        If StrComp(FSO.GetExtensionName(oFile.Name), "md", vbTextCompare) = 0 Then
+            If Not dShipped.Exists(oFile.Name) Then colRetired.Add oFile.Path
+        End If
+    Next oFile
+    For Each varFile In colRetired
+        DeleteFile CStr(varFile)
+    Next varFile
+    CatchAny eelWarning, T("Error removing retired agent reference documents"), _
+        ModuleName & ".ExtractAgentDocs"
 
 End Sub
 

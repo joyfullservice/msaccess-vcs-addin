@@ -10,6 +10,7 @@
 '           :
 '           : Run from the Immediate Window in the add-in's own VBE:
 '           :   ?modTestPerf.BenchmarkHashPrimitives()
+'           :   ?modTestPerf.BenchmarkLegacyIndexBackfill()
 '           :
 '           : The end-to-end measurement remains the PERFORMANCE REPORTS section of an
 '           : actual Export/Merge log. This module isolates the individual primitives so
@@ -163,6 +164,96 @@ Public Function BenchmarkHashPrimitives(Optional lngIterations As Long = 3) As S
 
     cOut.Add String$(clngLineWidth, "-"), vbCrLf
     BenchmarkHashPrimitives = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BenchmarkLegacyIndexBackfill
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Measure the one-time upgrade-path cost of backfilling AllFilesHash on
+'           : legacy multi-file entries, then confirm the second scan returns to the
+'           : property-hash short-circuit. Temporarily clears AllFilesHash on every
+'           : Forms index entry, times two GetModifiedSourceFiles calls, and restores
+'           : the saved hashes. Run from the Immediate Window after rebuilding.
+'---------------------------------------------------------------------------------------
+'
+Public Function BenchmarkLegacyIndexBackfill() As String
+
+    Dim cOut As clsConcat
+    Dim cForm As IDbComponent
+    Dim dFiles As Dictionary
+    Dim dSaved As Dictionary
+    Dim dMeta As Dictionary
+    Dim dResult As Dictionary
+    Dim cIdx As clsVCSIndexItem
+    Dim varFile As Variant
+    Dim strFile As String
+    Dim lngBackfilled As Long
+    Dim dblStart As Double
+    Dim dblFirst As Double
+    Dim dblSecond As Double
+
+    Set cForm = GetCategoryContainer("Forms")
+    If cForm Is Nothing Then
+        BenchmarkLegacyIndexBackfill = "Could not resolve the Forms container."
+        Exit Function
+    End If
+
+    Set dFiles = cForm.GetFileList
+    Set dSaved = New Dictionary
+    Set dMeta = ScanFolderMetadata(Options.GetExportFolder)
+
+    ' Snapshot and clear AllFilesHash so the next scan takes the legacy path
+    For Each varFile In dFiles
+        strFile = CStr(varFile)
+        Set cIdx = VCSIndex.Item(cForm, strFile)
+        dSaved.Add strFile, cIdx.AllFilesHash
+        cIdx.AllFilesHash = vbNullString
+        ' Keep FilePropertiesHash current so the first scan hits the clean fast path
+        ' (backfill) rather than the conservative "report modified" branch.
+        cIdx.FilePropertiesHash = GetSourceFilesPropertyHash(cForm, strFile, dMeta)
+    Next varFile
+
+    Set cOut = New clsConcat
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add "LEGACY INDEX BACKFILL BENCHMARK (Forms)", vbCrLf
+    cOut.Add "  Source files: ", CStr(dFiles.Count), vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+    dblStart = MicroSeconds
+    Set dResult = VCSIndex.GetModifiedSourceFiles(cForm, dMeta)
+    dblFirst = MicroSeconds - dblStart
+    AddResult cOut, "First scan (legacy backfill)", 1, dblStart
+
+    For Each varFile In dFiles
+        If Len(VCSIndex.Item(cForm, CStr(varFile)).AllFilesHash) > 0 Then
+            lngBackfilled = lngBackfilled + 1
+        End If
+    Next varFile
+
+    dblStart = MicroSeconds
+    Set dResult = VCSIndex.GetModifiedSourceFiles(cForm, dMeta)
+    dblSecond = MicroSeconds - dblStart
+    AddResult cOut, "Second scan (short-circuit)", 1, dblStart
+
+    cOut.Add PadRight("  reported modified (second scan)", clngLabelWidth), _
+        PadLeft(CStr(dResult.Count), 8), vbCrLf
+    cOut.Add PadRight("  entries with AllFilesHash after first", clngLabelWidth), _
+        PadLeft(CStr(lngBackfilled), 8), vbCrLf
+    If dblSecond > 0 Then
+        cOut.Add PadRight("  first/second ratio", clngLabelWidth), _
+            PadLeft(Format$(dblFirst / dblSecond, "0.00") & "x", 8), vbCrLf
+    End If
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+    ' Restore original hashes so the live index is not left in a stripped state
+    For Each varFile In dSaved.Keys
+        VCSIndex.Item(cForm, CStr(varFile)).AllFilesHash = CStr(dSaved(varFile))
+    Next varFile
+
+    BenchmarkLegacyIndexBackfill = cOut.GetStr
 
 End Function
 

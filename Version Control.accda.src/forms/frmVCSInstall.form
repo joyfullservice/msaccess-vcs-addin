@@ -921,42 +921,10 @@ Begin Form
                                     TabStop = NotDefault
                                     OverlapFlags =215
                                     Left =660
-                                    Top =2670
-                                    Name ="chkOpenAfterInstall"
-                                    DefaultValue ="False"
-
-                                    LayoutCachedLeft =660
-                                    LayoutCachedTop =2670
-                                    LayoutCachedWidth =920
-                                    LayoutCachedHeight =2910
-                                    Begin
-                                        Begin Label
-                                            OverlapFlags =215
-                                            Left =945
-                                            Top =2640
-                                            Width =2595
-                                            Height =465
-                                            FontSize =10
-                                            ForeColor =5324600
-                                            Name ="Label36"
-                                            Caption ="Open add-in after installing to trust the add-in file"
-                                            LayoutCachedLeft =945
-                                            LayoutCachedTop =2640
-                                            LayoutCachedWidth =3540
-                                            LayoutCachedHeight =3105
-                                            ForeThemeColorIndex =-1
-                                            ForeTint =100.0
-                                        End
-                                    End
-                                End
-                                Begin CheckBox
-                                    TabStop = NotDefault
-                                    OverlapFlags =215
-                                    Left =660
                                     Top =2250
-                                    TabIndex =1
                                     Name ="chkUseRibbon"
                                     DefaultValue ="True"
+                                    ControlTipText ="Install and use the TwinBASIC COM ribbon add-in (Recommended)"
 
                                     LayoutCachedLeft =660
                                     LayoutCachedTop =2250
@@ -967,7 +935,7 @@ Begin Form
                                             OverlapFlags =215
                                             Left =945
                                             Top =2220
-                                            Width =2595
+                                            Width =3075
                                             Height =300
                                             FontSize =10
                                             ForeColor =5324600
@@ -975,42 +943,93 @@ Begin Form
                                             Caption ="Use Ribbon Addin"
                                             LayoutCachedLeft =945
                                             LayoutCachedTop =2220
-                                            LayoutCachedWidth =3540
+                                            LayoutCachedWidth =4020
                                             LayoutCachedHeight =2520
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
                                     End
                                 End
-                                Begin Label
+                                Begin CheckBox
+                                    TabStop = NotDefault
                                     OverlapFlags =215
-                                    TextAlign =1
-                                    Left =540
-                                    Top =1620
-                                    Width =3240
-                                    Height =360
-                                    FontSize =14
-                                    FontWeight =700
-                                    ForeColor =5324600
-                                    Name ="Label61"
-                                    Caption ="Advanced Options"
-                                    LayoutCachedLeft =540
-                                    LayoutCachedTop =1620
-                                    LayoutCachedWidth =3780
-                                    LayoutCachedHeight =1980
-                                    ForeThemeColorIndex =-1
-                                    ForeTint =100.0
+                                    Left =660
+                                    Top =2670
+                                    TabIndex =1
+                                    Name ="chkUseWorkerScript"
+                                    DefaultValue ="True"
+                                    ControlTipText ="Runs a small script (Worker.vbs) for a few tasks the add-in cannot do inside Acc"
+                                        "ess. Uncheck if your antivirus blocks it. Everything still works, with a couple "
+                                        "of manual steps."
+
+                                    LayoutCachedLeft =660
+                                    LayoutCachedTop =2670
+                                    LayoutCachedWidth =920
+                                    LayoutCachedHeight =2910
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =945
+                                            Top =2640
+                                            Width =3450
+                                            Height =300
+                                            FontSize =10
+                                            ForeColor =5324600
+                                            Name ="lblUseWorkerScript"
+                                            Caption ="Use helper script (Worker.vbs)"
+                                            LayoutCachedLeft =945
+                                            LayoutCachedTop =2640
+                                            LayoutCachedWidth =4395
+                                            LayoutCachedHeight =2940
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
+                                End
+                                Begin CheckBox
+                                    TabStop = NotDefault
+                                    OverlapFlags =215
+                                    Left =660
+                                    Top =3090
+                                    TabIndex =2
+                                    Name ="chkCreateCompiledVersion"
+                                    DefaultValue ="False"
+                                    ControlTipText ="Create a compiled version of the add-in (Source code will not be visible)"
+
+                                    LayoutCachedLeft =660
+                                    LayoutCachedTop =3090
+                                    LayoutCachedWidth =920
+                                    LayoutCachedHeight =3330
+                                    Begin
+                                        Begin Label
+                                            OverlapFlags =215
+                                            Left =945
+                                            Top =3060
+                                            Width =3075
+                                            Height =285
+                                            FontSize =10
+                                            ForeColor =5324600
+                                            Name ="Label68"
+                                            Caption ="Create compiled version"
+                                            LayoutCachedLeft =945
+                                            LayoutCachedTop =3060
+                                            LayoutCachedWidth =4020
+                                            LayoutCachedHeight =3345
+                                            ForeThemeColorIndex =-1
+                                            ForeTint =100.0
+                                        End
+                                    End
                                 End
                                 Begin TextBox
                                     TabStop = NotDefault
-                                    OverlapFlags =215
+                                    OverlapFlags =223
                                     IMESentenceMode =3
                                     Left =660
                                     Top =3960
                                     Width =2760
                                     Height =300
                                     FontSize =10
-                                    TabIndex =2
+                                    TabIndex =3
                                     Name ="txtInstallFolder"
 
                                     LayoutCachedLeft =660
@@ -1040,12 +1059,12 @@ Begin Form
                                 End
                                 Begin CommandButton
                                     TabStop = NotDefault
-                                    OverlapFlags =215
+                                    OverlapFlags =223
                                     Left =3480
                                     Top =3960
                                     Width =420
                                     Height =300
-                                    TabIndex =3
+                                    TabIndex =4
                                     Name ="cmdChangeInstallFolder"
                                     Caption ="..."
                                     OnClick ="[Event Procedure]"
@@ -1096,37 +1115,57 @@ Begin Form
                                     BackTint =100.0
                                 End
                                 Begin CheckBox
+                                    Visible = NotDefault
                                     TabStop = NotDefault
-                                    OverlapFlags =215
-                                    Left =660
-                                    Top =3270
-                                    TabIndex =4
-                                    Name ="chkCreateCompiledVersion"
+                                    OverlapFlags =247
+                                    Left =1680
+                                    Top =4230
+                                    TabIndex =5
+                                    Name ="chkOpenAfterInstall"
                                     DefaultValue ="False"
 
-                                    LayoutCachedLeft =660
-                                    LayoutCachedTop =3270
-                                    LayoutCachedWidth =920
-                                    LayoutCachedHeight =3510
+                                    LayoutCachedLeft =1680
+                                    LayoutCachedTop =4230
+                                    LayoutCachedWidth =1940
+                                    LayoutCachedHeight =4470
                                     Begin
                                         Begin Label
-                                            OverlapFlags =215
-                                            Left =945
-                                            Top =3240
-                                            Width =2595
-                                            Height =285
+                                            OverlapFlags =247
+                                            Left =1965
+                                            Top =4200
+                                            Width =3075
+                                            Height =300
                                             FontSize =10
                                             ForeColor =5324600
-                                            Name ="Label68"
-                                            Caption ="Create compiled version"
-                                            LayoutCachedLeft =945
-                                            LayoutCachedTop =3240
-                                            LayoutCachedWidth =3540
-                                            LayoutCachedHeight =3525
+                                            Name ="Label36"
+                                            Caption ="Reopen add-in after install"
+                                            LayoutCachedLeft =1965
+                                            LayoutCachedTop =4200
+                                            LayoutCachedWidth =5040
+                                            LayoutCachedHeight =4500
                                             ForeThemeColorIndex =-1
                                             ForeTint =100.0
                                         End
                                     End
+                                End
+                                Begin Label
+                                    OverlapFlags =215
+                                    TextAlign =1
+                                    Left =540
+                                    Top =1620
+                                    Width =3240
+                                    Height =360
+                                    FontSize =14
+                                    FontWeight =700
+                                    ForeColor =5324600
+                                    Name ="Label61"
+                                    Caption ="Advanced Options"
+                                    LayoutCachedLeft =540
+                                    LayoutCachedTop =1620
+                                    LayoutCachedWidth =3780
+                                    LayoutCachedHeight =1980
+                                    ForeThemeColorIndex =-1
+                                    ForeTint =100.0
                                 End
                             End
                         End

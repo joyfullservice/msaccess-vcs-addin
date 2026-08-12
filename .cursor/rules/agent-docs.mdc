@@ -1,0 +1,29 @@
+---
+description: Rules for editing the AGENTS.md and vcs-agent-docs files shipped into user export folders
+globs:
+  - "Version Control.accda.src/AGENTS.md"
+  - "Version Control.accda.src/vcs-agent-docs/**/*.md"
+alwaysApply: false
+---
+
+# Shipped Agent Documentation
+
+`Version Control.accda.src/AGENTS.md` and `Version Control.accda.src/vcs-agent-docs/*.md`
+are embedded as resources and extracted into **every user's export folder on every
+export**. They are read by an agent working in somebody else's Access database, and
+they occupy that agent's context on every turn.
+
+They are budgeted: **150 lines for the entry `AGENTS.md`, 110 for each reference**.
+`modTestAgentDocs` fails the build when a budget is exceeded, a reference is not
+linked from the entry file, a repo-relative link appears, or a document is missing
+from `modResource.GetAgentDocFiles`.
+
+Before adding anything to them, read
+[docs/agent-docs-maintenance.md](../../docs/agent-docs-maintenance.md) — it carries
+the gate for deciding whether a change belongs there at all, the routing table for
+which file it goes in, and the list of things that must never ship (add-in
+internals, repo-relative paths, examples taken from this repo, changelog voice).
+
+The root `AGENTS.md` and everything in `docs/` serve a different audience —
+contributors to this repository — and follow the repo-side half of that same
+document.

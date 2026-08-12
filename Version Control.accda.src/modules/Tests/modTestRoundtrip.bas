@@ -507,7 +507,7 @@ FixtureCleanUp:
     On Error Resume Next
     If blnSandboxImported Then
         DeleteSandboxObject acQuery, strSandboxName
-        DBEngine.Idle dbRefreshCache
+        RefreshDbCatalog
     End If
     Set cComponent = Nothing
     Set cQuery = Nothing
@@ -671,6 +671,11 @@ Private Function RunTableDefRoundtrip(ByVal strFixtureXml As String, ByVal strSc
     Set cTable = New clsDbTableDef
     Set cComponent = cTable
     cComponent.Import strSandboxXmlIn
+    ' Import creates the table outside SharedDb (DAO on a fresh CurrentDb, or
+    ' Application.ImportXML). Invalidate so Pass 1 export sees the new catalog.
+    ' Required especially for fallback\ fixtures: the fast path may create a
+    ' table, re-acquire SharedDb during verification, delete, then ImportXML.
+    RefreshDbCatalog
     blnSandboxImported = ObjectExists(acTable, strSandboxName)
 
     If Not blnSandboxImported Then
@@ -755,7 +760,7 @@ FixtureCleanUp:
     Set cTable = Nothing
     If blnSandboxImported Then
         DeleteSandboxObject acTable, strSandboxName
-        DBEngine.Idle dbRefreshCache
+        RefreshDbCatalog
     End If
 
     If Operation.ErrorLevel < eelPriorErrorLevel Then
@@ -1160,7 +1165,10 @@ Private Sub LoadScaffold(ByVal strScaffoldFolder As String)
         End If
     Next oFile
 
-    If lngLoaded > 0 Then Log.Add T("Loaded {0} scaffold object(s).", var0:=CStr(lngLoaded)), False
+    If lngLoaded > 0 Then
+        RefreshDbCatalog
+        Log.Add T("Loaded {0} scaffold object(s).", var0:=CStr(lngLoaded)), False
+    End If
 
 End Sub
 
@@ -1170,7 +1178,7 @@ Private Sub UnloadScaffold()
     For Each varName In m_colScaffoldQueries
         DeleteSandboxObject acQuery, CStr(varName)
     Next varName
-    DBEngine.Idle dbRefreshCache
+    RefreshDbCatalog
     Set m_colScaffoldQueries = New Collection
 End Sub
 
@@ -1215,7 +1223,7 @@ Private Sub CleanupStaleObjects()
     For Each varName In colTables
         DeleteSandboxObject acTable, CStr(varName)
     Next varName
-    DBEngine.Idle dbRefreshCache
+    RefreshDbCatalog
 End Sub
 
 
@@ -1223,6 +1231,27 @@ Private Function IsHarnessObjectName(ByVal strName As String) As Boolean
     IsHarnessObjectName = (Left$(strName, Len(TEST_PREFIX)) = TEST_PREFIX) _
         Or (Left$(strName, Len(SCAFFOLD_PREFIX)) = SCAFFOLD_PREFIX)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefreshDbCatalog
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : Pick up schema changes made outside the SharedDb handle, and release
+'           : that handle so the next SharedDb caller sees the current catalog.
+'           :
+'           : The harness creates and deletes tables/queries through CurrentDb and
+'           : Application.ImportXML. SharedDb caches a CurrentDb whose TableDefs /
+'           : QueryDefs collections are snapshots from when the handle was opened;
+'           : without invalidation, clsDbTableDef.Export raises Error 3265 for a
+'           : table created after that snapshot. Same pattern as
+'           : modTestTableDef.RefreshTableCollections.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RefreshDbCatalog()
+    DBEngine.Idle dbRefreshCache
+    ReleaseDbReferences
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -1803,6 +1832,9 @@ Private Function ValidateQdefJoinTables(ByVal strQdef As String) As String
     strJoinBlock = Mid$(strQdef, lngJoinStart, lngJoinEnd - lngJoinStart)
     asLines = Split(strJoinBlock, vbCrLf)
 
+    Dim dInputRefs As Dictionary
+    Set dInputRefs = ParseQdefInputTableRefs(strQdef)
+
     For i = 0 To UBound(asLines)
         strLine = Trim$(asLines(i))
 
@@ -1827,9 +1859,11 @@ Private Function ValidateQdefJoinTables(ByVal strQdef As String) As String
             blnCollectingExpr = False
 
             ' We've reached the Flag line — validate the complete join row.
-            If Len(strLeftTable) > 0 And Len(strRightTable) > 0 _
-                And Len(strExpression) > 0 Then
-                ValidateJoinRow strLeftTable, strRightTable, strExpression, colErrors
+            ' An empty LeftTable/RightTable is itself a defect, so it must be
+            ' reported rather than skipped.
+            If Len(strExpression) > 0 Then
+                ValidateJoinRow strLeftTable, strRightTable, strExpression, _
+                    dInputRefs, colErrors
             End If
 
             strLeftTable = vbNullString
@@ -1856,23 +1890,62 @@ End Function
 ' Procedure : ValidateJoinRow
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
-' Purpose   : Check that every table referenced in the Expression (via table.field
-'           : notation) is either LeftTable or RightTable. This catches the bug
-'           : where the emitter assigns the wrong table pair to a split condition.
+' Purpose   : Validate one Design View join row against four invariants:
 '           :
-'           : Single-table predicates (e.g. "tblB.ID > 0") are valid — they only
-'           : reference one table, so the other table (LeftTable or RightTable)
-'           : may not appear. The invariant is directional: tables in the
-'           : expression must be LeftTable or RightTable, not the reverse.
+'           :   1. LeftTable and RightTable are non-empty. An empty ref used to
+'           :      skip validation entirely, hiding emitter regressions.
+'           :   2. Both refs appear in the qdef's InputTables block (by Name or
+'           :      Alias). A ref Access cannot resolve fails at execution time.
+'           :   3. LeftTable <> RightTable. Access collapses such rows, which
+'           :      breaks BuildJoinChain on the next export (no graph root).
+'           :   4. Every table referenced in the Expression (via table.field
+'           :      notation) is either LeftTable or RightTable. This catches the
+'           :      emitter assigning the wrong table pair to a split condition.
+'           :
+'           : Invariant 4 is directional: single-table predicates (e.g.
+'           : "tblB.ID > 0") are valid, because only one side needs to appear.
 '---------------------------------------------------------------------------------------
 '
 Private Sub ValidateJoinRow(ByVal strLeftTable As String, _
     ByVal strRightTable As String, ByVal strExpression As String, _
-    ByVal colErrors As Collection)
+    ByVal dInputRefs As Dictionary, ByVal colErrors As Collection)
 
     Dim strExpr As String
     Dim colTableRefs As Collection
     Dim varRef As Variant
+
+    ' 1. Non-empty refs.
+    If Len(strLeftTable) = 0 Then
+        colErrors.Add "Empty LeftTable on join row with Expression """ & _
+            strExpression & """"
+    End If
+    If Len(strRightTable) = 0 Then
+        colErrors.Add "Empty RightTable on join row with Expression """ & _
+            strExpression & """"
+    End If
+
+    ' 2. Refs must be declared in InputTables.
+    If Not dInputRefs Is Nothing Then
+        If Len(strLeftTable) > 0 And Not dInputRefs.Exists(strLeftTable) Then
+            colErrors.Add "LeftTable """ & strLeftTable & _
+                """ is not in the InputTables block (Expression """ & _
+                strExpression & """)"
+        End If
+        If Len(strRightTable) > 0 And Not dInputRefs.Exists(strRightTable) Then
+            colErrors.Add "RightTable """ & strRightTable & _
+                """ is not in the InputTables block (Expression """ & _
+                strExpression & """)"
+        End If
+    End If
+
+    ' 3. A join row must connect two distinct refs. Aliased self-joins satisfy
+    '    this because the refs are the aliases, not the base table name.
+    If Len(strLeftTable) > 0 And Len(strRightTable) > 0 Then
+        If StrComp(strLeftTable, strRightTable, vbTextCompare) = 0 Then
+            colErrors.Add "LeftTable and RightTable are both """ & _
+                strLeftTable & """ (Expression """ & strExpression & """)"
+        End If
+    End If
 
     ' Unescape qdef backslash sequences for comparison.
     strExpr = Replace(Replace(strExpression, "\\", "\"), "\""", """")
@@ -1880,7 +1953,7 @@ Private Sub ValidateJoinRow(ByVal strLeftTable As String, _
     ' Extract all table references from "table.field" patterns.
     Set colTableRefs = ExtractTableRefsFromExpression(strExpr)
 
-    ' Each referenced table must be either LeftTable or RightTable.
+    ' 4. Each referenced table must be either LeftTable or RightTable.
     For Each varRef In colTableRefs
         If StrComp(CStr(varRef), strLeftTable, vbTextCompare) <> 0 _
             And StrComp(CStr(varRef), strRightTable, vbTextCompare) <> 0 Then
@@ -1891,6 +1964,51 @@ Private Sub ValidateJoinRow(ByVal strLeftTable As String, _
     Next varRef
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseQdefInputTableRefs
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : Collect every name a join row may legally reference from the qdef's
+'           : InputTables block: each Name and each Alias. Mirrors
+'           : clsQueryComposer.BuildInputTableRefLookup, which the emitter uses.
+'---------------------------------------------------------------------------------------
+'
+Private Function ParseQdefInputTableRefs(ByVal strQdef As String) As Dictionary
+
+    Dim dRefs As Dictionary
+    Dim asLines() As String
+    Dim i As Long
+    Dim strLine As String
+    Dim strName As String
+    Dim blnInBlock As Boolean
+
+    Set dRefs = New Dictionary
+    dRefs.CompareMode = vbTextCompare
+    Set ParseQdefInputTableRefs = dRefs
+
+    asLines = Split(strQdef, vbCrLf)
+    For i = 0 To UBound(asLines)
+        strLine = Trim$(asLines(i))
+        If strLine = "Begin InputTables" Then
+            blnInBlock = True
+        ElseIf blnInBlock And strLine = "End" Then
+            Exit For
+        ElseIf blnInBlock Then
+            strName = vbNullString
+            If Left$(strLine, 6) = "Name =" Then
+                strName = ExtractQdefQuotedValue(strLine)
+            ElseIf Left$(strLine, 7) = "Alias =" Then
+                strName = ExtractQdefQuotedValue(strLine)
+            End If
+            If Len(strName) > 0 Then
+                If Not dRefs.Exists(strName) Then dRefs.Add strName, True
+            End If
+        End If
+    Next i
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

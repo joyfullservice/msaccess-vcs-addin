@@ -160,6 +160,7 @@ End Sub
 '
 Private Sub HandleAPIAsyncOperation(strMethod As String, strArgs As String, strCallbackInfo As String)
 
+    SuppressErrorBreaks
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
@@ -203,6 +204,7 @@ Private Sub HandleAPIAsyncOperation(strMethod As String, strArgs As String, strC
     ' Completion callback is now sent from Operation.Finish() before ReleaseObjects
     MCPDebugLog "HandleAPIAsyncOperation: Operation complete, Result=" & Operation.Result
 
+    RestoreErrorBreaks
     Exit Sub
 
 ErrHandler:
@@ -210,6 +212,8 @@ ErrHandler:
     If MCP.IsActive Then
         MCP.PostCallback "error", -1, -1, strMethod & " failed: " & Err.Description
     End If
+
+    RestoreErrorBreaks
 
     ' Re-throw error
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
