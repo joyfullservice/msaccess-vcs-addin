@@ -51,7 +51,7 @@ Public Sub TestMergeIgnoresTimestampOnlyWhenAllFilesHashMatches()
 
     Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
     TestAssert Not dModified.Exists(strFile), "timestamp-only drift ignored when AllFilesHash matches"
-    CleanupCreatedCompanionJson strFile, blnCreatedJson
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
 End Sub
 
 
@@ -100,8 +100,7 @@ Public Sub TestMergeSkipsContentHashWhenPropertyHashMatches()
         "matching property hash short-circuits before the content hash is consulted"
 
     ' Restore a valid baseline so later tests are not affected
-    SeedMergeIndexBaseline cForm, strFile
-    CleanupCreatedCompanionJson strFile, blnCreatedJson
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
 
 End Sub
 
@@ -210,7 +209,7 @@ Public Sub TestMergeUsesSharedScanMetadata()
         "shared folder scan agrees with the per-category scan"
     TestAssert dShared.Count = dOwnScan.Count, "same number of modified files reported"
 
-    CleanupCreatedCompanionJson strFile, blnCreatedJson
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
 
 End Sub
 
@@ -394,8 +393,7 @@ Public Sub TestMergeBackfillsAllFilesHashForLegacyEntry()
     TestAssert cIdx.AllFilesHash = GetSourceFilesContentHash(cForm, strFile), _
         "backfilled AllFilesHash matches current content"
 
-    SeedMergeIndexBaseline cForm, strFile
-    CleanupCreatedCompanionJson strFile, blnCreatedJson
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
 
 End Sub
 
@@ -449,6 +447,63 @@ Public Sub TestMergeLegacySingleFileUsesPrimaryHash()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : TestAltExportPromotionRecordsSourceFileState
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : When an export resolves a conflict by moving the temp copy into the export
+'           : folder, UpdateFromAltExport must measure the source files where they now
+'           : live. Update leaves those values blank for an alternate export, so copying
+'           : them across left a multi-file component with no recorded content hash --
+'           : reported modified by every later merge, which for an add-in form fails with
+'           : "Merging not supported for add-in forms" even though nothing changed.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestAltExportPromotionRecordsSourceFileState()
+
+    Dim cForm As IDbComponent
+    Dim cIdx As clsVCSIndexItem
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    ' A companion .json makes this multi-file, where a missing content hash cannot
+    ' be ruled out as a companion-only edit.
+    blnCreatedJson = EnsureCompanionJson(strFile)
+
+    ' Record the entry a conflict temp export leaves behind, then promote it the way
+    ' the export loop does once the files have been moved into the export folder.
+    VCSIndex.Update cForm, eatAltExport, GetFileHash(strFile)
+    VCSIndex.UpdateFromAltExport cForm
+
+    Set cIdx = VCSIndex.Item(cForm, strFile)
+    TestAssert cIdx.FilePropertiesHash = GetSourceFilesPropertyHash(cForm, strFile), _
+        "promotion records the property hash of the promoted files"
+    TestAssert cIdx.AllFilesHash = GetSourceFilesContentHash(cForm, strFile), _
+        "promotion records the combined content hash of the promoted files"
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    TestAssert Not dModified.Exists(strFile), _
+        "a promoted component is not reported modified on the next merge scan"
+
+    ' The AlternateExport entry seeded above is dropped when the index is saved.
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
+
+End Sub
+
+
 Private Sub RunMetadataOnlyMergeTest(cCategory As IDbComponent, strBaseName As String)
     Dim strFile As String
     Dim strJson As String
@@ -470,6 +525,7 @@ Private Sub RunMetadataOnlyMergeTest(cCategory As IDbComponent, strBaseName As S
     strJson = SwapExtension(strFile, "json")
     blnCreatedJson = EnsureCompanionJson(strFile)
     If Not FSO.FileExists(strJson) Then
+        CleanupCreatedCompanionJson strFile, blnCreatedJson
         TestAssert True, "SKIP: companion json missing for " & strBaseName
         Exit Sub
     End If
@@ -482,8 +538,7 @@ Private Sub RunMetadataOnlyMergeTest(cCategory As IDbComponent, strBaseName As S
     TestAssert dModified.Exists(strFile), "metadata-only json change detected: " & strBaseName
 
     WriteFile strOriginal, strJson
-    SeedMergeIndexBaseline cCategory, strFile
-    CleanupCreatedCompanionJson strFile, blnCreatedJson
+    RestoreMergeIndexBaseline cCategory, strFile, blnCreatedJson
 End Sub
 
 
@@ -494,6 +549,19 @@ Private Sub SeedMergeIndexBaseline(cCategory As IDbComponent, strFile As String)
     cIdx.FileHash = GetFileHash(strFile)
     cIdx.FilePropertiesHash = GetSourceFilesPropertyHash(cCategory, strFile)
     cIdx.AllFilesHash = GetSourceFilesContentHash(cCategory, strFile)
+End Sub
+
+
+' Leave the index describing the files that actually remain on disk. Seeding a
+' baseline before removing a companion created for the test records hashes for a
+' file that no longer exists, which reports the component modified on every merge
+' from then on -- in this project, against the developer's own live index.
+Private Sub RestoreMergeIndexBaseline(cCategory As IDbComponent, strFile As String, _
+    blnCreatedJson As Boolean)
+
+    CleanupCreatedCompanionJson strFile, blnCreatedJson
+    SeedMergeIndexBaseline cCategory, strFile
+
 End Sub
 
 

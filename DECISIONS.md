@@ -83,6 +83,67 @@ contradictory guidance.
 
 ---
 
+## 2026-08-12 — Alt-export promotion measures the source files instead of copying blanks
+
+**Trigger**: A merge of this repo into itself failed with `Merging not supported
+for add-in forms. Use full build instead.` on `frmVCSMain.form`, with no form
+changed and nothing in the working tree to merge. The scan genuinely believed the
+form was modified, and the state was sticky: the post-merge export left it in
+place, so the next merge failed the same way.
+
+The chain ran backwards through two defects. `modTestMergeDetection` uses the
+live `frmVCSMain` as a fixture: it creates a temporary companion `.json`, seeds
+the index baseline while that file exists, then deletes it — leaving the real
+index holding hashes for a three-file component when only two files remain. The
+next full export saw the mismatched property hash, temp-exported the form for
+conflict comparison, found no actual conflict, and promoted the temp copy with
+`UpdateFromAltExport`. That call copied `FilePropertiesHash`, `AllFilesHash`, and
+`SourceModified` from the alternate entry, which `Update` deliberately leaves
+blank for `eatAltExport` because the canonical files do not exist yet. A
+multi-file component with no recorded content hash cannot be proven unchanged, so
+`GetModifiedSourceFiles` took the issue #748 conservative branch forever after.
+
+**Options explored**:
+- **Populate the three fields in `Update` for `eatAltExport` too** — rejected.
+  They would describe the temp folder, which is exactly what the existing skip
+  exists to avoid, and the entry would be wrong in a subtler way.
+- **Have `GetModifiedSourceFiles` treat a blank `AllFilesHash` as clean** —
+  rejected outright. That is the #748 silent-data-loss branch; a companion-only
+  edit would be dropped with no conflict prompt.
+- **Recompute the source file state inside `UpdateFromAltExport` (chosen)** —
+  every caller moves the temp files into the export folder before calling it, so
+  this is the first point where the files can be measured where they will live.
+  The comment in `Update` already promised this behavior.
+- **Move the merge-detection tests onto a throwaway sandbox component** —
+  deferred. Restoring the baseline after deleting the companion is a two-line
+  helper and keeps the tests exercising a real multi-file component.
+
+**Decision**: `UpdateFromAltExport` carries over only the values that describe
+the database object and its exported content (`FileHash`, `OtherHash`,
+`MetaHash`, `FolderAnnotation`, and the dates), and measures `SourceModified`,
+`FilePropertiesHash`, and `AllFilesHash` against the promoted files. The cost is
+one property scan and one content hash per promoted component during an export
+that already read those files to compare them. `modTestMergeDetection` gains
+`RestoreMergeIndexBaseline`, which deletes a test-created companion *before*
+re-seeding, and a test that pins the promotion contract.
+
+**What this rules out**: Index entries may no longer be assembled by copying an
+alternate-export entry wholesale — anything describing the source files on disk
+has to be measured after the move. If a future component type promotes files
+without going through `MoveSource` first, this ordering assumption breaks and the
+recompute must move to the call site. Tests that stage companion files against a
+live component must restore the index baseline after removing them; seeding
+before cleanup poisons the developer's own working copy, and nothing in an export
+heals it because a fast save only looks at database-side modifications.
+
+**Relevant files**:
+`Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls`
+(`UpdateFromAltExport`),
+`Version Control.accda.src/modules/Tests/Core/modTestMergeDetection.bas`
+(`RestoreMergeIndexBaseline`, `TestAltExportPromotionRecordsSourceFileState`).
+
+---
+
 ## 2026-08-12 — Rebuild handoff: confirm the worker, and let Access close itself
 
 **Trigger**: An agent asked to rebuild the add-in burned a long session on it and

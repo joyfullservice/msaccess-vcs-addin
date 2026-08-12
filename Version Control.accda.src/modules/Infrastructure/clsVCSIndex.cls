@@ -453,8 +453,13 @@ End Function
 ' Date      : 9/1/2022
 ' Purpose   : Update the index entry from the alternate export section. This is done
 '           : after resolving a conflict where the exported file in the temp folder is
-'           : moved to the primary export folder. (This way we don't have to compute
-'           : the hashes and index values again.
+'           : moved to the primary export folder. Hashes of the object and its content
+'           : are carried over rather than computed again, but the source file state
+'           : must be measured here: the alternate entry was written while the files
+'           : were still in the temp folder, so Update deliberately left those values
+'           : blank. Copying the blanks leaves the component reported as modified on
+'           : every later merge scan, since a multi-file component with no recorded
+'           : content hash cannot be proven unchanged.
 '---------------------------------------------------------------------------------------
 '
 Public Sub UpdateFromAltExport(cItem As IDbComponent)
@@ -483,16 +488,21 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
     If Not cAltItem Is Nothing Then
         Set cTarget = LoadItem(cItem, strFile, "Components")
         With cTarget
+            ' Values describing the database object and the exported content are
+            ' unaffected by moving the files into the export folder.
             .FileHash = cAltItem.FileHash
             .OtherHash = cAltItem.OtherHash
             .MetaHash = cAltItem.MetaHash
-            .FilePropertiesHash = cAltItem.FilePropertiesHash
-            .AllFilesHash = cAltItem.AllFilesHash
             .FolderAnnotation = cAltItem.FolderAnnotation
             .ExportDate = cAltItem.ExportDate
             .ImportDate = cAltItem.ImportDate
-            .SourceModified = cAltItem.SourceModified
             .ObjectDate = cAltItem.ObjectDate
+
+            ' Source file state is measured where the files now live. (Callers move
+            ' the temp files into the export folder before calling this.)
+            .SourceModified = GetSourceModifiedDate(cItem, cItem.SourceFile)
+            .FilePropertiesHash = GetSourceFilesPropertyHash(cItem)
+            .AllFilesHash = GetSourceFilesContentHash(cItem)
         End With
     End If
 
