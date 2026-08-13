@@ -61,6 +61,24 @@ Public Sub TestEscapeXmlNameUnderscore()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : TestFormatTableDataChangeSummary
+' Author    : Adam Waller
+' Date      : 8/13/2026
+' Purpose   : The merge console lists only the counts that actually changed.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestFormatTableDataChangeSummary()
+    Dim cTable As clsDbTableData
+    Set cTable = New clsDbTableData
+    TestAssert cTable.FormatTableDataChangeSummary(1, 0, 0) = "1 added", "inserted only"
+    TestAssert cTable.FormatTableDataChangeSummary(0, 1, 0) = "1 changed", "updated only"
+    TestAssert cTable.FormatTableDataChangeSummary(0, 0, 1) = "1 removed", "deleted only"
+    TestAssert cTable.FormatTableDataChangeSummary(1, 2, 3) = "1 added, 2 changed, 3 removed", "all three"
+    TestAssert cTable.FormatTableDataChangeSummary(0, 0, 0) = vbNullString, "nothing changed"
+End Sub
+
+
 Public Sub TestTableRequiresXmlSchema()
     '@Tag("integration")
 

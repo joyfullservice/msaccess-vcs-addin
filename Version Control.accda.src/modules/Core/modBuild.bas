@@ -540,6 +540,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
 
         ' Show category wrap-up.
+        PadTableDataMergeCompleteIfNeeded cCategory
         If Options.ShowDebug Then
             Log.Add T("[{0}] {1} processed.", var0:=dFiles.Count, var1:=T(LCase(cCategory.Category)))
         Else
@@ -1325,6 +1326,22 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : PadTableDataMergeCompleteIfNeeded
+' Author    : Adam Waller
+' Date      : 8/13/2026
+' Purpose   : When table data printed child lines under the category heading, pad a
+'           : completion sentence so the wrap-up [N] aligns with other categories.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PadTableDataMergeCompleteIfNeeded(cCategory As IDbComponent)
+    If Options.ShowDebug Then Exit Sub
+    If cCategory.ComponentType <> edbTableData Then Exit Sub
+    If Not Log.AtNewLine Then Exit Sub
+    Log.PadRight T("Table data merge complete.")
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : MergeDependentObjects
 ' Author    : Adam Waller
 ' Date      : 6/18/2025
@@ -1504,6 +1521,7 @@ Public Sub MergeAllSource()
             Next varFile
 
             ' Show category wrap-up.
+            PadTableDataMergeCompleteIfNeeded cCategory
             Log.Add "[" & dFiles.Count & "]" & IIf(Options.ShowDebug, " " & LCase(cCategory.Category) & T(" processed."), vbNullString)
             Perf.CategoryEnd dFiles.Count
         End If
@@ -1702,6 +1720,7 @@ Public Sub MergeScoped(colContainers As Collection, blnFullMerge As Boolean)
             If cCategory.SingleFile Then Exit For
         Next varFile
 
+        PadTableDataMergeCompleteIfNeeded cCategory
         If Options.ShowDebug Then
             Log.Add T("[{0}] {1} processed.", var0:=dFiles.Count, var1:=T(LCase(cCategory.Category)))
         Else

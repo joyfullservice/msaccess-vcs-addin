@@ -657,6 +657,7 @@ Private Sub IDbComponent_Merge(strFile As String)
     Dim lngInserted As Long
     Dim lngUpdated As Long
     Dim lngDeleted As Long
+    Dim strSummary As String
 
     strTable = GetObjectNameFromFileName(strFile)
 
@@ -664,7 +665,7 @@ Private Sub IDbComponent_Merge(strFile As String)
     ' data for, or the file was deleted outright. Discarding the rows is never the right
     ' response to either one, so only the index entry is cleared.
     If Not FSO.FileExists(strFile) Then
-        Log.Add T("    No source file for {0}. Leaving existing table data unchanged.", _
+        Log.Add "  " & T("No source file for {0}. Leaving existing table data unchanged.", _
             var0:=strTable), Options.ShowDebug
         VCSIndex.Remove Me, strFile
         Exit Sub
@@ -673,7 +674,7 @@ Private Sub IDbComponent_Merge(strFile As String)
     ' Only local tables hold data we can merge.
     If Not IsLocalTable(strTable) Then
         If TableExists(strTable) Then
-            Log.Add T("    Skipping table data for linked table '{0}' (data resides in the back-end).", _
+            Log.Add "  " & T("Skipping table data for linked table '{0}' (data resides in the back-end).", _
                 var0:=strTable), Options.ShowDebug
         Else
             Log.Error eelError, "Table structure not found for '" & strTable & "'.", _
@@ -707,13 +708,16 @@ Private Sub IDbComponent_Merge(strFile As String)
             lngInserted, lngUpdated, lngDeleted) Then
             If eStrategy = etmsReload Then
                 ' Counting changes is not possible without a key, so report what was done.
-                Log.Add "    " & T("{0}: {1} row(s) reloaded (no key to compare on)", _
+                Log.EnsureNewLine
+                Log.Add "  " & T("{0}: {1} row(s) reloaded (no key to compare on)", _
                     var0:=strTable, var1:=CStr(lngInserted)), True
             Else
-                Log.Add "    " & T("{0}: {1} added, {2} changed, {3} removed", _
-                    var0:=strTable, var1:=CStr(lngInserted), var2:=CStr(lngUpdated), _
-                    var3:=CStr(lngDeleted)), _
-                    (lngInserted + lngUpdated + lngDeleted > 0) Or Options.ShowDebug
+                strSummary = FormatTableDataChangeSummary(lngInserted, lngUpdated, lngDeleted)
+                If Len(strSummary) > 0 Or Options.ShowDebug Then
+                    If Len(strSummary) = 0 Then strSummary = T("no changes")
+                    Log.EnsureNewLine
+                    Log.Add "  " & strTable & ": " & strSummary, True
+                End If
             End If
             ' Record the file we just merged so the next merge sees it as unchanged.
             Perf.OperationStart "Update Index (Table Data)"
@@ -728,6 +732,34 @@ Private Sub IDbComponent_Merge(strFile As String)
     Perf.OperationEnd
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatTableDataChangeSummary
+' Author    : Adam Waller
+' Date      : 8/13/2026
+' Purpose   : Build the per-table merge console fragment from the counts that actually
+'           : changed, so unchanged states are not listed. Empty when nothing changed.
+'---------------------------------------------------------------------------------------
+'
+Public Function FormatTableDataChangeSummary(lngInserted As Long, lngUpdated As Long, _
+    lngDeleted As Long) As String
+
+    Dim strOut As String
+
+    If lngInserted > 0 Then strOut = T("{0} added", var0:=CStr(lngInserted))
+    If lngUpdated > 0 Then
+        If Len(strOut) > 0 Then strOut = strOut & ", "
+        strOut = strOut & T("{0} changed", var0:=CStr(lngUpdated))
+    End If
+    If lngDeleted > 0 Then
+        If Len(strOut) > 0 Then strOut = strOut & ", "
+        strOut = strOut & T("{0} removed", var0:=CStr(lngDeleted))
+    End If
+
+    FormatTableDataChangeSummary = strOut
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -1122,7 +1154,7 @@ Private Function UpdateChangedRowsInGroups(dbs As DAO.Database, strTable As Stri
     Set dChanged = New Dictionary
     lngGroup = UPDATE_FIELD_GROUP_SIZE
 
-    Log.Add "    " & T("{0}: too many fields to update in one statement." & _
+    Log.Add "  " & T("{0}: too many fields to update in one statement." & _
         " Updating in groups of {1}.", var0:=strTable, var1:=CStr(lngGroup)), _
         Options.ShowDebug
 

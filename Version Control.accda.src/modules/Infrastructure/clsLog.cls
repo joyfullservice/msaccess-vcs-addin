@@ -46,6 +46,7 @@ Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_
 Private m_SavedLogFilePath As String ' Path last written by SaveFile
 Private m_lngErrCount(eelNoError To eelCritical) As Long
 Private m_colErrorJournal As Collection
+Private m_blnAtNewLine As Boolean
 
 
 '---------------------------------------------------------------------------------------
@@ -203,6 +204,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             ' Add line break for HTML
             If blnNextOutputOnNewLine Then m_Console.Add "<br>"
         End With
+        m_blnAtNewLine = blnNextOutputOnNewLine
         m_blnConsoleDirty = True
 
         ' Run debug output
@@ -520,6 +522,7 @@ Private Sub Class_Initialize()
     Me.PadLength = 30
     Me.Active = False
     m_SavedLogFilePath = vbNullString
+    m_blnAtNewLine = True
     ' Generate timestamp-based operation ID with millisecond precision
     m_OperationId = Format$(Now, "yyyymmdd\_hhnnss") & "_" & Format$((Timer * 1000) Mod 1000, "000")
 End Sub
@@ -539,6 +542,32 @@ Public Sub PadRight(strText As String, Optional blnPrint As Boolean = True, Opti
     Else
         Me.Add strText, blnPrint, blnNextOutputOnNewLine
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AtNewLine
+' Author    : Adam Waller
+' Date      : 8/13/2026
+' Purpose   : True when the last printed console entry ended with a line break, so the
+'           : next Add starts a new line rather than continuing a PadRight heading.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get AtNewLine() As Boolean
+    AtNewLine = m_blnAtNewLine
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EnsureNewLine
+' Author    : Adam Waller
+' Date      : 8/13/2026
+' Purpose   : End the current console line if a PadRight heading is still open, so a
+'           : following child entry sits underneath it instead of wrapping mid-line.
+'---------------------------------------------------------------------------------------
+'
+Public Sub EnsureNewLine()
+    If Not m_blnAtNewLine Then Me.Add vbNullString
 End Sub
 
 

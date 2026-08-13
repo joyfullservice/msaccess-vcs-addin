@@ -52,7 +52,7 @@ Records are reconciled row by row against the table's primary key (or a unique, 
 | Present, identical | Present | None |
 | Missing | Present | Delete |
 
-Only rows that actually differ are written, so key values (including AutoNumber values that other tables reference) survive a merge, and unchanged rows are never disturbed. The console reports one line per table, for example `tblVersions: 1 added, 0 changed, 0 removed`.
+Only rows that actually differ are written, so key values (including AutoNumber values that other tables reference) survive a merge, and unchanged rows are never disturbed. The console reports one line per table for the counts that changed, for example `tblVersions: 1 added`.
 
 The whole reconcile for a table runs as a single transaction. If a delete is blocked because another table still references the row, the table is rolled back to its previous state, the error is logged, and the rest of the merge continues.
 
