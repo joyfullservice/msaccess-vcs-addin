@@ -101,7 +101,7 @@ Private Sub cmdSaveAsDefault_Click()
 
     ' Save current working options as defaults
     ' (Ensure current subform state is saved first)
-    Me.Parent.Form.SaveCurrentSubform
+    Form_frmVCSOptions.SaveCurrentSubform
     opt.SaveOptionsAsDefault
     MsgBox2 T("Options Saved"), T("The current options have been saved as default for new projects."), , vbInformation
 

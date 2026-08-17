@@ -138,5 +138,5 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub cmdTranslations_Click()
-    Me.Parent.Form.NavigateTo "Translation"
+    Form_frmVCSOptions.NavigateTo "Translation"
 End Sub

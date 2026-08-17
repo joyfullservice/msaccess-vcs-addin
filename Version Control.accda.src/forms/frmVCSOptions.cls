@@ -202,7 +202,9 @@ End Sub
 '
 Public Sub RefreshDatabaseSchemaList()
     If InStr(1, Nz(Me.subOptionsDetail.SourceObject), "frmVCSOptionsDatabases", vbTextCompare) > 0 Then
-        Me.subOptionsDetail.Form.RefreshSchemaList
+        Dim frmDatabases As Form_frmVCSOptionsDatabases
+        Set frmDatabases = Me.subOptionsDetail.Form
+        frmDatabases.RefreshSchemaList
     End If
 End Sub
 
