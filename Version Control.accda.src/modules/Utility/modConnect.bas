@@ -22,6 +22,10 @@ Private m_dEnvKeysWritten As Dictionary
 Private m_dMissingEnvKeys As Dictionary
 Private m_dConnState As Dictionary
 Private m_dStrippedConnWarn As Dictionary
+Private m_dDsnDrivers As Dictionary
+Private m_dDsnDriverPaths As Dictionary
+Private m_dFileDsnDrivers As Dictionary
+Private m_dLearnedOracle As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -181,6 +185,10 @@ End Function
 '
 Public Sub ClearConnState()
     Set m_dConnState = Nothing
+    Set m_dDsnDrivers = Nothing
+    Set m_dDsnDriverPaths = Nothing
+    Set m_dFileDsnDrivers = Nothing
+    Set m_dLearnedOracle = Nothing
 End Sub
 
 
@@ -231,15 +239,302 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IsOracleDriverName
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Returns True when a driver name (or DLL path) identifies an Oracle ODBC
+'           : driver. Real-world friendly names contain "Oracle"; a short DLL list
+'           : covers oddly-named drivers that do not.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsOracleDriverName(strDriverName As String) As Boolean
+    If Len(strDriverName) = 0 Then Exit Function
+    If InStr(1, strDriverName, "Oracle", vbTextCompare) > 0 Then
+        IsOracleDriverName = True
+    Else
+        IsOracleDriverName = IsOracleDriverDll(strDriverName)
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsOracleDriverDll
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Returns True when the basename is a known Oracle ODBC driver DLL.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsOracleDriverDll(strPathOrName As String) As Boolean
+    If Len(strPathOrName) = 0 Then Exit Function
+    Select Case LCase$(FSO.GetFileName(strPathOrName))
+        Case "sqora32.dll", "sqora64.dll", "msorcl32.dll"
+            IsOracleDriverDll = True
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetOdbcDriverName
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Resolve the ODBC driver name from a connection string. DRIVER= is used
+'           : as-is. FILEDSN= is read from the .dsn file. DSN= is looked up in the
+'           : ODBC Data Sources registry. Empty when none of those yield a name.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOdbcDriverName(strConnect As String) As String
+
+    Dim strDriver As String
+    Dim strFileDsn As String
+    Dim strDsn As String
+
+    strDriver = GetConnectPart(strConnect, "DRIVER")
+    If Len(strDriver) > 0 Then
+        GetOdbcDriverName = strDriver
+        Exit Function
+    End If
+
+    strFileDsn = GetConnectPart(strConnect, "FILEDSN")
+    If Len(strFileDsn) > 0 Then
+        GetOdbcDriverName = GetFileDsnDriverName(strFileDsn)
+        Exit Function
+    End If
+
+    strDsn = GetConnectPart(strConnect, "DSN")
+    If Len(strDsn) > 0 Then
+        GetOdbcDriverName = GetDsnDriverName(strDsn)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDsnDriverName
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Return the friendly driver name for a machine/user DSN from the ODBC
+'           : Data Sources registry value. When that name is not Oracle but the DSN's
+'           : Driver DLL is a known Oracle library, return the DLL basename instead
+'           : so IsOracleDriverName still matches.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDsnDriverName(strDsn As String) As String
+
+    Dim strKey As String
+    Dim strName As String
+    Dim strDll As String
+
+    If Len(strDsn) = 0 Then Exit Function
+
+    strKey = UCase$(strDsn)
+    If m_dDsnDrivers Is Nothing Then Set m_dDsnDrivers = New Dictionary
+    If m_dDsnDrivers.Exists(strKey) Then
+        GetDsnDriverName = m_dDsnDrivers(strKey)
+        Exit Function
+    End If
+
+    strName = RegRead("HKCU\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\" & strDsn)
+    If Len(strName) = 0 Then
+        strName = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\" & strDsn)
+    End If
+    If Len(strName) = 0 Then
+        strName = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\ODBC Data Sources\" & strDsn)
+    End If
+
+    If Not IsOracleDriverName(strName) Then
+        strDll = GetDsnDriverPath(strDsn)
+        If IsOracleDriverDll(strDll) Then strName = FSO.GetFileName(strDll)
+    End If
+
+    m_dDsnDrivers.Add strKey, strName
+    GetDsnDriverName = strName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDsnDriverPath
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Return the Driver DLL path stored under a DSN's own registry key.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDsnDriverPath(strDsn As String) As String
+
+    Dim strKey As String
+    Dim strPath As String
+
+    If Len(strDsn) = 0 Then Exit Function
+
+    strKey = UCase$(strDsn)
+    If m_dDsnDriverPaths Is Nothing Then Set m_dDsnDriverPaths = New Dictionary
+    If m_dDsnDriverPaths.Exists(strKey) Then
+        GetDsnDriverPath = m_dDsnDriverPaths(strKey)
+        Exit Function
+    End If
+
+    strPath = RegRead("HKCU\SOFTWARE\ODBC\ODBC.INI\" & strDsn & "\Driver")
+    If Len(strPath) = 0 Then
+        strPath = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\" & strDsn & "\Driver")
+    End If
+    If Len(strPath) = 0 Then
+        strPath = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\" & strDsn & "\Driver")
+    End If
+
+    m_dDsnDriverPaths.Add strKey, strPath
+    GetDsnDriverPath = strPath
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFileDsnDriverName
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Read DRIVER= from the [ODBC] section of a File DSN. Bare filenames
+'           : resolve against DefaultDSNDir (or CommonProgramFiles\ODBC\Data Sources).
+'           : A file that only carries DSN= chains to GetDsnDriverName.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFileDsnDriverName(strFileDsn As String) As String
+
+    Dim strPath As String
+    Dim strCacheKey As String
+    Dim strContent As String
+    Dim varLines As Variant
+    Dim lngLine As Long
+    Dim strLine As String
+    Dim blnInOdbc As Boolean
+    Dim strDriver As String
+    Dim strDsn As String
+    Dim lngEq As Long
+    Dim strName As String
+    Dim strValue As String
+
+    If Len(strFileDsn) = 0 Then Exit Function
+
+    strPath = ResolveFileDsnPath(strFileDsn)
+    If Len(strPath) = 0 Then Exit Function
+
+    strCacheKey = UCase$(strPath)
+    If m_dFileDsnDrivers Is Nothing Then Set m_dFileDsnDrivers = New Dictionary
+    If m_dFileDsnDrivers.Exists(strCacheKey) Then
+        GetFileDsnDriverName = m_dFileDsnDrivers(strCacheKey)
+        Exit Function
+    End If
+
+    If Not FSO.FileExists(strPath) Then
+        m_dFileDsnDrivers.Add strCacheKey, vbNullString
+        Exit Function
+    End If
+
+    strContent = ReadFile(strPath)
+    varLines = Split(strContent, vbCrLf)
+    For lngLine = 0 To UBound(varLines)
+        strLine = Trim$(CStr(varLines(lngLine)))
+        If Len(strLine) > 0 Then
+            If Left$(strLine, 1) = "[" And Right$(strLine, 1) = "]" Then
+                blnInOdbc = (StrComp(Mid$(strLine, 2, Len(strLine) - 2), "ODBC", vbTextCompare) = 0)
+            ElseIf blnInOdbc Then
+                If Left$(strLine, 1) <> ";" And Left$(strLine, 1) <> "#" Then
+                    lngEq = InStr(1, strLine, "=")
+                    If lngEq > 0 Then
+                        strName = Trim$(Left$(strLine, lngEq - 1))
+                        strValue = Trim$(Mid$(strLine, lngEq + 1))
+                        If StrComp(strName, "DRIVER", vbTextCompare) = 0 Then
+                            strDriver = strValue
+                        ElseIf StrComp(strName, "DSN", vbTextCompare) = 0 Then
+                            strDsn = strValue
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    Next lngLine
+
+    If Len(strDriver) > 0 Then
+        GetFileDsnDriverName = strDriver
+    ElseIf Len(strDsn) > 0 Then
+        GetFileDsnDriverName = GetDsnDriverName(strDsn)
+    End If
+
+    m_dFileDsnDrivers.Add strCacheKey, GetFileDsnDriverName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveFileDsnPath
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Turn a FILEDSN= value into a full path. Quoted values are unquoted.
+'           : A value with no path separator is resolved against DefaultDSNDir.
+'---------------------------------------------------------------------------------------
+'
+Private Function ResolveFileDsnPath(strFileDsn As String) As String
+
+    Dim strPath As String
+    Dim strDir As String
+
+    strPath = Trim$(strFileDsn)
+    If Len(strPath) >= 2 Then
+        If Left$(strPath, 1) = """" And Right$(strPath, 1) = """" Then
+            strPath = Mid$(strPath, 2, Len(strPath) - 2)
+        End If
+    End If
+    If Len(strPath) = 0 Then Exit Function
+
+    If InStr(1, strPath, PathSep) > 0 Then
+        ResolveFileDsnPath = strPath
+        Exit Function
+    End If
+
+    strDir = GetFileDsnDefaultDir
+    If Len(strDir) = 0 Then Exit Function
+    ResolveFileDsnPath = BuildPath2(strDir, strPath)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFileDsnDefaultDir
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Directory used for bare File DSN names. Registry DefaultDSNDir first,
+'           : then the documented CommonProgramFiles fallback.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetFileDsnDefaultDir() As String
+
+    Dim strDir As String
+
+    strDir = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\ODBC File DSN\DefaultDSNDir")
+    If Len(strDir) = 0 Then
+        strDir = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\ODBC File DSN\DefaultDSNDir")
+    End If
+    If Len(strDir) = 0 Then
+        strDir = BuildPath2(Environ$("CommonProgramFiles"), "ODBC", "Data Sources")
+    End If
+    GetFileDsnDefaultDir = strDir
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsOracleOdbcConnect
 ' Author    : Adam Waller
 ' Date      : 07/13/2026
-' Purpose   : Returns True when an ODBC connection string names an Oracle driver.
-'           : DSN-only strings without DRIVER= are not detected (see DECISIONS.md).
+' Purpose   : Returns True when an ODBC connection string names an Oracle driver,
+'           : including DSN-only and FILEDSN= strings resolved to a driver name,
+'           : and connections learned from an ORA-00923 probe failure.
 '---------------------------------------------------------------------------------------
 '
 Public Function IsOracleOdbcConnect(strConnect As String) As Boolean
-    IsOracleOdbcConnect = (InStr(1, GetConnectPart(strConnect, "DRIVER"), "Oracle", vbTextCompare) > 0)
+    If IsLearnedOracleConnect(strConnect) Then
+        IsOracleOdbcConnect = True
+    Else
+        IsOracleOdbcConnect = IsOracleDriverName(GetOdbcDriverName(strConnect))
+    End If
 End Function
 
 
@@ -247,7 +542,8 @@ End Function
 ' Procedure : GetConnectivityProbeSql
 ' Author    : Adam Waller
 ' Date      : 07/13/2026
-' Purpose   : Lightweight SQL for ODBC connectivity probes. Oracle requires FROM DUAL.
+' Purpose   : Lightweight SQL for ODBC connectivity probes. Branch on the resolved
+'           : driver so a future dialect (e.g. DB2 FROM SYSIBM.SYSDUMMY1) is one line.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetConnectivityProbeSql(strConnect As String) As String
@@ -256,6 +552,84 @@ Public Function GetConnectivityProbeSql(strConnect As String) As String
     Else
         GetConnectivityProbeSql = "SELECT 1;"
     End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsOracleSyntaxError
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : True only for ORA-00923 (FROM keyword not found). Other Oracle errors
+'           : such as ORA-01017 (credentials) and generic ODBC 3146 do not match.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsOracleSyntaxError(strErrText As String) As Boolean
+    IsOracleSyntaxError = (InStr(1, strErrText, "ORA-00923", vbTextCompare) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConnectErrorDetail
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : DAO puts the native driver text in DBEngine.Errors while Err.Description
+'           : is often just "ODBC--call failed." Walk the collection first.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetConnectErrorDetail() As String
+
+    Dim errItem As DAO.Error
+
+    If DBEngine.Errors.Count > 0 Then
+        With New clsConcat
+            .AppendOnAdd = vbCrLf
+            For Each errItem In DBEngine.Errors
+                .Add CStr(errItem.Number) & " - " & errItem.Description
+            Next errItem
+            If .Length >= Len(vbCrLf) Then .Remove Len(vbCrLf)
+            GetConnectErrorDetail = .GetStr
+        End With
+    End If
+
+    If Len(GetConnectErrorDetail) = 0 Then
+        If Err.Number <> 0 Then
+            GetConnectErrorDetail = CStr(Err.Number) & " - " & Err.Description
+        Else
+            GetConnectErrorDetail = Err.Description
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RememberOracleConnect
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Record a connection that revealed itself as Oracle via ORA-00923 so
+'           : later probes on the same string use FROM DUAL immediately.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RememberOracleConnect(strConnect As String)
+    If Len(strConnect) = 0 Then Exit Sub
+    If m_dLearnedOracle Is Nothing Then Set m_dLearnedOracle = New Dictionary
+    If Not m_dLearnedOracle.Exists(strConnect) Then
+        m_dLearnedOracle.Add strConnect, True
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsLearnedOracleConnect
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : True when a previous probe on this exact connection string hit ORA-00923.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsLearnedOracleConnect(strConnect As String) As Boolean
+    If m_dLearnedOracle Is Nothing Then Exit Function
+    If Len(strConnect) = 0 Then Exit Function
+    IsLearnedOracleConnect = m_dLearnedOracle.Exists(strConnect)
 End Function
 
 
@@ -449,15 +823,7 @@ Public Function CacheConnection(strConnect As String, _
         ' string will avoid the bug.
         qdf.Name = ""
 
-        qdf.SQL = GetConnectivityProbeSql(strConnect)
-        qdf.Connect = strConnect
-
-        LogUnhandledErrors
-        On Error Resume Next
-        qdf.OpenRecordset
-        lngErr = Err.Number
-        strErrDesc = Err.Description
-        On Error GoTo 0
+        RunConnectivityProbe qdf, strConnect, lngErr, strErrDesc
 
         If lngErr Then
             Set qdf = Nothing
@@ -730,6 +1096,8 @@ Public Function TestBackEndConnection(strConnect As String) As Boolean
     Dim strPath As String
     Dim strKey As String
     Dim dbBackEnd As DAO.Database
+    Dim lngErr As Long
+    Dim strErrDesc As String
 
     If IsAccessBackEndConnect(strConnect) Then
         strPath = GetConnectPath(strConnect)
@@ -754,23 +1122,61 @@ Public Function TestBackEndConnection(strConnect As String) As Boolean
     End If
 
     ' For ODBC and other connection types, attempt a lightweight query
-    LogUnhandledErrors
-    On Error Resume Next
-
     Set qdf = CurrentDb.CreateQueryDef("")
-    qdf.Connect = strConnect
-    qdf.SQL = GetConnectivityProbeSql(strConnect)
-    qdf.OpenRecordset
-    TestBackEndConnection = (Err.Number = 0)
+    RunConnectivityProbe qdf, strConnect, lngErr, strErrDesc
+    TestBackEndConnection = (lngErr = 0)
 
     If Not qdf Is Nothing Then
         qdf.Close
         Set qdf = Nothing
     End If
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunConnectivityProbe
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Assign probe SQL then Connect (CacheConnection order) and open a
+'           : recordset. On ORA-00923, learn the dialect and retry once with FROM DUAL.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RunConnectivityProbe(qdf As DAO.QueryDef, strConnect As String, _
+    ByRef lngErr As Long, ByRef strErrDesc As String)
+
+    qdf.SQL = GetConnectivityProbeSql(strConnect)
+    qdf.Connect = strConnect
+
+    LogUnhandledErrors
+    On Error Resume Next
+    qdf.OpenRecordset
+    lngErr = Err.Number
+    If lngErr Then
+        strErrDesc = GetConnectErrorDetail()
+    Else
+        strErrDesc = vbNullString
+    End If
     On Error GoTo 0
 
-End Function
+    If lngErr = 0 Then Exit Sub
+    If Not IsOracleSyntaxError(strErrDesc) Then Exit Sub
+
+    RememberOracleConnect strConnect
+    qdf.SQL = GetConnectivityProbeSql(strConnect)
+
+    LogUnhandledErrors
+    On Error Resume Next
+    qdf.OpenRecordset
+    lngErr = Err.Number
+    If lngErr Then
+        strErrDesc = GetConnectErrorDetail()
+    Else
+        strErrDesc = vbNullString
+    End If
+    On Error GoTo 0
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------

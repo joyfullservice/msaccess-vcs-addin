@@ -169,8 +169,35 @@ Public Sub TestIsOracleOdbcConnect()
         "ODBC;DRIVER={SQL Server};SERVER=svr;DATABASE=db"), _
         "SQL Server not Oracle"
     TestAssert Not IsOracleOdbcConnect("ODBC;DSN=MyOracle;UID=u"), _
-        "DSN-only without DRIVER not detected"
+        "unknown DSN falls back to not Oracle"
     TestAssert Not IsOracleOdbcConnect(vbNullString), "empty string not Oracle"
+End Sub
+
+
+Public Sub TestIsOracleDriverName()
+    TestAssert IsOracleDriverName("Oracle ODBC Driver"), "Oracle ODBC Driver"
+    TestAssert IsOracleDriverName("Oracle in OraClient19Home1"), "OraClient"
+    TestAssert IsOracleDriverName("Microsoft ODBC for Oracle"), "Microsoft ODBC for Oracle"
+    TestAssert IsOracleDriverName("Devart ODBC Driver for Oracle"), "Devart"
+    TestAssert IsOracleDriverName("{Oracle ODBC Driver}"), "braces retained"
+    TestAssert Not IsOracleDriverName("SQL Server"), "SQL Server"
+    TestAssert Not IsOracleDriverName(vbNullString), "empty"
+    TestAssert IsOracleDriverName("C:\Oracle\bin\sqora32.dll"), "sqora32.dll path"
+    TestAssert IsOracleDriverName("sqora64.dll"), "sqora64.dll"
+    TestAssert IsOracleDriverName("msorcl32.dll"), "msorcl32.dll"
+    TestAssert Not IsOracleDriverName("sqlncli11.dll"), "non-Oracle DLL"
+End Sub
+
+
+Public Sub TestGetOdbcDriverName()
+    TestAssert GetOdbcDriverName("ODBC;DRIVER={Oracle ODBC Driver};SERVER=ora") = _
+        "{Oracle ODBC Driver}", "DRIVER= fast path"
+    TestAssert GetOdbcDriverName("ODBC;DRIVER={SQL Server};SERVER=svr") = _
+        "{SQL Server}", "SQL Server DRIVER="
+    TestAssert GetOdbcDriverName(vbNullString) = vbNullString, "empty string"
+    TestAssert GetOdbcDriverName("ODBC;UID=u") = vbNullString, "no DRIVER or DSN"
+    TestAssert GetOdbcDriverName("ODBC;DSN=NoSuchDsn12345") = vbNullString, _
+        "unknown DSN returns empty"
 End Sub
 
 
@@ -182,7 +209,56 @@ Public Sub TestGetConnectivityProbeSql()
         "ODBC;DRIVER={SQL Server};SERVER=svr") = "SELECT 1;", _
         "non-Oracle uses SELECT 1"
     TestAssert GetConnectivityProbeSql("ODBC;DSN=MyOracle;UID=u") = "SELECT 1;", _
-        "DSN-only keeps SELECT 1"
+        "unknown DSN keeps SELECT 1"
+End Sub
+
+
+Public Sub TestIsOracleSyntaxError()
+    TestAssert IsOracleSyntaxError( _
+        "[Oracle][ODBC][Ora]ORA-00923: FROM keyword not found where expected"), _
+        "ORA-00923 is syntax error"
+    TestAssert Not IsOracleSyntaxError( _
+        "[Oracle][ODBC][Ora]ORA-01017: invalid username/password"), _
+        "ORA-01017 is not syntax"
+    TestAssert Not IsOracleSyntaxError("ODBC--call failed."), _
+        "generic ODBC failure is not syntax"
+    TestAssert Not IsOracleSyntaxError(vbNullString), "empty"
+End Sub
+
+
+Public Sub TestGetFileDsnDriverName()
+
+    Dim strDir As String
+    Dim strFile As String
+    Dim strChain As String
+
+    ClearConnState
+    strDir = GetTempFolder("FileDsn") & PathSep
+    strFile = strDir & "oracle.dsn"
+    WriteFile "[ODBC]" & vbCrLf & "DRIVER=Oracle in OraClient19Home1" & vbCrLf & "DBQ=ORCL", strFile
+
+    TestAssert GetFileDsnDriverName(strFile) = "Oracle in OraClient19Home1", _
+        "reads DRIVER from File DSN"
+    TestAssert IsOracleOdbcConnect("ODBC;FILEDSN=" & strFile), _
+        "FILEDSN with Oracle driver is detected"
+    TestAssert GetConnectivityProbeSql("ODBC;FILEDSN=" & strFile) = "SELECT 1 FROM DUAL;", _
+        "FILEDSN Oracle uses FROM DUAL"
+    TestAssert GetOdbcDriverName("ODBC;FILEDSN=""" & strFile & """") = _
+        "Oracle in OraClient19Home1", "quoted FILEDSN= resolves"
+
+    TestAssert GetFileDsnDriverName(strDir & "missing.dsn") = vbNullString, _
+        "missing file returns empty"
+
+    strChain = strDir & "chain.dsn"
+    WriteFile "[ODBC]" & vbCrLf & "DSN=NoSuchOracleDsn", strChain
+    TestAssert GetFileDsnDriverName(strChain) = vbNullString, _
+        "FILEDSN with unknown DSN= returns empty"
+
+    On Error Resume Next
+    If FSO.FolderExists(StripSlash(strDir)) Then FSO.DeleteFolder StripSlash(strDir), True
+    On Error GoTo 0
+    ClearConnState
+
 End Sub
 
 

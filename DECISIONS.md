@@ -83,6 +83,26 @@ contradictory guidance.
 
 ---
 
+## 2026-08-17 — Oracle DSN and File DSN connectivity probe
+
+**Trigger**: Issue #723 was only half-fixed on 2026-07-13. `GetConnectivityProbeSql` used `SELECT 1 FROM DUAL;` when `DRIVER=` contained `"Oracle"`, but both reporters use `ODBC;DSN=...` with no `DRIVER=`. They still got `SELECT 1;`, ODBC 3146, and a false Retry/Ignore/Abort dialog. One reporter offered to write a registry-enumeration module (Windows APIs or WMI) because `WshShell` cannot enumerate keys.
+
+**Options explored**:
+- **Registry key enumeration** (WMI or Win32 APIs) — rejected. The DSN-to-driver mapping is a single value at `HKCU|HKLM\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\<DSN>`. `RegRead` already in `modFileAccess.bas` is enough; no new registry module.
+- **Reactive retry on any 3146** — still rejected. 3146 wraps auth and server failures as well as SQL syntax errors.
+- **Reactive retry on ORA-00923 only (kept as backstop)** — `ORA-00923` is "FROM keyword not found where expected", which is the probe dialect error and not `ORA-01017` (credentials). DAO puts that text in `DBEngine.Errors`, not `Err.Description`.
+- **Proactive DSN + File DSN resolution (chosen)** — resolve `DSN=` from the registry and `FILEDSN=` from the `.dsn` `[ODBC]` `DRIVER=` line (chain to the registry when the file only has `DSN=`). Same `"Oracle"` substring test as before, plus a short DLL-basename list (`sqora32.dll`, `sqora64.dll`, `msorcl32.dll`) for oddly-named drivers.
+
+**Decision**: `GetOdbcDriverName` is the single discovery point. Lookups are cached and cleared from `ClearConnState`. `CacheConnection` and `TestBackEndConnection` share `RunConnectivityProbe`, which retries once on `ORA-00923` and returns the native `DBEngine.Errors` text so `HandleConnectionFailure` shows the real driver message. Nothing here changes exported output.
+
+**What this rules out**: A general-purpose registry enumeration module. Blind 3146 retries. Adding untested dialects (DB2 `FROM SYSIBM.SYSDUMMY1`) until someone reports them. End-to-end Oracle confirmation still needs a reporter with a live DSN.
+
+**Relevant files**:
+- `modConnect.bas` — `GetOdbcDriverName`, `GetDsnDriverName`, `GetFileDsnDriverName`, `IsOracleDriverName`, `GetConnectErrorDetail`, `IsOracleSyntaxError`, `RunConnectivityProbe`
+- `modTestConnect.bas` — driver-name, File DSN fixture, and `ORA-00923` tests
+
+---
+
 ## 2026-08-12 — Alt-export promotion measures the source files instead of copying blanks
 
 **Trigger**: A merge of this repo into itself failed with `Merging not supported
@@ -2296,6 +2316,8 @@ and tests), `docs/access-conditional-format.md` (§4.1, §4.2, §4.3, §5.1, §1
 ---
 
 ## 2026-07-13 — Oracle ODBC connectivity probe SQL
+
+> **⚠ Partially superseded** (2026-08-17): DSN-only and FILEDSN Oracle connections are now resolved to a driver name, and an `ORA-00923`-only retry was added as a backstop. The blind-3146 retry remains rejected. See "Oracle DSN and File DSN connectivity probe" above.
 
 **Trigger**: Issue #723 — `CacheConnection` used `SELECT 1;` for all ODBC probes. Oracle rejects that syntax (requires `SELECT 1 FROM DUAL;`), causing ODBC error 3146 and a false Retry/Ignore/Abort dialog during build. A second bug: `clsDbConnection.Import` read `Err.Description` after `CacheConnection` had cleared `Err`, so the failure dialog showed no detail.
 
