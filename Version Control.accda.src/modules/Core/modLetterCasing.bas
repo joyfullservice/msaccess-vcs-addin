@@ -49,7 +49,6 @@ Public Function StandardizeLetterCasing(Optional ByRef colIssues As Collection) 
     Dim lngComment As Long
     Dim lngIdent As Long
     Dim lngStart As Long
-    Dim lngEnd As Long
 
     LogUnhandledErrors FunctionName
     On Error GoTo ErrHandler
@@ -115,15 +114,13 @@ Public Function StandardizeLetterCasing(Optional ByRef colIssues As Collection) 
                     RecordLetterCasingIssue colIssues, lngLine, _
                         T("Missing DLL name in Lib clause.")
                 Else
-                    lngStart = lngStart + 1
-                    lngEnd = InStr(lngStart, strLine, """")
-                    If lngEnd <= lngStart Then
+                    strCurrent = ExtractDeclareLibName(strLine)
+                    If Len(strCurrent) = 0 Then
                         RecordLetterCasingIssue colIssues, lngLine, _
                             T("Malformed Lib clause.")
                     Else
-                        strCurrent = Mid$(strLine, lngStart, lngEnd - lngStart + 1)
                         strCanonical = Trim$(Mid$(strLine, lngComment + 1))
-                        If Len(strCurrent) = 0 Or Len(strCanonical) = 0 Then
+                        If Len(strCanonical) = 0 Then
                             RecordLetterCasingIssue colIssues, lngLine, _
                                 T("Missing DLL name or canonical name on API declare line.")
                         Else
@@ -200,4 +197,28 @@ End Sub
 '
 Private Function FirstToken(ByVal strText As String) As String
     FirstToken = Split(Trim$(strText))(0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractDeclareLibName
+' Author    : Adam Waller
+' Date      : 8/17/2026
+' Purpose   : Extract the DLL name from the Lib clause of an API declare line.
+'           : Input:  Private Declare PtrSafe Function zzz_kernel32 Lib "kernel32" () 'kernel32
+'           : Output: kernel32
+'---------------------------------------------------------------------------------------
+'
+Public Function ExtractDeclareLibName(ByVal strLine As String) As String
+
+    Dim lngStart As Long
+    Dim lngEnd As Long
+
+    lngStart = InStr(1, strLine, """")
+    If lngStart = 0 Then Exit Function
+    lngStart = lngStart + 1
+    lngEnd = InStr(lngStart, strLine, """")
+    If lngEnd <= lngStart Then Exit Function
+    ExtractDeclareLibName = Mid$(strLine, lngStart, lngEnd - lngStart)
+
 End Function
