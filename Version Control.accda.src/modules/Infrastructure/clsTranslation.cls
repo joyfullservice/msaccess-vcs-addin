@@ -36,6 +36,7 @@ Private Type udtThis
     dTranslation As Dictionary  ' Translated strings in local language (key of string ID)
     dTranslated As Dictionary   ' Translated strings (key of translated string)
     CurrentLanguage As String   ' Identifier of current language (i.e. "en_US")
+    blnLoadFailed As Boolean    ' Set when the string tables could not be read (see LoadLanguage)
 End Type
 Private this As udtThis
 
@@ -89,6 +90,9 @@ Public Function T(strText As String, Optional strReference As String, _
             ' Use translated string
             strNew = this.dTranslation(this.dStrings(strKey))
         End If
+    ElseIf this.blnLoadFailed Then
+        ' The master string list could not be read, so a missing key does not mean
+        ' this string is new. Recording it would duplicate an existing row.
     Else
         If this.dTranslated.Exists(strText) Then
             ' We have already translated this string. Don't add the translation
@@ -588,7 +592,10 @@ End Sub
 ' Procedure : LoadLanguage
 ' Author    : Adam Waller
 ' Date      : 5/15/2021
-' Purpose   : Loads the language entries into the dictionary objects.
+' Purpose   : Loads the language entries into the dictionary objects. A compile error
+'           : anywhere in the add-in project can make qryTranslatedStrings fail to
+'           : open; that is non-fatal and we continue untranslated until a later
+'           : SetLanguage or LoadTranslations call retries.
 '---------------------------------------------------------------------------------------
 '
 Private Sub LoadLanguage(strLanguage As String)
@@ -599,15 +606,35 @@ Private Sub LoadLanguage(strLanguage As String)
     Dim strSql As String
     Dim strPath As String
 
+    ' Reset state before the error handling below, so that any logging from this
+    ' procedure cannot re-enter through CheckInit. (Plain assignments do not clear the
+    ' Err object, so LogUnhandledErrors still sees any error that arrived here.)
     this.CurrentLanguage = strLanguage
+    this.blnLoadFailed = False
     Set this.dStrings = New Dictionary
     Set this.dTranslation = New Dictionary
     Set this.dTranslated = New Dictionary
+
+    ' Use inline error handling with debug mode check
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Load strings and translations
     Set dbs = CodeDb
     strSql = "select * from qryTranslatedStrings where (Lang = '" & strLanguage & "')"
     Set rst = dbs.OpenRecordset(strSql, dbOpenDynaset)
+
+    ' A compile error anywhere in the add-in project stops Access from evaluating the
+    ' expressions in this query, so this open can fail for a reason that has nothing to
+    ' do with the translation data, and one the user resolves later. Continue
+    ' untranslated rather than failing the caller.
+    ' (Descriptions here are not wrapped in T() because the strings needed to translate
+    '  them are the ones that just failed to load.)
+    If CatchAny(eelNoError, "Unable to load language strings", _
+        ModuleName(Me) & ".LoadLanguage", True, True, True) Or rst Is Nothing Then
+        this.blnLoadFailed = True
+        Exit Sub
+    End If
+
     With rst
         Do While Not .EOF
             strKey = BuildKey(Nz(!context), Nz(!msgid))
@@ -618,9 +645,21 @@ Private Sub LoadLanguage(strLanguage As String)
                 End If
             End If
             .MoveNext
+            ' Query expressions are evaluated as rows are fetched, so the failure above
+            ' can surface here instead. Stop rather than spin on a recordset that raises
+            ' on every row.
+            If Err Then Exit Do
         Loop
         .Close
     End With
+
+    ' A partial read leaves gaps that T() cannot tell apart from strings it has never
+    ' seen, so treat it the same as a failed load.
+    If CatchAny(eelNoError, "Unable to load all language strings", _
+        ModuleName(Me) & ".LoadLanguage", True, True, True) Then
+        this.blnLoadFailed = True
+        Exit Sub
+    End If
 
     ' Reload the ribbon to reflect any translation changes there.
     If RibbonLoaded Then
@@ -629,6 +668,9 @@ Private Sub LoadLanguage(strLanguage As String)
         WriteFile ConvertToJson(GetRibbonStrings, 2), strPath
         modCOMAddIn.ReloadRibbon
     End If
+
+    CatchAny eelNoError, "Error reloading ribbon translations", _
+        ModuleName(Me) & ".LoadLanguage", True, True, True
 
 End Sub
 
