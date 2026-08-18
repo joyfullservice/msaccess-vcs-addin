@@ -16,7 +16,7 @@ Begin Form
     GridY =24
     Width =24000
     DatasheetFontHeight =11
-    ItemSuffix =5
+    ItemSuffix =6
     Left =1000
     Top =1000
     Right =50000
@@ -44,6 +44,19 @@ Begin Form
     AlternateBackThemeColorIndex =1
     AlternateBackShade =95.0
     Begin
+        Begin Label
+            BackStyle =0
+            FontSize =11
+            FontName ="Calibri"
+            ThemeFontIndex =1
+            BackThemeColorIndex =1
+            BorderThemeColorIndex =0
+            BorderTint =50.0
+            ForeThemeColorIndex =0
+            ForeTint =60.0
+            GridlineThemeColorIndex =1
+            GridlineShade =65.0
+        End
         Begin EmptyCell
             Height =240
             GridlineThemeColorIndex =1
@@ -65,7 +78,7 @@ Begin Form
             BackThemeColorIndex =1
             Begin
                 Begin Edge
-                    OverlapFlags =85
+                    OverlapFlags =215
                     Width =24000
                     Height =13500
                     Name ="webTestRunner"
@@ -77,6 +90,21 @@ Begin Form
                     ControlSource ="=\"about:blank\""
                     OnBeforeNavigation ="[Event Procedure]"
                     OnDocumentComplete ="[Event Procedure]"
+                End
+                Begin Label
+                    OverlapFlags =93
+                    TextAlign =2
+                    Left =9060
+                    Top =3540
+                    Width =5040
+                    Height =600
+                    FontSize =12
+                    Name ="lblLoading"
+                    Caption ="Loading..."
+                    LayoutCachedLeft =9060
+                    LayoutCachedTop =3540
+                    LayoutCachedWidth =14100
+                    LayoutCachedHeight =4140
                 End
             End
         End
