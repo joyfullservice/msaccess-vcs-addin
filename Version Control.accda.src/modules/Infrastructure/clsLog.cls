@@ -237,6 +237,18 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BufferChars
+' Author    : Adam Waller
+' Date      : 8/17/2026
+' Purpose   : Character length of the log-file buffer (for diagnostic traces).
+'---------------------------------------------------------------------------------------
+'
+Public Property Get BufferChars() As Double
+    If Not m_Log Is Nothing Then BufferChars = m_Log.Length
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Flush
 ' Author    : Adam Waller
 ' Date      : 4/29/2020
@@ -247,6 +259,7 @@ Public Sub Flush()
 
     ' Apply any throttled-but-not-yet-shown increments before refreshing the UI.
     ApplyPendingIncrements
+    If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagBeginQuiet "log.flush"
 
     ' See if the GUI form is loaded.
     Perf.OperationStart "Console Updates"
@@ -271,6 +284,8 @@ Public Sub Flush()
         DoEvents
     End If
     Perf.OperationEnd
+    If modTestRunnerDiag.DiagEnabled Then _
+        modTestRunnerDiag.DiagEnd "log.flush", "chars=" & CStr(Me.BufferChars)
 
 End Sub
 
@@ -436,6 +451,9 @@ Public Sub SaveFile(Optional strAlternatePath As String)
     Dim strBase As String
     Dim strLogsFolder As String
 
+    If modTestRunnerDiag.DiagEnabled Then _
+        modTestRunnerDiag.DiagBegin "log.save", "chars=" & CStr(Me.BufferChars)
+
     strPath = Nz2(strAlternatePath, Me.LogFilePath)
     strLogsFolder = FSO.GetParentFolderName(strPath)
 
@@ -460,6 +478,7 @@ Public Sub SaveFile(Optional strAlternatePath As String)
         Case Else:        strBase = "Other"
     End Select
     CleanupOldLogs strLogsFolder, strBase & "_*.log", Options.MaxLogFiles
+    If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagEnd "log.save"
 End Sub
 
 

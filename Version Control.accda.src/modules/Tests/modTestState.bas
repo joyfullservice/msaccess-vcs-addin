@@ -17,6 +17,12 @@ Option Private Module
 Private Const ModuleName As String = "modTestState"
 Private Const STATE_FILE As String = "test-state.json"
 
+' Session cache for LoadState (keyed on path + file mtime + size).
+Private m_dCachedState As Dictionary
+Private m_strCachedPath As String
+Private m_datCachedModified As Date
+Private m_lngCachedSize As Long
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : GetTestResultsFolder
@@ -56,9 +62,21 @@ End Function
 '
 Public Sub PersistAfterRun()
 
-    MergeAndSave
-    If Options.ExportTestResultsJUnit Then modTestJUnit.ExportFromState
-    If Options.ExportTestResultsHtml Then modTestReport.ExportResultsHtml
+    Dim dRoot As Dictionary
+
+    modTestRunnerDiag.DiagBegin "persist"
+    Set dRoot = MergeAndSave()
+    If Options.ExportTestResultsJUnit Then
+        modTestRunnerDiag.DiagBegin "persist.junit"
+        modTestJUnit.ExportFromState , dRoot
+        modTestRunnerDiag.DiagEnd "persist.junit"
+    End If
+    If Options.ExportTestResultsHtml Then
+        modTestRunnerDiag.DiagBegin "persist.html"
+        modTestReport.ExportResultsHtml
+        modTestRunnerDiag.DiagEnd "persist.html"
+    End If
+    modTestRunnerDiag.DiagEnd "persist"
 
 End Sub
 
@@ -72,7 +90,7 @@ End Sub
 '           : prior status and are flagged stale.
 '---------------------------------------------------------------------------------------
 '
-Public Sub MergeAndSave()
+Public Function MergeAndSave() As Dictionary
 
     Dim dRoot As Dictionary
     Dim dTestsOut As Dictionary
@@ -82,15 +100,21 @@ Public Sub MergeAndSave()
     Dim dOldTests As Dictionary
     Dim dOldEntry As Dictionary
     Dim dOut As Dictionary
+    Dim dRunKeys As Dictionary
     Dim strSessionRunAt As String
     Dim strKey As String
     Dim blnExecuted As Boolean
+    Dim strJson As String
+    Dim strPath As String
 
-    If TestRunner.Tests Is Nothing Then Exit Sub
-    If TestRunner.Tests.Count = 0 Then Exit Sub
+    If TestRunner.Tests Is Nothing Then Exit Function
+    If TestRunner.Tests.Count = 0 Then Exit Function
 
+    modTestRunnerDiag.DiagBegin "state.merge"
     strSessionRunAt = Format$(Now, "yyyy-mm-dd hh:nn:ss")
+    modTestRunnerDiag.DiagBegin "state.load"
     Set dOldTests = LoadStateTestsDict()
+    modTestRunnerDiag.DiagEnd "state.load"
 
     Set dRoot = New Dictionary
     dRoot.Add "runAt", strSessionRunAt
@@ -99,10 +123,12 @@ Public Sub MergeAndSave()
     dRoot.Add "sessionRunAt", strSessionRunAt
 
     Set dTestsOut = New Dictionary
+    Set dRunKeys = BuildLastRunKeySet()
+    modTestRunnerDiag.DiagBegin "state.serialize"
     For Each varKey In TestRunner.Tests.Keys
         strKey = CStr(varKey)
         Set dTest = TestRunner.Tests(strKey)
-        blnExecuted = WasExecutedThisRun(strKey, dTest)
+        blnExecuted = WasExecutedThisRun(strKey, dTest, dRunKeys)
 
         If blnExecuted Then
             Set dOut = SerializeTestRecord(strKey, dTest, strSessionRunAt, False)
@@ -117,14 +143,27 @@ Public Sub MergeAndSave()
         End If
         Set dTestsOut(strKey) = dOut
     Next varKey
+    modTestRunnerDiag.DiagEnd "state.serialize", "n=" & dTestsOut.Count
 
+    modTestRunnerDiag.DiagBegin "state.summary"
     Set dSummary = BuildSummaryFromState(dTestsOut)
+    modTestRunnerDiag.DiagEnd "state.summary"
     Set dRoot("summary") = dSummary
     Set dRoot("tests") = dTestsOut
 
-    WriteFile ConvertToJson(dRoot, JSON_WHITESPACE), GetStateFilePath()
+    modTestRunnerDiag.DiagBegin "state.json"
+    strJson = modJsonEmit.EmitTestStateJson(dRoot)
+    modTestRunnerDiag.DiagEnd "state.json", "chars=" & Len(strJson)
+    modTestRunnerDiag.DiagSize "state.json", Len(strJson)
+    strPath = GetStateFilePath()
+    modTestRunnerDiag.DiagBegin "state.write"
+    WriteFile strJson, strPath
+    modTestRunnerDiag.DiagEnd "state.write"
+    SeedStateCache dRoot, strPath
+    modTestRunnerDiag.DiagEnd "state.merge"
+    Set MergeAndSave = dRoot
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -138,13 +177,26 @@ Public Function LoadState() As Dictionary
 
     Dim strPath As String
     Dim dRoot As Dictionary
+    Dim strJson As String
 
     strPath = GetStateFilePath()
     If Not FSO.FileExists(strPath) Then Exit Function
 
+    If CacheMatches(strPath) Then
+        Set LoadState = m_dCachedState
+        Exit Function
+    End If
+
     On Error GoTo LoadErr
-    Set dRoot = ParseJson(ReadFile(strPath))
+    modTestRunnerDiag.DiagBegin "state.read"
+    strJson = ReadFile(strPath)
+    modTestRunnerDiag.DiagEnd "state.read", "chars=" & Len(strJson)
+    modTestRunnerDiag.DiagSize "state.file", Len(strJson)
+    modTestRunnerDiag.DiagBegin "state.parse"
+    Set dRoot = ParseJson(strJson)
+    modTestRunnerDiag.DiagEnd "state.parse"
     If TypeName(dRoot) = "Dictionary" Then
+        SeedStateCache dRoot, strPath
         Set LoadState = dRoot
     End If
     Exit Function
@@ -197,6 +249,35 @@ Public Sub MergeInto(tr As clsTestRunner)
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : PrefetchState
+' Author    : Adam Waller
+' Date      : 8/18/2026
+' Purpose   : Read and parse test-state.json into the session cache without applying it
+'           : to anything. Called while the web runner waits on the Edge cold start,
+'           : where VBA would otherwise only be pumping messages. The later MergeInto
+'           : then hits the cache instead of paying for the parse.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PrefetchState()
+    LoadState
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StateCached
+' Author    : Adam Waller
+' Date      : 8/18/2026
+' Purpose   : True when the current test-state.json is already parsed in the session
+'           : cache, so loading it is free. Lets the caller skip the deferred-hydrate
+'           : indicator, which only exists to cover the cost of the parse.
+'---------------------------------------------------------------------------------------
+'
+Public Function StateCached() As Boolean
+    StateCached = CacheMatches(GetStateFilePath())
+End Function
+
+
 ' ===================== Private helpers =====================
 
 
@@ -214,22 +295,71 @@ Private Function LoadStateTestsDict() As Dictionary
 End Function
 
 
-Private Function WasExecutedThisRun(ByVal strKey As String, ByVal dTest As Dictionary) As Boolean
+Private Sub SeedStateCache(ByVal dRoot As Dictionary, ByVal strPath As String)
 
-    Dim colKeys As Collection
-    Dim i As Long
+    Dim fil As Scripting.File
+
+    On Error Resume Next
+    Set m_dCachedState = dRoot
+    m_strCachedPath = strPath
+    If FSO.FileExists(strPath) Then
+        Set fil = FSO.GetFile(strPath)
+        m_datCachedModified = fil.DateLastModified
+        m_lngCachedSize = fil.Size
+    End If
+    Err.Clear
+
+End Sub
+
+
+Private Function CacheMatches(ByVal strPath As String) As Boolean
+
+    Dim fil As Scripting.File
+
+    If m_dCachedState Is Nothing Then Exit Function
+    If Len(m_strCachedPath) = 0 Then Exit Function
+    If StrComp(m_strCachedPath, strPath, vbTextCompare) <> 0 Then Exit Function
+    If Not FSO.FileExists(strPath) Then Exit Function
+
+    Set fil = FSO.GetFile(strPath)
+    CacheMatches = (fil.DateLastModified = m_datCachedModified And fil.Size = m_lngCachedSize)
+
+End Function
+
+
+Private Function WasExecutedThisRun(ByVal strKey As String, ByVal dTest As Dictionary, _
+    dRunKeys As Dictionary) As Boolean
 
     If CLng(Nz(dTest("status"), etsPending)) = etsPending Then Exit Function
+    If dRunKeys Is Nothing Then Exit Function
+
+    WasExecutedThisRun = dRunKeys.Exists(strKey)
+
+End Function
+
+
+' Case-insensitive set of the keys executed in the last run. Built once per save: this is
+' asked about every discovered test, and walking LastRunKeys per test made the merge
+' quadratic in the size of the suite.
+Private Function BuildLastRunKeySet() As Dictionary
+
+    Dim colKeys As Collection
+    Dim dKeys As Dictionary
+    Dim strKey As String
+    Dim i As Long
+
+    Set dKeys = New Dictionary
+    dKeys.CompareMode = TextCompare
 
     Set colKeys = TestRunner.LastRunKeys
-    If colKeys Is Nothing Then Exit Function
+    If Not colKeys Is Nothing Then
+        For i = 1 To colKeys.Count
+            strKey = CStr(colKeys(i))
+            If Not dKeys.Exists(strKey) Then dKeys.Add strKey, True
+        Next i
+    End If
 
-    For i = 1 To colKeys.Count
-        If StrComp(CStr(colKeys(i)), strKey, vbTextCompare) = 0 Then
-            WasExecutedThisRun = True
-            Exit Function
-        End If
-    Next i
+    Set BuildLastRunKeySet = dKeys
 
 End Function
 
@@ -239,12 +369,8 @@ Private Function SerializeTestRecord(ByVal strKey As String, ByVal dTest As Dict
 
     Dim dOut As Dictionary
     Dim colTagsOut As Collection
-    Dim colAssertOut As Collection
-    Dim colAssertions As Collection
     Dim colLoggedOut As Collection
     Dim colLoggedErrors As Collection
-    Dim dA As Dictionary
-    Dim dAOut As Dictionary
     Dim dErr As Dictionary
     Dim dErrOut As Dictionary
     Dim colTags As Collection
@@ -278,21 +404,15 @@ Private Function SerializeTestRecord(ByVal strKey As String, ByVal dTest As Dict
     End If
     Set dOut("tags") = colTagsOut
 
-    Set colAssertOut = New Collection
+    ' Shared, not copied. The runner's assertion records carry exactly the fields the state
+    ' shape needs, they are write-once, and rebuilding them here cost ~0.8 s per save: a
+    ' Scripting.Dictionary costs ~0.4 ms to create in a live Access session, and a full run
+    ' of this project produces over 2,000 assertions. See clsTestRunner.StateAssertions.
     If dTest.Exists("assertionResults") Then
-        Set colAssertions = dTest("assertionResults")
-        For i = 1 To colAssertions.Count
-            Set dA = colAssertions(i)
-            Set dAOut = New Dictionary
-            dAOut.Add "seq", dA("seq")
-            dAOut.Add "passed", dA("passed")
-            If Len(CStr(Nz(dA("context"), vbNullString))) > 0 Then
-                dAOut.Add "context", CStr(dA("context"))
-            End If
-            colAssertOut.Add dAOut
-        Next i
+        Set dOut("assertions") = dTest("assertionResults")
+    Else
+        Set dOut("assertions") = New Collection
     End If
-    Set dOut("assertions") = colAssertOut
 
     If dTest.Exists("loggedErrors") Then
         Set colLoggedOut = New Collection

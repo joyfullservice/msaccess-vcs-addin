@@ -182,11 +182,17 @@ Public Sub ScanMergingPriorResults()
     Dim dPrior As Dictionary
 
     this.State = etrsScanning
+    modTestRunnerDiag.DiagBegin "scan.merge"
+    modTestRunnerDiag.DiagBegin "scan.snapshot"
     Set dPrior = SnapshotTestsByModuleProc()
+    modTestRunnerDiag.DiagEnd "scan.snapshot"
     ScanDiscover
+    modTestRunnerDiag.DiagBegin "scan.merge_prior"
     MergePriorResultsIntoDiscovered dPrior
     RebuildCountsFromTests
+    modTestRunnerDiag.DiagEnd "scan.merge_prior"
     this.State = etrsReady
+    modTestRunnerDiag.DiagEnd "scan.merge", "tests=" & this.Tests.Count
 
 End Sub
 
@@ -478,7 +484,9 @@ AfterTestLoop:
         modTestRunnerUI.StreamRunComplete this.LastRunDurationMs
     End If
 
+    modTestRunnerDiag.DiagBegin "run.summary"
     LogRunSummary
+    modTestRunnerDiag.DiagEnd "run.summary"
 
 CleanUp:
     ' Restore original error trapping settings
@@ -820,104 +828,16 @@ Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullS
     Optional ByVal strLogPath As String = vbNullString, _
     Optional ByVal strResultsPath As String = vbNullString) As String
 
-    Dim dRoot As Dictionary
-    Dim dSummary As Dictionary
-    Dim dTests As Dictionary
-    Dim varKey As Variant
-    Dim dTest As Dictionary
-    Dim dTestOut As Dictionary
-    Dim colAssertions As Collection
-    Dim colAssertOut As Collection
-    Dim dA As Dictionary
-    Dim dAOut As Dictionary
-    Dim i As Long
-
-    Set dRoot = New Dictionary
-    Set dSummary = New Dictionary
-    Set dTests = New Dictionary
-
-    dRoot.Add "runAt", Format$(Now, "yyyy-mm-dd hh:nn:ss")
-    dRoot.Add "databasePath", CurrentProject.FullName
-    dRoot.Add "addinVersion", GetVCSVersion
-    dRoot.Add "durationMs", RunDurationMs
-    dRoot.Add "cancelled", (this.State = etrsCancelled)
-    dRoot.Add "allPassed", (this.State <> etrsCancelled) And _
-        (this.FailedCount = 0 And this.ErroredCount = 0 And this.PassedCount > 0)
-    If Len(strJUnitPath) > 0 Then dRoot.Add "junitPath", strJUnitPath
-    If Len(strStatePath) > 0 Then dRoot.Add "statePath", strStatePath
-    If Len(strLogPath) > 0 Then dRoot.Add "logPath", strLogPath
-    If Len(strResultsPath) > 0 Then dRoot.Add "resultsPath", strResultsPath
-
-    dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
-    dSummary.Add "assertions", this.TotalAssertions
-    dSummary.Add "passed", this.PassedAssertions
-    dSummary.Add "failed", this.FailedAssertions
-    dSummary.Add "errored", this.ErroredCount
-    dSummary.Add "empty", this.EmptyCount
-    Set dRoot("summary") = dSummary
-
-    If Not this.Tests Is Nothing Then
-        Dim colTags As Collection
-        Dim colTagsOut As Collection
-        For Each varKey In this.Tests.Keys
-            Set dTest = this.Tests(CStr(varKey))
-            If CLng(dTest("status")) = etsPending Then GoTo NextJsonTest
-            Set dTestOut = New Dictionary
-            dTestOut.Add "status", StatusToString(CLng(dTest("status")))
-            dTestOut.Add "durationMs", dTest("durationMs")
-            If dTest.Exists("errorMessage") Then
-                dTestOut.Add "errorMessage", dTest("errorMessage")
-            End If
-            If dTest.Exists("loggedErrors") Then
-                Dim colLoggedErrors As Collection
-                Dim colLoggedOut As Collection
-                Dim dErr As Dictionary
-                Dim dErrOut As Dictionary
-                Set colLoggedOut = New Collection
-                Set colLoggedErrors = dTest("loggedErrors")
-                For i = 1 To colLoggedErrors.Count
-                    Set dErr = colLoggedErrors(i)
-                    Set dErrOut = New Dictionary
-                    dErrOut.Add "level", dErr("level")
-                    dErrOut.Add "message", dErr("message")
-                    If Len(CStr(dErr("source"))) > 0 Then dErrOut.Add "source", dErr("source")
-                    If CLng(dErr("errNumber")) <> 0 Then dErrOut.Add "errNumber", dErr("errNumber")
-                    If Len(CStr(dErr("errDescription"))) > 0 Then
-                        dErrOut.Add "errDescription", dErr("errDescription")
-                    End If
-                    colLoggedOut.Add dErrOut
-                Next i
-                Set dTestOut("loggedErrors") = colLoggedOut
-            End If
-
-            ' Include tags array
-            Set colTagsOut = New Collection
-            If dTest.Exists("tags") Then
-                Set colTags = dTest("tags")
-                For i = 1 To colTags.Count
-                    colTagsOut.Add CStr(colTags(i))
-                Next i
-            End If
-            Set dTestOut("tags") = colTagsOut
-
-            Set colAssertOut = New Collection
-            Set colAssertions = dTest("assertionResults")
-            For i = 1 To colAssertions.Count
-                Set dA = colAssertions(i)
-                Set dAOut = New Dictionary
-                dAOut.Add "seq", dA("seq")
-                dAOut.Add "passed", dA("passed")
-                If Len(dA("context")) > 0 Then dAOut.Add "context", dA("context")
-                colAssertOut.Add dAOut
-            Next i
-            Set dTestOut("assertions") = colAssertOut
-            Set dTests(CStr(varKey)) = dTestOut
-NextJsonTest:
-        Next varKey
-    End If
-
-    Set dRoot("tests") = dTests
-    GetResultsAsJson = ConvertToJson(dRoot, JSON_WHITESPACE)
+    modTestRunnerDiag.DiagBegin "results.json"
+    GetResultsAsJson = modJsonEmit.EmitTestResultsJson(this.Tests, RunDurationMs, _
+        (this.State = etrsCancelled), _
+        (this.State <> etrsCancelled) And _
+            (this.FailedCount = 0 And this.ErroredCount = 0 And this.PassedCount > 0), _
+        this.PassedCount, this.FailedCount, this.ErroredCount, this.EmptyCount, _
+        this.TotalAssertions, this.PassedAssertions, this.FailedAssertions, _
+        strJUnitPath, strStatePath, strLogPath, strResultsPath)
+    modTestRunnerDiag.DiagEnd "results.json", "chars=" & Len(GetResultsAsJson)
+    modTestRunnerDiag.DiagSize "results.json", Len(GetResultsAsJson)
 
 End Function
 
@@ -960,56 +880,10 @@ End Function
 '
 Public Function GetTestTreeAsJson() As String
 
-    Dim dTree As Dictionary
-    Dim varKey As Variant
-    Dim dTest As Dictionary
-    Dim strModule As String
-    Dim dSuite As Dictionary
-    Dim colTests As Collection
-    Dim dNode As Dictionary
-    Dim colTags As Collection
-    Dim colTagsOut As Collection
-    Dim i As Long
-
-    If this.Tests Is Nothing Then
-        GetTestTreeAsJson = "{}"
-        Exit Function
-    End If
-
-    Set dTree = New Dictionary
-    For Each varKey In this.Tests.Keys
-        Set dTest = this.Tests(CStr(varKey))
-        strModule = CStr(dTest("moduleName"))
-
-        If Not dTree.Exists(strModule) Then
-            Set dSuite = New Dictionary
-            dSuite.Add "name", strModule
-            dSuite.Add "folder", CStr(dTest("folder"))
-            Set colTests = New Collection
-            Set dSuite("tests") = colTests
-            Set dTree(strModule) = dSuite
-        End If
-
-        Set dSuite = dTree(strModule)
-        Set colTests = dSuite("tests")
-        Set dNode = New Dictionary
-        dNode.Add "key", CStr(varKey)
-        dNode.Add "name", CStr(dTest("procName"))
-        dNode.Add "module", strModule
-        dNode.Add "procName", CStr(dTest("procName"))
-        If dTest.Exists("line") Then dNode.Add "lineNumber", CLng(dTest("line"))
-        Set colTagsOut = New Collection
-        If dTest.Exists("tags") Then
-            Set colTags = dTest("tags")
-            For i = 1 To colTags.Count
-                colTagsOut.Add CStr(colTags(i))
-            Next i
-        End If
-        dNode.Add "tags", colTagsOut
-        colTests.Add dNode
-    Next varKey
-
-    GetTestTreeAsJson = ConvertToJson(dTree, JSON_WHITESPACE)
+    modTestRunnerDiag.DiagBegin "tree.json"
+    GetTestTreeAsJson = modJsonEmit.EmitTestTreeJson(this.Tests)
+    modTestRunnerDiag.DiagEnd "tree.json", "chars=" & Len(GetTestTreeAsJson)
+    modTestRunnerDiag.DiagSize "tree.json", Len(GetTestTreeAsJson)
 
 End Function
 
@@ -1033,10 +907,12 @@ Public Function SaveResults() As String
         Format$(Now, "yyyymmdd\_hhnnss") & "_" & _
         Format$(Timer * 1000 Mod 1000, "000") & ".json"
 
+    modTestRunnerDiag.DiagBegin "save.results"
     WriteFile GetResultsAsJson, strFile
     SaveResults = strFile
 
     Log.CleanupOldLogs strFolder, "TestResults_*.json", Options.MaxLogFiles
+    modTestRunnerDiag.DiagEnd "save.results"
 
 End Function
 
@@ -1106,7 +982,9 @@ Public Sub MergeStateResults(dStateTests As Dictionary)
         End If
     Next varKey
 
+    modTestRunnerDiag.DiagBegin "merge.counts"
     RebuildCountsFromTests
+    modTestRunnerDiag.DiagEnd "merge.counts"
     this.State = etrsComplete
 
 End Sub
@@ -1936,7 +1814,7 @@ Private Sub ApplyStateResultsToTest(ByVal dTest As Dictionary, ByVal dSrc As Dic
         dTest.Remove "errorMessage"
     End If
 
-    Set dTest("assertionResults") = CloneAssertionsFromState(dSrc)
+    Set dTest("assertionResults") = StateAssertions(dSrc)
     ApplyLoggedErrorsFromState dTest, dSrc
 
     If dSrc.Exists("lastRunAt") Then
@@ -1966,34 +1844,23 @@ Private Sub ApplyStateResultsToTest(ByVal dTest As Dictionary, ByVal dSrc As Dic
 End Sub
 
 
-Private Function CloneAssertionsFromState(ByVal dSrc As Dictionary) As Collection
+' Hands back the parsed state's own assertion collection rather than a deep copy.
+'
+' Assertion records are write-once: every producer replaces the whole collection (see the
+' `Set dTest("assertionResults") = ...` sites) and no code mutates a record in place, so
+' sharing them with the durable-state cache is safe. Copying them is not cheap -- creating
+' a Scripting.Dictionary costs ~0.4 ms in a live Access session, so cloning ~2K assertion
+' records cost ~0.9 s of the runner's open path all by itself.
+Private Function StateAssertions(ByVal dSrc As Dictionary) As Collection
 
-    Dim colAssertOut As Collection
-    Dim colAssertions As Collection
-    Dim dA As Dictionary
-    Dim dAOut As Dictionary
-    Dim i As Long
-
-    Set colAssertOut = New Collection
     If dSrc.Exists("assertions") Then
         If TypeName(dSrc("assertions")) = "Collection" Then
-            Set colAssertions = dSrc("assertions")
-            For i = 1 To colAssertions.Count
-                Set dA = colAssertions(i)
-                Set dAOut = New Dictionary
-                dAOut.Add "seq", CLng(Nz(dA("seq"), i))
-                dAOut.Add "passed", CBool(Nz(dA("passed"), False))
-                If dA.Exists("context") Then
-                    If Len(CStr(dA("context"))) > 0 Then
-                        dAOut.Add "context", CStr(dA("context"))
-                    End If
-                End If
-                colAssertOut.Add dAOut
-            Next i
+            Set StateAssertions = dSrc("assertions")
+            Exit Function
         End If
     End If
 
-    Set CloneAssertionsFromState = colAssertOut
+    Set StateAssertions = New Collection
 
 End Function
 
@@ -2309,6 +2176,10 @@ Private Sub ScanDiscover()
     Dim dModules As Dictionary
     Dim varKey As Variant
 
+    Dim curMod As Currency
+    Dim dblMod As Double
+    Dim lngModCount As Long
+
     Set this.Tests = New Dictionary
     Set this.SuiteMap = New Dictionary
     this.ScannedAssertionCount = 0
@@ -2316,20 +2187,36 @@ Private Sub ScanDiscover()
 
     Set proj = CurrentVBProject
 
+    modTestRunnerDiag.DiagBegin "scan.discover"
+    modTestRunnerDiag.DiagBegin "scan.folder_tags"
     blnHasFolderTags = ProjectHasFolderAnnotations(proj)
+    modTestRunnerDiag.DiagEnd "scan.folder_tags"
 
+    modTestRunnerDiag.DiagBegin "scan.enum_modules"
     Set dModules = New Dictionary
     For Each cmp In proj.VBComponents
         If IsTestModule(cmp, blnHasFolderTags) Then
             dModules.Add cmp.Name, cmp
         End If
     Next cmp
+    modTestRunnerDiag.DiagEnd "scan.enum_modules", "modules=" & dModules.Count
 
+    modTestRunnerDiag.DiagBegin "scan.modules"
     For Each varKey In dModules.Keys
+        curMod = Perf.MicroTimer
         ScanModuleForTests dModules(varKey), blnHasFolderTags
+        dblMod = (Perf.MicroTimer - curMod) * 1000
+        lngModCount = lngModCount + 1
+        If dblMod >= 50 Then
+            modTestRunnerDiag.Diag "scan.module.slow", CStr(varKey) & " ms=" & Format$(dblMod, "0.0")
+        End If
     Next varKey
+    modTestRunnerDiag.DiagEnd "scan.modules", "n=" & lngModCount
 
+    modTestRunnerDiag.DiagBegin "scan.factory"
     SyncFactoryEntries proj
+    modTestRunnerDiag.DiagEnd "scan.factory"
+    modTestRunnerDiag.DiagEnd "scan.discover", "tests=" & this.Tests.Count
 
 End Sub
 
@@ -2421,8 +2308,10 @@ Private Sub MergePriorTestResult(ByVal dNew As Dictionary, ByVal dOld As Diction
         End If
     End If
 
+    ' Shared, not copied: the snapshot holds the only other reference to these records and
+    ' they are never mutated in place. See StateAssertions.
     If dOld.Exists("assertionResults") Then
-        Set dNew("assertionResults") = CloneAssertionResults(dOld("assertionResults"))
+        Set dNew("assertionResults") = dOld("assertionResults")
     End If
 
     If dOld.Exists("lastRunAt") Then
@@ -2444,44 +2333,6 @@ Private Sub MergePriorTestResult(ByVal dNew As Dictionary, ByVal dOld As Diction
     End If
 
 End Sub
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : CloneAssertionResults
-' Author    : Adam Waller
-' Date      : 7/8/2026
-' Purpose   : Deep-copy an assertion-results collection for merge-scan preservation.
-'---------------------------------------------------------------------------------------
-'
-Private Function CloneAssertionResults(ByVal colSrc As Collection) As Collection
-
-    Dim colOut As Collection
-    Dim dA As Dictionary
-    Dim dCopy As Dictionary
-    Dim i As Long
-
-    Set colOut = New Collection
-    If colSrc Is Nothing Then
-        Set CloneAssertionResults = colOut
-        Exit Function
-    End If
-
-    For i = 1 To colSrc.Count
-        Set dA = colSrc(i)
-        Set dCopy = New Dictionary
-        dCopy.Add "seq", CLng(Nz(dA("seq"), i))
-        dCopy.Add "passed", CBool(Nz(dA("passed"), False))
-        If dA.Exists("context") Then
-            If Len(CStr(dA("context"))) > 0 Then
-                dCopy.Add "context", CStr(dA("context"))
-            End If
-        End If
-        colOut.Add dCopy
-    Next i
-
-    Set CloneAssertionResults = colOut
-
-End Function
 
 
 '---------------------------------------------------------------------------------------

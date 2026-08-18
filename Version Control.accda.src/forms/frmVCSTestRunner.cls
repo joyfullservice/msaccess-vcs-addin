@@ -178,6 +178,10 @@ End Function
 '
 Private Sub Form_Unload(Cancel As Integer)
 
+    modTestRunnerDiag.Diag "form.unload.entry", _
+        "sinceIdleMs=" & Format$(modTestRunnerDiag.DiagSinceIdleMs(), "0") & _
+        " drainDepth=" & m_lngDrainDepth
+
     ' Allow close when: (a) programmatic callers set AllowClose, or (b) the form is
     ' already hidden (Access shutdown closing a hidden form — no user to hide for).
     If Not m_blnAllowClose And Me.Visible Then
@@ -216,6 +220,9 @@ Private Sub Form_KeyDown(KeyCode As Integer, Shift As Integer)
 
     If KeyCode = vbKeyEscape Then
         KeyCode = 0
+        modTestRunnerDiag.Diag "form.escape", _
+            "sinceIdleMs=" & Format$(modTestRunnerDiag.DiagSinceIdleMs(), "0") & _
+            " drainDepth=" & m_lngDrainDepth
         HideRunner
     End If
 
@@ -244,13 +251,33 @@ End Property
 '
 Public Sub HideRunner()
 
-    If TestRunner.State = etrsRunning Then TestRunner.Cancel
+    DumpPollStats
+    modTestRunnerDiag.DiagFlush
+    modTestRunnerDiag.DiagBegin "hide"
+    modTestRunnerDiag.Diag "form.hide.entry", _
+        "sinceIdleMs=" & Format$(modTestRunnerDiag.DiagSinceIdleMs(), "0") & _
+        " drainDepth=" & m_lngDrainDepth
+
+    If TestRunner.State = etrsRunning Then
+        modTestRunnerDiag.DiagBegin "hide.cancel"
+        TestRunner.Cancel
+        modTestRunnerDiag.DiagEnd "hide.cancel"
+    End If
     ' If a prior bridge run left Operation stuck (e.g. hide mid-run before Finish),
     ' clear it so the next Run Tests / Run click is not blocked.
+    modTestRunnerDiag.DiagBegin "hide.clear_op"
     modTestRunnerUI.ClearOrphanedTestOperation
+    modTestRunnerDiag.DiagEnd "hide.clear_op"
     modTestRunnerDiag.Diag "form.hide"
+    modTestRunnerDiag.DiagBegin "hide.timer"
     Me.TimerInterval = 0
+    modTestRunnerDiag.DiagEnd "hide.timer"
+    modTestRunnerDiag.DiagBegin "hide.visible"
     Me.Visible = False
+    modTestRunnerDiag.DiagEnd "hide.visible"
+    modTestRunnerDiag.DiagEnd "hide"
+    modTestRunnerDiag.DiagWriteSummary
+    modTestRunnerDiag.DiagFlush
 
 End Sub
 
@@ -347,10 +374,12 @@ Public Sub ExecuteRunnerScript(ByVal strScript As String)
 
     If m_ctlWeb Is Nothing Then Exit Sub
     On Error Resume Next
+    modTestRunnerDiag.DiagBeginQuiet "js.exec", 10
     m_ctlWeb.ExecuteJavascript strScript
     If Err.Number <> 0 Then
         modTestRunnerDiag.Diag "push.exec.error", Err.Description
     End If
+    modTestRunnerDiag.DiagEnd "js.exec", "chars=" & Len(strScript)
     Err.Clear
 
 End Sub
@@ -700,6 +729,7 @@ CleanUp:
     End If
     m_curLastDrainEnd = Perf.MicroTimer
     m_lngDrainDepth = m_lngDrainDepth - 1
+    modTestRunnerDiag.DiagNoteVbaIdle
     CatchAny eelWarning, vbNullString, FunctionName
 
 End Sub
@@ -804,5 +834,29 @@ Private Sub MonitorPoll(ByVal dblDrainMs As Double, ByVal dblGapMs As Double, _
         m_lngQueueMax = 0
         m_lngReentrantCount = 0
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DumpPollStats
+' Author    : Adam Waller
+' Date      : 8/17/2026
+' Purpose   : Emit the current poll window even when it is shorter than POLL_REPORT_EVERY.
+'---------------------------------------------------------------------------------------
+'
+Public Sub DumpPollStats()
+
+    If m_lngPollCount = 0 Then
+        modTestRunnerDiag.Diag "poll.stats", "n=0"
+        Exit Sub
+    End If
+    modTestRunnerDiag.Diag "poll.stats", "n=" & m_lngPollCount & _
+        " avg=" & Format$(m_dblPollTotalMs / m_lngPollCount, "0.0") & "ms" & _
+        " max=" & Format$(m_dblPollMaxMs, "0") & "ms" & _
+        " gap.avg=" & Format$(m_dblGapTotalMs / m_lngPollCount, "0.0") & "ms" & _
+        " gap.max=" & Format$(m_dblGapMaxMs, "0") & "ms" & _
+        " qmax=" & m_lngQueueMax & " reentrant=" & m_lngReentrantCount & _
+        " int=" & m_lngLastInterval & "ms"
 
 End Sub

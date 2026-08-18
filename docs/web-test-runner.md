@@ -68,7 +68,20 @@ keys — publishes the tree, then overlays durable state from `test-state.json` 
 one `onResultsBatch`. Names paint first; prior durations and assertion counts
 follow without blocking the scan.
 
-The overlay is **deferred to `Form_Timer`** (`ScheduleHydratePriorResults` sets a
+On a cold open the parse is normally already paid for. `WaitForWebRunnerReady`
+spins on `DoEvents` for the whole WebView2 first-init, so `PrefetchDurableState`
+spends that otherwise idle window reading and parsing `test-state.json` into the
+`modTestState` session cache (keyed on path, modified time, and size). WebView2
+initializes in its own processes and keeps making progress while VBA holds the
+thread, so most of that parse is genuinely hidden — but its COM callbacks queue
+until we pump, so `DocumentComplete` slips by part of whatever runs here. The
+window is now full; adding more work to it mostly lands back on the critical
+path. When `modTestState.StateCached` is then True,
+`RefreshWebTestTreeDeferred` merges **inline** and pushes only `onHydrateEnd`:
+raising the indicator would cost a JS round trip and a minimum-visible hold to
+announce work that is already finished.
+
+Otherwise the overlay is **deferred to `Form_Timer`** (`ScheduleHydratePriorResults` sets a
 flag; `PumpDeferredHydrate` does the work on the next tick) so Access reaches its
 message loop and the page paints before VBA blocks on the parse — WebView2
 composites no frames while VBA holds the thread. `PumpDeferredHydrate`
@@ -119,17 +132,30 @@ from **Open report** in the toolbar; see
 `modTestRunnerDiag` writes a single agent-readable trace of the real
 bridge/lifecycle flow to `<ExportFolder>\logs\TestRunnerDiag_<timestamp>.log`,
 falling back to a temp folder when Options are not loaded. Tracing is **off by
-default**: set `modTestRunnerDiag.DiagEnabled = True` in the Immediate Window and
-reopen the runner to capture a session. Each line is `[+elapsed ms] TAG | detail`.
+default**: `VCS.TestRunnerDiag True` (or `modTestRunnerDiag.DiagEnabled = True`
+in the Immediate Window) and reopen the runner to capture a session. Each line
+is `[+elapsed ms +delta] TAG | detail`. Nested `phase.begin` / `phase.end`
+spans carry `ms=`; a per-phase summary table is written at hide or when tracing
+is turned off. Writes are buffered (not one file open per line) and flushed
+every 32 lines or 250 ms, so a VBA state reset cannot swallow the tail. Phases
+called too often to print — `log.flush`, `js.exec`, `js.retrieve` — use a quiet
+span: they always accrue into the summary but only print a single line when they
+exceed their threshold, so a slow one still shows up in place.
+
+A span is not free: each one allocates a `Scripting.Dictionary`, which costs
+~0.5 ms in an interactive Access session. Instrument phases and per-test steps,
+never a loop over thousands of items — at that scale the trace measures itself.
 
 | Tag group | Tags | Meaning |
 |---|---|---|
-| Form lifecycle | `form.load`, `form.unload`, `form.hide`, `form.show` | Open/close/hide transitions |
+| Form lifecycle | `form.load`, `form.unload`, `form.hide`, `form.show`, `hide.*` | Open/close/hide transitions; hide spans split cancel / clear-op / timer / Visible |
 | Navigation | `navigate.url`, `navigate.call`, `documentcomplete` | What URL the control was given; the gap from `navigate.call` to `documentcomplete` is WebView2 load / cold-start time |
 | Readiness | `wait.ready`, `wait.timeout` | Outcome of the readiness wait |
+| Open / scan | `open`, `refresh.tree`, `scan.*`, `tree.json`, `publish.tree`, `state.prefetch`, `hydrate`, `hydrate.inline`, `merge.counts` | Cold/warm open, merge-scan, tree JSON, state parse overlapped with the Edge start, prior-result overlay |
+| Teardown | `teardown`, `save.results`, `persist`, `state.*`, `junit.export`, `html.export`, `log.save` | Post-run artifact writes; `form.hide.entry` reports `sinceIdleMs` to tell queued input from a slow handler |
 | Bridge | `beforenavigate`, `defer.exec`, `dispatch.begin`, `dispatch.end`, `resolve`, `reject` | Command received, deferred, dispatched, and settled |
-| Streaming | `push`, `push.dropped` | VBA-to-JS result streaming |
-| JS breadcrumbs | `js.call`, `js.signal`, `js.resolve`, `js.timeout`, `js.onReady`, `js.onTestComplete` | Drained from `window.__diag` |
+| Streaming | `push`, `push.dropped`, `push.<handler>`, `js.exec`, `js.retrieve` | VBA-to-JS result streaming and each ExecuteJavascript / RetrieveJavascriptValue |
+| JS breadcrumbs | `js.call`, `js.onReady`, `js.renderTestList`, `js.tick`, `js.onResultsBatch` | Drained from `window.__diag`; `ts` is mapped onto the session clock |
 
-Read this file first when the page does not load or a call times out — it shows
-exactly where the flow diverged.
+Read this file first when the page does not load, a call times out, or the
+runner feels slow — it shows exactly where the flow diverged or the time went.

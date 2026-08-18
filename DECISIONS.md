@@ -83,6 +83,189 @@ contradictory guidance.
 
 ---
 
+## 2026-08-18 — Share assertion records instead of deep-copying them
+
+**Trigger**: With the JSON emitters in place, a traced cold open still spent
+962 ms overlaying prior results and the teardown 1.32 s
+(`TestRunnerDiag_20260818_121153.log`). Per-test spans localized both to loops
+that rebuilt every assertion as a fresh `Scripting.Dictionary`: 411 calls of
+`state.ser.record` totalling 920 ms in the teardown
+(`TestRunnerDiag_20260818_123053.log`), and `merge.clone_assert` 915 ms over
+2,127 assertions on the open path (`TestRunnerDiag_20260818_123634.log`).
+
+**Measurement**: creating a `Scripting.Dictionary` costs **~0.4 ms in a live
+Access session** — 2,127 of them is ~0.9 s — against ~6 µs for the same
+statement in a headless instance, which is why a standalone replica of the loop
+ran ten times faster and hid the cost. Three independent confirmations: (1) in
+the same trace `merge.counts` walks those same 411 tests and 2,127 assertions
+read-only in 14.8 ms, so only the allocation is expensive; (2) `ser.assert`
+independently measured ~370 µs per assertion; (3) `DiagBeginQuiet` allocates one
+Dictionary per span, and adding 411 spans between two runs moved
+`state.ser.record` from 920 ms to 1134 ms — 520 µs per span. Separately,
+`TypeName()` on a `Scripting.Dictionary` costs ~410 µs per call versus 0.2 µs on
+a VBA `Collection`; `TypeOf x Is Collection` is free.
+
+**Options explored**:
+- **A cheaper record type for assertions** (UDT array, packed string, or
+  3-element Variant array) — rejected: every consumer (state emitter, JUnit
+  export, HTML report, merge-scan, UI batch) would have to learn a new shape for
+  a problem that is purely allocation.
+- **Emit `test-state.json` directly from the runner with no dictionary tree** —
+  rejected for now. `MergeAndSave`'s root is consumed downstream as data (cache
+  seed, `ExportFromState`, HTML report), not merely serialized, so the tree has
+  to exist in some form.
+- **Share the write-once assertion collections (chosen)** — nothing mutates an
+  assertion record in place; every producer replaces the whole collection.
+
+**Decision**: three sites now alias the existing collection instead of
+deep-copying it — `clsTestRunner.StateAssertions` (replacing
+`CloneAssertionsFromState`) on the open path, `MergePriorTestResult` (replacing
+`CloneAssertionResults`), which carried the same cost unmeasured on the warm
+**Refresh** path, and `SerializeTestRecord` in the teardown. The invariant is
+documented at `StateAssertions`. Also replaced the per-test linear scan of
+`TestRunner.LastRunKeys` in `WasExecutedThisRun` with a case-insensitive
+Dictionary set built once per save (`BuildLastRunKeySet`); it was quadratic in
+suite size, ~92 ms at 411 tests and growing with the square.
+
+**What this rules out**: mutating an assertion record in place, anywhere. A
+producer must replace the whole collection (`Set dTest("assertionResults") = New
+Collection`), which every current site already does; an in-place edit would now
+corrupt both the durable-state cache and the merge-scan snapshot, since all
+three trees can share the same records. It also rules out `DiagBegin` /
+`DiagBeginQuiet` spans inside loops over thousands of items — at ~0.5 ms per
+span the instrumentation distorts what it measures — and argues against
+`TypeName()` on Dictionary-valued expressions in any hot path.
+
+**Relevant files**:
+- `clsTestRunner.cls` — `StateAssertions`, `MergePriorTestResult`,
+  `MergeStateResults` (`merge.counts` span retained)
+- `modTestState.bas` — `SerializeTestRecord` aliases assertions,
+  `BuildLastRunKeySet`, `WasExecutedThisRun`
+
+**Verification**: `TestRunnerDiag_20260818_124530.log` — `hydrate.inline` 962 ms
+→ **75.9 ms**, `state.serialize` 1058.8 → **156.2 ms**, `teardown` 1322 →
+**392.7 ms**, `hide` 11.8 ms. Content is unchanged: that run's
+`test-state.json` still carries 411 test records with all 2,127 assertion
+records (`seq`, `context`, and message intact), summary 411 subs / 2,127
+assertions / 0 failed.
+
+---
+
+## 2026-08-18 — Overlap the durable-state parse with the WebView2 cold start
+
+**Trigger**: a cold open still took 10.3 s to show prior results after the JSON
+emitters landed (`TestRunnerDiag_20260818_112934.log`).
+`WaitForWebRunnerReady` spins on `DoEvents` for the entire WebView2 first-init
+(~3.4 s) doing nothing, while every piece of browser-independent VBA work — the
+`test-state.json` parse (1.06 s) and the test scan — ran *after*
+`DocumentComplete`, because the overlay is triggered from `NotifyDocumentReady`.
+
+**Options explored**:
+- **A Windows API timer to decouple the work** — unnecessary. The readiness wait
+  is already a message pump, so a step placed between its `DoEvents` calls runs
+  without new machinery and in deterministic order.
+- **Drive it from `Form_Timer`** — rejected: that loop's own `DoEvents` is what
+  dispatches timer ticks, so it would need a re-entrancy guard for no benefit.
+- **Prefetch everything** (scan, tree JSON, and results batch as well) —
+  deferred. The parse alone now fills the available window; see below.
+- **Prefetch the state parse only, into the existing session cache (chosen)**.
+
+**Decision**: `PrefetchDurableState` runs from the wait loop, once per open,
+calling `modTestState.PrefetchState` — which is just `LoadState`, so the existing
+path + mtime + size cache absorbs it with no new state to keep coherent. When
+`modTestState.StateCached` is then True, `RefreshWebTestTreeDeferred` merges
+inline and pushes only `onHydrateEnd`, skipping the deferred hydrate: raising the
+indicator costs a `window.__hydratePainted` round trip plus a 600 ms
+minimum-visible hold to announce work that is already finished. The prefetch is
+wrapped in the standard `DebugMode` / `CatchAny` guard and sets its flag before
+the work, so a missing or corrupt state file can never break the open.
+
+Measured: the parse (1.48–1.53 s) runs entirely inside the wait and
+`DocumentComplete` slips ~0.4 s, so ~1.1 s is genuinely hidden. The parse itself
+runs ~40% slower than it did on the critical path (1.06 s → ~1.5 s), almost
+certainly CPU contention with the browser processes starting up.
+
+**What this rules out**: treating VBA work in the wait loop as free. WebView2
+initializes out of process and keeps progressing while VBA holds the thread, but
+its COM callbacks (`BeforeNavigate`, `DocumentComplete`) queue until we pump —
+observably so: the `about:blank` `beforenavigate` sat at +1116 ms before the
+prefetch (`TestRunnerDiag_20260818_112934.log`) and now arrives at +1680 ms,
+39 ms after the parse releases the thread. Anything further added here therefore
+delays page readiness by its own duration now that the window is saturated,
+which is why the scan was left where it is. The deferred
+hydrate path must also stay: it still covers the cases where no state file
+exists or it changed after the prefetch.
+
+**Relevant files**:
+- `modTestRunnerUI.bas` — `PrefetchDurableState`, wait-loop call,
+  `RefreshWebTestTreeDeferred` inline-merge branch, `m_blnStatePrefetched`
+- `modTestState.bas` — `PrefetchState`, `StateCached`
+- `docs/web-test-runner.md` — "Tree refresh and hydration"
+
+**Verification**: prior results painted at +10.32 s before the prefetch, +6.38 s
+with it (`TestRunnerDiag_20260818_121153.log`), and +5.33 s once the assertion
+aliasing above landed (`TestRunnerDiag_20260818_124530.log`: `state.prefetch`
+1482.9 ms sitting between `navigate.call` and `documentcomplete`, `wait.ready
+afterMs=5253`). Subtract the 1.01 s first `js.retrieve`, which only exists in
+traced sessions, for the ~4.4 s a user sees.
+
+---
+
+## 2026-08-18 — Fast JSON emitters for test-runner teardown artifacts
+
+> **⚠ Partially superseded** (2026-08-18): the closing claim that the remaining
+> floor is the ~1.3 s dictionary build no longer holds — that build was
+> allocation-bound and is now 156 ms. See "Share assertion records instead of
+> deep-copying them" above.
+
+**Trigger**: With ~2K assertions the web test runner's post-run pause measured
+13.6 s (`TestRunnerDiag_20260818_094814.log`). 94% was VBA JSON work: the same
+payload was serialized or parsed four times (`results.json`, `state.json`, two
+`state.parse` passes for merge load and JUnit export). Pretty-print whitespace
+accounted for 33% of the 435 KB `test-state.json` file.
+
+**Options explored**:
+- **Drop `logs/TestResults_<timestamp>.json` on interactive runs** — rejected.
+  Agents are directed to that file when a user runs tests manually and reports
+  back; `CleanupOldLogs` leaves older headless snapshots on disk, so omitting the
+  write would silently serve stale results.
+- **Trim assertion records to per-test counts** — rejected for now; all detail
+  is preserved.
+- **Binary durable state (vcs-index.idx precedent)** — deferred pending
+  re-measure; the pause is write-side and `test-results/` is gitignored.
+- **Schema-specific `clsConcat` emitters + JUnit dictionary reuse + session
+  cache (chosen)** — `modJsonEmit` emits `test-state.json` (one line per test
+  record, no indentation) and the per-run results file straight from
+  `this.Tests` without building a parallel dictionary tree. `MergeAndSave`
+  returns the merged root for `ExportFromState`; `LoadState` caches by path +
+  mtime + size.
+
+**Decision**: Replace `ConvertToJson` on the two large test artifacts with
+`modJsonEmit.EmitTestStateJson` and `modJsonEmit.EmitTestResultsJson`. JUnit
+export accepts the in-memory merged dictionary from the same teardown pass.
+Expected interactive teardown: ~2.2 s on subsequent runs in a session (~2.9 s
+first run while `state.serialize` still builds ~2,400 Dictionary objects).
+Remaining floor is that dictionary build (~1.3 s), not serialization.
+
+**What this rules out**: Using `ConvertToJson` for `test-state.json` or the
+per-run results file on the hot path. JUnit re-reading the file immediately
+after merge. Relying on pretty-printed durable state for agent readability —
+records remain one per line; use `ParseJson` or the HTML dashboard for structure.
+
+**Relevant files**:
+- `modJsonEmit.bas` — `EscapeJsonString`, `EmitTestStateJson`, `EmitTestResultsJson`
+- `modTestState.bas` — `MergeAndSave` returns root, session cache, emitter call
+- `clsTestRunner.cls` — `GetResultsAsJson` delegates to emitter
+- `modTestJUnit.bas` — `ExportFromState(Optional dRoot)`
+- `modTestJsonEmit.bas` — round-trip tests
+
+**Verification**: Rebuild from source, `VCS.TestRunnerDiag True`, full
+401-test run, confirm phase summary targets (`teardown` ~2 s, `state.json` and
+`results.json` each <150 ms, `junit.export` <200 ms, no `state.load` on second
+run in session).
+
+---
+
 ## 2026-08-17 — Oracle DSN and File DSN connectivity probe
 
 **Trigger**: Issue #723 was only half-fixed on 2026-07-13. `GetConnectivityProbeSql` used `SELECT 1 FROM DUAL;` when `DRIVER=` contained `"Oracle"`, but both reporters use `ODBC;DSN=...` with no `DRIVER=`. They still got `SELECT 1;`, ODBC 3146, and a false Retry/Ignore/Abort dialog. One reporter offered to write a registry-enumeration module (Windows APIs or WMI) because `WshShell` cannot enumerate keys.

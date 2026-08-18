@@ -2717,6 +2717,32 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestRunnerDiag
+' Author    : Adam Waller
+' Date      : 8/17/2026
+' Purpose   : Enable or disable the web test runner diagnostic trace. When enabling,
+'           : returns the folder where the next session file will be written (the file
+'           : itself is created when the runner opens). When disabling, flushes the
+'           : current session and returns its log path.
+'---------------------------------------------------------------------------------------
+'
+Public Function TestRunnerDiag(ByVal blnEnabled As Boolean) As String
+
+    modTestRunnerDiag.DiagEnabled = blnEnabled
+    If blnEnabled Then
+        If Len(modTestRunnerDiag.CurrentLogPath) > 0 Then
+            TestRunnerDiag = modTestRunnerDiag.CurrentLogPath
+        Else
+            TestRunnerDiag = modTestRunnerDiag.DiagFolder
+        End If
+    Else
+        TestRunnerDiag = modTestRunnerDiag.CurrentLogPath
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ExportTestResultsJUnit
 ' Author    : Adam Waller
 ' Date      : 7/8/2026

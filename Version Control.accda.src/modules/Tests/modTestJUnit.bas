@@ -23,9 +23,9 @@ Private Const JUNIT_FILE As String = "test-results.xml"
 '           : running tests (projection of durable state).
 '---------------------------------------------------------------------------------------
 '
-Public Function ExportFromState(Optional ByVal strPath As String = vbNullString) As String
+Public Function ExportFromState(Optional ByVal strPath As String = vbNullString, _
+    Optional ByVal dRoot As Dictionary = Nothing) As String
 
-    Dim dRoot As Dictionary
     Dim dTests As Dictionary
     Dim dSuites As Dictionary
     Dim varKey As Variant
@@ -44,13 +44,21 @@ Public Function ExportFromState(Optional ByVal strPath As String = vbNullString)
         strPath = modTestState.GetTestResultsFolder() & JUNIT_FILE
     End If
 
-    Set dRoot = modTestState.LoadState()
+    modTestRunnerDiag.DiagBegin "junit.export"
+    If dRoot Is Nothing Then Set dRoot = modTestState.LoadState()
     If dRoot Is Nothing Then
+        modTestRunnerDiag.DiagEnd "junit.export", "no-state"
         ExportFromState = vbNullString
         Exit Function
     End If
-    If Not dRoot.Exists("tests") Then Exit Function
-    If TypeName(dRoot("tests")) <> "Dictionary" Then Exit Function
+    If Not dRoot.Exists("tests") Then
+        modTestRunnerDiag.DiagEnd "junit.export", "no-tests"
+        Exit Function
+    End If
+    If TypeName(dRoot("tests")) <> "Dictionary" Then
+        modTestRunnerDiag.DiagEnd "junit.export", "bad-tests"
+        Exit Function
+    End If
 
     Set dTests = dRoot("tests")
     Set dSuites = New Dictionary
@@ -96,6 +104,7 @@ NextJUnitTest:
     strXml = BuildJUnitXml(dSuites, lngTotalTests, lngTotalFailures, lngTotalErrors, dblTotalSec)
     WriteFile strXml, strPath
     ExportFromState = strPath
+    modTestRunnerDiag.DiagEnd "junit.export", "chars=" & Len(strXml)
 
 End Function
 

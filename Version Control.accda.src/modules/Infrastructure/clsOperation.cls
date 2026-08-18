@@ -159,7 +159,9 @@ Public Function Finish(Optional intResult As eOperationResult)
         blnWasRunning = (this.State = eosRunning)
         this.State = eosReady
         this.FinishTime = Now
+        If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagBegin "op.registry"
         UpdateRegistry
+        If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagEnd "op.registry"
 
         ' Post MCP completion callback BEFORE releasing objects
         ' (ReleaseObjects destroys the MCP singleton)
@@ -184,7 +186,9 @@ Public Function Finish(Optional intResult As eOperationResult)
             End Select
         End If
 
+        If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagBegin "op.release"
         modObjects.ReleaseObjects
+        If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagEnd "op.release"
         ' Only restore error trapping if we were in a running state.
         If blnWasRunning Then RestoreUserErrorTrapping
     End If

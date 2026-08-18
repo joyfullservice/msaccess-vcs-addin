@@ -1331,8 +1331,22 @@ window.__diag = [];
 window.diag = function(t, m) {
   try {
     window.__diag.push({ t: t, m: (m == null ? '' : String(m)), ts: Date.now() });
-    if (window.__diag.length > 500) window.__diag.shift();
+    if (window.__diag.length > 2000) window.__diag.shift();
   } catch (e) {}
+};
+
+function markMs(tag, started, extra) {
+  const ms = (typeof started === 'number') ? (performance.now() - started) : started;
+  window.diag(tag, 'ms=' + Math.round(ms) + (extra ? ' ' + extra : ''));
+  return ms;
+}
+
+var _diagHeartbeat = null;
+window.__startDiagHeartbeat = function () {
+  if (_diagHeartbeat) return;
+  _diagHeartbeat = setInterval(function () {
+    window.diag('tick', '');
+  }, 250);
 };
 
 // Keep aligned with WEB_RUNNER_READY_TIMEOUT_MS in modTestRunnerUI.bas (values
@@ -1867,10 +1881,13 @@ function getNavigationBaseKeys() {
 }
 
 function getVisibleTestKeys() {
+  const t0 = performance.now();
   const baseKeys = getNavigationBaseKeys();
   const tokens = parseFilterText(state.filterText);
-  if (!tokens.length) return baseKeys;
-  return resolveFilterTokensToKeys(tokens, baseKeys);
+  const keys = tokens.length ? resolveFilterTokensToKeys(tokens, baseKeys) : baseKeys;
+  const ms = performance.now() - t0;
+  if (ms >= 4) markMs('getVisibleTestKeys', t0, 'n=' + keys.length);
+  return keys;
 }
 
 function getTagTokenState(tag) {
@@ -2431,6 +2448,7 @@ function updateSidebarActive() {
 // Test list rendering
 // =============================================================================
 function renderTestList() {
+  const t0 = performance.now();
   const list = $('test-list');
   list.innerHTML = '';
 
@@ -2440,6 +2458,7 @@ function renderTestList() {
       el('div', { className: 'empty-state-title', text: 'No tests match filter' }),
       el('div', { text: 'Adjust the folder, suite, or filter settings.' })
     ]));
+    markMs('renderTestList', t0, 'visible=0');
     return;
   }
 
@@ -2457,6 +2476,7 @@ function renderTestList() {
       el('div', { className: 'empty-state-title', text: 'Select a suite' }),
       el('div', { text: 'Or run all tests to see everything here.' })
     ]));
+    markMs('renderTestList', t0, 'visible=' + visible.size);
     return;
   }
 
@@ -2464,6 +2484,7 @@ function renderTestList() {
     list.appendChild(renderSuiteGroup(key, suite, tests));
   }
   initListRovingFocus();
+  markMs('renderTestList', t0, 'visible=' + visible.size);
 }
 
 // =============================================================================
@@ -3104,6 +3125,7 @@ function setHydrating(on, opts) {
 }
 
 function updateStats() {
+  const t0 = performance.now();
   $('stat-passed').textContent = state.counts.passed;
   $('stat-failed').textContent = state.counts.failed;
   $('stat-errored').textContent = state.counts.errored;
@@ -3137,6 +3159,8 @@ function updateStats() {
   $('prog-pass').style.width = (progPassed / progTotal * 100) + '%';
   $('prog-fail').style.width = (progFailed / progTotal * 100) + '%';
   $('prog-error').style.width = (progErrored / progTotal * 100) + '%';
+  const ms = performance.now() - t0;
+  if (ms >= 4) markMs('updateStats', t0);
 }
 
 function startDurationTimer() {
@@ -3227,20 +3251,28 @@ window.TestUI = {
   }),
   
   onReady: guardTestUI('onReady', function (testTree) {
+    const t0 = performance.now();
     window.diag('onReady', 'suites=' + Object.keys(testTree || {}).length);
     state.testTree = testTree || {};
+    let t = performance.now();
     renderSidebar(state.testTree);
+    markMs('onReady.sidebar', t);
     const hadDefault = !!(state.pendingDefaultFilter && String(state.pendingDefaultFilter).trim());
+    t = performance.now();
     if (hadDefault) {
       applyFilterText(state.pendingDefaultFilter, { persist: false });
       state.pendingDefaultFilter = null;
     } else if (!restoreLastSelection()) {
       renderTestList();
     }
+    markMs('onReady.list', t);
+    t = performance.now();
     recomputeCounts();
+    markMs('onReady.counts', t);
     updateRunButton();
     updatePageHeader();
     updateClearFilterChip();
+    markMs('onReady', t0);
   }),
   
   // Prior-result hydration is in flight (VBA is parsing test-state.json). The tree
@@ -3356,23 +3388,38 @@ window.TestUI = {
   // WebView2 and stalled the bridge poll). Re-render the list/stats/sidebar ONCE
   // at the end rather than per row.
   onResultsBatch: guardTestUI('onResultsBatch', function (payload) {
+    const t0 = performance.now();
     const results = (payload && payload.results) || [];
     window.diag('onResultsBatch', 'n=' + results.length);
     state.priorLoaded = true;
+    let t = performance.now();
     for (const result of results) {
       if (!result || !result.testKey) continue;
       storeTestResult(result);
     }
+    markMs('onResultsBatch.store', t, 'n=' + results.length);
     setHydrating(false);
+    t = performance.now();
     recomputeCounts();
     updateStats();
     updatePageHeader();
+    markMs('onResultsBatch.stats', t);
+    t = performance.now();
     renderTestList();
+    markMs('onResultsBatch.list', t);
+    t = performance.now();
     refreshSidebarBadges();
-    if (state.selectedTest) renderDetailPane();
+    markMs('onResultsBatch.badges', t);
+    if (state.selectedTest) {
+      t = performance.now();
+      renderDetailPane();
+      markMs('onResultsBatch.detail', t);
+    }
+    markMs('onResultsBatch', t0, 'n=' + results.length);
   }),
   
   onRunComplete: guardTestUI('onRunComplete', function (summary) {
+    const t0 = performance.now();
     window.diag('onRunComplete', 'totalMs=' + (summary && summary.totalMs));
     clearRunStartWatchdog();
     setRunPending(false);
@@ -3400,6 +3447,7 @@ window.TestUI = {
     updatePageHeader();
     
     toast(formatRunOutcomeToast(keys, rc));
+    markMs('onRunComplete', t0);
   }),
   
   onRunCancelled: guardTestUI('onRunCancelled', function () {

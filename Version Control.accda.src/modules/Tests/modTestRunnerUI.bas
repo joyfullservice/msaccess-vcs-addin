@@ -30,6 +30,7 @@ Private m_blnDocumentReady As Boolean
 Private m_blnTreePublished As Boolean
 Private m_blnStandalone As Boolean      ' opened to view last results (not a fresh run)
 Private m_blnPriorStateLoaded As Boolean ' durable state read once per runner open
+Private m_blnStatePrefetched As Boolean  ' state parse attempted during the Edge cold start
 Private m_blnHydratePending As Boolean   ' hydrate scheduled; runs on the form timer
 Private m_curHydrateScheduled As Currency ' MicroTimer when the indicator was pushed
 Private m_strPendingTreeJson As String
@@ -192,6 +193,7 @@ Public Sub OpenWebTestRunner()
     Set frm = RunnerForm()
     modTestRunnerDiag.DiagStart "OpenWebTestRunner reuse=" & (Not frm Is Nothing) & _
         " edgeBuild>=min=" & EdgeTestRunnerSupported()
+    modTestRunnerDiag.DiagBegin "open"
 
     If frm Is Nothing Then
         m_blnDocumentReady = False
@@ -204,6 +206,7 @@ Public Sub OpenWebTestRunner()
     Else
         ReuseOrReloadRunner frm, False
     End If
+    modTestRunnerDiag.DiagEnd "open"
 
 End Sub
 
@@ -227,7 +230,9 @@ Public Sub ClearOrphanedTestOperation()
     modTestRunnerDiag.Diag "op.clear_orphan", "state=" & TestRunner.State
     Log.SuppressDebugOutput = False
     Operation.InteractionMode = m_eimPriorMode
+    modTestRunnerDiag.DiagBegin "op.finish.orphan"
     Operation.Finish eorCanceled
+    modTestRunnerDiag.DiagEnd "op.finish.orphan"
 
 End Sub
 
@@ -257,6 +262,7 @@ Public Sub OpenTestRunnerForResults()
 
     Set frm = RunnerForm()
     modTestRunnerDiag.DiagStart "OpenTestRunnerForResults reuse=" & (Not frm Is Nothing)
+    modTestRunnerDiag.DiagBegin "open.results"
 
     If frm Is Nothing Then
         m_blnDocumentReady = False
@@ -268,6 +274,7 @@ Public Sub OpenTestRunnerForResults()
     Else
         ReuseOrReloadRunner frm, True
     End If
+    modTestRunnerDiag.DiagEnd "open.results"
 
 End Sub
 
@@ -331,6 +338,7 @@ Public Sub ResetWebRunnerHostState()
     m_strPendingDefaultFilter = vbNullString
     m_blnStandalone = False
     m_blnPriorStateLoaded = False
+    m_blnStatePrefetched = False
     m_blnHydratePending = False
 End Sub
 
@@ -370,7 +378,8 @@ End Sub
 ' Purpose   : Pump messages until the Edge document is ready (or timeout). The default
 '           : is generous because a cold WebView2 first-init (first open after launch)
 '           : can take well over 15s; starting the run before the page is ready streams
-'           : results into a blank page.
+'           : results into a blank page. The wait is also where the durable state parse
+'           : is prefetched -- see PrefetchDurableState.
 '---------------------------------------------------------------------------------------
 '
 Public Sub WaitForWebRunnerReady(Optional ByVal lngTimeoutMs As Long = WEB_RUNNER_READY_TIMEOUT_MS)
@@ -389,6 +398,7 @@ Public Sub WaitForWebRunnerReady(Optional ByVal lngTimeoutMs As Long = WEB_RUNNE
         DoEvents
         If Perf.MicroTimer > curLimit Then Exit Do
         If Not IsLoaded(acForm, "frmVCSTestRunner", False) Then Exit Do
+        If Not m_blnDocumentReady Then PrefetchDurableState
     Loop
 
     If m_blnDocumentReady Then
@@ -407,6 +417,38 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : PrefetchDurableState
+' Author    : Adam Waller
+' Date      : 8/18/2026
+' Purpose   : Spend the Edge cold start reading and parsing test-state.json, which is the
+'           : single largest piece of browser-independent work on the open path (~1s for
+'           : ~2K tests). WebView2 initializes in its own processes, so it keeps making
+'           : progress while VBA holds the thread here; DocumentComplete simply queues
+'           : until we return to the pump, which makes this free at worst. Once cached,
+'           : RefreshWebTestTreeDeferred merges inline instead of scheduling a hydrate.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PrefetchDurableState()
+
+    Const FunctionName As String = ModuleName & ".PrefetchDurableState"
+
+    If m_blnStatePrefetched Then Exit Sub
+    If m_blnPriorStateLoaded Then Exit Sub
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Set before the work: a failed prefetch must not be retried on every pump, and the
+    ' hydrate path still covers it.
+    m_blnStatePrefetched = True
+    modTestRunnerDiag.DiagBegin "state.prefetch"
+    modTestState.PrefetchState
+    modTestRunnerDiag.DiagEnd "state.prefetch", "cached=" & modTestState.StateCached()
+
+    CatchAny eelWarning, vbNullString, FunctionName
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : NotifyDocumentReady
 ' Author    : Adam Waller
 ' Date      : 7/7/2026
@@ -415,6 +457,7 @@ End Sub
 '
 Public Sub NotifyDocumentReady()
     modTestRunnerDiag.Diag "documentcomplete"
+    AnchorJsClock
     m_blnDocumentReady = True
     ' Every DocumentComplete is a FRESH page (initial load OR a spurious reload -- the
     ' Edge control can re-fire DocumentComplete without our Navigate). The retained tree
@@ -593,7 +636,9 @@ Public Sub PushTestUI(ByVal strHandler As String, ByVal strJsonPayload As String
     Set frm = RunnerForm()
     If Not frm Is Nothing Then
         modTestRunnerDiag.Diag "push", strHandler
+        modTestRunnerDiag.DiagBegin "push." & strHandler
         frm.ExecuteRunnerScript "window.TestUI." & strHandler & "(" & strJsonPayload & ")"
+        modTestRunnerDiag.DiagEnd "push." & strHandler, "chars=" & Len(strJsonPayload)
     Else
         modTestRunnerDiag.Diag "push.noform", strHandler
     End If
@@ -1159,73 +1204,12 @@ End Function
 ' Procedure : AdaptTestResultJson
 ' Author    : Adam Waller
 ' Date      : 7/7/2026
-' Purpose   : Map a clsTestRunner test dictionary to TestUI.onTestComplete JSON.
+' Purpose   : Map a clsTestRunner test dictionary to TestUI.onTestComplete JSON. The shape
+'           : lives in modJsonEmit, shared with the hydrate batch replay.
 '---------------------------------------------------------------------------------------
 '
 Public Function AdaptTestResultJson(ByVal strTestKey As String, ByVal dTest As Dictionary) As String
-    AdaptTestResultJson = ConvertToJson(AdaptTestResult(strTestKey, dTest))
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : AdaptTestResult
-' Author    : Adam Waller
-' Date      : 7/10/2026
-' Purpose   : Build the web-shaped result Dictionary for a single test (testKey, status,
-'           : durationMs, optional errorMessage, assertions). Returned as an object so
-'           : callers can either serialize it alone (AdaptTestResultJson) or collect many
-'           : and serialize once for a batch replay (StreamCompletedTestResults).
-'---------------------------------------------------------------------------------------
-'
-Private Function AdaptTestResult(ByVal strTestKey As String, ByVal dTest As Dictionary) As Dictionary
-
-    Dim dOut As Dictionary
-    Dim colAssertions As Collection
-    Dim colOut As Collection
-    Dim dA As Dictionary
-    Dim dAOut As Dictionary
-    Dim i As Long
-
-    Set dOut = New Dictionary
-    dOut.Add "testKey", strTestKey
-    dOut.Add "status", WebStatusFromRunnerStatus(CLng(dTest("status")))
-    dOut.Add "durationMs", CLng(Nz(dTest("durationMs"), 0))
-
-    If dTest.Exists("errorMessage") Then
-        If Len(CStr(dTest("errorMessage"))) > 0 Then
-            dOut.Add "errorMessage", CStr(dTest("errorMessage"))
-        End If
-    End If
-
-    Set colOut = New Collection
-    If dTest.Exists("assertionResults") Then
-        Set colAssertions = dTest("assertionResults")
-        For i = 1 To colAssertions.Count
-            Set dA = colAssertions(i)
-            Set dAOut = New Dictionary
-            dAOut.Add "seq", dA("seq")
-            dAOut.Add "passed", CBool(dA("passed"))
-            If Len(CStr(Nz(dA("context"), vbNullString))) > 0 Then
-                dAOut.Add "context", CStr(dA("context"))
-            End If
-            colOut.Add dAOut
-        Next i
-    End If
-    Set dOut("assertions") = colOut
-
-    If dTest.Exists("lastRunAt") Then
-        If Len(CStr(dTest("lastRunAt"))) > 0 Then
-            dOut.Add "lastRunAt", CStr(dTest("lastRunAt"))
-        End If
-    End If
-    If dTest.Exists("fromPriorRun") Then
-        dOut.Add "prior", CBool(dTest("fromPriorRun"))
-    Else
-        dOut.Add "prior", False
-    End If
-
-    Set AdaptTestResult = dOut
-
+    AdaptTestResultJson = modJsonEmit.EmitWebResultJson(strTestKey, dTest)
 End Function
 
 
@@ -1244,10 +1228,14 @@ Public Function RetrieveJsValue(ByVal ctl As Object, ByVal strExpression As Stri
     ' RetrieveJavascriptValue is intermittently slow / hits its internal timeout in
     ' the Edge control (confirmed in the diagnostic trace). Retry once after pumping
     ' messages, which usually clears the transient case. Each attempt is timed via Perf
-    ' ("RetrieveJavascriptValue") so its cost shows in the run's performance report.
+    ' ("RetrieveJavascriptValue") so its cost shows in the run's performance report, and
+    ' as a quiet diagnostic span (totals always, one line per slow retrieve).
     For intAttempt = 1 To 2
         Perf.OperationStart "RetrieveJavascriptValue"
+        modTestRunnerDiag.DiagBeginQuiet "js.retrieve", 20
         strResult = CStr(ctl.RetrieveJavascriptValue(strExpression))
+        modTestRunnerDiag.DiagEnd "js.retrieve", _
+            "chars=" & Len(strResult) & " attempt=" & intAttempt
         Perf.OperationEnd
         If InStr(1, strResult, JS_RETRIEVE_TIMEOUT_SENTINEL, vbTextCompare) = 0 Then
             RetrieveJsValue = strResult
@@ -1278,6 +1266,7 @@ Private Sub ReuseOrReloadRunner(ByVal frm As Object, ByVal blnStandalone As Bool
 
     m_blnStandalone = blnStandalone
     modTestRunnerDiag.Diag "open.reuse"
+    modTestRunnerDiag.DiagBegin "open.reuse"
 
     On Error Resume Next
     frm.ShowRunner
@@ -1295,6 +1284,7 @@ Private Sub ReuseOrReloadRunner(ByVal frm As Object, ByVal blnStandalone As Bool
         frm.ReloadRunnerHtml
         DoCmd.Hourglass True
     End If
+    modTestRunnerDiag.DiagEnd "open.reuse"
 
 End Sub
 
@@ -1317,7 +1307,9 @@ Private Function WebRunnerPageHealthy() As Boolean
     On Error Resume Next
     Set frm = RunnerForm()
     If frm Is Nothing Then Exit Function
+    modTestRunnerDiag.DiagBegin "open.healthy"
     strResult = frm.RetrieveRunnerJsValue("typeof window.TestUI")
+    modTestRunnerDiag.DiagEnd "open.healthy", "result=" & strResult
     If Err.Number <> 0 Then
         Err.Clear
         Exit Function
@@ -1345,8 +1337,10 @@ Private Sub RefreshWebTestTreeDeferred()
     If TestRunner.State = etrsRunning Then Exit Sub
 
     modTestRunnerDiag.Diag "refresh.tree"
+    modTestRunnerDiag.DiagBegin "refresh.tree"
     TestRunner.ScanMergingPriorResults
     PublishTestTree TestRunner.GetTestTreeAsJson()
+    modTestRunnerDiag.DiagEnd "refresh.tree"
 
     If m_blnPriorStateLoaded Then
         ' Durable state is already in the singleton. A re-fired DocumentComplete or a
@@ -1354,6 +1348,18 @@ Private Sub RefreshWebTestTreeDeferred()
         ' than paying for a second parse of test-state.json (which also showed the
         ' loading indicator twice).
         If HasCompletedTests() Then StreamCompletedTestResults
+    ElseIf modTestState.StateCached() Then
+        ' PrefetchDurableState already paid for the parse during the Edge cold start, so
+        ' the merge is a cache hit. Scheduling a hydrate would cost a JS round trip and a
+        ' minimum-visible indicator hold to announce work that is already done. Push
+        ' onHydrateEnd alone so the page still marks prior results as loaded (the
+        ' indicator was never raised, and setHydrating(false) no-ops in that case).
+        m_blnPriorStateLoaded = True
+        modTestRunnerDiag.DiagBegin "hydrate.inline"
+        modTestState.MergeInto TestRunner
+        If HasCompletedTests() Then StreamCompletedTestResults
+        modTestRunnerDiag.DiagEnd "hydrate.inline"
+        PushTestUI "onHydrateEnd", "{}"
     Else
         ScheduleHydratePriorResults
     End If
@@ -1422,12 +1428,15 @@ Public Sub PumpDeferredHydrate()
     m_blnHydratePending = False
     m_blnPriorStateLoaded = True
     modTestRunnerDiag.Diag "hydrate.begin"
+    modTestRunnerDiag.DiagBegin "hydrate"
 
     modTestState.MergeInto TestRunner
     If HasCompletedTests() Then StreamCompletedTestResults
 
+    modTestRunnerDiag.DiagEnd "hydrate"
     modTestRunnerDiag.Diag "hydrate.end"
     PushTestUI "onHydrateEnd", "{}"
+    modTestRunnerDiag.DiagNoteVbaIdle
 
 End Sub
 
@@ -1546,27 +1555,23 @@ End Function
 '
 Private Sub StreamCompletedTestResults()
 
-    Dim varKey As Variant
-    Dim dTest As Dictionary
-    Dim colResults As Collection
-    Dim dPayload As Dictionary
+    Dim strBatchJson As String
+    Dim lngCount As Long
 
     If Not EnsureRunnerHasTests() Then Exit Sub
     If Not WebRunnerReady() Then Exit Sub
 
-    Set colResults = New Collection
-    For Each varKey In TestRunner.Tests.Keys
-        Set dTest = TestRunner.Tests(CStr(varKey))
-        If CLng(Nz(dTest("status"), etsPending)) <> etsPending Then
-            colResults.Add AdaptTestResult(CStr(varKey), dTest)
-        End If
-    Next varKey
+    modTestRunnerDiag.DiagBegin "stream.batch"
+    strBatchJson = modJsonEmit.EmitResultsBatchJson(TestRunner.Tests, lngCount)
 
-    If colResults.Count = 0 Then Exit Sub
+    If lngCount = 0 Then
+        modTestRunnerDiag.DiagEnd "stream.batch", "n=0"
+        Exit Sub
+    End If
 
-    Set dPayload = New Dictionary
-    Set dPayload("results") = colResults
-    PushTestUI "onResultsBatch", ConvertToJson(dPayload)
+    modTestRunnerDiag.DiagSize "stream.batch.json", Len(strBatchJson)
+    PushTestUI "onResultsBatch", strBatchJson
+    modTestRunnerDiag.DiagEnd "stream.batch", "n=" & lngCount
 
 End Sub
 
@@ -1576,9 +1581,43 @@ Private Sub ConnectBridgeInPage()
     On Error Resume Next
     If WebRunnerReady() Then
         Set frm = RunnerForm()
-        If Not frm Is Nothing Then frm.ExecuteRunnerScript "window.VBA._connected = true;"
+        If Not frm Is Nothing Then
+            frm.ExecuteRunnerScript "window.VBA._connected = true;"
+            If modTestRunnerDiag.DiagEnabled Then
+                frm.ExecuteRunnerScript "if (window.__startDiagHeartbeat) window.__startDiagHeartbeat();"
+            End If
+        End If
     End If
     Err.Clear
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AnchorJsClock
+' Author    : Adam Waller
+' Date      : 8/17/2026
+' Purpose   : Capture Date.now() from the page and map it onto the session MicroTimer.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AnchorJsClock()
+
+    Dim frm As Object
+    Dim strNow As String
+
+    If Not modTestRunnerDiag.DiagEnabled Then Exit Sub
+    On Error Resume Next
+    Set frm = RunnerForm()
+    If frm Is Nothing Then Exit Sub
+    strNow = frm.RetrieveRunnerJsValue("String(Date.now())")
+    If Err.Number <> 0 Then
+        Err.Clear
+        Exit Sub
+    End If
+    If Len(strNow) > 0 And IsNumeric(strNow) Then
+        modTestRunnerDiag.DiagSetJsClock CDbl(strNow)
+    End If
+    Err.Clear
+
 End Sub
 
 
@@ -1588,9 +1627,12 @@ Private Sub TryPublishPendingTree()
     If m_blnTreePublished Then Exit Sub
     If Len(m_strPendingTreeJson) = 0 Then Exit Sub
 
+    modTestRunnerDiag.DiagBegin "publish.tree"
+    modTestRunnerDiag.DiagSize "publish.tree.json", Len(m_strPendingTreeJson)
     PushTestUI "setContext", GetRunnerContextJson()
     PushTestUI "onReady", m_strPendingTreeJson
     m_blnTreePublished = True
+    modTestRunnerDiag.DiagEnd "publish.tree"
 
 End Sub
 
@@ -1630,17 +1672,6 @@ Private Function IsAllowedBridgeCallback(ByVal strFnName As String) As Boolean
 End Function
 
 
-Private Function WebStatusFromRunnerStatus(ByVal lngStatus As Long) As String
-    Select Case lngStatus
-        Case etsPassed:  WebStatusFromRunnerStatus = "pass"
-        Case etsFailed:  WebStatusFromRunnerStatus = "fail"
-        Case etsErrored: WebStatusFromRunnerStatus = "error"
-        Case etsEmpty:   WebStatusFromRunnerStatus = "skip"
-        Case Else:       WebStatusFromRunnerStatus = "pending"
-    End Select
-End Function
-
-
 Private Function GetAccessFileBuild() As Long
 
     Dim strExe As String
@@ -1667,12 +1698,21 @@ End Function
 
 Private Sub EndInteractiveBridgeRun()
 
+    modTestRunnerDiag.DiagBegin "teardown"
     If Operation.Status = eosRunning Then
+        modTestRunnerDiag.DiagBegin "teardown.save_results"
         TestRunner.SaveResults
+        modTestRunnerDiag.DiagEnd "teardown.save_results"
+        modTestRunnerDiag.DiagBegin "teardown.persist"
         modTestState.PersistAfterRun
+        modTestRunnerDiag.DiagEnd "teardown.persist"
+        modTestRunnerDiag.DiagBegin "teardown.global"
         TestRunner.InvokeGlobalTestTeardown
+        modTestRunnerDiag.DiagEnd "teardown.global"
         SaveWebRunnerRunLog
+        modTestRunnerDiag.DiagBegin "teardown.op_finish"
         Operation.Finish IIf(TestRunner.State = etrsCancelled, eorCanceled, eorSuccess)
+        modTestRunnerDiag.DiagEnd "teardown.op_finish"
     End If
 
     Log.SuppressDebugOutput = False
@@ -1680,17 +1720,28 @@ Private Sub EndInteractiveBridgeRun()
 
     ' Teardown (and ActiveVBProject switches during the run) can leave the VBE in
     ' the foreground when it was already open. Return focus to the runner form.
+    modTestRunnerDiag.DiagBegin "teardown.refocus"
     RefocusWebRunner
+    modTestRunnerDiag.DiagEnd "teardown.refocus"
+    modTestRunnerDiag.DiagEnd "teardown"
+    modTestRunnerDiag.DiagNoteVbaIdle
 
 End Sub
 
 
 Private Sub SaveWebRunnerRunLog()
 
+    Dim strReports As String
+
+    modTestRunnerDiag.DiagBegin "teardown.log"
     Perf.EndTiming
+    modTestRunnerDiag.DiagBegin "teardown.perf_report"
+    strReports = Perf.GetReports
+    modTestRunnerDiag.DiagEnd "teardown.perf_report", "chars=" & Len(strReports)
     With Log
-        .Add vbNewLine & Perf.GetReports, False
+        .Add vbNewLine & strReports, False
         .SaveFile
     End With
+    modTestRunnerDiag.DiagEnd "teardown.log"
 
 End Sub

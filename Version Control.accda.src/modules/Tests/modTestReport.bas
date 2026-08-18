@@ -42,11 +42,19 @@ Public Function ExportResultsHtml(Optional ByVal strPath As String = vbNullStrin
     strStatePath = modTestState.GetStateFilePath()
     If Not FSO.FileExists(strStatePath) Then Exit Function
 
+    modTestRunnerDiag.DiagBegin "html.export"
     strJson = ReadFile(strStatePath)
-    If Len(strJson) = 0 Then Exit Function
+    If Len(strJson) = 0 Then
+        modTestRunnerDiag.DiagEnd "html.export", "empty-state"
+        Exit Function
+    End If
+    modTestRunnerDiag.DiagSize "html.state", Len(strJson)
 
     strTemplate = ResolveResultsTemplate()
-    If Len(strTemplate) = 0 Then Exit Function
+    If Len(strTemplate) = 0 Then
+        modTestRunnerDiag.DiagEnd "html.export", "no-template"
+        Exit Function
+    End If
 
     If Len(strPath) = 0 Then
         strPath = modTestState.GetTestResultsFolder() & RESULTS_FILE
@@ -58,6 +66,7 @@ Public Function ExportResultsHtml(Optional ByVal strPath As String = vbNullStrin
 
     Log.Add strPath
     ExportResultsHtml = strPath
+    modTestRunnerDiag.DiagEnd "html.export", "chars=" & Len(strHtml)
 
     CatchAny eelWarning, vbNullString, FunctionName
 
