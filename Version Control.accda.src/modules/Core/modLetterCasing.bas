@@ -164,7 +164,9 @@ Public Function StandardizeLetterCasing(Optional ByRef colIssues As Collection) 
     Exit Function
 
 ErrHandler:
+    RecordLetterCasingIssue colIssues, lngLine, T("Error standardizing letter casing")
     CatchAny eelError, T("Error standardizing letter casing"), FunctionName
+    Set StandardizeLetterCasing = colChanges
 
 End Function
 
