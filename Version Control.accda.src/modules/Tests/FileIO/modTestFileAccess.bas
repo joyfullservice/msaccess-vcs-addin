@@ -15,7 +15,7 @@ Option Private Module
 
 Public Sub TestPathFunctions()
 
-    Const cstrUncBase As String = "\\%computername%\c$\users\%username%\AppData\Local\Temp\"
+    Const cstrUncBase As String = "\\%computername%\c$\users\%username%\AppData\Local\Temp"
 
     Dim strBase As String
     Dim strPath As String
@@ -42,7 +42,8 @@ Public Sub TestPathFunctions()
     FSO.DeleteFolder strBase & "\subfolder"
 
     ' Test UNC path (may not work on all systems)
-    strTempPath = ExpandEnvironmentVariables(cstrUncBase & "subfolder\level2\test.tmp")
+    strBase = ExpandEnvironmentVariables(cstrUncBase)
+    strTempPath = strBase & "\subfolder\level2\test.tmp"
     TestAssert VerifyPath(strTempPath), "UNC path"
     TestAssert FSO.FolderExists(FSO.GetParentFolderName(strTempPath)), "UNC folder created"
     FSO.DeleteFolder strBase & "\subfolder"
