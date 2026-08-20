@@ -32,6 +32,18 @@ Almost always the encoding changed. Confirm the file still begins with the bytes
 Check the line endings. The file needs CRLF (`0D 0A`), not bare LF. Restore it from
 git or re-save with CRLF.
 
+## Unresolved Git conflict markers
+
+After a `git merge`, `git stash pop`, or branch switch, a source file may still
+contain lines starting with `<<<<<<<` or `>>>>>>>`. The add-in skips that file and
+logs:
+
+`Unresolved Git conflict markers in '<file>' (line N). Resolve the conflict in this
+file, then merge again.`
+
+Open the named file, resolve every conflict section, remove the marker lines, save,
+and run merge again.
+
 ## "Object not found" after import
 
 The `Attribute VB_Name` inside the file no longer matches the filename, usually

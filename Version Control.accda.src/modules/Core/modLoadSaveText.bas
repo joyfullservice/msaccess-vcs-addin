@@ -197,6 +197,27 @@ Public Function LoadComponentFromText(intType As AcObjectType _
     On Error GoTo ErrHandler
     Perf.OperationStart FunctionName
 
+    If FileHasGitConflictMarkers(strFile, FunctionName) Then
+        blnErrInFunction = True
+        GoTo Exit_Here
+    End If
+
+    strAltFile = SwapExtension(strFile, "cls")
+    If FSO.FileExists(strAltFile) Then
+        If FileHasGitConflictMarkers(strAltFile, FunctionName) Then
+            blnErrInFunction = True
+            GoTo Exit_Here
+        End If
+    End If
+
+    strAltFile = SwapExtension(strFile, "json")
+    If FSO.FileExists(strAltFile) Then
+        If FileHasGitConflictMarkers(strAltFile, FunctionName) Then
+            blnErrInFunction = True
+            GoTo Exit_Here
+        End If
+    End If
+
 RetryImport:
     ' In most cases we are importing/converting the actual source file.
     strSourceFile = strFile
@@ -314,6 +335,8 @@ ErrHandler:
         blnErrInFunction = True
         Resume CleanUp
     End If
+
+    LogGitConflictMarkerIfPresent strSourceDisplayFile, FunctionName
 
     ' Log import details to the log file only; console gets one summary on Ignore.
     Log.Add T("Import issue with '{0}'; {1}", var0:=strName, var1:=strErrDescription), False

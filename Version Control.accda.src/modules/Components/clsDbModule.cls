@@ -130,6 +130,8 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct extension.
     If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
 
+    If FileHasGitConflictMarkers(strFile, FunctionName) Then Exit Sub
+
     ' Parse source file
     strName = GetObjectNameFromFileName(strFile)
     udtFile = ParseSourceFile(strFile, strName)
@@ -183,6 +185,8 @@ Public Sub ImportFast(strFile As String)
     If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
 
     If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
+
+    If FileHasGitConflictMarkers(strFile, FunctionName) Then Exit Sub
 
     strName = GetObjectNameFromFileName(strFile)
     udtFile = ParseSourceFile(strFile, strName)

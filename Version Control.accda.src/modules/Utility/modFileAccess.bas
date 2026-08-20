@@ -13,6 +13,11 @@ Option Explicit
 
 Private Const ModuleName As String = "modFileAccess"
 
+Private Const GIT_CONFLICT_SCAN_MAX_BYTES As Double = 26214400  ' 25 MB
+Private Const GIT_MARKER_OVERLAP As Long = 6
+Private Const GIT_MARKER_OPEN As String = "<<<<<<<"
+Private Const GIT_MARKER_CLOSE As String = ">>>>>>>"
+
 Private Declare PtrSafe Function getTempPath Lib "kernel32" Alias "GetTempPathA" ( _
     ByVal nBufferLength As Long, _
     ByVal lpBuffer As String) As Long
@@ -135,6 +140,236 @@ Public Function NormalizeLineEndings(strText As String) As String
     NormalizeLineEndings = Replace(Replace(strText, vbCrLf, vbLf), vbCr, vbLf)
     NormalizeLineEndings = Replace(NormalizeLineEndings, vbLf, vbCrLf)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GitConflictMarkerLine
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : Returns the 1-based line number of the first unresolved Git conflict
+'           : marker at the start of a line, or 0 when the content is clean.
+'           : Only <<<<<<< and >>>>>>> are tested; ======= appears legitimately in
+'           : comment separators.
+'---------------------------------------------------------------------------------------
+'
+Public Function GitConflictMarkerLine(strContent As String) As Long
+
+    Dim lngPos As Long
+
+    lngPos = FindGitConflictMarker(strContent, 1)
+    If lngPos > 0 Then GitConflictMarkerLine = CountLinesBefore(strContent, lngPos)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileHasGitConflictMarkers
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : Returns True when a source file contains unresolved Git conflict
+'           : markers at the start of a line. Logs a clear error and skips binary
+'           : extensions and files larger than GIT_CONFLICT_SCAN_MAX_BYTES.
+'---------------------------------------------------------------------------------------
+'
+Public Function FileHasGitConflictMarkers(strFile As String, strSource As String) As Boolean
+
+    Dim lngLine As Long
+
+    lngLine = GitConflictMarkerLineInFile(strFile, False)
+    If lngLine > 0 Then
+        LogGitConflictMarkerError strFile, lngLine, strSource
+        FileHasGitConflictMarkers = True
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogGitConflictMarkerIfPresent
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : After a failed import, explain cryptic Access errors when the source
+'           : file actually contains Git conflict markers. Ignores the size gate.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LogGitConflictMarkerIfPresent(strFile As String, strSource As String)
+
+    Dim lngLine As Long
+
+    lngLine = GitConflictMarkerLineInFile(strFile, True)
+    If lngLine > 0 Then LogGitConflictMarkerError strFile, lngLine, strSource
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GitConflictMarkerLineInFile
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : Scan a file on disk for Git conflict markers without loading it
+'           : through ReadFile. Uses chunked stream reads with a short overlap so
+'           : markers straddling chunk boundaries are still found.
+'---------------------------------------------------------------------------------------
+'
+Public Function GitConflictMarkerLineInFile(strFile As String, _
+    Optional blnIgnoreSizeLimit As Boolean = False) As Long
+
+    Dim dblSize As Double
+    Dim strActualName As String
+    Dim strExt As String
+    Dim strChunk As String
+    Dim strTail As String
+    Dim lngMarkerPos As Long
+    Dim lngLinesSoFar As Long
+    Dim lngAdvance As Long
+
+    If Not FSO.FileExists(strFile) Then Exit Function
+
+    strExt = LCase$(FSO.GetExtensionName(strFile))
+    If IsGitConflictScanSkippedExtension(strExt) Then Exit Function
+
+    If Not GetFileInfo(strFile, dblSize, strActualName) Then Exit Function
+    If Not blnIgnoreSizeLimit Then
+        If dblSize > GIT_CONFLICT_SCAN_MAX_BYTES Then Exit Function
+    End If
+
+    With New ADODB.Stream
+        .Charset = "utf-8"
+        .Open
+        .LoadFromFile strFile
+
+        strTail = vbNullString
+        lngLinesSoFar = 0
+
+        Do While Not .EOS
+            strChunk = strTail & .ReadText(CHUNK_SIZE)
+
+            lngMarkerPos = FindGitConflictMarker(strChunk, 1)
+            If lngMarkerPos > 0 Then
+                GitConflictMarkerLineInFile = lngLinesSoFar + CountLinesBefore(strChunk, lngMarkerPos)
+                .Close
+                Exit Function
+            End If
+
+            lngAdvance = Len(strChunk) - GIT_MARKER_OVERLAP
+            If lngAdvance > 0 Then
+                lngLinesSoFar = lngLinesSoFar + CountCompleteLines(Left$(strChunk, lngAdvance))
+                strTail = Right$(strChunk, GIT_MARKER_OVERLAP)
+            Else
+                strTail = strChunk
+            End If
+        Loop
+
+        .Close
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindGitConflictMarker
+' Purpose   : Return the position of the next Git conflict marker at column 0.
+'---------------------------------------------------------------------------------------
+'
+Private Function FindGitConflictMarker(strContent As String, lngStart As Long) As Long
+
+    Dim lngOpen As Long
+    Dim lngClose As Long
+    Dim lngPos As Long
+
+    Do
+        lngOpen = InStr(lngStart, strContent, GIT_MARKER_OPEN)
+        lngClose = InStr(lngStart, strContent, GIT_MARKER_CLOSE)
+
+        If lngOpen = 0 And lngClose = 0 Then Exit Function
+
+        If lngOpen > 0 And (lngClose = 0 Or lngOpen < lngClose) Then
+            lngPos = lngOpen
+        Else
+            lngPos = lngClose
+        End If
+
+        If GitMarkerAtLineStart(strContent, lngPos) Then
+            FindGitConflictMarker = lngPos
+            Exit Function
+        End If
+
+        lngStart = lngPos + 1
+    Loop
+
+End Function
+
+
+Private Function GitMarkerAtLineStart(strContent As String, lngPos As Long) As Boolean
+
+    Dim strPrev As String
+
+    If lngPos = 1 Then
+        GitMarkerAtLineStart = True
+    Else
+        strPrev = Mid$(strContent, lngPos - 1, 1)
+        GitMarkerAtLineStart = (strPrev = vbLf Or strPrev = vbCr)
+    End If
+
+End Function
+
+
+Private Function CountLinesBefore(strContent As String, lngPos As Long) As Long
+
+    Dim lngSearch As Long
+    Dim lngCount As Long
+
+    If lngPos <= 1 Then
+        CountLinesBefore = 1
+        Exit Function
+    End If
+
+    lngSearch = 1
+    Do While lngSearch < lngPos
+        If Mid$(strContent, lngSearch, 2) = vbCrLf Then
+            lngCount = lngCount + 1
+            lngSearch = lngSearch + 2
+        Else
+            lngSearch = lngSearch + 1
+        End If
+    Loop
+    CountLinesBefore = lngCount + 1
+
+End Function
+
+
+Private Function CountCompleteLines(strContent As String) As Long
+
+    Dim lngSearch As Long
+
+    lngSearch = 1
+    Do
+        lngSearch = InStr(lngSearch, strContent, vbCrLf)
+        If lngSearch = 0 Then Exit Function
+        CountCompleteLines = CountCompleteLines + 1
+        lngSearch = lngSearch + 2
+    Loop
+
+End Function
+
+
+Private Function IsGitConflictScanSkippedExtension(strExt As String) As Boolean
+
+    Select Case strExt
+        Case "thmx", "frx", "jpg", "jpeg", "jpe", "gif", "png", "ico"
+            IsGitConflictScanSkippedExtension = True
+    End Select
+
+End Function
+
+
+Private Sub LogGitConflictMarkerError(strFile As String, lngLine As Long, strSource As String)
+
+    Log.Error eelError, T("Unresolved Git conflict markers in '{0}' (line {1}). " & _
+        "Resolve the conflict in this file, then merge again.", _
+        var0:=FSO.GetFileName(strFile), var1:=lngLine), strSource
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -811,7 +1046,15 @@ End Function
 Public Function ReadJsonFile(strPath As String) As Dictionary
 
     Dim strText As String
+    Dim lngLine As Long
+
     strText = ReadFile(strPath)
+
+    lngLine = GitConflictMarkerLine(strText)
+    If lngLine > 0 Then
+        LogGitConflictMarkerError strPath, lngLine, ModuleName & ".ReadJsonFile"
+        Exit Function
+    End If
 
     ' If it looks like json content, then parse into a dictionary object.
     If Left$(strText, 1) = "{" Then

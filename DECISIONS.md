@@ -83,6 +83,46 @@ contradictory guidance.
 
 ---
 
+## 2026-08-20 — Reject source files with unresolved Git conflict markers on import
+
+**Trigger**: An unresolved Git merge left `<<<<<<<` / `>>>>>>>` markers in a
+form source file. Merge reported Access's opaque `Expected: 'End'. Found: <`
+instead of naming the real problem.
+
+**Options explored**:
+- **Preflight scan of every file in the merge list before backup** — rejected:
+  duplicates work already done at import time and adds a full-tree read on every
+  merge even when nothing is wrong.
+- **Check only inside `LoadFromText` error handlers** — rejected: VBA modules import
+  without syntax validation, so marker-corrupted `.bas` files compile-fail much
+  later with no link back to the source file.
+- **Path-based scan immediately before each load (chosen)** — one function,
+  `FileHasGitConflictMarkers`, called at existing import chokepoints. Uses chunked
+  stream reads (not `ReadFile`, which allocates normalized strings) with a
+  25 MB size gate; table-data XML over the limit still gets explained on the
+  failure path.
+
+**Decision**: scan for `<<<<<<<` and `>>>>>>>` only when they appear at the start
+of a line (Git always writes markers at column 0). Do not scan for `=======`,
+which appears legitimately in comment separators. Skip binary extensions (`.frx`,
+`.thmx`, image files). Log `eelError`, skip the file, and let the rest of the
+merge continue. No export-format version gate — import-side validation only.
+
+**What this rules out**: treating indented or quoted marker text as a conflict;
+using `ReadFile`/`NormalizeLineEndings` for the scan; reusing the name
+"conflict" without the `Git` qualifier (that term already means database-vs-source
+divergence in `clsConflicts`).
+
+**Relevant files**:
+- `modFileAccess.bas` — `GitConflictMarkerLine`, `FileHasGitConflictMarkers`,
+  `GitConflictMarkerLineInFile`, `LogGitConflictMarkerIfPresent`
+- `modLoadSaveText.bas` — pre-load guard on primary + companion files
+- `ReadJsonFile` — covers all JSON-based component types
+- `clsDbModule.cls`, `clsDbTableDef.cls`, `clsDbTableData.cls`, `clsDbVbeForm.cls`
+- `modTestGitConflictMarkers.bas`
+
+---
+
 ## 2026-08-18 — Share assertion records instead of deep-copying them
 
 **Trigger**: With the JSON emitters in place, a traced cold open still spent

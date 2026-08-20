@@ -264,6 +264,8 @@ Private Sub IDbComponent_Import(strFile As String)
     m_lngTableType = 0
     strName = GetObjectNameFromFileName(strFile)
 
+    If FileHasGitConflictMarkers(strFile, ModuleName(Me) & ".Import") Then Exit Sub
+
     ' Determine import type from extension
     Select Case LCase$(FSO.GetExtensionName(strFile))
 

@@ -138,10 +138,14 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct (primary) extension.
     If Not strFile Like "*.json" Then Exit Sub
 
+    If FileHasGitConflictMarkers(strFile, ModuleName(Me) & ".Import") Then Exit Sub
+
     ' Make sure the other two companion files also exist
     strTestFile = SwapExtension(strFile, "frm")
     If Not FSO.FileExists(strTestFile) Then
         Log.Error eelError, "VBE Form definition file not found: " & strTestFile, ModuleName(Me) & ".Import"
+        Exit Sub
+    ElseIf FileHasGitConflictMarkers(strTestFile, ModuleName(Me) & ".Import") Then
         Exit Sub
     Else
         ' Check binary file

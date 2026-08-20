@@ -577,6 +577,8 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Make sure table exists before importing data to it.
     strTable = GetObjectNameFromFileName(strFile)
 
+    If FileHasGitConflictMarkers(strFile, ModuleName(Me) & ".Import") Then Exit Sub
+
     ' Only allow import into local tables (not linked tables)
     If IsLocalTable(strTable) Then
 
@@ -600,6 +602,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
                     ' Trap any XML import errors
                     CatchAny eelError, "Error importing XML data from '" & strFile & "'", ModuleName(Me) & ".Import"
+                    LogGitConflictMarkerIfPresent strFile, ModuleName(Me) & ".Import"
 
             Case etdTabDelimited
                 Perf.OperationStart "Import Table Data (TDF)"
