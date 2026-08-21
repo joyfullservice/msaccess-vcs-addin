@@ -83,6 +83,32 @@ contradictory guidance.
 
 ---
 
+## 2026-08-21 — Git conflict-marker scan must use vbBinaryCompare
+
+**Trigger**: Full builds of the add-in regressed from ~12s to ~25s after
+`c3c37c23` added a per-file conflict-marker scan at import chokepoints. The
+Modules category jumped from ~3.6s to ~16s while every named operation inside it
+stayed flat; ~15s landed in "Other Operations" because the scan had no Perf probe.
+Instrumented `LoadComponentFromText` rose from 0.20s to 2.69s over the same 24
+calls — its only new work was three `FileHasGitConflictMarkers` calls.
+
+**Root cause**: `modFileAccess` uses `Option Compare Database`, so bare `InStr`
+and `Replace` calls in the scan inherited database/text collation. Scanning ~5 MB
+of source at ~370 KB/s through that path added ~13s per build. A second cost was
+`CountCompleteLines` running over every clean single-chunk file even though the
+running line count is never read on the last chunk.
+
+**Decision**: Pass `vbBinaryCompare` explicitly on every `InStr`/`Replace` in the
+conflict-marker scan and in `NormalizeLineEndings` (ASCII markers and line-ending
+bytes only). Skip line counting on the final read chunk. Wrap
+`GitConflictMarkerLineInFile` in a `"Scan Conflict Markers"` Perf operation so
+future regressions surface in build logs. Hold back deduplicating the scan with
+the subsequent `ReadFile` in module import — that changes rejection order.
+
+**Relevant files**: `modFileAccess.bas`, `modTestGitConflictMarkers.bas`.
+
+---
+
 ## 2026-08-21 — Two root ownership forms kept deliberately: lease and Begin/Finish
 
 **Trigger**: After removing child scopes and fixing the cross-project test-run flag, a

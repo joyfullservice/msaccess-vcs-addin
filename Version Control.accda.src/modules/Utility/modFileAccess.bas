@@ -115,12 +115,11 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "utf
             Loop
             .Close
         End With
+        ' Return text contents of file, normalizing line endings in case a file
+        ' was saved with LF-only or mixed line endings by an external tool.
+        ReadFile = NormalizeLineEndings(cData.GetStr)
         Perf.OperationEnd
     End If
-
-    ' Return text contents of file, normalizing line endings in case a file
-    ' was saved with LF-only or mixed line endings by an external tool.
-    ReadFile = NormalizeLineEndings(cData.GetStr)
 
 End Function
 
@@ -137,8 +136,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function NormalizeLineEndings(strText As String) As String
-    NormalizeLineEndings = Replace(Replace(strText, vbCrLf, vbLf), vbCr, vbLf)
-    NormalizeLineEndings = Replace(NormalizeLineEndings, vbLf, vbCrLf)
+    NormalizeLineEndings = Replace(Replace(strText, vbCrLf, vbLf, , , vbBinaryCompare), vbCr, vbLf, , , vbBinaryCompare)
+    NormalizeLineEndings = Replace(NormalizeLineEndings, vbLf, vbCrLf, , , vbBinaryCompare)
 End Function
 
 
@@ -223,14 +222,28 @@ Public Function GitConflictMarkerLineInFile(strFile As String, _
     Dim lngLinesSoFar As Long
     Dim lngAdvance As Long
 
-    If Not FSO.FileExists(strFile) Then Exit Function
+    Perf.OperationStart "Scan Conflict Markers"
+
+    If Not FSO.FileExists(strFile) Then
+        Perf.OperationEnd
+        Exit Function
+    End If
 
     strExt = LCase$(FSO.GetExtensionName(strFile))
-    If IsGitConflictScanSkippedExtension(strExt) Then Exit Function
+    If IsGitConflictScanSkippedExtension(strExt) Then
+        Perf.OperationEnd
+        Exit Function
+    End If
 
-    If Not GetFileInfo(strFile, dblSize, strActualName) Then Exit Function
+    If Not GetFileInfo(strFile, dblSize, strActualName) Then
+        Perf.OperationEnd
+        Exit Function
+    End If
     If Not blnIgnoreSizeLimit Then
-        If dblSize > GIT_CONFLICT_SCAN_MAX_BYTES Then Exit Function
+        If dblSize > GIT_CONFLICT_SCAN_MAX_BYTES Then
+            Perf.OperationEnd
+            Exit Function
+        End If
     End If
 
     With New ADODB.Stream
@@ -248,11 +261,14 @@ Public Function GitConflictMarkerLineInFile(strFile As String, _
             If lngMarkerPos > 0 Then
                 GitConflictMarkerLineInFile = lngLinesSoFar + CountLinesBefore(strChunk, lngMarkerPos)
                 .Close
+                Perf.OperationEnd
                 Exit Function
             End If
 
             lngAdvance = Len(strChunk) - GIT_MARKER_OVERLAP
-            If lngAdvance > 0 Then
+            If .EOS Then
+                ' Last chunk: the running count is never read again.
+            ElseIf lngAdvance > 0 Then
                 lngLinesSoFar = lngLinesSoFar + CountCompleteLines(Left$(strChunk, lngAdvance))
                 strTail = Right$(strChunk, GIT_MARKER_OVERLAP)
             Else
@@ -262,6 +278,8 @@ Public Function GitConflictMarkerLineInFile(strFile As String, _
 
         .Close
     End With
+
+    Perf.OperationEnd
 
 End Function
 
@@ -278,8 +296,8 @@ Private Function FindGitConflictMarker(strContent As String, lngStart As Long) A
     Dim lngPos As Long
 
     Do
-        lngOpen = InStr(lngStart, strContent, GIT_MARKER_OPEN)
-        lngClose = InStr(lngStart, strContent, GIT_MARKER_CLOSE)
+        lngOpen = InStr(lngStart, strContent, GIT_MARKER_OPEN, vbBinaryCompare)
+        lngClose = InStr(lngStart, strContent, GIT_MARKER_CLOSE, vbBinaryCompare)
 
         If lngOpen = 0 And lngClose = 0 Then Exit Function
 
@@ -325,13 +343,11 @@ Private Function CountLinesBefore(strContent As String, lngPos As Long) As Long
     End If
 
     lngSearch = 1
-    Do While lngSearch < lngPos
-        If Mid$(strContent, lngSearch, 2) = vbCrLf Then
-            lngCount = lngCount + 1
-            lngSearch = lngSearch + 2
-        Else
-            lngSearch = lngSearch + 1
-        End If
+    Do
+        lngSearch = InStr(lngSearch, strContent, vbCrLf, vbBinaryCompare)
+        If lngSearch = 0 Or lngSearch >= lngPos Then Exit Do
+        lngCount = lngCount + 1
+        lngSearch = lngSearch + 2
     Loop
     CountLinesBefore = lngCount + 1
 
@@ -344,7 +360,7 @@ Private Function CountCompleteLines(strContent As String) As Long
 
     lngSearch = 1
     Do
-        lngSearch = InStr(lngSearch, strContent, vbCrLf)
+        lngSearch = InStr(lngSearch, strContent, vbCrLf, vbBinaryCompare)
         If lngSearch = 0 Then Exit Function
         CountCompleteLines = CountCompleteLines + 1
         lngSearch = lngSearch + 2
