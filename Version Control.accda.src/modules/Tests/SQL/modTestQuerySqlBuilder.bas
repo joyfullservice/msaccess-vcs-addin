@@ -46,8 +46,8 @@ Public Function RunQuerySqlBuilderValidation(Optional ByVal varQueryNames As Var
     Dim strLogFolder As String
     Dim strArtifactRoot As String
     Dim strLogPath As String
-    Dim blnOperationOwned As Boolean
-    Dim eimPriorMode As eInteractionMode
+    Dim blnRootOwned As Boolean
+    Dim cRoot As clsRootOperationLease
     Dim sngStart As Single
     Dim lngCurrent As Long
     Dim lngTotal As Long
@@ -73,19 +73,24 @@ Public Function RunQuerySqlBuilderValidation(Optional ByVal varQueryNames As Var
     Set colQueryNames = GetValidationQueryNames(varQueryNames)
     strQueryFilterDisplay = QueryFilterDisplay(colQueryNames)
 
-    If Not Operation.Begin(eotOther) Then
-        dResult.Add "success", False
-        dResult.Add "error", "Could not begin validation (another operation may be running)."
-        RunQuerySqlBuilderValidation = ConvertToJson(dResult)
-        Exit Function
-    End If
-    blnOperationOwned = True
-    eimPriorMode = Operation.InteractionMode
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-        Operation.InteractionMode = eimSilent
+    ' This harness is called both on its own and from inside a test run. Nested, it owns
+    ' nothing: the enclosing run holds the root, the console, and the log file.
+    If Not (Operation.Status = eosRunning And Operation.OperationType = eotTestRun) Then
+        If Operation.AutomationSource Then Operation.ForceUnattended = True
+        Set cRoot = Operation.TryBeginRoot(eotOther)
+        If cRoot Is Nothing Then
+            dResult.Add "success", False
+            dResult.Add "error", "Could not begin validation (another operation may be running)."
+            RunQuerySqlBuilderValidation = ConvertToJson(dResult)
+            Exit Function
+        End If
+        blnRootOwned = True
+        If Operation.AutomationSource Or Operation.ForceUnattended Then
+            Operation.InteractionMode = eimSilent
+        End If
     End If
 
-    PrepareValidationConsole
+    If blnRootOwned Then PrepareValidationConsole
 
     Set Options = Nothing
     Options.LoadProjectOptions
@@ -100,11 +105,15 @@ Public Function RunQuerySqlBuilderValidation(Optional ByVal varQueryNames As Var
     strLogPath = FSO.BuildPath(strLogFolder, "SqlBuilderValidation_" & Log.OperationId & ".log")
     VerifyPath strArtifactRoot
 
-    Log.Clear
-    Log.KeepProgressVisible = True
-    Log.SourcePath = strExportRoot
-    Log.Active = True
-    Perf.StartTiming
+    ' Only the owner of the root starts a fresh log; a nested run appends to the
+    ' enclosing test run's console and log file.
+    If blnRootOwned Then
+        Log.Clear
+        Log.KeepProgressVisible = True
+        Log.SourcePath = strExportRoot
+        Log.Active = True
+        Perf.StartTiming
+    End If
     sngStart = Perf.MicroTimer
 
     With Log
@@ -181,12 +190,16 @@ CleanUp:
         .Spacer
     End With
 
-    Perf.EndTiming
-    On Error Resume Next
-    Log.SaveFile strLogPath
-    Log.Active = False
-    Log.Flush
-    On Error GoTo 0
+    If blnRootOwned Then
+        Perf.EndTiming
+        On Error Resume Next
+        Log.SaveFile strLogPath
+        Log.Active = False
+        Log.Flush
+        On Error GoTo 0
+    Else
+        Log.Flush
+    End If
 
     dResult.Add "success", (Not blnCanceled And ValidationSucceeded(dStats))
     dResult.Add "canceled", blnCanceled
@@ -198,29 +211,28 @@ CleanUp:
     dResult.Add "stats", dStats
     dResult.Add "results", colResults
 
-    UpdateValidationConsoleComplete strLogPath, strArtifactRoot, blnCanceled, dResult
+    If blnRootOwned Then UpdateValidationConsoleComplete strLogPath, strArtifactRoot, blnCanceled, dResult
 
-    If blnOperationOwned Then
-        Operation.InteractionMode = eimPriorMode
+    If blnRootOwned Then
         If blnCanceled Then
-            Operation.Finish eorCanceled
+            cRoot.Complete eorCanceled
+        ElseIf dResult("success") Then
+            cRoot.Complete eorSuccess
         Else
-            Operation.Finish IIf(dResult("success"), eorSuccess, eorFailed)
+            cRoot.Complete eorFailed
         End If
+        Log.KeepProgressVisible = False
     End If
-
-    Log.KeepProgressVisible = False
     RunQuerySqlBuilderValidation = ConvertToJson(dResult)
     Exit Function
 
 ErrHandler:
     On Error Resume Next
-    If blnOperationOwned Then
-        Operation.InteractionMode = eimPriorMode
-        Operation.Finish eorFailed
+    If blnRootOwned Then
+        cRoot.Complete eorFailed
+        Log.KeepProgressVisible = False
+        Log.Active = False
     End If
-    Log.KeepProgressVisible = False
-    Log.Active = False
     Set dResult = New Dictionary
     dResult.Add "success", False
     dResult.Add "error", Err.Description

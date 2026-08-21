@@ -1,4 +1,4 @@
-Attribute VB_Name = "modJsonEmit"
+﻿Attribute VB_Name = "modJsonEmit"
 '---------------------------------------------------------------------------------------
 ' Module    : modJsonEmit
 ' Author    : Adam Waller
@@ -663,4 +663,3 @@ Private Function WebStatusString(ByVal lngStatus As Long) As String
     End Select
 
 End Function
-

@@ -273,6 +273,7 @@ Public Sub RunSelected(colTestKeys As Collection)
 
     modTestRunnerDiag.Diag "run.begin", "tests=" & colTestKeys.Count & " known=" & this.Tests.Count
     this.State = etrsRunning
+    SetHostedTestRunFlag True
     this.CancelRequested = False
     Set this.LastRunKeys = New Collection
     Dim lngKeyIdx As Long
@@ -492,6 +493,36 @@ CleanUp:
     ' Restore original error trapping settings
     RestoreErrorBreaks
     Application.SetOption "Error Trapping", intErrorTrapping
+    SetHostedTestRunFlag False
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetHostedTestRunFlag
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Tell the project under test that a run is driving it. The operation that
+'           : owns the run lives here, in the add-in, but test procedures execute in the
+'           : project being tested, where nothing about that operation is visible - and a
+'           : user project has no operation API at all. modTestAssert is the one module
+'           : present in every project that runs tests, so it carries the signal.
+'           : A project whose copy of modTestAssert predates SetTestRunActive simply does
+'           : not get the notification.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetHostedTestRunFlag(blnActive As Boolean)
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' BuildRunCmd qualifies by file path, which matters here more than anywhere else:
+    ' when the add-in tests its own source both projects are named MSAccessVCS and both
+    ' contain a modTestAssert, so an unqualified call would set the flag on the wrong one.
+    If GlobalProcExists("SetTestRunActive") Then
+        Application.Run BuildRunCmd("SetTestRunActive"), blnActive
+    End If
+    Err.Clear
 
 End Sub
 
@@ -2369,4 +2400,19 @@ Private Sub Class_Initialize()
     Set this.Tests = New Dictionary
     Set this.SuiteMap = New Dictionary
     Set this.AssertionResults = New Collection
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Clear the hosted-project run flag when the runner singleton is released.
+'           : ReleaseObjects runs at root completion, so this fires on every path the
+'           : root clears on, including abandonment when a lease is dropped without
+'           : Complete.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Terminate()
+    SetHostedTestRunFlag False
 End Sub

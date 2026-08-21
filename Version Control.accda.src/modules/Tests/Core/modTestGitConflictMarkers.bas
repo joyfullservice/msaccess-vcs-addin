@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestGitConflictMarkers"
+﻿Attribute VB_Name = "modTestGitConflictMarkers"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestGitConflictMarkers
 ' Author    : Adam Waller

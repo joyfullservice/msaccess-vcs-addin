@@ -35,6 +35,7 @@ Public Sub StageMainForm()
 
     Dim blnLogActive As Boolean
     Dim frm As Form_frmVCSMain
+    Dim cPause As clsOperationPause
 
     ' Make sure the form is actually open, just in case.
     ' (We want to capture the current text on the form
@@ -59,11 +60,12 @@ Public Sub StageMainForm()
         Log.ReleaseConsole
     End With
 
-    ' Make sure we stage any current operation before closing the main
-    ' form to avoid a warning to the user about canceling the current operation.
-    Operation.Stage
+    ' Pause the current operation before closing the main form, so the form's unload
+    ' handler does not read a running operation as the user canceling it. ResumePause
+    ' ends the pause on the success path; Class_Terminate on cPause is the fallback.
+    Set cPause = Operation.TryPause()
     DoCmd.Close acForm, frm.Name
-    Operation.Restore
+    If Not cPause Is Nothing Then cPause.ResumePause
     Set frm = Nothing
 
 End Sub

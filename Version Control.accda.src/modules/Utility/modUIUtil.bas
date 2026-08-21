@@ -43,6 +43,28 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : PromptWouldDisplay
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : The single rule deciding whether a prompt blocks or is logged. A silent
+'           : operation suppresses everything except a prompt the user's own gesture
+'           : asked for, and even that requires an attended root.
+'           : A test run driving this project suppresses everything, gestures included:
+'           : the run is the caller, there is no gesture behind the prompt, and a dialog
+'           : stalls the suite. This is the only signal available when the run is hosted
+'           : from another VBA project - the add-in testing its own source - because the
+'           : operation that owns the run belongs to that other copy of the project.
+'           : Exposed separately so tests can assert the policy without a dialog risk.
+'---------------------------------------------------------------------------------------
+'
+Public Function PromptWouldDisplay(Optional blnUserGesturePrompt As Boolean = False) As Boolean
+    If modTestAssert.TestRunActive Then Exit Function
+    PromptWouldDisplay = (Operation.InteractionMode = eimNormal) _
+        Or (blnUserGesturePrompt And Operation.Attended)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : MsgBox2
 ' Author    : Adam Waller
 ' Date      : 1/27/2017
@@ -50,24 +72,26 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function MsgBox2(strBold As String, Optional strLine1 As String, Optional strLine2 As String, _
-    Optional intButtons As VbMsgBoxStyle = vbOKOnly, Optional strTitle As String, Optional intDefaultResult As VbMsgBoxResult = vbOK) As VbMsgBoxResult
+    Optional intButtons As VbMsgBoxStyle = vbOKOnly, Optional strTitle As String, _
+    Optional intDefaultResult As VbMsgBoxResult = vbOK, _
+    Optional blnUserGesturePrompt As Boolean = False) As VbMsgBoxResult
 
     Dim strMsg As String
     Dim varLines(0 To 3) As String
     Dim intCursor As Integer
+    Dim blnShowDialog As Boolean
 
-    ' Turn off any hourglass
     intCursor = Screen.MousePointer
     If intCursor > 0 Then Screen.MousePointer = 0
 
-    ' Escape single quotes by doubling them.
     varLines(0) = Replace(strBold, "'", "''")
     varLines(1) = Replace(strLine1, "'", "''")
     varLines(2) = Replace(strLine2, "'", "''")
     varLines(3) = Replace(strTitle, "'", "''")
 
-    ' Check interaction mode (lives on the Operation singleton)
-    If Operation.InteractionMode = eimNormal Then
+    blnShowDialog = PromptWouldDisplay(blnUserGesturePrompt)
+
+    If blnShowDialog Then
         ' Normal user interaction with MsgBox
         If varLines(3) = vbNullString Then varLines(3) = T("Version Control Add-in")
         strMsg = "MsgBox('" & varLines(0) & "@" & varLines(1) & "@" & varLines(2) & "@'," & intButtons & ",'" & varLines(3) & "','',0)"

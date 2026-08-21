@@ -14,6 +14,8 @@ Option Explicit
 Private Declare PtrSafe Function ApiSetTimer Lib "user32" Alias "SetTimer" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr, ByVal uElapse As Long, ByVal lpTimerFunc As LongPtr) As LongPtr
 Private Declare PtrSafe Function ApiKillTimer Lib "user32" Alias "KillTimer" (ByVal hwnd As LongPtr, ByVal nIDEvent As LongPtr) As Long
 
+Private Const REG_TIMER_OP_TOKEN As String = "OpToken"
+
 Private m_lngTimerID As LongPtr
 
 
@@ -29,6 +31,7 @@ Public Sub WinAPITimerCallback()
     Dim strParam1 As String
     Dim strParam2 As String
     Dim strCommand As String
+    Dim strOpToken As String
     Dim intMergeFilter As eContainerFilter
 
     ' First, make sure we kill the timer!
@@ -42,6 +45,7 @@ Public Sub WinAPITimerCallback()
     ' Read callback info before clearing (needed for APIAsyncOperation)
     Dim strCallbackInfo As String
     strCallbackInfo = GetSetting(PROJECT_NAME, "Timer", "CallbackInfo")
+    strOpToken = GetSetting(PROJECT_NAME, "Timer", REG_TIMER_OP_TOKEN)
     MCPDebugLog "WinAPITimerCallback: Command=" & strCommand & ", CallbackInfo length=" & Len(strCallbackInfo)
 
     ' Clear values from registry (In case an operation sets another timer)
@@ -49,11 +53,11 @@ Public Sub WinAPITimerCallback()
     SaveSetting PROJECT_NAME, "Timer", "Param1", vbNullString
     SaveSetting PROJECT_NAME, "Timer", "Param2", vbNullString
     SaveSetting PROJECT_NAME, "Timer", "CallbackInfo", vbNullString
+    SaveSetting PROJECT_NAME, "Timer", REG_TIMER_OP_TOKEN, vbNullString
 
-    ' Unstage the current operation
-    If Operation.Status = eosStaged Then Operation.Restore
-
-    ' Now, run the desired operation
+    ' Now, run the desired operation. Root ownership crosses this boundary in strOpToken,
+    ' never in mutable global state: a continuation resumes only the root it was armed
+    ' for, and a stale or foreign token resumes nothing.
     Select Case strCommand
 
         Case "HandleRibbonCommand"
@@ -61,7 +65,7 @@ Public Sub WinAPITimerCallback()
 
         Case "Build"
             ' Build from source (full or merge build)
-            Build strParam1, CBool(strParam2)
+            RunBuildFromContinuation strOpToken, strParam1, CBool(strParam2)
 
         Case "MergeReset"
             ' Reset the target database's VBA project between the two merge stages, on the
@@ -71,16 +75,20 @@ Public Sub WinAPITimerCallback()
             ' The next stage is armed BEFORE the reset on purpose. The reset's teardown
             ' lands asynchronously, so this stack must do nothing afterwards and simply
             ' return to the message loop. (See modBuild.ResetProjectForInPlaceMerge.)
-            If Operation.Status = eosRunning Then Operation.Stage
+            '
+            ' The root is normally already staged by the call that armed this timer. Stage
+            ' it here only if it is somehow still running, so the reset's asynchronous
+            ' teardown is not mistaken for a canceled operation.
+            If Operation.Status = eosRunning Then Operation.DetachRootLease strOpToken
             TraceInPlaceMerge "reset stage: merge timer armed"
-            SetTimer "MergeResume", strParam1, strParam2
+            SetTimer "MergeResume", strParam1, strParam2, strOpToken
             ResetProjectForInPlaceMerge
 
         Case "MergeResume"
             ' Continue a merge build after the database was prepared in place and its VBA
             ' project reset. (See modBuild.PrepareMergeInPlace.)
             intMergeFilter = Val(strParam2)
-            Build strParam1, False, intMergeFilter, vbNullString, True
+            RunBuildFromContinuation strOpToken, strParam1, False, intMergeFilter, vbNullString, True
 
         Case "APIAsyncOperation"
             ' Handle async operation with MCP callbacks
@@ -113,12 +121,17 @@ End Sub
 ' Procedure : SetTimer
 ' Author    : Adam Waller
 ' Date      : 2/25/2022
-' Purpose   : Set the API timer to trigger the desired operation
+' Purpose   : Set the API timer to trigger the desired operation.
+'           : strOpToken carries root ownership to the continuation; pass the token from
+'           : the lease that was detached for this handoff. It defaults to the current
+'           : root so a timer armed inside an operation resumes that same operation.
 '---------------------------------------------------------------------------------------
 '
 Public Sub SetTimer(strOperation As String, _
     Optional strParam1 As String, Optional strParam2 As String, _
-    Optional sngSeconds As Single = 0.5)
+    Optional strOpToken As String, Optional sngSeconds As Single = 0.5)
+
+    If Len(strOpToken) = 0 Then strOpToken = Operation.CurrentRootToken
 
     ' Make sure we are not trying to stack timer operations
     If m_lngTimerID <> 0 Then
@@ -131,6 +144,7 @@ Public Sub SetTimer(strOperation As String, _
     ' Save parameter values
     SaveSetting PROJECT_NAME, "Timer", "Param1", strParam1
     SaveSetting PROJECT_NAME, "Timer", "Param2", strParam2
+    SaveSetting PROJECT_NAME, "Timer", REG_TIMER_OP_TOKEN, strOpToken
 
     ' Save ID to registry before setting the timer
     SaveSetting PROJECT_NAME, "Timer", "Operation", strOperation
@@ -209,7 +223,7 @@ Private Sub HandleAPIAsyncOperation(strMethod As String, strArgs As String, strC
         API strMethod
     End If
 
-    ' Completion callback is now sent from Operation.Finish() before ReleaseObjects
+    ' Completion callback is sent from the root operation's completion, before ReleaseObjects
     MCPDebugLog "HandleAPIAsyncOperation: Operation complete, Result=" & Operation.Result
 
     RestoreErrorBreaks

@@ -846,6 +846,7 @@ Public Function RunProcInCurrentProject(strSubName As String, _
 
     Dim strSub As String
     Dim strCmd As String
+    Dim cPause As clsOperationPause
 
     blnRan = False
 
@@ -884,8 +885,11 @@ Public Function RunProcInCurrentProject(strSubName As String, _
     ' Log any outstanding errors
     LogUnhandledErrors
 
-    ' Stage the current operation, and run the sub
-    Operation.Stage
+    ' Pause the current operation while user code runs. The user's procedure is foreign
+    ' code: it may raise, open forms, or take its own time, none of which should look
+    ' like our operation still running. ResumePause ends the pause on the success path;
+    ' Class_Terminate on cPause is the fallback if Application.Run raises.
+    Set cPause = Operation.TryPause()
     Perf.OperationStart T("Run {0}", , , , strSub)
 
     ' Set active VB project to Current DB (not Add-in)
@@ -898,7 +902,7 @@ Public Function RunProcInCurrentProject(strSubName As String, _
     End If
     blnRan = True
     Perf.OperationEnd
-    Operation.Restore
+    If Not cPause Is Nothing Then cPause.ResumePause
 
     ' Log any other errors
     CatchAny eelError, T("Error running {0}", , , , strSub), ModuleName & ".RunSubInCurrentProject"

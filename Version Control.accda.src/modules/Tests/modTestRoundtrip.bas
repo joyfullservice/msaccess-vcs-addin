@@ -94,8 +94,8 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
     Dim colResults As Collection
     Dim strScratch As String
     Dim blnIndexWasDisabled As Boolean
-    Dim blnOperationOwned As Boolean
-    Dim eimPriorMode As eInteractionMode
+    Dim blnRootOwned As Boolean
+    Dim cRoot As clsRootOperationLease
     Dim sngStart As Single
     Dim strLogFile As String
 
@@ -118,21 +118,20 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
         Exit Function
     End If
 
-    ' Begin our own operation, then flip the singleton InteractionMode to
-    ' eimSilent for the duration of the run. Cache the prior mode so we can
-    ' restore it in CleanUp / ErrHandler. Without silent mode, any MsgBox2
-    ' call (including the modal prompts clsLog raises for eelCritical /
-    ' eelError on an import failure) would block the harness waiting for a
-    ' user click and stall an unattended test run.
-    If Not Operation.Begin(eotOther) Then
-        dResult.Add "success", False
-        dResult.Add "error", "Could not begin test operation (another operation may be running)."
-        RunObjectRoundtripTests = ConvertToJson(dResult)
-        Exit Function
+    ' Called both on its own and from inside a test run. Nested, it owns nothing: the
+    ' enclosing run holds the root, the console, and the log file, and is already silent.
+    If Not (Operation.Status = eosRunning And Operation.OperationType = eotTestRun) Then
+        If Operation.AutomationSource Then Operation.ForceUnattended = True
+        Set cRoot = Operation.TryBeginRoot(eotOther)
+        If cRoot Is Nothing Then
+            dResult.Add "success", False
+            dResult.Add "error", "Could not begin test operation (another operation may be running)."
+            RunObjectRoundtripTests = ConvertToJson(dResult)
+            Exit Function
+        End If
+        blnRootOwned = True
+        Operation.InteractionMode = eimSilent
     End If
-    blnOperationOwned = True
-    eimPriorMode = Operation.InteractionMode
-    Operation.InteractionMode = eimSilent
 
     ' Disable the index for the duration of the run so test imports/exports
     ' do not pollute vcs-index.idx. Restore the prior value at the end.
@@ -141,10 +140,15 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
 
     ' Configure logging: route output through the main console form (if open)
     ' and write a dedicated session log file alongside the fixture folder.
-    Log.Clear
-    Log.SourcePath = strFixtureFolder
-    Log.Active = True
-    Perf.StartTiming
+    ' A nested run shares the parent's console and log file. Clearing it would erase
+    ' the results the enclosing test run has written so far, so only a run that owns
+    ' the root starts a fresh log.
+    If blnRootOwned Then
+        Log.Clear
+        Log.SourcePath = strFixtureFolder
+        Log.Active = True
+        Perf.StartTiming
+    End If
     sngStart = Perf.MicroTimer
 
     With Log
@@ -214,22 +218,22 @@ CleanUp:
         .Spacer
     End With
 
-    Perf.EndTiming
-
     ' Persist the per-session log file with our custom prefix so it is easy
-    ' to distinguish from Export/Build/Merge logs.
-    On Error Resume Next
-    Log.SaveFile strLogFile
-    Log.Active = False
-    Log.Flush
-    On Error GoTo 0
+    ' to distinguish from Export/Build/Merge logs. A nested run leaves the parent's
+    ' log open and its performance report running; the enclosing run owns both.
+    If blnRootOwned Then
+        Perf.EndTiming
+        On Error Resume Next
+        Log.SaveFile strLogFile
+        Log.Active = False
+        Log.Flush
+        On Error GoTo 0
+    Else
+        Log.Flush
+    End If
 
-    ' Restore VCSIndex disabled state and the prior InteractionMode. We
-    ' restore InteractionMode here (rather than relying on Operation.Finish)
-    ' because it is now a sticky property on the Operation singleton --
-    ' callers that override it own restoring it.
+    ' Restore VCSIndex disabled state.
     VCSIndex.Disabled = blnIndexWasDisabled
-    If blnOperationOwned Then Operation.InteractionMode = eimPriorMode
 
     ' Build final JSON.
     dResult.Add "success", (dStats("failed") = 0 And dStats("errors") = 0)
@@ -240,11 +244,11 @@ CleanUp:
     dResult.Add "stats", dStats
     dResult.Add "results", CollectionToJsonArray(colResults)
 
-    If blnOperationOwned Then
+    If blnRootOwned Then
         If dResult("success") Then
-            Operation.Finish eorSuccess
+            cRoot.Complete eorSuccess
         Else
-            Operation.Finish eorFailed
+            cRoot.Complete eorFailed
         End If
     End If
 
@@ -258,10 +262,7 @@ ErrHandler:
     On Error Resume Next
     UnloadScaffold
     VCSIndex.Disabled = blnIndexWasDisabled
-    If blnOperationOwned Then
-        Operation.InteractionMode = eimPriorMode
-        Operation.Finish eorFailed
-    End If
+    If blnRootOwned Then cRoot.Complete eorFailed
     Set dResult = New Dictionary
     dResult.Add "success", False
     dResult.Add "error", Err.Description

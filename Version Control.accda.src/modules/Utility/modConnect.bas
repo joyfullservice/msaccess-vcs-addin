@@ -286,7 +286,7 @@ Public Function GetOdbcDriverName(strConnect As String) As String
 
     Dim strDriver As String
     Dim strFileDsn As String
-    Dim strDsn As String
+    Dim strDSN As String
 
     strDriver = GetConnectPart(strConnect, "DRIVER")
     If Len(strDriver) > 0 Then
@@ -300,9 +300,9 @@ Public Function GetOdbcDriverName(strConnect As String) As String
         Exit Function
     End If
 
-    strDsn = GetConnectPart(strConnect, "DSN")
-    If Len(strDsn) > 0 Then
-        GetOdbcDriverName = GetDsnDriverName(strDsn)
+    strDSN = GetConnectPart(strConnect, "DSN")
+    If Len(strDSN) > 0 Then
+        GetOdbcDriverName = GetDsnDriverName(strDSN)
     End If
 
 End Function
@@ -318,31 +318,31 @@ End Function
 '           : so IsOracleDriverName still matches.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetDsnDriverName(strDsn As String) As String
+Public Function GetDsnDriverName(strDSN As String) As String
 
     Dim strKey As String
     Dim strName As String
     Dim strDll As String
 
-    If Len(strDsn) = 0 Then Exit Function
+    If Len(strDSN) = 0 Then Exit Function
 
-    strKey = UCase$(strDsn)
+    strKey = UCase$(strDSN)
     If m_dDsnDrivers Is Nothing Then Set m_dDsnDrivers = New Dictionary
     If m_dDsnDrivers.Exists(strKey) Then
         GetDsnDriverName = m_dDsnDrivers(strKey)
         Exit Function
     End If
 
-    strName = RegRead("HKCU\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\" & strDsn)
+    strName = RegRead("HKCU\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\" & strDSN)
     If Len(strName) = 0 Then
-        strName = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\" & strDsn)
+        strName = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\" & strDSN)
     End If
     If Len(strName) = 0 Then
-        strName = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\ODBC Data Sources\" & strDsn)
+        strName = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\ODBC Data Sources\" & strDSN)
     End If
 
     If Not IsOracleDriverName(strName) Then
-        strDll = GetDsnDriverPath(strDsn)
+        strDll = GetDsnDriverPath(strDSN)
         If IsOracleDriverDll(strDll) Then strName = FSO.GetFileName(strDll)
     End If
 
@@ -359,26 +359,26 @@ End Function
 ' Purpose   : Return the Driver DLL path stored under a DSN's own registry key.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetDsnDriverPath(strDsn As String) As String
+Private Function GetDsnDriverPath(strDSN As String) As String
 
     Dim strKey As String
     Dim strPath As String
 
-    If Len(strDsn) = 0 Then Exit Function
+    If Len(strDSN) = 0 Then Exit Function
 
-    strKey = UCase$(strDsn)
+    strKey = UCase$(strDSN)
     If m_dDsnDriverPaths Is Nothing Then Set m_dDsnDriverPaths = New Dictionary
     If m_dDsnDriverPaths.Exists(strKey) Then
         GetDsnDriverPath = m_dDsnDriverPaths(strKey)
         Exit Function
     End If
 
-    strPath = RegRead("HKCU\SOFTWARE\ODBC\ODBC.INI\" & strDsn & "\Driver")
+    strPath = RegRead("HKCU\SOFTWARE\ODBC\ODBC.INI\" & strDSN & "\Driver")
     If Len(strPath) = 0 Then
-        strPath = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\" & strDsn & "\Driver")
+        strPath = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\" & strDSN & "\Driver")
     End If
     If Len(strPath) = 0 Then
-        strPath = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\" & strDsn & "\Driver")
+        strPath = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\" & strDSN & "\Driver")
     End If
 
     m_dDsnDriverPaths.Add strKey, strPath
@@ -406,7 +406,7 @@ Public Function GetFileDsnDriverName(strFileDsn As String) As String
     Dim strLine As String
     Dim blnInOdbc As Boolean
     Dim strDriver As String
-    Dim strDsn As String
+    Dim strDSN As String
     Dim lngEq As Long
     Dim strName As String
     Dim strValue As String
@@ -444,7 +444,7 @@ Public Function GetFileDsnDriverName(strFileDsn As String) As String
                         If StrComp(strName, "DRIVER", vbTextCompare) = 0 Then
                             strDriver = strValue
                         ElseIf StrComp(strName, "DSN", vbTextCompare) = 0 Then
-                            strDsn = strValue
+                            strDSN = strValue
                         End If
                     End If
                 End If
@@ -454,8 +454,8 @@ Public Function GetFileDsnDriverName(strFileDsn As String) As String
 
     If Len(strDriver) > 0 Then
         GetFileDsnDriverName = strDriver
-    ElseIf Len(strDsn) > 0 Then
-        GetFileDsnDriverName = GetDsnDriverName(strDsn)
+    ElseIf Len(strDSN) > 0 Then
+        GetFileDsnDriverName = GetDsnDriverName(strDSN)
     End If
 
     m_dFileDsnDrivers.Add strCacheKey, GetFileDsnDriverName

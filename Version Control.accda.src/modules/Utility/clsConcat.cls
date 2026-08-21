@@ -277,7 +277,8 @@ End Sub
 ' Manually set page size if you want something different from the default.
 Public Sub SetPageSize(lngNewPageSize As Long, Optional lngNewInitialPages As Long)
     If lngCurrentPage > 0 Or lngCurrentPos > 1 Then
-        MsgBox "Please set the page size before adding any data", vbExclamation, "Error in clsConcat"
+        Err.Raise vbObjectError + 515, "clsConcat.SetPageSize", _
+            "Please set the page size before adding any data"
     Else
         lngPageSize = lngNewPageSize
         If lngNewInitialPages > 0 Then lngInitialPages = lngNewInitialPages

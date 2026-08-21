@@ -104,6 +104,8 @@ Public Sub cmdBuild_Click()
 
     Dim intBuildType As eOperationType
     Dim strFolder As String
+    Dim cRoot As clsRootOperationLease
+    Dim strToken As String
 
     ' Make sure we use the add-in to build the add-in.
     If CodeProject.FullName = CurrentProject.FullName Then
@@ -134,9 +136,10 @@ Public Sub cmdBuild_Click()
     '  build process, just in case we need to import a form with the same name.)
     If strFolder <> vbNullString Then
         intBuildType = IIf(chkFullBuild, eotBuild, eotMerge)
-        If Operation.Begin(intBuildType) Then
-            Operation.Stage
-            SetTimer "Build", strFolder, chkFullBuild
+        Set cRoot = Operation.TryBeginRoot(intBuildType)
+        If Not cRoot Is Nothing Then
+            strToken = cRoot.DetachForContinuation()
+            SetTimer "Build", strFolder, chkFullBuild, strToken
         Else
             ' Not ready to begin a new operation. Probably still running something else.
             DoCmd.Hourglass False
@@ -271,8 +274,8 @@ Public Sub FinishBuild(blnFullBuild As Boolean _
     Me.strLastLogFilePath = Log.SavedLogFilePath
     Me.strCopyToClipboardPath = Log.SavedLogFilePath
 
-    ' Auto-close in silent/unattended mode. Defer via the timer so the close runs
-    ' after modBuild.Build calls Operation.Finish; closing synchronously here unloads
+    ' Auto-close in silent/unattended mode. Defer via the timer so the close runs after
+    ' RunBuildFromContinuation completes the root; closing synchronously here unloads
     ' the form while Operation.Status is still eosRunning, tripping the Form_Unload
     ' cancel prompt -- a deadlock in an unattended session.
     If Operation.InteractionMode = eimSilent Then
@@ -332,14 +335,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function ConfirmCancel() As Boolean
-    Dim eimPrior As eInteractionMode
-    eimPrior = Operation.InteractionMode
-    Operation.InteractionMode = eimNormal
     ConfirmCancel = MsgBox2(T("Cancel Current Operation?"), _
         T("You are in the midst of a running process. Are you sure you want to cancel?"), _
         T("Click [Yes] to cancel the process, or [No] to resume."), _
-        vbYesNo + vbDefaultButton2 + vbExclamation, , vbYes) = vbYes
-    Operation.InteractionMode = eimPrior
+        vbYesNo + vbDefaultButton2 + vbExclamation, , vbYes, True) = vbYes
 End Function
 
 

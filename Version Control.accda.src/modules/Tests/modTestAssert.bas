@@ -13,12 +13,24 @@
 '           : TestAssert falls back to Debug.Assert, preserving the standard
 '           : debugger-break behavior.
 '           :
+'           : It also reports whether a test run is currently driving this project, so
+'           : project code can skip anything that would wait for a person. See
+'           : TestRunActive.
+'           :
 '           : This module has ZERO compile-time dependencies on the VCS add-in.
 '           : It compiles and runs in any Access database.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
 '@Folder("Tests")
+
+' True while a test run is driving this project. Set by the test runner, which executes
+' in the add-in - a different VBA project - and so cannot be observed from here any other
+' way. Guard anything that waits for a person, so an unattended run cannot stall on it:
+'
+'   If Not TestRunActive Then MsgBox "Import complete.", vbInformation
+'
+Public TestRunActive As Boolean
 
 ' Cached path for the add-in library, resolved on first use.
 Private m_strAddInPath As String
@@ -47,6 +59,19 @@ Public Sub TestAssert(ByVal condition As Boolean, _
         Debug.Assert condition
     End If
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetTestRunActive
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Called by the VCS test runner as a run starts and finishes. Application.Run
+'           : reaches procedures, not variables, so the flag is set through here.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetTestRunActive(ByVal blnActive As Boolean)
+    TestRunActive = blnActive
 End Sub
 
 

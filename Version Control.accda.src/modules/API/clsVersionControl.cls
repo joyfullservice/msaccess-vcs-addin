@@ -41,12 +41,11 @@ End Sub
 Public Sub ShowOptions()
     If Operation.Begin(eotOther) Then
         If DatabaseFileOpen Then
-            ' Force reload of options from current project before opening the form.
             Set modObjects.Options = Nothing
             DoCmd.OpenForm "frmVCSOptions"
         Else
-            ' The table data subform may crash Access when the options form is closed with no database open.
             MsgBox2 "No Database Open", "Please open a database file before configuring VCS options.", , vbInformation
+            Operation.Finish eorCanceled
         End If
     End If
 End Sub
@@ -282,10 +281,12 @@ Private Function RunHeadlessBuild(ByVal strSourceFolder As String, _
     ' and suppresses the progress form. Set before Begin, which raises its own modal
     ' dialog when it refuses -- exactly the prompt an unattended session cannot answer.
     ' Restored on every path out, so a session that called this once is not left silent.
+    Operation.ForceUnattended = True
     Operation.InteractionMode = eimSilent
 
     intOperationType = IIf(blnFullBuild, eotBuild, eotMerge)
     If Not Operation.Begin(intOperationType) Then
+        Operation.ForceUnattended = False
         Operation.InteractionMode = intPriorMode
         SetPreflightError dResult, "Could not begin operation (another operation may be running)"
         RunHeadlessBuild = ConvertToJson(dResult)
@@ -298,8 +299,7 @@ Private Function RunHeadlessBuild(ByVal strSourceFolder As String, _
     dOutcome.Add "success", False
 
     modBuild.Build strSourceFolder, blnFullBuild, ecfAllObjects, , , dOutcome
-
-    Operation.InteractionMode = intPriorMode
+    CompleteBuildOperation CBool(dOutcome("success"))
 
     For Each varKey In dOutcome.Keys
         dResult.Add CStr(varKey), dOutcome(varKey)
@@ -313,12 +313,11 @@ Private Function RunHeadlessBuild(ByVal strSourceFolder As String, _
     Exit Function
 
 ErrHandler:
-    ' Never leave the operation running, or every later call is refused.
-    If Operation.Status = eosRunning Then
-        Log.Active = False
-        Operation.Finish eorFailed
+    CompleteBuildOperation False
+    If Operation.Status <> eosReady Then
+        Operation.ForceUnattended = False
+        Operation.InteractionMode = intPriorMode
     End If
-    Operation.InteractionMode = intPriorMode
     Set dResult = New Dictionary
     dResult.Add "success", False
     dResult.Add "error", Err.Description
@@ -414,6 +413,7 @@ Public Sub BuildAs()
     ' Proceed with build if we have the new path.
     If Len(strNewDbPath) Then
         modBuild.Build strSourceFolder, True, , strNewDbPath
+        CompleteBuildOperation True
     Else
         Operation.Finish eorCanceled
     End If
@@ -430,7 +430,14 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub MergeAllSource()
-    If Operation.Begin(eotMerge) Then modBuild.MergeAllSource
+    If Operation.Begin(eotMerge) Then
+        modBuild.MergeAllSource
+        If Operation.ErrorLevel = eelCritical Then
+            Operation.Finish eorFailed
+        Else
+            Operation.Finish eorSuccess
+        End If
+    End If
 End Sub
 
 
@@ -455,6 +462,7 @@ Public Sub LoadSelected()
         MsgBox2 "Please Select an Object First", _
             "Select a single object in the Navigation Pane to reload from source (this item must have the keyboard focus).", _
             "If you are using a non-English version of Access and it is still not working, please open an issue on GitHub to add support for your language.", vbInformation
+        Operation.Finish eorCanceled
     Else
         ' Remove all object references to selected item
         Set cComponentClass = GetClassFromObject(objSelected)
@@ -470,6 +478,7 @@ Public Sub LoadSelected()
         Form_frmVCSMain.StartBuild False
         LoadSingleObject cComponentClass, strObjectName, strSourceFilePath
         Form_frmVCSMain.FinishBuild False
+        CompleteLoadSingleObject IIf(Operation.ErrorLevel >= eelCritical, eorFailed, eorSuccess)
     End If
 
 End Sub
@@ -895,7 +904,7 @@ End Sub
 Public Sub ActivateHook()
     If Operation.Begin(eotOther) Then
         If modExportOnSaveHook.ActivateHook = False Then
-            MsgBox "Error activating the hook", vbCritical, "Unable to activate hook"
+            MsgBox2 T("Error activating the hook"), , , vbCritical, T("Unable to activate hook")
         End If
         Operation.Finish
     End If
@@ -1366,11 +1375,12 @@ Public Function ImportObject(ByVal strObjectType As String, Optional ByVal strOb
         Exit Function
     End If
 
-    ' LoadSingleObject finishes the operation, which releases the Log singleton,
-    ' so the log path has to come back through the out-param.
+    ' Completing the operation releases the Log singleton, so the log path has to come
+    ' back through the out-param rather than be read from Log afterwards.
     LoadSingleObject cComponent, strObjectName, strSourceFile, _
         blnNoIndex:=(Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI), _
         strSavedLogPath:=strLogPath
+    CompleteLoadSingleObject IIf(Operation.ErrorLevel >= eelCritical, eorFailed, eorSuccess)
 
     dResult.Add "success", (Operation.ErrorLevel < eelError)
     If Operation.ErrorLevel >= eelError Then
@@ -2806,10 +2816,10 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
     Dim colKeys As Collection
     Dim lngIdx As Long
     Dim strFilter As String
-    Dim eimPriorMode As eInteractionMode
     Dim blnLogWasActive As Boolean
     Dim blnUseWebRunner As Boolean
     Dim strJUnitPath As String
+    Dim cRoot As clsRootOperationLease
 
     ' An automation session has no one to click Run in the web runner and no
     ' console to watch, so any API/MCP-initiated run is headless regardless of
@@ -2855,9 +2865,6 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
         End If
     End If
 
-    ' Match the round-trip harness: log to file and suppress blocking MsgBox dialogs
-    ' so import/build errors surface in the test console and TestRun_*.log instead.
-    eimPriorMode = Operation.InteractionMode
     blnLogWasActive = Log.Active
 
     blnUseWebRunner = Options.UseWebTestRunner And modTestRunnerUI.EdgeTestRunnerSupported() _
@@ -2882,7 +2889,12 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
         Exit Function
     End If
 
-    If Not Operation.Begin(eotTestRun) Then Exit Function
+    ' ForceUnattended must be set before the root begins: Attended is captured once, at
+    ' root creation, and is immutable for the life of the operation.
+    If blnHeadless Then Operation.ForceUnattended = True
+
+    Set cRoot = Operation.TryBeginRoot(eotTestRun)
+    If cRoot Is Nothing Then Exit Function
 
     Operation.InteractionMode = eimSilent
     Log.Active = True
@@ -2925,8 +2937,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
         If Not blnHeadless Then FinalizeTestConsole True
         Log.Active = blnLogWasActive
         Log.SuppressDebugOutput = False
-        Operation.InteractionMode = eimPriorMode
-        Operation.Finish eorSuccess
+        cRoot.Complete eorSuccess
         Exit Function
     End If
 
@@ -2938,8 +2949,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
             If Not blnHeadless Then FinalizeTestConsole True
             Log.Active = blnLogWasActive
             Log.SuppressDebugOutput = False
-            Operation.InteractionMode = eimPriorMode
-            Operation.Finish eorSuccess
+            cRoot.Complete eorSuccess
             Exit Function
         End If
         Log.Add T("Found {0} sub(s) matching filter. Running...", var0:=colKeys.Count)
@@ -2999,8 +3009,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
 
     Log.Active = blnLogWasActive
     Log.SuppressDebugOutput = False
-    Operation.InteractionMode = eimPriorMode
-    Operation.Finish IIf(blnCanceled, eorCanceled, IIf(blnAllPassed, eorSuccess, eorFailed))
+    cRoot.Complete IIf(blnCanceled, eorCanceled, IIf(blnAllPassed, eorSuccess, eorFailed))
 
 End Function
 
@@ -3109,6 +3118,15 @@ Public Sub InstallTestAssertModule()
         .Add "Option Explicit"
         .Add "'@Folder(""Tests"")"
         .Add vbNullString
+        .Add "' True while a test run is driving this project. Set by the test runner,"
+        .Add "' which executes in the add-in - a different VBA project - and so cannot be"
+        .Add "' observed from here any other way. Guard anything that waits for a person,"
+        .Add "' so an unattended run cannot stall on it:"
+        .Add "'"
+        .Add "'   If Not TestRunActive Then MsgBox ""Import complete."", vbInformation"
+        .Add "'"
+        .Add "Public TestRunActive As Boolean"
+        .Add vbNullString
         .Add "Private m_strAddInPath As String"
         .Add vbNullString
         .Add "Public Sub TestAssert(ByVal condition As Boolean, _"
@@ -3120,6 +3138,16 @@ Public Sub InstallTestAssertModule()
         .Add "        Err.Clear"
         .Add "        Debug.Assert condition"
         .Add "    End If"
+        .Add "End Sub"
+        .Add vbNullString
+        .Add "'---------------------------------------------------------------------------------------"
+        .Add "' Procedure : SetTestRunActive"
+        .Add "' Purpose   : Called by the VCS test runner as a run starts and finishes."
+        .Add "'           : Application.Run reaches procedures, not variables, so the flag is"
+        .Add "'           : set through here."
+        .Add "'---------------------------------------------------------------------------------------"
+        .Add "Public Sub SetTestRunActive(ByVal blnActive As Boolean)"
+        .Add "    TestRunActive = blnActive"
         .Add "End Sub"
         .Add vbNullString
         .Add "Private Function ResolveAddInPath() As String"

@@ -83,6 +83,149 @@ contradictory guidance.
 
 ---
 
+## 2026-08-21 — Two root ownership forms kept deliberately: lease and Begin/Finish
+
+**Trigger**: After removing child scopes and fixing the cross-project test-run flag, a
+review asked whether root leases were still justified or whether the whole refactor
+should collapse back to `Begin`/`Finish`.
+
+**Options explored**:
+- **Migrate everything to leases** — uniform, but 34 synchronous API entry points in
+  `clsVersionControl` would each carry a lease variable and `Complete` on every exit
+  path including `ErrHandler`, for no gain when the work never crosses a boundary.
+- **Drop leases and use Begin/Finish everywhere** — loses token-validated timer
+  continuations, exactly-once completion, and the `Class_Terminate` abandonment safety
+  net. `ExecuteTests` has no error handler around the run body; without a lease,
+  an unhandled error leaves the root in `eosRunning` until heartbeat timeout.
+- **Keep both, document when to use which (chosen)** — leases for async, cross-module,
+  and conditional ownership; Begin/Finish for single-procedure synchronous work.
+
+**Decision**: Keep `clsRootOperationLease` and `Operation.Begin`/`Finish` as two
+documented forms of the same root, not legacy vs modern. Delete `Operation.Stage`
+(zero callers after timer paths moved to `DetachRootLease`). Relabel Begin/Finish
+headers to describe the synchronous contract and its one constraint: Finish performs
+no ownership check. Close the `TestRunActive` leak by adding
+`clsTestRunner.Class_Terminate`, which clears the flag when `ReleaseObjects` drops the
+runner singleton — the same teardown chain that completes an abandoned root lease.
+
+Restore four test-module `eimSilent` guards removed on a false premise: they exist for
+standalone F5 runs where there is no root and `TestRunActive` is false; harness runs
+are covered separately by the runner flag and root silent mode.
+
+**What this rules out**: Treating Begin/Finish as debt to be migrated wholesale. A
+future migration of the two cross-form pairs (`ShowOptions`, `SplitFiles`) to leases
+stored on the form is the next ownership improvement, not a blanket lockdown.
+
+**Relevant files**: `clsOperation.cls`, `clsRootOperationLease.cls`,
+`clsTestRunner.cls`, `docs/automation-contract.md`, four restored test modules.
+
+---
+
+## 2026-08-21 — Child scopes removed: nesting was a frame stack with no callers that needed one
+
+**Trigger**: A review of the operation-lifecycle refactor asked whether nested child
+scopes were earning their complexity. They were not. Three production call sites used
+`TryBeginScope`, all in test infrastructure (`modTestRunnerUI`, `modTestRoundtrip`,
+`modTestQuerySqlBuilder`), all requesting the same `eotOther` + `eimSilent`, and never
+nesting more than one deep. Supporting them cost a frame collection, frame ids, LIFO
+unwind with orphan detection, a default-deny parent/child policy table, a type
+overlay, a max-over-frames interaction mode, unwind-on-root-complete, a class, and
+seven tests.
+
+**Options explored**:
+- **Keep as built** — the policy table guards against mutating a database under an
+  in-flight build or export, but nothing creates a child scope on those paths, so the
+  guard had no live enforcement surface.
+- **Collapse the stack to a single optional frame** — depth never exceeded one, so
+  this removes the LIFO and orphan logic while keeping the type and mode overlay. Half
+  the machinery for the same three call sites; still an abstraction ahead of demand.
+- **Remove child scopes entirely (chosen)** — the two harness entry points already
+  computed "am I nested?" as a plain condition *before* asking for a scope, and used
+  the scope only to avoid owning the root and the log. That needs no object.
+
+**Decision**: Delete `clsOperationScope`, `TryBeginScope`, `CloseChildFrame`,
+`ChildFrameIsActive`, `Depth`, `CurrentOperationType`, `IsNestedScopeAllowed`, and the
+frame collection. A routine that may run nested tests `Operation.OperationType =
+eotTestRun` and owns nothing when it is. The bridge's scope existed only to force
+silence, which belongs on the root: `AcceptBridgeRun` now sets `InteractionMode =
+eimSilent` right after `TryBeginRoot`, matching `ExecuteTests`.
+
+`RootOperationType` and `OperationType` collapse into `OperationType`, since with no
+overlay there is only one. That fixes a latent bug: `BridgeCancel` compares
+`Operation.OperationType = eotTestRun`, and the bridge's own `eotOther` scope made
+that comparison false for the entire run. It survived only because the check is
+`Or`-ed with `TestRunner.State = etrsRunning`.
+
+**What this rules out**: Concurrent nested operations of different types, and any
+policy enforced at a nesting boundary. Should a real need for nesting appear — a
+merge inside an export, say — reintroduce it deliberately for that case rather than
+restoring the general stack. The pause scope (`clsOperationPause`) is unaffected and
+remains the way to suspend a root around foreign code.
+
+**Relevant files**: `clsOperation.cls`, `modTestRunnerUI.bas`, `modTestRoundtrip.bas`,
+`modTestQuerySqlBuilder.bas`, `clsLog.cls`, `docs/automation-contract.md`. Deleted:
+`clsOperationScope.cls`, `modTestOperationNesting.bas`.
+
+---
+
+## 2026-08-21 — A test run spans two VBA projects, so suppression is pushed, not inherited
+
+**Trigger**: A test run displayed a message box even though the run held a silent,
+unattended root operation. Investigation found the cause is structural: the
+installed add-in drives the run, but `clsTestRunner` invokes test procedures in
+`CurrentVBProject`. Testing this repository loads two copies of the same project,
+each with its own `modObjects.Operation`. The driver's root, interaction mode, and
+`Attended` capability are invisible to the copy the tests execute in, and a test
+calling `MsgBox2` resolves to that copy, which sees an idle operation in normal
+mode. A user database has the same split and no operation API at all.
+
+**Options explored**:
+- **Persist mode and `Attended` to the registry alongside the existing
+  crash-recovery keys, and have `PromptWouldDisplay` fall back to them** — reuses a
+  mechanism already in `clsOperation` and needs no cooperation from the hosted
+  project, but puts a registry read on every prompt and still does nothing for a
+  user project whose own code raises the prompt.
+- **Have the hosted project pull the state** (`Application.Run` back into the
+  add-in from `PromptWouldDisplay`) — no new state, but a cross-project round trip
+  per prompt, and it fails closed to "prompt" exactly when the add-in is unreachable.
+- **Push a flag into `modTestAssert` (chosen)** — the one module the add-in installs
+  and maintains in every project that runs tests, already the channel for
+  `TestAssert`, `TestClassFactory`, and the global hooks.
+- **Leave the product alone and delete the cross-project assertions** — rejected;
+  the dialog that started this is a real stall, not a test artifact.
+
+**Decision**: `clsTestRunner.SetHostedTestRunFlag` calls
+`modTestAssert.SetTestRunActive` at run start and in the runner's `CleanUp`, which
+is on every exit path. It goes through `GlobalProcExists` and `BuildRunCmd` — path
+qualification matters more here than anywhere else, since both projects are named
+`MSAccessVCS` and both contain a `modTestAssert`. The module exposes a plain
+`Public TestRunActive As Boolean`; a setter exists only because `Application.Run`
+reaches procedures, not variables. `modUIUtil.PromptWouldDisplay` returns `False`
+whenever the flag is set, gesture prompts included: during a run the runner is the
+caller, so there is no gesture behind the prompt and a dialog stalls the suite.
+User projects get the same flag to guard their own prompts.
+
+A self-expiring variant (a heartbeat refreshed by every `TestAssert`, expiring
+after ten minutes) was implemented and then removed as unjustified complexity in a
+file that ships to users. The exposure is a run whose driver dies while the hosted
+project's VBA state survives — mostly rebuilding the add-in mid-run in this repo —
+and the next run's start clears it.
+
+**What this rules out**: Tests asserting the driver's operation state from inside a
+test; `modTestOperationLifecycle` drives private
+`clsOperation` instances instead, and `modTestPromptSuppression` asserts the flag
+and `PromptWouldDisplay` rather than `Operation.Status`. Also rules out suppression
+for projects whose `modTestAssert` predates this, since installed copies are never
+auto-upgraded. Revisit if prompts need to distinguish kinds during a run, or if
+`modTestAssert` gains a version stamp that would let the runner detect a stale copy.
+
+**Relevant files**: `modTestAssert.bas` (`TestRunActive`, `SetTestRunActive`),
+`clsTestRunner.cls` (`SetHostedTestRunFlag`, `BuildRunCmd`), `modUIUtil.bas`
+(`PromptWouldDisplay`), `clsVersionControl.cls` (`InstallTestAssertModule`
+template), `modTestPromptSuppression.bas`, `docs/testing-strategy.md`.
+
+---
+
 ## 2026-08-20 — Reject source files with unresolved Git conflict markers on import
 
 **Trigger**: An unresolved Git merge left `<<<<<<<` / `>>>>>>>` markers in a
@@ -6053,5 +6196,91 @@ For the UI notification, the main form (`frmVCSMain`) shows a clickable `lblForm
 - `Version Control.accda.src/modules/clsDbForm.cls` — IsModified updated (keeps OtherHash)
 - `Version Control.accda.src/modules/clsDbReport.cls` — IsModified updated (keeps OtherHash)
 - `Version Control.accda.src/modules/modImportExport.bas` — skip-count logging during fast save
+
+---
+
+## 2026-08-20 — Root operation ownership, child scopes, and dialog-free harness runs
+
+> **⚠ Partially superseded** (2026-08-21): The child-scope half of this decision was
+> removed. Root leases, pause scopes, and validated timer tokens all stand; the
+> nested frame stack and `clsOperationScope` did not survive contact with the three
+> call sites that used them. See "Child scopes removed: nesting was a frame stack
+> with no callers that needed one" above.
+
+**Trigger**: A test suite displayed a modal `Log.Error` dialog because operation state
+was globally mutable and teardown ownership was split: nested work could restore
+`InteractionMode`, while `Operation.Finish` released `Log` and recreated it with
+`Active = False`.
+
+**Options explored**:
+
+- **Guard `MsgBox2` / `Log.Error` only during tests** — hides the symptom; does not
+  fix split ownership or nested `Finish` tearing down parent singletons.
+- **Opaque key on `Finish`** — rejected; keys must be passed on every exit path
+  including `ErrHandler`, and duplicate `eotOther` frames need instance tokens anyway.
+- **Root lease + child scopes + validated timer tokens (chosen)** — explicit ownership
+  with `clsRootOperationLease`, `clsOperationScope`, and `clsOperationPause`;
+  core routines no longer call `Finish`; timer continuations resume by root token.
+
+**Decision**: Refactor `clsOperation` around root leases and default-deny nested
+scopes. Effective interaction mode is the strictest active request; `Attended` is a
+root capability derived from `AutomationSource` and `ForceUnattended`. `MsgBox2` adds
+`blnUserGesturePrompt` for attended cancel confirmations without relaxing silent mode.
+Portable utility classes (`clsConcat`, `clsLblProg`) raise programmer errors with
+`Err.Raise` instead of `MsgBox`. Rejected `MsgBox` shadowing and manual
+`eimPriorMode` restoration in harness paths where root policy now applies.
+
+**Relevant files**: `clsOperation.cls`, `clsRootOperationLease.cls`,
+`clsOperationScope.cls`, `clsOperationPause.cls`, `modBuild.bas`, `modTimer.bas`,
+`clsLog.cls`, `modUIUtil.bas`, `clsConflicts.cls`, `modTestOperationLifecycle.bas`,
+`docs/automation-contract.md`, `docs/testing-strategy.md`.
+
+---
+
+## 2026-08-21 — An operation instance is inert unless it is the session singleton
+
+**Trigger**: The first cut of the lifecycle tests could not pass. Every test runs
+inside the runner's root, so a test that called `Operation.TryBeginRoot` was either
+refused — raising the very "Another Operation Already Running" dialog the previous
+entry set out to eliminate — or succeeded on a path that then completed the *runner's*
+root, running `ReleaseObjects` and destroying `Log` and `TestRunner` mid-run. Two of
+those tests also called `Log.Error`, which `clsTestRunner` reports as a failure of the
+test that logged it, so they could never have gone green.
+
+**Options explored**:
+
+- **Test only through the public flows** (`BuildHeadless`, `RunTests`) — leaves lease
+  validation, token mismatch, orphan unwinding, and pause nesting unreachable, which
+  is most of what the refactor is for.
+- **A test-only reset method on `clsOperation`** — lets a test scrub the singleton
+  between cases, but the singleton is exactly the thing the enclosing run depends on;
+  a bug in the reset corrupts the run rather than failing a test.
+- **Make instance identity decide side effects (chosen)** — everything that reaches
+  outside the object is gated on being the instance published by `modObjects`.
+
+**Decision**: Registry writes, the MCP completion callback, VBE error trapping, and
+`ReleaseObjects` are gated on `IsSessionSingleton`, and only that instance adopts
+crash-recovery state from the registry — which `modObjects` signals with
+`CreatingOperationSingleton`, since the instance cannot compare itself to a variable
+it is still being assigned to. Leases, scopes, and pauses hold the instance that
+issued them rather than reaching for the global `Operation`. A `New clsOperation` is
+therefore a complete, inert lifecycle a test can drive without touching the session.
+
+Consequences elsewhere: `PromptWouldDisplay` extracts the prompt-versus-log rule out
+of `MsgBox2` so tests can assert the policy without risking a dialog; `InteractionMode`
+ignores a relaxing assignment only while a root is active, so completing a root can
+reset it and headless callers no longer restore it by hand; `clsOperationPause`
+absorbed `EnterSyncSuspend`/`ExitSyncSuspend`, which means it now suspends the root
+rather than only swapping error trapping, and pauses nest; and a refused root logs
+rather than prompts for automated or explicitly unattended callers. `Operation.Restore`
+was deleted rather than fixed: it resumed the root into a local lease that abandoned it
+on scope exit, and had no callers left.
+
+**Relevant files**: `clsOperation.cls`, `clsRootOperationLease.cls`,
+`clsOperationScope.cls`, `clsOperationPause.cls`, `modObjects.bas`, `modUIUtil.bas`,
+`modStaging.bas`, `modDatabase.bas`, `modTimer.bas`, `modAPI.bas`,
+`clsVersionControl.cls`, `modTestOperationLifecycle.bas`,
+`modTestOperationNesting.bas`, `modTestPromptSuppression.bas`,
+`docs/automation-contract.md`, `.cursor/rules/testing.mdc`.
 
 ---

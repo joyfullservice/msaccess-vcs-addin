@@ -15,9 +15,8 @@ filter syntax, [AGENTS.md](../../AGENTS.md); for the runner's web UI and bridge,
 
 Tests assert with `TestAssert condition, "optional context"`, a drop-in
 replacement for `Debug.Assert`. The context string identifies which assertion
-failed — useful in loops or shared helpers. Under the test runner `TestAssert`
-reports back to the add-in; run standalone (F5 or Immediate Window) it falls back
-to `Debug.Assert`.
+failed. Under the test runner `TestAssert` reports back to the add-in; run
+standalone (F5 or Immediate Window) it falls back to `Debug.Assert`.
 
 ## Standard module tests
 
@@ -41,8 +40,6 @@ Class modules get setup/teardown for free, and each test method runs against a
 **fresh instance**, giving complete isolation:
 
 ```vba
-Private m_db As DAO.Database
-
 Private Sub Class_Initialize()
     Set m_db = CurrentDb          ' before each test method
 End Sub
@@ -50,16 +47,11 @@ End Sub
 Private Sub Class_Terminate()
     Set m_db = Nothing            ' after each test method
 End Sub
-
-Public Sub TestInsertRecord()
-    m_db.Execute "INSERT INTO tblTemp VALUES (1, 'test')"
-    TestAssert DCount("*", "tblTemp") > 0, "Record inserted"
-End Sub
 ```
 
 Keep the standard `VERSION 1.0 CLASS` / `BEGIN` / `END` block, the
-`Attribute VB_Name` line, and the `Option` / `'@Folder("Tests")` header above
-that, as in any exported class file.
+`Attribute VB_Name` line, and the `Option` / `'@Folder("Tests")` header, as in
+any exported class file.
 
 ## Discovery rules
 
@@ -78,37 +70,20 @@ it `Private` or give it a parameter (even an unused `Optional` one).
 case-insensitive and appear in the JSON results under a `"tags"` array.
 Module-level tags sit in the first ~30 lines, before any procedure, and apply to
 every test in the module. Procedure-level tags go at the very top of the body,
-before any `Dim` — the scanner stops at the first non-comment, non-blank line.
-The two sets are merged.
-
-```vba
-Public Sub TestExpensiveQuery()
-    '@Tag("slow")
-    '@Tag("regression")
-    TestAssert RunExpensiveCheck(), "check passes"
-End Sub
-```
+before any `Dim`. The two sets are merged.
 
 ## Class test factory
 
-When class-based tests are discovered, the runner auto-maintains a
-`TestClassFactory` function inside `modTestAssert` with one `Select Case` entry
-per test class, regenerating it during scan when entries drift. Do not manually
-edit lines between the `BEGIN`/`END` markers.
+The runner auto-maintains a `TestClassFactory` function inside `modTestAssert`,
+one `Select Case` entry per test class. Do not hand-edit between the markers.
 
 ## Global suite hooks
 
 Optional **once-per-run** setup/teardown in the target project's `modTestAssert`:
-
-```vba
-Public Sub GlobalTestSetup()      ' Before first test (when >= 1 test selected)
-Public Sub GlobalTestTeardown()   ' After all tests and results JSON
-```
-
-They ship as empty stubs in fresh `InstallTestAssertModule` installs, are silently
-skipped when absent, and do not run when zero tests are discovered or a filter
-matches nothing. Hook errors are non-fatal (console warning only) and teardown
-still runs. Per-class `Class_Initialize` / `Class_Terminate` nest inside.
+`GlobalTestSetup` runs before the first test, `GlobalTestTeardown` after all tests
+and the results JSON. They ship as empty stubs in fresh installs, are skipped when
+absent, and do not run when a filter matches nothing. Hook errors are non-fatal
+and teardown still runs. `Class_Initialize` / `Class_Terminate` nest inside.
 
 ## Conventions
 
@@ -117,4 +92,29 @@ still runs. Per-class `Class_Initialize` / `Class_Terminate` nest inside.
 - Use `Option Private Module` on standard test modules to keep test subs out of
   the macro list — the runner can still call them.
 - One assertion concept per test method; use `context` to distinguish assertions.
-- Keep tests focused and fast; a fresh class instance is created per test.
+- Do not add per-test `Operation.InteractionMode = eimSilent` guards; the runner
+  owns root interaction policy (see below).
+
+## Which project a test runs in
+
+The *installed* add-in drives the run and owns the operation; test procedures
+execute in the project being tested. For this repo those are two loaded copies of
+the same project, so `Operation` inside a test is a different, idle instance from
+the one hosting the run — its `Status`, `InteractionMode`, and `Attended` say
+nothing about the run. What every hosted project can see is
+`modTestAssert.TestRunActive`, true for the duration of the run.
+
+## Three ways a test can sabotage its own run
+
+- **Never call `Operation.TryBeginRoot`** (or legacy `Begin`/`Finish`) on the
+  session operation. Where a root is active it is refused — a dialog on an
+  attended run — or you complete the run's root, which runs `ReleaseObjects` and
+  destroys `Log` and `TestRunner` mid-run. To test root lifecycle behavior, drive
+  a private `New clsOperation`: no registry writes, no MCP callback, no singleton
+  teardown. See `modTestOperationLifecycle`.
+- **Never call `Log.Error`** on the session log. The runner reports any error
+  logged during a test as a failure of that test, so such a test can never pass.
+  Assert on the decision instead of the side effect.
+- **Never open a prompt.** While a run is active `PromptWouldDisplay` is false for
+  every prompt, gesture prompts included. Assert that rather than calling one, and
+  use `MsgBox2` only where suppression is already established.

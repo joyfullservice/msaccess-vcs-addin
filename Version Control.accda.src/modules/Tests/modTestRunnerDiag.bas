@@ -27,7 +27,7 @@ Option Private Module
 '           : timestamped file, matching the other logs' naming; the resolved path is
 '           : written in the header.
 '           :
-'           : Columns: [+elapsed ms Δms-since-previous] TAG | detail
+'           : Columns: [+elapsed ms ?ms-since-previous] TAG | detail
 '---------------------------------------------------------------------------------------
 
 Private Const ModuleName As String = "modTestRunnerDiag"

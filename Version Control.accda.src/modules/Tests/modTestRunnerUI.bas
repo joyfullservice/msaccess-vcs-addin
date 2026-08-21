@@ -46,7 +46,11 @@ Private Const CANCEL_POLL_MS As Long = 1000
 Private m_strPendingRunFn As String
 Private m_colPendingRunKeys As Collection
 Private m_blnPendingRunSetup As Boolean ' a new Operation was begun; invoke global setup hook
-Private m_eimPriorMode As eInteractionMode ' cached before bridge run; restored on teardown
+
+' Root operation for a bridge-hosted run. Held only while this module owns the root, so
+' teardown and orphan cleanup can never finish a root begun elsewhere (an API or MCP run
+' whose results the page happens to be displaying).
+Private m_cBridgeRoot As clsRootOperationLease
 
 
 '---------------------------------------------------------------------------------------
@@ -216,22 +220,24 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 7/9/2026
 ' Purpose   : Finish a leftover eotTestRun Operation when no test run is actually in
-'           : progress. Hide-on-close can leave Operation.Status = eosRunning if the
-'           : user closed mid-run (Cancel is cooperative) or if an earlier open path
-'           : began an Operation without finishing it.
+'           : progress. Hide-on-close can leave the root running if the user closed
+'           : mid-run (Cancel is cooperative) or if an earlier open path began a root
+'           : without finishing it.
+'           : Only a root this module began is cleared. A root belonging to an API or
+'           : MCP run is left alone: finishing it from here tore down the session
+'           : objects underneath a run that was still executing.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ClearOrphanedTestOperation()
 
     If TestRunner.State = etrsRunning Then Exit Sub
-    If Operation.Status <> eosRunning Then Exit Sub
-    If Operation.OperationType <> eotTestRun Then Exit Sub
+    If m_cBridgeRoot Is Nothing Then Exit Sub
 
     modTestRunnerDiag.Diag "op.clear_orphan", "state=" & TestRunner.State
     Log.SuppressDebugOutput = False
-    Operation.InteractionMode = m_eimPriorMode
     modTestRunnerDiag.DiagBegin "op.finish.orphan"
-    Operation.Finish eorCanceled
+    m_cBridgeRoot.Complete eorCanceled
+    Set m_cBridgeRoot = Nothing
     modTestRunnerDiag.DiagEnd "op.finish.orphan"
 
 End Sub
@@ -886,15 +892,20 @@ Public Function AcceptBridgeRun(ByVal strFnName As String, ByVal strPayloadJson 
 
     ClearOrphanedTestOperation
 
+    ' The page can only host a run this module owns. If the root is refused, something
+    ' else is already running (an API or MCP run), and the request is rejected rather
+    ' than layered on top of an operation someone else will finish.
     m_blnPendingRunSetup = False
-    If Operation.Status <> eosRunning Then
-        If Not Operation.Begin(eotTestRun) Then
+    If m_cBridgeRoot Is Nothing Then
+        Set m_cBridgeRoot = Operation.TryBeginRoot(eotTestRun)
+        If m_cBridgeRoot Is Nothing Then
             Log.SuppressDebugOutput = False
             Err.Raise vbObjectError + 515, FunctionName, T("Could not begin test operation")
         End If
-        Log.Active = True
-        m_eimPriorMode = Operation.InteractionMode
+        ' Nobody is watching the page for a dialog behind it, so the run is silent for its
+        ' whole life, the same way ExecuteTests runs an API or MCP request.
         Operation.InteractionMode = eimSilent
+        Log.Active = True
         Log.ClearErrorJournal
         m_blnPendingRunSetup = True
     End If
@@ -930,6 +941,12 @@ Public Sub ExecutePendingBridgeRun()
     Dim strErrMsg As String
 
     If Len(m_strPendingRunFn) = 0 Then Exit Sub
+
+    ' The form timer can fire this while a run is already under way (a DoEvents inside
+    ' the runner pumps the message queue). Running again re-enters the runner and, worse,
+    ' tears down the operation when the inner call returns. The request stays pending
+    ' and is picked up by a later tick.
+    If TestRunner.State = etrsRunning Then Exit Sub
 
     ' Copy and clear the pending state up front so a failure cannot leave a stale run.
     strFnName = m_strPendingRunFn
@@ -973,12 +990,12 @@ ErrHandler:
     On Error Resume Next
     modTestRunnerDiag.Diag "run.execute.error", strFnName & " | " & strErrMsg
     StreamRunError strErrMsg
-    If Operation.Status = eosRunning Then
+    If Not m_cBridgeRoot Is Nothing Then
         SaveWebRunnerRunLog
-        Operation.Finish eorFailed
+        m_cBridgeRoot.Complete eorFailed
+        Set m_cBridgeRoot = Nothing
     End If
     Log.SuppressDebugOutput = False
-    Operation.InteractionMode = m_eimPriorMode
     Err.Clear
 
 End Sub
@@ -1699,7 +1716,7 @@ End Function
 Private Sub EndInteractiveBridgeRun()
 
     modTestRunnerDiag.DiagBegin "teardown"
-    If Operation.Status = eosRunning Then
+    If Not m_cBridgeRoot Is Nothing Then
         modTestRunnerDiag.DiagBegin "teardown.save_results"
         TestRunner.SaveResults
         modTestRunnerDiag.DiagEnd "teardown.save_results"
@@ -1711,12 +1728,12 @@ Private Sub EndInteractiveBridgeRun()
         modTestRunnerDiag.DiagEnd "teardown.global"
         SaveWebRunnerRunLog
         modTestRunnerDiag.DiagBegin "teardown.op_finish"
-        Operation.Finish IIf(TestRunner.State = etrsCancelled, eorCanceled, eorSuccess)
+        m_cBridgeRoot.Complete IIf(TestRunner.State = etrsCancelled, eorCanceled, eorSuccess)
+        Set m_cBridgeRoot = Nothing
         modTestRunnerDiag.DiagEnd "teardown.op_finish"
     End If
 
     Log.SuppressDebugOutput = False
-    Operation.InteractionMode = m_eimPriorMode
 
     ' Teardown (and ActiveVBProject switches during the run) can leave the VBE in
     ' the foreground when it was already open. Return focus to the runner form.

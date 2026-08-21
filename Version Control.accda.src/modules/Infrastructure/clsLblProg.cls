@@ -103,9 +103,9 @@ Public Event ProgressChange(dblValue As Double, intPercent As Integer)
         this.sngOffset = 15
         ' Verify front label (not optional for Microsoft Access)
         If FrontLabel Is Nothing Then
-            MsgBox "Missing required front label for progress bar" & vbCrLf & _
-                "This parameter is required when using Microsoft Access.", vbExclamation
-            Exit Sub
+            Err.Raise vbObjectError + 515, "clsLblProg.Initialize", _
+                "Missing required front label for progress bar." & vbCrLf & _
+                "This parameter is required when using Microsoft Access."
         End If
         ' Use existing controls
         Set this.lblFront = FrontLabel

@@ -66,9 +66,9 @@ End Sub
 ' Procedure : ResolveOrPrompt
 ' Author    : Adam Waller
 ' Date      : 4/15/2026
-' Purpose   : For agent/API operations, auto-resolve all conflicts (source is truth for
-'           : imports, database is truth for exports). For user-initiated operations,
-'           : show the interactive conflict dialog as usual.
+' Purpose   : For automated callers and any non-normal interaction mode, auto-resolve
+'           : all conflicts (source is truth for imports, database is truth for exports).
+'           : For user-initiated operations in normal mode, show the interactive dialog.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ResolveOrPrompt()
@@ -79,7 +79,8 @@ Public Sub ResolveOrPrompt()
     ' Log detected conflicts with date details for diagnostics
     LogDetectedConflicts
 
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI _
+        Or Operation.InteractionMode <> eimNormal Then
         For Each varKey In m_dItems.Keys
             Set cItem = m_dItems(varKey)
             If cItem.ActionType <> ercNone Then

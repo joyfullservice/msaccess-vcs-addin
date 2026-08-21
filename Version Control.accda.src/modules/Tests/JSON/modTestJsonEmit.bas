@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestJsonEmit"
+﻿Attribute VB_Name = "modTestJsonEmit"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestJsonEmit
 ' Author    : Adam Waller

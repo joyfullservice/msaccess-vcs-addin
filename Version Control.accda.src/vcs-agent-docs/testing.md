@@ -7,8 +7,8 @@ database is open. Tests assert with `TestAssert`, a drop-in replacement for
 ## Setup
 
 Run `VCS.InstallTestAssertModule` from the Immediate Window to inject the
-`modTestAssert` module. If test code already uses `Debug.Assert`,
-`VCS.MigrateDebugAssert` converts it in bulk.
+`modTestAssert` module. `VCS.MigrateDebugAssert` converts existing `Debug.Assert`
+calls in bulk.
 
 ## Writing tests
 
@@ -30,17 +30,29 @@ The second `TestAssert` argument is optional context that identifies which
 assertion failed, which matters inside loops and shared helpers.
 
 A module counts as a test module if it carries `'@Folder("...Tests...")` (in
-projects that use `@Folder` annotations at all) or its name contains `Test`. Within
-it, only parameterless `Public Sub` procedures are registered, and only if the
-module contains at least one `TestAssert` call. To keep a helper out of the suite,
-make it `Private` or give it a parameter.
+projects using `@Folder` at all) or its name contains `Test`. Within it, only
+parameterless `Public Sub` procedures are registered, and only if the module has a
+`TestAssert` call. To exclude a helper, make it `Private` or give it a parameter.
 
 **Class modules** work the same way and add per-test setup and teardown: every test
 method gets a fresh instance, so `Class_Initialize` runs before it and
-`Class_Terminate` after. Use parameterless `Public Sub` or `Public Function`.
+`Class_Terminate` after. Use parameterless `Public Sub` or `Public Function`. Name
+test modules `modTest*` or `clsTest*`, and mark standard ones
+`Option Private Module`.
 
-Name test modules `modTest*` for standard modules or `clsTest*` for classes, and
-mark standard test modules `Option Private Module`.
+## Prompts during a run
+
+A run is unattended: a `MsgBox`, `InputBox`, or modal form in code a test reaches
+stalls it until someone clicks. `modTestAssert.TestRunActive` is true for the whole
+run, so guard anything that waits for a person:
+
+```vba
+If Not TestRunActive Then MsgBox "Import complete.", vbInformation
+```
+
+Prefer guarding a prompt whose absence changes nothing; where a prompt decides
+something, branch to the answer an unattended run should get. A `modTestAssert`
+installed before this feature will not have the flag.
 
 ## Running tests
 
@@ -50,10 +62,9 @@ ribbon. After a completed run the runner can re-run only the failures.
 `RunTests` takes an optional `ParamArray` of filters. Each argument resolves in
 priority order: exact module name, then suite or `@Folder` value (matching the full
 path or its final segment, so `"SQL"` matches `"Tests.SQL"`), then procedure name or
-full `Module.Procedure` key, then tag.
-
-Prefix an argument with `-` to exclude it. Inclusions combine with OR, exclusions
-with AND, and a filter list containing only exclusions starts from all tests.
+full `Module.Procedure` key, then tag. Prefix an argument with `-` to exclude it.
+Inclusions combine with OR, exclusions with AND, and a list containing only
+exclusions starts from all tests.
 
 ```vba
 ?VCS.RunTests("-slow")                   ' Everything except slow-tagged tests
@@ -61,8 +72,7 @@ with AND, and a filter list containing only exclusions starts from all tests.
 ?VCS.RunTests("TestInvoiceTotal")        ' One specific procedure
 ```
 
-`RunTests` returns a JSON summary with per-test status, assertion detail, and a
-`tags` array for each test.
+`RunTests` returns a JSON summary with per-test status, assertion detail, and tags.
 
 ## Tagging
 
@@ -70,15 +80,6 @@ with AND, and a filter list containing only exclusions starts from all tests.
 module-level tag sits in the first ~30 lines, before any procedure, and applies to
 every test in the module. A procedure-level tag sits at the very top of the
 procedure body, before any executable line including `Dim`. The two sets merge.
-
-```vba
-'@Tag("slow")           ' Module-level: inherited by every test here
-
-Public Sub TestExpensiveQuery()
-    '@Tag("database")   ' Procedure-level: this test only
-    TestAssert RunCheck(), "check passes"
-End Sub
-```
 
 ## Global suite hooks
 
@@ -89,9 +90,9 @@ Public Sub GlobalTestSetup()    ' Before the first test, when at least one is se
 Public Sub GlobalTestTeardown() ' After all tests; the results JSON already exists
 ```
 
-`VCS.InstallTestAssertModule` writes empty stubs with inline guidance. If they are
-absent the runner skips them silently. They do not run when no tests are discovered
-or a filter matches nothing. An error inside a hook is non-fatal — it goes to the
+`VCS.InstallTestAssertModule` writes empty stubs with inline guidance; if absent
+the runner skips them silently. They do not run when no tests are discovered or a
+filter matches nothing. An error inside a hook is non-fatal — it goes to the
 console, the run continues, and teardown still executes. Per-test
 `Class_Initialize` and `Class_Terminate` nest inside these hooks unchanged.
 

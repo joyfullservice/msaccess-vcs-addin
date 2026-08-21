@@ -726,8 +726,8 @@ Public Sub SetPrinterMargins(oPrinter As Access.Printer, dMargins As Dictionary)
                     End If
 
                 Case Else
-                    ' Could not find that property.
-                    MsgBox "Margin property " & CStr(varKey) & " not found.", vbExclamation
+                    Log.Error eelWarning, T("Margin property {0} not found.", var0:=CStr(varKey)), _
+                        "clsPrinterSettings.SetPrinterMargins"
             End Select
         Next varKey
     End With

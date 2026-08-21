@@ -75,6 +75,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Dim lngCount As Long
     Dim lngCurrent As Long
     Dim cModule As clsDbModule
+    Dim strRootToken As String
 
     LogUnhandledErrors FunctionName
     On Error Resume Next
@@ -239,9 +240,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 ' Nothing is finished or torn down here: the staged operation, log, and
                 ' timers are picked up by the merge stage that follows the reset.
                 Log.Flush
-                Operation.Stage
+                strRootToken = Operation.CurrentRootToken
+                Operation.DetachRootLease strRootToken
                 TraceInPlaceMerge "prep: staging reset timer"
-                SetTimer "MergeReset", strSourceFolder, CStr(CLng(intFilter))
+                SetTimer "MergeReset", strSourceFolder, CStr(CLng(intFilter)), strRootToken
                 Exit Sub
             Else
                 ' Fall back to the reliable path.
@@ -784,8 +786,7 @@ CleanUp:
     ' MCP callback. Say what actually happened before finishing.
     If Not blnSuccess Or Operation.ErrorLevel = eelCritical Then Operation.Result = eorFailed
 
-    ' Wait to finish the build till after we have saved the index.
-    Operation.Finish
+    ' Root completion is owned by the orchestration boundary that began the operation.
 
     ' Show MessageBox if not using GUI for build (skip for API/MCP operations).
     If Forms.Count = 0 And blnSuccess _
@@ -1320,7 +1321,79 @@ CleanUp:
         .Flush
     End With
 
-    Operation.Finish intResult
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CompleteBuildOperation
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : Complete the root operation after Build returns. Captures Result before
+'           : Finish releases infrastructure singletons.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CompleteBuildOperation(Optional blnSuccess As Boolean = True)
+
+    If Operation.Status = eosRunning Then
+        If Not blnSuccess Or Operation.ErrorLevel = eelCritical Then
+            Operation.Result = eorFailed
+        ElseIf Operation.Result = eorUnknown Then
+            Operation.Result = eorSuccess
+        End If
+        Operation.Finish Operation.Result
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CompleteLoadSingleObject
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : Complete the root operation after LoadSingleObject returns.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CompleteLoadSingleObject(Optional intResult As eOperationResult = eorSuccess)
+
+    If Operation.Status = eosRunning Then
+        Operation.Finish intResult
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunBuildFromContinuation
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : Resume a staged build timer and complete the root when Build returns.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RunBuildFromContinuation(strRootToken As String, strSourceFolder As String, _
+    blnFullBuild As Boolean, Optional intFilter As eContainerFilter = ecfAllObjects, _
+    Optional strAlternatePath As String, Optional blnResumed As Boolean = False)
+
+    Dim cRoot As clsRootOperationLease
+    Dim blnSuccess As Boolean
+
+    Set cRoot = Operation.ResumeRoot(strRootToken)
+    If cRoot Is Nothing Then Exit Sub
+
+    LogUnhandledErrors ModuleName & ".RunBuildFromContinuation"
+    On Error GoTo ErrHandler
+
+    Build strSourceFolder, blnFullBuild, intFilter, strAlternatePath, blnResumed
+    blnSuccess = (Operation.ErrorLevel <> eelCritical)
+    If Not blnSuccess Or Operation.ErrorLevel = eelCritical Then
+        cRoot.Complete eorFailed
+    Else
+        cRoot.Complete eorSuccess
+    End If
+    Exit Sub
+
+ErrHandler:
+    CatchAny eelError, T("Build continuation failed"), ModuleName & ".RunBuildFromContinuation"
+    If Not cRoot Is Nothing Then cRoot.Complete eorFailed
 
 End Sub
 

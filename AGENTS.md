@@ -33,11 +33,11 @@ This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
 Build from source by installing a recent release, cloning the repo, and using the
 add-in's **Build From Source** on the `Version Control.accda.src` folder. To make
 a change: modify the running `Version Control.accda`, test, then run `Deploy` in
-the VBA Immediate Window — it increments the version, exports to source files,
-and installs the development build. Commit the source files and open a pull
-request against `dev`. Releases are cut from `master`; the add-in is
-self-installing. Agents rebuild unattended via `VCS.RebuildAddIn`, which refuses
-when another Access process holds a file it must replace.
+the VBA Immediate Window — it increments the version, exports to source files, and
+installs the development build. Commit the source files and open a pull request
+against `dev`; releases are cut from `master`. Agents rebuild unattended via
+`VCS.RebuildAddIn`, which refuses when another Access process holds a file it
+needs to replace.
 
 ## Invariants
 
@@ -106,19 +106,19 @@ Every module opens with a header block and `Option Compare Database` /
 
 ## Running tests
 
-`VCS.RunTests` takes an optional `ParamArray` of filters, each resolved in
-priority order: module name, then suite or `@Folder` value (exact or final
-segment), then procedure name or `Module.Procedure` key, then `'@Tag` value.
-Prefix an argument with `-` to exclude. Inclusions combine with OR, exclusions
-with AND; with only exclusions, the base set is all tests.
+The **installed** add-in drives a run and owns the operation; tests execute in the
+current project — a second loaded copy of this one when testing this repo — so
+`Operation` in a test is idle, and suppression arrives via `modTestAssert.TestRunActive`.
+
+`VCS.RunTests` takes filters resolved in priority order: module name, suite or
+`@Folder` value (exact or final segment), procedure or `Module.Procedure` key,
+then `'@Tag`. Prefix with `-` to exclude; inclusions OR, exclusions AND.
 
 ```vba
-?VCS.RunTests                             ' Run all tests
-?VCS.RunTests("modTestEncoding")          ' Run one module
-?VCS.RunTests("SQL", "-slow")             ' Run SQL suite, skip slow tests
-?VCS.RunTests("TestParseJoinExpression")  ' Run one specific procedure
-?VCS.RunTestsHeadless("-slow")            ' Unattended: no forms, always writes JUnit
-?VCS.RunRoundtripTests                    ' Object round-trip fixture corpus
+?VCS.RunTests("modTestEncoding")   ' One module (omit all filters to run everything)
+?VCS.RunTests("SQL", "-slow")      ' Run SQL suite, skip slow tests
+?VCS.RunTestsHeadless("-slow")     ' Unattended: no forms, always writes JUnit
+?VCS.RunRoundtripTests             ' Object round-trip fixture corpus
 ```
 
 ## Key files in an export folder

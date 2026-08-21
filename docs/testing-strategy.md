@@ -17,6 +17,42 @@ UI and its VBA-to-JavaScript bridge, see
 [web-test-runner.md](web-test-runner.md). For the filter syntax used by
 `VCS.RunTests`, see [AGENTS.md](../AGENTS.md).
 
+### Which project a run executes in
+
+A run spans two VBA projects, and almost every surprise in the harness traces back
+to that split. The **installed add-in** is the driver: `clsVersionControl.ExecuteTests`
+runs there, acquires the root lease, and owns the log, the console, and the results
+JSON. The **tests** run in the current project, reached by `Application.Run` through
+`clsTestRunner.BuildRunCmd`, because the runner scans `CurrentVBProject`.
+
+For a user database those are obviously different projects. For this repository they
+are two loaded copies of the *same* project — `Version Control.accda` open as the
+current database, plus the installed copy under `%AppData%\MSAccessVCS` — both named
+`MSAccessVCS`. `BuildRunCmd` qualifies by file path precisely for this case.
+
+The consequence that costs the most time: **global state is per-copy**. A test
+reading `Operation` gets the current project's singleton, which has no root and
+reports `eosReady`, normal interaction, and no automation source no matter what the
+driver is doing. Test code calling `MsgBox2` resolves to the current project's copy
+too, so the driver's silent mode does not reach it.
+
+### Harness invariants
+
+Harness-driven runs (`VCS.RunTests`, the web runner bridge, `RunTestsHeadless`,
+MCP `vcs_run_tests`) acquire a root lease with silent effective interaction and
+`ForceUnattended` when automation cannot interact with the session. **No message
+box or modal conflict dialog may appear** during these runs; errors belong in the
+log, JSON results, and `loggedErrors`. Individual tests do not need hand-rolled
+`eimSilent` guards for harness protection.
+
+Because the root lease lives in the driver, it cannot carry that guarantee across
+the project boundary. `clsTestRunner` therefore announces the run to the project it
+is driving: `SetHostedTestRunFlag` calls `modTestAssert.SetTestRunActive`, setting a
+public `TestRunActive` flag that any project can read — including user projects,
+which have no operation API at all. `modUIUtil.PromptWouldDisplay` returns `False`
+whenever that flag is set, gesture prompts included, and the flag is cleared in the
+runner's `CleanUp` on every exit path.
+
 ---
 
 ## `modTest*` naming convention

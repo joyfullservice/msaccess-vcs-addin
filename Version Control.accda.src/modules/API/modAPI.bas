@@ -241,7 +241,10 @@ Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optio
     ' (The API timer is helpful when you need to clear the call stack on the
     '  current database before running the add-in code.)
     If blnUseTimer And Not RunningOnLocal Then
-        If Operation.Status = eosRunning Then Operation.Stage
+        ' The dispatched procedure begins and owns its own root, so nothing here stages or
+        ' resumes the current one. A root that is still active when the callback fires
+        ' belongs to another caller: that caller's request is refused and logged, which is
+        ' far better than silently resuming an operation nobody holds a lease on.
         SetTimer strProcedure, CStr(varArg1), CStr(varArg2)
     Else
         ' Build the command to execute using Application.Run

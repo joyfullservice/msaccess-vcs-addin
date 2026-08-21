@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestLetterCasing"
+﻿Attribute VB_Name = "modTestLetterCasing"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestLetterCasing
 ' Author    : Adam Waller

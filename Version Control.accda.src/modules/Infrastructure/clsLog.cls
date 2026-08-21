@@ -338,11 +338,16 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
         Me.Spacer (eLevel > eelWarning)
         Me.Flush ' Force a screen update.
         AppendErrorJournal eLevel, strDisplay, strSource, lngErrNum, strErrDesc
-        ' Show message boxes only when no console is attached to receive the output.
-        ' (Test runs and other console-driven operations log here instead of blocking
-        ' with a dialog when Log.Active is false.)
+        ' Without a console, route prompts through MsgBox2 so InteractionMode and
+        ' Attended suppress blocking dialogs during harness and automation runs.
         If m_RichText Is Nothing Then
-            If Log.Active Then
+            If Operation.InteractionMode <> eimNormal Or Not Operation.Attended Then
+                Select Case eLevel
+                    Case eelWarning:    MsgBox2 "Warning", strDisplay, .GetStr, vbInformation
+                    Case eelError:      MsgBox2 "Error", strDisplay, .GetStr, vbExclamation
+                    Case eelCritical:   MsgBox2 "Critical", strDisplay, .GetStr, vbCritical
+                End Select
+            ElseIf Log.Active Then
                 If eLevel = eelCritical Then
                     MsgBox2 "Unable to Continue", .GetStr, _
                         "Please review the log file for additional details.", vbCritical
