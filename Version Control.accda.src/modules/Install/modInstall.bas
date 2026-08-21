@@ -783,6 +783,46 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CurrentDbIsInstalledAddIn
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : True when the file open as the current database is the installed add-in.
+'           : The install exists to be loaded as a library and nothing else, so this
+'           : reports a configuration callers refuse rather than one they accommodate.
+'           : Compared without the extension, because an install set to use the
+'           : compiled add-in is a .accde built from the same .accda.
+'---------------------------------------------------------------------------------------
+'
+Public Function CurrentDbIsInstalledAddIn() As Boolean
+    If Not DatabaseFileOpen Then Exit Function
+    CurrentDbIsInstalledAddIn = PathsMatchIgnoringExtension( _
+        CurrentProject.FullName, GetAddInFileName)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PathsMatchIgnoringExtension
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Compare two full paths as the same file apart from the extension. Used
+'           : where an add-in path may be either the .accda or the .accde built from
+'           : it, so neither may read as some other file. An empty path matches
+'           : nothing, including another empty one.
+'---------------------------------------------------------------------------------------
+'
+Public Function PathsMatchIgnoringExtension(strPath1 As String, strPath2 As String) As Boolean
+
+    If Len(strPath1) = 0 Or Len(strPath2) = 0 Then Exit Function
+
+    PathsMatchIgnoringExtension = (StrComp( _
+        FSO.BuildPath(FSO.GetParentFolderName(strPath1), FSO.GetBaseName(strPath1)), _
+        FSO.BuildPath(FSO.GetParentFolderName(strPath2), FSO.GetBaseName(strPath2)), _
+        vbTextCompare) = 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : UseWorkerScript
 ' Author    : Adam Waller
 ' Date      : 8/7/2026

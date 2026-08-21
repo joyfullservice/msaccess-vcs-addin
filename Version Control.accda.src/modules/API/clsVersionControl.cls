@@ -655,6 +655,7 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
     Dim strPath As String
     Dim strDetail As String
     Dim strStatusFile As String
+    Dim strPhaseStarted As String
     Dim strRepoFolder As String
     Dim strTargetFiles As String
     Dim lngOthers As Long
@@ -733,6 +734,19 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
         dResult.Add "error", "The source folder was not found: " & strPath
         GoTo Finish
     End If
+
+    ' Claim the status file before anything that can refuse. The caller polls this path,
+    ' and until now only the launch path ever wrote to it: a refusal returned its verdict
+    ' in the JSON and left whatever the *previous* rebuild had written on disk, so a
+    ' caller that polled -- as it is told to do -- read an earlier run's "complete" as the
+    ' outcome of the attempt it had just made. Stamping here makes every attempt that has
+    ' somewhere to write say so. The timestamp is explicit because the writer otherwise
+    ' inherits it from the file it is replacing, and it stays fixed for the rest of the
+    ' run, which is what lets a caller tell this attempt's records from the last one's.
+    strStatusFile = GetRebuildStatusFilePath(strPath)
+    strPhaseStarted = Format$(Now, "yyyy-mm-dd hh:nn:ss")
+    WriteRebuildStatusFile strStatusFile, "starting", strPhaseStarted:=strPhaseStarted
+
     If Not FSO.FileExists(strPath & "vcs-options.json") Then
         If Not blnUnattended Then
             MsgBox2 T("Invalid Source Folder"), _
@@ -798,13 +812,10 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
     ' Verify resource files are available
     VerifyResources
 
-    ' Stamp the phase explicitly. The writer inherits phaseStarted from an existing file
-    ' when none is supplied, which for the first write of a new attempt means adopting the
-    ' timestamp of the previous rebuild -- and a caller comparing phaseStarted against the
-    ' clock to judge progress would read a brand-new attempt as long stalled.
-    strStatusFile = GetRebuildStatusFilePath(strPath)
-    WriteRebuildStatusFile strStatusFile, "launched", _
-        strPhaseStarted:=Format$(Now, "yyyy-mm-dd hh:nn:ss")
+    ' Inherit the phaseStarted stamped when this attempt claimed the status file above.
+    ' It marks when the attempt began rather than when it reached this line, and holding
+    ' it constant is what makes it usable as this run's identity.
+    WriteRebuildStatusFile strStatusFile, "launched"
 
     ' Launch the worker to handle the build and install disconnected
     Worker.Run_BuildAndInstall strPath, blnUnattended, strStatusFile
@@ -845,6 +856,21 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
     dResult.Add "logFolder", StripSlash(strPath) & PathSep & "logs"
 
 Finish:
+    ' Record the refusal for anyone polling the file rather than reading the return value.
+    ' Handled here rather than at each refusal so a path added later cannot forget to.
+    ' Refusals that never reached a valid source folder have nowhere to write and are
+    ' also nowhere anyone could be polling, so they leave no record but the JSON below.
+    If Len(strStatusFile) > 0 Then
+        If dResult.Exists("status") Then
+            If StrComp(Nz(dResult("status"), vbNullString), "refused", vbBinaryCompare) = 0 Then
+                WriteRebuildStatusFile strStatusFile, "refused", _
+                    Nz(dResult("error"), vbNullString)
+            End If
+        End If
+        If Not dResult.Exists("statusFile") Then dResult.Add "statusFile", strStatusFile
+        dResult.Add "phaseStarted", strPhaseStarted
+    End If
+
     RebuildAddIn = ConvertToJson(dResult, JSON_WHITESPACE)
     If blnUnattended Then Operation.InteractionMode = eimPrior
 
@@ -2834,6 +2860,27 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
             MsgBox2 T("No Database Open"), _
                 T("Please open a database file before running tests."), _
                 , vbInformation
+        End If
+        Exit Function
+    End If
+
+    ' A test run needs two projects: the installed add-in, loaded as a library, hosts
+    ' the runner singleton and the TestAssert every assertion routes through, while the
+    ' code under test is whatever CurrentVBProject holds. Opening the installed copy as
+    ' the current database collapses both roles onto one file -- scanning then finds the
+    ' library's own components, and InstallTestAssertModule below would write a module
+    ' into a VBA project that is currently executing, which resets it mid-run. Refuse
+    ' before either can happen; the development copy in the repository is the host.
+    If CurrentDbIsInstalledAddIn Then
+        If blnHeadless Then
+            ExecuteTests = "{""error"":""Refusing to run tests in the installed add-in. " & _
+                "Open the development copy of the add-in and run them there.""}"
+        Else
+            MsgBox2 T("Wrong Database for Tests"), _
+                T("Tests cannot be run in the installed add-in, which is only meant to " & _
+                  "be loaded as a library."), _
+                T("Open the development copy of the add-in and run the tests there."), _
+                vbExclamation
         End If
         Exit Function
     End If

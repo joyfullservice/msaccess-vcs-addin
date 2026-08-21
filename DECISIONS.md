@@ -83,6 +83,145 @@ contradictory guidance.
 
 ---
 
+## 2026-08-21 — A test run is refused when the installed add-in is the current database
+
+**Trigger**: Agents kept opening the installed add-in as a database to run the
+add-in's tests, and the documentation had drifted far enough to encourage it —
+one revision even called a run hosted there acceptable. A run in that
+configuration produced sixteen failures that said nothing about the code under
+test, and `ExecuteTests` would have gone on to install `modTestAssert` into the
+VBA project it was executing in.
+
+A test run needs two projects. The installed add-in, loaded as a library, owns
+the runner singleton and the `TestAssert` every assertion routes through; the
+code under test is whatever `CurrentVBProject` holds, which is the development
+copy in the repository. Those roles are what make the suite work, and they are
+different files. Opening the install as the current database collapses both onto
+one file: scanning finds the library's own components, the export folder beside
+it has no source tree for the tests that read one, and any module the runner
+installs lands in a project that is mid-execution.
+
+**Options explored**:
+- *Documentation only* — already tried and already failed. Prose had been
+  contradicting itself on this point for a while, and each agent that read the
+  wrong sentence repeated the same mistake.
+- *Make the failing tests tolerate the configuration* — a skip guard in
+  `modTestContainers` was written first and then withdrawn. It treats the
+  symptom, and worse, converts a genuinely missing source tree into a silent
+  pass in the configuration where the files are supposed to exist.
+- *Refuse in `TestRunner.Scan`* — too deep. By then `modTestAssert` may already
+  have been installed into the wrong project, which is the damage worth
+  preventing.
+- *Refuse in `ExecuteTests`, before anything writes* — chosen. It is the single
+  choke point behind `RunTests`, `RunFilteredTests`, and `RunTestsHeadless`, and
+  it sits above the `TestAssertModuleExists` branch, so no entry point can reach
+  the project-modifying path.
+
+**Decision**: `ExecuteTests` refuses when `modInstall.CurrentDbIsInstalledAddIn`,
+naming the development copy as the host. The comparison ignores the extension, so
+an install configured for the compiled `.accde` still matches the `.accda` it was
+built from; `PathsMatchIgnoringExtension` carries that rule and is tested
+directly. `modTestContainers` fails rather than skips when a component's source
+file is absent, since in the only sanctioned configuration it is present.
+
+`clsTestInstall.TestTestsAreNotHostedOnTheInstalledAddIn` asserts the guard let
+the run through, which is only reachable when it did — a passing suite therefore
+proves its own host was right.
+
+**What this rules out**: the installed add-in can no longer host a test run at
+all, so nothing may be added that depends on doing so, and a run hosted there is
+now a refusal rather than a pile of misleading failures. Documentation that
+describes running tests or rebuilding must name the development copy; the same
+mistake reached the MCP server's tool instructions, where the rebuild host had
+been described as "a user database Access already has open."
+
+**Relevant files**: `modInstall.bas` (`CurrentDbIsInstalledAddIn`,
+`PathsMatchIgnoringExtension`), `clsVersionControl.cls` (`ExecuteTests`),
+`clsTestInstall.cls`, `modTestContainers.bas`, `docs/agent-test-runs.md`,
+`docs/agentic-rebuild.md`, `AGENTS.md`, `Testing/AGENTS.md`, and in
+`msaccess-vcs-mcp`: `src/msaccess_vcs_mcp/tools.py`.
+
+---
+
+## 2026-08-21 — The API dispatches to the installed add-in only when it is a different file
+
+**Trigger**: Agents repeatedly did two things they are told not to: importing
+source files into the installed add-in, and opening `Testing\Testing.accdb`
+believing that is how the add-in's tests are run. The documentation said
+otherwise, so the question was what was overriding it.
+
+The cause was a defect, not a docs gap. `modAPI.API` redirected to the installed
+add-in whenever `RunningOnLocal()` — current database and running code are the
+same file. That is true of a development copy open as the current database, where
+redirecting is the point, and equally true of the *installed* add-in open as the
+current database, where `GetRunCmdAddInFullLibName` resolves to that same file.
+`Application.Run` re-entered `API` while the outer call still held its
+`Static IsRunning`, so every such call returned `VCS_API_REFUSED`.
+`RefuseReentrantCall` then blamed `vcs_run_vba` nesting and advised invoking API
+methods directly, so the agent concluded it needed a different host database and
+found the sample one.
+Separately, every refusal in `RebuildAddIn` returned without touching
+`rebuild-status.json`, leaving a prior run's `complete` for the caller to poll —
+so a refused rebuild read as a successful one, and an agent whose edit then had
+no effect reached for a direct import.
+
+**Options explored**:
+- *Documentation only* — clarify the routing and add an agent-facing test-run
+  reference. Necessary but not sufficient: agents were already following the
+  documented path into a hard failure, and better prose does not make a false
+  error message true.
+- *Drop the `RunningOnLocal` redirect entirely* — simplest, and wrong. It exists
+  so a call made from a development copy runs against the installed add-in rather
+  than the half-edited local project (#593). Removing it would break the case it
+  was added for.
+- *Compare full paths including extension* — would misread an installed `.accde`
+  as a different file from the `.accda` it was built from, restoring the loop for
+  compiled installs.
+- *Compare the extension-less path against the redirect target* — chosen.
+  `RedirectTargetIsSelf` builds exactly the string `Application.Run` is handed
+  and compares it to the running code project, so the question asked is precisely
+  "would this dispatch land back here."
+- *For the status file: write a refusal record at each refusal site* — rejected
+  in favor of claiming the file with a `starting` record before any check that can
+  refuse, plus one write at `Finish`. A path added later cannot forget to.
+- *Add a `runId` to the status schema* for correlation, as the MCP-side handoff
+  suggested — unnecessary. The writer already preserves `phaseStarted` across
+  phase updates, so stamping it once per attempt makes it the attempt's identity
+  with no schema change and no churn in the hand-rolled writer twin in
+  `clsWorker.cls`.
+
+**Decision**: Redirect only when the installed add-in is a different file than
+the one running. Give `RefuseReentrantCall` a reason so a self-dispatched refusal
+says it is a defect here and that no choice of host will help, rather than
+sending the caller looking for one. Have every rebuild attempt that reaches a
+valid source folder claim the status file first and record its own verdict, with
+`phaseStarted` fixed for the run and returned to the caller. On the MCP side,
+narrow the self-host refusal from every add-in API method to the ones that
+replace the installed file — with the dispatch loop fixed, the blanket refusal
+was itself the thing pushing callers into hunting for a host database.
+
+The trade-off is that self-hosting is now legal for most methods, so the add-in
+must tolerate being its own current database. It already did; nothing depended on
+the redirect firing in that case, because in that case the redirect never
+completed.
+
+**What this rules out**: `RunningOnLocal()` on its own can no longer be read as
+"redirect needed" — anything added to those entry points has to ask
+`RedirectTargetIsSelf` as well. A status file at `<source>\logs\` may now be
+written by an attempt that never launched anything, so a reader must correlate on
+`phaseStarted` rather than assume any record it finds describes a real build.
+Revisit if a file-replacing API method other than `RebuildAddIn` appears, which
+would need adding to `_ADDIN_FILE_REPLACING_METHODS` on the server rather than
+reinstating a blanket refusal.
+
+**Relevant files**: `modAPI.bas` (`RedirectTargetIsSelf`, `RefuseReentrantCall`,
+`API`, `APIAsync`), `clsVersionControl.cls` (`RebuildAddIn`), `clsTestInstall.cls`,
+`docs/agent-test-runs.md` (new), `docs/agentic-rebuild.md`, `AGENTS.md`,
+`Testing/AGENTS.md`, and in `msaccess-vcs-mcp`: `src/msaccess_vcs_mcp/tools.py`,
+`tests/test_call_vba_guards.py`, `docs/ADDIN_FIXES_HANDOFF.md`.
+
+---
+
 ## 2026-08-21 — Git conflict-marker scan must use vbBinaryCompare
 
 **Trigger**: Full builds of the add-in regressed from ~12s to ~25s after

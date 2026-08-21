@@ -13,8 +13,10 @@ Attribute VB_Exposed = False
 ' Date      : 8/12/2026
 ' Purpose   : Tests for unattended add-in rebuild helpers: process guard, held-file
 '           : matching, build target derivation, trusted location check, /cmd token
-'           : parse, command-line database detection, rebuild-status.json round trip,
-'           : and the worker handoff check. Nothing here may close a process: the
+'           : parse, command-line database detection, rebuild-status.json round trip
+'           : (including the record a refused attempt leaves behind), the worker
+'           : handoff check, and the guard that keeps a test run off the installed
+'           : add-in. Nothing here may close a process: the
 '           : guard only reports, and a test that terminated an Access instance would
 '           : take the developer's other work with it.
 '---------------------------------------------------------------------------------------
@@ -207,13 +209,53 @@ Public Sub TestRebuildStatusFile_RoundTrip()
     TestAssert dStatus("phaseStarted") = strStarted, "phaseStarted kept on update"
 
     ' Inheriting the previous value is right for a phase update and wrong for the first
-    ' write of a new attempt, which is why RebuildAddIn stamps "launched" explicitly.
+    ' write of a new attempt, which is why RebuildAddIn stamps "starting" explicitly.
     ' Without the override a fresh attempt would carry the last rebuild's timestamp and
     ' read as long stalled to anyone timing it against the clock.
     WriteRebuildStatusFile strFile, "launched", vbNullString, vbNullString, "2026-08-12 11:30:00"
     Set dStatus = ReadRebuildStatusFile(strFile)
     TestAssert dStatus("phaseStarted") = "2026-08-12 11:30:00", _
         "an explicit phaseStarted replaces a stale one"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestRebuildStatusFile_AttemptSupersedesPriorRun
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Cover the sequence a refused attempt writes, which is the one that used to
+'           : write nothing at all. A refusal returned its verdict in the call's own JSON
+'           : and left the previous rebuild's record untouched, so a caller that polled
+'           : the status file -- as it is told to do -- read an earlier "complete" as the
+'           : outcome of the attempt it had just made. RebuildAddIn now claims the file
+'           : before anything can refuse, and phaseStarted stays fixed across both writes
+'           : so records from one attempt can be told from the last one's.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestRebuildStatusFile_AttemptSupersedesPriorRun()
+    Dim strFile As String
+    Dim dStatus As Dictionary
+
+    strFile = GetRebuildStatusFilePath(m_strTempFolder)
+
+    ' A successful rebuild from some earlier session
+    WriteRebuildStatusFile strFile, "complete", vbNullString, "C:\logs\Build_1.log", _
+        "2026-08-12 10:00:00"
+
+    WriteRebuildStatusFile strFile, "starting", strPhaseStarted:="2026-08-21 09:15:00"
+    Set dStatus = ReadRebuildStatusFile(strFile)
+    TestAssert dStatus("status") = "starting", "a new attempt supersedes the last run's record"
+    TestAssert dStatus("phaseStarted") = "2026-08-21 09:15:00", "and carries its own start time"
+    TestAssert dStatus("buildLog") = vbNullString, "the previous run's build log is not inherited"
+
+    WriteRebuildStatusFile strFile, "refused", "Rebuild refused: 1 other Access instance(s) " & _
+        "hold a file this rebuild must replace."
+    Set dStatus = ReadRebuildStatusFile(strFile)
+    TestAssert dStatus("status") = "refused", "the refusal is recorded, not only returned"
+    TestAssert InStr(1, dStatus("error"), "other Access instance", vbTextCompare) > 0, _
+        "refusal reason survives the round trip"
+    TestAssert dStatus("phaseStarted") = "2026-08-21 09:15:00", _
+        "phaseStarted identifies the attempt across every record it writes"
 End Sub
 
 
@@ -262,6 +304,67 @@ Public Sub TestWaitForRebuildHandoff_WorkerResponded()
     ' more useful to the caller than a generic launch failure.
     WriteRebuildStatusFile strFile, "build-failed", "source folder was empty"
     TestAssert WaitForRebuildHandoff(strFile, 0.4), "a terminal worker status also confirms it"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestPathsMatchIgnoringExtension
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : The comparison behind CurrentDbIsInstalledAddIn. An install configured for
+'           : the compiled add-in is a .accde built from the same .accda, so a match has
+'           : to ignore the extension without becoming loose enough to match a sibling
+'           : file or the same base name in another folder.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestPathsMatchIgnoringExtension()
+
+    Const strAccda As String = "C:\Users\Me\AppData\Roaming\MSAccessVCS\Version Control.accda"
+
+    TestAssert PathsMatchIgnoringExtension(strAccda, strAccda), "a path matches itself"
+    TestAssert PathsMatchIgnoringExtension(strAccda, _
+        "C:\Users\Me\AppData\Roaming\MSAccessVCS\Version Control.accde"), _
+        "the compiled install matches the .accda it was built from"
+    TestAssert PathsMatchIgnoringExtension(strAccda, _
+        "c:\users\me\appdata\roaming\msaccessvcs\VERSION CONTROL.ACCDA"), _
+        "case insensitive, as the file system is"
+
+    ' The development copy is the whole point of the distinction: same base name, and it
+    ' must never be mistaken for the install.
+    TestAssert Not PathsMatchIgnoringExtension(strAccda, _
+        "C:\Repos\msaccess-vcs-addin\Version Control.accda"), _
+        "same file name in another folder is a different file"
+    TestAssert Not PathsMatchIgnoringExtension(strAccda, _
+        "C:\Users\Me\AppData\Roaming\MSAccessVCS\Version Control Backup.accda"), _
+        "a different base name in the install folder does not match"
+
+    ' Nothing useful can be concluded from a missing path, so it matches nothing.
+    TestAssert Not PathsMatchIgnoringExtension(strAccda, vbNullString), "empty matches nothing"
+    TestAssert Not PathsMatchIgnoringExtension(vbNullString, vbNullString), _
+        "two empty paths are not a match"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTestsAreNotHostedOnTheInstalledAddIn
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : A test run needs the runner and TestAssert in the installed library and the
+'           : code under test in CurrentVBProject. Hosting the run on the installed copy
+'           : collapses both onto one file, and ExecuteTests refuses before it can install
+'           : modTestAssert into a VBA project that is executing. That refusal is what
+'           : makes this assertion reachable at all: if it ever fails, the guard let a
+'           : configuration through that nothing below it is written to survive.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTestsAreNotHostedOnTheInstalledAddIn()
+
+    TestAssert Not CurrentDbIsInstalledAddIn, _
+        "the current database is not the installed add-in"
+    TestAssert Not PathsMatchIgnoringExtension(CurrentProject.FullName, GetAddInFileName), _
+        "current database resolves to a different file than the install"
+
 End Sub
 
 

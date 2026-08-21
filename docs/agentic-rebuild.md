@@ -31,11 +31,17 @@ source. This path rebuilds the add-in itself.
 vcs_call_vba(database_path, "VCS.API", ["RebuildAddIn", "<source folder>"])
 ```
 
-`database_path` only decides which Access instance hosts the call. It has no
-bearing on what gets rebuilt — that is the source folder argument. Use whatever
-database the session already has open, or the add-in itself when there is none;
-do not open an unrelated database to satisfy the parameter. The JSON result looks
-like:
+`database_path` only decides which Access instance hosts the call; what gets
+rebuilt is the source folder argument. **Host it on the development copy of the
+add-in** — the `Version Control.accda` in the repository root, beside the source
+folder. That host holds the build target, so it closes itself once the handoff is
+confirmed; nothing refuses the call for that reason.
+
+Do not host it on the installed copy under `%AppData%`, which is only ever loaded
+as an add-in and never opened as a database, and do not open some unrelated
+database — a user project or `Testing\Testing.accdb` — to satisfy the parameter.
+Rebuilding the add-in is a repository operation and belongs to the repository's
+own copy. The JSON result looks like:
 
 ```json
 {
@@ -81,6 +87,7 @@ Access instance to stay alive. Poll it with the Read tool.
 
 | `status` | Meaning |
 |---|---|
+| `starting` | Attempt claimed the file; preflight has not finished |
 | `launched` | Worker launched; not yet confirmed running |
 | `building` | Worker reported for duty; a new Access instance is building from source |
 | `compiling` | Compile gate on the rebuilt project |
@@ -96,6 +103,14 @@ Other fields: `error`, `buildLog` (path of the build log when one exists),
 `phaseStarted`, `updated`. Terminal states are `complete` and the `*-failed` /
 `refused` values.
 
+Every attempt that gets as far as an existing source folder stamps `starting`
+with a fresh `phaseStarted` before running any check that could refuse, and
+records its own `refused` verdict if one comes. `phaseStarted` then holds still
+for the rest of the run, so it identifies the attempt: the call returns the same
+value it wrote, and a record carrying a different one belongs to somebody else's
+run. A refusal reached before that — no source folder, or none that exists —
+leaves no record, and there is no folder to poll in that case either.
+
 A `refused` or `launch-failed` call returns that verdict in its own JSON, so
 there is nothing to poll for. Only poll after a `launched` result.
 
@@ -110,47 +125,12 @@ After `complete`, later MCP calls against a user database spawn a fresh Access
 and load the newly installed add-in. Re-run the verification that needed the
 rebuild.
 
-## Running the add-in's own tests
+## Verifying the rebuild
 
-The add-in's tests only run when the add-in itself is the current database,
-because `TestRunner.Scan` walks `CurrentVBProject`. Pointing a test run at a user
-database finds that database's tests instead.
-
-```
-vcs_run_tests("C:\Repos\msaccess-vcs-addin\Version Control.accda", "clsTestInstall")
-```
-
-`AutoRun` stands down when `Application.UserControl` is False, so a COM client can
-open either copy without the install message box closing the instance or the
-installer form stranding it.
-
-`vcs_run_tests` opens the file itself when no instance has it open, `.accda`
-included. The server binds a file moniker first, which Access only honours for a
-database extension, and falls back to `OpenCurrentDatabase` when that bind fails.
-
-`vcs_run_vba` is the exception. It attaches through the Running Object Table
-without opening anything, so it reports `Cannot find Access instance ... may have
-been closed` unless the file is already open — for a `.accdb` as much as a
-`.accda`. Open it first, handing ownership to the desktop so the instance
-outlives the launching script:
-
-```powershell
-$app = New-Object -ComObject Access.Application
-$app.OpenCurrentDatabase("C:\Repos\msaccess-vcs-addin\Version Control.accda")
-$app.Visible = $true
-$app.UserControl = $true   # after opening, so AutoRun still sees automation
-```
-
-A rebuild ends with no Access process running, so reopen it before the next
-iteration.
-
-Run the tests **through the MCP server**, not from the add-in's own window. The
-runner singleton that records assertions lives in whichever project received the
-`RunTests` call, while `modTestAssert.TestAssert` always routes through
-`Application.Run` to the *installed* add-in path. Invoking `VCS.RunTests` from
-inside a development copy puts those two in different projects: every assertion
-is silently discarded, every test reports `EMPTY`, and the run looks clean while
-proving nothing. Treat an all-`EMPTY` result as a broken harness, not a pass.
+A rebuild ends with no Access process running, so the next run reopens the file.
+Running the add-in's own test suite afterwards is its own topic, including which
+database has to host the run and why an all-`EMPTY` result is a broken harness
+rather than a pass: see [agent-test-runs.md](agent-test-runs.md).
 
 ## Why it refuses instead of closing them
 

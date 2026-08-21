@@ -28,11 +28,8 @@ Public Sub TestGetSourceModifiedDate()
     Dim cModule As IDbComponent
     Dim dteResult As Date
 
-    Set cModule = GetTestComponent
+    Set cModule = GetTestComponentWithSourceFile
     If cModule Is Nothing Then Exit Sub
-
-    ' Source file must exist for the test to be meaningful
-    TestAssert FSO.FileExists(cModule.SourceFile), "source file exists on disk"
 
     dteResult = GetSourceModifiedDate(cModule)
     TestAssert dteResult > 0, "returns non-zero date"
@@ -59,10 +56,8 @@ Public Sub TestGetSourceFilesPropertyHash()
     Dim strHash1 As String
     Dim strHash2 As String
 
-    Set cModule = GetTestComponent
+    Set cModule = GetTestComponentWithSourceFile
     If cModule Is Nothing Then Exit Sub
-
-    TestAssert FSO.FileExists(cModule.SourceFile), "source file exists"
 
     strHash1 = GetSourceFilesPropertyHash(cModule)
     TestAssert Len(strHash1) > 0, "returns non-empty hash"
@@ -85,10 +80,8 @@ Public Sub TestGetLastModifiedSourceFile()
     Dim cModule As IDbComponent
     Dim strResult As String
 
-    Set cModule = GetTestComponent
+    Set cModule = GetTestComponentWithSourceFile
     If cModule Is Nothing Then Exit Sub
-
-    TestAssert FSO.FileExists(cModule.SourceFile), "source file exists"
 
     strResult = GetLastModifiedSourceFile(cModule)
     TestAssert Len(strResult) > 0, "returns non-empty path"
@@ -113,7 +106,7 @@ Public Sub TestSourceDateAndHashConsistency()
     Dim strHash As String
     Dim dteDate As Date
 
-    Set cModule = GetTestComponent
+    Set cModule = GetTestComponentWithSourceFile
     If cModule Is Nothing Then Exit Sub
 
     strHash = GetSourceFilesPropertyHash(cModule)
@@ -153,13 +146,9 @@ Public Sub TestPropertyHashIdenticalWithAndWithoutMetaScan()
     Dim strFsoHash As String
     Dim strScanHash As String
 
-    Set cModule = GetTestComponent
+    Set cModule = GetTestComponentWithSourceFile
     If cModule Is Nothing Then Exit Sub
     strSource = cModule.SourceFile
-    If Not FSO.FileExists(strSource) Then
-        TestAssert True, "SKIP: source file not on disk"
-        Exit Sub
-    End If
 
     Set dMeta = ScanFolderMetadata(cModule.BaseFolder)
 
@@ -194,13 +183,9 @@ Public Sub TestContentHashIdenticalWithAndWithoutMetaScan()
     Dim strFsoHash As String
     Dim strScanHash As String
 
-    Set cModule = GetTestComponent
+    Set cModule = GetTestComponentWithSourceFile
     If cModule Is Nothing Then Exit Sub
     strSource = cModule.SourceFile
-    If Not FSO.FileExists(strSource) Then
-        TestAssert True, "SKIP: source file not on disk"
-        Exit Sub
-    End If
 
     Set dMeta = ScanFolderMetadata(cModule.BaseFolder)
 
@@ -283,6 +268,42 @@ Private Function GetTestComponent() As IDbComponent
     Set cModule = New clsDbModule
     Set cModule.DbObject = CurrentProject.AllModules(0)
     Set GetTestComponent = cModule
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTestComponentWithSourceFile
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : A component whose source file is on disk, or Nothing once the reason is
+'           : recorded as a failure. These tests read real exported files -- dates,
+'           : sizes, contents -- and the suite runs with the development copy as the
+'           : current database, which has its source tree beside it. A missing file
+'           : there is a real problem rather than a configuration to skip past.
+'           :
+'           : Returning Nothing is what stops the caller before FSO.GetFile raises.
+'           : These procedures carry no error handler, so asserting existence and then
+'           : reading anyway reported a bare "File not found" from whichever line got
+'           : there first, which says far less than the assertion does.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetTestComponentWithSourceFile() As IDbComponent
+
+    Dim cModule As IDbComponent
+
+    Set cModule = GetTestComponent
+    If cModule Is Nothing Then
+        TestAssert False, "a module exists to test with"
+        Exit Function
+    End If
+
+    If Not FSO.FileExists(cModule.SourceFile) Then
+        TestAssert False, "source file exists on disk: " & cModule.SourceFile
+        Exit Function
+    End If
+
+    Set GetTestComponentWithSourceFile = cModule
+
 End Function
 
 

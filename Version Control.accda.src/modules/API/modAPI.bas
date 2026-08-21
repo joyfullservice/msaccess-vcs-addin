@@ -12,6 +12,19 @@ Option Explicit
 ' MCP Debug log file path (set when first used)
 Private m_strMCPDebugLogPath As String
 
+' True while this project is dispatching a call on to the installed add-in. A refusal that
+' arrives while it is set came back through that dispatch into the project that issued it,
+' which is a different failure from a genuinely nested call and needs to say so.
+' RedirectTargetIsSelf exists to make that unreachable; this reports it if it ever is not.
+Private m_blnRedirecting As Boolean
+
+' Why an API entry point turned a call away. The two cases need opposite advice, and the
+' wrong one costs the caller the whole diagnosis -- see RefuseReentrantCall.
+Private Enum eRefusalReason
+    rrNested = 0            ' A call arrived from inside another API call
+    rrSelfDispatch = 1      ' A dispatch to the installed add-in came back to its sender
+End Enum
+
 ' Returned by API (and embedded in the APIAsync JSON) when a call arrives while another
 ' is still in progress. Published as a prefix rather than an error number because the
 ' refusal cannot be raised -- see RefuseReentrantCall. External callers (the MCP server
@@ -212,6 +225,37 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RedirectTargetIsSelf
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Returns true when a redirect to the installed add-in would land back in the
+'           : project that is already running.
+'           :
+'           : `RunningOnLocal` only reports that the current database and the running code
+'           : are the same file. That is true of a development copy open as the current
+'           : database, where redirecting to the installed add-in is the whole point -- and
+'           : equally true of the *installed* add-in open as the current database, where the
+'           : redirect target is the same file. `Application.Run` then re-enters the entry
+'           : point while the outer call still holds its `Static IsRunning`, so every call
+'           : came back as a re-entrant refusal blaming nesting that never happened.
+'           : Nothing is supposed to open the install as the current database, but a user
+'           : who double-clicks the file does exactly that, and a misleading refusal sends
+'           : whoever reads it looking for a caller that does not exist.
+'           :
+'           : Compare the extension-less form, which is exactly the string handed to
+'           : `Application.Run`, so an installed .accde never reads as a different file
+'           : from the .accda it was built from.
+'---------------------------------------------------------------------------------------
+'
+Private Function RedirectTargetIsSelf() As Boolean
+    RedirectTargetIsSelf = (StrComp( _
+        FSO.BuildPath(FSO.GetParentFolderName(CodeProject.FullName), _
+            FSO.GetBaseName(CodeProject.FullName)), _
+        GetRunCmdAddInFullLibName, vbTextCompare) = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunInAddIn
 ' Author    : Adam Waller
 ' Date      : 3/3/2023
@@ -338,7 +382,7 @@ Public Function API(strMethod As String, _
     On Error GoTo ErrHandler
 
     If IsRunning Then
-        API = RefuseReentrantCall(strMethod, "API")
+        API = RefuseReentrantCall(strMethod, "API", RefusalReason)
         RestoreErrorBreaks
         Exit Function
     End If
@@ -350,13 +394,17 @@ Public Function API(strMethod As String, _
 
     ' Make sure we are not attempting to run this from the current database when making
     ' changes to the add-in itself. (It will re-run the command through the add-in.)
-    If RunningOnLocal() Then
+    ' Only redirect when the installed add-in is a *different* file than the one running:
+    ' where they are the same, the redirect re-enters this function and refuses itself.
+    ' See RedirectTargetIsSelf.
+    If RunningOnLocal() And Not RedirectTargetIsSelf() Then
         ' When running from within the add-in database, we need to use the full path
         ' to ensure we call the add-in version, not a local version.
         strLibName = GetRunCmdAddInFullLibName
         strRunCmd = strLibName & ".API"
 
         ' Use Application.Run to call the add-in version, which will return the value
+        m_blnRedirecting = True
         If Not IsMissing(varArg3) Then
             API = Application.Run(strRunCmd, strMethod, varArg1, varArg2, varArg3)
         ElseIf Not IsMissing(varArg2) Then
@@ -396,6 +444,7 @@ Public Function API(strMethod As String, _
 
 CleanUp:
     IsRunning = False
+    m_blnRedirecting = False
     RestoreErrorBreaks
     Exit Function
 
@@ -403,6 +452,7 @@ ErrHandler:
     ' An error occurred so we need to make it available for further attempts
     ' but do not handle the error.
     IsRunning = False
+    m_blnRedirecting = False
     RestoreErrorBreaks
 
     ' Re-throw
@@ -443,7 +493,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
         ' Callers parse this return value as JSON, so the refusal has to arrive as JSON.
         Set dResult = New Dictionary
         dResult.Add "success", False
-        dResult.Add "error", RefuseReentrantCall(strMethod, "APIAsync")
+        dResult.Add "error", RefuseReentrantCall(strMethod, "APIAsync", RefusalReason)
         APIAsync = modJsonConverter.ConvertToJson(dResult)
         RestoreErrorBreaks
         Exit Function
@@ -460,13 +510,15 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
 
     ' Make sure we are not attempting to run this from the current database when making
     ' changes to the add-in itself. (It will re-run the command through the add-in.)
-    If RunningOnLocal() Then
+    ' Same self-dispatch guard as API -- see RedirectTargetIsSelf.
+    If RunningOnLocal() And Not RedirectTargetIsSelf() Then
         ' When running from within the add-in database, we need to use the full path
         ' to ensure we call the add-in version, not a local version.
         strLibName = GetRunCmdAddInFullLibName
         strRunCmd = strLibName & ".APIAsync"
 
         ' Use Application.Run to call the add-in version
+        m_blnRedirecting = True
         If Not IsMissing(varArg2) Then
             APIAsync = Application.Run(strRunCmd, strCallbackInfo, strMethod, varArg1, varArg2)
         ElseIf Not IsMissing(varArg1) Then
@@ -537,6 +589,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
 
 CleanUp:
     IsRunning = False
+    m_blnRedirecting = False
     RestoreErrorBreaks
     Exit Function
 
@@ -544,6 +597,7 @@ ErrHandler:
     ' An error occurred so we need to make it available for further attempts
     ' but do not handle the error.
     IsRunning = False
+    m_blnRedirecting = False
     RestoreErrorBreaks
 
     ' Re-throw
@@ -557,6 +611,13 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 7/30/2026
 ' Purpose   : Build the message for a call that arrived while another is still running.
+'           :
+'           : The reason decides the advice, and getting it wrong is expensive. A nested
+'           : call is the caller's own doing and the message says how to restructure it.
+'           : A self-dispatched one is a defect here, and telling that caller to
+'           : restructure sends it looking for a different database to host the call from
+'           : -- a search that ends somewhere plausible and wrong, such as the sample
+'           : database in Testing\. Name the defect instead.
 '           :
 '           : This used to be a bare `Exit Function`, returning Empty -- indistinguishable
 '           : from a method that legitimately returned nothing. The most common way to
@@ -577,12 +638,48 @@ End Function
 '           : from a real return value.
 '---------------------------------------------------------------------------------------
 '
-Private Function RefuseReentrantCall(strMethod As String, strEntryPoint As String) As String
-    RefuseReentrantCall = API_REFUSED_PREFIX & _
-        "VCS " & strEntryPoint & " refused a re-entrant call to '" & strMethod & "': " & _
-        "another API command is still running. Note that code executed through " & _
-        "vcs_run_vba already runs inside an API call, so it cannot call back into the " & _
-        "API; invoke API methods directly (vcs_call_vba) instead."
+Private Function RefuseReentrantCall(strMethod As String, strEntryPoint As String, _
+    Optional intReason As eRefusalReason = rrNested) As String
+
+    Dim strMsg As String
+
+    strMsg = API_REFUSED_PREFIX & "VCS " & strEntryPoint & " refused a call to '" & _
+        strMethod & "': "
+
+    Select Case intReason
+        Case rrSelfDispatch
+            strMsg = strMsg & "the call was dispatched to the installed add-in and " & _
+                "arrived back in the project that sent it, so it refused itself. " & _
+                "Nothing ran. This is a defect in the add-in's own dispatch, not " & _
+                "something the caller can host its way around: another database will " & _
+                "not help, and the sample database in the Testing folder is not a " & _
+                "workaround. Report it with the method name above."
+        Case Else
+            strMsg = strMsg & "another API command is still running. Note that code " & _
+                "executed through vcs_run_vba already runs inside an API call, so it " & _
+                "cannot call back into the API; invoke API methods directly " & _
+                "(vcs_call_vba) instead."
+    End Select
+
+    RefuseReentrantCall = strMsg
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefusalReason
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Classify a refusal about to be returned. A dispatch still in flight from
+'           : this project means the call we are turning away is the one we just sent.
+'---------------------------------------------------------------------------------------
+'
+Private Function RefusalReason() As eRefusalReason
+    If m_blnRedirecting Then
+        RefusalReason = rrSelfDispatch
+    Else
+        RefusalReason = rrNested
+    End If
 End Function
 
 

@@ -19,7 +19,8 @@ This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
 | Anything that changes exported file content or layout | [docs/export-format-versioning.md](docs/export-format-versioning.md) |
 | Diagnosing an error in a log file | [docs/error-handling.md](docs/error-handling.md) |
 | Inspecting a database's schema over MCP; a failing `vcs_run_vba` call | [docs/mcp-runvba.md](docs/mcp-runvba.md) |
-| Rebuilding the add-in from source via MCP | [docs/agentic-rebuild.md](docs/agentic-rebuild.md) |
+| Rebuilding the add-in unattended; a refused or stalled rebuild | [docs/agentic-rebuild.md](docs/agentic-rebuild.md) |
+| Running this repo's own tests over MCP; an all-`EMPTY` result | [docs/agent-test-runs.md](docs/agent-test-runs.md) |
 | Test layers, fixtures, round-trip harness, CI | [docs/testing-strategy.md](docs/testing-strategy.md) |
 | The test runner UI or its VBA/JS bridge | [docs/web-test-runner.md](docs/web-test-runner.md) |
 | Writing an individual test | [.cursor/rules/testing.mdc](.cursor/rules/testing.mdc) |
@@ -30,14 +31,16 @@ This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
 
 ## Development workflow
 
-Build from source by installing a recent release, cloning the repo, and using the
-add-in's **Build From Source** on the `Version Control.accda.src` folder. To make
-a change: modify the running `Version Control.accda`, test, then run `Deploy` in
-the VBA Immediate Window — it increments the version, exports to source files, and
-installs the development build. Commit the source files and open a pull request
-against `dev`; releases are cut from `master`. Agents rebuild unattended via
-`VCS.RebuildAddIn`, which refuses when another Access process holds a file it
-needs to replace.
+**Agents: edit the source files, then rebuild — never touch the installed
+add-in.** `VCS.RebuildAddIn` builds and installs unattended, refusing when another
+Access process holds a file it must replace; then test. See
+[docs/agentic-rebuild.md](docs/agentic-rebuild.md) and [docs/agent-test-runs.md](docs/agent-test-runs.md).
+
+By hand: install a recent release, clone the repo, use **Build From Source** on
+`Version Control.accda.src`, then modify the running `Version Control.accda`,
+test, and run `Deploy` in the VBA Immediate Window — it increments the version,
+exports to source files, and installs the development build. Commit the source
+files and open a pull request against `dev`; releases are cut from `master`.
 
 ## Invariants
 
@@ -106,9 +109,12 @@ Every module opens with a header block and `Option Compare Database` /
 
 ## Running tests
 
-The **installed** add-in drives a run and owns the operation; tests execute in the
-current project — a second loaded copy of this one when testing this repo — so
-`Operation` in a test is idle, and suppression arrives via `modTestAssert.TestRunActive`.
+Over MCP, `database_path` decides which project the runner scans, so **run this
+repo's tests on the development copy** — `vcs_run_tests("<repo>\Version Control.accda")`.
+The installed copy under `%AppData%` is only ever loaded as a library, where it
+supplies the runner and `TestAssert`; hosting a run on it is refused. Nothing in
+`Testing/` hosts a run either, and an all-`EMPTY` result is a broken harness, not
+a pass. [docs/agent-test-runs.md](docs/agent-test-runs.md) covers the traps.
 
 `VCS.RunTests` takes filters resolved in priority order: module name, suite or
 `@Folder` value (exact or final segment), procedure or `Module.Procedure` key,
@@ -132,15 +138,9 @@ then `'@Tag`. Prefix with `-` to exclude; inclusions OR, exclusions AND.
 
 ## Documentation that ships to users
 
-`Version Control.accda.src/AGENTS.md` and the references in
-`Version Control.accda.src/vcs-agent-docs/` are embedded as resources and
-extracted into **every user's export folder on every export**. Their audience is
-an agent working in someone else's database, not a contributor here, and they are
-budgeted at 150 lines for the entry file and 110 per reference (enforced by
-`modTestAgentDocs`). Read
-[docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md) before touching
-them: it carries the gate for whether a change belongs in agent documentation at
-all, and what must never ship.
+`Version Control.accda.src/AGENTS.md` and `vcs-agent-docs/` beside it ship into
+**every user's export folder on every export** — a different audience, tighter
+budgets, own gate. Read [docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md) first.
 
 ## Resources
 
