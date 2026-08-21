@@ -315,6 +315,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             MCP.Log "Exporting " & lngCount & " " & LCase(cCategory.Category) & "..."
             Log.Flush
 
+            ' Serve duplicate-file cleanup from one snapshot of the export tree instead
+            ' of rescanning it for every object in this category.
+            BeginDuplicateScanCache
+
             ' Loop through each object in this category.
             For Each varKey In dObjects.Keys
 
@@ -347,6 +351,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 If cCategory.SingleFile Then Exit For
 
             Next varKey
+
+            ' Release the snapshot, removing any folder the cleanup emptied.
+            EndDuplicateScanCache
 
             Select Case cCategory.ComponentType
                 Case edbModule
@@ -403,6 +410,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 CleanUp:
 
     ' Run any cleanup routines
+    EndDuplicateScanCache
     CloseBackEndConnections
     ClearEnvCache
     ReleaseTableDataSortExport
@@ -593,6 +601,10 @@ Public Sub ExportScoped(colContainers As Collection, blnFullExport As Boolean)
             lngCurrent = 0
             Log.Flush
 
+            ' Serve duplicate-file cleanup from one snapshot of the export tree instead
+            ' of rescanning it for every object in this category.
+            BeginDuplicateScanCache
+
             For Each varKey In dObjects.Keys
                 lngCurrent = lngCurrent + 1
                 Set cDbObject = dObjects(varKey)
@@ -610,9 +622,16 @@ Public Sub ExportScoped(colContainers As Collection, blnFullExport As Boolean)
                 End If
 
                 CatchAny eelError, T("Error exporting {0}", var0:=cDbObject.Name), ModuleName & ".ExportScoped", True, True
-                If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: Exit Sub
+                If Operation.ErrorLevel = eelCritical Then
+                    Log.Add vbNullString
+                    EndDuplicateScanCache
+                    Exit Sub
+                End If
                 If cCategory.SingleFile Then Exit For
             Next varKey
+
+            ' Release the snapshot, removing any folder the cleanup emptied.
+            EndDuplicateScanCache
 
             Select Case cCategory.ComponentType
                 Case edbModule
@@ -819,6 +838,7 @@ PostExport:
 CleanUp:
 
     ' Run any cleanup routines
+    EndDuplicateScanCache
     CloseBackEndConnections
     ClearEnvCache
     ReleaseTableDataSortExport
@@ -1005,6 +1025,8 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     If dCategories.Count = 0 Then
         Log.Add T("Skipped after conflict resolution."), , , "blue", True
     Else
+        ' Serve duplicate-file cleanup from one snapshot per export tree.
+        BeginDuplicateScanCache
         For Each varCategory In dCategories.Keys
             Set dCategory = dCategories.Item(varCategory)
             Set dObjects = dCategory.Item("Objects")
@@ -1027,6 +1049,8 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
                 ExportDependentObjects cDbObject
             Next
         Next
+        ' Release the snapshot, removing any folder the cleanup emptied.
+        EndDuplicateScanCache
     End If
 
     ' Show final output and save log
@@ -1036,6 +1060,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
 CleanUp:
 
     ' Run any cleanup routines
+    EndDuplicateScanCache
     CloseBackEndConnections
     ClearEnvCache
     ReleaseTableDataSortExport

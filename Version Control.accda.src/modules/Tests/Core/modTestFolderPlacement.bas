@@ -179,6 +179,133 @@ Public Sub TestRemoveDuplicateReportFiles_DeletesMisplacedCopy()
 End Sub
 
 
+Public Sub TestCleanupDuplicateSourceFiles_DeletesMisplacedCopy()
+    Dim strRoot As String
+    Dim strBase As String
+    Dim strStale As String
+    Dim strCorrect As String
+
+    strRoot = GetTempFolder("vcs_folder_placement") & PathSep
+    strBase = strRoot & "modules" & PathSep
+    strStale = strBase & "Stale" & PathSep
+    strCorrect = strBase & "Core" & PathSep
+    WriteMovedModuleFixture strStale, strCorrect
+
+    CleanupDuplicateSourceFiles strBase, strCorrect, "modMoved", ".bas", ".cls", ".json"
+
+    TestAssert FSO.FileExists(strCorrect & "modMoved.bas"), "correct copy kept"
+    TestAssert Not FSO.FileExists(strStale & "modMoved.bas"), "stale copy removed"
+    TestAssert Not FSO.FileExists(strStale & "modMoved.json"), "stale companion removed"
+    TestAssert Not FSO.FolderExists(StripSlash(strStale)), "emptied folder pruned"
+
+    DeleteFolderPlacementFixture strRoot
+End Sub
+
+
+Public Sub TestCleanupDuplicateSourceFiles_ScanCacheMatchesDirectScan()
+    Dim strRoot As String
+    Dim strBase As String
+    Dim strStale As String
+    Dim strCorrect As String
+    Dim blnFolderHeldOpen As Boolean
+
+    strRoot = GetTempFolder("vcs_folder_placement") & PathSep
+    strBase = strRoot & "modules" & PathSep
+    strStale = strBase & "Stale" & PathSep
+    strCorrect = strBase & "Core" & PathSep
+    WriteMovedModuleFixture strStale, strCorrect
+
+    BeginDuplicateScanCache
+    CleanupDuplicateSourceFiles strBase, strCorrect, "modMoved", ".bas", ".cls", ".json"
+    ' Folder pruning is deferred to the end of the session, unlike the direct scan.
+    blnFolderHeldOpen = FSO.FolderExists(StripSlash(strStale))
+    EndDuplicateScanCache
+
+    TestAssert Not FSO.FileExists(strStale & "modMoved.bas"), "cached scan removes stale copy"
+    TestAssert Not FSO.FileExists(strStale & "modMoved.json"), "cached scan removes stale companion"
+    TestAssert FSO.FileExists(strCorrect & "modMoved.bas"), "cached scan keeps correct copy"
+    TestAssert blnFolderHeldOpen, "emptied folder survives until the session ends"
+    TestAssert Not FSO.FolderExists(StripSlash(strStale)), "emptied folder pruned at session end"
+
+    DeleteFolderPlacementFixture strRoot
+End Sub
+
+
+Public Sub TestCleanupDuplicateSourceFiles_ScanCacheKeepsCorrectlyPlacedFiles()
+    Dim strRoot As String
+    Dim strBase As String
+    Dim strCore As String
+    Dim strUtility As String
+
+    strRoot = GetTempFolder("vcs_folder_placement") & PathSep
+    strBase = strRoot & "modules" & PathSep
+    strCore = strBase & "Core" & PathSep
+    strUtility = strBase & "Utility" & PathSep
+    VerifyPath strCore
+    VerifyPath strUtility
+    WriteFile BuildTestModuleSource("modInCore", "Core"), strCore & "modInCore.bas"
+    WriteFile BuildTestModuleSource("modInUtility", "Utility"), strUtility & "modInUtility.bas"
+
+    ' One snapshot serves both components, as it does across a category during export.
+    BeginDuplicateScanCache
+    CleanupDuplicateSourceFiles strBase, strCore, "modInCore", ".bas", ".cls", ".json"
+    CleanupDuplicateSourceFiles strBase, strUtility, "modInUtility", ".bas", ".cls", ".json"
+    EndDuplicateScanCache
+
+    TestAssert FSO.FileExists(strCore & "modInCore.bas"), "correctly placed module kept"
+    TestAssert FSO.FileExists(strUtility & "modInUtility.bas"), "second correctly placed module kept"
+    TestAssert FSO.FolderExists(StripSlash(strCore)), "occupied folder kept"
+    TestAssert FSO.FolderExists(StripSlash(strUtility)), "second occupied folder kept"
+
+    DeleteFolderPlacementFixture strRoot
+End Sub
+
+
+Public Sub TestCleanupDuplicateSourceFiles_ScanCachePrunesPreexistingEmptyFolder()
+    Dim strRoot As String
+    Dim strBase As String
+    Dim strEmpty As String
+    Dim strCorrect As String
+
+    strRoot = GetTempFolder("vcs_folder_placement") & PathSep
+    strBase = strRoot & "modules" & PathSep
+    strEmpty = strBase & "Abandoned" & PathSep
+    strCorrect = strBase & "Core" & PathSep
+    VerifyPath strEmpty
+    VerifyPath strCorrect
+    WriteFile BuildTestModuleSource("modInCore", "Core"), strCorrect & "modInCore.bas"
+
+    BeginDuplicateScanCache
+    CleanupDuplicateSourceFiles strBase, strCorrect, "modInCore", ".bas", ".cls", ".json"
+    EndDuplicateScanCache
+
+    TestAssert Not FSO.FolderExists(StripSlash(strEmpty)), "folder already empty is pruned"
+    TestAssert FSO.FileExists(strCorrect & "modInCore.bas"), "correctly placed module untouched"
+
+    DeleteFolderPlacementFixture strRoot
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteMovedModuleFixture
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Build the state left behind when a module's @Folder annotation changes:
+'           : the new copy in its correct folder, and the previous copy plus companion
+'           : still sitting in the folder it moved out of.
+'---------------------------------------------------------------------------------------
+'
+Private Sub WriteMovedModuleFixture(strStaleFolder As String, strCorrectFolder As String)
+
+    VerifyPath strStaleFolder
+    VerifyPath strCorrectFolder
+    WriteFile BuildTestModuleSource("modMoved", "Core"), strStaleFolder & "modMoved.bas"
+    WriteFile "{}", strStaleFolder & "modMoved.json"
+    WriteFile BuildTestModuleSource("modMoved", "Core"), strCorrectFolder & "modMoved.bas"
+
+End Sub
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : BuildTestModuleSource
 ' Author    : Adam Waller

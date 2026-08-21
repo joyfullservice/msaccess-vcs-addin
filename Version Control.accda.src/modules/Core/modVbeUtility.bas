@@ -16,6 +16,13 @@ Option Explicit
 
 Private Const ModuleName = "modVbeUtility"
 
+' Snapshot of the export trees consulted by CleanupDuplicateSourceFiles, so a category
+' walks each tree once instead of once per component. Only live between a
+' BeginDuplicateScanCache/EndDuplicateScanCache pair; outside one, cleanup falls back to
+' scanning the tree directly. Keyed by base folder (no trailing separator).
+Private m_blnDupScanCache As Boolean
+Private m_dDupScanTrees As Dictionary
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ExportVbComponent
@@ -530,16 +537,7 @@ Private Sub RemoveEmptyModuleSubfolders(strBaseFolder As String)
     ScanFolderContents strBaseFolder, colFiles, colSubFolders
     For Each varItem In colSubFolders
         RemoveEmptyModuleSubfolders CStr(varItem)
-        If FSO.FolderExists(CStr(varItem)) Then
-            If FSO.GetFolder(CStr(varItem)).Files.Count = 0 _
-                And FSO.GetFolder(CStr(varItem)).SubFolders.Count = 0 Then
-                LogUnhandledErrors
-                On Error Resume Next
-                FSO.DeleteFolder CStr(varItem), True
-                CatchAny eelWarning, "Unable to delete empty folder: " & CStr(varItem), _
-                    ModuleName & ".RemoveEmptyModuleSubfolders"
-            End If
-        End If
+        RemoveEmptyFolder CStr(varItem)
     Next varItem
 
 End Sub
@@ -579,17 +577,249 @@ Public Sub CleanupDuplicateSourceFiles(strBaseFolder As String, _
     strCorrectFolder As String, strSafeName As String, _
     ParamArray varExtensions() As Variant)
 
-    ' Copy ParamArray into a plain Variant so it can be forwarded to the recursive helper
+    ' Copy ParamArray into a plain Variant so it can be forwarded to the helpers
     Dim varExts As Variant
     varExts = varExtensions
 
     If StrComp(StripSlash(strBaseFolder), StripSlash(strCorrectFolder), vbTextCompare) = 0 Then Exit Sub
     If Not FSO.FolderExists(strBaseFolder) Then Exit Sub
 
-    ' Recursive scan of the base folder tree
-    ScanForDuplicates StripSlash(strBaseFolder), strCorrectFolder, strSafeName, varExts
+    Perf.OperationStart "Cleanup Duplicate Files"
+    If m_blnDupScanCache Then
+        CleanupFromScanCache GetDupScanTree(StripSlash(strBaseFolder)), _
+            strCorrectFolder, strSafeName, varExts
+    Else
+        ' Recursive scan of the base folder tree
+        ScanForDuplicates StripSlash(strBaseFolder), strCorrectFolder, strSafeName, varExts
+    End If
+    Perf.OperationEnd
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BeginDuplicateScanCache
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Start a session in which CleanupDuplicateSourceFiles answers from a single
+'           : snapshot of each export tree rather than rescanning the tree for every
+'           : component. Exporting 177 modules otherwise walked the modules folder 177
+'           : times. Safe because an export only ever writes into a component's correct
+'           : folder, and the correct folder is recomputed live per component, so a
+'           : snapshot can miss a duplicate but can never name one wrongly.
+'           : Must be paired with EndDuplicateScanCache, which prunes emptied folders.
+'---------------------------------------------------------------------------------------
+'
+Public Sub BeginDuplicateScanCache()
+    m_blnDupScanCache = True
+    Set m_dDupScanTrees = New Dictionary
+    m_dDupScanTrees.CompareMode = TextCompare
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EndDuplicateScanCache
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Close the snapshot session, removing folders left empty. Safe to call when
+'           : no session is open, so callers can use it defensively on an error path.
+'---------------------------------------------------------------------------------------
+'
+Public Sub EndDuplicateScanCache()
+
+    Dim varKey As Variant
+
+    m_blnDupScanCache = False
+    If m_dDupScanTrees Is Nothing Then Exit Sub
+
+    For Each varKey In m_dDupScanTrees.Keys
+        PruneEmptyScanCacheFolders m_dDupScanTrees(varKey)
+    Next varKey
+    Set m_dDupScanTrees = Nothing
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDupScanTree
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Return the snapshot for a base folder, indexing the tree on first use.
+'           : The snapshot holds file paths grouped by file name, plus a file and
+'           : subfolder count per folder so emptiness can be tracked without going back
+'           : to disk. "Order" lists folders parents-first, as the indexing queue.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDupScanTree(strBaseFolder As String) As Dictionary
+
+    Dim dTree As Dictionary
+
+    If m_dDupScanTrees.Exists(strBaseFolder) Then
+        Set GetDupScanTree = m_dDupScanTrees(strBaseFolder)
+        Exit Function
+    End If
+
+    Set dTree = New Dictionary
+    dTree.Add "Files", NewTextDictionary
+    dTree.Add "FileCount", NewTextDictionary
+    dTree.Add "SubCount", NewTextDictionary
+    dTree.Add "Order", New Collection
+    IndexScanCacheTree strBaseFolder, dTree
+
+    m_dDupScanTrees.Add strBaseFolder, dTree
+    Set GetDupScanTree = dTree
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IndexScanCacheTree
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Walk a base folder once, recording every file grouped by name and the file
+'           : and subfolder counts of every folder. Iterative so the folder list comes
+'           : out parents-first, which lets the teardown prune it in reverse.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IndexScanCacheTree(strBaseFolder As String, dTree As Dictionary)
+
+    Dim colOrder As Collection
+    Dim colFiles As Collection
+    Dim colSubFolders As Collection
+    Dim dFiles As Dictionary
+    Dim dPaths As Dictionary
+    Dim varItem As Variant
+    Dim strFolder As String
+    Dim strPath As String
+    Dim strName As String
+    Dim lngPos As Long
+
+    Set dFiles = dTree("Files")
+    Set colOrder = dTree("Order")
+    colOrder.Add strBaseFolder
+
+    lngPos = 1
+    Do While lngPos <= colOrder.Count
+        strFolder = CStr(colOrder(lngPos))
+        Set colFiles = New Collection
+        Set colSubFolders = New Collection
+        ScanFolderContents strFolder, colFiles, colSubFolders
+
+        dTree("FileCount")(strFolder) = colFiles.Count
+        dTree("SubCount")(strFolder) = colSubFolders.Count
+
+        For Each varItem In colFiles
+            strPath = CStr(varItem)
+            strName = Mid$(strPath, InStrRev(strPath, PathSep) + 1)
+            If Not dFiles.Exists(strName) Then Set dFiles(strName) = NewTextDictionary
+            Set dPaths = dFiles(strName)
+            If Not dPaths.Exists(strPath) Then dPaths.Add strPath, strFolder
+        Next varItem
+
+        For Each varItem In colSubFolders
+            colOrder.Add CStr(varItem)
+        Next varItem
+
+        lngPos = lngPos + 1
+    Loop
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CleanupFromScanCache
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Delete the misplaced copies of one component using the tree snapshot,
+'           : which turns the per-component tree walk into a dictionary lookup.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CleanupFromScanCache(dTree As Dictionary, strCorrectFolder As String, _
+    strSafeName As String, varExtensions As Variant)
+
+    Dim dFiles As Dictionary
+    Dim dPaths As Dictionary
+    Dim dFileCount As Dictionary
+    Dim varPath As Variant
+    Dim strKey As String
+    Dim strPath As String
+    Dim strFolder As String
+    Dim i As Long
+
+    Set dFiles = dTree("Files")
+    Set dFileCount = dTree("FileCount")
+
+    For i = LBound(varExtensions) To UBound(varExtensions)
+        strKey = strSafeName & CStr(varExtensions(i))
+        If dFiles.Exists(strKey) Then
+            Set dPaths = dFiles(strKey)
+            For Each varPath In dPaths.Keys
+                strPath = CStr(varPath)
+                strFolder = CStr(dPaths(strPath))
+                If StrComp(AddSlash(strFolder), strCorrectFolder, vbTextCompare) <> 0 Then
+                    DeleteFile strPath
+                    ' Only count it out when it actually went away, so a locked file
+                    ' cannot make its folder look empty at teardown.
+                    If Not FSO.FileExists(strPath) Then
+                        dPaths.Remove strPath
+                        dFileCount(strFolder) = dFileCount(strFolder) - 1
+                    End If
+                End If
+            Next varPath
+            If dPaths.Count = 0 Then dFiles.Remove strKey
+        End If
+    Next i
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PruneEmptyScanCacheFolders
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Remove folders the snapshot shows as empty, walking children before parents
+'           : so a folder emptied by its own children going away is still caught. Index 1
+'           : is the base folder, which is never removed.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PruneEmptyScanCacheFolders(dTree As Dictionary)
+
+    Dim colOrder As Collection
+    Dim dFileCount As Dictionary
+    Dim dSubCount As Dictionary
+    Dim strFolder As String
+    Dim strParent As String
+    Dim lngPos As Long
+
+    Set colOrder = dTree("Order")
+    Set dFileCount = dTree("FileCount")
+    Set dSubCount = dTree("SubCount")
+
+    For lngPos = colOrder.Count To 2 Step -1
+        strFolder = CStr(colOrder(lngPos))
+        If dFileCount(strFolder) = 0 And dSubCount(strFolder) = 0 Then
+            If RemoveEmptyFolder(strFolder) Then
+                strParent = Left$(strFolder, InStrRev(strFolder, PathSep) - 1)
+                If dSubCount.Exists(strParent) Then dSubCount(strParent) = dSubCount(strParent) - 1
+            End If
+        End If
+    Next lngPos
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NewTextDictionary
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : A dictionary that matches keys case-insensitively, mirroring the way the
+'           : file system treats the paths and file names used as keys here.
+'---------------------------------------------------------------------------------------
+'
+Private Function NewTextDictionary() As Dictionary
+    Set NewTextDictionary = New Dictionary
+    NewTextDictionary.CompareMode = TextCompare
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -598,51 +828,92 @@ End Sub
 ' Date      : 5/8/2026
 ' Purpose   : Recursively scan a folder and subfolders, deleting any file matching
 '           : the target name + extensions that is not in the correct folder.
+'           : Returns True when this folder holds nothing once its own cleanup and its
+'           : children are done, which is what tells the caller to remove it. Emptiness
+'           : is counted from the directory listing this level already read, so a tree
+'           : with no duplicates costs nothing beyond the listing itself.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ScanForDuplicates(strFolder As String, strCorrectFolder As String, _
-    strSafeName As String, varExtensions As Variant)
+Private Function ScanForDuplicates(strFolder As String, strCorrectFolder As String, _
+    strSafeName As String, varExtensions As Variant) As Boolean
 
     Dim colFiles As New Collection
     Dim colSubFolders As New Collection
     Dim varItem As Variant
+    Dim strPath As String
     Dim strName As String
     Dim strParent As String
+    Dim lngFiles As Long
+    Dim lngSubFolders As Long
     Dim i As Long
 
     ScanFolderContents strFolder, colFiles, colSubFolders
+    lngFiles = colFiles.Count
+    lngSubFolders = colSubFolders.Count
 
     ' Only check files if this is NOT the correct folder
     strParent = AddSlash(strFolder)
     If StrComp(strParent, strCorrectFolder, vbTextCompare) <> 0 Then
         For Each varItem In colFiles
-            strName = FSO.GetFileName(CStr(varItem))
+            strPath = CStr(varItem)
+            strName = Mid$(strPath, InStrRev(strPath, PathSep) + 1)
             For i = LBound(varExtensions) To UBound(varExtensions)
                 If StrComp(strName, strSafeName & CStr(varExtensions(i)), vbTextCompare) = 0 Then
-                    DeleteFile CStr(varItem)
+                    DeleteFile strPath
+                    ' Only count it out when it actually went away, so a locked file
+                    ' cannot make this folder look empty to the caller.
+                    If Not FSO.FileExists(strPath) Then lngFiles = lngFiles - 1
                     Exit For
                 End If
             Next i
         Next varItem
     End If
 
-    ' Recurse into subfolders
+    ' Recurse into subfolders, removing any the recursion reports empty
     For Each varItem In colSubFolders
-        ScanForDuplicates CStr(varItem), strCorrectFolder, strSafeName, varExtensions
-        ' Remove subfolder if empty after cleanup
-        If FSO.FolderExists(CStr(varItem)) Then
-            If FSO.GetFolder(CStr(varItem)).Files.Count = 0 _
-                And FSO.GetFolder(CStr(varItem)).SubFolders.Count = 0 Then
-                LogUnhandledErrors
-                On Error Resume Next
-                FSO.DeleteFolder CStr(varItem), True
-                CatchAny eelWarning, "Unable to delete empty folder: " & CStr(varItem), _
-                    ModuleName & ".ScanForDuplicates"
-            End If
+        If ScanForDuplicates(CStr(varItem), strCorrectFolder, strSafeName, varExtensions) Then
+            If RemoveEmptyFolder(CStr(varItem)) Then lngSubFolders = lngSubFolders - 1
         End If
     Next varItem
 
-End Sub
+    ScanForDuplicates = (lngFiles = 0) And (lngSubFolders = 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveEmptyFolder
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Delete a folder the caller believes is empty, returning True once it is
+'           : gone. Callers derive emptiness from a directory listing they already hold,
+'           : so this re-confirms it before the forced delete, which would otherwise
+'           : take any contents with it. The confirmation only runs for folders already
+'           : believed empty, which on a normal export is none of them.
+'---------------------------------------------------------------------------------------
+'
+Private Function RemoveEmptyFolder(strFolder As String) As Boolean
+
+    Dim objFolder As Scripting.Folder
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Set objFolder = FSO.GetFolder(strFolder)
+    If objFolder Is Nothing Then GoTo CleanUp
+    If objFolder.Files.Count > 0 Then GoTo CleanUp
+    If objFolder.SubFolders.Count > 0 Then GoTo CleanUp
+    Set objFolder = Nothing
+    Err.Clear
+
+    FSO.DeleteFolder strFolder, True
+    RemoveEmptyFolder = Not CatchAny(eelWarning, "Unable to delete empty folder: " & strFolder, _
+        ModuleName & ".RemoveEmptyFolder")
+
+CleanUp:
+    If Err Then Err.Clear
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
