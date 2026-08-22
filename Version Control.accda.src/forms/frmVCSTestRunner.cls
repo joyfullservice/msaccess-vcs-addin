@@ -336,6 +336,7 @@ Public Sub DrainCancelOutbox()
     On Error GoTo CleanUp
 
     If Len(strJson) = 0 Or strJson = "[]" Then GoTo CleanUp
+    If Not modTestRunnerUI.IsJsonRootStart(strJson) Then GoTo CleanUp
 
     Set colQueue = ParseJson(strJson)
     For i = 1 To colQueue.Count
@@ -654,7 +655,7 @@ Private Sub DrainOutbox()
     If dblDrainMs < 0 Then dblDrainMs = 0
     blnDidDrain = True
 
-    If Not blnRetrieveErr And Len(strJson) > 0 Then
+    If Not blnRetrieveErr And Len(strJson) > 0 And modTestRunnerUI.IsJsonRootStart(strJson) Then
         If blnDiagEnabled Then
             Set dRoot = ParseJson(strJson)
             If TypeName(dRoot) = "Dictionary" Then

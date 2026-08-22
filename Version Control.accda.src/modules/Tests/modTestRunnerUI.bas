@@ -13,7 +13,7 @@ Option Private Module
 
 Private Const ModuleName As String = "modTestRunnerUI"
 Private Const ALLOWED_CALLBACKS As String = "RunAll,RunSelected,RunFailed,Cancel,OpenTestSource,ReportJsError,RefreshTests,OpenResultsReport,CopyResultsPath"
-Private Const JS_RETRIEVE_TIMEOUT_SENTINEL As String = "RetrieveJavascriptValue timed out"
+Private Const JS_RETRIEVE_METHOD_NAME As String = "RetrieveJavascriptValue"
 Private Const MIN_EDGE_BUILD As Long = 16327
 Private Const WEB_RUNNER_CACHE_FOLDER As String = "TestRunnerCache"
 
@@ -1254,7 +1254,7 @@ Public Function RetrieveJsValue(ByVal ctl As Object, ByVal strExpression As Stri
         modTestRunnerDiag.DiagEnd "js.retrieve", _
             "chars=" & Len(strResult) & " attempt=" & intAttempt
         Perf.OperationEnd
-        If InStr(1, strResult, JS_RETRIEVE_TIMEOUT_SENTINEL, vbTextCompare) = 0 Then
+        If Not IsJsRetrieveTimeout(strResult) Then
             RetrieveJsValue = strResult
             Exit Function
         End If
@@ -1263,6 +1263,45 @@ Public Function RetrieveJsValue(ByVal ctl As Object, ByVal strExpression As Stri
 
     ' Both attempts timed out.
     Err.Raise vbObjectError + 517, ModuleName & ".RetrieveJsValue", strResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsJsRetrieveTimeout
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : True when EdgeBrowserControl.RetrieveJavascriptValue returned its timeout
+'           : sentinel as the function result (not Err). Access localizes the message
+'           : but keeps the API method name in the string.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsJsRetrieveTimeout(ByVal strResult As String) As Boolean
+
+    If Len(strResult) = 0 Then Exit Function
+    If InStr(1, strResult, JS_RETRIEVE_METHOD_NAME, vbTextCompare) = 0 Then Exit Function
+    IsJsRetrieveTimeout = (InStr(1, strResult, "timed out", vbTextCompare) > 0) _
+        Or (InStr(1, strResult, "Timeout", vbTextCompare) > 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsJsonRootStart
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : True when a RetrieveJavascriptValue result looks like JSON (object or array).
+'           : Used before ParseJson on outbox poll results so localized timeout strings
+'           : and other non-JSON text are not parsed.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsJsonRootStart(ByVal strValue As String) As Boolean
+
+    Dim strTrim As String
+
+    strTrim = Trim$(strValue)
+    If Len(strTrim) = 0 Then Exit Function
+    IsJsonRootStart = (Left$(strTrim, 1) = "{") Or (Left$(strTrim, 1) = "[")
 
 End Function
 

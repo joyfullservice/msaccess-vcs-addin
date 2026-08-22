@@ -36,7 +36,9 @@ Opening the web runner does not begin an `Operation`; the bridge Run callbacks d
 The bridge is **outbox polling**: JS enqueues commands in `window.__vbaOutbox`
 and the form timer drains them via `RetrieveJavascriptValue`. No navigation is
 involved — see the `frmVCSTestRunner` header comment and the DECISIONS.md entry
-of 2026-07-08.
+of 2026-07-08. When the control times out, it returns a **localized** string as
+the function result (not `Err`); `modTestRunnerUI.RetrieveJsValue` detects that
+sentinel and retries once before treating the read as failed.
 
 Allowlisted callbacks: `RunAll`, `RunSelected`, `RunFailed`, `Cancel`,
 `OpenTestSource`, `RefreshTests`, `OpenResultsReport`, `CopyResultsPath`.
