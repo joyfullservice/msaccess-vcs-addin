@@ -15,11 +15,10 @@ Option Private Module
 
 Public Sub TestPathFunctions()
 
-    Const cstrUncBase As String = "\\%computername%\c$\users\%username%\AppData\Local\Temp\"
-
     Dim strBase As String
     Dim strPath As String
     Dim strTempPath As String
+    Dim strUncBase As String
 
     ' Test expansion of environment variable
     strPath = ExpandEnvironmentVariables("%TEMP%\test.tmp")
@@ -41,11 +40,14 @@ Public Sub TestPathFunctions()
     TestAssert FSO.FolderExists(FSO.GetParentFolderName(strTempPath)), "parent folder created"
     FSO.DeleteFolder strBase & "\subfolder"
 
-    ' Test UNC path (may not work on all systems)
-    strTempPath = ExpandEnvironmentVariables(cstrUncBase & "subfolder\level2\test.tmp")
-    TestAssert VerifyPath(strTempPath), "UNC path"
-    TestAssert FSO.FolderExists(FSO.GetParentFolderName(strTempPath)), "UNC folder created"
-    FSO.DeleteFolder strBase & "\subfolder"
+    ' Test UNC path (skip when admin share of TEMP is unreachable)
+    strUncBase = LocalPathAsAdminShareUnc(strBase)
+    If Len(strUncBase) > 0 And FSO.FolderExists(strUncBase) Then
+        strTempPath = strUncBase & "\subfolder\level2\test.tmp"
+        TestAssert VerifyPath(strTempPath), "UNC path"
+        TestAssert FSO.FolderExists(FSO.GetParentFolderName(strTempPath)), "UNC folder created"
+        FSO.DeleteFolder strUncBase & "\subfolder"
+    End If
 
 End Sub
 
@@ -270,3 +272,16 @@ Public Sub TestDeleteFile()
     FSO.DeleteFolder strFolder, True
 
 End Sub
+
+
+Private Function LocalPathAsAdminShareUnc(ByVal strPath As String) As String
+
+    strPath = StripSlash(strPath)
+    If Left$(strPath, 2) = "\\" Then
+        LocalPathAsAdminShareUnc = strPath
+    ElseIf Mid$(strPath, 2, 1) = ":" Then
+        LocalPathAsAdminShareUnc = "\\" & Environ$("COMPUTERNAME") & "\" _
+            & Left$(strPath, 1) & "$" & Mid$(strPath, 3)
+    End If
+
+End Function
