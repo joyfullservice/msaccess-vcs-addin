@@ -1939,7 +1939,7 @@ Private Function TrustedLocationHiveCoversFolder(lngHive As Long, strKey As Stri
         Err.Clear
         Exit Function
     End If
-    If IsEmpty(varSubKeys) Then Exit Function
+    If IsEmpty(varSubKeys) Or IsNull(varSubKeys) Then Exit Function
 
     For Each varKey In varSubKeys
         strPath = vbNullString
