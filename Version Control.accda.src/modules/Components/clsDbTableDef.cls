@@ -827,7 +827,7 @@ Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
             If (fld.Attributes And dbAutoIncrField) Then
                 .Add "AUTOINCREMENT"
             ElseIf fld.Type = dbDecimal Then
-                .Add "DECIMAL(", fld.Precision, ",", fld.NumericScale, ")"
+                .Add "DECIMAL(", fld.Precision, ",", fld.Scale, ")"
             Else
                 .Add GetTypeString(fld.Type)
             End If

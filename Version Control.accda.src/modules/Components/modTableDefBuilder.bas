@@ -764,6 +764,12 @@ Private Function CreateTableFromSchema(ByVal dSchema As Dictionary, strTableName
     Set dbs = CurrentDb
     Set tdf = dbs.TableDefs(strTableName)
 
+    If Not ApplyDecimalFieldTypes(strTableName, dSchema("Fields")) Then GoTo ErrHandler
+
+    ReleaseDbReferences
+    Set dbs = CurrentDb
+    Set tdf = dbs.TableDefs(strTableName)
+
     For Each varField In dSchema("Fields")
         ApplyFieldProperties tdf.Fields(CStr(varField("Name"))), varField("Properties")
     Next varField
@@ -804,10 +810,9 @@ Private Sub AppendField(tdf As DAO.TableDef, ByVal dField As Dictionary)
 
     If lngType = dbText Then fld.Size = dField("Size")
 
-    If lngType = dbDecimal Then
-        If dField("Precision") > 0 Then fld.Precision = dField("Precision")
-        fld.NumericScale = dField("Scale")
-    End If
+    ' Decimal precision and scale cannot be set on a DAO Field. CreateField(dbDecimal)
+    ' materializes as dbBigInt; ApplyDecimalFieldTypes converts each column through ADO
+    ' DDL after the table is appended.
 
     ' Combine rather than assign, so the engine's own storage flags survive.
     If dField("Attributes") <> 0 Then
@@ -819,6 +824,50 @@ Private Sub AppendField(tdf As DAO.TableDef, ByVal dField As Dictionary)
     tdf.Fields.Append fld
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyDecimalFieldTypes
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : DAO CreateField(dbDecimal) creates a dbBigInt placeholder. ACE only accepts
+'           : DECIMAL(p,s) through ADO DDL, so convert each decimal column after append.
+'---------------------------------------------------------------------------------------
+'
+Private Function ApplyDecimalFieldTypes(strTableName As String, ByVal colFields As Collection) As Boolean
+
+    Dim dField As Dictionary
+    Dim varField As Variant
+    Dim lngPrecision As Long
+    Dim lngScale As Long
+    Dim strSql As String
+
+    ApplyDecimalFieldTypes = True
+
+    For Each varField In colFields
+        Set dField = varField
+        If dField("Type") = dbDecimal Then
+            lngPrecision = dField("Precision")
+            lngScale = dField("Scale")
+            If lngPrecision <= 0 Then
+                m_strDeclineReason = "decimal field '" & dField("Name") & "' has no precision"
+                ApplyDecimalFieldTypes = False
+                Exit Function
+            End If
+            strSql = "ALTER TABLE [" & DblQ(strTableName) & "] ALTER COLUMN [" & _
+                DblQ(CStr(dField("Name"))) & "] DECIMAL(" & lngPrecision & "," & lngScale & ")"
+            CurrentProject.Connection.Execute strSql
+            If Err Then
+                m_strDeclineReason = "unable to set decimal type for field '" & dField("Name") & _
+                    "': " & Err.Number & " " & Err.Description
+                Err.Clear
+                ApplyDecimalFieldTypes = False
+                Exit Function
+            End If
+        End If
+    Next varField
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

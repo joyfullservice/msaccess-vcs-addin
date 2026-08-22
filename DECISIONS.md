@@ -83,6 +83,24 @@ contradictory guidance.
 
 ---
 
+## 2026-08-21 — DAO Field.Scale for Decimal export; ADO ALTER for DAO import (issue #756)
+
+**Trigger**: Issue #756. v5 `SaveTableSqlDef` read `fld.NumericScale` (an ADO name) on `DAO.Field3`, raising runtime 438 on any table with a Decimal column and aborting export. The same typo in `modTableDefBuilder.AppendField` tripped the fast-path circuit breaker. Live probe on Access 16.0 confirmed `Precision`/`Scale` read correctly, `NumericScale` always 438s (Field3 is IDispatch-extensible so it compiles), `CreateField(dbDecimal)` materializes as `dbBigInt`, and only `CurrentProject.Connection.Execute ALTER COLUMN ... DECIMAL(p,s)` creates a real Decimal.
+
+**Options explored**:
+- **Assign `fld.Scale` before append**: rejected. Setter appears to succeed but values stay 0; appended type is `dbBigInt`, not `dbDecimal`.
+- **Decline Decimal at parse time**: rejected. Would force every Decimal table through ImportXML even when the DAO path is otherwise correct.
+- **DAO `Database.Execute` for DECIMAL DDL**: rejected. Syntax errors 3292/3293; ACE requires ADO for DECIMAL DDL.
+- **Read `Scale`, ADO ALTER after append**: chosen for import; read-only fix for export.
+
+**Decision**: `SaveTableSqlDef` emits `fld.Scale`. `modTableDefBuilder` keeps `CreateField(..., dbDecimal)` for index binding, drops the broken Precision/NumericScale assignments, and runs `CurrentProject.Connection.Execute` `ALTER COLUMN ... DECIMAL(p,s)` per decimal field after `TableDefs.Append`, re-fetching through a fresh `CurrentDb` before applying properties. Bump `GetExporterRevisions` `Tables` so stale `.sql` sidecars re-export.
+
+**What this rules out**: Using `NumericScale` on DAO Field objects anywhere. Expecting DAO to create or ALTER Decimal types. ADOX catalog reads for precision/scale.
+
+**Relevant files**: `clsDbTableDef.cls`, `modTableDefBuilder.bas`, `modConstants.bas`, `modTestTableDef.bas`, `Testing/Fixtures/tabledefs/tblDecimal.xml`.
+
+---
+
 ## 2026-08-21 — A test run is refused when the installed add-in is the current database
 
 **Trigger**: Agents kept opening the installed add-in as a database to run the

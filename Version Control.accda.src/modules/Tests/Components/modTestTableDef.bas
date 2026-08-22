@@ -15,6 +15,8 @@ Option Private Module
 
 Private Const TEST_TABLE_BIGINT As String = "vcs_test_bigint_repair"
 Private Const TEST_TABLE_OUTSIDE_EXPORT As String = "vcs_test_td_outside_export"
+Private Const TEST_TABLE_DECIMAL_SQL As String = "vcs_test_decimal_sql"
+Private Const TEST_TABLE_DECIMAL_DAO As String = "vcs_test_decimal_dao"
 
 
 '---------------------------------------------------------------------------------------
@@ -191,6 +193,101 @@ Public Sub TestDaoImportFromOutsideExportFolder()
 
     DeleteFile strXml
     DropTestTable TEST_TABLE_OUTSIDE_EXPORT
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestSaveTableSqlDecimalScale
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Issue 756. SaveTableSqlDef must read DAO Field.Scale, not NumericScale, when
+'           : emitting DECIMAL(p,s) in the optional .sql companion file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestSaveTableSqlDecimalScale()
+    '@Tag("integration")
+
+    Dim cTable As clsDbTableDef
+    Dim strFolder As String
+    Dim strSqlFile As String
+    Dim strSql As String
+
+    DropTestTable TEST_TABLE_DECIMAL_SQL
+
+    CurrentProject.Connection.Execute _
+        "CREATE TABLE [" & TEST_TABLE_DECIMAL_SQL & "] (" & _
+        "[ID] LONG, [Year4] DECIMAL(4,0), [Amount] DECIMAL(18,4))"
+    RefreshTableCollections CurrentDb
+
+    strFolder = GetTempFolder("vcs_dec_sql")
+
+    Set cTable = New clsDbTableDef
+    cTable.SaveTableSqlDef TEST_TABLE_DECIMAL_SQL, AddSlash(strFolder)
+
+    strSqlFile = AddSlash(strFolder) & GetSafeFileName(TEST_TABLE_DECIMAL_SQL) & ".sql"
+    TestAssert FSO.FileExists(strSqlFile), "sql companion file was written"
+    strSql = ReadFile(strSqlFile)
+
+    TestAssert InStr(1, strSql, "DECIMAL(4,0)", vbTextCompare) > 0, "Year4 emits DECIMAL(4,0)"
+    TestAssert InStr(1, strSql, "DECIMAL(18,4)", vbTextCompare) > 0, "Amount emits DECIMAL(18,4)"
+    TestAssert InStr(1, strSql, "[Year4] VARCHAR", vbTextCompare) = 0, "Year4 is not VARCHAR"
+    TestAssert InStr(1, strSql, "[Amount] VARCHAR", vbTextCompare) = 0, "Amount is not VARCHAR"
+
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    DropTestTable TEST_TABLE_DECIMAL_SQL
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestDaoDecimalPrecisionAndScale
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : The DAO table builder must materialize decimal fields as dbDecimal with the
+'           : parsed precision and scale, using ADO ALTER after CreateField.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDaoDecimalPrecisionAndScale()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim fld As DAO.Field
+    Dim strXml As String
+    Dim blnPriorOverride As Boolean
+
+    DropTestTable TEST_TABLE_DECIMAL_DAO
+
+    strXml = GetTempFile
+    DeleteFile strXml
+    strXml = FSO.GetParentFolderName(strXml) & PathSep & TEST_TABLE_DECIMAL_DAO & ".xml"
+    If FSO.FileExists(strXml) Then DeleteFile strXml
+    WriteFile DecimalFixtureXml, strXml
+
+    blnPriorOverride = FastPathTestOverride
+    FastPathTestOverride = True
+
+    TestAssert TryBuildTableFromDefXml(strXml, TEST_TABLE_DECIMAL_DAO), _
+        "DAO build succeeds for decimal fields"
+    TestAssert Len(GetLastDeclineReason()) = 0, "no decline reason"
+
+    FastPathTestOverride = blnPriorOverride
+
+    Set dbs = CurrentDb
+    TestAssert TableExists(TEST_TABLE_DECIMAL_DAO, dbs), "table was created"
+
+    Set fld = dbs.TableDefs(TEST_TABLE_DECIMAL_DAO).Fields("Year4")
+    TestAssert fld.Type = dbDecimal, "Year4 type is dbDecimal"
+    TestAssert fld.Precision = 4, "Year4 precision"
+    TestAssert fld.Scale = 0, "Year4 scale"
+
+    Set fld = dbs.TableDefs(TEST_TABLE_DECIMAL_DAO).Fields("Amount")
+    TestAssert fld.Type = dbDecimal, "Amount type is dbDecimal"
+    TestAssert fld.Precision = 18, "Amount precision"
+    TestAssert fld.Scale = 4, "Amount scale"
+
+    DeleteFile strXml
+    DropTestTable TEST_TABLE_DECIMAL_DAO
 
 End Sub
 
@@ -397,6 +494,42 @@ Private Function BigIntFixtureXml(strFieldName As String) As String
         "    </xsd:sequence></xsd:complexType>" & vbCrLf & _
         "  </xsd:element>" & vbCrLf & _
         "</xsd:schema>"
+End Function
+
+
+Private Function DecimalFixtureXml() As String
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "<?xml version=""1.0""?>"
+        .Add "<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:od=""urn:schemas-microsoft-com:officedata"">"
+        .Add "  <xsd:element name=""dataroot"">"
+        .Add "    <xsd:complexType><xsd:sequence>"
+        .Add "      <xsd:element ref=""" & TEST_TABLE_DECIMAL_DAO & """ minOccurs=""0"" maxOccurs=""unbounded""/>"
+        .Add "    </xsd:sequence>"
+        .Add "    <xsd:attribute name=""generated"" type=""xsd:dateTime""/>"
+        .Add "    </xsd:complexType></xsd:element>"
+        .Add "  <xsd:element name=""" & TEST_TABLE_DECIMAL_DAO & """>"
+        .Add "    <xsd:annotation><xsd:appinfo>"
+        .Add "      <od:index index-name=""PrimaryKey"" index-key=""ID "" primary=""yes"" unique=""yes"" clustered=""no"" order=""asc""/>"
+        .Add "    </xsd:appinfo></xsd:annotation>"
+        .Add "    <xsd:complexType><xsd:sequence>"
+        .Add "      <xsd:element name=""ID"" minOccurs=""1"" od:jetType=""autonumber"" od:sqlSType=""int"" od:autoUnique=""yes"" od:nonNullable=""yes"" type=""xsd:int""/>"
+        .Add "      <xsd:element name=""Year4"" minOccurs=""0"" od:jetType=""decimal"">"
+        .Add "        <xsd:simpleType><xsd:restriction base=""xsd:decimal"">"
+        .Add "          <xsd:totalDigits value=""4""/>"
+        .Add "          <xsd:fractionDigits value=""0""/>"
+        .Add "        </xsd:restriction></xsd:simpleType></xsd:element>"
+        .Add "      <xsd:element name=""Amount"" minOccurs=""0"" od:jetType=""decimal"">"
+        .Add "        <xsd:simpleType><xsd:restriction base=""xsd:decimal"">"
+        .Add "          <xsd:totalDigits value=""18""/>"
+        .Add "          <xsd:fractionDigits value=""4""/>"
+        .Add "        </xsd:restriction></xsd:simpleType></xsd:element>"
+        .Add "    </xsd:sequence></xsd:complexType></xsd:element>"
+        .Add "</xsd:schema>"
+        DecimalFixtureXml = .GetStr
+    End With
+
 End Function
 
 
