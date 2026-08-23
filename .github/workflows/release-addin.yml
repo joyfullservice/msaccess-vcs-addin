@@ -33,7 +33,7 @@ jobs:
           source-dir: "./Version Control.accda.src"
           target-dir: "bin"
           vcs-url: "https://api.github.com/repos/joyfullservice/msaccess-vcs-addin/releases/tags/v5.0.1"
-          compile: "true" # enable compile to produce .accde with exposed public API
+          # compile: "true" # enable compile to produce .accde with exposed public API
         timeout-minutes: 10
 
       - name: Create versioned ZIP
