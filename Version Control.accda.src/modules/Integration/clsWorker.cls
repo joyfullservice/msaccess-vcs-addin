@@ -36,6 +36,12 @@ Public Queue As Dictionary
 ' Last result returned by a worker callback
 Private m_varLastResult As Variant
 
+' Result file and queue key of the job reporting through the file channel, if any. One
+' field each for the same reason m_varLastResult is one field: only one job at a time can
+' be waited on for a value, and the duplicate-job guard in CallWorker keeps it that way.
+Private m_strResultFile As String
+Private m_strResultKey As String
+
 ' Generic placeholder objects so we can compile the VBScript in the VBA IDE
 Private WScript As Object
 
@@ -98,10 +104,32 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IsDatabaseAccessible() As Boolean
+
+    ' This action reports through a file instead of the callback. It is the only one that
+    ' does not need the Access instance to do its work -- it builds its own DAO engine --
+    ' so attaching would be a dependency taken out purely in order to answer, and that is
+    ' the attach that cannot succeed when the caller's current database is the add-in
+    ' itself. See the 2026-08-12 entry in DECISIONS.md for the measured 432.
     m_varLastResult = Empty
-    CallWorker "DbAccessCheck", 10, "CheckDatabaseAccessible"
+    m_strResultKey = JobKeyHash("DbAccessCheck", "CheckDatabaseAccessible")
+    m_strResultFile = JobResultFile("CheckDatabaseAccessible")
+    CallWorker "DbAccessCheck", 10, "CheckDatabaseAccessible", """" & m_strResultFile & """"
     Me.WaitForQueue 10, "CheckDatabaseAccessible", 0.1
-    IsDatabaseAccessible = CBool(m_varLastResult)
+
+    ' Three outcomes, not two. No file at all means the worker never answered, which is
+    ' not the same as an answer of "not accessible" even though the caller takes the same
+    ' conservative action either way. Stay quiet when the helper script is switched off
+    ' (#727): there an empty result is the documented behaviour, not a fault.
+    If IsEmpty(m_varLastResult) Then
+        If modInstall.UseWorkerScript Then
+            Log.Error eelWarning, T("No result from the worker. Assuming the database is not accessible to other clients."), _
+                ModuleName(Me) & ".IsDatabaseAccessible"
+        End If
+        IsDatabaseAccessible = False
+    Else
+        IsDatabaseAccessible = CBool(m_varLastResult)
+    End If
+
 End Function
 
 
@@ -202,6 +230,10 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
             DoEvents
         Loop
         DoEvents
+
+        ' Pick up a result delivered through the file channel. An action that does not
+        ' attach has no callback to make, so nothing arrives here on its own.
+        PollJobResults
 
         ' We can exit early if there is nothing in the queue
         If Me.Queue.Count = 0 Then Exit Do
@@ -395,7 +427,7 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
     End If
 
     ' Make sure this key/action is not already running
-    strHash = GetStringHash(strKey & strAction)
+    strHash = JobKeyHash(strKey, strAction)
     If Me.Queue.Exists(strHash) Then
         Log.Error eelError, "Duplicate job in queue: " & strAction & "." & strKey, _
             ModuleName(Me) & ".CallWorker"
@@ -445,6 +477,125 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
     CallWorker = lngHandle
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : JobKeyHash
+' Author    : Adam Waller
+' Date      : 8/23/2026
+' Purpose   : The queue key for a job. Deterministic on purpose: it is what makes the
+'           : duplicate check work, and what the worker echoes back in a callback.
+'---------------------------------------------------------------------------------------
+'
+Private Function JobKeyHash(strKey As String, strAction As String) As String
+    JobKeyHash = GetStringHash(strKey & strAction)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : JobResultFile
+' Author    : Adam Waller
+' Date      : 8/23/2026
+' Purpose   : Path the worker writes a job's return value to, handed to it as an argument
+'           : the same way BuildAndInstall receives its status file. The name carries a
+'           : per-launch suffix, because the queue key cannot serve here: it is a hash of
+'           : key and action, so it is identical in every session and forever, and a file
+'           : left behind by an earlier run would be read as this answer.
+'           : Returns an empty string if the folder cannot be prepared. The worker treats
+'           : that as "do not write", and the caller reads it as no answer.
+'---------------------------------------------------------------------------------------
+'
+Private Function JobResultFile(strAction As String) As String
+
+    ' Well past the longest job timeout, so nothing in flight can match.
+    Const StaleJobHours As Double = 1
+
+    Dim oFS As Object
+    Dim strFolder As String
+    Dim colStale As Collection
+    Dim varFile As Variant
+
+    ' Dereference the FSO getter before opening a handler: it contains LogUnhandledErrors,
+    ' so an error pending on entry would be reported from in here.
+    Set oFS = FSO
+    strFolder = oFS.GetParentFolderName(WorkerFilePath) & PathSep & "WorkerJobs"
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' VerifyPath tells a folder from a file name by the trailing separator.
+    VerifyPath strFolder & PathSep
+
+    If oFS.FolderExists(strFolder) Then
+
+        ' Nothing else collects these, because each name is unique to its launch. Collect
+        ' first and delete afterwards: the Files collection is live.
+        Set colStale = New Collection
+        For Each varFile In oFS.GetFolder(strFolder).Files
+            If varFile.DateLastModified < Now - (StaleJobHours / 24) Then
+                colStale.Add varFile.Path
+            End If
+        Next varFile
+        For Each varFile In colStale
+            DeleteFile CStr(varFile)
+        Next varFile
+
+        JobResultFile = strFolder & PathSep & strAction & "-" & _
+            UniqueHashSuffix(strAction) & ".result"
+    End If
+
+    CatchAny eelWarning, "Unable to prepare the worker result folder: " & strFolder, _
+        ModuleName(Me) & ".JobResultFile"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PollJobResults
+' Author    : Adam Waller
+' Date      : 8/23/2026
+' Purpose   : Pick up a result delivered through the file channel and hand it to
+'           : ReturnWorker, so that job logging and queue removal stay in one place.
+'           : Anything other than the two values the worker writes is left alone and
+'           : retried on the next interval: a read can fail transiently -- a scanner
+'           : holding a file that was just published is the ordinary case -- and
+'           : answering "not accessible" to that would be wrong where waiting one more
+'           : tenth of a second is right. The job timeout already bounds the retrying.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PollJobResults()
+
+    Dim oFS As Object
+    Dim strContent As String
+    Dim strValue As String
+
+    If Len(m_strResultFile) = 0 Then Exit Sub
+
+    Set oFS = FSO
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    If oFS.FileExists(m_strResultFile) Then
+        strContent = ReadFile(m_strResultFile)
+        If Err.Number = 0 Then
+            ' Split on an empty string returns an array with no elements.
+            If Len(strContent) > 0 Then strValue = Trim(Split(strContent, vbCrLf)(0))
+            Select Case strValue
+                Case "1", "0"
+                    Me.ReturnWorker m_strResultKey, (strValue = "1")
+                    DeleteFile m_strResultFile
+                    m_strResultFile = vbNullString
+                    m_strResultKey = vbNullString
+            End Select
+        End If
+        Err.Clear
+    End If
+
+    CatchAny eelWarning, "Unable to read the worker result file", _
+        ModuleName(Me) & ".PollJobResults"
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -531,6 +682,7 @@ Sub Main()
     Dim strPhaseStarted
     Dim strCallbackUrl
     Dim strOperationId
+    Dim strResultFile
 
 
     Set objFSO = CreateObject("Scripting.FileSystemObject")
@@ -556,8 +708,15 @@ Sub Main()
     ' take twenty seconds to say so, which is time spent before this script can report
     ' that it started. Everything that action needs arrives in its own arguments, so it
     ' does not care what the caller had open, or whether it had anything open at all.
+    '
+    ' CheckDatabaseAccessible is the second, and for the same reason read the other way
+    ' round: it builds its own DAO engine and opens the file itself, so the only thing it
+    ' ever used the reference for was handing the answer back. That made the attach a
+    ' dependency taken out purely in order to speak, and it is the one that cannot
+    ' succeed for an add-in path. It reports through a result file instead, so its value
+    ' no longer depends on reaching Access at all.
     Set objApp = Nothing
-    If strAction <> "BuildAndInstall" Then
+    If strAction <> "BuildAndInstall" And strAction <> "CheckDatabaseAccessible" Then
 
         If Not objFSO.FileExists(strValue) Then
             MsgBox "Database file must exist", vbExclamation
@@ -621,7 +780,19 @@ Sub Main()
                 strOperationId
 
         Case "CheckDatabaseAccessible"
-            varReturn = CheckDatabaseAccessible(WScript.Arguments(0))
+            ' Args: result file. The subject is the caller's current database, which
+            ' arrives as argument 0 like everywhere else.
+            '
+            ' The file has to exist, and this action no longer passes through the branch
+            ' that checks it. Guard it here instead, and on a miss write nothing: during
+            ' a full build the database is renamed aside for a moment, and a path that
+            ' resolves to nothing is not an answer. Writing a 0 would turn it into a
+            ' definite "not accessible" and cost the caller a reopen it does not need.
+            strResultFile = ""
+            If WScript.Arguments.Count > 3 Then strResultFile = WScript.Arguments(3)
+            If objFSO.FileExists(strValue) Then
+                WriteJobResult strResultFile, CheckDatabaseAccessible(strValue)
+            End If
 
         Case "SaveVbaProject"
             varReturn = SaveVbaProject(objApp)
@@ -845,6 +1016,40 @@ Function CheckDatabaseAccessible(strPath)
     End If
     Set objEngine = Nothing
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteJobResult
+' Author    : Adam Waller
+' Date      : 8/23/2026
+' Purpose   : Report a job's return value through a file, for an action that does not
+'           : attach and so has no callback to make. Written as 1 or 0 rather than as a
+'           : boolean so that nothing in the channel depends on locale, and with the same
+'           : stream and charset as WriteRebuildStatusFile, which is the other file this
+'           : script writes for the add-in to read back.
+'           : Writes nothing when there is no path or no value. The absence of the file is
+'           : how the caller tells "no answer" apart from "no", so writing anything here
+'           : on a miss would destroy the distinction the file exists to make.
+'---------------------------------------------------------------------------------------
+'
+Sub WriteJobResult(strFile, varValue)
+
+    Dim stm
+
+    If Len(strFile) = 0 Then Exit Sub
+    If IsEmpty(varValue) Then Exit Sub
+
+    On Error Resume Next
+    Set stm = CreateObject("ADODB.Stream")
+    stm.Type = 2
+    stm.Charset = "utf-8"
+    stm.Open
+    If varValue Then stm.WriteText "1" Else stm.WriteText "0"
+    stm.SaveToFile strFile, 2
+    stm.Close
+    On Error GoTo 0
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
