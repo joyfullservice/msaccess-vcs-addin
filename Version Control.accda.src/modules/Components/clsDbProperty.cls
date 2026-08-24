@@ -88,7 +88,7 @@ Private Sub IDbComponent_Import(strFile As String)
         Set dItems = dImport("Items")
         For Each varKey In dItems.Keys
             Select Case varKey
-                Case "Connection", "Name", "Version", "CollatingOrder" ' Can't set these properties
+                Case "Connection" ' This is an object; not a plain settable value.
                 Case Else
                     blnAdd = False
                     bUpdate = False
@@ -105,6 +105,15 @@ Private Sub IDbComponent_Import(strFile As String)
                                 varValue = CDate(dItems(varKey)("Value"))
                             End If
                         End If
+                        ' Coerce to the property's own declared type before any comparison
+                        ' or write. A caller-supplied JSON value may not match the declared
+                        ' Type's native Variant subtype (e.g. "0" as a String where Type is
+                        ' dbLong) -- left uncoerced, "0" <> 0 evaluates True even though the
+                        ' values are the same, triggering a write that shouldn't happen at
+                        ' all (the original trigger behind this class of bug: an unwanted
+                        ' write attempt against a read-only property from a spurious
+                        ' type-mismatch "difference", not a real value change).
+                        varValue = CoercePropertyValueType(varValue, dItems(varKey)("Type"))
                     Else
                         ReDim bArray(0 To dItems(varKey)("Value").Count - 1)
                         For Each varItem In dItems(varKey)("Value")
@@ -123,8 +132,25 @@ Private Sub IDbComponent_Import(strFile As String)
                             If Not TypeOf dItems(varKey)("Value") Is Collection Then
                                 ' Check the value, and update if different
                                 If varValue <> dExisting(varKey)(0) Then
-                                    ' Update value of existing property if different.
-                                    dbs.Properties(varKey).Value = varValue
+                                    ' Some built-in properties (RecordsAffected, ReplicaID,
+                                    ' Transactions, Updatable, DesignMasterID, and possibly
+                                    ' others) appear in the Properties collection like any
+                                    ' ordinary settable property, but are actually read-only.
+                                    ' Probe with a same-value write-back before attempting the
+                                    ' real update, so an unsettable property is skipped instead
+                                    ' of crashing the import. When the source's recorded value
+                                    ' genuinely differs from the live value, log it rather than
+                                    ' silently losing the mismatch.
+                                    If PropertyIsSettable(dbs.Properties(varKey)) Then
+                                        ' Update value of existing property if different.
+                                        dbs.Properties(varKey).Value = varValue
+                                    Else
+                                        Log.Add T("Skipping read-only property '{0}': source " & _
+                                            "value ({1}) differs from the database's current " & _
+                                            "value ({2}).", var0:=CStr(varKey), _
+                                            var1:=CStr(varValue), var2:=CStr(dExisting(varKey)(0))), _
+                                            False
+                                    End If
                                 End If
                             Else
                                 ' Check the arrays, and update if different
@@ -178,6 +204,71 @@ Private Sub IDbComponent_Import(strFile As String)
     VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary(False))
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PropertyIsSettable
+' Author    : bclothier
+' Date      : 8/24/2026
+' Purpose   : Determine whether a DAO.Property can actually be assigned, by attempting
+'           : to write its own current value back unchanged. Some built-in Database
+'           : properties (RecordsAffected, ReplicaID, Transactions, Updatable,
+'           : DesignMasterID, and possibly others) are read-only despite appearing in
+'           : the Properties collection like any ordinary, settable property -- DAO
+'           : raises a real, catchable error on any write attempt to these, which this
+'           : function reports as False rather than letting it propagate.
+'---------------------------------------------------------------------------------------
+'
+'---------------------------------------------------------------------------------------
+' Procedure : CoercePropertyValueType
+' Author    : bclothier
+' Date      : 8/24/2026
+' Purpose   : Convert a raw imported value to the native VBA Variant subtype matching
+'           : its declared DAO property Type, so a later comparison against the live
+'           : property's own value (already in its native type) isn't thrown off by a
+'           : spurious type mismatch -- e.g. a JSON value serialized as the String "0"
+'           : for a property whose Type is dbLong. Without this, "0" <> 0 evaluates
+'           : True even though the values are equal, triggering an unwanted write.
+'           : Text/memo and any other type not listed here are passed through unchanged.
+'---------------------------------------------------------------------------------------
+'
+Private Function CoercePropertyValueType(varRawValue As Variant, lngDaoType As Variant) As Variant
+
+    On Error Resume Next
+    Select Case lngDaoType
+        Case dbBoolean
+            CoercePropertyValueType = CBool(varRawValue)
+        Case dbByte, dbInteger, dbLong, dbBigInt
+            CoercePropertyValueType = CLng(varRawValue)
+        Case dbCurrency, dbSingle, dbDouble, dbNumeric, dbDecimal, dbFloat
+            CoercePropertyValueType = CDbl(varRawValue)
+        Case Else
+            CoercePropertyValueType = varRawValue
+    End Select
+    ' If the conversion itself failed (a genuinely invalid value), fall back to the
+    ' original, uncoerced value rather than losing it.
+    If Err.Number <> 0 Then
+        CoercePropertyValueType = varRawValue
+        Err.Clear
+    End If
+    On Error GoTo 0
+
+End Function
+
+
+Private Function PropertyIsSettable(prpToCheck As DAO.Property) As Boolean
+
+    Dim varCurrent As Variant
+
+    On Error Resume Next
+    Err.Clear
+    varCurrent = prpToCheck.Value
+    prpToCheck.Value = varCurrent
+    PropertyIsSettable = (Err.Number = 0)
+    Err.Clear
+    On Error GoTo 0
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
