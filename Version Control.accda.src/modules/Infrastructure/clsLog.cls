@@ -362,72 +362,50 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSource As String, Optional blnIncludeErrorMessage As Boolean = False)
+   LogErrorInfo NewErrorInfo(eLevel, strDescription, strSource, blnIncludeErrorMessage)
+End Sub
 
-    Dim strPrefix As String
-    Dim strDisplay As String
-    Dim lngErrNum As Long
-    Dim strErrDesc As String
+Private Sub LogErrorInfo(oErrorInfo As clsErrorInfo)
 
-    lngErrNum = Err.Number
-    strErrDesc = Err.Description
-    m_lngErrCount(eLevel) = m_lngErrCount(eLevel) + 1
-    Select Case eLevel
-        Case eelWarning:    strPrefix = "WARNING: "
-        Case eelError:      strPrefix = "ERROR: "
-        Case eelCritical:   strPrefix = "CRITICAL: "
-    End Select
+    Dim blnPrint As Boolean
+
+    blnPrint = (oErrorInfo.ErrorLevel > eelWarning)
+    m_lngErrCount(oErrorInfo.ErrorLevel) = m_lngErrCount(oErrorInfo.ErrorLevel) + 1
 
     ' Build the error message string.
     With New clsConcat
 
-        ' Sometimes the error description is sufficient for the description
-        If strDescription = vbNullString And lngErrNum <> 0 Then
-            strDisplay = strPrefix & lngErrNum & " - " & strErrDesc
-        ElseIf blnIncludeErrorMessage Then
-            strDisplay = strPrefix & strDescription & "; Error " & lngErrNum & " - " & strErrDesc
-        Else
-            strDisplay = strPrefix & strDescription
-        End If
-
         ' Log all errors, and display on the output screen anything higher than a warning
-        Me.Add vbNullString, (eLevel > eelWarning)
-        Me.Spacer (eLevel > eelWarning)
-        Me.Add strDisplay, (eLevel > eelWarning), , "red"
+        Me.Add vbNullString, blnPrint
+        Me.Spacer blnPrint
+        Me.Add oErrorInfo.DisplayText, blnPrint, , "red"
 
         ' Log the additional error and source details to the log file
-        If lngErrNum <> 0 Then .Add "Error ", CStr(lngErrNum), ": ", strErrDesc, " "
-        If strSource <> vbNullString Then .Add "Source: ", strSource
+        If oErrorInfo.ErrorNumber <> 0 Then .Add "Error ", CStr(oErrorInfo.ErrorNumber), ": ", oErrorInfo.ErrorDescription, " "
+        If oErrorInfo.Source <> vbNullString Then .Add "Source: ", oErrorInfo.Source
         Me.Add .GetStr, False
-        Me.Spacer (eLevel > eelWarning)
+        Me.Spacer blnPrint
         Me.Flush ' Force a screen update.
-        AppendErrorJournal eLevel, strDisplay, strSource, lngErrNum, strErrDesc
+        AppendErrorJournal oErrorInfo
+
         ' Without a console, route prompts through MsgBox2 so InteractionMode and
         ' Attended suppress blocking dialogs during harness and automation runs.
         If m_RichText Is Nothing Then
             If Operation.InteractionMode <> eimNormal Or Not Operation.Attended Then
-                Select Case eLevel
-                    Case eelWarning:    MsgBox2 "Warning", strDisplay, .GetStr, vbInformation
-                    Case eelError:      MsgBox2 "Error", strDisplay, .GetStr, vbExclamation
-                    Case eelCritical:   MsgBox2 "Critical", strDisplay, .GetStr, vbCritical
-                End Select
+                MsgBox2 oErrorInfo.ErrorLevelText, oErrorInfo.DisplayText, .GetStr, oErrorInfo.MsgBoxStyle
             ElseIf Log.Active Then
-                If eLevel = eelCritical Then
+                If oErrorInfo.ErrorLevel = eelCritical Then
                     MsgBox2 "Unable to Continue", .GetStr, _
                         "Please review the log file for additional details.", vbCritical
                 End If
             Else
-                Select Case eLevel
-                    Case eelNoError:    ' Do nothing
-                    Case eelWarning:    MsgBox2 "Warning", strDisplay, .GetStr, vbInformation
-                    Case eelError:      MsgBox2 "Error", strDisplay, .GetStr, vbExclamation
-                    Case eelCritical:   MsgBox2 "Critical", strDisplay, .GetStr, vbCritical
-                End Select
+                MsgBox2 oErrorInfo.ErrorLevelText, oErrorInfo.DisplayText, .GetStr, oErrorInfo.MsgBoxStyle
             End If
         End If
     End With
 
     ' Update error level if higher.
-    If Operation.ErrorLevel < eLevel Then Operation.ErrorLevel = eLevel
+    If Operation.ErrorLevel < oErrorInfo.ErrorLevel Then Operation.ErrorLevel = oErrorInfo.ErrorLevel
 
 End Sub
 
@@ -982,17 +960,16 @@ End Function
 ' Purpose   : Record a Log.Error call for per-test JSON export (TestResults loggedErrors).
 '---------------------------------------------------------------------------------------
 '
-Private Sub AppendErrorJournal(eLevel As eErrorLevel, strMessage As String, _
-    strSource As String, lngErrNum As Long, strErrDesc As String)
+Private Sub AppendErrorJournal(oErrorInfo As clsErrorInfo)
 
     Dim dEntry As Dictionary
 
     Set dEntry = New Dictionary
-    dEntry.Add "level", ErrorLevelToJournalString(eLevel)
-    dEntry.Add "message", strMessage
-    dEntry.Add "source", Nz2(strSource, vbNullString)
-    dEntry.Add "errNumber", lngErrNum
-    dEntry.Add "errDescription", Nz2(strErrDesc, vbNullString)
+    dEntry.Add "level", ErrorLevelToJournalString(oErrorInfo.ErrorLevel)
+    dEntry.Add "message", oErrorInfo.DisplayText
+    dEntry.Add "source", Nz2(oErrorInfo.Source, vbNullString)
+    dEntry.Add "errNumber", oErrorInfo.ErrorNumber
+    dEntry.Add "errDescription", Nz2(oErrorInfo.ErrorDescription, vbNullString)
     m_colErrorJournal.Add dEntry
 
 End Sub
