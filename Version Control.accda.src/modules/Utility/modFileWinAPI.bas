@@ -398,6 +398,42 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : FindFileRecursive
+' Author    : bclothier
+' Date      : 8/24/2026
+' Purpose   : Search an entire folder tree (via ScanFolderMetadata's single Win32 pass)
+'           : for a file named strBaseName, trying each extension in aExtensions in order.
+'           : Returns the full path of the first match found anywhere under strFolder, or
+'           : a zero-length string if none exists. Used as the subfolder-search fallback
+'           : when a flat, base-folder-only check has already failed to find the file.
+'---------------------------------------------------------------------------------------
+'
+Public Function FindFileRecursive(strFolder As String, strBaseName As String, aExtensions As Variant) As String
+
+    Dim dMeta As Dictionary
+    Dim varExt As Variant
+    Dim varKey As Variant
+    Dim strFileName As String
+
+    Set dMeta = ScanFolderMetadata(strFolder, True)
+
+    ' Preserve the caller's extension priority: check every file in the tree
+    ' against the first extension before moving on to the next, matching the
+    ' same precedence a flat, single-folder check would use.
+    For Each varExt In aExtensions
+        strFileName = strBaseName & CStr(varExt)
+        For Each varKey In dMeta.Keys
+            If StrComp(FSO.GetFileName(CStr(varKey)), strFileName, vbTextCompare) = 0 Then
+                FindFileRecursive = CStr(varKey)
+                Exit Function
+            End If
+        Next varKey
+    Next varExt
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ScanMetadataRecurse
 ' Author    : Adam Waller
 ' Date      : 6/9/2026

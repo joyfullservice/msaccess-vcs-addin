@@ -1041,6 +1041,88 @@ property read can precede unfinished teardown.
 - `docs/mcp-runvba.md`
 - `msaccess-vcs-mcp/src/msaccess_vcs_mcp/vba_worker_manager.py`
 - `msaccess-vcs-mcp/tests/test_vba_worker_manager.py`
+## 2026-08-24 — FindSourceFile's new recursive fallback measured at ~8-17ms on a 140-file tree; no mitigation needed
+
+**Trigger**: The recursive-scan fallback added to `FindSourceFile` (see the paired
+"ScanFolderMetadata" decision below) only runs when the existing flat-root check misses. Before
+accepting it, measured its actual cost against a real, representative tree rather than assuming
+it was fine.
+
+**Options explored**:
+- **Skip benchmarking, reason from the design alone**: rejected. The design intent (only the
+  fallback path pays any new cost; the common case is unchanged) is a reasonable argument but not
+  a substitute for a real measurement on a real tree.
+- **Add caching/memoization of scan results across calls**: not needed — see decision below.
+
+**Decision**: Timed `FindFileRecursive` against `Version Control.accda.src\modules\` (140 files
+across ~10 subfolders, this add-in's own real module tree) for a guaranteed-miss lookup, 5 runs:
+7.8-16.6ms (avg ~13ms). The flat, single-extension `FSO.FileExists` baseline it's compared
+against: 0.0-2.9ms (avg ~0.6ms). The new fallback only executes when the flat check has already
+failed — i.e., only for a brand-new object placed directly in its real, nested `'@Folder` path
+rather than the flat root, a one-time-per-object event during development, not a hot loop
+executed on every import/export. At ~13ms worst case, no mitigation (caching, bounding the scan,
+etc.) is warranted.
+
+**What this rules out**: Revisiting this specific performance question unless a much larger tree
+(order of magnitude more files) is reported as slow in practice — this measurement is the
+baseline to compare against if that ever comes up.
+
+**Addendum**: `FindSourceFile` has exactly one caller (`ImportObject`) and no cross-call caching,
+so the ~13ms cost is paid **once per file that misses the flat check**, not once per import
+operation — importing N new nested-folder objects via N separate `ImportObject`/`vcs_import_object`
+calls re-scans the same tree N times (e.g. ~260ms total for 20 files on this tree size). Still
+small enough in absolute terms not to need a fix, but this is a per-file, not a one-time, cost —
+worth knowing if a future bulk-import scenario on a much larger tree makes the linear scaling
+matter. If that happens, an operation-scoped cache of the `ScanFolderMetadata` result (keyed by
+`BaseFolder`, invalidated at the start of each new top-level operation) would be the natural fix.
+
+**Relevant files**: `modFileWinAPI.bas` (`FindFileRecursive`), `clsVersionControl.cls`
+(`FindSourceFile`).
+
+---
+
+## 2026-08-24 — FindSourceFile subfolder lookup reuses ScanFolderMetadata rather than a new recursive walk
+
+**Trigger**: `clsVersionControl.ImportObject`'s fallback for a brand-new object (one that doesn't
+yet exist live, so `CurrentProject.AllModules`/`AllForms`/etc. can't resolve it) is
+`FindSourceFile`, which only checks `cComponent.BaseFolder & strObjectName & <ext>` — the
+component type's flat base folder, with no subfolder search. Any new object placed directly at
+its correct `'@Folder`-nested path (rather than the flat root as a manual workaround) is reported
+"Source file not found," even though the file genuinely exists on disk.
+
+**Options explored**:
+- **A new hand-written recursive FSO walk inside `FindSourceFile`**: rejected. Would duplicate an
+  already-solved problem in this codebase and risks being slower than necessary — `Scripting.
+  FileSystemObject` recursion issues many separate COM calls per folder/file, one of the exact
+  costs `modFileWinAPI`'s Win32-based scanners were written to avoid (see `AGENTS.md`'s File
+  System Operations section).
+- **`VCSIndex.GetCachedAnnotation`**: rejected. Requires an existing index entry keyed by
+  filename — a genuinely brand-new object has never been indexed, so there is nothing to look
+  up. Confirmed by reading `GetCachedAnnotation`'s own implementation before ruling it out, not
+  assumed.
+- **`modFileWinAPI.ScanFolderMetadata(folder, blnRecursive:=True)`**: chosen. Already implements
+  a single efficient `FindFirstFileW`/`FindNextFileW` recursive walk of an entire folder tree,
+  returning a `Dictionary` keyed by full file path with `(date, size)` per entry. Already used
+  for exactly this "scan a whole category folder once, cheaply" need in
+  `clsVCSIndex.GetModifiedSourceFiles`. Reusing it keeps the fix idiomatic (one scanning
+  convention across the codebase, not two) and gives predictable performance: the existing flat
+  check stays the fast, zero-cost common-case path; only a genuine miss pays for one recursive
+  scan, not a per-candidate-extension multiplied cost.
+
+**Decision**: `FindSourceFile` keeps its existing flat-root check unchanged (so the common case —
+an object already at the flat root, or already resolved by the live-object lookup one level up —
+has zero behavior or performance change). Only when that flat check finds nothing does it fall
+back to one `ScanFolderMetadata(cComponent.BaseFolder, blnRecursive:=True)` call, then checks each
+returned key's file name (via `FSO.GetFileName`) against the same candidate-extension list already
+used for the flat check, returning the first match.
+
+**What this rules out**: Any future FindSourceFile-adjacent code introducing its own ad hoc
+recursive-scan logic — `ScanFolderMetadata` is now the established pattern for "search this whole
+category folder once" and should be reused, not reinvented, the same way `GetModifiedSourceFiles`
+already does.
+
+**Relevant files**: `clsVersionControl.cls` (`FindSourceFile`), `modFileWinAPI.bas`
+(`ScanFolderMetadata`, read-only reference), `modTestFolderPlacement.bas` (new test).
 
 ---
 
