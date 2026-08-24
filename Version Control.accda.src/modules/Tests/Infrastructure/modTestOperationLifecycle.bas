@@ -145,6 +145,45 @@ Public Sub TestResumeRefusedAfterCompletion()
 End Sub
 
 
+Public Sub TestSecondDetachMustTransferLeaseNotComplete()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+    Dim cResumed As clsRootOperationLease
+    Dim cResumed2 As clsRootOperationLease
+    Dim strToken As String
+
+    ' Completing the resumed lease after a second detach finishes the root.
+    ' That is the hang: in-place merge prep detaches again for MergeReset, and
+    ' RunBuildFromContinuation used to Complete when Build returned.
+    Set cOp = NewOperation
+    Set cRoot = cOp.TryBeginRoot(eotMerge)
+    strToken = cRoot.DetachForContinuation()
+    Set cResumed = cOp.ResumeRoot(strToken)
+    TestAssert Not cResumed Is Nothing, "first resume succeeded"
+    cOp.DetachRootLease strToken
+    TestAssert cOp.Status = eosStaged, "second detach leaves root staged"
+    cResumed.Complete eorSuccess
+    TestAssert cOp.Status = eosReady, "Complete on the resumed lease finishes the root"
+    TestAssert cOp.ResumeRoot(strToken) Is Nothing, "completed root cannot be resumed"
+
+    ' Transferring the lease instead leaves the original token resumable.
+    Set cOp = NewOperation
+    Set cRoot = cOp.TryBeginRoot(eotMerge)
+    strToken = cRoot.DetachForContinuation()
+    Set cResumed = cOp.ResumeRoot(strToken)
+    TestAssert Not cResumed Is Nothing, "second-path first resume succeeded"
+    cOp.DetachRootLease strToken
+    cResumed.DetachForContinuation
+    TestAssert cOp.Status = eosStaged, "transferred lease leaves root staged"
+    TestAssert Not cResumed.IsValid, "original lease is no longer valid"
+    Set cResumed2 = cOp.ResumeRoot(strToken)
+    TestAssert Not cResumed2 Is Nothing, "second continuation can resume"
+    TestAssert cOp.Status = eosRunning, "resumed after transfer is running"
+    cResumed2.Complete eorSuccess
+    TestAssert cOp.Status = eosReady, "transferred continuation still completes"
+End Sub
+
+
 Public Sub TestPauseScopeDoesNotFinishRoot()
     Dim cOp As clsOperation
     Dim cRoot As clsRootOperationLease

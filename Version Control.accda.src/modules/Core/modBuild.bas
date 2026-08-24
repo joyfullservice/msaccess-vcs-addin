@@ -1366,7 +1366,12 @@ End Sub
 ' Procedure : RunBuildFromContinuation
 ' Author    : Adam Waller
 ' Date      : 8/20/2026
-' Purpose   : Resume a staged build timer and complete the root when Build returns.
+' Purpose   : Resume a staged build timer and complete the root when Build returns,
+'           : unless Build handed off to another timer. The in-place merge path
+'           : detaches again and Exit Sub's so MergeReset / MergeResume can continue;
+'           : completing here would finish the root and those stages would resume
+'           : nothing. DetachForContinuation invalidates this lease so
+'           : Class_Terminate does not abandon the staged root.
 '---------------------------------------------------------------------------------------
 '
 Public Sub RunBuildFromContinuation(strRootToken As String, strSourceFolder As String, _
@@ -1377,12 +1382,19 @@ Public Sub RunBuildFromContinuation(strRootToken As String, strSourceFolder As S
     Dim blnSuccess As Boolean
 
     Set cRoot = Operation.ResumeRoot(strRootToken)
-    If cRoot Is Nothing Then Exit Sub
+    If cRoot Is Nothing Then
+        Log.Add T("Build continuation could not resume the operation."), False
+        Exit Sub
+    End If
 
     LogUnhandledErrors ModuleName & ".RunBuildFromContinuation"
     On Error GoTo ErrHandler
 
     Build strSourceFolder, blnFullBuild, intFilter, strAlternatePath, blnResumed
+    If Operation.Status = eosStaged Then
+        cRoot.DetachForContinuation
+        Exit Sub
+    End If
     blnSuccess = (Operation.ErrorLevel <> eelCritical)
     If Not blnSuccess Or Operation.ErrorLevel = eelCritical Then
         cRoot.Complete eorFailed
@@ -1393,7 +1405,12 @@ Public Sub RunBuildFromContinuation(strRootToken As String, strSourceFolder As S
 
 ErrHandler:
     CatchAny eelError, T("Build continuation failed"), ModuleName & ".RunBuildFromContinuation"
-    If Not cRoot Is Nothing Then cRoot.Complete eorFailed
+    If cRoot Is Nothing Then Exit Sub
+    If Operation.Status = eosStaged Then
+        cRoot.DetachForContinuation
+    Else
+        cRoot.Complete eorFailed
+    End If
 
 End Sub
 
