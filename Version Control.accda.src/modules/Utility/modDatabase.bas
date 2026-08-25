@@ -844,68 +844,13 @@ Public Function RunProcInCurrentProject(strSubName As String, _
     Optional ByRef blnRan As Boolean, _
     Optional ByVal blnWantResult As Boolean = True) As Variant
 
-    Dim strSub As String
-    Dim strCmd As String
-    Dim cPause As clsOperationPause
-
-    blnRan = False
-
-    ' Don't need the parentheses after the sub name
-    strSub = Replace(strSubName, "()", vbNullString)
-
-    ' Make sure we are not trying to run a function with arguments
-    If InStr(strSub, "(") > 0 Then
-        MsgBox2 T("Unable to Run Command"), _
-            T("Parameters are not supported for this command."), _
-            T("If you need to use parameters, please create a wrapper sub or function with" & vbCrLf & _
-            "no parameters that you can call instead of {0}.", var0:=strSubName), vbExclamation
-        Exit Function
-    End If
-
-    ' Make sure procedure exists in current database
-    If Not GlobalProcExists(strSub) Then
-        Log.Error eelError, T("The procedure ""{0}"" not found.", var0:=strSub), ModuleName & ".RunSubInCurrentProject"
-        Log.Add T("The procedure must be declared as public in a standard module."), False
-        Exit Function
-    End If
-
-    ' Build call syntax
-    If CurrentVBProject.Name = PROJECT_NAME Then
-        ' use full path
-        ' Example: Run "c:\full\path\Version Control.SubName"
-        With CurrentProject
-            strCmd = .Path & PathSep & FSO.GetBaseName(.Name) & "." & strSub
-        End With
-    Else
-        ' use library name
-        ' Example: Run "[VBProject].SubName"
-        strCmd = "[" & CurrentVBProject.Name & "]." & strSub
-    End If
-
-    ' Log any outstanding errors
-    LogUnhandledErrors
-
-    ' Pause the current operation while user code runs. The user's procedure is foreign
-    ' code: it may raise, open forms, or take its own time, none of which should look
-    ' like our operation still running. ResumePause ends the pause on the success path;
-    ' Class_Terminate on cPause is the fallback if Application.Run raises.
-    Set cPause = Operation.TryPause()
-    Perf.OperationStart T("Run {0}", , , , strSub)
-
-    ' Set active VB project to Current DB (not Add-in)
-    Set VBE.ActiveVBProject = CurrentVBProject
-
-    If blnWantResult Then
-        RunProcInCurrentProject = Application.Run(strCmd)
-    Else
-        Application.Run strCmd
-    End If
-    blnRan = True
-    Perf.OperationEnd
-    If Not cPause Is Nothing Then cPause.ResumePause
-
-    ' Log any other errors
-    CatchAny eelError, T("Error running {0}", , , , strSub), ModuleName & ".RunSubInCurrentProject"
+    With New clsProcedureRunner
+        If blnWantResult Then
+            RunProcInCurrentProject = .RunProcInCurrentProject(strSubName, blnRan, blnWantResult)
+        Else
+            .RunProcInCurrentProject strSubName, blnRan, blnWantResult
+        End If
+    End With
 
 End Function
 
