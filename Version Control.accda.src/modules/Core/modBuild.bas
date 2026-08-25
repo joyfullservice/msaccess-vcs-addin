@@ -30,6 +30,29 @@ Private m_blnVerifiedAccessible As Boolean
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ShouldCheckBuildNameConflict
+' Author    : Adam Waller
+' Date      : 8/25/2026
+' Purpose   : True when Build should prompt (full build) or refuse (merge) because the
+'           : currently open database is not the source-configured file. False when
+'           : nothing is open, the paths already match, or this is a Build As... (full
+'           : build with an explicit destination). The alternate path is applied later
+'           : and must not be compared against the source-configured file. See #764.
+'---------------------------------------------------------------------------------------
+'
+Public Function ShouldCheckBuildNameConflict(strCurrentDbFilename As String, _
+    strSourceConfiguredPath As String, strAlternatePath As String, _
+    blnFullBuild As Boolean) As Boolean
+
+    If strCurrentDbFilename = vbNullString Then Exit Function
+    If blnFullBuild And Len(strAlternatePath) > 0 Then Exit Function
+    ShouldCheckBuildNameConflict = (StrComp(strSourceConfiguredPath, _
+        strCurrentDbFilename, vbTextCompare) <> 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Build (Full build or Merge Build)
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
@@ -100,16 +123,16 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     End If
 
     ' Verify that the source files are being merged into the correct database.
+    ' Build As... (strAlternatePath) already chose the destination; skip this
+    ' comparison so the prompt is not shown against the source-configured path.
     strPath = GetOriginalDbFullPathFromSource(strSourceFolder)
     If strPath = vbNullString Then
         MsgBox2 T("Unable to determine database file name.") _
             , T("Required source files were not found or could not be parsed: "), strSourceFolder, vbExclamation
         GoTo CleanUp
 
-    ElseIf strCurrentDbFilename = vbNullString Then
-        ' No database currently open. Proceed with build
-
-    ElseIf StrComp(strPath, strCurrentDbFilename, vbTextCompare) <> 0 Then
+    ElseIf ShouldCheckBuildNameConflict(strCurrentDbFilename, strPath, _
+        strAlternatePath, blnFullBuild) Then
         If blnFullBuild Then
             ' Full build allows you to use source file name.
             If Not MsgBox2(T("Current Database filename does not match source filename."), _
