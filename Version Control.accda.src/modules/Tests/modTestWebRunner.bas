@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestWebRunner"
+﻿Attribute VB_Name = "modTestWebRunner"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestWebRunner
 ' Author    : Adam Waller

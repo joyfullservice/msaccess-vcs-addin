@@ -83,6 +83,78 @@ contradictory guidance.
 
 ---
 
+## 2026-08-27 — Reset RunVBA on a separate COM phase; sweep orphan wrappers
+
+**Trigger**: Repeated `vcs_run_vba` calls intermittently returned error 2517
+("cannot find the procedure `MCP_TempFunction`") and then failed permanently until
+the user removed an unsaved `MCP_Temp_<n>` module in the VBE. The Python worker
+completed its COM round trips normally, the host compiled, and other MCP tools
+continued to work. The failure was concentrated in `clsVersionControl.RunVBA`,
+which executed VBE Reset control 228 immediately before `Application.Run`.
+
+**Probe results**:
+- Control 228 is enabled while the generated payload runs. Its `Execute` returns
+  synchronously with no error, but the teardown is deferred: `Execute` followed
+  by ordinary statements succeeds, while `Execute` followed by `DoEvents`
+  deterministically ends the host payload and returns 2517. `Application.Run` was
+  the equivalent message pump in production.
+- The failed cleanup leaves one complete wrapper module. A separately planted
+  module declaring `MCP_TempFunction`, with no reset or damaged project state,
+  reproduced the sticky 2517. Removing that module alone restored operation;
+  manual Run → Reset was unnecessary. The persistent failure was therefore name
+  ambiguity from two public declarations, not project corruption.
+- Adding a VBComponent while the host holds run-state does display "this action
+  will reset your project", so the pre-modification reset is necessary.
+- Unqualified `Application.Run` continued resolving a host procedure while the
+  add-in was `VBE.ActiveVBProject`. Conversely, Reset control 228 followed
+  `ActiveVBProject` even with an add-in code pane focused. This differs from VBE
+  Save control 3, which the 2026-07-29 probes found follows the active document.
+
+**Options explored**:
+- **Keep an in-process reset immediately before `Application.Run`**: rejected.
+  The reset teardown lands in the next message pump, so this order creates the
+  failure deterministically rather than preventing it.
+- **Delete the reset entirely**: rejected. Live in-process component creation
+  produced the modal reset-project prompt when the host retained run-state.
+- **Reset in a separate add-in API call, then call `RunVBA` immediately**:
+  insufficient. `Execute` confirms only that the reset was queued; two consecutive
+  API calls do not prove that teardown completed between them.
+- **Separate reset call, benign COM barrier, fresh references, then `RunVBA`
+  (chosen)**: after the reset API returns, the Python worker reads a built-in
+  Access property to provide a message pump with no host VBA payload running,
+  reacquires the matching Access instance and add-in references, and only then
+  dispatches `RunVBA`. Reset refusal, malformed response, or barrier failure is
+  fail-closed.
+
+**Decision**: `ResetVbaProjectState` is a distinct JSON-returning API method,
+gated by `McpAllowRunVBA` and `ResetWouldEndOurOwnCode`. The MCP worker requires
+`success=true` and `resetQueued=true`, performs and verifies the barrier, and
+reacquires COM references before payload execution. `RunVBA` no longer resets on
+its own stack. Before adding a wrapper it removes stale `MCP_Temp_*` standard
+modules and aborts if any remain; after execution it retries and verifies removal.
+A post-compile accessor canary prevents payload side effects when the wrapper is
+unresolvable. Cleanup failures override success and preserve an already-computed
+return as `payloadResult`.
+
+**What this rules out**: Do not place `ResetCurrentVBProjectState` back inside
+`RunVBA`, add `DoEvents` after control 228, or proceed after an unconfirmed reset.
+Do not infer reset targeting from another VBE command: Reset 228 followed
+`ActiveVBProject` in these probes, while Save 3 followed the active document.
+Preserve the broader warnings around reset effects from the 2026-07-29 merge work;
+this probe does not reinterpret the earlier export crash. Revisit the COM barrier
+only if a supported Access version demonstrates that a successful post-reset
+property read can precede unfinished teardown.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/API/clsVersionControl.cls`
+- `Version Control.accda.src/modules/Core/modVbeUtility.bas`
+- `Version Control.accda.src/modules/Tests/Infrastructure/modTestRunVBA.bas`
+- `docs/mcp-runvba.md`
+- `C:\Repos\msaccess-vcs-mcp\src\msaccess_vcs_mcp\vba_worker_manager.py`
+- `C:\Repos\msaccess-vcs-mcp\tests\test_vba_worker_manager.py`
+
+---
+
 ## 2026-08-21 — DAO Field.Scale for Decimal export; ADO ALTER for DAO import (issue #756)
 
 **Trigger**: Issue #756. v5 `SaveTableSqlDef` read `fld.NumericScale` (an ADO name) on `DAO.Field3`, raising runtime 438 on any table with a Decimal column and aborting export. The same typo in `modTableDefBuilder.AppendField` tripped the fast-path circuit breaker. Live probe on Access 16.0 confirmed `Precision`/`Scale` read correctly, `NumericScale` always 438s (Field3 is IDispatch-extensible so it compiles), `CreateField(dbDecimal)` materializes as `dbBigInt`, and only `CurrentProject.Connection.Execute ALTER COLUMN ... DECIMAL(p,s)` creates a real Decimal.

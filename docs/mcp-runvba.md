@@ -91,6 +91,37 @@ does survive lands where the error was raised.
 After an MCP call completes, interactive debugging from the ribbon behaves
 normally.
 
+## Reset and temporary-module recovery
+
+Before calling `RunVBA`, the MCP worker queues a reset of the current database's
+VBA project as a separate API call. It then performs a harmless built-in COM
+property read as a message-pump barrier, reacquires the Access and add-in COM
+references, and only then creates or executes the temporary module. The separation
+is required because the VBE Reset command returns before its teardown runs; doing
+payload work on the same VBA stack can end that work inside `Application.Run` and
+surface as error 2517 ("cannot find the procedure `MCP_TempFunction`").
+
+The reset is fail-closed. A response with `error_pattern` `reset_refused` or
+`reset_failed` means no submitted VBA ran. Do not retry through another execution
+path that skips the reset; resolve the stated Access/VBE condition first.
+
+`RunVBA` also removes stale standard modules whose names begin `MCP_Temp_` before
+creating a new wrapper. A previous failed call can leave one behind, and two
+modules declaring `MCP_TempFunction` make the unqualified name unresolvable:
+
+- `sweptModules` lists stale modules removed before this call.
+- `temp_module_sweep_failed` and `orphanModules` mean cleanup was incomplete, so
+  the payload was not started.
+- `temp_module_unresolvable` means the post-compile canary could not resolve the
+  generated module, so the payload was not started.
+- `temp_module_cleanup_failed`, `cleanupFailed`, and `orphanModule` mean the
+  payload may have completed but its wrapper survived. If a return value was
+  already available it is carried as `payloadResult`.
+
+Stop and tell the user when cleanup fails rather than repeatedly issuing calls.
+The next properly reset call will attempt the stale-module sweep, but a module
+that resists removal needs inspection in the VBE.
+
 ---
 
 ## Auto-injected line numbers and `errorLine`

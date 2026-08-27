@@ -19,6 +19,9 @@ Option Explicit
 '@Folder("API")
 
 
+Private Const MCP_TEMP_MODULE_PREFIX As String = "MCP_Temp_"
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : Show
 ' Author    : Adam Waller
@@ -1744,6 +1747,70 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ResetVbaProjectState
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Queue a reset of the current database's VBA project before RunVBA modifies
+'           : its VBComponents. This must be called as a separate external API call:
+'           : control 228 returns before its teardown runs, so no payload work may follow
+'           : it on this VBA stack. The MCP worker provides the post-call message-pump
+'           : barrier and starts RunVBA only after the reset has settled.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResetVbaProjectState() As String
+
+    Dim dResult As Dictionary
+
+    SuppressErrorBreaks
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    Set dResult = New Dictionary
+
+    If Not Options.McpAllowRunVBA Then
+        dResult.Add "success", False
+        dResult.Add "resetQueued", False
+        dResult.Add "error", T("RunVBA is disabled. Enable McpAllowRunVBA in VCS Options > MCP to allow agent-generated code execution.")
+        dResult.Add "error_pattern", "run_vba_disabled"
+        GoTo CleanUp
+    End If
+
+    If ResetWouldEndOurOwnCode Then
+        dResult.Add "success", False
+        dResult.Add "resetQueued", False
+        dResult.Add "error", T("The VBA project cannot be reset from code running inside that same project.")
+        dResult.Add "error_pattern", "reset_refused"
+        GoTo CleanUp
+    End If
+
+    If ResetCurrentVBProjectState Then
+        dResult.Add "success", True
+        dResult.Add "resetQueued", True
+    Else
+        dResult.Add "success", False
+        dResult.Add "resetQueued", False
+        dResult.Add "error", T("The current database VBA project could not be reset.")
+        dResult.Add "error_pattern", "reset_failed"
+    End If
+
+CleanUp:
+    ResetVbaProjectState = ConvertToJson(dResult)
+    RestoreErrorBreaks
+    Exit Function
+
+ErrHandler:
+    Set dResult = New Dictionary
+    dResult.Add "success", False
+    dResult.Add "resetQueued", False
+    dResult.Add "error", Err.Description
+    dResult.Add "errorNumber", CLng(Err.Number)
+    dResult.Add "error_pattern", "reset_failed"
+    GoTo CleanUp
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunVBA
 ' Author    : Adam Waller
 ' Date      : 4/14/2026
@@ -1765,21 +1832,31 @@ Public Function RunVBA(ByVal strCode As String) As String
     Dim strWrapper As String
     Dim varReturn As Variant
     Dim blnModuleCreated As Boolean
+    Dim colSweptModules As Collection
+    Dim colOrphanModules As Collection
 
     SuppressErrorBreaks
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
     Set dResult = New Dictionary
-    strModuleName = "MCP_Temp_" & Format$(Timer * 100, "0")
+    strModuleName = MCP_TEMP_MODULE_PREFIX & Format$(Timer * 100, "0")
 
     ' Check permission
     If Not Options.McpAllowRunVBA Then
         dResult.Add "success", False
-        dResult.Add "error", "RunVBA is disabled. Enable McpAllowRunVBA in VCS Options > MCP to allow agent-generated code execution."
+        dResult.Add "error", T("RunVBA is disabled. Enable McpAllowRunVBA in VCS Options > MCP to allow agent-generated code execution.")
         RunVBA = ConvertToJson(dResult)
         RestoreErrorBreaks
         Exit Function
+    End If
+
+    If Not SweepMcpTempModules(colSweptModules, colOrphanModules) Then
+        dResult.Add "success", False
+        dResult.Add "error", T("One or more stale RunVBA temporary modules could not be removed.")
+        dResult.Add "error_pattern", "temp_module_sweep_failed"
+        dResult.Add "orphanModules", colOrphanModules
+        GoTo CleanUp
     End If
 
     ' Build the wrapper function with error number/description stored in
@@ -1852,14 +1929,18 @@ Public Function RunVBA(ByVal strCode As String) As String
         Dim strHostState As String
         strHostState = "unknown"
         If blnModuleCreated Then
-            CurrentVBProject.VBComponents.Remove cmp
-            blnModuleCreated = False
-            DoCmd.RunCommand acCmdCompileAllModules
-            DoEvents
-            If Application.IsCompiled Then
-                strHostState = "host compiles cleanly without the wrapper -- the failure is in the agent code"
+            Set cmp = Nothing
+            If TryRemoveMcpTempModule(strModuleName) Then
+                blnModuleCreated = False
+                DoCmd.RunCommand acCmdCompileAllModules
+                DoEvents
+                If Application.IsCompiled Then
+                    strHostState = "host compiles cleanly without the wrapper -- the failure is in the agent code"
+                Else
+                    strHostState = "host project does not compile on its own -- fix host compile errors before retrying RunVBA"
+                End If
             Else
-                strHostState = "host project does not compile on its own -- fix host compile errors before retrying RunVBA"
+                strHostState = "the temporary wrapper could not be removed to verify the host compile state"
             End If
         End If
         dResult.Add "success", False
@@ -1887,7 +1968,28 @@ Public Function RunVBA(ByVal strCode As String) As String
         strProjPrefix = FSO.GetParentFolderName(CurrentVBProject.FileName) & "\" & _
             FSO.GetBaseName(CurrentVBProject.FileName) & "."
     End If
-    ResetCurrentVBProjectState
+    ' Resolve an accessor before executing the payload. This canary prevents
+    ' side effects when a stale duplicate or other VBE state has made the
+    ' generated module unreachable despite a successful compile.
+    Dim varCanary As Variant
+    Dim lngCanaryErrNum As Long
+    Dim strCanaryErrDesc As String
+    On Error Resume Next
+    Err.Clear
+    varCanary = Application.Run(strProjPrefix & "MCP_GetErrNum")
+    lngCanaryErrNum = Err.Number
+    strCanaryErrDesc = Err.Description
+    Err.Clear
+    On Error GoTo ErrHandler
+    If lngCanaryErrNum <> 0 Then
+        dResult.Add "success", False
+        dResult.Add "error", strCanaryErrDesc
+        dResult.Add "errorNumber", lngCanaryErrNum
+        dResult.Add "error_pattern", "temp_module_unresolvable"
+        dResult.Add "tempModule", strModuleName
+        GoTo CleanUp
+    End If
+
     varReturn = Application.Run(strProjPrefix & "MCP_TempFunction")
 
     ' Check for runtime errors captured by the wrapper (Err is cleared
@@ -1919,17 +2021,41 @@ Public Function RunVBA(ByVal strCode As String) As String
     End If
 
 CleanUp:
+    If Not colSweptModules Is Nothing Then
+        If colSweptModules.Count > 0 And Not dResult.Exists("sweptModules") Then
+            dResult.Add "sweptModules", colSweptModules
+        End If
+    End If
+
     If blnModuleCreated Then
-        On Error Resume Next
         ' Release our stored reference BEFORE removing the component.
         ' Holding a stored COM reference through Remove leaves a dangling
         ' pointer when the underlying VBComponent is destroyed; the
         ' implicit Release at function exit then dereferences freed memory.
         Set cmp = Nothing
-        CurrentVBProject.VBComponents.Remove CurrentVBProject.VBComponents(strModuleName)
-        On Error GoTo 0
+        If Not TryRemoveMcpTempModule(strModuleName) Then
+            If dResult.Exists("success") Then
+                If CBool(dResult("success")) Then
+                    If dResult.Exists("result") Then
+                        dResult.Add "payloadResult", dResult("result")
+                        dResult.Remove "result"
+                    End If
+                    dResult("success") = False
+                    dResult.Add "error", T("The RunVBA temporary module could not be removed.")
+                Else
+                    dResult.Add "cleanupError", T("The RunVBA temporary module could not be removed.")
+                End If
+            Else
+                dResult.Add "success", False
+                dResult.Add "error", T("The RunVBA temporary module could not be removed.")
+            End If
+            If Not dResult.Exists("error_pattern") Then
+                dResult.Add "error_pattern", "temp_module_cleanup_failed"
+            End If
+            dResult.Add "cleanupFailed", True
+            dResult.Add "orphanModule", strModuleName
+        End If
     End If
-    ResetCurrentVBProjectState
     RunVBA = ConvertToJson(dResult)
     RestoreErrorBreaks
     Exit Function
@@ -1940,6 +2066,107 @@ ErrHandler:
     dResult.Add "error", Err.Description
     dResult.Add "errorNumber", CLng(Err.Number)
     GoTo CleanUp
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsMcpTempModuleName
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Identify standard modules owned by RunVBA. Friend scope keeps this
+'           : testable inside the add-in project without exposing it through COM.
+'---------------------------------------------------------------------------------------
+'
+Friend Function IsMcpTempModuleName(ByVal strName As String, _
+                                    ByVal lngComponentType As Long) As Boolean
+    IsMcpTempModuleName = (lngComponentType = vbext_ct_StdModule) And _
+        (StrComp(Left$(strName, Len(MCP_TEMP_MODULE_PREFIX)), _
+                 MCP_TEMP_MODULE_PREFIX, vbTextCompare) = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SweepMcpTempModules
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Remove stale RunVBA modules before adding another public
+'           : MCP_TempFunction declaration. Returns False when any orphan remains.
+'---------------------------------------------------------------------------------------
+'
+Friend Function SweepMcpTempModules(ByRef colRemoved As Collection, _
+                                    ByRef colRemaining As Collection) As Boolean
+
+    Dim cmp As VBIDE.VBComponent
+    Dim intIdx As Long
+    Dim strName As String
+
+    Set colRemoved = New Collection
+    Set colRemaining = New Collection
+
+    For intIdx = CurrentVBProject.VBComponents.Count To 1 Step -1
+        Set cmp = CurrentVBProject.VBComponents(intIdx)
+        If IsMcpTempModuleName(cmp.Name, cmp.Type) Then
+            strName = cmp.Name
+            Set cmp = Nothing
+            If TryRemoveMcpTempModule(strName) Then colRemoved.Add strName
+        End If
+        Set cmp = Nothing
+    Next intIdx
+
+    ' Verify from a fresh enumeration rather than trusting Remove.
+    For intIdx = 1 To CurrentVBProject.VBComponents.Count
+        Set cmp = CurrentVBProject.VBComponents(intIdx)
+        If IsMcpTempModuleName(cmp.Name, cmp.Type) Then
+            colRemaining.Add cmp.Name
+        End If
+        Set cmp = Nothing
+    Next intIdx
+
+    SweepMcpTempModules = (colRemaining.Count = 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TryRemoveMcpTempModule
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Remove a RunVBA component with one retry, releasing every stored COM
+'           : reference before Remove and verifying absence from a fresh lookup.
+'---------------------------------------------------------------------------------------
+'
+Private Function TryRemoveMcpTempModule(ByVal strModuleName As String) As Boolean
+
+    Dim cmp As VBIDE.VBComponent
+    Dim intAttempt As Long
+
+    On Error Resume Next
+
+    For intAttempt = 1 To 2
+        Set cmp = Nothing
+        Err.Clear
+        Set cmp = CurrentVBProject.VBComponents(strModuleName)
+        If cmp Is Nothing Then
+            TryRemoveMcpTempModule = True
+            Exit For
+        End If
+
+        Set cmp = Nothing
+        Err.Clear
+        CurrentVBProject.VBComponents.Remove CurrentVBProject.VBComponents(strModuleName)
+    Next intAttempt
+
+    If Not TryRemoveMcpTempModule Then
+        Set cmp = Nothing
+        Err.Clear
+        Set cmp = CurrentVBProject.VBComponents(strModuleName)
+        TryRemoveMcpTempModule = (cmp Is Nothing)
+    End If
+
+    Set cmp = Nothing
+    If Err Then Err.Clear
+    On Error GoTo 0
 
 End Function
 

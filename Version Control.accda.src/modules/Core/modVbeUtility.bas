@@ -1076,6 +1076,9 @@ End Sub
 '           : occur when VBComponents are modified while the project holds run-state.
 '           : Acts on the active project only; it does NOT reset library/add-in
 '           : projects, so the add-in's own singletons remain intact.
+'           : A 2026-08-27 RunVBA probe confirmed control 228 followed ActiveVBProject
+'           : even while an add-in code pane was focused. This is specific to Reset;
+'           : the VBE Save control follows the active document instead.
 '           : Returns True if the Reset control was found and executed without error.
 '           :
 '           : Set blnTrace when a fault here would take the process down (see
