@@ -653,7 +653,8 @@ End Sub
 '           : reported, never closed.
 '---------------------------------------------------------------------------------------
 '
-Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
+Public Function RebuildAddIn(Optional ByVal strSourceFolder As String, _
+    Optional ByVal strCallbackInfo As String) As String
 
     Dim strPath As String
     Dim strDetail As String
@@ -738,7 +739,7 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
         GoTo Finish
     End If
 
-    ' Claim the status file before anything that can refuse. The caller polls this path,
+    ' Claim the status file before anything that can refuse. The caller watches this path,
     ' and until now only the launch path ever wrote to it: a refusal returned its verdict
     ' in the JSON and left whatever the *previous* rebuild had written on disk, so a
     ' caller that polled -- as it is told to do -- read an earlier run's "complete" as the
@@ -815,13 +816,19 @@ Public Function RebuildAddIn(Optional ByVal strSourceFolder As String) As String
     ' Verify resource files are available
     VerifyResources
 
+    ' The launching Access instance exits after the worker handoff, but the MCP callback
+    ' server stays alive. Extract its address and operation id here so they can travel as
+    ' shell-safe worker arguments and be reconstructed by the builder Access instance.
+    If Len(strCallbackInfo) > 0 Then MCP.RegisterCallback strCallbackInfo
+
     ' Inherit the phaseStarted stamped when this attempt claimed the status file above.
     ' It marks when the attempt began rather than when it reached this line, and holding
     ' it constant is what makes it usable as this run's identity.
     WriteRebuildStatusFile strStatusFile, "launched"
 
     ' Launch the worker to handle the build and install disconnected
-    Worker.Run_BuildAndInstall strPath, blnUnattended, strStatusFile
+    Worker.Run_BuildAndInstall strPath, blnUnattended, strStatusFile, _
+        strPhaseStarted, MCP.CallbackUrl, MCP.OperationId
 
     ' Shell() reports that a process was created, not that the script lived long enough
     ' to do anything, and a worker that dies on startup leaves the status file reading

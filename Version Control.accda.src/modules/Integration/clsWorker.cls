@@ -69,14 +69,20 @@ End Function
 '
 Public Function Run_BuildAndInstall(strSourcePath As String, _
     Optional blnUnattended As Boolean = False, _
-    Optional strStatusFile As String)
+    Optional strStatusFile As String, _
+    Optional strPhaseStarted As String, _
+    Optional strCallbackUrl As String, _
+    Optional strOperationId As String)
 
     CallWorker PROJECT_NAME, 300, "BuildAndInstall", _
         """" & strSourcePath & """", _
         IIf(blnUnattended, "1", "0"), _
         """" & strStatusFile & """", _
         """" & FSO.BuildPath(SysCmd(acSysCmdAccessDir), "MSACCESS.EXE") & """", _
-        modInstall.GetThisProcessId
+        modInstall.GetThisProcessId, _
+        """" & strPhaseStarted & """", _
+        """" & strCallbackUrl & """", _
+        """" & strOperationId & """"
 
 End Function
 
@@ -522,6 +528,9 @@ Sub Main()
     Dim strAttachError
     Dim strAccessPath
     Dim strLaunchPid
+    Dim strPhaseStarted
+    Dim strCallbackUrl
+    Dim strOperationId
 
 
     Set objFSO = CreateObject("Scripting.FileSystemObject")
@@ -597,12 +606,19 @@ Sub Main()
             strStatusFile = ""
             strAccessPath = ""
             strLaunchPid = ""
+            strPhaseStarted = ""
+            strCallbackUrl = ""
+            strOperationId = ""
             If WScript.Arguments.Count >= 5 Then strUnattended = WScript.Arguments(4)
             If WScript.Arguments.Count >= 6 Then strStatusFile = WScript.Arguments(5)
             If WScript.Arguments.Count >= 7 Then strAccessPath = WScript.Arguments(6)
             If WScript.Arguments.Count >= 8 Then strLaunchPid = WScript.Arguments(7)
+            If WScript.Arguments.Count >= 9 Then strPhaseStarted = WScript.Arguments(8)
+            If WScript.Arguments.Count >= 10 Then strCallbackUrl = WScript.Arguments(9)
+            If WScript.Arguments.Count >= 11 Then strOperationId = WScript.Arguments(10)
             BuildAndInstall WScript.Arguments(3), strUnattended, strStatusFile, _
-                strAccessPath, strLaunchPid
+                strAccessPath, strLaunchPid, strPhaseStarted, strCallbackUrl, _
+                strOperationId
 
         Case "CheckDatabaseAccessible"
             varReturn = CheckDatabaseAccessible(WScript.Arguments(0))
@@ -890,7 +906,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
-    strAccessPath, strLaunchPid)
+    strAccessPath, strLaunchPid, strPhaseStarted, strCallbackUrl, strOperationId)
 
     Dim objFSO
     Dim objNewAccess
@@ -902,16 +918,18 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
     Dim strLockFile
     Dim intCnt
     Dim blnUnattended
-    Dim strPhaseStarted
     Dim strInstalledFile
     Dim dtBefore
     Dim strCmd
+    Dim strCallbackInfo
+    Dim strBuildResult
+    Dim strInstallStatusFile
 
     Set objFSO = CreateObject("Scripting.FileSystemObject")
     Set WshShell = CreateObject("WScript.Shell")
 
     blnUnattended = (strUnattended = "1")
-    strPhaseStarted = IsoDateTime(Now)
+    If Len(strPhaseStarted) = 0 Then strPhaseStarted = IsoDateTime(Now)
 
     ' Write this before anything that can fail. It is also the handshake the caller
     ' waits on, and the only proof available to it that this script survived its own
@@ -993,9 +1011,24 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
     Err.Clear
     On Error GoTo 0
 
-    ' Trigger build via the installed library
+    ' Trigger build via the installed library. When an MCP callback identity was passed
+    ' through the disconnected worker, use the same APIAsync entry point as ordinary
+    ' database builds. This reuses Log.Add and Log.Progress rather than inventing a
+    ' second stream. The worker still owns compile/install and their durable status.
     On Error Resume Next
-    objNewAccess.Run strInstalledLib & ".HandleRibbonCommand", "btnBuild", strSourcePath
+    If Len(strCallbackUrl) > 0 And Len(strOperationId) > 0 Then
+        strCallbackInfo = "{""callback_url"":""" & JsonEscape(strCallbackUrl) & _
+            """,""operation_id"":""" & JsonEscape(strOperationId) & _
+            """,""client"":""rebuild-worker""}"
+        strBuildResult = objNewAccess.Run(strInstalledLib & ".APIAsync", _
+            strCallbackInfo, "Build", strSourcePath)
+        If InStr(1, strBuildResult, """async""", vbTextCompare) = 0 Then
+            Err.Raise 1001, "BuildAndInstall", _
+                "The asynchronous build entry point did not accept the rebuild."
+        End If
+    Else
+        objNewAccess.Run strInstalledLib & ".HandleRibbonCommand", "btnBuild", strSourcePath
+    End If
     If Err.Number <> 0 Then
         Dim strBuildErr
         strBuildErr = "Error " & Err.Number & ": " & Err.Description
@@ -1074,6 +1107,12 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
         If Not objFSO.FileExists(strLockFile) Then Exit For
         WScript.Sleep 1000
     Next
+    If objFSO.FileExists(strLockFile) Then
+        FailRebuild Nothing, False, strStatusFile, blnUnattended, "install-failed", _
+            "The build Access instance did not release the rebuilt database before installation:" & _
+            vbCrLf & strRepoAddinPath, strNewLog, strPhaseStarted
+        Exit Function
+    End If
 
     strInstalledFile = FindInstalledAddInFile(objFSO)
     dtBefore = #1/1/2000#
@@ -1086,8 +1125,28 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
     WriteRebuildStatusFile strStatusFile, "installing", "", strNewLog, strPhaseStarted
 
     If blnUnattended Then
-        strCmd = """" & strMSAccessPath & """ """ & strRepoAddinPath & """ /cmd ""INSTALL SILENT"""
+        ' Keep the installer's own terminal status separate. It records "complete"
+        ' immediately before DoCmd.Quit; publishing that to the rebuild status lets
+        ' the MCP watcher return while the installer Access process is still open.
+        strInstallStatusFile = ""
+        If Len(strStatusFile) > 0 Then
+            strInstallStatusFile = strStatusFile & ".install"
+            On Error Resume Next
+            If objFSO.FileExists(strInstallStatusFile) Then objFSO.DeleteFile strInstallStatusFile
+            On Error GoTo 0
+        End If
+        If Len(strInstallStatusFile) > 0 Then
+            strCmd = """" & strMSAccessPath & """ """ & strRepoAddinPath & _
+                """ /cmd ""INSTALL SILENT " & strInstallStatusFile & """"
+        Else
+            strCmd = """" & strMSAccessPath & """ """ & strRepoAddinPath & """ /cmd ""INSTALL SILENT"""
+        End If
         WshShell.Run strCmd, 7, True
+        On Error Resume Next
+        If Len(strInstallStatusFile) > 0 Then
+            If objFSO.FileExists(strInstallStatusFile) Then objFSO.DeleteFile strInstallStatusFile
+        End If
+        On Error GoTo 0
     Else
         ' Launch Access with /cmd INSTALL (blocks until user clicks OK on success dialog)
         strCmd = """" & strMSAccessPath & """ """ & strRepoAddinPath & """ /cmd INSTALL"

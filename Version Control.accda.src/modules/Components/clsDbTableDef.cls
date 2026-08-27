@@ -258,11 +258,13 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim blnImportFailed As Boolean
     Dim strTempFile As String
     Dim strName As String
+    Dim strFileName As String
     Dim colBigIntFields As Collection
 
     ' Full build reuses one instance; reset link-type cache per file.
     m_lngTableType = 0
     strName = GetObjectNameFromFileName(strFile)
+    strFileName = FSO.GetFileName(strFile)
 
     If FileHasGitConflictMarkers(strFile, ModuleName(Me) & ".Import") Then Exit Sub
 
@@ -307,11 +309,22 @@ Private Sub IDbComponent_Import(strFile As String)
             ' Importing XML can throw an error if ActiveX security is too restrictive.
             If Catch(31521) Then
                 Log.Error eelError, "ActiveX security settings blocked the import of " & _
-                "table definition XML file: " & FSO.GetFileName(strFile) & ".", ModuleName(Me) & ".Import"
+                "table definition XML file: " & strFileName & ".", ModuleName(Me) & ".Import"
                 Log.Add "Importing XML files requires ActiveX to be enabled."
                 blnImportFailed = True
+            ElseIf Catch(31550) Then
+                ' Access can report failed data rows for a structure-only import even
+                ' though this XML contains no data. Accept that warning only when the
+                ' requested table was actually created.
+                blnImportFailed = Not ObjectExists(acTable, strName)
+                If blnImportFailed Then
+                    Log.Error eelError, "Unable to import XML for " & strFileName, _
+                        ModuleName(Me) & ".Import"
+                End If
             Else
-                blnImportFailed = CatchAny(eelError, "Unable to import XML for " & FSO.GetFileName(strFile), ModuleName(Me) & ".Import")
+                ' Keep handler arguments side-effect free while Err is pending.
+                blnImportFailed = CatchAny(eelError, "Unable to import XML for " & _
+                    strFileName, ModuleName(Me) & ".Import")
             End If
 
             ' Application.ImportXML creates the table outside SharedDb's TableDefs

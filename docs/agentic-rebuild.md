@@ -1,9 +1,13 @@
 # Agentic add-in rebuild
 
 How an MCP agent rebuilds `Version Control.accda` from `Version Control.accda.src`
-without waiting on the user. No new MCP tool: the existing `vcs_call_vba` entry
-point launches `VCS.RebuildAddIn`, then the agent polls a status file after
-Access exits. The one Access process it ever closes is its own.
+without waiting on the user. Prefer `vcs_rebuild_addin(source_dir)`: it launches
+`VCS.RebuildAddIn`, streams the builder's existing HTTP log/progress callbacks,
+while the MCP server internally watches `rebuild-status.json` through compile
+and install. The calling agent waits for the tool or CLI process, not the status
+file. `vcs_call_vba` remains a launch-only escape hatch. The status file is also
+durable recovery state after a timeout. The one Access process the rebuild ever
+closes is its own.
 
 This is **not** `vcs_rebuild_database`, which rebuilds a *user* project from
 source. This path rebuilds the add-in itself.
@@ -26,6 +30,32 @@ source. This path rebuilds the add-in itself.
   a folder picker.
 
 ## Call
+
+```
+vcs_rebuild_addin("<source folder>")
+```
+
+The MCP server derives the development copy beside that folder, launches
+`RebuildAddIn`, and registers a callback operation. The callback URL and
+operation ID pass through `Worker.vbs` to the builder Access process, which
+invokes the same `APIAsync(..., "Build", source)` entry point as an ordinary
+database build. `Log.Add` and `Log.Progress` therefore provide detailed output
+without a second logging implementation. Internally, the tool uses the status
+file for the later compile/install phases and terminal result. For guaranteed
+live output in a terminal (Cursor often shows only "Running..."):
+
+```
+msaccess-vcs rebuild-addin "<source folder>"
+```
+
+Keep the CLI in the foreground so its stream stays in the primary chat. It
+exits when the operation reaches terminal status; that process exit is the
+completion signal. Do not background it just to wait on a notification, and
+do not add a second timer wait, fixed-duration sleep, or independently poll
+`rebuild-status.json` after it has already finished. The MCP tool already
+watches the status file internally.
+
+The launch-only escape hatch is still:
 
 ```
 vcs_call_vba(database_path, "VCS.API", ["RebuildAddIn", "<source folder>"])
@@ -75,15 +105,19 @@ helper script missing from the add-in folder. `RebuildAddIn` waits up to 15
 seconds for the worker to write its first status before deciding this, so an
 answer either way arrives within that window and a `launched` result is real.
 
-Access then exits a few seconds later, once the result above has had time to
-reach the caller. `vcs_call_vba` has no timeout, and a COM error on that same
-call is possible if the timing is tight.
+Access then exits a few seconds later, once the launch result has had time to
+reach the caller. The callback server remains alive; the builder Access process
+posts detailed messages to it until the build phase completes.
+`vcs_rebuild_addin` then continues waiting on the status file while the worker
+compiles and installs. `vcs_call_vba` does not wait; a COM error on that
+launch-only call is possible if the timing is tight.
 
 ## Status file
 
 `<source folder>\logs\rebuild-status.json` is gitignored with the rest of
-`logs/`. The agent already knows the source folder, so it does not need the
-Access instance to stay alive. Poll it with the Read tool.
+`logs/`. `vcs_rebuild_addin` watches it with directory-change notifications.
+Read it yourself only to recover after a client timeout, a stalled wait, or a
+launch-only `vcs_call_vba` call. Identify *your* attempt by `phaseStarted`.
 
 | `status` | Meaning |
 |---|---|
@@ -109,10 +143,10 @@ records its own `refused` verdict if one comes. `phaseStarted` then holds still
 for the rest of the run, so it identifies the attempt: the call returns the same
 value it wrote, and a record carrying a different one belongs to somebody else's
 run. A refusal reached before that — no source folder, or none that exists —
-leaves no record, and there is no folder to poll in that case either.
+leaves no record, and there is no folder to watch in that case either.
 
 A `refused` or `launch-failed` call returns that verdict in its own JSON, so
-there is nothing to poll for. Only poll after a `launched` result.
+there is nothing to wait for. Only a `launched` result has a watch phase.
 
 **A file that stops changing is not the same as a build in progress.** Compare
 `updated` against the clock before waiting any longer, and check

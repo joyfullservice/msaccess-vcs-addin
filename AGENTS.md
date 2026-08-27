@@ -32,8 +32,10 @@ This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
 ## Development workflow
 
 **Agents: edit the source files, then rebuild — never touch the installed
-add-in.** `VCS.RebuildAddIn` builds and installs unattended, refusing when another
-Access process holds a file it must replace; then test. See
+add-in.** Prefer `vcs_rebuild_addin("<source>")`; it streams detailed build
+callbacks, then watches compile/install status. `vcs_call_vba` stays
+launch-only. The rebuild refuses when another Access process holds a file it
+must replace; then test. See
 [docs/agentic-rebuild.md](docs/agentic-rebuild.md) and [docs/agent-test-runs.md](docs/agent-test-runs.md).
 
 By hand: install a recent release, clone the repo, use **Build From Source** on

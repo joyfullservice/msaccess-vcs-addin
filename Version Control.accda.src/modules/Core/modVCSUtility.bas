@@ -704,6 +704,8 @@ End Sub
 Public Function ImportCommandBars(strSourceDatabasePath As String, strCommandBarNameToVerify As String, Optional objTargetApplication As Application = Nothing) As eImportCommandBarsResult
     Dim strSql As String
     Dim blnResult As Boolean
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
 
     If objTargetApplication Is Nothing Then
         Set objTargetApplication = Application
@@ -749,13 +751,26 @@ Public Function ImportCommandBars(strSourceDatabasePath As String, strCommandBar
                 "FROM MSysObjects AS o " & _
                 "WHERE o.Name = 'MSysAccessStorage' " & _
                 "  AND o.Type = 1;"
-            With .CurrentProject.Connection.Execute(strSql)
-                If Not .EOF Then
-                    If .Fields(0).Value = "MSysAccessStorage" Then
-                        blnResult = True
-                    End If
+            ' CurrentProject.Connection relies on an ADO provider that can be
+            ' unavailable in a freshly COM-created Access instance ("Class not
+            ' registered"). DAO is already required by the add-in and queries the
+            ' current database without that provider activation.
+            On Error Resume Next
+            If objTargetApplication Is Application Then
+                Set dbs = SharedDb
+            Else
+                Set dbs = .CurrentDb
+            End If
+            Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot)
+            If Err.Number = 0 Then
+                If Not rst.EOF Then
+                    blnResult = (rst.Fields(0).Value = "MSysAccessStorage")
                 End If
-            End With
+            End If
+            If Not rst Is Nothing Then rst.Close
+            Set rst = Nothing
+            Err.Clear
+            On Error GoTo 0
         End If
 
         If blnResult Then
@@ -781,15 +796,22 @@ Public Function ImportCommandBars(strSourceDatabasePath As String, strCommandBar
                 "      AND s2.Type = 1 " & _
                 ");"
 
-            With .CurrentProject.Connection.Execute(strSql)
-                If Not .EOF Then
-                    If InStr(1, .Fields(0).Value, ChrW(((LenB(strCommandBarNameToVerify) + 4) * 256) + 4) & strCommandBarNameToVerify & vbNullChar & vbNullChar, vbTextCompare) > 0 Then
-                        ImportCommandBars = eicImportedVerified
-                    Else
-                        ImportCommandBars = eicImportedNotVerified
-                    End If
+            On Error Resume Next
+            Set rst = dbs.OpenRecordset(strSql, dbOpenSnapshot)
+            If Err.Number = 0 And Not rst.EOF Then
+                If InStr(1, rst.Fields(0).Value, ChrW(((LenB(strCommandBarNameToVerify) + 4) * 256) + 4) & strCommandBarNameToVerify & vbNullChar & vbNullChar, vbTextCompare) > 0 Then
+                    ImportCommandBars = eicImportedVerified
+                Else
+                    ImportCommandBars = eicImportedNotVerified
                 End If
-            End With
+            Else
+                ImportCommandBars = eicImportedUnableToVerify
+            End If
+            If Not rst Is Nothing Then rst.Close
+            Set rst = Nothing
+            Set dbs = Nothing
+            Err.Clear
+            On Error GoTo 0
         Else
             ' We can only tenatively assume success since we don't have the MSysAccessStorage table that can be
             ' easily inspected. Older MDB files use MSysAccessObjects which are even more opaque. No clue how

@@ -83,6 +83,65 @@ contradictory guidance.
 
 ---
 
+## 2026-08-27 — Builder Access reuses APIAsync callbacks during self-rebuild
+
+**Trigger**: The MCP-side status watcher removed agent polling but exposed only
+coarse worker phases. A real rebuild already emitted detailed per-object
+messages through `Log.Add` and `Log.Progress`; the disconnected self-rebuild
+lost them because Worker.vbs invoked `HandleRibbonCommand("btnBuild")` without
+registering an MCP callback. The first smoke test also exposed that Worker.vbs
+replaced the launcher's `phaseStarted`, making every later record look stale.
+
+**Options explored**:
+- *Tail the build log in the MCP server.* Rejected as the primary path because
+  it duplicates existing callbacks and loses native progress counts.
+- *Teach Worker.vbs to POST HTTP itself.* Rejected because it would duplicate
+  `clsMCP`, JSON formatting, and callback error handling.
+- *Carry callback identity to builder Access* (chosen). The MCP callback server
+  remains alive after launch Access exits, and builder Access already loads the
+  installed library that owns `APIAsync`.
+
+**Decision**: `RebuildAddIn` accepts optional callback JSON, extracts its URL
+and operation ID with `clsMCP`, and passes them plus the original
+`phaseStarted` through `Run_BuildAndInstall`. Worker.vbs reconstructs the JSON
+and calls `APIAsync(callback, "Build", source)` instead of the ribbon entry
+point. This reuses all existing build log/progress callbacks. Worker status
+continues to own compile, install, terminal failure, and durable recovery.
+Calls without callback info retain the ribbon path for compatibility.
+
+**What this rules out**: A second VBScript HTTP client, log tailing as the
+normal live channel, or removing `rebuild-status.json`. The build callback's
+`complete` state cannot mean that installation is complete.
+
+**Relevant files**:
+`Version Control.accda.src/modules/API/clsVersionControl.cls`,
+`Version Control.accda.src/modules/Integration/clsWorker.cls`,
+`docs/agentic-rebuild.md`, `docs/architecture.md`.
+
+---
+
+## 2026-08-27 — MCP watches rebuild-status.json; agent polling is recovery
+
+> **⚠ Partially superseded** (2026-08-27): the status file still owns
+> compile/install and durable recovery, but detailed build output now uses the
+> existing HTTP callback channel across Worker.vbs. See "Builder Access reuses
+> APIAsync callbacks during self-rebuild" above.
+
+**Trigger**: Agents rebuilding the add-in launched `RebuildAddIn` via `vcs_call_vba`, then polled `logs/rebuild-status.json` with the Read tool on a timer. The work often finished while the agent was still waiting. Cursor also failed to show MCP progress for long operations.
+
+**Options explored**:
+- *Keep agent-side Read polling as the primary workflow.* Rejected. The status file is durable, but a person or agent sitting on a poll loop is the wrong default once the MCP server can wait.
+- *New MCP tool that blocks on COM until install finishes.* Rejected. The host Access instance must quit so the files it held can be replaced; a COM wait would hang.
+- *Worker HTTP callbacks after Access exits.* Deferred. Would add a second live channel beside the status file the worker already writes.
+
+**Decision**: The add-in contract is unchanged: `RebuildAddIn` still returns `launched` / `refused` / `launch-failed` and the worker still writes UTF-8-with-BOM `rebuild-status.json` keyed by `phaseStarted`. The MCP server now owns the wait (`vcs_rebuild_addin`). Agents should not poll the status file unless that tool timed out or stalled. `vcs_call_vba` stays launch-only. The server must not kill `MSACCESS.EXE` or `wscript` when a client stops waiting.
+
+**What this rules out**: Documenting Read-tool polling as the normal rebuild workflow. Treating a cancelled MCP wait as permission to terminate the worker. Changing the status-file schema or making the worker POST HTTP as a prerequisite for live feedback.
+
+**Relevant files**: `docs/agentic-rebuild.md`, `AGENTS.md`, `docs/architecture.md`. Companion implementation is in `msaccess-vcs-mcp` (`vcs_rebuild_addin`, `rebuild_watcher.py`).
+
+---
+
 ## 2026-08-27 — Reset RunVBA on a separate COM phase; sweep orphan wrappers
 
 **Trigger**: Repeated `vcs_run_vba` calls intermittently returned error 2517
@@ -1224,6 +1283,12 @@ checks to `AutomationSource` is left as a later cleanup.
 ---
 
 ## 2026-08-12 — Agentic add-in rebuild via status file, not a new MCP tool
+
+> **⚠ Partially superseded** (2026-08-27): a dedicated MCP tool now exists, but
+> it waits on `rebuild-status.json` after launch rather than on COM. The
+> three-process pipeline, refusal-instead-of-kill, and status-file contract
+> still stand. Agent-side polling is a recovery fallback. See "MCP watches
+> rebuild-status.json; agent polling is recovery" above.
 
 **Trigger**: Agents iterating on add-in source had to wait for a person to rebuild
 `Version Control.accda`. The existing `RebuildAddIn` / `Worker.vbs` path already

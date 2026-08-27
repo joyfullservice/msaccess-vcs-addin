@@ -69,6 +69,8 @@ Public Sub TestBigIntImportXmlRepair()
     Dim fld As DAO.Field
     Dim strTemp As String
     Dim colNames As Collection
+    Dim lngImportError As Long
+    Dim strImportError As String
 
     DropTestTable TEST_TABLE_BIGINT
 
@@ -87,9 +89,18 @@ Public Sub TestBigIntImportXmlRepair()
     Application.ExportXML acExportTable, TEST_TABLE_BIGINT, , strTemp, , , , acExportAllTableAndFieldProperties
 
     DropTestTable TEST_TABLE_BIGINT
+    LogUnhandledErrors
+    On Error Resume Next
     Application.ImportXML strTemp, acStructureOnly
+    lngImportError = Err.Number
+    strImportError = Err.Description
+    Err.Clear
+    On Error GoTo 0
     ReleaseDbReferences
 
+    TestAssert lngImportError = 0 Or lngImportError = 31550, _
+        "ImportXML returned an unexpected error " & CStr(lngImportError) & ": " & _
+        strImportError
     Set colNames = GetBigIntRepairFieldNamesFromTableDefXml(ReadFile(strTemp))
     TestAssert colNames.Count = 1, "exported bigint field is detected in source XML"
 
