@@ -51,6 +51,26 @@ Private m_SavedLogFilePath As String ' Path last written by SaveFile
 Private m_lngErrCount(eelNoError To eelCritical) As Long
 Private m_colErrorJournal As Collection
 Private m_blnAtNewLine As Boolean
+Private m_strMCPPending As String          ' Incomplete log line awaiting newline
+Private m_blnSuppressMCPEcho As Boolean    ' File/console only; runner uses a compact stream
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SuppressMCPEcho
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : When True, Add still writes the log file and console but does not POST
+'           : to MCP. The test runner uses this so Access-console fragments (colored
+'           : same-line status, per-assertion detail) stay out of the CLI stream.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SuppressMCPEcho() As Boolean
+    SuppressMCPEcho = m_blnSuppressMCPEcho
+End Property
+Public Property Let SuppressMCPEcho(ByVal blnSuppress As Boolean)
+    If blnSuppress And Not m_blnSuppressMCPEcho Then FlushMCPPending
+    m_blnSuppressMCPEcho = blnSuppress
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -187,29 +207,33 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             m_Prog.Hide
         End If
 
-        ' Build HTML output for console
-        With m_Console
+        ' HTML is only rendered on the console form. Headless MCP/API runs have
+        ' no RichText control; skip the entity-encode concat (thousands of
+        ' fragments per test run) and keep the log file + MCP stream.
+        If Not m_RichText Is Nothing Then
+            With m_Console
 
-            ' Opening tags
-            If blnBold Then .Add "<strong>"
-            If blnItalic Then .Add "<i>"
-            If strColor <> vbNullString Then .Add "<font color=", strColor, ">"
+                ' Opening tags
+                If blnBold Then .Add "<strong>"
+                If blnItalic Then .Add "<i>"
+                If strColor <> vbNullString Then .Add "<font color=", strColor, ">"
 
-            ' Content
-            .Add MultiReplace(strText, _
-                " ", "&nbsp;", _
-                vbCrLf, "<br>")
+                ' Content
+                .Add MultiReplace(strText, _
+                    " ", "&nbsp;", _
+                    vbCrLf, "<br>")
 
-            ' Closing tags
-            If strColor <> vbNullString Then .Add "</font>"
-            If blnItalic Then .Add "</i>"
-            If blnBold Then .Add "</strong>"
+                ' Closing tags
+                If strColor <> vbNullString Then .Add "</font>"
+                If blnItalic Then .Add "</i>"
+                If blnBold Then .Add "</strong>"
 
-            ' Add line break for HTML
-            If blnNextOutputOnNewLine Then m_Console.Add "<br>"
-        End With
+                ' Add line break for HTML
+                If blnNextOutputOnNewLine Then m_Console.Add "<br>"
+            End With
+            m_blnConsoleDirty = True
+        End If
         m_blnAtNewLine = blnNextOutputOnNewLine
-        m_blnConsoleDirty = True
 
         ' Run debug output
         If m_RichText Is Nothing And Not Me.SuppressDebugOutput Then
@@ -237,9 +261,15 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             m_sngLastUpdate = Timer
         End If
 
-        ' Send to MCP if active (plain text, no HTML)
-        If MCP.IsActive Then
-            MCP.PostCallback "log", -1, -1, strText
+        ' Send complete lines to MCP. Same-line fragments (colored PASS, assertion
+        ' tags) are buffered until a newline so the CLI does not print Access
+        ' console layout as separate messages.
+        If MCP.IsActive And Not m_blnSuppressMCPEcho Then
+            m_strMCPPending = m_strMCPPending & strText
+            If blnNextOutputOnNewLine Then
+                If Len(m_strMCPPending) > 0 Then MCP.PostCallback "log", -1, -1, m_strMCPPending
+                m_strMCPPending = vbNullString
+            End If
         End If
     End If
 
@@ -299,9 +329,27 @@ Public Sub Flush()
         Perf.OperationEnd
     End If
     Perf.OperationEnd
+    FlushMCPPending
     If modTestRunnerDiag.DiagEnabled Then _
         modTestRunnerDiag.DiagEnd "log.flush", "chars=" & CStr(Me.BufferChars)
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FlushMCPPending
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : POST any incomplete MCP log line (operation ended mid-fragment).
+'---------------------------------------------------------------------------------------
+'
+Private Sub FlushMCPPending()
+    If MCP.IsActive And Not m_blnSuppressMCPEcho Then
+        If Len(m_strMCPPending) > 0 Then
+            MCP.PostCallback "log", -1, -1, m_strMCPPending
+            m_strMCPPending = vbNullString
+        End If
+    End If
 End Sub
 
 
@@ -604,6 +652,8 @@ Private Sub Class_Initialize()
     Me.Active = False
     m_SavedLogFilePath = vbNullString
     m_blnAtNewLine = True
+    m_strMCPPending = vbNullString
+    m_blnSuppressMCPEcho = False
     ' Generate timestamp-based operation ID with millisecond precision
     m_OperationId = Format$(Now, "yyyymmdd\_hhnnss") & "_" & Format$((Timer * 1000) Mod 1000, "000")
 End Sub
@@ -750,7 +800,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Progress(lngCurrent As Long, lngTotal As Long, _
-    Optional strMessage As String = vbNullString)
+    Optional strMessage As String = vbNullString, _
+    Optional ByVal blnForce As Boolean = False)
 
     ' Update console progress bar (always)
     If Not m_Prog Is Nothing Then
@@ -763,7 +814,7 @@ Public Sub Progress(lngCurrent As Long, lngTotal As Long, _
     ' Send to MCP with independently configurable throttling
     If MCP.IsActive Then
         m_lngMCPProgressCandidates = m_lngMCPProgressCandidates + 1
-        If Timer - m_sngLastMCPProgress > MCPProgressIntervalSeconds Then
+        If blnForce Or Timer - m_sngLastMCPProgress > MCPProgressIntervalSeconds Then
             MCP.PostCallback "progress", lngCurrent, lngTotal, strMessage
             m_sngLastMCPProgress = Timer
             m_lngMCPProgressSent = m_lngMCPProgressSent + 1

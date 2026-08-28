@@ -15,6 +15,23 @@ For the layers, the round-trip harness, and where results land, see
 vcs_run_tests("C:\Repos\msaccess-vcs-addin\Version Control.accda", "clsTestInstall")
 ```
 
+MCP progress is best-effort in Cursor. For live per-test output, keep this
+CLI command in the foreground:
+
+```text
+msaccess-vcs run-tests "C:\Repos\msaccess-vcs-addin\Version Control.accda" --filter clsTestInstall
+```
+
+The stream is pytest-style: dots for fast passes, a named line after a test
+that took ≥ 1s, and full FAIL/ERROR/EMPTY lines. Assertion detail stays
+in the TestRun log and in the `vcs_run_tests` MCP result. The CLI prints a
+compact JSON summary (no `tests` map) and a last line such as
+`Tests passed. 12 subs, 40 assertions in 1.48s`.
+
+Headless means no add-in UI (no web runner, no console form, silent dialogs),
+not a hidden Access window. The host instance stays visible so a dialog or a
+VBA break is on screen.
+
 `database_path` is the development copy in the repository — the `.accda` beside
 `Version Control.accda.src`. The runner scans `CurrentVBProject`, so whichever
 database hosts the run is the one whose tests are found: point a run at a user

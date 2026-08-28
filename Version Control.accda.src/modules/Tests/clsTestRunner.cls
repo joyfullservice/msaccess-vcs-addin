@@ -24,6 +24,8 @@ Option Explicit
 Private Const ModuleName As String = "clsTestRunner"
 Private Const GlobalTestSetupProc As String = "GlobalTestSetup"
 Private Const GlobalTestTeardownProc As String = "GlobalTestTeardown"
+Private Const MCP_SLOW_MS As Long = 1000
+Private Const MCP_DOT_FLUSH_SEC As Currency = 0.2
 
 ' Runner state machine
 Public Enum eTestRunnerState
@@ -64,6 +66,9 @@ Private Type udtTestRunner
     ScannedAssertionCount As Long
     LastRunDurationMs As Long
     LastRunKeys As Collection
+    LastResultsPath As String
+    McpDots As String
+    LastMcpDotFlush As Currency
 End Type
 Private this As udtTestRunner
 
@@ -153,6 +158,20 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : LastResultsPath
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Path of the TestResults_*.json written by the most recent SaveResults.
+'           : Empty until a run saves, and cleared at the start of Scan so a skipped
+'           : run cannot hand MCP a previous suite's file.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get LastResultsPath() As String
+    LastResultsPath = this.LastResultsPath
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Scan
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
@@ -162,6 +181,7 @@ End Property
 '
 Public Sub Scan()
 
+    this.LastResultsPath = vbNullString
     this.State = etrsScanning
     ScanDiscover
     this.State = etrsReady
@@ -318,6 +338,8 @@ Public Sub RunSelected(colTestKeys As Collection)
     ' Set up progress bar (absent when hosted in the web runner, where frmVCSMain
     ' and its progress control are never opened).
     lngTotal = colTestKeys.Count
+    this.McpDots = vbNullString
+    this.LastMcpDotFlush = Perf.MicroTimer
     Log.KeepProgressVisible = True
     If Not Log.ProgressBar Is Nothing Then
         Log.ProgressBar.Reset
@@ -368,13 +390,19 @@ Public Sub RunSelected(colTestKeys As Collection)
 
         If dTest.Exists("fromPriorRun") Then dTest("fromPriorRun") = False
 
+        ' Throttled progress names the current test for a hang; do not force a
+        ' POST on every sub (that was ~468 HTTP calls on a full suite).
+        Log.Progress lngCurrent + 1, lngTotal, strTestKey
+
+        Log.SuppressMCPEcho = True
         modTestRunnerUI.StreamTestStart strTestKey, dTest
 
         ' Emit module heading when the module changes
         If StrComp(CStr(dTest("moduleName")), strCurrentModule, vbTextCompare) <> 0 Then
             strCurrentModule = CStr(dTest("moduleName"))
             Log.Add strCurrentModule, True, True, vbNullString, True
-            Log.Flush   ' Update the console
+            ' Console form only; headless MCP has nothing to paint.
+            If Not MCP.IsActive Then Log.Flush
         End If
 
         If dTest("sourceType") = "class" Then
@@ -462,16 +490,27 @@ Public Sub RunSelected(colTestKeys As Collection)
             LogAssertionDetails this.AssertionResults
         End If
 
-        modTestRunnerUI.StreamTestComplete strTestKey, dTest
-
-        lngCurrent = lngCurrent + 1
-        Log.Progress lngCurrent, lngTotal, strProcName
-        Operation.Pulse
-
 NextTest:
+        ' Compact MCP stream (dots / named slow / FAIL) is separate from the
+        ' Access console layout, which stayed file-only via SuppressMCPEcho.
+        Log.SuppressMCPEcho = False
+        If Len(this.CurrentTestKey) > 0 Then
+            If this.Tests.Exists(this.CurrentTestKey) Then
+                Set dTest = this.Tests(this.CurrentTestKey)
+                If CLng(dTest("status")) <> etsPending Then
+                    McpNoteTest this.CurrentTestKey, dTest
+                    modTestRunnerUI.StreamTestComplete this.CurrentTestKey, dTest
+                    lngCurrent = lngCurrent + 1
+                    Operation.Pulse
+                End If
+            End If
+            this.CurrentTestKey = vbNullString
+        End If
     Next varKey
 
 AfterTestLoop:
+    FlushMcpDots
+    Log.SuppressMCPEcho = False
     Log.KeepProgressVisible = False
     If Not Log.ProgressBar Is Nothing Then Log.ProgressBar.Hide
     Perf.OperationEnd
@@ -940,6 +979,7 @@ Public Function SaveResults() As String
 
     modTestRunnerDiag.DiagBegin "save.results"
     WriteFile GetResultsAsJson, strFile
+    this.LastResultsPath = strFile
     SaveResults = strFile
 
     Log.CleanupOldLogs strFolder, "TestResults_*.json", Options.MaxLogFiles
@@ -1964,6 +2004,121 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : McpNoteTest
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Compact MCP/CLI stream. Fast passes accumulate as dots and POST
+'           : on a 200ms timer so a burst of cheap tests is one callback.
+'           : A named line (pass >= 1s, FAIL/ERROR/EMPTY) takes any pending
+'           : dots in the same POST.
+'---------------------------------------------------------------------------------------
+'
+Private Sub McpNoteTest(ByVal strTestKey As String, ByVal dTest As Dictionary)
+
+    Dim lngStatus As Long
+    Dim lngMs As Long
+    Dim strTag As String
+    Dim strLine As String
+    Dim colResults As Collection
+    Dim dResult As Dictionary
+    Dim i As Long
+
+    lngStatus = CLng(dTest("status"))
+    If dTest.Exists("durationMs") Then lngMs = CLng(dTest("durationMs")) Else lngMs = 0
+
+    If lngStatus = etsPassed And lngMs < MCP_SLOW_MS Then
+        this.McpDots = this.McpDots & "."
+        If (Perf.MicroTimer - this.LastMcpDotFlush) >= MCP_DOT_FLUSH_SEC Then FlushMcpDots
+        Exit Sub
+    End If
+
+    strTag = McpStatusTag(lngStatus)
+    strLine = strTag & "  " & strTestKey
+    If lngMs > 0 Then strLine = strLine & "  " & FormatDuration(lngMs)
+    McpLogLine strLine
+
+    If lngStatus = etsErrored Then
+        If dTest.Exists("errorMessage") Then
+            If Len(CStr(dTest("errorMessage"))) > 0 Then
+                McpLogLine "    " & CStr(dTest("errorMessage"))
+            End If
+        End If
+    ElseIf lngStatus = etsFailed Then
+        If dTest.Exists("assertionResults") Then
+            If IsObject(dTest("assertionResults")) Then
+                Set colResults = dTest("assertionResults")
+                For i = 1 To colResults.Count
+                    Set dResult = colResults(i)
+                    If Not CBool(dResult("passed")) Then
+                        strLine = "    #" & dResult("seq") & " FAIL"
+                        If Len(Nz(dResult("context"), vbNullString)) > 0 Then
+                            strLine = strLine & ": " & CStr(dResult("context"))
+                        End If
+                        McpLogLine strLine
+                    End If
+                Next i
+            End If
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FlushMcpDots
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : POST accumulated pass-dots as one log callback for the CLI to print.
+'---------------------------------------------------------------------------------------
+'
+Private Sub FlushMcpDots()
+    If Len(this.McpDots) = 0 Then Exit Sub
+    McpLogLine this.McpDots
+    this.McpDots = vbNullString
+    this.LastMcpDotFlush = Perf.MicroTimer
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : McpLogLine
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : POST a named compact-stream line. Pending timer-batched dots ride
+'           : in the same callback so a slow/FAIL line is not a second HTTP POST.
+'---------------------------------------------------------------------------------------
+'
+Private Sub McpLogLine(ByVal strLine As String)
+    Dim strPayload As String
+    If Len(this.McpDots) > 0 Then
+        strPayload = this.McpDots & vbLf & strLine
+        this.McpDots = vbNullString
+        this.LastMcpDotFlush = Perf.MicroTimer
+    Else
+        strPayload = strLine
+    End If
+    If MCP.IsActive Then MCP.PostCallback "log", -1, -1, strPayload
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : McpStatusTag
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Short status word for the compact MCP stream.
+'---------------------------------------------------------------------------------------
+'
+Private Function McpStatusTag(ByVal lngStatus As Long) As String
+    Select Case lngStatus
+        Case etsPassed:  McpStatusTag = "PASS"
+        Case etsFailed:  McpStatusTag = "FAIL"
+        Case etsErrored: McpStatusTag = "ERROR"
+        Case etsEmpty:   McpStatusTag = "EMPTY"
+        Case Else:       McpStatusTag = "PEND"
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LogTestResult
 ' Author    : Adam Waller
 ' Date      : 5/8/2026
@@ -2024,7 +2179,9 @@ Private Sub LogRunSummary()
         .Spacer True, SPACER_LEN
     End With
 
+    Log.SuppressMCPEcho = True
     LogTestTimingTable SPACER_LEN
+    Log.SuppressMCPEcho = False
 
 End Sub
 

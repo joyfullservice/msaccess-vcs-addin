@@ -555,6 +555,36 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : EmitTestStartJson
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Serialize the TestUI.onTestStart payload. Unlike the results, which the
+'           : bridge delivers in batches, this one is pushed per test, so a full suite
+'           : paid the generic converter's cost several hundred times.
+'           : Field set matches AppendTreeNode's first four, which the runner UI keys on.
+'---------------------------------------------------------------------------------------
+'
+Public Function EmitTestStartJson(strTestKey As String, dTest As Dictionary) As String
+
+    Dim buf As clsConcat
+    Dim strProcName As String
+
+    ' name and procName carry the same value, so it is escaped once.
+    Set buf = New clsConcat
+    strProcName = EscapeJsonString(CStr(dTest("procName")))
+    With buf
+        .Add "{""key"":""", EscapeJsonString(strTestKey), """"
+        .Add ",""name"":""", strProcName, """"
+        .Add ",""module"":""", EscapeJsonString(CStr(dTest("moduleName"))), """"
+        .Add ",""procName"":""", strProcName, """"
+        .Add "}"
+    End With
+    EmitTestStartJson = buf.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : EmitResultsBatchJson
 ' Author    : Adam Waller
 ' Date      : 8/18/2026

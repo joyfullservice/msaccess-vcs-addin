@@ -206,6 +206,32 @@ Public Sub TestEmitWebResultJson_MatchesBatchRecord()
 End Sub
 
 
+Public Sub TestEmitTestStartJson_RoundTrip()
+
+    Dim dTest As Dictionary
+    Dim dPayload As Dictionary
+    Dim strKey As String
+
+    ' onTestStart is pushed per test rather than in a batch, so it moved off the
+    ' generic converter. The two encodings still have to agree field for field.
+    strKey = "modTestAlpha.TestOne"
+    Set dTest = New Dictionary
+    dTest.Add "moduleName", "modTestAlpha"
+    dTest.Add "procName", "TestOne"
+
+    Set dPayload = New Dictionary
+    dPayload.Add "key", strKey
+    dPayload.Add "name", "TestOne"
+    dPayload.Add "module", "modTestAlpha"
+    dPayload.Add "procName", "TestOne"
+
+    TestAssertJsonEqual ParseJson(ConvertToJson(dPayload, JSON_WHITESPACE)), _
+        ParseJson(modJsonEmit.EmitTestStartJson(strKey, dTest)), _
+        "test start emitter round trip"
+
+End Sub
+
+
 Private Function BuildSampleTreeTests() As Dictionary
 
     Dim dTests As Dictionary

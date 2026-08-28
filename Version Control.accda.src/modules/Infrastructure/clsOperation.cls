@@ -484,6 +484,14 @@ Private Sub FinishRootInternal(Optional intResult As eOperationResult = eorUnkno
         Dim dExtra As Dictionary
         Set dExtra = New Dictionary
         dExtra.Add "log_path", Log.SavedLogFilePath
+        ' Failed tests complete as eorFailed (MCP "error"), so the results file
+        ' has to ride on every terminal callback or the client only sees
+        ' "Operation failed" with no JSON to rerun from.
+        If m_Root.OperationType = eotTestRun Then
+            If Len(TestRunner.LastResultsPath) > 0 Then
+                dExtra.Add "results_path", TestRunner.LastResultsPath
+            End If
+        End If
 
         Select Case Me.Result
             Case eorSuccess

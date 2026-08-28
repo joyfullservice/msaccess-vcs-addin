@@ -188,13 +188,17 @@ if they call `RunTests` or `RunFilteredTests`. The returned JSON includes
 in the root, so a pipeline can assert the outcome without parsing per-test detail.
 
 ```powershell
-# Drive from PowerShell via COM automation (Access stays invisible).
+# Drive from PowerShell via COM automation.
+# Headless means no add-in UI, not a hidden Access window — show it so a
+# dialog or a VBA break is on screen.
 # Application.Run on the add-in's public API function loads the add-in library
 # and routes the call to clsVersionControl (see modAPI.bas `API`); up to three
 # filter arguments are supported through this route.
 $addin = "$env:AppData\MSAccessVCS\Version Control.API"
 $access = New-Object -ComObject Access.Application
 $access.OpenCurrentDatabase("C:\path\to\Database.accdb")
+$access.Visible = $true
+$access.UserControl = $true   # after opening, so AutoRun still sees automation
 $json = $access.Run($addin, "RunTestsHeadless", "-slow")
 $access.Quit()
 $result = $json | ConvertFrom-Json

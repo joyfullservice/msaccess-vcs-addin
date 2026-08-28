@@ -3189,8 +3189,14 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
     Log.Active = True
     Log.ClearErrorJournal
 
-    ' No console form in headless mode (automation sessions have no UI to update)
-    If Not blnHeadless Then PrepareTestConsole
+    ' No console form in headless mode (automation sessions have no UI to update).
+    ' Same Immediate-window mute the web runner uses: thousands of Debug.Print
+    ' fragments otherwise stall the Access thread for a full suite.
+    If Not blnHeadless Then
+        PrepareTestConsole
+    Else
+        Log.SuppressDebugOutput = True
+    End If
 
     ' Build filter description for log heading
     If blnFiltered Then

@@ -83,6 +83,102 @@ contradictory guidance.
 
 ---
 
+## 2026-08-28 — MCP test stream is pytest-style dots and slow names
+
+**Trigger**: The first CLI full-suite run streamed ~8000 MCP log POSTs. Access
+console layout writes the same line in fragments (name, then `PASS`, then each
+`#n PASS: context`). `Log.Add` posted each fragment. Wall clock was 3.3 minutes;
+the tests themselves were ~15s.
+
+**Options explored**:
+- *Keep posting every console fragment.* Rejected. Floods HTTP and the CLI.
+- *Dots only, names only on FAIL.* Rejected. Hides which tests are slow.
+- *Name a pass after ≥ 200ms.* Rejected. Named too many tests in Cursor.
+- *CLI infers a dot from each start-of-test `Log.Progress`.* Rejected. That is
+  468 HTTP posts, and Cursor's captured output is not a TTY so `\\r` overwrite
+  is unreadable.
+- *Flush coalesced dots every 10.* Rejected. Posts in the middle of a burst of
+  1ms tests, which is the case batching exists to avoid.
+- *VBA coalesces dots; flush on a 200ms timer, when a named line needs the
+  line, or at end of run; name ≥ 1s PASS and FAIL/ERROR/EMPTY* (chosen).
+  Assertion detail stays in the TestRun log and the MCP tool's `tests` map.
+  `Log.Add` buffers until newline. The runner sets `Log.SuppressMCPEcho` around
+  the Access-console layout. Progress stays throttled hang detection, not the
+  dot stream.
+
+**Decision**: File and Access console keep the existing per-test layout.
+MCP/CLI get pytest-style output. Import is unchanged.
+
+**What this rules out**: Per-assertion MCP lines. Printing slow tests before
+they finish. Treating the CLI JSON as the `tests` map. Inferring dots from
+progress. Flushing every N dots. A 200ms name threshold.
+
+**Relevant files**: `clsLog.cls` (`SuppressMCPEcho`, line-buffered MCP),
+`clsTestRunner.cls` (`McpNoteTest`, `FlushMcpDots`, `MCP_SLOW_MS`).
+
+---
+
+## 2026-08-28 — Headless test logs skip Immediate Window and HTML
+
+**Trigger**: CLI attach on the same instance as a 14s web-runner run took ~25s.
+Perf: 7856 `Debug.Print`s, HTML concat with no form, DoEvents on every module
+heading, and 468 forced progress POSTs.
+
+**Options explored**:
+- *One HTTP POST per test as the CLI console.* Rejected. That is the streaming
+  cost; the compact stream is a separate decision above.
+- *Mute Immediate Window, skip unused HTML, throttle progress* (chosen). Web
+  runner already muted `Debug.Print`. HTTP submit time was never the expensive
+  part; per-line Immediate Window and HTML work was.
+
+**Decision**: Headless `ExecuteTests` sets `SuppressDebugOutput`. `Log.Add`
+builds HTML only when a console RichText exists. Test-start progress is
+throttled, not forced. Module headings do not `Log.Flush` when MCP is active.
+
+**What this rules out**: `Debug.Print` as the headless console. Building form
+HTML when no form is loaded. Forcing a progress POST on every test.
+
+**Relevant files**: `clsLog.cls`, `clsVersionControl.cls` (`ExecuteTests`),
+`clsTestRunner.cls`.
+
+---
+
+## 2026-08-28 — RunFilteredTests is an APIAsync operation so MCP can stream results
+
+**Trigger**: MCP `vcs_run_tests` blocked in `API("RunFilteredTests")` with no
+callback registration. Per-test `Log.Add` / `Log.Progress` already knew how to
+POST when `MCP.IsActive`, so the suite produced a log file and a final JSON
+blob but nothing the CLI could print live. Builds already streamed because
+`Export` / `Build` were on the `APIAsync` timer list.
+
+**Options explored**:
+- *Register the callback in the `APIAsync` Case Else sync fallback.* Would
+  fire `Log.Add` POSTs during a blocking `Application.Run`, but the MCP handler
+  could not emit progress until that call returned.
+- *Add `RunFilteredTests` to the async timer list* (chosen). Same contract as
+  export/build: `APIAsync` returns `{async: true, timeout_ms: 600000}`, the
+  timer registers the callback, then `API` runs the suite.
+
+Failed tests complete as `eorFailed`, which posts MCP type `error`. Without
+the results file on that payload, the client would see only "Operation failed".
+`SaveResults` already writes `TestResults_*.json`; `LastResultsPath` rides on
+complete, error, and cancelled extras. MCP decides tool `success` from the
+summary. `Scan` clears the path so a skipped run cannot hand over a previous
+file. What those callbacks contain is the compact stream above, not every
+Access-console fragment.
+
+**Decision**: `RunFilteredTests` is an async API method. Terminal callbacks
+for `eotTestRun` include `results_path` whenever a results file exists.
+
+**What this rules out**: Treating failed tests as a lost MCP result. Putting
+the full results JSON in the HTTP body (the file is already on disk). Changing
+`Operation.Result` so failed tests count as `eorSuccess`.
+
+**Relevant files**: `modAPI.bas` (`APIAsync`), `clsOperation.cls`
+(`FinishRootInternal`), `clsTestRunner.cls` (`LastResultsPath`).
+
+---
+
 ## 2026-08-28 — clsVersionControl.Options is a property so the cache can be discarded
 
 **Trigger**: `vcs_end_session` returned `Could not end session: Object doesn't support this property or method`. The override file was already deleted, so the failure was the reload: `Set Options = Nothing` inside `clsVersionControl`. That class also wraps the singleton as a member named `Options`, which was a `Function`. Assignment bound to the function, which has no setter (error 438).
@@ -1549,6 +1645,9 @@ Killing `MSACCESS.EXE` as a cleanup strategy stays out.
 ---
 
 ## 2026-08-12 — Force headless test runs for API and MCP callers
+
+> **⚠ Partially superseded** (2026-08-28): Headless still means no add-in UI.
+> It does not mean a hidden Access window. MCP leaves the host instance visible.
 
 **Trigger**: `vcs_run_tests` calls `RunFilteredTests`, an interactive entry
 point. With the web runner enabled, `ExecuteTests` opened `frmVCSTestRunner`,

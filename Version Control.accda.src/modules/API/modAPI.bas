@@ -531,7 +531,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
 
     ' Determine if this is an async operation or should fall back to sync
     Select Case strMethod
-        Case "Export", "FullExport", "ExportVBA", "Build", "BuildAs", "MergeBuild"
+        Case "Export", "FullExport", "ExportVBA", "Build", "BuildAs", "MergeBuild", "RunFilteredTests"
             ' These are async operations - spawn via timer with callback support
 
             ' Store callback info in registry for timer callback to retrieve
@@ -547,7 +547,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
                     lngTimeoutMs = 600000  ' 10 minutes (full export takes longer)
                 Case "ExportVBA"
                     lngTimeoutMs = 120000  ' 2 minutes
-                Case "Build", "BuildAs"
+                Case "Build", "BuildAs", "RunFilteredTests"
                     lngTimeoutMs = 600000  ' 10 minutes
                 Case "MergeBuild"
                     lngTimeoutMs = 300000  ' 5 minutes

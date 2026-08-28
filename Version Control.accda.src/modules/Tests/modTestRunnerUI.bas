@@ -531,17 +531,9 @@ End Sub
 '
 Public Sub StreamTestStart(ByVal strTestKey As String, ByVal dTest As Dictionary)
 
-    Dim dPayload As Dictionary
-
     If Not WebRunnerReady() Then Exit Sub
 
-    Set dPayload = New Dictionary
-    dPayload.Add "key", strTestKey
-    dPayload.Add "name", CStr(dTest("procName"))
-    dPayload.Add "module", CStr(dTest("moduleName"))
-    dPayload.Add "procName", CStr(dTest("procName"))
-
-    PushTestUI "onTestStart", ConvertToJson(dPayload)
+    PushTestUI "onTestStart", modJsonEmit.EmitTestStartJson(strTestKey, dTest)
     DoEvents
 
 End Sub
