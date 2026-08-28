@@ -83,6 +83,293 @@ contradictory guidance.
 
 ---
 
+## 2026-08-28 — MCP progress interval default is 500ms, chosen for feedback not throughput
+
+**Trigger**: The 1000ms default was set while the agentic/ribbon build gap was still
+unexplained and callback streaming was one of the suspects, so the longest interval
+that preserved usable feedback won. EcoQoS core scheduling turned out to be the cause
+(see "MCP-launched Access runs at full-power QoS, not pinned cores"), which removes the
+reason to trade feedback granularity for stream hygiene.
+
+**Options explored**:
+- *Keep 1000ms.* Cheapest stream, but a long quiet component loop reports only once a
+  second, which reads as a stalled operation to whoever is watching it.
+- *Return to 250ms.* Rejected. The earlier benchmark measured direct callback work at
+  0.204s against 0.169s at 1000ms, and the extra granularity did not help.
+- *500ms* (chosen). The same benchmark put it at 0.172s, within noise of 1000ms, and it
+  halves the worst-case silent gap.
+
+**Decision**: `McpProgressIntervalMs` defaults to 500. The 250/500/1000ms elapsed-time
+figures (13.85s / 13.96s / 13.83s) stand and were always noise. The interval is now
+chosen for feedback quality, because throughput is not what it controls.
+
+**What this rules out**: Treating the progress interval as a performance lever, or
+re-tuning it in response to a slow build. If stream overhead ever does need reducing,
+batch the unthrottled `Log.Add` callbacks — they dominate past 500ms.
+
+**Relevant files**: `clsOptions.cls`, `clsLog.cls`, `docs/perf-diagnostics.md`.
+
+---
+
+## 2026-08-28 — MCP-launched Access runs at full-power QoS, not pinned cores
+
+**Trigger**: Agentic builds of this add-in ran ~2–3s slower than ribbon builds of
+the same source on a hybrid CPU. Call counts matched. The builder's hot thread
+sat on an LP-E core (EcoQoS system-managed). Turning EcoQoS off and raising
+the process to Above Normal moved it onto a P-core and recovered most of the gap.
+Access is single-threaded, so that one core is the whole build.
+
+**Options explored**:
+- *CPU affinity mask to P-cores.* Rejected. It fights the scheduler, is wrong on
+  machines without hybrid cores, and still needs a topology query that changes
+  across SKUs.
+- *Always-on high QoS for every Access process.* Rejected. MCP often attaches to
+  a database the user already has open; changing that process's priority would
+  surprise an interactive session.
+- *EcoQoS off + Above Normal, MCP-launched only* (chosen). Matches the measured
+  fix. Applied in-process from VBA for the Worker-created builder and silent
+  installer, and from Python for COM-owned instances plus new `MSACCESS.EXE`
+  that appear after an MCP rebuild snapshot. User-owned Access that existed
+  before the call is left alone. Double-apply is a no-op. Failures are swallowed
+  so older Windows still builds.
+
+**Decision**: `PreferFullPowerCurrentProcess` disables
+`PROCESS_POWER_THROTTLING_EXECUTION_SPEED` and sets Above Normal on the current
+process. MCP `RegisterCallback` calls it when `OpenedByAutomation` is true.
+`INSTALL SILENT` calls it because a command-line launch is not COM-owned.
+`Worker.vbs` calls `PreferFullPowerCore` when an MCP callback URL is present.
+Ribbon builds are unchanged.
+
+**What this rules out**: Pinning Access to specific cores. Promoting a user's
+already-running Access because MCP attached to it. Treating EcoQoS as the
+remaining whole gap versus ribbon — cold process start and MCP JSON still
+exist.
+
+**Relevant files**: `modProcessQoS.bas`, `modAPI.bas` (`PreferFullPowerCore`),
+`clsMCP.cls`, `modInstall.bas`, `clsWorker.cls`.
+
+---
+
+## 2026-08-28 — MCP progress streams update at most once per second
+
+> **⚠ Partially superseded** (2026-08-28): the default is now 500ms. The measurements
+> below stand and the interval is still not a performance lever; what changed is that
+> the build gap they were weighed against turned out to be EcoQoS core scheduling, so
+> there is no longer a reason to spend feedback granularity on stream hygiene. See
+> "MCP progress interval default is 500ms, chosen for feedback not throughput" above.
+
+**Trigger**: Async callbacks removed blocking localhost round trips, but their true
+cost still included JSON conversion and possibly deferred COM work. The existing
+250ms progress throttle had been inherited from interactive UI tuning rather than
+measured against the HTTP stream.
+
+**Options explored**:
+- *Keep 250ms.* It produced 23–24 progress posts from 236 candidates in a 14-second
+  add-in build. Chosen only if the additional visual granularity materially helped;
+  it did not.
+- *Use 500ms.* It reduced progress posts to 14–15 and preserved frequent feedback.
+- *Use 1000ms* (chosen). It reduced progress posts to 7–8. The 43 `Log.Add` posts in
+  the same build still provided activity between progress samples, and a long quiet
+  component loop still reports once per second.
+
+**Decision**: `McpProgressIntervalMs` is a project option and defaults to 1000.
+Nine controlled builds (three at each interval) averaged 13.85s at 250ms, 13.96s at
+500ms, and 13.83s at 1000ms, so elapsed-time differences were noise. Measured direct
+callback work fell from about 0.204s at 250ms to 0.172s at 500ms and 0.169s at
+1000ms. The fixed log callbacks dominate after 500ms; throttling progress is stream
+hygiene, not the explanation for the multi-second manual/agent build gap.
+
+The optional perf JSON now records progress candidates/sent/suppressed, callback
+attempts by type, failed attempts, requests pruned and pending, and peak in-flight
+requests. Callback submission and pruning have distinct timers. Console rendering
+and the headless `DoEvents` message pump are also separate, which showed that this
+rebuild path was using GUI rendering and had no deferred message-pump cost to assign.
+
+**What this rules out**: Returning to sub-second progress by intuition alone, or
+attributing the agent/manual build gap to progress callback frequency. Revisit the
+interval only with a workload that has long quiet phases where one-second feedback
+is insufficient. If stream overhead needs further reduction, investigate batching
+the unthrottled log callbacks instead.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/clsLog.cls`,
+`Version Control.accda.src/modules/Integration/clsMCP.cls`,
+`Version Control.accda.src/modules/Infrastructure/clsOptions.cls`,
+`Version Control.accda.src/modules/Infrastructure/clsPerformance.cls`,
+`docs/perf-diagnostics.md`.
+
+---
+
+## 2026-08-27 — Performance data gets a machine-readable form, gated by an option
+
+**Trigger**: The previous entry decided a call-path rollup was the right answer to
+"what does this feature cost including everything beneath it" but left it unbuilt. The
+open question was where the rollup should go. The text report is a fixed-width table
+sized for a person skimming a build log; the path data for one build of this repo is 76
+rows, which would bury the log it was added to.
+
+**Options explored**:
+- *More sections in the text report.* No new file, no new option, and the data appears
+  wherever logs already go. Rejected: hundreds of rows of tree output in the file a
+  user opens to see why a build failed makes the log worse for its primary reader, and
+  a fixed-width tree cannot carry the fields worth having.
+- *Always write the JSON.* Simple, nothing to discover or enable. Rejected because path
+  collection is not free — it builds a path string on every `OperationStart` and
+  `OperationEnd` — and the default build should not pay for a diagnostic nobody is
+  reading.
+- *A separate opt-in JSON file* (chosen). `Options.ExportPerfJson` turns on both path
+  collection and the file, so the cost and the output arrive together and neither
+  exists by default. Written from `clsLog.SaveFile` rather than at each of the ten
+  `Perf.GetReports` call sites, so export, build, merge, and test runs are covered
+  once. Named after the log it accompanies, `<log base>.perf.json`, so a tool holding
+  a `log_path` can derive it.
+
+**Decision**: Three views ship, because the useful question changes: `operations`
+(exclusive, aggregated by name — many small calls adding up), `callPaths` (exclusive
+plus inclusive per distinct path — what a feature costs including its children), and
+`callers` (per operation, which parent drove which share of the calls). Exclusive
+figures still sum to the accounted total in every view; inclusive figures overlap by
+construction and must not be added. `path` is emitted as an array of segments, which
+JSON allows and the text format did not, so no separator can be mistaken for part of
+an operation name.
+
+`OperationEnd` had to change to make paths correct: it restarted the parent operation
+*before* popping it off the call stack, which was invisible to the flat table but made
+every resumed parent record itself as its own child. The pop now happens first.
+
+**What this rules out**: Adding these views to the text report. Making path tracking
+unconditional. It also settles how a future view is added — as another key in this
+structure, not another section in the log.
+
+**Findings this immediately produced**, all of which contradicted a standing
+hypothesis about why agentic builds of this repo run ~8.5s slower than ribbon builds:
+- MCP streaming callbacks cost **0.27s** of that gap (0.13s transport plus, from
+  `callers`, the 73 of 105 `Convert to JSON` calls that arrive from `MCP Callback`).
+  The suspicion that drove the async-callback work is now closed with a number.
+- Nearly every operation is slower with an **identical call count** — `Compute SHA256`
+  1413 calls in both, 0.62s versus 0.90s. Same work, slower execution, so the cause is
+  environmental rather than in the code.
+- The machine is not the cause in the obvious way: the builder Access process gets
+  ~0.93 of a core with five cores idle, priority Normal, EcoQoS system-managed. But
+  this is a 4 P-core + 4 LP-E-core part with no SMT, the LP-E cores measure ~40% slower
+  on the same benchmark, and per-core sampling shows the build spread across both
+  types. A windowless COM-driven Access process has nothing biasing it toward a P-core,
+  where a foreground ribbon build does. Untested proposal: have the MCP server mark the
+  builder process high-QoS at launch.
+- `Console Updates` is the largest single delta (+1.73s at an unchanged 25/26 calls)
+  and swings 0.73s–2.29s between runs. Not explained yet.
+
+> **⚠ Partially superseded** (2026-08-28): the EcoQoS proposal is now implemented
+> for MCP-launched Access (EcoQoS off, Above Normal, no affinity pin). See
+> "MCP-launched Access runs at full-power QoS, not pinned cores" above.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/clsPerformance.cls`
+(path tracking, `GetDiagnosticData`, `OperationEnd` pop order),
+`Version Control.accda.src/modules/Infrastructure/clsLog.cls` (`SavePerfJson`),
+`Version Control.accda.src/modules/Infrastructure/clsOptions.cls` (`ExportPerfJson`),
+`docs/perf-diagnostics.md`.
+
+---
+
+## 2026-08-27 — Perf operations stay flat and exclusive; close instrumentation gaps instead
+
+**Trigger**: Investigating why agentic builds of this repo looked ~9s slower than
+ribbon builds, `MCP Callback` reported 81 posts / 0.21s — small enough to clear
+the callbacks of suspicion. That number is exclusive, not total. `clsPerformance`
+records nested operations exclusive of their parent, and `PostCallback` calls
+`modJsonConverter.ConvertToJson`, which starts its own `Convert to JSON`
+operation. So a single callback is split across two rows: `Convert to JSON` went
+32 -> 113 calls (+81, exactly the post count) and +0.42s, while the row named
+after the feature showed transport only. Real cost ~0.65s.
+
+**Options explored**:
+- *Suppress the nested report by toggling `Perf.Enabled` around the call*
+  (implemented, then reverted). Makes `MCP Callback` a single inclusive number
+  with no new API and no change to the vendored JSON module. Rejected because it
+  buys one readable row by corrupting a more valuable figure: the aggregate
+  count of how often the add-in serializes JSON, from every call site. Knowing
+  many small calls sum to something significant is as useful as knowing which
+  single operation is biggest, and suppression destroys the former.
+- *Make `OperationStart` support an inclusive mode.* Nested operations would keep
+  reporting while the parent timer ran. Rejected: operations are exclusive
+  precisely so they sum to `TOTAL RUNTIME` with the remainder shown as "Other
+  Operations". Double-counting inside one table breaks that arithmetic.
+- *Keep the flat table exclusive and add a separate call-path rollup* (chosen
+  direction, not yet built). The two questions are different views of the same
+  data — "what costs the most in aggregate, wherever it is called from" and
+  "what does this feature cost including everything beneath it" — and each
+  deserves its own section rather than one table trying to answer both.
+  `this.CallStackItems` and the `CallStack` breadcrumb property already carry the
+  path, so exclusive time can be keyed by path and rolled up at report time.
+
+**Decision**: The operations table stays flat, exclusive, and aggregated by
+operation name. Inclusive per-feature cost is a reporting concern, to be answered
+by a rollup view rather than by distorting collection. Meanwhile the two genuine
+gaps are closed: `CheckCancelled` had no timer at all despite being the one MCP
+round-trip that still blocks, and is now `MCP Cancel Check`, timed after its
+throttle so early returns cost nothing; and the headless `Debug.Print` branch in
+`clsLog.Add` is now timed as `Debug Print`, since it is reached only when there is
+no GUI console and therefore runs in unattended builds but not interactive ones,
+inflating "Other Operations" in exactly the comparison it distorted.
+
+> **⚠ Partially superseded** (2026-08-27): the reasoning about `Debug Print` was
+> wrong, and the timer is what proved it. Across every subsequent agentic build the
+> operation is absent from the report entirely — the branch never executes, because
+> unattended runs suppress debug output rather than lacking a console. It cost
+> nothing and inflated nothing. The timer is kept for the negative result. See
+> "Performance data gets a machine-readable form" above.
+
+**What this rules out**: Consolidating a nested operation into its parent by
+disabling instrumentation mid-call. Adding an inclusive mode to `OperationStart`
+without first deciding what "Other Operations" should mean.
+
+**Relevant files**: `Version Control.accda.src/modules/Integration/clsMCP.cls`,
+`Version Control.accda.src/modules/Infrastructure/clsLog.cls`,
+`Version Control.accda.src/modules/Infrastructure/clsPerformance.cls` (read only).
+
+---
+
+## 2026-08-27 — Async fire-and-forget MCP log/progress callbacks
+
+> **⚠ Partially superseded** (2026-08-28): Progress callbacks are still async, but
+> their default throttle is now 1000ms after a 250/500/1000ms benchmark. See
+> "MCP progress streams update at most once per second" above.
+>
+> **⚠ Partially superseded** (2026-08-28, same day): the throttle default is 500ms,
+> not 1000ms. See "MCP progress interval default is 500ms, chosen for feedback not
+> throughput" above.
+
+**Trigger**: Agentic builds spent ~4s more than a ribbon build on this repo
+(15.83s vs 11.44s). The performance report showed `Append File` 213/1.34s
+(MCP debug log) and extra time in Modules/Forms. `PostCallback` used
+synchronous `MSXML2.XMLHTTP` (`Open ..., False`) despite comments calling it
+fire-and-forget. On a 5K-object project that blocking cost scales with wall
+clock (~4 POSTs/sec at the 250ms progress throttle, plus every `Log.Add`).
+
+**Options explored**:
+- *Keep synchronous POSTs.* Simple, but the build waits on localhost for every
+  sample. Rejected for large projects.
+- *WinHttp async.* More reliable in some STA cases; larger change. Deferred
+  unless XMLHTTP async proves flaky.
+- *XMLHTTP `Open(..., True)` for `log`/`progress`, keep `complete`/`error`/
+  `cancelled` synchronous* (chosen). VBA aborts async requests if the object
+  is released, so in-flight requests are retained in a Collection and pruned
+  at `readyState >= 4`. Terminal callbacks stay blocking so the CLI sees
+  finish before Access continues/quits.
+- *Stop `MCPDebugLog` on the per-callback hot path.* Chosen alongside async;
+  register/error debug lines remain.
+
+**Decision**: Streaming callbacks are async fire-and-forget. Terminal
+callbacks stay synchronous. `PostCallback` is Perf-timed as `MCP Callback`.
+
+**What this rules out**: Making `complete` async. Switching to WinHttp unless
+XMLHTTP drops samples in practice. Calling `MCPDebugLog` from the streaming
+hot path.
+
+**Relevant files**: `Version Control.accda.src/modules/Integration/clsMCP.cls`,
+`Version Control.accda.src/modules/API/modAPI.bas`.
+
+---
+
 ## 2026-08-27 — Builder Access reuses APIAsync callbacks during self-rebuild
 
 **Trigger**: The MCP-side status watcher removed agent polling but exposed only

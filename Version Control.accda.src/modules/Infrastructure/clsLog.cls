@@ -40,6 +40,10 @@ Private m_blnKeepProgressVisible As Boolean
 Private m_blnConsoleDirty As Boolean  ' True when m_Console has new content not yet assigned to txtLog
 Private m_sngLastUpdate As Single
 Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
+Private m_sngMCPProgressInterval As Single ' Cached option value in seconds
+Private m_lngMCPProgressCandidates As Long
+Private m_lngMCPProgressSent As Long
+Private m_lngMCPProgressSuppressed As Long
 Private m_dblPendingIncrements As Double  ' Accumulated increments awaiting throttled flush
 Private m_sngLastIncrement As Single    ' Timer value of the last applied Increment
 Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
@@ -209,6 +213,11 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
 
         ' Run debug output
         If m_RichText Is Nothing And Not Me.SuppressDebugOutput Then
+            ' Timed because this branch is reached only without a GUI console, which is
+            ' exactly the unattended case (MCP/API) whose builds get compared against
+            ' interactive ones. Untimed, its cost lands in "Other Operations" and reads
+            ' as unexplained overhead in the very comparison it distorts.
+            Perf.OperationStart "Debug Print"
             ' Only print debug output if not running from the GUI.
             If blnNextOutputOnNewLine Then
                 ' Create new line
@@ -217,6 +226,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
                 ' Continue next printout on this line.
                 Debug.Print strText;
             End If
+            Perf.OperationEnd
         End If
 
         ' Allow an update to the screen every second.
@@ -264,6 +274,7 @@ Public Sub Flush()
     ' See if the GUI form is loaded.
     Perf.OperationStart "Console Updates"
     If Not m_RichText Is Nothing Then
+        Perf.OperationStart "GUI Console Update"
         If Not m_blnKeepProgressVisible Then
             m_blnProgressActive = False
             If Not m_Prog Is Nothing Then m_Prog.Hide
@@ -279,9 +290,13 @@ Public Sub Flush()
             End With
             m_blnConsoleDirty = False
         End If
+        Perf.OperationEnd
     Else
-        ' Update display in immediate window if not using console
+        ' Yield to Access and COM. Async XMLHTTP completion notifications also use this
+        ' message pump, so keep it separate from callback submission timing.
+        Perf.OperationStart "Message Pump"
         DoEvents
+        Perf.OperationEnd
     End If
     Perf.OperationEnd
     If modTestRunnerDiag.DiagEnabled Then _
@@ -474,6 +489,9 @@ Public Sub SaveFile(Optional strAlternatePath As String)
     WriteFile m_Log.GetStr, strPath
     m_SavedLogFilePath = strPath
 
+    ' Machine-readable performance data, when an agent asked for it
+    SavePerfJson strPath
+
     ' Cleanup old logs beyond MaxLogFiles
     Select Case Operation.OperationType
         Case eotExport:   strBase = "Export"
@@ -484,6 +502,41 @@ Public Sub SaveFile(Optional strAlternatePath As String)
     End Select
     CleanupOldLogs strLogsFolder, strBase & "_*.log", Options.MaxLogFiles
     If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagEnd "log.save"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SavePerfJson
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Write the performance measurements as JSON beside the log file that was
+'           : just saved, as <log base>.perf.json.
+'           : Kept out of the log itself on purpose. The log is written for a person
+'           : reading a build, and the call-path breakdown is hundreds of rows that would
+'           : bury it; a separate file lets an agent ask for the detail without changing
+'           : what everyone else reads. Pairing it with the log's own name means the
+'           : path is derivable from the log path a tool already has.
+'           : Hooked here rather than at each `Perf.GetReports` call site so export,
+'           : build, merge, and test runs are all covered by one place.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SavePerfJson(strLogPath As String)
+
+    Dim strPath As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    If Not OptionsLoaded Then Exit Sub
+    If Not Options.ExportPerfJson Then Exit Sub
+    If Len(strLogPath) = 0 Then Exit Sub
+
+    strPath = FSO.BuildPath(FSO.GetParentFolderName(strLogPath), _
+        FSO.GetBaseName(strLogPath) & ".perf.json")
+
+    WriteFile modJsonConverter.ConvertToJson(Perf.GetDiagnosticData, 2), strPath
+
+    CatchAny eelWarning, "Error writing performance diagnostics", "clsLog.SavePerfJson"
+
 End Sub
 
 
@@ -540,6 +593,10 @@ Private Sub Class_Initialize()
     m_blnProgressActive = False
     m_blnKeepProgressVisible = False
     m_sngLastUpdate = 0
+    m_sngMCPProgressInterval = -1
+    m_lngMCPProgressCandidates = 0
+    m_lngMCPProgressSent = 0
+    m_lngMCPProgressSuppressed = 0
     m_dblPendingIncrements = 0
     m_sngLastIncrement = 0
     Erase m_lngErrCount
@@ -703,15 +760,64 @@ Public Sub Progress(lngCurrent As Long, lngTotal As Long, _
         m_blnProgressActive = True
     End If
 
-    ' Send to MCP with throttling (max every 250ms)
+    ' Send to MCP with independently configurable throttling
     If MCP.IsActive Then
-        If Timer - m_sngLastMCPProgress > 0.25 Then
+        m_lngMCPProgressCandidates = m_lngMCPProgressCandidates + 1
+        If Timer - m_sngLastMCPProgress > MCPProgressIntervalSeconds Then
             MCP.PostCallback "progress", lngCurrent, lngTotal, strMessage
             m_sngLastMCPProgress = Timer
+            m_lngMCPProgressSent = m_lngMCPProgressSent + 1
+        Else
+            m_lngMCPProgressSuppressed = m_lngMCPProgressSuppressed + 1
         End If
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MCPProgressIntervalSeconds
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Cache the per-project throttle so a large component loop does not read
+'           : the options object on every progress candidate.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get MCPProgressIntervalSeconds() As Single
+    If m_sngMCPProgressInterval < 0 Then
+        m_sngMCPProgressInterval = Options.McpProgressIntervalMs / 1000!
+        If m_sngMCPProgressInterval <= 0 Then m_sngMCPProgressInterval = 0.25
+    End If
+    MCPProgressIntervalSeconds = m_sngMCPProgressInterval
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetStreamDiagnosticData
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Return progress-throttle inputs and outcomes for perf JSON.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetStreamDiagnosticData() As Dictionary
+
+    Dim dData As New Dictionary
+    Dim lngIntervalMs As Long
+
+    If m_sngMCPProgressInterval < 0 Then
+        lngIntervalMs = Options.McpProgressIntervalMs
+    Else
+        lngIntervalMs = CLng(m_sngMCPProgressInterval * 1000)
+    End If
+
+    dData.Add "progressIntervalMs", lngIntervalMs
+    dData.Add "progressCandidates", m_lngMCPProgressCandidates
+    dData.Add "progressSent", m_lngMCPProgressSent
+    dData.Add "progressSuppressed", m_lngMCPProgressSuppressed
+
+    Set GetStreamDiagnosticData = dData
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

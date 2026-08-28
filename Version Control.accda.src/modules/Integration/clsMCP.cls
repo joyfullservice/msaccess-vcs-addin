@@ -26,8 +26,18 @@ Private Type udtThis
     OperationId As String
     IsActive As Boolean
     LastCancelCheck As Double
+    LogPostAttempts As Long
+    ProgressPostAttempts As Long
+    TerminalPostAttempts As Long
+    FailedPostAttempts As Long
+    RequestsPruned As Long
+    MaxInFlight As Long
 End Type
 Private this As udtThis
+
+' Live XMLHTTP objects for async log/progress posts. Releasing the object
+' before readyState=4 aborts the request.
+Private m_colInFlight As Collection
 
 
 '---------------------------------------------------------------------------------------
@@ -45,6 +55,8 @@ Public Sub RegisterCallback(strCallbackInfo As String)
 
     Dim dCallback As Dictionary
     Dim strJson As String
+
+    ResetDiagnostics
 
     ' Parse the callback info JSON
     strJson = Trim(strCallbackInfo)
@@ -79,6 +91,12 @@ Public Sub RegisterCallback(strCallbackInfo As String)
     this.IsActive = (Len(this.CallbackUrl) > 0 And Len(this.OperationId) > 0)
     MCPDebugLog "clsMCP.RegisterCallback: IsActive=" & this.IsActive
 
+    ' An MCP callback means this process is doing agent work. COM-launched
+    ' Access has no windowing bias toward a P-core; skip user-owned sessions.
+    If this.IsActive Then
+        If OpenedByAutomation Then PreferFullPowerCurrentProcess
+    End If
+
     ' Reset cancel check timer
     this.LastCancelCheck = 0
 
@@ -100,6 +118,9 @@ End Sub
 ' Date      : 1/23/2026
 ' Purpose   : Send callback to MCP server via HTTP POST.
 '           : Callback types: "progress", "log", "complete", "error", "cancelled"
+'           : log/progress are async (fire-and-forget) so a large build is not
+'           : blocked on localhost round-trips. complete/error/cancelled stay
+'           : synchronous so the client sees a real finish before Access continues.
 '---------------------------------------------------------------------------------------
 '
 Public Sub PostCallback(strType As String, _
@@ -108,56 +129,198 @@ Public Sub PostCallback(strType As String, _
     Optional strMessage As String = "", _
     Optional dExtraData As Dictionary = Nothing)
 
-    ' Skip if not active or no callback URL
-    MCPDebugLog "clsMCP.PostCallback: Type=" & strType & ", IsActive=" & this.IsActive & ", URL=" & this.CallbackUrl
-    If Not this.IsActive Or Len(this.CallbackUrl) = 0 Then
-        MCPDebugLog "clsMCP.PostCallback: Skipping (not active or no URL)"
-        Exit Sub
-    End If
-
-    LogUnhandledErrors
-    On Error Resume Next  ' Don't let callback failures break the operation
-
     Dim http As Object
     Dim dPayload As Dictionary
     Dim strJson As String
     Dim varKey As Variant
+    Dim blnAsync As Boolean
+    Dim strSubmitOperation As String
+    Dim lngSendError As Long
 
-    ' Create HTTP object
+    If Not this.IsActive Or Len(this.CallbackUrl) = 0 Then Exit Sub
+
+    LogUnhandledErrors
+    On Error Resume Next  ' Don't let callback failures break the operation
+
+    Perf.OperationStart "MCP Callback"
+    PruneCompletedRequests
+
     Set http = CreateObject("MSXML2.XMLHTTP")
 
-    ' Build JSON payload
     Set dPayload = New Dictionary
     dPayload.Add "operation_id", this.OperationId
     dPayload.Add "type", strType
 
-    ' Add optional fields
     If lngProgress >= 0 Then dPayload.Add "progress", lngProgress
     If lngTotal >= 0 Then dPayload.Add "total", lngTotal
     If Len(strMessage) > 0 Then dPayload.Add "message", strMessage
 
-    ' Merge extra data if provided
     If Not dExtraData Is Nothing Then
         For Each varKey In dExtraData.Keys
             dPayload.Add varKey, dExtraData(varKey)
         Next varKey
     End If
 
-    ' Convert to JSON
+    ' Left to report itself. Perf records operations exclusive of their parent, so the
+    ' payload cost lands under "Convert to JSON" and this line covers transport only.
+    ' Do not suppress the nested report to consolidate the two: that buys one readable
+    ' number by corrupting the serializer's call count, which is the figure that shows
+    ' how much JSON work the add-in does in total.
     strJson = modJsonConverter.ConvertToJson(dPayload)
-    MCPDebugLog "clsMCP.PostCallback: Sending to " & this.CallbackUrl
 
-    ' Send POST request
-    http.Open "POST", this.CallbackUrl, False
+    blnAsync = IsStreamingCallback(strType)
+    strSubmitOperation = CallbackSubmitOperation(strType)
+    CountPostAttempt strType
+
+    Perf.OperationStart strSubmitOperation
+    Err.Clear
+    http.Open "POST", this.CallbackUrl, blnAsync
     http.setRequestHeader "Content-Type", "application/json"
     http.send strJson
-    MCPDebugLog "clsMCP.PostCallback: HTTP Status=" & http.Status
+    lngSendError = Err.Number
+    If lngSendError <> 0 Then
+        this.FailedPostAttempts = this.FailedPostAttempts + 1
+        Err.Clear
+    ElseIf blnAsync Then
+        If Not http Is Nothing Then
+            If m_colInFlight Is Nothing Then Set m_colInFlight = New Collection
+            m_colInFlight.Add http
+            If m_colInFlight.Count > this.MaxInFlight Then _
+                this.MaxInFlight = m_colInFlight.Count
+        End If
+    End If
+    Perf.OperationEnd
 
-    ' Note: We don't check the response - callbacks are fire-and-forget
-    ' Errors are silently ignored to prevent breaking the main operation
-
+    Perf.OperationEnd
     On Error GoTo 0
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsStreamingCallback
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : True for routine stream events that may be posted asynchronously.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsStreamingCallback(strType As String) As Boolean
+    IsStreamingCallback = (StrComp(strType, "log", vbTextCompare) = 0) Or _
+        (StrComp(strType, "progress", vbTextCompare) = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CallbackSubmitOperation
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Separate log, progress, and terminal submission costs in Perf reports.
+'---------------------------------------------------------------------------------------
+'
+Private Function CallbackSubmitOperation(strType As String) As String
+    Select Case LCase$(strType)
+        Case "log":       CallbackSubmitOperation = "MCP Log Submit"
+        Case "progress":  CallbackSubmitOperation = "MCP Progress Submit"
+        Case Else:        CallbackSubmitOperation = "MCP Terminal Submit"
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CountPostAttempt
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Count stream volume independently of timer nesting and JSON conversion.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CountPostAttempt(strType As String)
+    Select Case LCase$(strType)
+        Case "log"
+            this.LogPostAttempts = this.LogPostAttempts + 1
+        Case "progress"
+            this.ProgressPostAttempts = this.ProgressPostAttempts + 1
+        Case Else
+            this.TerminalPostAttempts = this.TerminalPostAttempts + 1
+    End Select
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PruneCompletedRequests
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Drop finished async XMLHTTP objects so they do not accumulate, without
+'           : waiting on in-flight posts.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PruneCompletedRequests()
+
+    Dim lngIdx As Long
+    Dim http As Object
+
+    If m_colInFlight Is Nothing Then Exit Sub
+    If m_colInFlight.Count = 0 Then Exit Sub
+
+    Perf.OperationStart "MCP Request Prune"
+    For lngIdx = m_colInFlight.Count To 1 Step -1
+        Set http = Nothing
+        Set http = m_colInFlight(lngIdx)
+        If http Is Nothing Then
+            m_colInFlight.Remove lngIdx
+            this.RequestsPruned = this.RequestsPruned + 1
+        ElseIf http.readyState >= 4 Then
+            m_colInFlight.Remove lngIdx
+            this.RequestsPruned = this.RequestsPruned + 1
+        End If
+    Next lngIdx
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDiagnosticData
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Return stream volume and async-request lifecycle counters for perf JSON.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDiagnosticData() As Dictionary
+
+    Dim dData As New Dictionary
+    Dim lngPending As Long
+
+    If Not m_colInFlight Is Nothing Then lngPending = m_colInFlight.Count
+
+    dData.Add "active", this.IsActive
+    dData.Add "logPostAttempts", this.LogPostAttempts
+    dData.Add "progressPostAttempts", this.ProgressPostAttempts
+    dData.Add "terminalPostAttempts", this.TerminalPostAttempts
+    dData.Add "failedPostAttempts", this.FailedPostAttempts
+    dData.Add "requestsPruned", this.RequestsPruned
+    dData.Add "pendingRequests", lngPending
+    dData.Add "maxInFlight", this.MaxInFlight
+
+    Set GetDiagnosticData = dData
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResetDiagnostics
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Start each registered callback operation with independent counters.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ResetDiagnostics()
+    this.LogPostAttempts = 0
+    this.ProgressPostAttempts = 0
+    this.TerminalPostAttempts = 0
+    this.FailedPostAttempts = 0
+    this.RequestsPruned = 0
+    If m_colInFlight Is Nothing Then Set m_colInFlight = New Collection
+    this.MaxInFlight = m_colInFlight.Count
 End Sub
 
 
@@ -212,6 +375,11 @@ Public Function CheckCancelled() As Boolean
 
     strCancelUrl = Replace(this.CallbackUrl, "/callback", "/cancel-status/" & this.OperationId)
 
+    ' This is the one MCP round-trip that still blocks, so it needs its own line rather
+    ' than disappearing into whichever operation happened to be running. Timed after the
+    ' throttle above, so the calls that return early cost nothing and count nothing.
+    Perf.OperationStart "MCP Cancel Check"
+
     ' Check cancel status
     Set http = CreateObject("MSXML2.XMLHTTP")
     http.Open "GET", strCancelUrl, False
@@ -228,6 +396,8 @@ Public Function CheckCancelled() As Boolean
         ' If request fails, assume not cancelled
         CheckCancelled = False
     End If
+
+    Perf.OperationEnd
 
     On Error GoTo 0
 
@@ -282,4 +452,5 @@ Private Sub Class_Initialize()
     this.OperationId = vbNullString
     this.IsActive = False
     this.LastCancelCheck = 0
+    Set m_colInFlight = New Collection
 End Sub

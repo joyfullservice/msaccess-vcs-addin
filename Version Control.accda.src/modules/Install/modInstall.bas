@@ -218,6 +218,9 @@ Public Function AutoRun() As Boolean
         If strInstallCmd = "INSTALL SILENT" Then
             Operation.Source = eosExternalAPI
             SetInteractionMode eimSilent
+            ' Command-line Access is not COM-owned, so RegisterCallback never
+            ' runs here. Compile/copy is CPU-bound; prefer a full-power core.
+            PreferFullPowerCurrentProcess
             ' Claim the status file immediately. Code here only runs at all if the
             ' add-in file is in a trusted location, so a caller that supplied a path
             ' and finds nothing written can tell "macros were blocked, the install

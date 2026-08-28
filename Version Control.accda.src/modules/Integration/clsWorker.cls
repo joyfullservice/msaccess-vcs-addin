@@ -1011,6 +1011,16 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
     Err.Clear
     On Error GoTo 0
 
+    ' MCP-launched builder: prefer a full-power core before the CPU-bound
+    ' build. Missing on an older installed add-in; the MCP watcher also
+    ' promotes new MSACCESS.EXE, so a failed Run is not fatal.
+    If Len(strCallbackUrl) > 0 Then
+        On Error Resume Next
+        objNewAccess.Run strInstalledLib & ".PreferFullPowerCore"
+        Err.Clear
+        On Error GoTo 0
+    End If
+
     ' Trigger build via the installed library. When an MCP callback identity was passed
     ' through the disconnected worker, use the same APIAsync entry point as ordinary
     ' database builds. This reuses Log.Add and Log.Progress rather than inventing a

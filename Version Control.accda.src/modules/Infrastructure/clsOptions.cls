@@ -90,6 +90,8 @@ Public ShowVCSLegacy As Boolean
 Public UseWebTestRunner As Boolean      ' Use the HTML/Edge test runner UI (default: True)
 Public ExportTestResultsJUnit As Boolean ' Write test-results/test-results.xml after each run (default: True)
 Public ExportTestResultsHtml As Boolean  ' Write test-results/test-results.html after each run (default: True)
+Public ExportPerfJson As Boolean         ' Write <log>.perf.json with call-path performance data (default: False)
+Public McpProgressIntervalMs As Long     ' Minimum delay between MCP progress posts (default: 500)
 
 ' Enum to compare loaded version to installed version.
 Public Enum eVersionCompare
@@ -201,6 +203,8 @@ Public Sub LoadDefaults()
         .UseWebTestRunner = True
         .ExportTestResultsJUnit = True
         .ExportTestResultsHtml = True
+        .ExportPerfJson = False
+        .McpProgressIntervalMs = 500
     End With
 
 End Sub
@@ -817,7 +821,8 @@ Public Function GetCategoryHashes() As Dictionary
                  "TablesToExportData", "DefaultTestFilter", _
                  "McpAllowRunVBA", "McpAllowExecuteSQL", _
                  "McpAllowCallVBA", "McpAllowImport", "UseWebTestRunner", _
-                 "ExportTestResultsJUnit", "ExportTestResultsHtml"
+                 "ExportTestResultsJUnit", "ExportTestResultsHtml", _
+                 "ExportPerfJson", "McpProgressIntervalMs"
                 ' Not included in hash
 
             Case Else
@@ -1036,6 +1041,8 @@ Private Sub Class_Initialize()
         .Add "UseWebTestRunner"
         .Add "ExportTestResultsJUnit"
         .Add "ExportTestResultsHtml"
+        .Add "ExportPerfJson"
+        .Add "McpProgressIntervalMs"
     End With
 
     ' Load default values

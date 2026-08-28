@@ -9,6 +9,10 @@ file. `vcs_call_vba` remains a launch-only escape hatch. The status file is also
 durable recovery state after a timeout. The one Access process the rebuild ever
 closes is its own.
 
+MCP-launched builder and silent-installer processes request full-power QoS
+(EcoQoS off, Above Normal) so hybrid CPUs prefer a P-core. User-owned Access
+that was already running is not changed. This is not CPU affinity pinning.
+
 This is **not** `vcs_rebuild_database`, which rebuilds a *user* project from
 source. This path rebuilds the add-in itself.
 

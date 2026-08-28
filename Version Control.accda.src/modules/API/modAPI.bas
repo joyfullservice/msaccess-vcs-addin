@@ -689,6 +689,8 @@ End Function
 ' Date      : 1/26/2026
 ' Purpose   : Write debug messages to a file for MCP callback troubleshooting.
 '           : Writes to logs/MCP_Debug.log in the source folder.
+'           : Do not call this from the per-callback streaming path (PostCallback
+'           : log/progress). File appends dominated agentic build time.
 '---------------------------------------------------------------------------------------
 '
 Public Sub MCPDebugLog(strMessage As String)
@@ -704,4 +706,17 @@ Public Sub MCPDebugLog(strMessage As String)
     ' Append to log file
     AppendToFile Format$(Now, "yyyy-mm-dd hh:nn:ss") & " | " & strMessage, m_strMCPDebugLogPath
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PreferFullPowerCore
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Public entry for Worker.vbs / Application.Run. Turns EcoQoS off
+'           : on this Access process so MCP-launched work prefers a P-core.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PreferFullPowerCore()
+    PreferFullPowerCurrentProcess
 End Sub

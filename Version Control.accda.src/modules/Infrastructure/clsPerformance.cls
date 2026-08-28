@@ -28,6 +28,12 @@ Option Explicit
 ' Enable or disable timing operations
 Public Enabled As Boolean
 
+' Record time against the full operation call path, not just the operation name.
+' Off by default: it costs a path string per start/stop on a hot path, and nothing in
+' the human-readable report consumes it. Turned on by Options.ExportPerfJson, which is
+' how an agent asks for the machine-readable breakdown before running an operation.
+Public TrackCallPaths As Boolean
+
 ' Use type for private class variables
 Private Type udtPerformance
     Overall As clsPerformanceItem
@@ -37,6 +43,10 @@ Private Type udtPerformance
     Operations As Dictionary
     Frequency As Currency
     intDigitsAfterDecimal As Integer
+    ' Exclusive time keyed by call path (segments joined by PathSep), so the same
+    ' operation is measured separately for each place it is called from.
+    Paths As Dictionary
+    PathSep As String
     ' Manage a type of call stack to track nested operations.
     ' When an operation finishes, it goes back to timing the
     ' previous operation.
@@ -62,6 +72,9 @@ Private Declare PtrSafe Function GetTimeAPI Lib "kernel32" Alias "QueryPerforman
 Public Sub StartTiming()
     If Not Me.Enabled Then Exit Sub
     Me.Reset
+    ' Guarded like DebugMode: Options may not be loaded this early, and asking for it
+    ' here would recurse through the option loader's own timing calls.
+    If OptionsLoaded Then Me.TrackCallPaths = Options.ExportPerfJson
     Set this.Overall = New clsPerformanceItem
     this.Overall.Start = MicroTimer
 End Sub
@@ -204,6 +217,7 @@ Public Sub OperationStart(strName As String)
         ' Save the current process to the call stack before switching
         ' to the new operation.
         LapTimer this.Operations(this.OperationName), 0
+        If Me.TrackCallPaths Then LapPath CurrentPath, 0
         If this.CallStackItems Is Nothing Then Set this.CallStackItems = New Collection
         With this.CallStackItems
             ' Safety check!
@@ -214,6 +228,12 @@ Public Sub OperationStart(strName As String)
     ' Start the timer for this operation.
     StartTimer this.Operations, strName
     this.OperationName = strName
+
+    ' Path timer starts after OperationName is set, since the path includes it.
+    If Me.TrackCallPaths Then
+        If this.Paths Is Nothing Then Set this.Paths = New Dictionary
+        StartTimer this.Paths, CurrentPath
+    End If
 
 End Sub
 
@@ -236,17 +256,20 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
 
         ' Record the elapsed time.
         LapTimer this.Operations(this.OperationName), lngCount
+        If Me.TrackCallPaths Then LapPath CurrentPath, lngCount
 
         ' Check the call stack to see if we need to move back to the previous process.
         If Not this.CallStackItems Is Nothing Then
             With this.CallStackItems
                 If .Count > 0 Then
-                    ' Resume previous activity
+                    ' Resume previous activity. The parent comes off the stack before it
+                    ' is restarted, because OperationStart derives the call path from the
+                    ' stack plus the active name -- leave it on and its own segment
+                    ' repeats, recording the parent as a child of itself.
                     strLastOperation = .Item(.Count)
+                    .Remove .Count
                     this.OperationName = vbNullString
                     OperationStart strLastOperation
-                    ' Remove last item from call stack
-                    .Remove .Count
                 Else
                     ' No longer timing any operations.
                     this.OperationName = vbNullString
@@ -257,6 +280,53 @@ Public Sub OperationEnd(Optional lngCount As Long = 1)
         End If
     End If
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CurrentPath
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : The active operation's full call path, segments joined by PathSep. Built
+'           : with plain concatenation rather than clsConcat because this runs on every
+'           : OperationStart and OperationEnd when path tracking is on.
+'---------------------------------------------------------------------------------------
+'
+Private Function CurrentPath() As String
+
+    Dim lngItem As Long
+    Dim strPath As String
+
+    If Not this.CallStackItems Is Nothing Then
+        For lngItem = 1 To this.CallStackItems.Count
+            If Len(strPath) > 0 Then strPath = strPath & this.PathSep
+            strPath = strPath & CStr(this.CallStackItems(lngItem))
+        Next lngItem
+    End If
+
+    If this.OperationName <> vbNullString Then
+        If Len(strPath) > 0 Then strPath = strPath & this.PathSep
+        strPath = strPath & this.OperationName
+    End If
+
+    CurrentPath = strPath
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LapPath
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Add elapsed time to a call path timer. Missing keys are ignored rather
+'           : than created, so toggling TrackCallPaths mid-operation cannot fault on a
+'           : path whose start was never recorded.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LapPath(strPath As String, lngCount As Long)
+    If this.Paths Is Nothing Then Exit Sub
+    If Not this.Paths.Exists(strPath) Then Exit Sub
+    LapTimer this.Paths(strPath), lngCount
 End Sub
 
 
@@ -477,6 +547,235 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetDiagnosticData
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Return the same measurements the text report shows, plus the call-path
+'           : breakdown, in a structure meant to be serialized to JSON and read by a
+'           : tool rather than a person.
+'           : The text report has to pick one view; this returns several, because the
+'           : useful question changes. "Which operation costs the most in total, from
+'           : wherever it is called" is answered by `operations`. "What does this feature
+'           : cost including everything beneath it" is answered by `callPaths`, whose
+'           : inclusive seconds roll up descendants. "Who is driving this shared
+'           : operation's count" is answered by `callers`.
+'           : `callPaths` and `callers` are empty unless TrackCallPaths was on for the
+'           : run. Exclusive seconds still sum to the accounted total in every view, so
+'           : inclusive figures overlap by design and must not be added together.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDiagnosticData() As Dictionary
+
+    Dim dData As Dictionary
+    Dim dTotals As Dictionary
+    Dim dEntry As Dictionary
+    Dim dCaller As Dictionary
+    Dim colRows As Collection
+    Dim colInner As Collection
+    Dim dByName As Dictionary
+    Dim dNameTotals As Dictionary
+    Dim dParents As Dictionary
+    Dim dSorted As Dictionary
+    Dim dSortedParents As Dictionary
+    Dim cItem As clsPerformanceItem
+    Dim varKey As Variant
+    Dim varInner As Variant
+    Dim curAccounted As Currency
+    Dim strName As String
+    Dim strCaller As String
+
+    Set dData = New Dictionary
+    dData.Add "schemaVersion", 1
+    dData.Add "generated", Format$(Now, "yyyy-mm-dd hh:nn:ss")
+    dData.Add "trackedCallPaths", Me.TrackCallPaths
+    dData.Add "stream", Log.GetStreamDiagnosticData
+    dData.Add "mcp", MCP.GetDiagnosticData
+
+    ' Categories (component types)
+    Set colRows = New Collection
+    If Not this.Categories Is Nothing Then
+        Set dSorted = SortItemsByTime(this.Categories)
+        For Each varKey In dSorted.Keys
+            Set dEntry = New Dictionary
+            dEntry.Add "name", CStr(varKey)
+            dEntry.Add "count", dSorted(varKey).Count
+            dEntry.Add "seconds", CDbl(dSorted(varKey).Total)
+            colRows.Add dEntry
+        Next varKey
+    End If
+    dData.Add "categories", colRows
+
+    ' Operations, exclusive of nested operations and aggregated by name. This is the
+    ' view that answers "many small calls adding up", so it counts every call site.
+    Set colRows = New Collection
+    If Not this.Operations Is Nothing Then
+        Set dSorted = SortItemsByTime(this.Operations)
+        For Each varKey In dSorted.Keys
+            Set dEntry = New Dictionary
+            dEntry.Add "name", CStr(varKey)
+            dEntry.Add "count", dSorted(varKey).Count
+            dEntry.Add "seconds", CDbl(dSorted(varKey).Total)
+            colRows.Add dEntry
+            curAccounted = curAccounted + dSorted(varKey).Total
+        Next varKey
+    End If
+    dData.Add "operations", colRows
+
+    ' Totals. "other" is the unattributed remainder the text report shows.
+    Set dTotals = New Dictionary
+    If Not this.Overall Is Nothing Then
+        dTotals.Add "runtimeSeconds", CDbl(this.Overall.Total)
+        dTotals.Add "otherSeconds", CDbl(this.Overall.Total - curAccounted)
+    End If
+    dTotals.Add "accountedSeconds", CDbl(curAccounted)
+    dData.Add "totals", dTotals
+
+    ' Call paths, with inclusive rollups
+    Set colRows = New Collection
+    If Not this.Paths Is Nothing Then
+        Set dSorted = SortItemsByTime(this.Paths)
+        For Each varKey In dSorted.Keys
+            Set dEntry = New Dictionary
+            Set colInner = New Collection
+            For Each varInner In Split(CStr(varKey), this.PathSep)
+                colInner.Add CStr(varInner)
+            Next varInner
+            dEntry.Add "path", colInner
+            dEntry.Add "depth", colInner.Count
+            dEntry.Add "count", dSorted(varKey).Count
+            dEntry.Add "exclusiveSeconds", CDbl(dSorted(varKey).Total)
+            dEntry.Add "inclusiveSeconds", CDbl(InclusiveTotal(CStr(varKey)))
+            colRows.Add dEntry
+        Next varKey
+    End If
+    dData.Add "callPaths", colRows
+
+    ' Callers: for each operation, which parent drove it, and how often. Built from the
+    ' same path data, grouped the other way round.
+    Set colRows = New Collection
+    If Not this.Paths Is Nothing Then
+        Set dByName = New Dictionary
+        Set dNameTotals = New Dictionary
+        For Each varKey In this.Paths.Keys
+            strName = LastSegment(CStr(varKey))
+            strCaller = ParentSegment(CStr(varKey))
+            If Not dByName.Exists(strName) Then dByName.Add strName, New Dictionary
+            Set dParents = dByName(strName)
+            If Not dParents.Exists(strCaller) Then dParents.Add strCaller, New clsPerformanceItem
+            Set cItem = dParents(strCaller)
+            cItem.Total = cItem.Total + this.Paths(varKey).Total
+            cItem.Count = cItem.Count + this.Paths(varKey).Count
+            If Not dNameTotals.Exists(strName) Then dNameTotals.Add strName, New clsPerformanceItem
+            Set cItem = dNameTotals(strName)
+            cItem.Total = cItem.Total + this.Paths(varKey).Total
+            cItem.Count = cItem.Count + this.Paths(varKey).Count
+        Next varKey
+
+        Set dSorted = SortItemsByTime(dNameTotals)
+        For Each varKey In dSorted.Keys
+            strName = CStr(varKey)
+            Set dParents = dByName(strName)
+            Set dEntry = New Dictionary
+            dEntry.Add "operation", strName
+            dEntry.Add "count", dSorted(varKey).Count
+            dEntry.Add "exclusiveSeconds", CDbl(dSorted(varKey).Total)
+            dEntry.Add "callerCount", dParents.Count
+            Set colInner = New Collection
+            Set dSortedParents = SortItemsByTime(dParents)
+            For Each varInner In dSortedParents.Keys
+                Set dCaller = New Dictionary
+                dCaller.Add "caller", CStr(varInner)
+                dCaller.Add "count", dSortedParents(varInner).Count
+                dCaller.Add "exclusiveSeconds", CDbl(dSortedParents(varInner).Total)
+                colInner.Add dCaller
+            Next varInner
+            dEntry.Add "calledFrom", colInner
+            colRows.Add dEntry
+        Next varKey
+    End If
+    dData.Add "callers", colRows
+
+    ' Operations left open, which make the numbers above suspect
+    Set colRows = New Collection
+    If Not this.CallStackItems Is Nothing Then
+        For Each varKey In this.CallStackItems
+            colRows.Add CStr(varKey)
+        Next varKey
+    End If
+    dData.Add "unfinishedOperations", colRows
+
+    Set GetDiagnosticData = dData
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InclusiveTotal
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Exclusive time for a call path plus everything recorded beneath it.
+'---------------------------------------------------------------------------------------
+'
+Private Function InclusiveTotal(strPath As String) As Currency
+
+    Dim varKey As Variant
+    Dim strPrefix As String
+    Dim curTotal As Currency
+
+    If this.Paths Is Nothing Then Exit Function
+
+    strPrefix = strPath & this.PathSep
+    For Each varKey In this.Paths.Keys
+        If CStr(varKey) = strPath Then
+            curTotal = curTotal + this.Paths(varKey).Total
+        ElseIf Left$(CStr(varKey), Len(strPrefix)) = strPrefix Then
+            curTotal = curTotal + this.Paths(varKey).Total
+        End If
+    Next varKey
+
+    InclusiveTotal = curTotal
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LastSegment
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : The operation name at the end of a call path.
+'---------------------------------------------------------------------------------------
+'
+Private Function LastSegment(strPath As String) As String
+    Dim lngPos As Long
+    lngPos = InStrRev(strPath, this.PathSep)
+    If lngPos = 0 Then
+        LastSegment = strPath
+    Else
+        LastSegment = Mid$(strPath, lngPos + Len(this.PathSep))
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParentSegment
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : The operation that called the one at the end of a call path, or a marker
+'           : for paths that start at the top level.
+'---------------------------------------------------------------------------------------
+'
+Private Function ParentSegment(strPath As String) As String
+    Dim lngPos As Long
+    lngPos = InStrRev(strPath, this.PathSep)
+    If lngPos = 0 Then
+        ParentSegment = "(top level)"
+    Else
+        ParentSegment = LastSegment(Left$(strPath, lngPos - 1))
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetReports
 ' Author    : Adam Waller
 ' Date      : 11/3/2020
@@ -680,6 +979,12 @@ Private Function SortItemsByTime(dItems As Dictionary) As Dictionary
     Dim cItem As clsPerformanceItem
     Dim dSorted As Dictionary
 
+    ' Nothing to sort, and ReDim to an upper bound of -1 would fail
+    If dItems.Count = 0 Then
+        Set SortItemsByTime = dItems
+        Exit Function
+    End If
+
     ' Create an array to build our items
     ReDim varItems(0 To dItems.Count - 1)
 
@@ -736,6 +1041,7 @@ Public Sub Reset()
     Set this.Categories = Nothing
     this.OperationName = vbNullString
     Set this.Operations = Nothing
+    Set this.Paths = Nothing
     Set this.FootnoteMarks = Nothing
     Set this.CategoryFootnotes = Nothing
     Me.Enabled = True
@@ -754,5 +1060,8 @@ Private Sub Class_Initialize()
     ' https://docs.microsoft.com/en-us/windows/win32/api/profileapi/nf-profileapi-queryperformancefrequency
     GetFrequencyAPI this.Frequency
     this.intDigitsAfterDecimal = 2
+    ' A control character cannot occur in an operation name, so it can never be mistaken
+    ' for part of one when a path is split back into segments.
+    this.PathSep = ChrW$(1)
     Me.Enabled = True
 End Sub

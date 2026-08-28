@@ -18,6 +18,7 @@ This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
 | Orienting; adding a component type; finding the class for an object type | [docs/architecture.md](docs/architecture.md) |
 | Anything that changes exported file content or layout | [docs/export-format-versioning.md](docs/export-format-versioning.md) |
 | Diagnosing an error in a log file | [docs/error-handling.md](docs/error-handling.md) |
+| Why an operation was slow; reading performance data as JSON | [docs/perf-diagnostics.md](docs/perf-diagnostics.md) |
 | Inspecting a database's schema over MCP; a failing `vcs_run_vba` call | [docs/mcp-runvba.md](docs/mcp-runvba.md) |
 | Rebuilding the add-in unattended; a refused or stalled rebuild | [docs/agentic-rebuild.md](docs/agentic-rebuild.md) |
 | Running this repo's own tests over MCP; an all-`EMPTY` result | [docs/agent-test-runs.md](docs/agent-test-runs.md) |
@@ -145,8 +146,5 @@ then `'@Tag`. Prefix with `-` to exclude; inclusions OR, exclusions AND.
 budgets, own gate. Read [docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md) first.
 
 ## Resources
-
-[Repository](https://github.com/joyfullservice/msaccess-vcs-addin) ·
-[Wiki](https://github.com/joyfullservice/msaccess-vcs-addin/wiki) ·
-[Issues](https://github.com/joyfullservice/msaccess-vcs-addin/issues) ·
+[Repository](https://github.com/joyfullservice/msaccess-vcs-addin) · [Wiki](https://github.com/joyfullservice/msaccess-vcs-addin/wiki) · [Issues](https://github.com/joyfullservice/msaccess-vcs-addin/issues) ·
 [Releases](https://github.com/joyfullservice/msaccess-vcs-addin/releases)
