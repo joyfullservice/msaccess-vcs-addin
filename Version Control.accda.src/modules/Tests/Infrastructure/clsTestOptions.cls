@@ -78,3 +78,33 @@ Public Sub TestGetExportFolder()
     TestAssert Len(Options.GetExportFolder) > 0, "export folder non-empty"
     TestAssert Right$(Options.GetExportFolder, 1) = "\", "ends with separator"
 End Sub
+
+
+Public Sub TestEndSession_DiscardsCachedOptions()
+
+    Dim cVcs As clsVersionControl
+    Dim cFresh As clsOptions
+    Dim dResult As Dictionary
+    Dim strSession As String
+    Dim blnPriorShowDebug As Boolean
+
+    ' A dummy session id so this does not delete the live MCP override file or
+    ' clear modObjects.SessionId. EndSession still discards the Options cache.
+    strSession = "end-session-shadow-test"
+    blnPriorShowDebug = Options.ShowDebug
+    Options.ShowDebug = Not blnPriorShowDebug
+
+    Set cVcs = VCS
+    Set dResult = ParseJson(cVcs.EndSession(strSession))
+
+    TestAssert dResult("success") = True, "EndSession succeeds (Options is settable)"
+
+    Set cFresh = New clsOptions
+    cFresh.LoadProjectOptions
+    TestAssert Options.ShowDebug = cFresh.ShowDebug, _
+        "cached Options was discarded and reloaded from the project file"
+
+    If Len(modObjects.SessionId) > 0 Then Options.LoadOptionOverrides
+    Options.ShowDebug = blnPriorShowDebug
+
+End Sub

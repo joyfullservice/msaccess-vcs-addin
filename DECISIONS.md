@@ -83,6 +83,24 @@ contradictory guidance.
 
 ---
 
+## 2026-08-28 — clsVersionControl.Options is a property so the cache can be discarded
+
+**Trigger**: `vcs_end_session` returned `Could not end session: Object doesn't support this property or method`. The override file was already deleted, so the failure was the reload: `Set Options = Nothing` inside `clsVersionControl`. That class also wraps the singleton as a member named `Options`, which was a `Function`. Assignment bound to the function, which has no setter (error 438).
+
+Two other sites use the same discard under `On Error Resume Next` (single-object export setup, `BeginScopedSyncLog`). Those never reported the 438, so a session override that was not in `vcs-options.json` stayed on the cached instance instead of reverting.
+
+**Options explored**:
+- *Qualify the three sites as `Set modObjects.Options = Nothing`.* Fixes today's callers. The next `Set Options = Nothing` in this class repeats the bug — that is the established discard pattern everywhere else.
+- *Property Get/Set forwarding to `modObjects`* (chosen). `Set Options = Nothing` inside the class becomes a real discard. External `VCS.Options` reads still work. The setter must assign `modObjects.Options` or it recurses.
+
+**Decision**: Replace the `Options` function with `Property Get` / `Property Set`. `EndSession` and the two silent reloads keep their existing `Set Options = Nothing` lines.
+
+**What this rules out**: Keeping a Function wrapper around a settable singleton when the class also assigns to that name. A new wrapper for `Log` / `Perf` / `VCSIndex` should be a property from the start if anything in the class discards it.
+
+**Relevant files**: `clsVersionControl.cls`, `clsTestOptions.cls` (`TestEndSession_DiscardsCachedOptions`).
+
+---
+
 ## 2026-08-28 — MCP progress interval default is 500ms, chosen for feedback not throughput
 
 **Trigger**: The 1000ms default was set while the agentic/ribbon build gap was still
@@ -5345,6 +5363,8 @@ What would trigger revisiting: if a future composer rewrite collapses multiple s
 - **Session-scoped override files in `mcp/` subfolder (chosen)** — each MCP/API session gets its own override file. Files are `.gitignored`. The user's `vcs-options.json` is never touched.
 
 **Decision**: `SetOption` now persists overrides to `mcp/options-{session_id}.json` alongside `vcs-options.json`. After every `LoadProjectOptions` call, if `Operation.Source` is `eosMCPTool` or `eosExternalAPI`, `LoadOptionOverrides` scans the `mcp/` subfolder and merges matching override files on top. Interactive ribbon operations never see them. Stale files are auto-cleaned after 30 days. The MCP server generates a random session ID at startup, registers it via `RegisterSession`, and calls `EndSession` on shutdown to delete the override file.
+
+> **⚠ Partially superseded** (2026-08-28): `EndSession` did delete the override file, but `Set Options = Nothing` inside `clsVersionControl` raised 438 because `Options` was a Function, so the cached instance was never discarded. Scoped export/import reloads had the same assignment under `On Error Resume Next`. See "clsVersionControl.Options is a property so the cache can be discarded" above.
 
 **What this rules out**: Overrides do not persist across MCP server restarts (the server generates a new session ID each time). If two agents concurrently interact with the same database, their override files may both be loaded — this is an accepted tradeoff. If the MCP spec adds persistent session IDs (SEP-1364), we can adopt them as the session component without changing the file-based mechanism.
 

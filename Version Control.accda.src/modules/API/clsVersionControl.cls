@@ -488,15 +488,23 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : GetOptions
+' Procedure : Options
 ' Author    : Adam Waller
 ' Date      : 1/13/2021
-' Purpose   : Access the options
+' Purpose   : Access the options singleton. This must be a property, not a Function:
+'           : `Set Options = Nothing` inside this class binds to the local name, and a
+'           : Function has no setter (error 438). That left EndSession reporting
+'           : failure after deleting the override file, and the two On Error Resume Next
+'           : reloads (single-object export, scoped sync) silently keeping a cached
+'           : instance whose session overrides never reverted.
 '---------------------------------------------------------------------------------------
 '
-Public Function Options() As clsOptions
+Public Property Get Options() As clsOptions
     Set Options = modObjects.Options
-End Function
+End Property
+Public Property Set Options(cNewOptions As clsOptions)
+    Set modObjects.Options = cNewOptions
+End Property
 
 
 '---------------------------------------------------------------------------------------
