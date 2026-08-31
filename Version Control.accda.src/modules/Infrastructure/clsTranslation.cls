@@ -230,7 +230,7 @@ Private Sub ApplyToControlTip(ctl As Control, strReference As String, dReference
 
     ' Decorative control types carry no tooltip.
     Select Case ctl.ControlType
-        Case acLabel, acLine, acRectangle, acPageBreak
+        Case acLabel, acLine, acRectangle, acPageBreak, acTabCtl
             Exit Sub
     End Select
 
