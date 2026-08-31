@@ -83,6 +83,42 @@ contradictory guidance.
 
 ---
 
+## 2026-08-31 — Form/report code-behind uses full VBAProjectDate fast path
+
+**Trigger**: Fast Save skipped forms and reports when only the code module changed
+and the VBE project was saved before export (Compile → Save → Export). Layout
+`DateModified` was unchanged, `CurrentVBProject.Saved` was True, and
+`IsModified` returned False without calling `GetCodeModuleHash`. Standard modules
+exported correctly because they already compared `AllModules(0).DateModified` to
+`VCSIndex.VBAProjectDate`. Reported in production with Find & Replace across
+form code-behind.
+
+**Options explored**:
+- **Always hash code-behind when layout date matches** — correct but reintroduces
+  per-form/report `GetCodeModuleHash` on every no-change scan; rejected for the
+  performance cost the 2026-05-05 fast path removed.
+- **Trust `Saved` alone for forms/reports** — rejected; this was the bug.
+- **Reuse the module two-tier guard via shared helper (chosen)** —
+  `VbaProjectUnchangedSinceExport` requires `Saved` and matching `VBAProjectDate`.
+  When layout date matches but the project date is stale, hash code-behind.
+
+**Decision**: Extract `VbaProjectUnchangedSinceExport` in `modVbeUtility` and use
+it from `clsDbModule`, `clsDbForm`, and `clsDbReport`. Refresh `VBAProjectDate`
+in `clsVCSIndex.Update` when exporting or importing forms and reports (not only
+modules), so a form-only export heals the date for subsequent scans.
+
+**What this rules out**: Using `Not CurrentVBProject.Saved` as the sole signal for
+form/report code changes. Skipping `VBAProjectDate` refresh on form/report index
+updates.
+
+**Relevant files**:
+- `modVbeUtility.bas` — `VbaProjectUnchangedSinceExport`
+- `clsDbForm.cls`, `clsDbReport.cls`, `clsDbModule.cls` — shared fast path
+- `clsVCSIndex.cls` — heal `VBAProjectDate` on form/report update
+- `modTestFormReportModified.bas` — regression tests
+
+---
+
 ## 2026-08-28 — MCP test stream is pytest-style dots and slow names
 
 **Trigger**: The first CLI full-suite run streamed ~8000 MCP log POSTs. Access
@@ -5056,6 +5092,8 @@ single-object import.)*
 - **Top-level VBAProjectDate (chosen)** — one value in the index, updated whenever any module is exported. Eliminates redundant storage, eliminates the healing problem, eliminates 110 per-module COM property reads during change detection.
 
 **Decision**: Two-tier guard in `clsDbModule.IsModified`: (1) `CurrentVBProject.Saved = True`, (2) `AllModules(0).DateModified = VCSIndex.VBAProjectDate`. When both pass, skip `GetCodeModuleHash` entirely. `MetaHash` check always runs (metadata changes don't affect `Saved` or `DateModified`). For forms/reports, the same `VBProject.Saved` guard skips the code-behind hash when the layout `DateModified` also matches.
+
+> **⚠ Partially superseded** (2026-08-31): Forms and reports now use the full two-tier guard via `VbaProjectUnchangedSinceExport`, not `Saved` alone. See the 2026-08-31 entry.
 
 Additionally, unsaved VBA project changes are now persisted at the start of the export flow (alongside `CloseDatabaseObjects`), ensuring exported source always reflects the current VBE state and preventing the scenario where a user exports code then discards changes on close.
 

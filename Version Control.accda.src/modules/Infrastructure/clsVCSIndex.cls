@@ -422,13 +422,19 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         ' Save the object's DateModified for accurate change detection.
         ' Truncate to seconds since serialization cannot preserve sub-second
         ' precision, and Access DateModified may carry fractional seconds.
-        ' For modules, use the top-level VBAProjectDate instead (all module
-        ' dates are always identical since Access saves VBA as a monolith).
-        If cItem.ComponentType = edbModule Then
-            Me.VBAProjectDate = DateTruncToSeconds(cItem.DateModified)
-        Else
+        ' Modules use the top-level VBAProjectDate; forms/reports keep layout
+        ' ObjectDate but also refresh VBAProjectDate when exported so a code-only
+        ' form change does not leave the date stale for every later scan.
+        If cItem.ComponentType <> edbModule Then
             .ObjectDate = DateTruncToSeconds(cItem.DateModified)
         End If
+        Select Case cItem.ComponentType
+            Case edbModule, edbForm, edbReport
+                If CurrentProject.AllModules.Count > 0 Then
+                    Me.VBAProjectDate = DateTruncToSeconds( _
+                        CurrentProject.AllModules(0).DateModified)
+                End If
+        End Select
 
         ' Save timestamp and property hash of exported source file.
         ' (Skip for alternate exports -- the canonical source file may not

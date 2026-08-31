@@ -615,18 +615,10 @@ End Function
 '
 Public Function IDbComponent_IsModified() As Boolean
 
-    ' Fast path: if the VBE project has no unsaved changes and the
-    ' VBA project date matches the stored VBAProjectDate, skip the
-    ' expensive VBA code hash. (Access saves all modules as a monolithic
-    ' project, so all module dates move in lockstep -- we only need to
-    ' check one date against a single top-level stored value.)
-    If CurrentVBProject.Saved Then
-        If VCSIndex.VBAProjectDate <> 0 Then
-            If DateTruncToSeconds(CurrentProject.AllModules(0).DateModified) = VCSIndex.VBAProjectDate Then
-                GoTo CheckMetadata
-            End If
-        End If
-    End If
+    ' Fast path: skip the expensive VBA code hash when the whole project is unchanged
+    ' since the last export. (Access saves all modules as a monolithic project, so all
+    ' module dates move in lockstep -- we only need one date against VBAProjectDate.)
+    If VbaProjectUnchangedSinceExport Then GoTo CheckMetadata
 
     ' VBE is dirty or date changed -- hash the code to detect changes.
     ' NOTE: This will not detect changes to hidden VBE attributes

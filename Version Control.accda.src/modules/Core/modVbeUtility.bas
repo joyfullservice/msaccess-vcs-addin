@@ -1196,6 +1196,29 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : VbaProjectUnchangedSinceExport
+' Author    : Adam Waller
+' Date      : 8/31/2026
+' Purpose   : True when the VBE project is saved and its monolithic module date still
+'           : matches the value stored at the last export. Used by module, form, and
+'           : report change detection to skip GetCodeModuleHash on no-change fast saves.
+'           : Saved alone is not enough: a user can save VBE edits without changing a
+'           : form's layout DateModified, which is why forms/reports need this guard too.
+'---------------------------------------------------------------------------------------
+'
+Public Function VbaProjectUnchangedSinceExport() As Boolean
+
+    If Not CurrentVBProject.Saved Then Exit Function
+    If VCSIndex.VBAProjectDate = 0 Then Exit Function
+    If CurrentProject.AllModules.Count = 0 Then Exit Function
+
+    VbaProjectUnchangedSinceExport = _
+        (DateTruncToSeconds(CurrentProject.AllModules(0).DateModified) = VCSIndex.VBAProjectDate)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ErrDetail
 ' Author    : Adam Waller
 ' Date      : 7/29/2026

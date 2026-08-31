@@ -220,11 +220,13 @@ Public Function IDbComponent_IsModified() As Boolean
     ' Check the modified date first.
     If DateTruncToSeconds(m_Report.DateModified) = VCSIndex.Item(Me).ObjectDate Then
 
-        ' Layout unchanged. Only hash code if the VBE project is dirty.
-        If Not CurrentVBProject.Saved Then
-            IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
-        Else
+        ' Layout unchanged. Hash code-behind unless the whole VBA project is unchanged
+        ' since the last export (Saved + VBAProjectDate fast path).
+        If VbaProjectUnchangedSinceExport Then
             IDbComponent_IsModified = False
+        Else
+            IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> _
+                GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
         End If
     End If
 
