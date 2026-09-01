@@ -551,6 +551,34 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : JobResultFromContent
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/1/2026
+' Purpose   : Decide whether what was read from a result file is an answer, and which.
+'           : Only the two values the worker writes are a verdict; anything else means
+'           : "no answer yet" and leaves blnAccessible untouched, so a caller cannot
+'           : mistake a transient read for a negative result. Friend scope keeps this
+'           : testable inside the add-in project without exposing it through COM.
+'---------------------------------------------------------------------------------------
+'
+Friend Function JobResultFromContent(ByVal strContent As String, _
+                                     ByRef blnAccessible As Boolean) As Boolean
+
+    Dim strValue As String
+
+    ' Split on an empty string returns an array with no elements.
+    If Len(strContent) > 0 Then strValue = Trim(Split(strContent, vbCrLf)(0))
+
+    Select Case strValue
+        Case "1", "0"
+            blnAccessible = (strValue = "1")
+            JobResultFromContent = True
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : PollJobResults
 ' Author    : Adam Waller
 ' Date      : 8/23/2026
@@ -567,7 +595,7 @@ Private Sub PollJobResults()
 
     Dim oFS As Object
     Dim strContent As String
-    Dim strValue As String
+    Dim blnAccessible As Boolean
 
     If Len(m_strResultFile) = 0 Then Exit Sub
 
@@ -579,15 +607,12 @@ Private Sub PollJobResults()
     If oFS.FileExists(m_strResultFile) Then
         strContent = ReadFile(m_strResultFile)
         If Err.Number = 0 Then
-            ' Split on an empty string returns an array with no elements.
-            If Len(strContent) > 0 Then strValue = Trim(Split(strContent, vbCrLf)(0))
-            Select Case strValue
-                Case "1", "0"
-                    Me.ReturnWorker m_strResultKey, (strValue = "1")
-                    DeleteFile m_strResultFile
-                    m_strResultFile = vbNullString
-                    m_strResultKey = vbNullString
-            End Select
+            If JobResultFromContent(strContent, blnAccessible) Then
+                Me.ReturnWorker m_strResultKey, blnAccessible
+                DeleteFile m_strResultFile
+                m_strResultFile = vbNullString
+                m_strResultKey = vbNullString
+            End If
         End If
         Err.Clear
     End If
