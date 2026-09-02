@@ -67,5 +67,4 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v4
         with:
-          subject-name: "${{ env.ZIP_NAME }}"
-          subject-digest: "${{ steps.hash.outputs.digest }}"
+          subject-path: "${{ env.ZIP_NAME }}"
