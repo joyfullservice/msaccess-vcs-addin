@@ -48,6 +48,11 @@ Private m_dblInitialInsideHeight As Double
 Private m_dblDesignInsideWidth As Double
 Private m_dblDesignInsideHeight As Double
 
+' True when the user confirmed cancel on Close during a running export/build.
+' Observed by cmdExport_Click after the operation returns so we can finish the
+' root as canceled without inferring that from every critical error.
+Private m_blnCancelRequested As Boolean
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ApplyTestConsoleLayout
@@ -375,13 +380,22 @@ Public Sub cmdExport_Click()
 
     ' Don't attempt to access controls if we are in the process of closing the form.
     If FormLoaded(Me) Then
-        SetStatusText T("Finished"), T("Export Complete"), _
-            T("Additional details can be found in the project log file.<br><br>You may now close this window.")
+        If m_blnCancelRequested Then
+            SetStatusText T("Canceled"), T("Export Canceled"), _
+                T("The export was canceled. Additional details can be found in the project log file.<br><br>You may now close this window.")
+        Else
+            SetStatusText T("Finished"), T("Export Complete"), _
+                T("Additional details can be found in the project log file.<br><br>You may now close this window.")
+        End If
         Me.strLastLogFilePath = Log.SavedLogFilePath
         Me.strCopyToClipboardPath = Log.SavedLogFilePath
         cmdOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
         cmdCopyPath.Visible = cmdOpenLogFile.Visible
-        Operation.Finish
+        If m_blnCancelRequested Then
+            Operation.Finish eorCanceled
+        Else
+            Operation.Finish
+        End If
         DoEvents
     Else
         Operation.Finish eorCanceled
@@ -403,6 +417,7 @@ Public Sub ResetForOperation()
 
     If Not FormLoaded(Me) Then Exit Sub
 
+    m_blnCancelRequested = False
     Me.TimerInterval = 0
     cmdOpenLogFile.Visible = False
     cmdCopyPath.Visible = False
@@ -668,29 +683,22 @@ End Function
 '
 Private Sub Form_Unload(Cancel As Integer)
 
-    Static intAttempt As Integer
-
-    ' Allow the form to close on the third attempt, just in case the log
-    ' is stuck in active status for some reason.
-    If intAttempt > 2 Then
-        Operation.Finish eorCanceled
-        Exit Sub
-    End If
-
-    ' Check to see if we have an active job running.
+    ' Check to see if we have an active job running. Staged (paused) roots are
+    ' left alone: pause scopes close forms without meaning the user canceled.
     If Operation.Status = eosRunning Then
-        If TestRunner.State = etrsRunning Then
+        ' Keep the form open either way so the owning procedure can finish
+        ' the root after the loop observes the cancel signal.
+        Cancel = True
+        If Not ConfirmCancel Then Exit Sub
+
+        If Operation.OperationType = eotTestRun Then
             ' Tests use DoEvents between iterations, so this event fires mid-run.
             ' Call Cancel (sets CancelRequested flag) and let RunTests handle
             ' Operation.Finish after the loop exits cleanly with results intact.
-            If ConfirmCancel Then TestRunner.Cancel
-            Cancel = True
+            TestRunner.Cancel
         Else
-            If ConfirmCancel Then Log.Error eelCritical, T("Canceled Operation"), Me.Name & ".Form_Unload"
-            ' Either way, we want the log to complete first.
-            Cancel = True
-            Operation.Finish eorCanceled
-            intAttempt = intAttempt + 1
+            m_blnCancelRequested = True
+            Log.Error eelCritical, T("Canceled Operation"), Me.Name & ".Form_Unload"
         End If
     End If
 

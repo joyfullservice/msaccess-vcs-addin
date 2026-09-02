@@ -21,6 +21,7 @@ Option Explicit
 
 
 Private Const HEARTBEAT_TIMEOUT_SECONDS As Integer = 60 * 10
+Private Const REGISTRY_PULSE_SECONDS As Integer = 60
 Private Const REG_KEY_ROOT_TOKEN As String = "RootToken"
 Private Const REG_KEY_ROOT_TYPE As String = "RootOperationType"
 
@@ -52,6 +53,14 @@ End Type
 Private m_Root As udtRoot
 
 Private m_eimSticky As eInteractionMode
+
+' Heartbeat value last copied to the registry, throttling Pulse's registry write.
+Private m_datRegistryPulse As Date
+
+' Lease issued by Begin. It has to be held here for the life of the root: a lease
+' released while the root is still active abandons it (clsRootOperationLease.
+' Class_Terminate), and Begin's caller does not complete until Finish.
+Private m_cSyncLease As clsRootOperationLease
 
 
 '---------------------------------------------------------------------------------------
@@ -87,9 +96,8 @@ End Function
 '
 Public Function Begin(intType As eOperationType) As Boolean
 
-    Dim cLease As clsRootOperationLease
-    Set cLease = TryBeginRoot(intType)
-    Begin = (Not cLease Is Nothing)
+    Set m_cSyncLease = TryBeginRoot(intType)
+    Begin = (Not m_cSyncLease Is Nothing)
 
 End Function
 
@@ -299,11 +307,20 @@ End Sub
 ' Procedure : Pulse
 ' Author    : Adam Waller
 ' Date      : 5/9/2025
-' Purpose   : Pulse the heartbeat
+' Purpose   : Pulse the heartbeat. Callers pulse this once per component, so the
+'           : in-memory stamp is all that is updated on most calls. The registry copy
+'           : only exists so a VBA project reset can recognize a root that is still
+'           : running, and is refreshed on a timer rather than per component.
 '---------------------------------------------------------------------------------------
 '
 Public Function Pulse()
+
     Heartbeat = Now
+    If m_Root.State = eosReady Then Exit Function
+    If DateDiff("s", m_datRegistryPulse, Heartbeat) < REGISTRY_PULSE_SECONDS Then Exit Function
+    m_datRegistryPulse = Heartbeat
+    UpdateRegistry
+
 End Function
 
 
@@ -315,7 +332,11 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Status() As eOperationState
-    If m_Root.State <> eosReady Then
+    ' A paused root is sitting inside foreign code (a user hook such as AfterExport,
+    ' or a form closing) that can legitimately run past the timeout and that we have
+    ' no way to pulse through. Expiring it there would strand the root: EndPauseScope
+    ' only restores a root it still finds staged.
+    If m_Root.State <> eosReady And m_Root.PauseDepth = 0 Then
         If DateAdd("s", HEARTBEAT_TIMEOUT_SECONDS, Me.Heartbeat) < Now Then
             m_Root.State = eosReady
             Me.Result = eorTimeout
@@ -475,6 +496,10 @@ Private Sub FinishRootInternal(Optional intResult As eOperationResult = eorUnkno
     m_Root.Completed = True
     m_Root.State = eosReady
     m_Root.FinishTime = Now
+
+    ' Release any lease Begin was holding. The root is already flagged complete, so
+    ' the lease cannot abandon it on the way out.
+    Set m_cSyncLease = Nothing
 
     If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagBegin "op.registry"
     UpdateRegistry

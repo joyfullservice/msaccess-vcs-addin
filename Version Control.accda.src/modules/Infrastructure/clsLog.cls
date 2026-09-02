@@ -740,6 +740,12 @@ End Sub
 Public Sub IncrementObjectScanProgress(ByRef sngStart As Single, _
     lngCount As Long, strCategory As String)
 
+    ' The scan loops pulse nowhere else - modExport and modBuild pulse once per
+    ' category - so the heartbeat would have to survive a whole category to get here.
+    ' Pulsing per component costs a variable assignment and matches how the export,
+    ' build, and merge loops already pulse.
+    Operation.Pulse
+
     Increment
     If sngStart > 0 Then
         If Timer - sngStart > 1 Then

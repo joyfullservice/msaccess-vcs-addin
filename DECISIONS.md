@@ -83,6 +83,52 @@ contradictory guidance.
 
 ---
 
+## 2026-09-02 — Heartbeat pulses per component; paused roots never expire
+
+**Trigger**: Reviewing the cancel-during-export path raised how the 10-minute
+heartbeat timeout behaves on large databases. Two gaps: change-detection scans
+pulsed once per category (`modExport`/`modBuild`), so the timeout had to cover a
+whole category rather than one component; and a user hook such as `AfterExport`
+runs foreign code that can legitimately exceed the timeout with nothing able to
+pulse. A root that expires is silently downgraded to `eosReady`, which turns
+every "is something running?" check false — including the cancel prompt.
+
+**Options explored**:
+- **Raise `HEARTBEAT_TIMEOUT_SECONDS`** — rejected; any fixed number is wrong for
+  a hook of unknown length, and a longer timeout slows recognition of a genuinely
+  crashed operation.
+- **Pulse from each of the 17 scan loops** — same effect as the chosen option but
+  17 call sites to keep in sync. Rejected because every scan loop already calls
+  `Log.IncrementObjectScanProgress` once per component.
+- **Pulse the registry per component** — rejected outright; `SaveSetting` per
+  object on a large scan is a real cost for a value only crash recovery reads.
+- **Exempt paused roots from the timeout (chosen for hooks)** — a pause already
+  means "foreign code owns the stack." Expiring there also strands the root:
+  `EndPauseScope` only restores a root it still finds `eosStaged`, so a timeout
+  during a hook would leave the operation unrecoverable after the hook returned.
+
+**Decision**: `Operation.Pulse` stays an in-memory assignment and is now called
+per component from `Log.IncrementObjectScanProgress`, reaching every scan loop
+through a call they already make. `Pulse` refreshes the registry copy at most
+once every 60 seconds (`REGISTRY_PULSE_SECONDS`), so `RestoreFromRegistry` sees a
+fresh value during a long operation without paying a write per object. The
+`Status` getter skips the timeout check entirely while `PauseDepth > 0`; a
+detached root (asynchronous continuation) still expires, because there the
+timeout is the only thing that recovers an operation that never resumed.
+
+**What this rules out**: Treating a stale heartbeat as proof that no operation is
+running — that inference is now invalid while a root is paused. Reading the
+registry `Heartbeat` as accurate to the second; it lags by up to a minute.
+Revisit if pauses ever become long-lived or survive a stack, since a paused root
+would then have no expiry at all.
+
+**Relevant files**:
+- `clsOperation.cls` — throttled registry pulse, pause-aware `Status`
+- `clsLog.cls` — `IncrementObjectScanProgress` pulses per component
+- `modTestOperationLifecycle.bas` — timeout, pause, and scan-pulse tests
+
+---
+
 ## 2026-08-31 — Form/report code-behind uses full VBAProjectDate fast path
 
 **Trigger**: Fast Save skipped forms and reports when only the code module changed
