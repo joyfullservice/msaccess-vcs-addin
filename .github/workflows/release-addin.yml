@@ -40,6 +40,11 @@ jobs:
         shell: pwsh
         run: |
           $zipName = "Version_Control_${{ github.event.release.tag_name }}.zip"
+          $releaseTag = $env:GITHUB_REF_NAME
+          if ($releaseTag -notmatch '^[A-Za-z0-9._-]+$') {
+            throw "Release tag contains unsupported filename characters."
+          }
+          $zipName = "Version_Control_${releaseTag}.zip"
           Compress-Archive -Path .\bin\* -DestinationPath $zipName
           echo "ZIP_NAME=$zipName" | Out-File -FilePath $env:GITHUB_ENV -Append
 
