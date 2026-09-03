@@ -1381,6 +1381,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim blnNeedAll As Boolean
     Dim sngStart As Single
     Dim lngScanCount As Long
+    Dim dSysTables As Dictionary
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -1394,8 +1395,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         ' Batch-load table Types from MSysObjects once, so per-table SourceFile /
         ' IsLinkedTable checks avoid hundreds of slow single-row Type lookups.
         BuildTableTypeCache
+        Set dSysTables = GetSystemTableNames
         For Each tdf In CurrentData.AllTables
-            If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
+            If dSysTables.Exists(tdf.Name) Or tdf.Name Like "~*" Then
                 ' Skip system and temporary tables
             Else
                 Set cTable = New clsDbTableDef
