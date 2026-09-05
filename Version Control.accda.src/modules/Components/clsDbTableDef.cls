@@ -215,16 +215,19 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strExportFolder As String
     strExportFolder = FSO.GetParentFolderName(strFile) & PathSep
 
+    ' Remove any alternate source file in case we have switched formats.
+    ' This runs BEFORE the metadata sidecar is written: a local table's alternate-format
+    ' name is <name>.json, which is also the sidecar's name, so removing it afterwards
+    ' would delete the metadata that was just exported.
+    If strAlternatePath = vbNullString Then
+        RemoveAlternateFormatSourceFile
+    End If
+
     ' Export object metadata for local tables into a companion .json file.
     ' Linked tables already have metadata included in their primary .json above.
     If Not IsLinkedTable Then
         ExportObjectMetadata strExportFolder & GetSafeFileName(m_Table.Name) & ".json", _
             "Tables", m_Table.Name, Me
-    End If
-
-    ' Remove any alternate source file in case we have switched formats
-    If strAlternatePath = vbNullString Then
-        RemoveAlternateFormatSourceFile
     End If
 
     ' Optionally save in SQL format
