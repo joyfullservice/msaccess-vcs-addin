@@ -33,15 +33,6 @@ Option Explicit
 ' Worker Job queue of jobs in progress
 Public Queue As Dictionary
 
-' Last result returned by a worker callback
-Private m_varLastResult As Variant
-
-' Result file and queue key of the job reporting through the file channel, if any. One
-' field each for the same reason m_varLastResult is one field: only one job at a time can
-' be waited on for a value, and the duplicate-job guard in CallWorker keeps it that way.
-Private m_strResultFile As String
-Private m_strResultKey As String
-
 ' Generic placeholder objects so we can compile the VBScript in the VBA IDE
 Private WScript As Object
 
@@ -103,32 +94,30 @@ End Function
 '           : cannot detect.
 '---------------------------------------------------------------------------------------
 '
-Public Function IsDatabaseAccessible() As Boolean
+Public Function IsDatabaseAccessible() As Variant
 
     ' This action reports through a file instead of the callback. It is the only one that
     ' does not need the Access instance to do its work -- it builds its own DAO engine --
     ' so attaching would be a dependency taken out purely in order to answer, and that is
     ' the attach that cannot succeed when the caller's current database is the add-in
     ' itself. See the 2026-08-12 entry in DECISIONS.md for the measured 432.
-    m_varLastResult = Empty
-    m_strResultKey = JobKeyHash("DbAccessCheck", "CheckDatabaseAccessible")
-    m_strResultFile = JobResultFile("CheckDatabaseAccessible")
-    CallWorker "DbAccessCheck", 10, "CheckDatabaseAccessible", """" & m_strResultFile & """"
-    Me.WaitForQueue 10, "CheckDatabaseAccessible", 0.1
+    Dim cJob As clsJob
+    Dim strFile As String
 
-    ' Three outcomes, not two. No file at all means the worker never answered, which is
-    ' not the same as an answer of "not accessible" even though the caller takes the same
-    ' conservative action either way. Stay quiet when the helper script is switched off
-    ' (#727): there an empty result is the documented behaviour, not a fault.
-    If IsEmpty(m_varLastResult) Then
-        If modInstall.UseWorkerScript Then
-            Log.Error eelWarning, T("No result from the worker. Assuming the database is not accessible to other clients."), _
-                ModuleName(Me) & ".IsDatabaseAccessible"
-        End If
-        IsDatabaseAccessible = False
-    Else
-        IsDatabaseAccessible = CBool(m_varLastResult)
+    ' Three outcomes, not two: True, False, or Empty. Empty means the worker never
+    ' answered (disabled, failed launch, timeout, or explicit unknown). Callers that
+    ' need a Boolean collapse that at their policy boundary; this function must not.
+    strFile = ReserveJobResultFile("CheckDatabaseAccessible")
+    If Len(strFile) = 0 Then Exit Function
+
+    Set cJob = CallWorker("DbAccessCheck", 10, "CheckDatabaseAccessible", """" & strFile & """")
+    If cJob Is Nothing Then
+        DeleteFile strFile
+        Exit Function
     End If
+    cJob.ResultFile = strFile
+    Me.WaitForQueue 10, "CheckDatabaseAccessible", 0.1
+    IsDatabaseAccessible = cJob.Result
 
 End Function
 
@@ -145,10 +134,14 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function Run_SaveVbaProject() As Boolean
-    m_varLastResult = Empty
-    CallWorker "VbaProjectSave", 30, "SaveVbaProject"
+
+    Dim cJob As clsJob
+
+    Set cJob = CallWorker("VbaProjectSave", 30, "SaveVbaProject")
+    If cJob Is Nothing Then Exit Function
     Me.WaitForQueue 30, "SaveVbaProject", 0.1
-    Run_SaveVbaProject = CBool(m_varLastResult)
+    If Not IsEmpty(cJob.Result) Then Run_SaveVbaProject = CBool(cJob.Result)
+
 End Function
 
 
@@ -259,24 +252,28 @@ Public Sub WaitForQueue(dblTimeout As Double, Optional strAction As String = "Al
         Next varKey
         Set cJob = Nothing
 
-        ' Log and remove any individual jobs that have timed out
+        ' Log and expire any individual jobs that have timed out. ExpireJob
+        ' deletes a reserved result file so a late write cannot complete later.
         For Each varJob In colRemove
-            Set cJob = Me.Queue(varJob)
-            With cJob
-                Log.Error eelError, "Job " & .KeyHash & " (" & .Action & ") timed out after " & _
-                    Round(Perf.MicroTimer - .Start, 0) & " seconds.", ModuleName(Me) & ".WaitForQueue"
-            End With
-            Set cJob = Nothing
-            If Me.Queue.Exists(varJob) Then Me.Queue.Remove varJob
+            If Me.Queue.Exists(varJob) Then
+                Set cJob = Me.Queue(varJob)
+                Log.Error eelError, T("Job {0} ({1}) timed out after {2} seconds.", _
+                    var0:=cJob.KeyHash, var1:=cJob.Action, _
+                    var2:=Round(Perf.MicroTimer - cJob.Start, 0)), _
+                    ModuleName(Me) & ".WaitForQueue"
+                ExpireJob cJob
+            End If
         Next varJob
+        Set colRemove = New Collection
 
         ' If nothing found of a specified action, we can exit the loop
         If (strAction <> "All") And (Not blnFound) Then Exit Do
 
         ' Check the overall timeout before we start another iteration
         If dblStart + dblTimeout < Perf.MicroTimer Then
-            Log.Error eelError, "Timed out waiting for job queue", ModuleName(Me) & ".WaitForQueue"
+            Log.Error eelError, T("Timed out waiting for job queue"), ModuleName(Me) & ".WaitForQueue"
             Log.Add " (" & Me.Queue.Count & " jobs still in the queue.)", False
+            ExpireFileChannelJobs
             Exit Do
         End If
     Loop
@@ -396,6 +393,7 @@ Public Sub RemoveWorkerScript()
     DeleteFile WorkerFilePath, True
     CatchAny eelWarning, T("Unable to remove worker script: {0}", var0:=WorkerFilePath), _
         ModuleName(Me) & ".RemoveWorkerScript"
+    RemoveWorkerJobsFolder
 End Sub
 
 
@@ -407,11 +405,10 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
-    strAction As String, ParamArray varParams()) As Long
+    strAction As String, ParamArray varParams()) As clsJob
 
     Dim intParam As Integer
     Dim strHash As String
-    Dim lngHandle As Long
     Dim cJob As clsJob
 
     ' The user can turn the helper script off when their environment does not allow
@@ -429,7 +426,7 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
     ' Make sure this key/action is not already running
     strHash = JobKeyHash(strKey, strAction)
     If Me.Queue.Exists(strHash) Then
-        Log.Error eelError, "Duplicate job in queue: " & strAction & "." & strKey, _
+        Log.Error eelError, T("Duplicate job in queue: {0}.{1}", var0:=strAction, var1:=strKey), _
             ModuleName(Me) & ".CallWorker"
         Exit Function
     End If
@@ -467,14 +464,12 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
         End With
         Me.Queue.Add strHash, cJob
 
-        ' Use the Shell command to launch the worker as an external asynchrous
-        ' process, and return the process ID to the caller.
-        lngHandle = Shell(.GetStr, vbHide)
+        ' Launch the worker as an external asynchronous process.
+        Shell .GetStr, vbHide
 
     End With
 
-    ' Return process handle
-    CallWorker = lngHandle
+    Set CallWorker = cJob
 
 End Function
 
@@ -493,59 +488,77 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : JobResultFile
+' Procedure : WorkerJobsFolder
 ' Author    : Adam Waller
-' Date      : 8/23/2026
-' Purpose   : Path the worker writes a job's return value to, handed to it as an argument
-'           : the same way BuildAndInstall receives its status file. The name carries a
-'           : per-launch suffix, because the queue key cannot serve here: it is a hash of
-'           : key and action, so it is identical in every session and forever, and a file
-'           : left behind by an earlier run would be read as this answer.
-'           : Returns an empty string if the folder cannot be prepared. The worker treats
-'           : that as "do not write", and the caller reads it as no answer.
+' Date      : 9/7/2026
+' Purpose   : Folder for nonce-named worker result files, beside Worker.vbs.
 '---------------------------------------------------------------------------------------
 '
-Private Function JobResultFile(strAction As String) As String
+Friend Property Get WorkerJobsFolder() As String
+    WorkerJobsFolder = FSO.GetParentFolderName(WorkerFilePath) & PathSep & "WorkerJobs"
+End Property
 
-    ' Well past the longest job timeout, so nothing in flight can match.
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReserveJobResultFile
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Create-new reservation of a result path so two Access processes cannot
+'           : share a name. The suffix includes this process id plus UniqueHashSuffix;
+'           : CreateTextFile(overwrite:=False) is the exclusive claim. Empty string
+'           : means the folder could not be prepared or every attempt collided.
+'---------------------------------------------------------------------------------------
+'
+Friend Function ReserveJobResultFile(Optional strAction As String = "CheckDatabaseAccessible") As String
+
     Const StaleJobHours As Double = 1
+    Const MaxAttempts As Long = 8
 
     Dim oFS As Object
     Dim strFolder As String
     Dim colStale As Collection
     Dim varFile As Variant
+    Dim lngAttempt As Long
+    Dim strPath As String
+    Dim ts As Object
 
-    ' Dereference the FSO getter before opening a handler: it contains LogUnhandledErrors,
-    ' so an error pending on entry would be reported from in here.
     Set oFS = FSO
-    strFolder = oFS.GetParentFolderName(WorkerFilePath) & PathSep & "WorkerJobs"
+    strFolder = WorkerJobsFolder
 
     LogUnhandledErrors
     On Error Resume Next
-
-    ' VerifyPath tells a folder from a file name by the trailing separator.
     VerifyPath strFolder & PathSep
+    If CatchAny(eelWarning, T("Unable to prepare the worker result folder: {0}", var0:=strFolder), _
+        ModuleName(Me) & ".ReserveJobResultFile") Then Exit Function
 
-    If oFS.FolderExists(strFolder) Then
+    If Not oFS.FolderExists(strFolder) Then Exit Function
 
-        ' Nothing else collects these, because each name is unique to its launch. Collect
-        ' first and delete afterwards: the Files collection is live.
-        Set colStale = New Collection
-        For Each varFile In oFS.GetFolder(strFolder).Files
-            If varFile.DateLastModified < Now - (StaleJobHours / 24) Then
-                colStale.Add varFile.Path
-            End If
-        Next varFile
-        For Each varFile In colStale
-            DeleteFile CStr(varFile)
-        Next varFile
+    Set colStale = New Collection
+    For Each varFile In oFS.GetFolder(strFolder).Files
+        If varFile.DateLastModified < Now - (StaleJobHours / 24) Then
+            colStale.Add varFile.Path
+        End If
+    Next varFile
+    For Each varFile In colStale
+        DeleteFile CStr(varFile)
+    Next varFile
 
-        JobResultFile = strFolder & PathSep & strAction & "-" & _
+    For lngAttempt = 1 To MaxAttempts
+        Err.Clear
+        strPath = strFolder & PathSep & strAction & "-" & _
+            CStr(modInstall.GetThisProcessId) & "-" & _
             UniqueHashSuffix(strAction) & ".result"
-    End If
+        Set ts = oFS.CreateTextFile(strPath, False)
+        If Err.Number = 0 Then
+            ts.Close
+            ReserveJobResultFile = strPath
+            Exit Function
+        End If
+        Err.Clear
+    Next lngAttempt
 
-    CatchAny eelWarning, "Unable to prepare the worker result folder: " & strFolder, _
-        ModuleName(Me) & ".JobResultFile"
+    Log.Error eelWarning, T("Unable to reserve a worker result file in {0}", var0:=strFolder), _
+        ModuleName(Me) & ".ReserveJobResultFile"
 
 End Function
 
@@ -554,24 +567,30 @@ End Function
 ' Procedure : JobResultFromContent
 ' Author    : Ricardo Hernandez (Notarnet)
 ' Date      : 9/1/2026
-' Purpose   : Decide whether what was read from a result file is an answer, and which.
-'           : Only the two values the worker writes are a verdict; anything else means
-'           : "no answer yet" and leaves blnAccessible untouched, so a caller cannot
-'           : mistake a transient read for a negative result. Friend scope keeps this
-'           : testable inside the add-in project without exposing it through COM.
+' Purpose   : Decide whether what was read from a result file is a terminal answer.
+'           : "1" and "0" are True/False. "U" is explicit unknown (Empty). Anything
+'           : else is not an answer yet and leaves varResult untouched so a transient
+'           : read cannot become a negative result. Friend scope keeps this testable
+'           : without exposing it through COM.
 '---------------------------------------------------------------------------------------
 '
 Friend Function JobResultFromContent(ByVal strContent As String, _
-                                     ByRef blnAccessible As Boolean) As Boolean
+                                     ByRef varResult As Variant) As Boolean
 
     Dim strValue As String
 
     ' Split on an empty string returns an array with no elements.
-    If Len(strContent) > 0 Then strValue = Trim(Split(strContent, vbCrLf)(0))
+    If Len(strContent) > 0 Then strValue = Trim$(Split(strContent, vbCrLf)(0))
 
     Select Case strValue
-        Case "1", "0"
-            blnAccessible = (strValue = "1")
+        Case "1"
+            varResult = True
+            JobResultFromContent = True
+        Case "0"
+            varResult = False
+            JobResultFromContent = True
+        Case "U"
+            varResult = Empty
             JobResultFromContent = True
     End Select
 
@@ -579,46 +598,237 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : AccessibilityFromProbeResult
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Collapse a probe transport result to the conservative Boolean the build
+'           : callers need. Empty/unknown is False. Logging stays at the policy
+'           : boundary in modBuild so tests can assert the decision without writing
+'           : to the session log.
+'---------------------------------------------------------------------------------------
+'
+Friend Function AccessibilityFromProbeResult(ByVal varResult As Variant) As Boolean
+    If IsEmpty(varResult) Then Exit Function
+    AccessibilityFromProbeResult = CBool(varResult)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QueueFileResultJob
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Test seam: enqueue a file-channel job without launching wscript.
+'           : Returns Nothing when the key is already queued.
+'---------------------------------------------------------------------------------------
+'
+Friend Function QueueFileResultJob(strKey As String, strAction As String, _
+    strResultFile As String, Optional dblTimeoutSeconds As Double = 10) As clsJob
+
+    Dim strHash As String
+    Dim cJob As clsJob
+
+    If Me.Queue Is Nothing Then Set Me.Queue = New Dictionary
+    strHash = JobKeyHash(strKey, strAction)
+    If Me.Queue.Exists(strHash) Then Exit Function
+
+    Set cJob = New clsJob
+    cJob.KeyHash = strHash
+    cJob.Action = strAction
+    cJob.Start = Perf.MicroTimer
+    cJob.Timeout = cJob.Start + dblTimeoutSeconds
+    cJob.ResultFile = strResultFile
+    Me.Queue.Add strHash, cJob
+    Set QueueFileResultJob = cJob
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExpireJob
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Mark a job expired, delete its result file, and drop it from the queue.
+'           : A late worker write to the old path is then ignored because polling only
+'           : looks at queued jobs.
+'---------------------------------------------------------------------------------------
+'
+Friend Sub ExpireJob(cJob As clsJob)
+    If cJob Is Nothing Then Exit Sub
+    cJob.ResultExpired = True
+    If Len(cJob.ResultFile) > 0 Then
+        DeleteFile cJob.ResultFile
+        cJob.ResultFile = vbNullString
+    End If
+    If Not Me.Queue Is Nothing Then
+        If Me.Queue.Exists(cJob.KeyHash) Then Me.Queue.Remove cJob.KeyHash
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : PollJobResults
 ' Author    : Adam Waller
 ' Date      : 8/23/2026
-' Purpose   : Pick up a result delivered through the file channel and hand it to
-'           : ReturnWorker, so that job logging and queue removal stay in one place.
-'           : Anything other than the two values the worker writes is left alone and
-'           : retried on the next interval: a read can fail transiently -- a scanner
-'           : holding a file that was just published is the ordinary case -- and
-'           : answering "not accessible" to that would be wrong where waiting one more
-'           : tenth of a second is right. The job timeout already bounds the retrying.
+' Purpose   : Pick up results delivered through the file channel and hand them to
+'           : ReturnWorker, so job logging and queue removal stay in one place.
+'           : Anything other than a terminal token is left alone and retried on the
+'           : next interval. The job timeout bounds the retrying.
 '---------------------------------------------------------------------------------------
 '
-Private Sub PollJobResults()
+Friend Sub PollJobResults()
 
-    Dim oFS As Object
+    Dim varKey As Variant
+    Dim colKeys As Collection
+    Dim cJob As clsJob
+
+    If Me.Queue Is Nothing Then Exit Sub
+    If Me.Queue.Count = 0 Then Exit Sub
+
+    Set colKeys = New Collection
+    For Each varKey In Me.Queue.Keys
+        colKeys.Add CStr(varKey)
+    Next varKey
+
+    For Each varKey In colKeys
+        If Me.Queue.Exists(CStr(varKey)) Then
+            Set cJob = Me.Queue(CStr(varKey))
+            If Len(cJob.ResultFile) > 0 Then ConsumeJobResultFile cJob
+        End If
+    Next varKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConsumeJobResultFile
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Read one job's result file. File observation errors are retried; queue
+'           : completion must succeed before the file is deleted.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ConsumeJobResultFile(cJob As clsJob)
+
     Dim strContent As String
-    Dim blnAccessible As Boolean
+    Dim varResult As Variant
 
-    If Len(m_strResultFile) = 0 Then Exit Sub
+    If cJob.ResultExpired Then
+        DeleteFile cJob.ResultFile
+        cJob.ResultFile = vbNullString
+        Exit Sub
+    End If
 
-    Set oFS = FSO
+    If Not FileExistsSafe(cJob.ResultFile) Then Exit Sub
+    If Not TryReadJobResult(cJob.ResultFile, strContent) Then Exit Sub
+    If Not JobResultFromContent(strContent, varResult) Then Exit Sub
+    If Not Me.Queue.Exists(cJob.KeyHash) Then
+        DeleteFile cJob.ResultFile
+        cJob.ResultFile = vbNullString
+        Exit Sub
+    End If
+
+    cJob.Result = varResult
+    Me.ReturnWorker cJob.KeyHash, varResult
+    If Me.Queue.Exists(cJob.KeyHash) Then Exit Sub
+
+    DeleteFile cJob.ResultFile
+    cJob.ResultFile = vbNullString
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TryReadJobResult
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Read a short result file without using ReadFile, whose Perf frame is
+'           : not closed when LoadFromFile fails. A sharing violation is retried on
+'           : the next poll interval rather than treated as a verdict.
+'---------------------------------------------------------------------------------------
+'
+Private Function TryReadJobResult(strPath As String, ByRef strContent As String) As Boolean
+
+    Dim stm As ADODB.Stream
 
     LogUnhandledErrors
     On Error Resume Next
 
-    If oFS.FileExists(m_strResultFile) Then
-        strContent = ReadFile(m_strResultFile)
+    Set stm = New ADODB.Stream
+    stm.Charset = "utf-8"
+    stm.Open
+    stm.LoadFromFile strPath
+    If Err.Number = 0 Then
+        strContent = stm.ReadText
         If Err.Number = 0 Then
-            If JobResultFromContent(strContent, blnAccessible) Then
-                Me.ReturnWorker m_strResultKey, blnAccessible
-                DeleteFile m_strResultFile
-                m_strResultFile = vbNullString
-                m_strResultKey = vbNullString
-            End If
+            If Left$(strContent, 1) = ChrW$(&HFEFF) Then strContent = Mid$(strContent, 2)
+            TryReadJobResult = True
         End If
-        Err.Clear
     End If
+    stm.Close
+    Err.Clear
 
-    CatchAny eelWarning, "Unable to read the worker result file", _
-        ModuleName(Me) & ".PollJobResults"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileExistsSafe
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Existence check that swallows a transient scan error instead of raising.
+'---------------------------------------------------------------------------------------
+'
+Private Function FileExistsSafe(strPath As String) As Boolean
+    LogUnhandledErrors
+    On Error Resume Next
+    FileExistsSafe = FSO.FileExists(strPath)
+    If Err.Number Then Err.Clear
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExpireFileChannelJobs
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : After an overall wait timeout, expire remaining file-channel jobs so a
+'           : late write cannot complete a later operation.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExpireFileChannelJobs()
+
+    Dim varKey As Variant
+    Dim colJobs As Collection
+    Dim cJob As clsJob
+
+    If Me.Queue Is Nothing Then Exit Sub
+    Set colJobs = New Collection
+    For Each varKey In Me.Queue.Keys
+        Set cJob = Me.Queue(varKey)
+        If Len(cJob.ResultFile) > 0 Then colJobs.Add cJob
+    Next varKey
+    For Each cJob In colJobs
+        ExpireJob cJob
+    Next cJob
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveWorkerJobsFolder
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Remove leftover result files when the helper script is disabled or
+'           : uninstalled.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveWorkerJobsFolder()
+
+    Dim strFolder As String
+
+    strFolder = WorkerJobsFolder
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    CatchAny eelWarning, T("Unable to remove worker result folder: {0}", var0:=strFolder), _
+        ModuleName(Me) & ".RemoveWorkerJobsFolder"
 
 End Sub
 
@@ -658,8 +868,9 @@ Public Function ReturnWorker(strKey As String, varParams As Variant)
         Set cJob = Me.Queue(strKey)
     End If
 
-    ' Store the return value so the caller can read it after WaitForQueue
-    m_varLastResult = varParams
+    ' Store the return value on the job so the caller that holds this
+    ' reference can read it after the queue entry is removed.
+    cJob.Result = varParams
 
     ' Log and remove from job queue
     With cJob
@@ -815,8 +1026,13 @@ Sub Main()
             ' definite "not accessible" and cost the caller a reopen it does not need.
             strResultFile = ""
             If WScript.Arguments.Count > 3 Then strResultFile = WScript.Arguments(3)
-            If objFSO.FileExists(strValue) Then
+            If WaitForDatabaseFile(objFSO, strValue) Then
                 WriteJobResult strResultFile, CheckDatabaseAccessible(strValue)
+            Else
+                ' Path still missing after a brief retry (a full build can rename
+                ' the database aside). Publish unknown so the parent can finish
+                ' conservatively without waiting the full job timeout.
+                WriteJobResult strResultFile, Empty
             End If
 
         Case "SaveVbaProject"
@@ -974,6 +1190,7 @@ Function UninstallAddIn(objApp, strAddInFile)
 
     Dim objFSO
     Dim strLockFile
+    Dim strFolder
     Dim intCnt
 
     Set objFSO = CreateObject("Scripting.FileSystemObject")
@@ -1008,7 +1225,9 @@ Function UninstallAddIn(objApp, strAddInFile)
             " The file might be in use by another instance of Microsoft Access." & vbCrLf & vbCrLf & _
             "Error " & Err.Number & ": " & Err.Description, vbExclamation
     Else
-        ' Delete this worker script file.
+        ' Delete leftover result files, then this worker script.
+        strFolder = objFSO.GetParentFolderName(WScript.ScriptFullName) & "\WorkerJobs"
+        If objFSO.FolderExists(strFolder) Then objFSO.DeleteFolder strFolder, True
         objFSO.DeleteFile WScript.ScriptFullName
         WScript.Quit
     End If
@@ -1052,29 +1271,62 @@ End Function
 '           : boolean so that nothing in the channel depends on locale, and with the same
 '           : stream and charset as WriteRebuildStatusFile, which is the other file this
 '           : script writes for the add-in to read back.
-'           : Writes nothing when there is no path or no value. The absence of the file is
-'           : how the caller tells "no answer" apart from "no", so writing anything here
-'           : on a miss would destroy the distinction the file exists to make.
+'           : Writes "1", "0", or "U" (unknown). Empty is a published unknown, not
+'           : "do not write": the parent must be able to finish without waiting out
+'           : the job timeout when the path is briefly gone.
 '---------------------------------------------------------------------------------------
 '
 Sub WriteJobResult(strFile, varValue)
 
     Dim stm
+    Dim strToken
 
     If Len(strFile) = 0 Then Exit Sub
-    If IsEmpty(varValue) Then Exit Sub
+
+    If IsEmpty(varValue) Then
+        strToken = "U"
+    ElseIf varValue Then
+        strToken = "1"
+    Else
+        strToken = "0"
+    End If
 
     On Error Resume Next
     Set stm = CreateObject("ADODB.Stream")
     stm.Type = 2
     stm.Charset = "utf-8"
     stm.Open
-    If varValue Then stm.WriteText "1" Else stm.WriteText "0"
+    stm.WriteText strToken
     stm.SaveToFile strFile, 2
     stm.Close
     On Error GoTo 0
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WaitForDatabaseFile
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : The database can be renamed aside for a moment during a full build.
+'           : Retry briefly so a transient miss is not published as unknown, then
+'           : give up so the parent is not left on the full job timeout.
+'---------------------------------------------------------------------------------------
+'
+Function WaitForDatabaseFile(objFSO, strPath)
+    Dim i
+    If objFSO.FileExists(strPath) Then
+        WaitForDatabaseFile = True
+        Exit Function
+    End If
+    For i = 1 To 5
+        WScript.Sleep 50
+        If objFSO.FileExists(strPath) Then
+            WaitForDatabaseFile = True
+            Exit Function
+        End If
+    Next
+End Function
 
 
 '---------------------------------------------------------------------------------------

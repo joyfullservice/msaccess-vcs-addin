@@ -906,19 +906,29 @@ End Sub
 '           : assume they cannot when there is no way to find out.
 '           :
 '           : The JET/ACE engine does not expose this lock state to same-process callers,
-'           : so the only reliable test is the out-of-process worker probe. When the user
-'           : has disabled the helper script (#727) no probe is possible, and every caller
-'           : here treats "not accessible" as the safe answer: the post-build check
-'           : reopens in shared mode, and the in-place merge falls back to the reopen path
-'           : it used before the probe existed. Returning False without launching anything
-'           : states that intent, rather than leaving it to depend on a skipped worker job
-'           : yielding an empty result.
+'           : so the only reliable test is the out-of-process worker probe. That probe
+'           : returns Empty for unknown. This is the policy boundary that collapses
+'           : unknown to False: the post-build check reopens in shared mode, and the
+'           : in-place merge falls back to the reopen path it used before the probe
+'           : existed. When the helper script is disabled (#727) nothing is launched
+'           : and the warning is skipped; an enabled worker that returns Empty logs
+'           : the warning here rather than in clsWorker.
 '---------------------------------------------------------------------------------------
 '
 Private Function DatabaseAccessibleToOtherClients() As Boolean
-    If modInstall.UseWorkerScript Then
-        DatabaseAccessibleToOtherClients = Worker.IsDatabaseAccessible
+
+    Dim varResult As Variant
+
+    If Not modInstall.UseWorkerScript Then Exit Function
+
+    varResult = Worker.IsDatabaseAccessible
+    If IsEmpty(varResult) Then
+        Log.Error eelWarning, T("No result from the worker. Assuming the database is not accessible to other clients."), _
+            ModuleName & ".DatabaseAccessibleToOtherClients"
+        Exit Function
     End If
+    DatabaseAccessibleToOtherClients = Worker.AccessibilityFromProbeResult(varResult)
+
 End Function
 
 
