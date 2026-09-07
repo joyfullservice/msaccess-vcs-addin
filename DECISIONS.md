@@ -83,6 +83,58 @@ contradictory guidance.
 
 ---
 
+## 2026-09-07 — Accessibility probe returns through a per-job result file
+
+**Trigger**: `CheckDatabaseAccessible` is the one worker action whose only
+return path was the COM callback, and that path is unavailable in the
+situation the probe exists to measure. Attaching via `GetObject` fails for
+an `.accda` host (error 432) and can take twenty seconds even when it
+works. A worker that launched and died left `WaitForQueue` to time out and
+the caller reading Empty as if it were a measured "not accessible".
+
+**Options explored**:
+- **Keep the COM callback and attach anyway.** Rejected. The attach is taken
+  out only to speak, and it is the one that cannot succeed for an add-in
+  path.
+- **Registry value (`SaveSetting` / `WshShell.RegWrite`).** Rejected. HKCU
+  `Software` is shared across WOW64 views, but the value is a global name,
+  awkward to enumerate or age-clean, and turns application settings into
+  IPC. Same-user ACL is no stronger than a file in `%AppData%`.
+- **Stdout / `WshShell.Exec`.** Deferred. `Exec` shows a console window;
+  worker exit codes are 0 even after an uncaught 424. Not worth a new
+  launch path for a one-token answer.
+- **Nonce-named result file, polled in `WaitForQueue` (chosen).** Same
+  primitive as `rebuild-status.json`, but a short-lived synchronous
+  channel: the parent already waits on a 100 ms in-process loop and
+  returns as soon as the token appears. The delayed-completion problems
+  of rebuild status came from *agent-side* timers and stale identity, not
+  from writing a file.
+
+**Decision**: Reserve a per-launch path with process id plus exclusive
+`CreateTextFile`, pass it as the worker argument, and write `1` / `0` /
+`U`. Result metadata lives on `clsJob` so a reentrant call cannot overwrite
+another job's file. `IsDatabaseAccessible` returns `Empty` for unknown;
+`DatabaseAccessibleToOtherClients` logs (only while the worker is enabled)
+and collapses to `False`. All three build callers stay conservative.
+Timeout, disable, and uninstall expire the job and delete its file so a
+late write cannot complete a later operation. Reads use a Perf-safe
+stream; only file observation is retried.
+
+**What this rules out**: Treating this file as another durable status
+workflow or asking agents to poll it. Switching the probe to a registry
+key. Letting `clsWorker` collapse unknown to `False`. Proceeding with an
+in-place merge when the answer is unknown.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Integration/clsWorker.cls`
+- `Version Control.accda.src/modules/Infrastructure/clsJob.cls`
+- `Version Control.accda.src/modules/Core/modBuild.bas`
+- `Version Control.accda.src/modules/Tests/Infrastructure/modTestWorkerResult.bas`
+- `Version Control.accda.src/modules/Tests/Infrastructure/clsTestWorkerLifecycle.cls`
+- `docs/architecture.md`
+
+---
+
 ## 2026-08-31 — Form/report code-behind uses full VBAProjectDate fast path
 
 **Trigger**: Fast Save skipped forms and reports when only the code module changed
@@ -6076,6 +6128,11 @@ Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", 
 ---
 
 ## 2026-04-02 — Out-of-process worker probe for post-build database lock
+
+> **⚠ Partially superseded** (2026-09-07): the probe still exists and still
+> uses an out-of-process DAO engine, but the result no longer returns through
+> the COM callback / `m_varLastResult`. See "Accessibility probe returns
+> through a per-job result file" above.
 
 **Trigger**: After a build or merge, external clients (MCP tools, ODBC connections) receive JET/ACE error 3734: "The database has been placed in a state by user 'Admin' on machine '...' that prevents it from being opened or locked." The database is unusable to other clients until manually closed and reopened in Access. This blocks automated workflows that query the database immediately after a build.
 

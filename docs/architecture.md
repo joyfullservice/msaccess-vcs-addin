@@ -307,12 +307,21 @@ A handful of jobs cannot run in the process that is running the add-in.
 `clsWorker` extracts the VBScript below its `' *** BEGIN WORKER SCRIPT ***` marker
 into `Worker.vbs` in the install folder and launches it with `wscript`. Anything
 added to the class **above** that marker stays VBA and is not part of the script.
-Results come back through `modAPI.WorkerCallback` → `Worker.ReturnWorker`.
+Most results come back through `modAPI.WorkerCallback` → `Worker.ReturnWorker`.
+`IsDatabaseAccessible` cannot take that path: it is exempt from attaching to
+Access (the bind fails for an `.accda` host, and attaching is otherwise only
+needed to speak). The worker writes a one-token file (`1` / `0` / `U`) to a
+per-job path reserved before launch; `WaitForQueue` polls that file every
+100 ms and returns as soon as a token appears. That wait is in-process and
+synchronous — it is not an agent timer and not another `rebuild-status.json`
+workflow. `Worker.IsDatabaseAccessible` preserves `Empty` for unknown;
+`modBuild.DatabaseAccessibleToOtherClients` is the policy boundary that
+collapses unknown to `False`.
 
 | Consumer | Why out of process |
 |---|---|
 | `Run_SaveVbaProject` (via `modVbeUtility.SaveCurrentVBProject`) | The VBE Save command saves nothing while the caller's own VBA is on the stack. No in-process substitute works — that procedure's header lists four that were tried. |
-| `IsDatabaseAccessible` | The engine does not report its lock state to same-process callers. |
+| `IsDatabaseAccessible` | The engine does not report its lock state to same-process callers. Result is file-delivered; see above. |
 | `Run_UninstallAddin` | Deletes the add-in file, which Access holds open until it exits. |
 | `Run_BuildAndInstall` (`VCS.RebuildAddIn`) | The add-in cannot rebuild and reinstall itself while loaded. `vcs_rebuild_addin` carries its HTTP callback identity through `Worker.vbs`, so the builder uses the normal `APIAsync` log/progress stream; `logs/rebuild-status.json` covers compile/install and recovery after Access exits. Refuses when another `MSACCESS.EXE` in the session has one of the files it replaces loaded as a VBA project, and never closes another process. See [agentic-rebuild.md](agentic-rebuild.md). |
 
