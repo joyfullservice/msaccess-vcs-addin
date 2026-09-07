@@ -362,6 +362,71 @@ Public Sub TestQuerySourceFileMemoization()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : TestQuerySourceFileExtensions
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Load Selected and export resolve the query source path from the export
+'           : format. Format 4.1.2 uses .bas; format 5.0+ uses .sql when deterministic
+'           : export is on and .qdef when it is off. A stale .qdef path made Load
+'           : Selected exit before logging (issue #769).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestQuerySourceFileExtensions()
+
+    Dim cQuery As IDbComponent
+    Dim objQuery As AccessObject
+    Dim strName As String
+    Dim lngSavedFormat As Long
+    Dim blnSavedDet As Boolean
+    Dim blnCreated As Boolean
+    Dim dbs As DAO.Database
+    Dim lngErr As Long
+    Dim strErr As String
+
+    strName = "vcs_test_qry_source_ext"
+    lngSavedFormat = Options.ExportFormatVersion
+    blnSavedDet = Options.UseDeterministicQueryExport
+
+    On Error GoTo CleanUp
+
+    If Not ObjectExists(acQuery, strName) Then
+        Set dbs = CurrentDb
+        dbs.CreateQueryDef strName, "SELECT 1 AS One;"
+        blnCreated = True
+    End If
+    Set objQuery = CurrentData.AllQueries(strName)
+    Set cQuery = New clsDbQuery
+
+    Options.ExportFormatVersion = EFV_4_1_2
+    Options.UseDeterministicQueryExport = True
+    Set cQuery.DbObject = objQuery
+    TestAssert LCase$(FSO.GetExtensionName(cQuery.SourceFile)) = "bas", _
+        "format 4.1.2 uses .bas"
+
+    Options.ExportFormatVersion = EFV_5_0_0
+    Options.UseDeterministicQueryExport = True
+    Set cQuery.DbObject = objQuery
+    TestAssert LCase$(FSO.GetExtensionName(cQuery.SourceFile)) = "sql", _
+        "format 5.0 deterministic uses .sql"
+
+    Options.ExportFormatVersion = EFV_5_0_0
+    Options.UseDeterministicQueryExport = False
+    Set cQuery.DbObject = objQuery
+    TestAssert LCase$(FSO.GetExtensionName(cQuery.SourceFile)) = "qdef", _
+        "format 5.0 non-deterministic uses .qdef"
+
+CleanUp:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Options.ExportFormatVersion = lngSavedFormat
+    Options.UseDeterministicQueryExport = blnSavedDet
+    If blnCreated Then DeleteObjectIfExists acQuery, strName
+    If lngErr <> 0 Then Err.Raise lngErr, , strErr
+
+End Sub
+
+
 Public Sub TestResolveComponentTypeMenusAlias()
     TestAssert ResolveComponentType("menus") = edbCommandBar, "menus alias"
     TestAssert ResolveComponentType("menu") = edbCommandBar, "menu alias"

@@ -1211,7 +1211,6 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
 
     ' Guard clauses
     If cComponentClass Is Nothing Then Exit Sub
-    If Not FSO.FileExists(strSourceFilePath) Then Exit Sub
 
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -1267,6 +1266,15 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
         .Add T("Importing {0}...", var0:=strName)
         .Flush
     End With
+
+    If SourceFileIsMissing(strSourceFilePath) Then
+        Log.Error eelError, T("Source file not found: {0}", _
+            var0:=Nz2(strSourceFilePath, T("(empty path)"))), _
+            ModuleName & ".LoadSingleObject"
+        Operation.ErrorLevel = eelCritical
+        intResult = eorFailed
+        GoTo CleanUp
+    End If
 
     If Not blnNoIndex Then
         ' Check for conflicts
@@ -1345,6 +1353,19 @@ CleanUp:
     End With
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SourceFileIsMissing
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : True when Load Selected / ImportObject has no file to import. Extracted
+'           : so tests can assert the decision without logging eelError.
+'---------------------------------------------------------------------------------------
+'
+Public Function SourceFileIsMissing(strSourceFilePath As String) As Boolean
+    SourceFileIsMissing = (Len(strSourceFilePath) = 0 Or Not FSO.FileExists(strSourceFilePath))
+End Function
 
 
 '---------------------------------------------------------------------------------------

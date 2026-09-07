@@ -83,6 +83,36 @@ contradictory guidance.
 
 ---
 
+## 2026-09-07 — Legacy query import stays a frozen compatibility bridge
+
+**Trigger**: Issue #769. A 4.1.2 project with paired `.bas` + `.sql` files
+expected v5.0.1 to import `.sql`. Two real regressions existed (Load Selected
+resolved `.qdef` instead of `.bas`; Force original SQL exited after a
+successful `.bas` load), but making `.sql` automatically win whenever both
+files exist would have rewritten every legacy project's import semantics.
+
+**Options explored**:
+- **Flip `GetFileList` so `.sql` beats leftover `.bas`** — matches v5 docs for
+  the new format, but treats a 4.x sidecar as authoritative and can drop
+  designer metadata. Rejected: extra arbitration to maintain on a format that
+  is going away.
+- **Narrow repair only (chosen)** — restore the 4.1.2 `.bas` source path, make
+  the existing Force-SQL overlay reachable again, and log a missing Load
+  Selected path. Users who want `.sql` as the source of truth migrate to
+  export format 5.0+ and full-export.
+
+**Decision**: Keep `.bas`/`.qdef` as a frozen import bridge. Do not add
+filesystem arbitration, divergence detection, or automatic `.sql` precedence
+for legacy projects.
+
+**What this rules out**: Teaching the v5 importer to merge or prefer a 4.x
+`.sql` sidecar. Revisit only when removing the legacy query path entirely.
+
+**Relevant files**: `clsDbQuery.cls` (`SourceFile`, `ImportLegacyFormat`),
+`modBuild.bas` (`LoadSingleObject`).
+
+---
+
 ## 2026-09-07 — Headless calls raise VBE Error Trapping to Break on Unhandled Errors
 
 **Trigger**: Issue #763. Automated `*Headless` builds hang in the VBE when Error

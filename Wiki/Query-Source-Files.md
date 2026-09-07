@@ -28,14 +28,14 @@ If the SQL is compatible with the query designer and layout data exists in `.jso
 
 ## Legacy formats
 
-These still **import**:
+These still **import** as a compatibility bridge; they are not the actively developed query format:
 
-- `*.qdef` (SaveAsText-style)
-- `*.bas` (very old exports)
+- `*.bas` — primary query source on export format 4.1.2
+- `*.qdef` — SaveAsText-style export when format 5.0+ has **Use Deterministic Query Export** turned off
 
-On the next export with format 5.0, they are replaced by `.sql` + `.json`.
+A paired `.sql` written by **Save Query SQL** is applied on import only when **Force import of original SQL for queries** is enabled (Options → Build). That option does not change which file the build lists under "Importing queries".
 
-To keep legacy `.qdef` as the primary export temporarily, turn off **Use Deterministic Query Export** in Options → Export.
+On the next export with format 5.0 and deterministic query export (the default), leftover `.bas`/`.qdef` files are replaced by `.sql` + `.json`. To make `.sql` authoritative, switch the project to export format 5.0+ and run a full export.
 
 ---
 

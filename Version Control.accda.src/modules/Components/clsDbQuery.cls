@@ -827,26 +827,31 @@ Private Sub ImportLegacyFormat(strFile As String)
     Dim strFileSql As String
     Dim strSql As String
     Dim blnRecreated As Boolean
+    Dim blnLoaded As Boolean
 
     strQueryName = GetObjectNameFromFileName(strFile)
+    strFileSql = SwapExtension(strFile, "sql")
 
     If Options.ForceImportOriginalQuerySQL Then
-        If LoadComponentFromText(acQuery, strQueryName, strFile, True) = False Then
-            strFileSql = SwapExtension(strFile, "sql")
+        ' A successful LoadFromText still continues so the paired .sql can
+        ' overwrite QueryDefs.SQL. Exiting on success left that overlay
+        ' unreachable (issue #769).
+        blnLoaded = LoadComponentFromText(acQuery, strQueryName, strFile, True)
+        If Not blnLoaded Then
             strSql = ReadFile(strFileSql)
             If strSql <> vbNullString Then
                 Set dbs = SharedDb
                 dbs.CreateQueryDef strQueryName, strSql
                 blnRecreated = True
-                Log.Error eelWarning, "  Restored query " & strQueryName & _
-                    " using SQL. Some visual design properties may be lost.", _
-                    "clsDbQuery.ImportLegacyFormat"
+                Log.Error eelWarning, T("Restored query {0} using SQL from {1}. Some visual design properties may be lost.", _
+                    var0:=strQueryName, var1:=FSO.GetFileName(strFileSql)), _
+                    ModuleName(Me) & ".ImportLegacyFormat"
             Else
-                Log.Error eelError, "  Couldn't get original SQL query for " & strQueryName
+                Log.Error eelError, T("Couldn't get original SQL for {0} from {1}.", _
+                    var0:=strQueryName, var1:=strFileSql), _
+                    ModuleName(Me) & ".ImportLegacyFormat"
                 Exit Sub
             End If
-        Else
-            Exit Sub
         End If
     Else
         If LoadComponentFromText(acQuery, strQueryName, strFile) = False Then
@@ -859,14 +864,16 @@ Private Sub ImportLegacyFormat(strFile As String)
     ImportObjectMetadata SwapExtension(strFile, "json"), "Tables", strQueryName, acQuery
 
     If Options.ForceImportOriginalQuerySQL And (blnRecreated = False) Then
-        strFileSql = SwapExtension(strFile, "sql")
         strSql = ReadFile(strFileSql)
         If strSql <> vbNullString Then
             Set dbs = SharedDb
             dbs.QueryDefs(strQueryName).SQL = strSql
-            Log.Add "  Restored original SQL for " & strQueryName, Options.ShowDebug
+            Log.Add T("Restored original SQL for {0} from {1}", _
+                var0:=strQueryName, var1:=FSO.GetFileName(strFileSql))
         Else
-            Log.Add "  Couldn't get original SQL query for " & strQueryName
+            Log.Error eelError, T("Couldn't get original SQL for {0} from {1}.", _
+                var0:=strQueryName, var1:=strFileSql), _
+                ModuleName(Me) & ".ImportLegacyFormat"
         End If
     End If
 
@@ -956,7 +963,9 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return a list of file names to import for this component type.
-'           : New format (.sql) takes priority; falls back to legacy .qdef/.bas
+'           : Legacy .qdef/.bas files take priority when present (frozen
+'           : compatibility). New-format .sql+.json pairs are imported only
+'           : when no same-basename legacy file exists.
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
@@ -1109,7 +1118,8 @@ End Property
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return the full path of the source file for the current object.
-'           : v5.0+: Uses .sql as the primary source file.
+'           : Format 5.0+ with deterministic export uses .sql; format 5.0+
+'           : without it uses .qdef; earlier formats use .bas.
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
@@ -1122,10 +1132,14 @@ Private Property Get IDbComponent_SourceFile() As String
         Exit Property
     End If
     If m_Query Is Nothing Then Exit Property
-    If Options.ExportFormatVersion >= EFV_5_0_0 And Options.UseDeterministicQueryExport Then
-        m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        If Options.UseDeterministicQueryExport Then
+            m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+        Else
+            m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
+        End If
     Else
-        m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
+        m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".bas"
     End If
     IDbComponent_SourceFile = m_strSourceFile
 End Property
