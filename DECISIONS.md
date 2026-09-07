@@ -83,6 +83,40 @@ contradictory guidance.
 
 ---
 
+## 2026-09-07 — Database property change detection counts deletions
+
+**Trigger**: Issue #773. Unsetting `StartUpForm` or `AppTitle` in Access deletes
+the DAO property (assigning `""` raises 3385). Incremental export walks live
+`Database.Properties` and never sees the missing key, so `dbs-properties.json`
+stays stale until some other property changes.
+
+**Options explored**:
+- **Always full-export this category** — reliable, but rewrites the file and
+  logs the total property count on every fast save. Rejected.
+- **Switch to `IsModified` file-hash like `clsDbProjProperty`** — would catch
+  deletions, but any single change would add every live property to the
+  modified set and log `[22]` instead of `[1]`. Rejected; incremental export
+  already reports the changed count and that should stay.
+- **Keep the per-property diff, and also add saved keys missing from the live
+  dictionary** (chosen). A lone unset becomes one modified item, the
+  single-file export runs, and the rewritten JSON drops the deleted key.
+
+**Decision**: `clsDbProperty.GetAllFromDB(True)` appends a placeholder for each
+key that exists in `dbs-properties.json` but not in `GetDictionary`. Export
+still writes the current dictionary once (`SingleFile`). No export-format
+change.
+
+**What this rules out**: Using the all-or-nothing `IsModified` pattern in this
+class just to detect deletions. A future change that wants the log to show
+total properties on fast save would be a display change, not a reason to drop
+the per-property diff.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Components/clsDbProperty.cls`
+- `Version Control.accda.src/modules/Tests/Components/modTestDbProperty.bas`
+
+---
+
 ## 2026-09-02 — Heartbeat pulses per component; paused roots never expire
 
 **Trigger**: Reviewing the cancel-during-export path raised how the 10-minute
