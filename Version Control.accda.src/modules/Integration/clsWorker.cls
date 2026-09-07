@@ -1481,8 +1481,8 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
     On Error GoTo 0
 
     ' Stage error trapping so expected On Error Resume Next blocks are not interrupted.
-    ' eetBreakInClassModule = 1
-    objNewAccess.SetOption "Error Trapping", 1
+    ' eetBreakOnUnhandledErrors = 2 (VBScript cannot use the VBA enum)
+    objNewAccess.SetOption "Error Trapping", 2
 
     objNewAccess.Visible = True
     objNewAccess.OpenCurrentDatabase strRepoAddinPath

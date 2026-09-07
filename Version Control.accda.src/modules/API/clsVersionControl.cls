@@ -237,9 +237,15 @@ Private Function RunHeadlessBuild(ByVal strSourceFolder As String, _
     Dim intPriorMode As eInteractionMode
     Dim varKey As Variant
     Dim intOperationType As eOperationType
+    Dim cTrapping As clsVbeErrorTrappingScope
 
     LogUnhandledErrors
     On Error GoTo ErrHandler
+
+    ' Cover preflight and the operation itself. Operation.Begin will save the
+    ' already-raised mode and restore it on Finish; this scope then puts the
+    ' caller's original value back.
+    Set cTrapping = BeginVbeErrorTrappingScope(eetBreakOnUnhandledErrors)
 
     Set dResult = New Dictionary
 
@@ -3088,12 +3094,14 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
     Dim blnUseWebRunner As Boolean
     Dim strJUnitPath As String
     Dim cRoot As clsRootOperationLease
+    Dim cTrapping As clsVbeErrorTrappingScope
 
     ' An automation session has no one to click Run in the web runner and no
     ' console to watch, so any API/MCP-initiated run is headless regardless of
     ' which entry point was called. Operation.Source is the established signal
     ' for suppressing UI on behalf of these callers.
     If Operation.AutomationSource Then blnHeadless = True
+    If blnHeadless Then Set cTrapping = BeginVbeErrorTrappingScope(eetBreakOnUnhandledErrors)
 
     If Not DatabaseFileOpen Then
         If blnHeadless Then

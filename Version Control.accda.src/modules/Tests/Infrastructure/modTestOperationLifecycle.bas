@@ -61,6 +61,22 @@ Public Sub TestRootLeaseCompletesExactlyOnce()
 End Sub
 
 
+Public Sub TestBeginHoldsRootUntilFinish()
+    Dim cOp As clsOperation
+
+    ' Begin discards no ownership: a lease released when Begin returns would abandon
+    ' the root before any work starts, leaving Status eosReady for the whole
+    ' operation and silently disabling every "is something running?" check.
+    Set cOp = NewOperation(True)
+    TestAssert cOp.Begin(eotExport), "synchronous root began"
+    TestAssert cOp.Status = eosRunning, "root still running after Begin returns"
+    TestAssert cOp.Result <> eorFailed, "root was not abandoned by its own lease"
+    cOp.Finish eorSuccess
+    TestAssert cOp.Status = eosReady, "Finish completed the root"
+    TestAssert cOp.Result = eorSuccess, "Finish recorded the result"
+End Sub
+
+
 Public Sub TestSecondRootRefusedWhileFirstIsActive()
     Dim cOp As clsOperation
     Dim cRoot As clsRootOperationLease
@@ -266,6 +282,55 @@ Public Sub TestAttendedIsImmutableForRootLifetime()
     cOp.ForceUnattended = True
     TestAssert cOp.Attended, "late ForceUnattended does not change the live root"
     cRoot.Complete eorSuccess
+End Sub
+
+
+Public Sub TestRunningRootExpiresAfterHeartbeatTimeout()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    ' A root that stops pulsing is how a crashed or abandoned operation is recognized,
+    ' so the timeout has to still fire for a root that is nominally running.
+    Set cOp = NewOperation(True)
+    Set cRoot = cOp.TryBeginRoot(eotExport)
+    cOp.Heartbeat = DateAdd("n", -30, Now)
+    TestAssert cOp.Status = eosReady, "a root that stopped pulsing times out"
+    TestAssert cOp.Result = eorTimeout, "the timeout is recorded as the result"
+    cRoot.Complete eorTimeout
+End Sub
+
+
+Public Sub TestPausedRootIgnoresHeartbeatTimeout()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+    Dim cPause As clsOperationPause
+
+    ' A user hook such as AfterExport can legitimately run past the timeout, and nothing
+    ' can pulse while foreign code holds the stack. Expiring the root there would strand
+    ' it, since EndPauseScope only restores a root it still finds staged.
+    Set cOp = NewOperation(True)
+    Set cRoot = cOp.TryBeginRoot(eotExport)
+    Set cPause = cOp.TryPause()
+    cOp.Heartbeat = DateAdd("n", -30, Now)
+    TestAssert cOp.Status = eosStaged, "a long-running hook does not expire the paused root"
+    cPause.ResumePause
+    TestAssert cOp.Status = eosRunning, "resuming restores the root and refreshes the heartbeat"
+    cRoot.Complete eorSuccess
+    TestAssert cOp.Result = eorSuccess, "the root still completes normally"
+End Sub
+
+
+Public Sub TestObjectScanProgressPulsesHeartbeat()
+    Dim sngStart As Single
+    Dim datBefore As Date
+
+    ' Change detection pulses once per category; this progress hook is the only call
+    ' every scan loop makes per component. sngStart of 0 suppresses the console
+    ' breadcrumb, so this touches nothing but the heartbeat of the run hosting it.
+    Operation.Heartbeat = DateAdd("s", -2, Now)
+    datBefore = Operation.Heartbeat
+    Log.IncrementObjectScanProgress sngStart, 0, "Queries"
+    TestAssert Operation.Heartbeat > datBefore, "scanning a component pulses the heartbeat"
 End Sub
 
 

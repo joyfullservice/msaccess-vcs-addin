@@ -32,6 +32,9 @@ Private Const TEST_TABLE_MERGE_XML As String = "vcs_test_merge_xml"
 Private Const TEST_TABLE_MERGE_WIDE As String = "vcs_test_merge_wide"
 Private Const WIDE_FIELD_COUNT As Long = 80
 
+' Used to exercise Application.ImportXML rejected-row handling (error 31550).
+Private Const TEST_TABLE_IMPORT_XML As String = "vcs_test_import_xml"
+
 
 Public Sub TestEscapeXmlName()
     TestAssert EscapeXmlName("NotReq'd") = "NotReq_x0027_d", "apostrophe"
@@ -76,6 +79,63 @@ Public Sub TestFormatTableDataChangeSummary()
     TestAssert cTable.FormatTableDataChangeSummary(0, 0, 1) = "1 removed", "deleted only"
     TestAssert cTable.FormatTableDataChangeSummary(1, 2, 3) = "1 added, 2 changed, 3 removed", "all three"
     TestAssert cTable.FormatTableDataChangeSummary(0, 0, 0) = vbNullString, "nothing changed"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestConsumeXmlImportErrors_FromImportXml
+' Author    : Adam Waller
+' Date      : 9/2/2026
+' Purpose   : A real Application.ImportXML rejected-row failure (31550) writes an
+'           : ImportErrors table with the XML schema. Consume reads those rows and
+'           : removes the table. Does not go through IDbComponent_Import, which would
+'           : log an error and fail the test run.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestConsumeXmlImportErrors_FromImportXml()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim cTable As clsDbTableData
+    Dim strFile As String
+    Dim strDetails As String
+    Dim strXml As String
+    Dim lngErr As Long
+
+    Set dbs = CurrentDb
+    Set cTable = New clsDbTableData
+    DropTestTable "ImportErrors", dbs
+    CreateTestTable dbs, TEST_TABLE_IMPORT_XML, _
+        "CREATE TABLE [" & TEST_TABLE_IMPORT_XML & "] (ID LONG PRIMARY KEY, Amount LONG)"
+
+    strFile = GetTestSourceFile(TEST_TABLE_IMPORT_XML, "xml")
+    strXml = "<?xml version=""1.0"" encoding=""UTF-8""?><dataroot>" & _
+        "<" & TEST_TABLE_IMPORT_XML & "><ID>1</ID><Amount>10</Amount></" & _
+        TEST_TABLE_IMPORT_XML & "><" & TEST_TABLE_IMPORT_XML & _
+        "><ID>2</ID><Amount>not-a-number</Amount></" & _
+        TEST_TABLE_IMPORT_XML & "></dataroot>"
+    WriteFile strXml, strFile
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Application.ImportXML strFile, acAppendData
+    lngErr = Err.Number
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+    TestAssert lngErr = 31550, "ImportXML reports rejected rows"
+    TestAssert TableExists("ImportErrors"), "ImportXML created an ImportErrors table"
+
+    strDetails = cTable.ConsumeXmlImportErrors
+    TestAssert InStr(1, strDetails, "Amount", vbTextCompare) > 0, "rejected field is named"
+    TestAssert InStr(1, strDetails, "not-a-number", vbTextCompare) > 0, "rejected value is named"
+    TestAssert Not TableExists("ImportErrors"), "ImportErrors table consumed"
+    TestAssert DCount("*", "[" & TEST_TABLE_IMPORT_XML & "]", "ID=1") = 1, "valid row was imported"
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_IMPORT_XML, dbs
+    DropTestTable "ImportErrors", dbs
+
 End Sub
 
 

@@ -295,3 +295,41 @@ Public Sub RestoreUserErrorTrappingOnApp(objAccess As Access.Application, intSav
         objAccess.SetOption "Error Trapping", intSaved
     End If
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EffectiveVbeErrorTrapping
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Pure policy for a restorable Error Trapping override. Enum values are
+'           : ordered by permissiveness (0 Break on All Errors < 1 Break in Class
+'           : Module < 2 Break on Unhandled Errors), so the effective mode is the
+'           : higher of the current setting and the required floor. Never lowers a
+'           : caller already at a more permissive mode.
+'---------------------------------------------------------------------------------------
+'
+Public Function EffectiveVbeErrorTrapping(intCurrent As eVbeErrorTrapping, _
+    intRequired As eVbeErrorTrapping) As eVbeErrorTrapping
+    If intCurrent < intRequired Then
+        EffectiveVbeErrorTrapping = intRequired
+    Else
+        EffectiveVbeErrorTrapping = intCurrent
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BeginVbeErrorTrappingScope
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Start a restorable scope that raises Error Trapping to intRequired (or
+'           : leaves a more permissive current value). Hold the returned object until
+'           : the call is finished; Class_Terminate restores the saved mode.
+'---------------------------------------------------------------------------------------
+'
+Public Function BeginVbeErrorTrappingScope(intRequired As eVbeErrorTrapping) As clsVbeErrorTrappingScope
+    Dim cScope As clsVbeErrorTrappingScope
+    Set cScope = New clsVbeErrorTrappingScope
+    cScope.Init intRequired
+    Set BeginVbeErrorTrappingScope = cScope
+End Function

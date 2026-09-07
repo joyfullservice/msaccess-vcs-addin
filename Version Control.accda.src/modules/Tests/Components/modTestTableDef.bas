@@ -17,6 +17,7 @@ Private Const TEST_TABLE_BIGINT As String = "vcs_test_bigint_repair"
 Private Const TEST_TABLE_OUTSIDE_EXPORT As String = "vcs_test_td_outside_export"
 Private Const TEST_TABLE_DECIMAL_SQL As String = "vcs_test_decimal_sql"
 Private Const TEST_TABLE_DECIMAL_DAO As String = "vcs_test_decimal_dao"
+Private Const TEST_TABLE_HIDDEN_SIDECAR As String = "vcs_test_hidden_sidecar"
 
 
 '---------------------------------------------------------------------------------------
@@ -543,6 +544,88 @@ Private Function DecimalFixtureXml() As String
 
 End Function
 
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestHiddenLocalTableKeepsMetadataSidecar
+' Author    : Ricardo Hernandez
+' Date      : 9/5/2026
+' Purpose   : A hidden local table must keep its companion metadata file after a normal
+'           : export. The alternate-format name for a local table is <name>.json -- the
+'           : same name the metadata sidecar uses -- so RemoveAlternateFormatSourceFile
+'           : deletes the file ExportObjectMetadata wrote a few lines earlier, and the
+'           : hidden attribute never reaches source. A Build from Source then recreates
+'           : the table visible.
+'           :
+'           : The export folder is redirected to a temp folder so the fixture never
+'           : writes into the project's own source tree, and restored before the
+'           : assertions so a failure cannot leave the option pointing elsewhere.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestHiddenLocalTableKeepsMetadataSidecar()
+    '@Tag("integration")
+
+    Dim cTable As clsDbTableDef
+    Dim cComponent As IDbComponent
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim strFolder As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim strBase As String
+    Dim strXmlFile As String
+    Dim strJsonFile As String
+    Dim blnWasHidden As Boolean
+    Dim blnJsonExists As Boolean
+    Dim blnHasHidden As Boolean
+
+    DropTestTable TEST_TABLE_HIDDEN_SIDECAR
+
+    CurrentProject.Connection.Execute _
+        "CREATE TABLE [" & TEST_TABLE_HIDDEN_SIDECAR & "] ([ID] LONG)"
+    RefreshTableCollections CurrentDb
+    Application.SetHiddenAttribute acTable, TEST_TABLE_HIDDEN_SIDECAR, True
+    blnWasHidden = Application.GetHiddenAttribute(acTable, TEST_TABLE_HIDDEN_SIDECAR)
+
+    strFolder = GetTempFolder("vcs_hidden_sidecar")
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_0_0
+
+    ' Export through the normal (non-alternate) path -- the one a real export takes for
+    ' any table the change scan did not already export to the temp folder.
+    Set cTable = New clsDbTableDef
+    Set cComponent = cTable
+    Set cComponent.DbObject = CurrentData.AllTables(TEST_TABLE_HIDDEN_SIDECAR)
+    cComponent.Export
+
+    strBase = Options.GetExportFolder & "tbldefs" & PathSep & GetSafeFileName(TEST_TABLE_HIDDEN_SIDECAR)
+    strXmlFile = strBase & ".xml"
+    strJsonFile = strBase & ".json"
+    blnJsonExists = FSO.FileExists(strJsonFile)
+    If blnJsonExists Then
+        Set dFile = ReadJsonFile(strJsonFile)
+        If Not dFile Is Nothing Then
+            If dFile.Exists("Items") Then
+                Set dItems = dFile("Items")
+                If dItems.Exists("Hidden") Then blnHasHidden = dItems("Hidden")
+            End If
+        End If
+    End If
+
+    ' Restore before asserting so a failure cannot leave the options redirected.
+    Options.ExportFolder = strPriorFolder
+    Options.ExportFormatVersion = lngPriorFormat
+
+    TestAssert blnWasHidden, "fixture table is hidden before the export"
+    TestAssert FSO.FileExists(strXmlFile), "local table schema was exported"
+    TestAssert blnJsonExists, "metadata sidecar survives the export of a hidden local table"
+    TestAssert blnHasHidden, "sidecar records the hidden attribute"
+
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    DropTestTable TEST_TABLE_HIDDEN_SIDECAR
+
+End Sub
 
 '---------------------------------------------------------------------------------------
 ' Procedure : DropTestTable

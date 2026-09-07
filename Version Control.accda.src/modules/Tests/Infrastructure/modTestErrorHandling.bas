@@ -3,8 +3,9 @@
 ' Module    : modTestErrorHandling
 ' Author    : Adam Waller
 ' Date      : 5/12/2026
-' Purpose   : Tests for modErrorHandling: Catch, CatchAny, LogUnhandledErrors.
-'           : Migrated from TestCatch in modTestSuite.
+' Purpose   : Tests for modErrorHandling: Catch, CatchAny, LogUnhandledErrors,
+'           : and the VBE Error Trapping floor policy. Migrated from TestCatch
+'           : in modTestSuite.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -59,4 +60,24 @@ Public Sub TestCatch_NoError()
     On Error Resume Next
     ' No error raised
     TestAssert Not Catch(13), "returns False when no error"
+End Sub
+
+
+Public Sub TestEffectiveVbeErrorTrappingFloor1()
+    TestAssert EffectiveVbeErrorTrapping(eetBreakOnAllErrors, eetBreakInClassModule) = eetBreakInClassModule, _
+        "floor 1 raises 0 to 1"
+    TestAssert EffectiveVbeErrorTrapping(eetBreakInClassModule, eetBreakInClassModule) = eetBreakInClassModule, _
+        "floor 1 leaves 1"
+    TestAssert EffectiveVbeErrorTrapping(eetBreakOnUnhandledErrors, eetBreakInClassModule) = eetBreakOnUnhandledErrors, _
+        "floor 1 never downgrades 2"
+End Sub
+
+
+Public Sub TestEffectiveVbeErrorTrappingFloor2()
+    TestAssert EffectiveVbeErrorTrapping(eetBreakOnAllErrors, eetBreakOnUnhandledErrors) = eetBreakOnUnhandledErrors, _
+        "floor 2 raises 0 to 2"
+    TestAssert EffectiveVbeErrorTrapping(eetBreakInClassModule, eetBreakOnUnhandledErrors) = eetBreakOnUnhandledErrors, _
+        "floor 2 raises 1 to 2"
+    TestAssert EffectiveVbeErrorTrapping(eetBreakOnUnhandledErrors, eetBreakOnUnhandledErrors) = eetBreakOnUnhandledErrors, _
+        "floor 2 leaves 2"
 End Sub

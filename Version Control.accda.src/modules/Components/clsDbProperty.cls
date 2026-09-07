@@ -325,6 +325,8 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return a collection of class objects represented by this component type.
+'           : When blnModifiedOnly is True, include added, changed, and deleted
+'           : properties so a lone unset still triggers the single-file export.
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean = False) As Dictionary
@@ -337,6 +339,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim blnNeedAll As Boolean
     Dim blnAdd As Boolean
     Dim strKey As String
+    Dim varKey As Variant
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -382,6 +385,21 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 If blnAdd Then m_Items(True).Add IDbComponent_SourceFile & ":" & strKey, cProp
             End If
         Next prp
+
+        ' Unsetting a property in Access deletes it (error 3385 if you assign ""),
+        ' so a removed key never appears in the live loop above. Count it as
+        ' modified so a lone delete still triggers the single-file rewrite.
+        ' See issue #773.
+        If blnModifiedOnly Then
+            If Not dSaved Is Nothing Then
+                For Each varKey In dSaved.Keys
+                    If Not dCurrent.Exists(CStr(varKey)) Then
+                        Set cProp = New clsDbProperty
+                        m_Items(True).Add IDbComponent_SourceFile & ":" & CStr(varKey), cProp
+                    End If
+                Next varKey
+            End If
+        End If
     End If
 
     ' Return cached collection

@@ -135,6 +135,162 @@ in-place merge when the answer is unknown.
 
 ---
 
+## 2026-09-07 — Legacy query import stays a frozen compatibility bridge
+
+**Trigger**: Issue #769. A 4.1.2 project with paired `.bas` + `.sql` files
+expected v5.0.1 to import `.sql`. Two real regressions existed (Load Selected
+resolved `.qdef` instead of `.bas`; Force original SQL exited after a
+successful `.bas` load), but making `.sql` automatically win whenever both
+files exist would have rewritten every legacy project's import semantics.
+
+**Options explored**:
+- **Flip `GetFileList` so `.sql` beats leftover `.bas`** — matches v5 docs for
+  the new format, but treats a 4.x sidecar as authoritative and can drop
+  designer metadata. Rejected: extra arbitration to maintain on a format that
+  is going away.
+- **Narrow repair only (chosen)** — restore the 4.1.2 `.bas` source path, make
+  the existing Force-SQL overlay reachable again, and log a missing Load
+  Selected path. Users who want `.sql` as the source of truth migrate to
+  export format 5.0+ and full-export.
+
+**Decision**: Keep `.bas`/`.qdef` as a frozen import bridge. Do not add
+filesystem arbitration, divergence detection, or automatic `.sql` precedence
+for legacy projects.
+
+**What this rules out**: Teaching the v5 importer to merge or prefer a 4.x
+`.sql` sidecar. Revisit only when removing the legacy query path entirely.
+
+**Relevant files**: `clsDbQuery.cls` (`SourceFile`, `ImportLegacyFormat`),
+`modBuild.bas` (`LoadSingleObject`).
+
+---
+
+## 2026-09-07 — Headless calls raise VBE Error Trapping to Break on Unhandled Errors
+
+**Trigger**: Issue #763. Automated `*Headless` builds hang in the VBE when Error
+Trapping is Break on All Errors (0): a handled `On Error Resume Next` still
+stops the debugger. v5 already floors an active root at Break in Class Module
+(1), but that does not cover headless preflight (which runs before
+`Operation.Begin`), it downgrades a caller already at Break on Unhandled Errors
+(2), and mode 1 still breaks on class-module errors whose handler is only in
+the caller.
+
+**Options explored**:
+- **Force mode 2 on every API/MCP operation** — would stop more unattended
+  hangs, but reverses the 2026-08-06 choice to keep raising-line diagnostics
+  for non-headless automation. Rejected.
+- **Change only `clsOperation.SetErrorTrapping`** — Josef's no-downgrade
+  (`apply 1 only when saved < 1`) is necessary, but headless preflight still
+  runs under the caller's mode 0. Incomplete.
+- **Restorable scope on explicit headless entry points, plus no-downgrade in
+  `SetErrorTrapping` (chosen)** — `BuildHeadless` / `MergeHeadless` /
+  `RunTestsHeadless` (and tests forced headless for API/MCP) raise to 2 for
+  the whole call, including preflight. `Operation.Begin` still floors attended
+  work at 1 and will not lower a more permissive current value. The original
+  setting is always restored; `Application.SetOption "Error Trapping"` is
+  persistent and must not leak.
+
+**Decision**: Add `EffectiveVbeErrorTrapping` and `clsVbeErrorTrappingScope`.
+Headless entry points acquire the scope first. Nested restore works because
+the outer scope saves 0 and applies 2, the operation then saves/restores 2,
+and the outer scope finally restores 0. The throwaway Access instance in
+`RebuildAddIn` is set to 2; attended installer scopes stay at 1.
+
+**What this rules out**: Leaving a CI session permanently at mode 2 after a
+headless call. Changing every MCP/API export or `RunVBA` to mode 2. Revisit
+only if a non-headless automation path still hangs on a handled class-module
+error and there is no human to continue the break.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/clsVbeErrorTrappingScope.cls`
+- `Version Control.accda.src/modules/Infrastructure/modErrorHandling.bas`
+- `Version Control.accda.src/modules/Infrastructure/clsOperation.cls`
+- `Version Control.accda.src/modules/API/clsVersionControl.cls`
+- `Version Control.accda.src/modules/Integration/clsWorker.cls`
+- `docs/automation-contract.md`, `Wiki/Continuous-Integration.md`
+
+---
+
+## 2026-09-07 — Database property change detection counts deletions
+
+**Trigger**: Issue #773. Unsetting `StartUpForm` or `AppTitle` in Access deletes
+the DAO property (assigning `""` raises 3385). Incremental export walks live
+`Database.Properties` and never sees the missing key, so `dbs-properties.json`
+stays stale until some other property changes.
+
+**Options explored**:
+- **Always full-export this category** — reliable, but rewrites the file and
+  logs the total property count on every fast save. Rejected.
+- **Switch to `IsModified` file-hash like `clsDbProjProperty`** — would catch
+  deletions, but any single change would add every live property to the
+  modified set and log `[22]` instead of `[1]`. Rejected; incremental export
+  already reports the changed count and that should stay.
+- **Keep the per-property diff, and also add saved keys missing from the live
+  dictionary** (chosen). A lone unset becomes one modified item, the
+  single-file export runs, and the rewritten JSON drops the deleted key.
+
+**Decision**: `clsDbProperty.GetAllFromDB(True)` appends a placeholder for each
+key that exists in `dbs-properties.json` but not in `GetDictionary`. Export
+still writes the current dictionary once (`SingleFile`). No export-format
+change.
+
+**What this rules out**: Using the all-or-nothing `IsModified` pattern in this
+class just to detect deletions. A future change that wants the log to show
+total properties on fast save would be a display change, not a reason to drop
+the per-property diff.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Components/clsDbProperty.cls`
+- `Version Control.accda.src/modules/Tests/Components/modTestDbProperty.bas`
+
+---
+
+## 2026-09-02 — Heartbeat pulses per component; paused roots never expire
+
+**Trigger**: Reviewing the cancel-during-export path raised how the 10-minute
+heartbeat timeout behaves on large databases. Two gaps: change-detection scans
+pulsed once per category (`modExport`/`modBuild`), so the timeout had to cover a
+whole category rather than one component; and a user hook such as `AfterExport`
+runs foreign code that can legitimately exceed the timeout with nothing able to
+pulse. A root that expires is silently downgraded to `eosReady`, which turns
+every "is something running?" check false — including the cancel prompt.
+
+**Options explored**:
+- **Raise `HEARTBEAT_TIMEOUT_SECONDS`** — rejected; any fixed number is wrong for
+  a hook of unknown length, and a longer timeout slows recognition of a genuinely
+  crashed operation.
+- **Pulse from each of the 17 scan loops** — same effect as the chosen option but
+  17 call sites to keep in sync. Rejected because every scan loop already calls
+  `Log.IncrementObjectScanProgress` once per component.
+- **Pulse the registry per component** — rejected outright; `SaveSetting` per
+  object on a large scan is a real cost for a value only crash recovery reads.
+- **Exempt paused roots from the timeout (chosen for hooks)** — a pause already
+  means "foreign code owns the stack." Expiring there also strands the root:
+  `EndPauseScope` only restores a root it still finds `eosStaged`, so a timeout
+  during a hook would leave the operation unrecoverable after the hook returned.
+
+**Decision**: `Operation.Pulse` stays an in-memory assignment and is now called
+per component from `Log.IncrementObjectScanProgress`, reaching every scan loop
+through a call they already make. `Pulse` refreshes the registry copy at most
+once every 60 seconds (`REGISTRY_PULSE_SECONDS`), so `RestoreFromRegistry` sees a
+fresh value during a long operation without paying a write per object. The
+`Status` getter skips the timeout check entirely while `PauseDepth > 0`; a
+detached root (asynchronous continuation) still expires, because there the
+timeout is the only thing that recovers an operation that never resumed.
+
+**What this rules out**: Treating a stale heartbeat as proof that no operation is
+running — that inference is now invalid while a root is paused. Reading the
+registry `Heartbeat` as accurate to the second; it lags by up to a minute.
+Revisit if pauses ever become long-lived or survive a stack, since a paused root
+would then have no expiry at all.
+
+**Relevant files**:
+- `clsOperation.cls` — throttled registry pulse, pause-aware `Status`
+- `clsLog.cls` — `IncrementObjectScanProgress` pulses per component
+- `modTestOperationLifecycle.bas` — timeout, pause, and scan-pulse tests
+
+---
+
 ## 2026-08-31 — Form/report code-behind uses full VBAProjectDate fast path
 
 **Trigger**: Fast Save skipped forms and reports when only the code module changed
@@ -2296,6 +2452,12 @@ a table name, and rules out per-side resolution as the shape of this fix.
 ---
 
 ## 2026-08-06 — In-memory error-break suppression for MCP/API calls
+
+> **⚠ Partially superseded** (2026-09-07): Explicit headless entry points now
+> raise VBE Error Trapping to Break on Unhandled Errors for the duration of the
+> call. `Operation.Begin` still floors attended work at Break in Class Module
+> and does not change every MCP/API call. See "Headless calls raise VBE Error
+> Trapping to Break on Unhandled Errors" above.
 
 **Trigger**: MCP tools (`vcs_run_vba`, `vcs_export_database`, etc.) route through `modAPI.API` / `APIAsync`. When **Break on Error** is enabled, `LogUnhandledErrors` executes `Stop` on leftover `Err` before most `On Error` directives. That halts Access until a human continues — the MCP server sees a hung call with no JSON response.
 

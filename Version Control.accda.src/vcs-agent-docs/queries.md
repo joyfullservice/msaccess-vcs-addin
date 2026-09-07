@@ -46,5 +46,8 @@ see `troubleshooting.md` for how those resolve.
 ## Legacy files
 
 Older projects may still contain `.qdef` or `.bas` query files. Import still
-accepts them, and the next export replaces each one with the `.sql` plus `.json`
-pair.
+accepts them. On export format 4.1.2 the `.bas` file is the import source; a
+paired `.sql` is applied only when **Force import of original SQL for queries**
+is enabled. To make `.sql` the source of truth, switch to export format 5.0+
+and run a full export — that writes `.sql` plus `.json` and removes the legacy
+files.
