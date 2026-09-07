@@ -121,6 +121,7 @@ Public Function TestClassFactory(ByVal strClassName As String) As Object
         Case "clsTestSourceParser": Set TestClassFactory = New clsTestSourceParser
         Case "clsTestSqlFormatter": Set TestClassFactory = New clsTestSqlFormatter
         Case "clsTestSqlSyntax": Set TestClassFactory = New clsTestSqlSyntax
+        Case "clsTestWorkerLifecycle": Set TestClassFactory = New clsTestWorkerLifecycle
     End Select
 '--- END TEST CLASS ENTRIES ---
 End Function
