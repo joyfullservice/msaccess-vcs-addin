@@ -26,6 +26,14 @@ Const UNSUPPORTED_DATA_TYPE As String = "UNSUPPORTED DATA TYPE"
 ' many rows are involved. (See UpdateChangedRows.)
 Private Const ERR_QUERY_TOO_COMPLEX As Long = 3360
 
+' Application.ImportXML raises this when some rows are rejected and writes the details
+' to an ImportErrors table. (See FinishXmlDataImport.)
+Private Const ERR_XML_IMPORT_INCOMPLETE As Long = 31550
+
+' Cap the number of ImportErrors rows written to the log. A large file can reject
+' thousands of rows; the rest are summarized.
+Private Const XML_IMPORT_ERROR_LOG_LIMIT As Long = 20
+
 ' Number of fields to assign and compare in a single statement when the reconcile update
 ' has to be split up. Well inside the widest statement observed to compile, and reduced
 ' further at runtime if the engine still refuses one.
@@ -571,6 +579,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim blnUseTemp As Boolean
     Dim strTempFile As String
     Dim strTable As String
+    Dim blnImported As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -589,29 +598,35 @@ Private Sub IDbComponent_Import(strFile As String)
                     ' The ImportXML function does not properly handle UrlEncoded paths
                     blnUseTemp = (InStr(1, strFile, "%") > 0)
                     Perf.OperationStart "App.ImportXML() Data"
+                    ' ImportXML raises 31550 when some rows are rejected. Catch that even
+                    ' in debug mode, where the function-level handler would otherwise stop.
+                    LogUnhandledErrors
+                    On Error Resume Next
                     If blnUseTemp Then
                         ' Import from (safe) temporary file name.
                         strTempFile = GetTempFile
                         FSO.CopyFile strFile, strTempFile
                         Application.ImportXML strTempFile, acAppendData
-                        DeleteFile strTempFile
                     Else
                         Application.ImportXML strFile, acAppendData
                     End If
                     Perf.OperationEnd
 
-                    ' Trap any XML import errors
-                    CatchAny eelError, "Error importing XML data from '" & strFile & "'", ModuleName(Me) & ".Import"
+                    blnImported = FinishXmlDataImport(strFile, ModuleName(Me) & ".Import")
+                    If blnUseTemp Then DeleteFile strTempFile
                     LogGitConflictMarkerIfPresent strFile, ModuleName(Me) & ".Import"
 
             Case etdTabDelimited
                 Perf.OperationStart "Import Table Data (TDF)"
                 ImportTableDataTDF strFile
                 Perf.OperationEnd
+                blnImported = (Err.Number = 0)
         End Select
 
         ' Record the file we just imported so the next merge sees it as unchanged.
-        If Err.Number = 0 And Operation.ErrorLevel <> eelCritical Then
+        ' A rejected-row import (31550) clears Err when it is logged, so completeness
+        ' is tracked with blnImported rather than Err.Number.
+        If blnImported And Operation.ErrorLevel <> eelCritical Then
             Set m_Table = CurrentData.AllTables(strTable)
             Me.Format = GetFormatByExt(strFile)
             VCSIndex.Update Me, eatImport, GetFileHash(strFile)
@@ -766,6 +781,103 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ConsumeXmlImportErrors
+' Author    : Adam Waller
+' Date      : 9/2/2026
+' Purpose   : Application.ImportXML writes rejected rows to ImportErrors and raises
+'           : 31550. Read those rows into a log fragment, drop the table so it is not
+'           : later exported as a table definition, and return the fragment. Called only after
+'           : an import failure, so the successful path does no catalog lookup.
+'---------------------------------------------------------------------------------------
+'
+Public Function ConsumeXmlImportErrors() As String
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim lngCount As Long
+    Dim strDetails As String
+    Dim strLine As String
+
+    Perf.OperationStart "XML Import Errors"
+    Set dbs = CurrentDb
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Selecting the known fields doubles as the schema check, so an unrelated
+    ' user table named ImportErrors is not dropped.
+    Set rst = dbs.OpenRecordset( _
+        "SELECT TOP " & CStr(XML_IMPORT_ERROR_LOG_LIMIT + 1) & _
+        " [XML Text], [Error Message], [Result] FROM [ImportErrors]", _
+        dbOpenSnapshot, dbReadOnly)
+    If Not rst Is Nothing Then
+        Do While Not rst.EOF
+            lngCount = lngCount + 1
+            If lngCount <= XML_IMPORT_ERROR_LOG_LIMIT Then
+                strLine = T("  {0}: {1}", _
+                    var0:=Nz(rst![XML Text], vbNullString), _
+                    var1:=Nz(rst![Error Message], vbNullString))
+                If Len(Nz(rst!Result, vbNullString)) > 0 Then
+                    strLine = strLine & T(" ({0})", var0:=Nz(rst!Result, vbNullString))
+                End If
+                strDetails = strDetails & strLine & vbCrLf
+            End If
+            rst.MoveNext
+        Loop
+        rst.Close
+
+        If Err Then Err.Clear
+        dbs.Execute "DROP TABLE [ImportErrors]", dbFailOnError
+        If Err Then Err.Clear Else ReleaseDbReferences
+    ElseIf Err Then
+        Err.Clear
+    End If
+    On Error GoTo 0
+
+    If lngCount > XML_IMPORT_ERROR_LOG_LIMIT Then
+        strDetails = strDetails & T("  Additional import errors were not shown.") & vbCrLf
+    End If
+
+    ConsumeXmlImportErrors = strDetails
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FinishXmlDataImport
+' Author    : Adam Waller
+' Date      : 9/2/2026
+' Purpose   : After Application.ImportXML acAppendData, treat rejected rows as a failed
+'           : import: log 31550 and any ImportErrors rows, drop those tables, and
+'           : return false so the caller does not update the index or reconcile.
+'---------------------------------------------------------------------------------------
+'
+Private Function FinishXmlDataImport(strFile As String, strSource As String) As Boolean
+
+    Dim strImportErrors As String
+
+    ' The common case returns immediately: no catalog query, no TableDefs refresh,
+    ' and no SharedDb invalidation.
+    If Err.Number = 0 Then
+        FinishXmlDataImport = True
+        Exit Function
+    End If
+
+    If Not Catch(ERR_XML_IMPORT_INCOMPLETE) Then
+        CatchAny eelError, T("Error importing XML data from '{0}'", var0:=strFile), strSource
+        Exit Function
+    End If
+
+    strImportErrors = ConsumeXmlImportErrors
+    Log.Error eelError, T("Not all records were imported from '{0}'.", _
+        var0:=strFile), strSource
+    If Len(strImportErrors) > 0 Then Log.Add strImportErrors, False
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetMergeStrategy
 ' Author    : Adam Waller
 ' Date      : 7/28/2026
@@ -811,7 +923,9 @@ Private Function LoadStagingTable(strFile As String, strTable As String, _
     strStaging As String) As Boolean
 
     Dim strTempFile As String
+    Dim strImportErrors As String
     Dim lngSourceRows As Long
+    Dim blnImported As Boolean
 
     LogUnhandledErrors
     On Error Resume Next
@@ -844,7 +958,16 @@ Private Function LoadStagingTable(strFile As String, strTable As String, _
                 Application.ImportXML strTempFile, acAppendData
                 Perf.OperationEnd
             End If
-            DeleteFile strTempFile
+            If lngSourceRows > 0 Then
+                blnImported = FinishXmlDataImport(strFile, ModuleName(Me) & ".LoadStagingTable")
+                DeleteFile strTempFile
+                If Not blnImported Then
+                    On Error GoTo 0
+                    Exit Function
+                End If
+            Else
+                DeleteFile strTempFile
+            End If
 
         Case Else
             ' Guarded by GetMergeStrategy. Never fall through to the reconcile with an
@@ -868,9 +991,11 @@ Private Function LoadStagingTable(strFile As String, strTable As String, _
     ' the reconcile would delete them, so the counts have to agree before going any further.
     If GetFormatByExt(strFile) = etdXML Then
         If DCount("*", "[" & strStaging & "]") <> lngSourceRows Then
+            strImportErrors = ConsumeXmlImportErrors
             Log.Error eelError, T("Only {0} of {1} rows from '{2}' could be read for merge.", _
                 var0:=CStr(DCount("*", "[" & strStaging & "]")), var1:=CStr(lngSourceRows), _
                 var2:=strFile), ModuleName(Me) & ".LoadStagingTable"
+            If Len(strImportErrors) > 0 Then Log.Add strImportErrors, False
             Exit Function
         End If
     End If
