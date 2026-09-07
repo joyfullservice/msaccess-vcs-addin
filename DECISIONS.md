@@ -83,6 +83,41 @@ contradictory guidance.
 
 ---
 
+## 2026-09-07 — Resource refresh uses a stable audit file, not a dialog
+
+**Trigger**: MCP `vcs_rebuild_addin` blocked on a modal "Updated Resource /
+AGENTS.md has been updated from source" box. `VerifyResource` compared the
+on-disk source to `tblResources` and called `MsgBox2` on every hash change.
+
+**Options explored**:
+- **Keep the dialog and rely on silent `MsgBox2`.** Rejected. AfterBuild and
+  AutoRun run in the current project's VBA, a different `Operation` /
+  `Log` singleton from the installed add-in that MCP put in silent mode.
+  `PromptWouldDisplay` stays true there.
+- **`Log.Add` into the builder's `Build_*.log`.** Rejected. Same project
+  split: the hosted `Log` is never `SaveFile`d. AutoRun has no operation
+  log at all.
+- **`Application.Run` a new `LogAdd` on the installed add-in.** Rejected.
+  The first rebuild after introducing that entry point is driven by the
+  previously installed version, which does not contain it yet.
+- **Stable `logs\ResourceUpdates.log` (chosen).** Appended only when the
+  stored and source hashes differ. Works on the first rebuild, survives
+  after Access exits, and does not depend on which add-in copy owns `Log`.
+
+**Decision**: Drop the `MsgBox2`. After a real hash change, append one
+timestamped line to `Version Control.accda.src\logs\ResourceUpdates.log`.
+COM-opened AutoRun also sets `eosExternalAPI` and `eimSilent`, matching
+`INSTALL SILENT`.
+
+**What this rules out**: Forwarding resource-update lines into the
+transient `Build_*.log` or the MCP callback stream. Revisit if a later
+change gives AfterBuild a supported way to write on the builder's `Log`
+without a first-rebuild bootstrap gap.
+
+**Relevant files**: `modResource.bas`, `modInstall.bas`.
+
+---
+
 ## 2026-09-07 — Accessibility probe returns through a per-job result file
 
 **Trigger**: `CheckDatabaseAccessible` is the one worker action whose only

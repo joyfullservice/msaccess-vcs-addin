@@ -247,6 +247,8 @@ Public Function AutoRun() As Boolean
     ' opening the add-in to run its own test suite, since those tests only run when the
     ' add-in is the current database.
     If OpenedByAutomation Then
+        Operation.Source = eosExternalAPI
+        SetInteractionMode eimSilent
         VerifyResources
         Exit Function
     End If

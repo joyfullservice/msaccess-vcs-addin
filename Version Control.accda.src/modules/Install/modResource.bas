@@ -17,6 +17,7 @@ Private Const ModuleName As String = "modResource"
 ' it cannot collide with any other resource sharing the same file name.
 Private Const AGENT_DOCS_FOLDER As String = "vcs-agent-docs"
 Private Const AGENT_DOC_PREFIX As String = "Agent Doc "
+Private Const RESOURCE_UPDATES_LOG As String = "ResourceUpdates.log"
 
 
 '---------------------------------------------------------------------------------------
@@ -223,7 +224,7 @@ Private Sub VerifyResource(strKey As String, strFile As String)
             If GetFileHash(strPath) <> GetRstResourceHash(rst) Then
                 rst.Edit
                     LoadResource rst, strPath
-                    MsgBox2 "Updated Resource", strKey & " has been updated from source.", , vbInformation
+                    LogResourceUpdate strKey, strPath
                 rst.Update
             End If
         End If
@@ -231,6 +232,36 @@ Private Sub VerifyResource(strKey As String, strFile As String)
         ' Source file does not exist. No need to go any further. (Might be running
         ' on a client computer during the installation process.)
     End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogResourceUpdate
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Record a resource hash refresh in a stable audit file. AfterBuild and
+'           : AutoRun run in a different VBA project than the builder, so Log.Add
+'           : here would not reach Build_*.log. This file works on the first rebuild
+'           : driven by an older installed add-in that has no new callback entry point.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LogResourceUpdate(strKey As String, strSourcePath As String)
+
+    Dim strSrcFolder As String
+    Dim strLogPath As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    strSrcFolder = CodeProject.Path & PathSep & "Version Control.accda.src"
+    If Not FSO.FolderExists(strSrcFolder) Then Exit Sub
+
+    strLogPath = strSrcFolder & PathSep & "logs" & PathSep & RESOURCE_UPDATES_LOG
+    AppendToFile Format$(Now, "yyyy-mm-dd hh:nn:ss") & " | " & _
+        T("Updated resource '{0}' from source: {1}", var0:=strKey, var1:=strSourcePath), _
+        strLogPath
+    CatchAny eelWarning, T("Error writing resource update log"), _
+        ModuleName & ".LogResourceUpdate"
 
 End Sub
 
