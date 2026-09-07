@@ -83,6 +83,52 @@ contradictory guidance.
 
 ---
 
+## 2026-09-07 — Headless calls raise VBE Error Trapping to Break on Unhandled Errors
+
+**Trigger**: Issue #763. Automated `*Headless` builds hang in the VBE when Error
+Trapping is Break on All Errors (0): a handled `On Error Resume Next` still
+stops the debugger. v5 already floors an active root at Break in Class Module
+(1), but that does not cover headless preflight (which runs before
+`Operation.Begin`), it downgrades a caller already at Break on Unhandled Errors
+(2), and mode 1 still breaks on class-module errors whose handler is only in
+the caller.
+
+**Options explored**:
+- **Force mode 2 on every API/MCP operation** — would stop more unattended
+  hangs, but reverses the 2026-08-06 choice to keep raising-line diagnostics
+  for non-headless automation. Rejected.
+- **Change only `clsOperation.SetErrorTrapping`** — Josef's no-downgrade
+  (`apply 1 only when saved < 1`) is necessary, but headless preflight still
+  runs under the caller's mode 0. Incomplete.
+- **Restorable scope on explicit headless entry points, plus no-downgrade in
+  `SetErrorTrapping` (chosen)** — `BuildHeadless` / `MergeHeadless` /
+  `RunTestsHeadless` (and tests forced headless for API/MCP) raise to 2 for
+  the whole call, including preflight. `Operation.Begin` still floors attended
+  work at 1 and will not lower a more permissive current value. The original
+  setting is always restored; `Application.SetOption "Error Trapping"` is
+  persistent and must not leak.
+
+**Decision**: Add `EffectiveVbeErrorTrapping` and `clsVbeErrorTrappingScope`.
+Headless entry points acquire the scope first. Nested restore works because
+the outer scope saves 0 and applies 2, the operation then saves/restores 2,
+and the outer scope finally restores 0. The throwaway Access instance in
+`RebuildAddIn` is set to 2; attended installer scopes stay at 1.
+
+**What this rules out**: Leaving a CI session permanently at mode 2 after a
+headless call. Changing every MCP/API export or `RunVBA` to mode 2. Revisit
+only if a non-headless automation path still hangs on a handled class-module
+error and there is no human to continue the break.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/clsVbeErrorTrappingScope.cls`
+- `Version Control.accda.src/modules/Infrastructure/modErrorHandling.bas`
+- `Version Control.accda.src/modules/Infrastructure/clsOperation.cls`
+- `Version Control.accda.src/modules/API/clsVersionControl.cls`
+- `Version Control.accda.src/modules/Integration/clsWorker.cls`
+- `docs/automation-contract.md`, `Wiki/Continuous-Integration.md`
+
+---
+
 ## 2026-09-07 — Database property change detection counts deletions
 
 **Trigger**: Issue #773. Unsetting `StartUpForm` or `AppTitle` in Access deletes
@@ -2324,6 +2370,12 @@ a table name, and rules out per-side resolution as the shape of this fix.
 ---
 
 ## 2026-08-06 — In-memory error-break suppression for MCP/API calls
+
+> **⚠ Partially superseded** (2026-09-07): Explicit headless entry points now
+> raise VBE Error Trapping to Break on Unhandled Errors for the duration of the
+> call. `Operation.Begin` still floors attended work at Break in Class Module
+> and does not change every MCP/API call. See "Headless calls raise VBE Error
+> Trapping to Break on Unhandled Errors" above.
 
 **Trigger**: MCP tools (`vcs_run_vba`, `vcs_export_database`, etc.) route through `modAPI.API` / `APIAsync`. When **Break on Error** is enabled, `LogUnhandledErrors` executes `Stop` on leftover `Err` before most `On Error` directives. That halts Access until a human continues — the MCP server sees a hung call with no JSON response.
 

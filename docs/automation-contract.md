@@ -28,6 +28,17 @@ counting objects. Use the headless pair for anything unattended.
 `RunTestsHeadless` is the same idea for the test suite, and predates these; see
 [testing-strategy.md](testing-strategy.md).
 
+## VBE Error Trapping
+
+`BuildHeadless`, `MergeHeadless`, and `RunTestsHeadless` (including test runs
+that API or MCP force onto the headless path) raise VBE **Error Trapping** to
+**Break on Unhandled Errors** for the whole call, including preflight that runs
+before an operation begins. A caller already at that mode is left alone. The
+original setting is restored when the call returns, including on a refused
+preflight. Attended ribbon and non-headless API/MCP operations still use
+**Break in Class Module** as their floor and do not downgrade a more
+permissive caller setting.
+
 ## Result shape
 
 ```json

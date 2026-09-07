@@ -18,7 +18,10 @@ guessing.
 
 `VCS.BuildHeadless` and `VCS.MergeHeadless` exist for scripts. They open no
 window, they do not return until the build is over, and they return a JSON string
-saying what happened.
+saying what happened. For the duration of the call they also raise VBE **Error
+Trapping** to **Break on Unhandled Errors**, so a handled error cannot stop the
+debugger on a runner that was left at Break on All Errors; the original setting
+is restored when the method returns. `RunTestsHeadless` does the same.
 
 ## Calling them
 
