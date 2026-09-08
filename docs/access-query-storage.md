@@ -559,7 +559,7 @@ contract.
 | INNER JOIN with WHERE                       | [select/qryCurrencyExchangeINNERFiltered.sql](../Testing/Fixtures/queries/select/qryCurrencyExchangeINNERFiltered.sql)   |
 | LEFT JOIN                                   | [select/qryCurrencyExchangeLEFT.sql](../Testing/Fixtures/queries/select/qryCurrencyExchangeLEFT.sql)                     |
 | Mixed LEFT/RIGHT outer joins                | [regression/qryRegressionMixedOuterJoin.sql](../Testing/Fixtures/queries/regression/qryRegressionMixedOuterJoin.sql)     |
-| Self-join, fully aliased (`AS a`/`AS b`)    | [regression/qryCurrencyCrossRates.sql](../Testing/Fixtures/queries/regression/qryCurrencyCrossRates.sql)                 |
+| Self-join, fully aliased (`AS a`/`AS b`)    | [regression/qryRegressionSelfJoinAliased.sql](../Testing/Fixtures/queries/regression/qryRegressionSelfJoinAliased.sql)   |
 | Self-join, unaliased (`_1` synthetic alias) | [regression/qryRegressionSelfJoinUnaliased.sql](../Testing/Fixtures/queries/regression/qryRegressionSelfJoinUnaliased.sql) |
 | 3-table inner-join chain                    | [regression/qryRegressionStrandedAlias.sql](../Testing/Fixtures/queries/regression/qryRegressionStrandedAlias.sql)       |
 | Multi-condition `ON` (parenthesized AND/OR) | [regression/qryRegressionMultiCondJoin.sql](../Testing/Fixtures/queries/regression/qryRegressionMultiCondJoin.sql)       |

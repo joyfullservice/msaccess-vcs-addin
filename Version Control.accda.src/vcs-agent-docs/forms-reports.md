@@ -38,10 +38,12 @@ Attribute VB_Name = "Form_frmMyForm"
 
 Property edits are safe wherever you can infer the expected format from
 neighboring values: caption text inside quotes, geometry such as `Left`, `Top`,
-`Width`, and `Height`, colors, and font sizes. Guessing at a property whose
-format you cannot infer breaks the layout or fails the import, so leave those
-alone, along with the `Version` lines at the top. Keep `Begin`/`End` balanced
-throughout.
+`Width`, and `Height`, colors, and font sizes. On forms (export format 5.1.0+),
+layout-group geometry is rewritten to a 60-twip grid, so a track edit rewrites
+sibling cells; do not drop `Left`/`Top`/`Width`/`Height` or `EmptyCell` spacers.
+`LayoutCached*` is omitted on export. Guessing at a property whose format you
+cannot infer breaks the layout or fails the import, so leave those alone, along
+with the `Version` lines at the top. Keep `Begin`/`End` balanced throughout.
 
 ## Adding, removing, and renaming controls
 
@@ -58,12 +60,9 @@ To add a control:
    end of the section is the safest placement.
 3. Give the new control, and every nested control copied with it, a `Name` that
    is unique within the file.
-4. Set the geometry, and update the matching `LayoutCached*` values to agree
-   with it — including on any control you shift to make room. The form's `Width`
-   and the enclosing section's `Height` bound the visible area and do not grow
-   to fit, so raise them if the new control extends past them. On a form laid
-   out in Layout view, keep the grid bookkeeping (`LayoutGroup`, `GroupTable`,
-   `RowStart`/`ColumnEnd`) consistent with the row you copied into.
+4. Set the geometry. Raise the form `Width` and section `Height` if the new
+   control extends past them. On a Layout-view form, keep `LayoutGroup`,
+   `GroupTable`, and `RowStart`/`ColumnEnd` consistent with the row you copied.
 5. Set `TabIndex` to a value not already used in that section. `TabIndex`, not
    file order, determines tab order.
 6. If you kept an event property such as `OnClick ="[Event Procedure]"`, add the

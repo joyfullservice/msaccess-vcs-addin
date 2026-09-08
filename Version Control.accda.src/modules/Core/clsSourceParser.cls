@@ -781,6 +781,13 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                     ElseIf StartsWith(strTLine, "WebImagePadding") Then
                         ' These values tend to drift between builds. See #423
                         SkipLine lngLine, eslStandard
+                    ElseIf StartsWith(strTLine, "LayoutCached") Then
+                        ' Derived edges; used by form geometry canonicalization, then omitted.
+                        If this.intObjectType = edbForm Then
+                            If Options.ExportFormatVersion >= EFV_5_1_0 Then
+                                SkipLine lngLine, eslStandard
+                            End If
+                        End If
                     ElseIf StartsWith(strTLine, "Begin ") Then
                         ' Include block type name for controls
                         BeginBlock Mid$(strTLine, 7)
@@ -829,6 +836,11 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     If this.intObjectType = edbForm Then
         If Options.SanitizeLevel > eslMinimal Then
             If Options.ExportFormatVersion >= EFV_5_0_0 Then NormalizeViewport varLines
+            If Options.ExportFormatVersion >= EFV_5_1_0 Then
+                With New clsFormGeometryCanonicalizer
+                    .Canonicalize varLines, Me.ObjectName
+                End With
+            End If
         End If
     End If
 

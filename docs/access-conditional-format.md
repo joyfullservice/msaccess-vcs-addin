@@ -4,8 +4,9 @@ This document describes the undocumented `ConditionalFormat` and `ConditionalFor
 properties as they appear in Microsoft Access `SaveAsText` / `LoadFromText` exports, and
 how the VCS add-in decodes, stores, and rebuilds them.
 
-**Status:** Reverse-engineered from fixture data. Suitable as a working reference for
-parsing and rebuilding; some legacy-block fields remain unverified (see §14).
+**Status:** Characterized from fixture data captured through Access's own
+`SaveAsText` export. Suitable as a working reference for parsing and rebuilding;
+some legacy-block fields remain unverified (see §14).
 
 ---
 

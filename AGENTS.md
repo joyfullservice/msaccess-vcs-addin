@@ -27,6 +27,7 @@ This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
 | Writing an individual test | [.cursor/rules/testing.mdc](.cursor/rules/testing.mdc) |
 | The query parser (`clsQueryComposer`, `clsDbQuery`) | [docs/access-query-storage.md](docs/access-query-storage.md) |
 | Conditional formatting binary blobs | [docs/access-conditional-format.md](docs/access-conditional-format.md) |
+| Form layout geometry; DPI churn in `.form` files | [docs/access-form-geometry.md](docs/access-form-geometry.md) |
 | Editing exported source files by hand | [Version Control.accda.src/AGENTS.md](Version%20Control.accda.src/AGENTS.md) |
 | Why something was built this way | [DECISIONS.md](DECISIONS.md) (append-only; search it) |
 
@@ -146,5 +147,4 @@ then `'@Tag`. Prefix with `-` to exclude; inclusions OR, exclusions AND.
 budgets, own gate. Read [docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md) first.
 
 ## Resources
-[Repository](https://github.com/joyfullservice/msaccess-vcs-addin) · [Wiki](https://github.com/joyfullservice/msaccess-vcs-addin/wiki) · [Issues](https://github.com/joyfullservice/msaccess-vcs-addin/issues) ·
-[Releases](https://github.com/joyfullservice/msaccess-vcs-addin/releases)
+[Repository](https://github.com/joyfullservice/msaccess-vcs-addin) · [Wiki](https://github.com/joyfullservice/msaccess-vcs-addin/wiki) · [Issues](https://github.com/joyfullservice/msaccess-vcs-addin/issues) · [Releases](https://github.com/joyfullservice/msaccess-vcs-addin/releases)

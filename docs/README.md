@@ -48,12 +48,15 @@ and abandoned.
 |---|---|
 | [`access-query-storage.md`](access-query-storage.md) | How Access stores queries (MSysQueries fields, Design View vs SQL View, `LoadFromText` / `SaveAsText` asymmetries, parser invariants and known gaps). |
 | [`access-conditional-format.md`](access-conditional-format.md) | The undocumented `ConditionalFormat` / `ConditionalFormat14` binary properties, and how the add-in decodes, stores, and rebuilds them. |
+| [`access-form-geometry.md`](access-form-geometry.md) | How Access stores and re-solves layout-group geometry, why 60 twips, the canonicalizer, and the measurements that justified it. |
 
 ## Plausible future siblings
 
 None of these exist yet — add them when the need arises:
 
-- `access-form-storage.md` — how Access stores forms internally.
+- `access-form-storage.md` — the rest of form storage (control blocks,
+  sections, binary blobs) beyond the layout geometry already covered
+  in [`access-form-geometry.md`](access-form-geometry.md).
 - `access-report-storage.md` — same, for reports.
 - `access-binary-formats.md` — the `LvProp`, `LvExtra`, and MR2 binary
   blobs the add-in parses.

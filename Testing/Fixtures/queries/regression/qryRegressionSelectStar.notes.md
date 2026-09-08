@@ -24,8 +24,7 @@ field list is empty AND the FROM clause has at least one input table or
 join, emit `*`. (Truly tableless `SELECT FROM ;` queries — see
 `select/qryNoTable` — keep their empty field list and are unaffected.)
 
-This shape was first observed in the wild on a customer database whose
-linked-view-backed queries are all `SELECT * FROM ifportal_vw_<name>;` —
-five queries, every one rendered as `SELECT \nFROM ...`. The
-`Validate Query SQL Builder` Advanced Tools harness flagged them as the
-first non-passing batch when run against that database.
+Production validation exposed this shape in linked-view-backed
+`SELECT *` queries: every affected query rendered as `SELECT \nFROM ...`.
+The `Validate Query SQL Builder` Advanced Tools harness flagged the
+non-passing batch.

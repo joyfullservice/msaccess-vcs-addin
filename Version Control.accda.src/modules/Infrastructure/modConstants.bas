@@ -238,7 +238,7 @@ Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinComm
 Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
     EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, command bar replica export, etc.
-    EFV_5_1_0 = 50100      ' Sidecar Info.Class names; canonical tbldefs property order; IMEX spec SpecID.
+    EFV_5_1_0 = 50100      ' Sidecar Info.Class names; canonical tbldefs property order; IMEX spec SpecID; form layout geometry.
 End Enum
 
 ' Bump this whenever the SVG layout generator output changes
@@ -315,6 +315,7 @@ End Function
 '           : History (one line per bump):
 '           :   CommandBars = 1  7/27/2026  Fixed _Images sidecar export
 '           :   Forms = 1        7/28/2026  Fixed CF14 data bar decode (issue #730)
+'           :   Forms = 2        9/7/2026   Canonical 60-twip form layout geometry; drop LayoutCached*
 '           :   Reports = 1      7/28/2026  Fixed CF14 data bar decode (issue #730)
 '           :   Tables = 1       8/21/2026  Fixed DECIMAL(p,s) in optional .sql sidecar (issue #756)
 '---------------------------------------------------------------------------------------
@@ -324,7 +325,7 @@ Public Function GetExporterRevisions() As Dictionary
     Dim d As Dictionary
     Set d = New Dictionary
     d.Add "CommandBars", 1
-    d.Add "Forms", 1
+    d.Add "Forms", 2
     d.Add "Reports", 1
     d.Add "Tables", 1
     Set GetExporterRevisions = d

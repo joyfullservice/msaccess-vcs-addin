@@ -83,6 +83,110 @@ contradictory guidance.
 
 ---
 
+## 2026-09-08 — Canonical 60-twip form layout geometry
+
+**Trigger**: Untouched forms churned between developers, and a one-control edit
+exported hundreds of unrelated geometry values re-solved to the editor's DPI.
+
+**Options explored**:
+- Remove `InitializeForms` (the design-view open/save that stamps local DPI).
+  Fixes untouched exports only. A real edit still re-solves the group.
+- Anchor unedited exports to the prior source file. Same half-fix.
+- Treat plain `LoadFromText`/`SaveAsText` as identity. Overgeneralized: chained
+  previously-solved inputs were preserved, but base fixtures changed on
+  cross-DPI runs. Design-view save is the true projection.
+- Drop `Left` from non-anchor cells or omit any layout geometry property.
+  Triggers a full re-solve that deletes `EmptyCell` spacers.
+- Naive independent snap to 15/30/60 twips. Two DPI variants can straddle a
+  midpoint, and positions accumulate. The fifth probe column moved 75 twips.
+- Structure-aware snap of origins and row/column pitches, then derive spans
+  (chosen). A Python oracle unified layout geometry across captured 96/120/144/
+  192 DPI outputs. Measured external-corpus movement: max 300 twips, p95 165.
+  53 groups lacked witnesses and are left unchanged.
+- Treat `Prove-CanonicalRoundtrip.py` exit 1 at 144 DPI as a failed invariant.
+  Rejected. The script compared `C` to `P_d(C)`. At 96 DPI those signatures
+  already matched, so the two claims were indistinguishable. At 144 DPI Access
+  rewrote present values on every harvested fixture (7–53 properties; worst
+  shift 90 twips on `SpacerGrid`) and `N` recovered `C` on both `plain` and
+  `design-save`.
+- Require a Windows sign-out on every scale change. Too strong. Laptop-panel
+  runs tracked 96/120/144/192 without sign-out. Lid-closed 34" through a KVM
+  was inconsistent: `dpi-sanity-125` stayed at 96, while the later 120-DPI
+  proof reached Access without a sign-out. A 133% custom scale required a
+  sign-out. The probe's `accessEffectiveDpi` is the sensor.
+
+**Decision**: Gate a form-only sanitizer on `EFV_5_1_0` that rewrites present
+layout geometry in place onto a 60-twip lattice (whole pixels at standard
+25-point Windows scaling). Preserve free-positioned
+controls, distinct gap classes, and every `EmptyCell`. Use `LayoutCached*` as
+edge data, then strip it. Page chrome stays DPI-local. Fail closed on
+underdetermined groups. Snap the current form `Width` and section `Height`
+to the nearest lattice point, then round child extents upward so controls
+cannot clip. Bump Forms exporter revision so existing 5.1.0 beta projects
+re-export once. Import stays ungated. The invariant is `N(P_d(C)) = C`; it
+holds at 96, 120, 128, 144, 168, and 192 DPI for the six `access-proof`
+fixtures. At 96 and 168, `P_d(C)` already matched `C`. At 120, 128, 144,
+and 192 it did not (worst shifts 108, 60, 90, and 68 twips on
+`SpacerGrid`).
+`Prove-CanonicalRoundtrip.py` compares `C` to `N(P_d(C))` and keeps `C`
+versus `P_d(C)` as a diagnostic. Equality means a geometry signature of
+named blocks plus form `Width` and section `Height`, with Page blocks
+excluded—not byte identity. The proof overlays canonical group-plan values
+for geometry lines Access omitted, requires `Left` / `Top` presence, and
+tolerates only a remaining one-sided control `Width` / `Height` because
+Access adds and removes redundant default-size lines.
+
+**What this rules out**: Promising a literal one-control geometry diff for a
+layout-track edit (siblings in that track change). Promising Access stores
+canonical numbers internally, or that `P_d(C) = C`. Treating suppression or
+prior-source anchoring as sufficient. Forcing every gap to 60. Canonicalizing
+reports. Treating Settings or `AppliedDPI` as what Access saw. Treating a
+KVM slider change as a DPI change without reading `metadata.json`.
+
+**Relevant files**: `clsFormGeometryCanonicalizer.cls`, `clsSourceParser.cls`,
+`modConstants.bas`, `tools/dpi-layout-probe/form_geometry.py`,
+`tools/dpi-layout-probe/Prove-CanonicalRoundtrip.py`,
+`tools/dpi-layout-probe/README.md`, `vcs-agent-docs/forms-reports.md`,
+`docs/access-form-geometry.md`.
+
+---
+
+## 2026-09-08 — DPI probe fixtures sanitized by property list
+
+**Trigger**: Harvested layout-probe forms still carried source-specific
+tooltips, status-bar labels, hyperlink macros, control names, and branding
+colors. `sanitize()` only rewrote `Caption`.
+
+**Options explored**:
+- Hand-review each fixture. Rejected. The same properties would slip
+  through the next harvest.
+- Delete the identifying properties. Rejected. Removing a `BackColor` or
+  `ControlTipText` line changes file shape and would turn existing
+  `exactMatch` SHA-256 verdicts into geometry-only matches.
+- Rewrite baselines through `write_form`. Rejected. Forty-eight Access-saved
+  files still contain `\r\r\n`; normalizing them would also break
+  `exactMatch`.
+- Property-list sanitizer plus a byte-level UTF-16-LE substitution of the
+  known values across `fixtures/`, `canonical-fixtures/`, and `results/`
+  (chosen). The transform is deterministic, so files that hashed equal
+  still hash equal.
+
+**Decision**: Genericize `Caption`/`ControlTipText`/`StatusBarText`, `Tag`,
+and hyperlink addresses on every harvest. Neutralize branding colors and
+rename business controls. Keep private source paths and source-specific
+substitutions in gitignored `fixture-sources.json`. Migrate existing
+baselines with the same maps as raw byte replacements, then remove the
+one-time map so the source values do not remain in the repository.
+
+**What this rules out**: Treating a caption-only rewrite as enough.
+Rewriting probe baselines through a text round-trip. Checking in private
+source filenames or migration maps containing their values.
+
+**Relevant files**: `tools/dpi-layout-probe/prepare_fixtures.py`,
+`tools/dpi-layout-probe/README.md`.
+
+---
+
 ## 2026-09-07 — Resource refresh uses a stable audit file, not a dialog
 
 **Trigger**: MCP `vcs_rebuild_addin` blocked on a modal "Updated Resource /
@@ -2402,11 +2506,10 @@ See also 2026-06-25 — SharedDb invalidation during build/merge and database cl
 
 ## 2026-08-10 — Function-call operands in ON clauses must resolve against InputTables
 
-**Trigger**: A production merge of `qryUserDynamoGainLossBySecurityYearEnd` logged
-`Join reference 'DateAdd('yyyy', -1, cur' not found in InputTables block` and then
+**Trigger**: A production merge of a multi-condition join query logged `Join
+reference 'DateAdd('yyyy', -1, cur' not found in InputTables block` and then
 reported success. The stored query failed at runtime with DAO error 3080. The ON
-clause had a multi-condition join whose third equality put `DateAdd(...)` on one
-side.
+clause's third equality put `DateAdd(...)` on one side.
 
 **Root cause**: `ExtractTableFromOnSide` treated any text before the first
 qualifying dot as a table name, so a function-call operand produced a garbage
@@ -2589,7 +2692,9 @@ Both commands are issued from out of process, which is where VBE and project-sav
 
 ## 2026-07-30 — Canonicalize tbldefs property order so the DAO builder can match source
 
-**Trigger**: The DAO table-def builder (entry below) worked, but a real merge in `sec.accdb` still fell back to `ImportXML` and paid 451.50 seconds. Verification was rejecting the table the builder produced.
+**Trigger**: The DAO table-def builder (entry below) worked, but a real merge
+in a large external benchmark database still fell back to `ImportXML` and paid
+451.50 seconds. Verification was rejecting the table the builder produced.
 
 **What the diff showed.** `LogDefinitionMismatch` was added to log the differing lines rather than just the verdict, and the cause was visible on the first run. Every difference is a rotation of the same property names, repeated once per field:
 
@@ -2613,17 +2718,17 @@ Same names, same values, same count — the lines realign after each field, so n
 
 **The fast path now requires the new format.** `FastTableDefImportApplies` returns False below `EFV_5_1_0`. On an older format the DAO build would import correctly but re-export in a different order from the file it came from, rewriting `tbldefs/` on the user's next export. Trading source churn for speed is not a trade we want to make silently, so the path waits for the format the ordering fix lives in.
 
-`EFV_5_1_0` was initially left dormant, which turned out to make the whole fast path unreachable: `[_Last]` was still 50000 and the options combo whitelisted only 4.1.2 and 5.0.0, so no project could be on 5.1.0 and `FastTableDefImportApplies` always returned False. A `tblListYN` import into `sec.accdb` on 2026-07-31 still took the full `ImportXML` cost for exactly that reason. It is now activated: `[_Last] = 50100` and the combo offers 5.1.0. The format also carries the sidecar `Info.Class` change, which goes live with it.
+`EFV_5_1_0` was initially left dormant, which turned out to make the whole fast path unreachable: `[_Last]` was still 50000 and the options combo whitelisted only 4.1.2 and 5.0.0, so no project could be on 5.1.0 and `FastTableDefImportApplies` always returned False. A `tblProbe` import into the benchmark database on 2026-07-31 still took the full `ImportXML` cost for exactly that reason. It is now activated: `[_Last] = 50100` and the combo offers 5.1.0. The format also carries the sidecar `Info.Class` change, which goes live with it.
 
 Note for anyone migrating a project: switching a project to 5.1.0 is not enough on its own. The DAO builder verifies by re-exporting the table it built and comparing bytes against the source file, so a project whose `tbldefs/` are still in unsorted 5.0.0 order will fail verification on every table and fall back. A full export has to run first to migrate the source, after which the fast path engages.
 
-**Measured end to end.** Once `sec.accdb` was on 5.1.0 with its source migrated, importing `tblListYN` with a changed definition logged `Built tblListYN directly, without importing the XML` and completed in **1.14 seconds**, against **462.48 seconds** for the same import an hour earlier on the `ImportXML` fallback. The DAO build itself is 0.10s (`Create Table (DAO)`), with 0.01s each for parsing the XML and verifying the result. The sanitizer's sort costs nothing measurable: single-object exports of the same table run 1.43–1.45s on 5.1.0 against 1.29–1.52s historically, with `Sanitize XML` reporting 0.00s.
+**Measured end to end.** Once the benchmark database was on 5.1.0 with its source migrated, importing `tblProbe` with a changed definition logged `Built tblProbe directly, without importing the XML` and completed in **1.14 seconds**, against **462.48 seconds** for the same import an hour earlier on the `ImportXML` fallback. The DAO build itself is 0.10s (`Create Table (DAO)`), with 0.01s each for parsing the XML and verifying the result. The sanitizer's sort costs nothing measurable: single-object exports of the same table run 1.43–1.45s on 5.1.0 against 1.29–1.52s historically, with `Sanitize XML` reporting 0.00s.
 
 The one-time migration export is visible and worth expecting: the add-in's own export jumped from ~2.5s over 40 objects to 10.05s over 266, because changing the format invalidates the global option hash and marks every category stale. All six of its `tbldefs/` diffs verified as pure reordering — identical line multisets, resequenced.
 
 **What this rules out**: Making verification order-insensitive instead. It is a smaller change and would work on every format, but it leaves the database and its source file genuinely disagreeing on order, so every subsequent export rewrites those files. The byte comparison is also the guard the builder's own header leans on ("even a construct we recognize but reproduce imperfectly is caught before it can be committed"), and weakening it to accommodate a difference we know is meaningless makes it weaker against differences that are not.
 
-**Harness bug found along the way.** `RunTableDefRoundtrip` inferred "the DAO path was used" from `GetLastDeclineReason()` being empty, but that reason is set by the parser, not by the caller's verification step. A build that parsed cleanly and was then rejected and discarded left no reason behind, so the fixture passed on the `ImportXML` fallback — the exact failure the check was written to prevent, and why `tblListYN` appeared to round-trip cleanly while the same file failed in a real merge. `clsDbTableDef` now reports rejection through `modTableDefBuilder.RecordVerificationFailure`, so the reason describes the outcome of the import rather than only the parse. The fixtures also force `ExportFormatVersion = EFV_5_1_0` for the duration of the run, since the DAO path only matches source under the canonical ordering.
+**Harness bug found along the way.** `RunTableDefRoundtrip` inferred "the DAO path was used" from `GetLastDeclineReason()` being empty, but that reason is set by the parser, not by the caller's verification step. A build that parsed cleanly and was then rejected and discarded left no reason behind, so the fixture passed on the `ImportXML` fallback — the exact failure the check was written to prevent, and why `tblProbe` appeared to round-trip cleanly while the same file failed in a real merge. `clsDbTableDef` now reports rejection through `modTableDefBuilder.RecordVerificationFailure`, so the reason describes the outcome of the import rather than only the parse. The fixtures also force `ExportFormatVersion = EFV_5_1_0` for the duration of the run, since the DAO path only matches source under the canonical ordering.
 
 ---
 
@@ -2661,15 +2766,38 @@ Three mechanisms carry the risk, because the failure mode we are guarding agains
 
 **What this rules out**: Trusting a DAO-built table without re-exporting and comparing it. Attributing full-build time to table imports. Whitelisting property names, which would make the path brittle against future Access versions for no safety gain.
 
-**First end-to-end proof.** The table that started this — `tblListYN` from `sec.accdb`, three fields, seventeen table properties, no indexes — was run through the round-trip harness against `Testing.accdb` from a fixture root outside the repo. All four checks passed in 0.298 seconds: `import_path` (the DAO builder handled it, no fallback), `xml_vs_fixture` (the table it created re-exported byte-identical to sec's own source file), and `xml_pass2_idempotent`. So for this shape the builder reproduces what `ImportXML` produces, and the verification step confirms it rather than taking it on trust.
+**First end-to-end proof.** The representative table that started this —
+renamed here as `tblProbe`, with three fields, seventeen table properties, and
+no indexes — was run through the round-trip harness against `Testing.accdb`
+from a fixture root outside the repo. All four checks passed in 0.298 seconds:
+`import_path` (the DAO builder handled it, no fallback), `xml_vs_fixture` (the
+table it created re-exported byte-identical to the external source file), and
+`xml_pass2_idempotent`. So for this shape the builder reproduces what
+`ImportXML` produces, and the verification step confirms it rather than taking
+it on trust.
 
 Note the gate had to be forced open: `Testing.accdb` has 4 saved queries against a threshold of 500, which is exactly why `FastPathTestOverride` exists.
 
-**Known open failure.** In `sec.accdb`, a single-object import of `tblListYN` with a genuinely changed definition (one `BackTint` value, 100 → 200) took the fallback: `Merge_20260730_163854_113.log` shows `Parse Table Def XML` 0.01 s and `Create Table (DAO)` 0.11 s, then `Verify Table Def (DAO)` rejecting the result and `App.ImportXML() Structure` spending 451.50 s. So the builder is installed and runs; verification refuses its output. The same source file, byte for byte, round-trips cleanly through the harness in `Testing.accdb`. The difference between the two runs is that sec's table already existed and was being replaced through `IDbComponent_Merge` (stage relations, delete, rebuild), where the harness only ever creates a fresh sandbox table — that path is currently untested.
+**Known open failure.** In the benchmark database, a single-object import of
+`tblProbe` with a genuinely changed definition (one `BackTint` value, 100 →
+200) took the fallback: `Merge_20260730_163854_113.log` shows `Parse Table Def
+XML` 0.01 s and `Create Table (DAO)` 0.11 s, then `Verify Table Def (DAO)`
+rejecting the result and `App.ImportXML() Structure` spending 451.50 s. So the
+builder is installed and runs; verification refuses its output. The same source
+file, byte for byte, round-trips cleanly through the harness in
+`Testing.accdb`. The difference between the two runs is that the external
+database's table already existed and was being replaced through
+`IDbComponent_Merge` (stage relations, delete, rebuild), where the harness only
+ever creates a fresh sandbox table — that path is currently untested.
 
 `LogDefinitionMismatch` was added for this: a rejected rebuild now lists the differing lines in the log. Previously the only record was "the rebuilt table did not match the source file", and the temp export is swept at the end of the operation, so the evidence was gone before anyone could read it — leaving reproduction as the only option on exactly the databases where reproducing costs minutes per attempt.
 
-**Still to verify** against `sec.accdb`, next to the numbers in the entry below: the `tblListYN` single-object import (baseline 455 s end to end, 276–281 of it in `ImportXML`); a merge build touching several tables, where the per-table cost compounds and the gate has to earn its keep; and the Tables category of a full build (baseline 21.80 s across 372 tables), confirming the `eotBuild` gate leaves it untouched.
+**Still to verify** against the benchmark database, next to the numbers in the
+entry below: the `tblProbe` single-object import (baseline 455 s end to end,
+276–281 of it in `ImportXML`); a merge build touching several tables, where the
+per-table cost compounds and the gate has to earn its keep; and the Tables
+category of a full build (baseline 21.80 s across 372 tables), confirming the
+`eotBuild` gate leaves it untouched.
 
 **Drive the harness from MCP with `vcs_call_vba`, not `vcs_run_vba`.** `vcs_call_vba` is a single `Application.Run` against the add-in's API and works:
 
@@ -2703,7 +2831,11 @@ Qualify with the **full path**, which also loads the add-in on demand. The bare 
 > that case. See "Verify DAO table builds even when the source file is outside
 > the export folder" above.
 
-**Trigger**: Reloading `tblListYN` — three fields, two rows, no relationships — from source took 455 seconds in a database holding roughly 5,000 objects (3,692 queries, 514 table definitions, 416 forms, 318 reports). The `Merge_*.log` performance report accounted for 0.76 seconds and left 454.85 in `Other Operations`, because nothing on the merge path carried a `Perf` timer. Exporting the same object was instant.
+**Trigger**: Reloading the representative `tblProbe` — three fields, two rows,
+no relationships — from source took 455 seconds in a database holding roughly
+5,000 objects. The `Merge_*.log` performance report accounted for 0.76 seconds
+and left 454.85 in `Other Operations`, because nothing on the merge path carried
+a `Perf` timer. Exporting the same object was instant.
 
 Timed each candidate call directly against the live database:
 
@@ -2727,15 +2859,25 @@ So it is not object creation that is slow — DDL creates the same table instant
 | + 400 linked tables, 4 queries | 0.03 |
 | + 400 linked tables, 2,000 queries each selecting from one of them | 19.19 |
 | + 400 linked tables, 4,000 such queries | 43.13 |
-| `sec.accdb` (3,692 real queries, 527 tables) | 276–281 |
+| Large external benchmark (roughly 3,700 real queries and 500 tables) | 276–281 |
 
-Object count alone is not the driver, and linked tables are not either — 400 of them cost nothing on their own, and scanning all 440 `Connect` strings in `sec.accdb` takes 0.02 seconds. What costs is **saved queries that reference tables**: at a fixed query count, giving each query a table reference multiplied the time by roughly ten. The remaining gap to the live database is consistent with its queries being real ones carrying joins and multiple references rather than a single `SELECT *`. The working model is that adding a table invalidates the query-to-table name resolution, and `ImportXML` pays to rebuild it, at a cost proportional to the total number of table references across all saved queries. `DoCmd.DeleteObject` and `SELECT ... INTO` change the catalog too and stay free, so whatever the mechanism is, it is reached from `ImportXML` specifically.
+Object count alone is not the driver, and linked tables are not either — 400
+of them cost nothing on their own, and scanning all connection strings in the
+benchmark database takes 0.02 seconds. What costs is **saved queries that
+reference tables**: at a fixed query count, giving each query a table reference
+multiplied the time by roughly ten. The remaining gap to the benchmark is
+consistent with its queries carrying joins and multiple references rather than
+a single `SELECT *`. The working model is that adding a table invalidates the
+query-to-table name resolution, and `ImportXML` pays to rebuild it, at a cost
+proportional to the total number of table references across all saved queries.
+`DoCmd.DeleteObject` and `SELECT ... INTO` change the catalog too and stay free,
+so whatever the mechanism is, it is reached from `ImportXML` specifically.
 
 **Options explored**:
 
 - **Generate DDL from the table-definition XML instead of calling `ImportXML`**: rejected. The XML carries field properties, indexes, lookup metadata and `od:` annotations that the existing importer reproduces faithfully. Reimplementing that is a large change with a wide blast radius, to work around an engine cost we do not fully understand.
 - **Suppress catalog churn around the call** (hide the Navigation Pane, `Application.Echo False`): not pursued. `DoCmd.DeleteObject` and DDL creation both complete in under 0.01 seconds in the same database, so the cost is inside `ImportXML`, not in Access reacting to the object list changing.
-- **Import into a scratch database and copy the table across with `DoCmd.TransferDatabase`**: rejected on fidelity, despite being dramatically faster. Since the cost lives in the target catalog, importing into an empty database sidesteps it entirely: spawning a second Access instance, creating a database and importing the XML there took 2.89 seconds, and transferring the finished table into `sec.accdb` took 0.05 — about 2.9 seconds against 281, and it would work even when the definition genuinely changed. But the transferred table is not the same table. A/B-importing `Testing/Testing.accdb.src/tbldefs/tblInternal.xml` both ways and comparing every field, index and datasheet property found `TransferDatabase` silently dropping `ColumnOrder` (source says `1` for `ID`, transfer produced `0`) and, worse, setting `Required = True` on `ObjectType`, which the schema declares `minOccurs="0"`. A field that source says is optional arriving as mandatory would reject valid inserts. Worth revisiting only if the divergences turn out to be a short, enumerable list that can be replayed onto the table afterward.
+- **Import into a scratch database and copy the table across with `DoCmd.TransferDatabase`**: rejected on fidelity, despite being dramatically faster. Since the cost lives in the target catalog, importing into an empty database sidesteps it entirely: spawning a second Access instance, creating a database and importing the XML there took 2.89 seconds, and transferring the finished table into the benchmark database took 0.05 — about 2.9 seconds against 281, and it would work even when the definition genuinely changed. But the transferred table is not the same table. A/B-importing `Testing/Testing.accdb.src/tbldefs/tblInternal.xml` both ways and comparing every field, index and datasheet property found `TransferDatabase` silently dropping `ColumnOrder` (source says `1` for `ID`, transfer produced `0`) and, worse, setting `Required = True` on `ObjectType`, which the schema declares `minOccurs="0"`. A field that source says is optional arriving as mandatory would reject valid inserts. Worth revisiting only if the divergences turn out to be a short, enumerable list that can be replayed onto the table afterward.
 - **Compare the source file against the current table and skip the rebuild when they match** (chosen): `Application.ExportXML` costs nothing even here, so the check is close to free relative to what it avoids.
 
 **Decision**: `clsDbTableDef.IDbComponent_Merge` calls `StoredDefinitionMatchesSource` before staging relations or deleting anything. That exports the current table to the conflict-detection temp folder through the normal `IDbComponent_Export` path — so the comparison is against a file produced the same way the source file was — and compares content hashes. On a match it applies metadata and updates the index (the same tail `Import` runs, factored into `ApplyMetadataAndUpdateIndex`) and returns without touching the table.
@@ -2744,7 +2886,15 @@ Limited to local tables (`.xml` source). Linked tables import from `.json` witho
 
 Dependent table data still merges afterward, because `LoadSingleObject` calls `MergeDependentObjects` separately from `Merge`. Reloading two rows into an existing table costs 0.01 seconds.
 
-**Measured**: the `tblListYN` single-object import that started this, re-run against `sec.accdb` with the check in place, went from **455.61 seconds to 0.98** (`Merge_20260730_163347_309.log`). The log reports `Compare Table Definition` at 0.04 seconds and `Merge Table Data` at 0.04; the two largest remaining entries are `Save Index` at 0.71 and `Load Index` at 0.60, so the index round trip is now the floor for a single-object import into a database this size, not the table work. That run exercised this skip, not the DAO builder below — the definition was unchanged, so `IDbComponent_Merge` returned before reaching the import path at all.
+**Measured**: the `tblProbe` single-object import that started this, re-run
+against the benchmark database with the check in place, went from **455.61
+seconds to 0.98** (`Merge_20260730_163347_309.log`). The log reports `Compare
+Table Definition` at 0.04 seconds and `Merge Table Data` at 0.04; the two
+largest remaining entries are `Save Index` at 0.71 and `Load Index` at 0.60,
+so the index round trip is now the floor for a single-object import into a
+database this size, not the table work. That run exercised this skip, not the
+DAO builder below — the definition was unchanged, so `IDbComponent_Merge`
+returned before reaching the import path at all.
 
 **Consequence for table data — `MergeDependentObjects` had to switch from `Import` to `Merge`.** It called `cItem.Parent.Import`, which was correct only because the definition merge above it *always* deleted and recreated the table first: data was being loaded into a guaranteed-empty table. Skipping the rebuild breaks that assumption, and the table now arrives at the data step with its rows intact. `Import` in that state is wrong both ways it can run — the XML path uses `acAppendData`, so rows are appended alongside the ones already there (duplicate keys, or silently duplicated rows on an unkeyed table), and the tab-delimited path issues `delete from [table]` first, which fails outright against any table on the child side of a relationship. `clsDbTableData.IDbComponent_Merge` already handles exactly this — its own header says "Import cannot be reused here" — by loading a staging table and reconciling against the key, and it degrades to inserting everything when the table is empty because the definition genuinely was rebuilt. The call now goes there.
 
@@ -2767,7 +2917,16 @@ Does not address the underlying `ImportXML` cost — a table whose definition ge
 
 ## 2026-07-30 — Split the table data reconcile update when the engine refuses it
 
-**Trigger**: A merge build reported `Error 3360: Query is too complex` for `tblWorkforce` (67 fields) and rolled the whole table back, leaving it unmerged. The reconcile builds one `UPDATE` carrying an assignment per non-key field plus a two-term comparison per non-key field, which for that table is 66 assignments and 132 `OR`-ed comparisons. Reproduced read-only against the live database: the comparison chain alone fails on its own in a `SELECT`, and the same shape truncated to 20 fields runs. The table holds no rows, so this is the engine declining to compile the statement, not anything to do with data volume. The merge log's `Perf` table showed the same thing — `Reconcile: Insert` ran 17 times against `Reconcile: Update` 16.
+**Trigger**: A merge build reported `Error 3360: Query is too complex` for a
+67-field production table and rolled the whole table back, leaving it unmerged.
+The reconcile builds one `UPDATE` carrying an assignment per non-key field plus
+a two-term comparison per non-key field, which for that table is 66 assignments
+and 132 `OR`-ed comparisons. Reproduced read-only against the live database: the
+comparison chain alone fails on its own in a `SELECT`, and the same shape
+truncated to 20 fields runs. The table holds no rows, so this is the engine
+declining to compile the statement, not anything to do with data volume. The
+merge log's `Perf` table showed the same thing — `Reconcile: Insert` ran 17
+times against `Reconcile: Update` 16.
 
 **Options explored**:
 
@@ -5527,7 +5686,15 @@ A `DumpToJson` method is available for troubleshooting — it reconstructs a tem
 
 ## 2026-04-24 — Object round-trip regression harness lives inside the add-in, fixtures are versioned text files, queries pilot the IDbComponent abstraction, and the public surface routes through `clsVersionControl`
 
-**Trigger**: Post-`clsQueryComposer` work on the SQL/JSON query format surfaced ~723 affected queries in a single production database from a self-join alias bug (`qryCurrencyCrossRates` archetype). Manual repro-and-fix is unsustainable as more edge cases land. Traditional VBA unit testing (Rubberduck-style or hand-rolled) would require hundreds of fixture queries hard-coded into the add-in — thousands of lines of VBA permanently loaded into memory in every running instance, for code paths that are only exercised during development. A different shape was needed.
+**Trigger**: Post-`clsQueryComposer` work on the SQL/JSON query format surfaced
+hundreds of affected queries in a production validation run from a self-join
+alias bug (now represented by the generic
+`qryRegressionSelfJoinAliased` fixture). Manual repro-and-fix is unsustainable
+as more edge cases land. Traditional VBA unit testing (Rubberduck-style or
+hand-rolled) would require hundreds of fixture queries hard-coded into the
+add-in — thousands of lines of VBA permanently loaded into memory in every
+running instance, for code paths that are only exercised during development. A
+different shape was needed.
 
 **Options explored**:
 - **Per-query VBA unit tests with hard-coded SQL strings**: rejected. Bloats the add-in's `.accda` permanently for a dev-only feature; every new edge case requires editing VBA and redeploying; no easy way to inspect the input/output of a specific failing case.
@@ -5541,7 +5708,7 @@ A `DumpToJson` method is available for troubleshooting — it reconstructs a tem
 - **Expose `RunObjectRoundtripTests` directly via `vcs_call_vba`** (which uses `Application.Run` and doesn't require `McpAllowRunVBA`): rejected as the *primary* path. The agent-friendliness gain isn't worth either keeping the module publicly exposed or carving out a private-module exception for `Application.Run` lookup. The harness *is* arbitrary code execution from the user's perspective (it imports/exports/deletes objects), so gating it behind the same `McpAllowRunVBA` opt-in that already governs `vcs_run_vba` is the correct security model — not a friction worth designing around.
 - **Single delegate method on `clsVersionControl` (`VCS.RunRoundtripTests`) with `Option Private Module` on `modTestRoundtrip.bas`**: chosen. Matches the established add-in pattern exactly (everything user-visible lives on `clsVersionControl`; implementation modules are private). One curated public symbol instead of N. Future helpers added to the test module are automatically blocked from external callers — no future-leak hazard. Immediate-Window dev access from inside the add-in's own VBE still works (`?modTestRoundtrip.RunObjectRoundtripTests()`) because `Option Private Module` only blocks cross-project lookups, not in-project ones. `RunOurFixtures` is dropped as redundant — `RunRoundtripTests()` with no args produces the identical zero-arg-shipped-corpus behavior.
 
-**Decision**: Implement `modTestRoundtrip.bas` inside the add-in with `Option Private Module` and `RunObjectRoundtripTests(Optional strFixtureFolder, Optional blnRebaseline)` as its single in-project entry point. Expose this externally through one public delegate, `clsVersionControl.RunRoundtripTests`, alongside the other dev/agent tools (`RunVBA`, `ExecuteSQL`, `CompileVBA`). External invocation: Immediate Window uses `?VCS.RunRoundtripTests`; MCP/CI uses `vcs_run_vba` with `MCP_TempFunction = VCS.RunRoundtripTests()` (gated by `McpAllowRunVBA`). Fixtures live in `Testing/Fixtures/<component>/<category>/` as plain text (`.sql` + `.json` for queries today; the slot is reserved for `forms/`, `reports/`, etc.) with a `_scaffold/` sibling folder for shared supporting objects loaded once per session. Each fixture runs through a two-pass round trip (import to `vcs_test_<name>_<hash>` sandbox, export, re-import, re-export) with three independent SHA-256 comparisons: Pass 1 vs. fixture, Pass 1 vs. Pass 2 (idempotency), JSON-with-`Info`-stripped both directions. Bloat is addressed structurally: random-suffix sandbox names allow parallel runs and unambiguous leftover detection, every fixture cleans up via `DoCmd.DeleteObject` + `DBEngine.Idle dbRefreshCache`, the run starts with a `CleanupStaleObjects` sweep over any `vcs_test_*` survivors from a crashed prior run, and `VCSIndex.Disabled = True` for the entire run prevents test operations from polluting `vcs-index.json`. Output flows through the existing `Log` singleton (live console in `frmVCSMain` + per-session `ObjectRoundtrip_<opId>.log` with full inline diffs) and a structured JSON return for programmatic parsing. Bug-as-fixture is the canonical contribution path: real-world failures from production validation or user reports are distilled into a fixture under `regression/` with a `.notes.md` companion documenting the failure mode and resolution status — `qryCurrencyCrossRates` is the seed entry, currently failing as expected.
+**Decision**: Implement `modTestRoundtrip.bas` inside the add-in with `Option Private Module` and `RunObjectRoundtripTests(Optional strFixtureFolder, Optional blnRebaseline)` as its single in-project entry point. Expose this externally through one public delegate, `clsVersionControl.RunRoundtripTests`, alongside the other dev/agent tools (`RunVBA`, `ExecuteSQL`, `CompileVBA`). External invocation: Immediate Window uses `?VCS.RunRoundtripTests`; MCP/CI uses `vcs_run_vba` with `MCP_TempFunction = VCS.RunRoundtripTests()` (gated by `McpAllowRunVBA`). Fixtures live in `Testing/Fixtures/<component>/<category>/` as plain text (`.sql` + `.json` for queries today; the slot is reserved for `forms/`, `reports/`, etc.) with a `_scaffold/` sibling folder for shared supporting objects loaded once per session. Each fixture runs through a two-pass round trip (import to `vcs_test_<name>_<hash>` sandbox, export, re-import, re-export) with three independent SHA-256 comparisons: Pass 1 vs. fixture, Pass 1 vs. Pass 2 (idempotency), JSON-with-`Info`-stripped both directions. Bloat is addressed structurally: random-suffix sandbox names allow parallel runs and unambiguous leftover detection, every fixture cleans up via `DoCmd.DeleteObject` + `DBEngine.Idle dbRefreshCache`, the run starts with a `CleanupStaleObjects` sweep over any `vcs_test_*` survivors from a crashed prior run, and `VCSIndex.Disabled = True` for the entire run prevents test operations from polluting `vcs-index.json`. Output flows through the existing `Log` singleton (live console in `frmVCSMain` + per-session `ObjectRoundtrip_<opId>.log` with full inline diffs) and a structured JSON return for programmatic parsing. Bug-as-fixture is the canonical contribution path: real-world failures from production validation or user reports are distilled into a fixture under `regression/` with a `.notes.md` companion documenting the failure mode and resolution status — `qryRegressionSelfJoinAliased` is the seed entry, currently failing as expected.
 
 **What this rules out**: Storing test fixtures inside any `.accdb` (must remain text files in the repo). Per-component bespoke comparison logic — new component types must conform to the import-export-compare shape and use the shared `Run<Type>Fixtures` dispatch. Loading fixture corpora that exceed sandbox-name uniqueness guarantees (the 7-hex-char suffix gives ~268M combinations per fixture name; collision-handling beyond that is not designed for). Adding *additional* test entry points to the add-in's external API surface without an explicit follow-up decision — `VCS.RunRoundtripTests` is the single sanctioned public method; future test categories (perf, validation, etc.) should add new module(s) under the `modTest*` convention with their own delegate methods on `clsVersionControl` rather than expanding the test modules' own public surface. Reaching the harness via `vcs_call_vba` (the lower-friction MCP path that doesn't require `McpAllowRunVBA`) — agents must use `vcs_run_vba` with the security gate enabled, by design. JSON comparison schemes that depend on specific field names (the `Info`-stripping strategy assumes the import path will continue to ignore `Info`; if a future format change makes `Info` semantically load-bearing, the comparator must change in lockstep). Combining the harness with operations that want to own the global `Operation` state — `RunObjectRoundtripTests` calls `Operation.Begin(eotOther)` and refuses to run if another operation is in flight, so it cannot be invoked from inside an active export/build/merge.
 

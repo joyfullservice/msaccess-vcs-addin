@@ -76,3 +76,223 @@ Public Sub TestStripClassHeader_NameOnly()
     TestAssert InStr(strResult, "VB_Name") = 0, "VB_Name attribute stripped"
     TestAssert InStr(strResult, "Option Compare") > 0, "code preserved"
 End Sub
+
+
+Public Sub TestFormGeometry_SnapsTabularCells()
+    Dim strOut As String
+    strOut = SanitizeForm(TabularPairForm(105, 1995, 1800))
+    TestAssert InStr(strOut, "Left =120") > 0, "origin snaps to 60-twip lattice"
+    TestAssert InStr(strOut, "Name =""lblA""") > 0, "first control kept"
+    TestAssert InStr(strOut, "Name =""lblB""") > 0, "second control kept"
+    TestAssert InStr(strOut, "LayoutCached") = 0, "LayoutCached* stripped at 5.1.0"
+End Sub
+
+
+Public Sub TestFormGeometry_DerivesColumnSpan()
+    Dim strOut As String
+    strOut = SanitizeForm(ColumnSpanForm)
+    TestAssert InStr(strOut, "Name =""lblSpan""") > 0, "spanning control kept"
+    TestAssert InStr(strOut, "Width =1800") > 0, "span width derived from tracks"
+End Sub
+
+
+Public Sub TestFormGeometry_PreservesZeroAndCustomGaps()
+    Dim strZero As String
+    Dim strCustom As String
+    strZero = SanitizeForm(TabularPairForm(60, 1260, 1200))
+    TestAssert InStr(strZero, "Left =60") > 0, "zero-gap origin stays on lattice"
+    TestAssert InStr(strZero, "Left =1260") > 0, "zero-gap second column stays adjacent"
+    strCustom = SanitizeForm(TabularPairForm(120, 2100, 1800))
+    TestAssert InStr(strCustom, "Left =2100") > 0, "custom 180-twip gap class preserved"
+End Sub
+
+
+Public Sub TestFormGeometry_KeepsEmptyCellAndFreeControl()
+    Dim strOut As String
+    strOut = SanitizeForm(EmptyAndFreeForm)
+    TestAssert InStr(strOut, "Begin EmptyCell") > 0, "EmptyCell spacer survives"
+    TestAssert InStr(strOut, "Name =""cellGap""") > 0, "spacer name survives"
+    TestAssert InStr(strOut, "Left =123") > 0, "free-positioned Left is not snapped"
+End Sub
+
+
+Public Sub TestFormGeometry_NormalizesEnvelopesWithoutClipping()
+    Dim strContent As String
+    Dim strOut As String
+
+    strContent = Replace(TabularPairForm(105, 1995, 1800), "Width =6000", "Width =6006", 1, 1)
+    strContent = Replace(strContent, "Height =600", "Height =606", 1, 1)
+    strOut = SanitizeForm(strContent)
+    TestAssert InStr(strOut, "Width =6000") > 0, "form width snaps to nearest lattice point"
+    TestAssert InStr(strOut, "Height =600") > 0, "section height snaps to nearest lattice point"
+
+    strContent = Replace(TabularPairForm(105, 1995, 1800), "Width =6000", "Width =3701", 1, 1)
+    strContent = Replace(strContent, "Height =600", "Height =401", 1, 1)
+    strOut = SanitizeForm(strContent)
+    TestAssert InStr(strOut, "Width =3840") > 0, "form grows to canonical child right edge"
+    TestAssert InStr(strOut, "Height =480") > 0, "section grows to canonical child bottom edge"
+End Sub
+
+
+Public Sub TestFormGeometry_FailClosedOnUnderdeterminedSpan()
+    Dim strOut As String
+    strOut = SanitizeForm(UnderdeterminedForm)
+    TestAssert InStr(strOut, "Left =100") > 0, "uncertain Left left unchanged"
+    TestAssert InStr(strOut, "Width =5000") > 0, "uncertain Width left unchanged"
+End Sub
+
+
+Public Sub TestFormGeometry_IdempotentAndCountStable()
+    Dim strOnce As String
+    Dim strTwice As String
+    strOnce = SanitizeForm(TabularPairForm(105, 1995, 1800))
+    strTwice = SanitizeForm(strOnce)
+    TestAssert strOnce = strTwice, "second sanitize is byte-identical"
+    TestAssert CountToken(strOnce, "Name =") = CountToken(TabularPairForm(105, 1995, 1800), "Name ="), _
+        "control names/count unchanged"
+End Sub
+
+
+Public Sub TestFormGeometry_PriorFormatLeavesCaches()
+    Dim strOut As String
+    strOut = SanitizeForm(TabularPairForm(105, 1995, 1800), EFV_5_0_0)
+    TestAssert InStr(strOut, "LayoutCachedLeft") > 0, "5.0.0 keeps LayoutCached*"
+    TestAssert InStr(strOut, "Left =105") > 0, "5.0.0 does not snap layout geometry"
+End Sub
+
+
+Private Function SanitizeForm(strContent As String, Optional lngFormat As Long = EFV_5_1_0) As String
+    Dim lngOldFormat As Long
+    Dim intOldSanitize As eSanitizeLevel
+    lngOldFormat = Options.ExportFormatVersion
+    intOldSanitize = Options.SanitizeLevel
+    Options.ExportFormatVersion = lngFormat
+    Options.SanitizeLevel = eslStandard
+    m_parser.LoadString strContent, edbForm
+    m_parser.Sanitize ectObjectDefinition
+    SanitizeForm = m_parser.GetOutput
+    Options.ExportFormatVersion = lngOldFormat
+    Options.SanitizeLevel = intOldSanitize
+End Function
+
+
+Private Function CountToken(strText As String, strToken As String) As Long
+    Dim lngPos As Long
+    lngPos = 1
+    Do
+        lngPos = InStr(lngPos, strText, strToken, vbBinaryCompare)
+        If lngPos = 0 Then Exit Do
+        CountToken = CountToken + 1
+        lngPos = lngPos + Len(strToken)
+    Loop
+End Function
+
+
+Private Function TabularPairForm(lngLeftA As Long, lngLeftB As Long, lngWidth As Long) As String
+    TabularPairForm = _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =6000" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin FormHeader" & vbCrLf & _
+        "            Height =600" & vbCrLf & _
+        "            Name =""FormHeader""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        CellBlock("Label", "lblA", lngLeftA, 120, lngWidth, 360, 0, 0) & _
+        CellBlock("Label", "lblB", lngLeftB, 120, lngWidth, 360, 1, 1) & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
+Private Function ColumnSpanForm() As String
+    ColumnSpanForm = _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =6000" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin FormHeader" & vbCrLf & _
+        "            Height =1200" & vbCrLf & _
+        "            Name =""FormHeader""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        CellBlock("Label", "lblSpan", 120, 60, 1860, 300, 0, 1) & _
+        CellBlock("Label", "lblLeft", 120, 420, 840, 300, 0, 0, 1, 1) & _
+        CellBlock("Label", "lblRight", 1080, 420, 840, 300, 1, 1, 1, 1) & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
+Private Function EmptyAndFreeForm() As String
+    EmptyAndFreeForm = _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =6000" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin FormHeader" & vbCrLf & _
+        "            Height =600" & vbCrLf & _
+        "            Name =""FormHeader""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        CellBlock("Label", "lblA", 120, 120, 1200, 300, 0, 0) & _
+        CellBlock("EmptyCell", "cellGap", 1380, 120, 60, 300, 1, 1) & _
+        "                Begin Label" & vbCrLf & _
+        "                    Left =123" & vbCrLf & _
+        "                    Top =120" & vbCrLf & _
+        "                    Width =900" & vbCrLf & _
+        "                    Height =300" & vbCrLf & _
+        "                    Name =""lblFree""" & vbCrLf & _
+        "                End" & vbCrLf & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
+Private Function UnderdeterminedForm() As String
+    UnderdeterminedForm = _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =8000" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin FormHeader" & vbCrLf & _
+        "            Height =600" & vbCrLf & _
+        "            Name =""FormHeader""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        CellBlock("Label", "lblWide", 100, 120, 5000, 300, 0, 20) & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
+Private Function CellBlock(strType As String, strName As String, _
+    lngLeft As Long, lngTop As Long, lngWidth As Long, lngHeight As Long, _
+    lngColStart As Long, lngColEnd As Long, _
+    Optional lngRowStart As Long = 0, Optional lngRowEnd As Long = 0) As String
+
+    CellBlock = _
+        "                Begin " & strType & vbCrLf & _
+        "                    Left =" & lngLeft & vbCrLf & _
+        "                    Top =" & lngTop & vbCrLf & _
+        "                    Width =" & lngWidth & vbCrLf & _
+        "                    Height =" & lngHeight & vbCrLf & _
+        "                    Name =""" & strName & """" & vbCrLf & _
+        "                    GroupTable =1" & vbCrLf & _
+        "                    LayoutCachedLeft =" & lngLeft & vbCrLf & _
+        "                    LayoutCachedTop =" & lngTop & vbCrLf & _
+        "                    LayoutCachedWidth =" & (lngLeft + lngWidth) & vbCrLf & _
+        "                    LayoutCachedHeight =" & (lngTop + lngHeight) & vbCrLf & _
+        IIf(lngColStart > 0, "                    ColumnStart =" & lngColStart & vbCrLf, vbNullString) & _
+        IIf(lngColEnd > 0, "                    ColumnEnd =" & lngColEnd & vbCrLf, vbNullString) & _
+        IIf(lngRowStart > 0, "                    RowStart =" & lngRowStart & vbCrLf, vbNullString) & _
+        IIf(lngRowEnd > 0, "                    RowEnd =" & lngRowEnd & vbCrLf, vbNullString) & _
+        "                    LayoutGroup =1" & vbCrLf & _
+        "                    GroupTable =1" & vbCrLf & _
+        "                End" & vbCrLf
+End Function

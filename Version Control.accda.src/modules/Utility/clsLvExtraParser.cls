@@ -19,7 +19,7 @@ Attribute VB_Exposed = False
 '           : the visual layout of tables/queries in the query designer and various
 '           : UI state properties.
 '           :
-'           : Binary format (reverse-engineered from live Access databases):
+'           : Binary format (determined from data observed in live Access databases):
 '           :   [4: magic 0x99 0x99 0xCE 0xAC] [12: padding 0xAA]
 '           :   [16: window RECT (L,T,R,B as Longs)]
 '           :   [4: state Long]

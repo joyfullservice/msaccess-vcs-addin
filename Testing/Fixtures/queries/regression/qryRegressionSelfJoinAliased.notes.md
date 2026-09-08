@@ -1,11 +1,10 @@
-# qryCurrencyCrossRates
+# qryRegressionSelfJoinAliased
 
 **Pins:** self-join with table aliases must round-trip with `Alias =`
 emission preserved.
 
-This query joins `tblCurrencyExchange` to itself (`AS a` / `AS b`) to compute
-cross-rate pairs. It is the smallest reproducer for a production bug that
-affected hundreds of self-join queries.
+This query joins generic `tblMeasurements` inputs to themselves (`AS a` /
+`AS b`). It is the smallest reproducer for a self-join alias-loss bug.
 
 The failure mode: when an aliased input table's `Alias =` line is dropped
 during export, MSysQueries Attribute 7 collapses `leftTable == rightTable`

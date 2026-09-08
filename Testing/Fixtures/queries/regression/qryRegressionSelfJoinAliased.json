@@ -1,14 +1,14 @@
 ﻿{
   "Info": {
     "Class": "clsDbQuery",
-    "Description": "qryCurrencyCrossRates"
+    "Description": "qryRegressionSelfJoinAliased"
   },
   "Items": {
     "QueryType": 0,
     "QueryProperties": {
       "Description": {
         "Type": 10,
-        "Value": "Self-join regression fixture: tblCurrencyExchange aliased to a/b for cross-rate pairs. Verifies that aliased input tables round-trip with their Alias = lines preserved in .qdef. Without the alias, MSysQueries Attribute 7 collapses leftTable == rightTable and BuildJoinChain crashes on re-export."
+        "Value": "Self-join regression fixture: tblMeasurements aliased to a/b for generic value pairs. Verifies that aliased input tables round-trip with their Alias = lines preserved in .qdef. Without the alias, MSysQueries Attribute 7 collapses leftTable == rightTable and BuildJoinChain crashes on re-export."
       }
     },
     "DesignLayout": {
@@ -52,7 +52,7 @@
     "Properties": {
       "Description": {
         "Type": 10,
-        "Value": "Self-join regression fixture: tblCurrencyExchange aliased to a/b for cross-rate pairs. Verifies that aliased input tables round-trip with their Alias = lines preserved in .qdef. Without the alias, MSysQueries Attribute 7 collapses leftTable == rightTable and BuildJoinChain crashes on re-export."
+        "Value": "Self-join regression fixture: tblMeasurements aliased to a/b for generic value pairs. Verifies that aliased input tables round-trip with their Alias = lines preserved in .qdef. Without the alias, MSysQueries Attribute 7 collapses leftTable == rightTable and BuildJoinChain crashes on re-export."
       }
     }
   }

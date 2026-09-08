@@ -2,7 +2,7 @@
 
 **Pins:** Self-join with a compound ON clause containing an inequality (`>`).
 
-Existing self-join fixtures (`qryCurrencyCrossRates`,
+Existing self-join fixtures (`qryRegressionSelfJoinAliased`,
 `qryRegressionSelfJoinUnaliased`) use only equality conditions in the ON
 clause. This fixture adds an inequality operator (`A.Reading > B.ReadingDate`)
 as the second condition in a compound ON, exercising a different branch in
