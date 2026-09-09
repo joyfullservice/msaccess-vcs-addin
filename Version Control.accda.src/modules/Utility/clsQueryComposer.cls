@@ -22,7 +22,9 @@ Attribute VB_Exposed = False
 '           :
 '           : The internal structure is never serialized; it exists only transiently
 '           : during the composition/decomposition process. The .sql file is the sole
-'           : source of truth for SQL text.
+'           : source of truth for SQL text and for every modifier SQL can express.
+'           : JSON OptionFlag cannot add DISTINCT / TOP / OWNERACCESS that the .sql
+'           : does not contain.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -61,6 +63,11 @@ Private m_dParamFlags As Dictionary     ' PARAMETERS keyword -> DAO data type
 ' Access does not store 0 for a declared parameter -- an untyped "Value" parameter is
 ' recorded as dbText -- but a zero flag is used as the fallback for an unknown type.
 Private Const PARAM_TYPE_UNTYPED As Long = 0
+
+' Attribute 3 bits that Access SQL text expresses on its own, so the .sql is the
+' authority for every one of them: 1 Output All Fields / UNION ALL, 2 DISTINCT,
+' 4 WITH OWNERACCESS OPTION, 8 DISTINCTROW, 16 TOP, 32 PERCENT.
+Private Const OPTION_BITS_FROM_SQL As Long = 63
 
 
 Private Sub Class_Initialize()
@@ -250,8 +257,16 @@ Public Function ReconstructSQL(colRows As Collection) As String
         End Select
     Next dRow
 
-    ' If raw SQL was found (SQL View or DDL/pass-through), return it directly
+    ' If raw SQL was found (SQL View or DDL/pass-through), return it.
+    ' From 5.1.0, inject Attribute 3 modifiers that Access omitted from
+    ' Attribute 0 so the emitted .sql is self-contained. Pass-through and
+    ' DDL keep the stored Expression verbatim.
     If blnHasRawSql Then
+        If Options.ExportFormatVersion >= EFV_5_1_0 _
+            And lngOperation <> 7 And lngOperation <> 8 And lngOperation <> 10 Then
+            strRawSql = ApplyOptionFlagToSql(strRawSql, lngOption, lngTopN, blnTopPercent)
+        End If
+        m_strRawSql = strRawSql
         ReconstructSQL = strRawSql
         GoTo CleanUp
     End If
@@ -492,12 +507,6 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
     strNorm = NormalizeWhitespace(strSql)
     strUpper = UCase$(strNorm)
 
-    ' Check for query types that cannot be represented in Design View
-    If IsUnionQuery(strUpper) Then
-        m_blnDesignerCompatible = False
-        GoTo CleanUp
-    End If
-
     ' DDL statements
     If IsDDLQuery(strUpper) Then
         m_blnIsDDL = True
@@ -511,7 +520,7 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
 
     ' Check for WITH OWNERACCESS OPTION at the end
     Dim lngOwnerAccess As Long
-    lngOwnerAccess = FindTopLevelKeyword(strNorm, "WITH OWNERACCESS OPTION")
+    lngOwnerAccess = FindTopLevelWord(strUpper, "WITH OWNERACCESS OPTION")
     If lngOwnerAccess > 0 Then
         ' Verify it's at the very end
         If Len(Trim$(Mid$(strNorm, lngOwnerAccess + 23))) = 0 Then
@@ -519,6 +528,19 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
             strNorm = RTrim$(Left$(strNorm, lngOwnerAccess - 1))
             strUpper = UCase$(strNorm)
         End If
+    End If
+
+    ' UNION is not designer-compatible. Parse UNION vs UNION ALL (and any
+    ' OWNERACCESS bit already collected) so OptionBitsFromSql can describe it.
+    If IsUnionQuery(strUpper) Then
+        m_blnDesignerCompatible = False
+        m_lngQueryType = 9
+        If IsUnionAllQuery(strUpper) Then
+            m_lngOption = m_lngOption Or 1
+        Else
+            m_lngOption = m_lngOption Or 3
+        End If
+        GoTo CleanUp
     End If
 
     ' Parse PARAMETERS clause if present
@@ -659,6 +681,10 @@ End Property
 '           : dProperties: query properties (ReturnsRecords, ODBCTimeout, etc.)
 '           : dColumns: column metadata (Name, AggregateType, ColumnWidth, etc.)
 '           : dLayout: design layout from LvExtra parsing (or Nothing for SQL View)
+'           : lngOptionFlag: JSON companion bits, used only to detect stale
+'           : companions. Every SQL-representable modifier comes from the
+'           : .sql, including Output All Fields (a bare `*` in the field
+'           : list); a disagreeing OptionFlag is ignored and warned.
 '---------------------------------------------------------------------------------------
 '
 Public Function GenerateQdef(blnDesignView As Boolean, _
@@ -671,24 +697,7 @@ Public Function GenerateQdef(blnDesignView As Boolean, _
 
     Dim cOut As New clsConcat
 
-    ' Merge JSON OptionFlag with SQL-derived flags. The SQL is the source of
-    ' truth -- if the JSON OptionFlag claims TOP/PERCENT but the parsed SQL did
-    ' not produce a TOP n value, drop those bits to avoid generating an Option
-    ' line that points to a non-existent TopN. Otherwise Access fails the import
-    ' with "Resource failure".
-    If lngOptionFlag > 0 Then
-        Dim lngMerged As Long
-        lngMerged = lngOptionFlag
-        If m_lngTopN = 0 And m_lngTopPercent = 0 Then
-            ' Clear TOP (16) and PERCENT (32) bits when no TOP value is present
-            lngMerged = lngMerged And Not 16
-            lngMerged = lngMerged And Not 32
-            If lngMerged <> lngOptionFlag Then
-                Log.Add "    Dropping TOP/PERCENT bits from OptionFlag (no TOP n in SQL)", Options.ShowDebug
-            End If
-        End If
-        m_lngOption = m_lngOption Or lngMerged
-    End If
+    ReconcileOptionFlag lngOptionFlag
 
     If blnDesignView And m_blnDesignerCompatible Then
         EmitDesignViewQdef cOut, dProperties, dColumns, dLayout
@@ -702,6 +711,302 @@ CleanUp:
     CatchAny eelError, "Error generating qdef (DesignView=" & blnDesignView & "). " & SqlSnippet(), _
         ModuleName(Me) & ".GenerateQdef"
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReconcileOptionFlag
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : SQL-derived modifiers are authoritative, so this never changes
+'           : m_lngOption -- it only reports a companion that no longer
+'           : matches its .sql. The comparison is symmetric: a bit the JSON
+'           : claims and the SQL lacks, and a bit the SQL carries that the
+'           : JSON dropped, are both stale companions.
+'           : lngOptionFlag < 0 means the caller omitted the field, which is
+'           : silent -- an absent OptionFlag makes no claim to contradict.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ReconcileOptionFlag(ByVal lngOptionFlag As Long)
+
+    Dim lngSqlBits As Long
+    Dim lngJsonBits As Long
+
+    If lngOptionFlag < 0 Then Exit Sub
+
+    lngSqlBits = m_lngOption And OPTION_BITS_FROM_SQL
+    lngJsonBits = lngOptionFlag And OPTION_BITS_FROM_SQL
+
+    ' A bare `SELECT *` sets bit 1 while storing no output columns. Access
+    ' records that shape with Attribute 3 = 1, but exports omit the flag
+    ' because the `*` already carries it, so both spellings agree here.
+    If lngSqlBits <> lngJsonBits And IsImplicitOutputAllFields() Then
+        lngSqlBits = lngSqlBits And Not 1
+        lngJsonBits = lngJsonBits And Not 1
+    End If
+
+    If lngSqlBits <> lngJsonBits Then
+        If m_colWarnings Is Nothing Then Set m_colWarnings = New Collection
+        m_colWarnings.Add T("OptionFlag {0} disagrees with SQL modifiers {1}; using SQL", _
+            var0:=CStr(lngJsonBits), var1:=CStr(lngSqlBits))
+        Log.Add T("    OptionFlag {0} disagrees with SQL modifiers {1}; using SQL", _
+            var0:=CStr(lngJsonBits), var1:=CStr(lngSqlBits))
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsImplicitOutputAllFields
+' Author    : Adam Waller
+' Date      : 9/9/2026
+' Purpose   : True when bit 1 came from a bare `*` that is the entire field
+'           : list, rather than from an explicit `*` alongside named output
+'           : columns. UNION queries reuse bit 1 for UNION ALL and never
+'           : populate output columns, so they are excluded.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsImplicitOutputAllFields() As Boolean
+    If m_lngQueryType = 9 Then Exit Function
+    If m_colOutputColumns Is Nothing Then Exit Function
+    IsImplicitOutputAllFields = ((m_lngOption And 1) <> 0 And _
+        m_colOutputColumns.Count = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyOptionFlagToSql
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : Inject Attribute 3 modifiers that are missing from an Access
+'           : SQL string, limited to what Jet can parse back. DISTINCT and
+'           : TOP go only onto a SELECT-shaped statement (DISTINCTROW is
+'           : also legal on UPDATE / DELETE); UNION vs UNION ALL is never
+'           : rewritten, since that changes which rows the query returns;
+'           : and Output All Fields is never injected, because the position
+'           : of its bare `*` in the field list is not recoverable.
+'---------------------------------------------------------------------------------------
+'
+Public Function ApplyOptionFlagToSql(ByVal strSql As String, ByVal lngOption As Long, _
+    Optional ByVal lngTopN As Long = 0, Optional ByVal blnTopPercent As Boolean = False) As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Dim strUpper As String
+    Dim strWork As String
+
+    ApplyOptionFlagToSql = strSql
+    If Len(strSql) = 0 Then GoTo CleanUp
+    If lngOption = 0 And lngTopN = 0 Then GoTo CleanUp
+
+    strUpper = UCase$(NormalizeWhitespace(strSql))
+    If IsDDLQuery(strUpper) Then GoTo CleanUp
+
+    strWork = strSql
+    If IsUnionQuery(strUpper) Then
+        strWork = ApplyOwnerAccessOption(strWork, strUpper, lngOption)
+    Else
+        strWork = InjectDistinctAndTop(strWork, lngOption, lngTopN, blnTopPercent)
+        strWork = ApplyOwnerAccessOption(strWork, strUpper, lngOption)
+    End If
+    ApplyOptionFlagToSql = strWork
+
+CleanUp:
+    CatchAny eelError, "Error applying option flag to SQL. " & SqlSnippet(), _
+        ModuleName(Me) & ".ApplyOptionFlagToSql"
+    If Len(ApplyOptionFlagToSql) = 0 Then ApplyOptionFlagToSql = strSql
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OptionBitsFromSql
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : Parse an Access SQL string and return the Attribute 3 mask
+'           : implied by its modifiers. Uses a temporary composer so the
+'           : caller's decomposed state is left unchanged.
+'---------------------------------------------------------------------------------------
+'
+Public Function OptionBitsFromSql(ByVal strSql As String) As Long
+
+    Dim cTemp As clsQueryComposer
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Set cTemp = New clsQueryComposer
+    cTemp.DecomposeSQL strSql
+    OptionBitsFromSql = cTemp.ParsedOptionFlag
+
+    CatchAny eelError, "Error reading option bits from SQL", _
+        ModuleName(Me) & ".OptionBitsFromSql"
+
+End Function
+
+
+Private Function InjectDistinctAndTop(ByVal strSql As String, ByVal lngOption As Long, _
+    ByVal lngTopN As Long, ByVal blnTopPercent As Boolean) As String
+
+    Dim lngVerb As Long
+    Dim strVerb As String
+    Dim blnSelectShaped As Boolean
+    Dim lngAfter As Long
+    Dim lngDistinctPos As Long
+    Dim lngTopPos As Long
+    Dim strRest As String
+    Dim blnHasDistinctRow As Boolean
+    Dim blnHasDistinct As Boolean
+    Dim blnHasTop As Boolean
+    Dim strInsert As String
+
+    InjectDistinctAndTop = strSql
+
+    lngVerb = FindQueryVerb(strSql, strVerb, blnSelectShaped)
+    If lngVerb = 0 Then Exit Function
+
+    lngAfter = lngVerb + Len(strVerb)
+    SkipSqlWhitespace strSql, lngAfter
+    lngDistinctPos = lngAfter
+
+    strRest = UCase$(Mid$(strSql, lngAfter))
+    If StartsWithKeyword(strRest, "DISTINCTROW") Then
+        blnHasDistinctRow = True
+        lngAfter = lngAfter + Len("DISTINCTROW")
+        SkipSqlWhitespace strSql, lngAfter
+    ElseIf StartsWithKeyword(strRest, "DISTINCT") Then
+        blnHasDistinct = True
+        lngAfter = lngAfter + Len("DISTINCT")
+        SkipSqlWhitespace strSql, lngAfter
+    End If
+    lngTopPos = lngAfter
+
+    strRest = UCase$(Mid$(strSql, lngAfter))
+    If StartsWithKeyword(strRest, "TOP") Then blnHasTop = True
+
+    If Not blnHasDistinctRow And Not blnHasDistinct Then
+        If (lngOption And 8) <> 0 Then
+            strInsert = "DISTINCTROW "
+        ElseIf (lngOption And 2) <> 0 And blnSelectShaped Then
+            strInsert = "DISTINCT "
+        End If
+    End If
+
+    ' Jet accepts TOP only on a SELECT-shaped statement. UPDATE and DELETE
+    ' carry the bit in Attribute 3 without it ever being legal SQL text, so
+    ' injecting it there would emit a .sql Access cannot parse back.
+    If Not blnHasTop And blnSelectShaped And (lngOption And 16) <> 0 And lngTopN > 0 Then
+        If blnHasDistinctRow Or blnHasDistinct Then
+            ' TOP belongs after an existing DISTINCT / DISTINCTROW
+            If blnTopPercent Or (lngOption And 32) <> 0 Then
+                InjectDistinctAndTop = Left$(strSql, lngTopPos - 1) & _
+                    "TOP " & CStr(lngTopN) & " PERCENT " & Mid$(strSql, lngTopPos)
+            Else
+                InjectDistinctAndTop = Left$(strSql, lngTopPos - 1) & _
+                    "TOP " & CStr(lngTopN) & " " & Mid$(strSql, lngTopPos)
+            End If
+            If Len(strInsert) > 0 Then
+                InjectDistinctAndTop = Left$(InjectDistinctAndTop, lngDistinctPos - 1) & _
+                    strInsert & Mid$(InjectDistinctAndTop, lngDistinctPos)
+            End If
+            Exit Function
+        Else
+            If blnTopPercent Or (lngOption And 32) <> 0 Then
+                strInsert = strInsert & "TOP " & CStr(lngTopN) & " PERCENT "
+            Else
+                strInsert = strInsert & "TOP " & CStr(lngTopN) & " "
+            End If
+        End If
+    End If
+
+    If Len(strInsert) > 0 Then
+        InjectDistinctAndTop = Left$(strSql, lngDistinctPos - 1) & strInsert & Mid$(strSql, lngDistinctPos)
+    End If
+
+End Function
+
+
+Private Function FindQueryVerb(ByVal strSql As String, ByRef strVerb As String, _
+    ByRef blnSelectShaped As Boolean) As Long
+
+    Dim strUpper As String
+    Dim lngSelect As Long
+    Dim lngUpdate As Long
+    Dim lngDelete As Long
+    Dim lngFirst As Long
+
+    strUpper = UCase$(strSql)
+    lngSelect = FindTopLevelWord(strUpper, "SELECT")
+    lngUpdate = FindTopLevelWord(strUpper, "UPDATE")
+    lngDelete = FindTopLevelWord(strUpper, "DELETE")
+
+    ' The statement's first top-level query verb determines its shape. This
+    ' still finds the SELECT in PARAMETERS / TRANSFORM / INSERT ... SELECT,
+    ' while ignoring keywords inside literals and bracketed identifiers.
+    If lngSelect > 0 Then
+        lngFirst = lngSelect
+        strVerb = "SELECT"
+        blnSelectShaped = True
+    End If
+    If lngUpdate > 0 And (lngFirst = 0 Or lngUpdate < lngFirst) Then
+        lngFirst = lngUpdate
+        strVerb = "UPDATE"
+        blnSelectShaped = False
+    End If
+    If lngDelete > 0 And (lngFirst = 0 Or lngDelete < lngFirst) Then
+        lngFirst = lngDelete
+        strVerb = "DELETE"
+        blnSelectShaped = False
+    End If
+
+    FindQueryVerb = lngFirst
+
+End Function
+
+
+Private Function StartsWithKeyword(ByVal strUpper As String, ByVal strKeyword As String) As Boolean
+    Dim strNext As String
+
+    If Left$(strUpper, Len(strKeyword)) <> strKeyword Then Exit Function
+    If Len(strUpper) = Len(strKeyword) Then
+        StartsWithKeyword = True
+        Exit Function
+    End If
+    strNext = Mid$(strUpper, Len(strKeyword) + 1, 1)
+    StartsWithKeyword = (strNext = " " Or strNext = vbTab Or _
+        strNext = vbCr Or strNext = vbLf Or strNext = "(")
+End Function
+
+
+Private Sub SkipSqlWhitespace(ByVal strSql As String, ByRef lngPos As Long)
+    Do While lngPos <= Len(strSql)
+        Select Case Mid$(strSql, lngPos, 1)
+            Case " ", vbTab, vbCr, vbLf
+                lngPos = lngPos + 1
+            Case Else
+                Exit Do
+        End Select
+    Loop
+End Sub
+
+
+' strUpperNorm is strSql uppercased with whitespace collapsed, so the clause is
+' recognized however Access wrapped it across lines. The presence test is
+' syntax-aware because the phrase is legal inside a literal or a field name,
+' where it is data rather than the query's own OWNERACCESS clause.
+Private Function ApplyOwnerAccessOption(ByVal strSql As String, ByVal strUpperNorm As String, _
+    ByVal lngOption As Long) As String
+
+    Dim strWork As String
+
+    ApplyOwnerAccessOption = strSql
+    If (lngOption And 4) = 0 Then Exit Function
+    If FindTopLevelWord(strUpperNorm, "WITH OWNERACCESS OPTION") > 0 Then Exit Function
+
+    strWork = RTrim$(strSql)
+    Do While Right$(strWork, 1) = ";"
+        strWork = RTrim$(Left$(strWork, Len(strWork) - 1))
+    Loop
+    ApplyOwnerAccessOption = strWork & vbCrLf & "WITH OWNERACCESS OPTION;" & vbCrLf
 End Function
 
 
@@ -2010,28 +2315,101 @@ End Function
 
 
 Private Function IsUnionQuery(strUpper As String) As Boolean
-    ' Check if the query contains UNION outside of quotes
+    IsUnionQuery = (FindTopLevelWord(strUpper, "UNION") > 0)
+End Function
+
+
+' True when every top-level UNION is UNION ALL. Mixed UNION / UNION ALL
+' reports False so OptionFlag 3 (UNION) wins, matching ReconstructSQL.
+Private Function IsUnionAllQuery(strUpper As String) As Boolean
     Dim lngPos As Long
-    Dim blnInString As Boolean
+    Dim blnFound As Boolean
+
+    lngPos = FindTopLevelWord(strUpper, "UNION")
+    Do While lngPos > 0
+        blnFound = True
+        ' Anything other than a match at this same position means this
+        ' particular UNION is not spelled UNION ALL.
+        If FindTopLevelWord(strUpper, "UNION ALL", lngPos) <> lngPos Then Exit Function
+        lngPos = FindTopLevelWord(strUpper, "UNION", lngPos + Len("UNION"))
+    Loop
+    IsUnionAllQuery = blnFound
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindTopLevelWord
+' Author    : Adam Waller
+' Date      : 9/9/2026
+' Purpose   : Position of strWord (uppercase, single-spaced) as a whole word
+'           : at parenthesis depth 0 and outside "double" quotes, 'single'
+'           : quotes, and [bracketed identifiers]. Returns 0 when absent.
+'           : A keyword inside a literal or a field name is not the query's
+'           : keyword, so scanning for `InStr` alone reads UNION out of
+'           : `WHERE Note = "UNION ALL"`.
+'           : lngStart suppresses earlier matches without restarting the
+'           : scan, so quote and bracket state stays correct while a caller
+'           : walks every occurrence.
+'---------------------------------------------------------------------------------------
+'
+Private Function FindTopLevelWord(ByVal strUpper As String, ByVal strWord As String, _
+    Optional ByVal lngStart As Long = 1) As Long
+
+    Dim lngPos As Long
+    Dim lngLast As Long
+    Dim lngWordLen As Long
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
+    Dim blnInBracket As Boolean
     Dim lngDepth As Long
 
-    For lngPos = 1 To Len(strUpper) - 5
+    lngWordLen = Len(strWord)
+    If lngWordLen = 0 Then Exit Function
+    lngLast = Len(strUpper) - lngWordLen + 1
+
+    For lngPos = 1 To Len(strUpper)
+        If lngPos >= lngStart And lngPos <= lngLast And lngDepth = 0 _
+            And Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+            If Mid$(strUpper, lngPos, lngWordLen) = strWord Then
+                If Not IsSqlWordChar(PrevSqlChar(strUpper, lngPos)) _
+                    And Not IsSqlWordChar(Mid$(strUpper, lngPos + lngWordLen, 1)) Then
+                    FindTopLevelWord = lngPos
+                    Exit Function
+                End If
+            End If
+        End If
+
         Select Case Mid$(strUpper, lngPos, 1)
             Case """"
-                blnInString = Not blnInString
+                If Not blnInSingle And Not blnInBracket Then blnInDouble = Not blnInDouble
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then blnInSingle = Not blnInSingle
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
             Case "("
-                If Not blnInString Then lngDepth = lngDepth + 1
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+                    lngDepth = lngDepth + 1
+                End If
             Case ")"
-                If Not blnInString Then lngDepth = lngDepth - 1
-            Case "U"
-                If Not blnInString And lngDepth = 0 Then
-                    If Mid$(strUpper, lngPos, 6) = "UNION " Then
-                        IsUnionQuery = True
-                        Exit Function
-                    End If
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+                    lngDepth = lngDepth - 1
                 End If
         End Select
     Next lngPos
+
+End Function
+
+
+Private Function PrevSqlChar(ByVal strText As String, ByVal lngPos As Long) As String
+    If lngPos > 1 Then PrevSqlChar = Mid$(strText, lngPos - 1, 1)
+End Function
+
+
+Private Function IsSqlWordChar(ByVal strChar As String) As Boolean
+    If Len(strChar) = 0 Then Exit Function
+    IsSqlWordChar = (strChar Like "[A-Za-z0-9_]")
 End Function
 
 
@@ -2263,6 +2641,13 @@ Private Sub ParseInsertQuery(strSql As String)
             m_lngOption = m_lngOption Or 2
             strRemainder = Mid$(strRemainder, 10)
         End If
+
+        ' TOP n [PERCENT] follows any DISTINCT / DISTINCTROW, exactly as in a
+        ' standalone SELECT. Without this the clause stays in the field list
+        ' and `TOP` is parsed as the first output column's expression.
+        strUpper = UCase$(strRemainder)
+        If Left$(strUpper, 4) = "TOP " Then ParseTopClause strRemainder
+
         Dim lngFrom As Long
         lngFrom = FindTopLevelKeyword(strRemainder, "FROM ")
         If lngFrom > 0 Then
@@ -4137,6 +4522,30 @@ End Property
 
 Public Property Get QueryType() As Long
     QueryType = m_lngQueryType
+End Property
+
+Public Property Get ParsedOptionFlag() As Long
+    ParsedOptionFlag = m_lngOption
+End Property
+
+Public Property Get OutputColumnCount() As Long
+    If m_colOutputColumns Is Nothing Then
+        OutputColumnCount = 0
+    Else
+        OutputColumnCount = m_colOutputColumns.Count
+    End If
+End Property
+
+' Mask of the Attribute 3 bits that SQL text can express, so callers comparing a
+' .json OptionFlag against a .sql use the same definition this class does.
+Public Property Get SqlRepresentableOptionBits() As Long
+    SqlRepresentableOptionBits = OPTION_BITS_FROM_SQL
+End Property
+
+' True when bit 1 of ParsedOptionFlag is an implicit bare `*` rather than an
+' explicit `*` beside named columns. Exports drop the flag in that case.
+Public Property Get ImplicitOutputAllFields() As Boolean
+    ImplicitOutputAllFields = IsImplicitOutputAllFields()
 End Property
 
 ' Declared query parameters, as a collection of {name, type, flag} dictionaries.

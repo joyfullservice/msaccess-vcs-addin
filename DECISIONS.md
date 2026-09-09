@@ -83,6 +83,52 @@ contradictory guidance.
 
 ---
 
+## 2026-09-08 — SQL is authoritative for query option modifiers
+
+**Trigger**: A db-sec export showed `OptionFlag: 2` disappearing from 16
+queries while five others gained `SELECT DISTINCT`. The same SQL/JSON
+disagreement produced opposite results depending on whether import used
+SQL View or Design View.
+
+**Options explored**:
+- Keep ORing JSON `OptionFlag` into the SQL-derived mask. Cheap, but
+  Design View imports silently restore a modifier a developer deleted
+  from `.sql`, while SQL View imports discard the same bit. Rejected.
+- Drop `OptionFlag` from export and ignore it on import. Removes the
+  contradiction, but also removes the only signal that a hand-edited
+  `.sql` and its companion have drifted apart.
+- Keep JSON bit 1 (Output All Fields) as a JSON-only input, since SQL
+  spells it only as a bare `*`. Rejected on review: it left one bit
+  whose value import took from the companion, so the same file was
+  authoritative for five modifiers and advisory for a sixth. `*` in a
+  field list is a real spelling, so bit 1 is derivable like the rest.
+- SQL-derived modifiers win in both qdef emitters for every bit; warn
+  on any disagreement (chosen).
+- Always rewrite Attribute 0 SQL from Attribute 3 on export, ungated.
+  Would churn every 5.0.0 project that still has a contradictory pair.
+  Folded into unreleased `EFV_5_1_0` instead of inventing a later format.
+
+**Decision**: `DecomposeSQL` is the source of DISTINCT, DISTINCTROW,
+TOP, PERCENT, OWNERACCESS, UNION / UNION ALL, and Output All Fields.
+`GenerateQdef` never ORs JSON bits into that mask — `OptionFlag` is
+read only to detect drift, symmetrically, and an absent flag makes no
+claim. Stale JSON produces a warning, not `Log.Error`. From 5.1.0,
+`ReconstructSQL` injects Attribute 3 modifiers that Access omitted from
+Attribute 0, and export writes `OptionFlag` from the emitted SQL alone.
+Injection is limited to what Jet parses back: no DISTINCT or TOP on
+UPDATE / DELETE, and never a bare `*`. Import stays ungated.
+
+**What this rules out**: Treating `.json` `OptionFlag` as a source of
+query logic for any bit, or changing exported SQL below 5.1.0. A
+modifier Access can store but SQL cannot spell would now be lost on
+export, so adding one means adding its SQL spelling too.
+
+**Relevant files**: `clsQueryComposer.cls`, `clsDbQuery.cls`,
+`modConstants.bas`, `docs/access-query-storage.md`,
+`clsTestQueryComposer.cls`, `modTestRoundtrip.bas`.
+
+---
+
 ## 2026-09-08 — Canonical 60-twip form layout geometry
 
 **Trigger**: Untouched forms churned between developers, and a one-control edit

@@ -300,16 +300,27 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     ' Query type
     dItems.Add "QueryType", lngQueryType
 
-    ' Option flag (Attribute 3 Flag bitmask: DISTINCT, TOP, etc.)
+    ' Option flag. Before 5.1.0 this is the raw Attribute 3 bitmask.
+    ' From 5.1.0 the emitted SQL is authoritative for every modifier it can
+    ' carry, so the companion just restates what the .sql already says.
     Dim lngOptionFlag As Long
-    lngOptionFlag = 0
+    Dim lngAttr3 As Long
+    lngAttr3 = 0
     For Each dR In colRows
         If CLng(dR("Attribute")) = 3 Then
-            lngOptionFlag = CLng(dR("Flag"))
+            lngAttr3 = CLng(dR("Flag"))
             Exit For
         End If
     Next dR
-    If lngOptionFlag <> 0 And Not IsImplicitSelectStarOption(colRows, lngOptionFlag) Then
+    If Options.ExportFormatVersion >= EFV_5_1_0 And Not blnIsPassThrough Then
+        lngOptionFlag = ExportOptionFlagFromSql(strSql)
+    Else
+        lngOptionFlag = lngAttr3
+        If lngOptionFlag <> 0 And IsImplicitSelectStarOption(colRows, lngOptionFlag) Then
+            lngOptionFlag = 0
+        End If
+    End If
+    If lngOptionFlag <> 0 Then
         dItems.Add "OptionFlag", lngOptionFlag
     End If
 
@@ -402,6 +413,34 @@ CleanUp:
         ModuleName(Me) & ".ExportNewFormat", True, True, True
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportOptionFlagFromSql
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : OptionFlag written at export format 5.1.0+: exactly the bits the
+'           : emitted SQL implies, so the companion can never contradict the
+'           : .sql that ships beside it. Bit 1 is included only when the `*`
+'           : is explicit -- a bare `SELECT *` is already self-describing, so
+'           : persisting the flag would just churn the file.
+'           : Nothing is carried over from Attribute 3: a bit the SQL cannot
+'           : express is a bit import would have to ignore.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExportOptionFlagFromSql(ByVal strSql As String) As Long
+
+    Dim cOpt As clsQueryComposer
+    Dim lngBits As Long
+
+    Set cOpt = New clsQueryComposer
+    cOpt.DecomposeSQL strSql
+    lngBits = cOpt.ParsedOptionFlag And cOpt.SqlRepresentableOptionBits
+    If cOpt.ImplicitOutputAllFields Then lngBits = lngBits And Not 1
+
+    ExportOptionFlagFromSql = lngBits
+
+End Function
 
 
 Private Function IsImplicitSelectStarOption(ByVal colRows As Collection, ByVal lngOptionFlag As Long) As Boolean
@@ -625,6 +664,11 @@ Private Sub ImportNewFormat(strSqlFile As String)
     Dim strConnect As String
     Dim lngQueryType As Long
     Dim lngOptionFlag As Long
+
+    ' -1 distinguishes "companion carried no OptionFlag" from an explicit 0.
+    ' An absent flag makes no claim about the SQL, so it must not be read as
+    ' a companion asserting that no modifiers are present.
+    lngOptionFlag = -1
 
     strQueryName = GetObjectNameFromFileName(strSqlFile)
 

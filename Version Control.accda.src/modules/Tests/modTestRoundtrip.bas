@@ -1694,6 +1694,14 @@ Private Sub RunQdefValidation(ByVal strFixtureSql As String, _
     ' asserted on when the fixture supplied one.
     blnExpectLayoutOut = blnHasDesignLayout
 
+    ' SQL modifiers and JSON OptionFlag must agree in both directions. A JSON
+    ' bit the SQL lacks is the original defect (it changed Design View
+    ' imports only); a SQL modifier the JSON drops is the same drift seen
+    ' from the other side, and would go unnoticed because import ignores it.
+    If Not blnIsPassThrough Then
+        CheckOptionFlagAgreement strSql, lngOptionFlag, cComposer, colChecks
+    End If
+
     ' Generate the qdef (Design View or SQL View, matching the import path).
     ' Layout is omitted — it doesn't affect the Joins, InputTables, or
     ' OutputColumns blocks and is already validated via json_vs_fixture.
@@ -1747,6 +1755,52 @@ QdefValErr:
         "Qdef validation error: " & Err.Number & " " & Err.Description
     AddCheck colChecks, "qdef_vs_fixture", "error", _
         "Qdef validation error: " & Err.Number & " " & Err.Description
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckOptionFlagAgreement
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : Fail when a fixture's JSON OptionFlag does not say exactly what
+'           : its .sql says. The check is two-way -- a bit the JSON claims
+'           : and the SQL lacks is stale, and a modifier the SQL spells out
+'           : that the JSON omits is equally stale -- because import takes
+'           : the SQL either way, so a disagreeing companion is silent drift.
+'           : An implicit bare `SELECT *` is the one exception: it sets bit 1
+'           : while export omits it, so the expected flag drops that bit.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CheckOptionFlagAgreement(ByVal strSql As String, ByVal lngOptionFlag As Long, _
+    ByVal cComposer As clsQueryComposer, ByVal colChecks As Collection)
+
+    Dim lngRepresentable As Long
+    Dim lngExpected As Long
+    Dim lngActual As Long
+
+    lngRepresentable = cComposer.SqlRepresentableOptionBits
+    lngExpected = cComposer.ParsedOptionFlag And lngRepresentable
+
+    ' An absent OptionFlag is the spelling of zero representable bits.
+    If lngOptionFlag < 0 Then lngOptionFlag = 0
+    lngActual = lngOptionFlag And lngRepresentable
+
+    ' Both an omitted flag and Access's explicit Attribute 3 = 1 are valid
+    ' companions for a bare SELECT *, because the SQL already carries the
+    ' shape and canonical export omits the redundant flag.
+    If cComposer.ImplicitOutputAllFields Then
+        lngExpected = lngExpected And Not 1
+        lngActual = lngActual And Not 1
+    End If
+
+    If lngActual = lngExpected Then
+        AddCheck colChecks, "optionflag_vs_sql", "pass", vbNullString
+    Else
+        AddCheck colChecks, "optionflag_vs_sql", "fail", _
+            "JSON OptionFlag " & lngActual & " disagrees with the modifiers in the .sql" & _
+            " (expected " & lngExpected & ")"
+    End If
+
 End Sub
 
 

@@ -287,11 +287,36 @@ queries:
 
 ### OptionFlag (`.json` companion)
 
-`OptionFlag` is the JSON-serialized bitmask the new `.sql`/`.json`
-pipeline writes; values match Attribute 3 above (e.g. 48 = TOP n PERCENT,
-2 = DISTINCT, 1 = OutputAllFields). Stored in the `.json` companion so
-the SQL string in the `.sql` file can stay clean (the importer combines
-the SQL with `OptionFlag` when generating the `.qdef`).
+`OptionFlag` is the JSON-serialized copy of MSysQueries Attribute 3
+(e.g. 48 = TOP n PERCENT, 2 = DISTINCT, 1 = OutputAllFields). The `.sql`
+file is the sole source of truth for **every** bit in it — DISTINCT,
+DISTINCTROW, TOP, PERCENT, OWNERACCESS, UNION / UNION ALL, and Output
+All Fields, which SQL spells as a bare `*` in the field list. Import
+parses all of them from the `.sql` and never lets `OptionFlag` change
+the result; a companion that disagrees is ignored and logged as a
+warning. The comparison is symmetric, because a bit the `.json` claims
+and the `.sql` lacks and a modifier the `.sql` spells out that the
+`.json` dropped are the same stale companion seen from two sides.
+
+One shape is exempt: a bare `SELECT *` sets bit 1 while storing no
+output columns, and exports omit the flag because the `*` already
+carries it. Both spellings of that query agree.
+
+From export format 5.1.0, `ReconstructSQL` injects Attribute 3 modifiers
+that Access omitted from Attribute 0 raw SQL into the emitted `.sql`, and
+`OptionFlag` is written from that SQL alone. Injection is limited to what
+Jet can parse back: `TOP` only onto a SELECT-shaped statement (Jet rejects
+it on UPDATE / DELETE, which can still carry the bit in Attribute 3), and
+never a bare `*`, whose position in the field list is not recoverable.
+Earlier format versions keep the pre-5.1.0 split: raw Attribute 0 SQL and
+Attribute 3 as `OptionFlag`.
+
+Because these keywords are legal inside string literals and bracketed
+identifiers, the UNION and OWNERACCESS scans are quote-, bracket-, and
+depth-aware. A criterion of `= "UNION ALL"` used to classify a plain
+`SELECT DISTINCT` as a union query, which swapped the DISTINCT bit for
+the UNION ALL flag on export
+([regression/qryRegressionUnionWordInLiteral.sql](../Testing/Fixtures/queries/regression/qryRegressionUnionWordInLiteral.sql)).
 
 ## 3. Design View vs SQL View
 
@@ -611,7 +636,7 @@ contribute a fixture (see the bug-as-fixture workflow in
 | Shape                                              | Status / what would be needed                                                                                                  |
 |----------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
 | Query parameters beyond Long/Text (`Attribute 2`)  | `qryRegressionParameterizedCrosstab` pins Text via the SQL-memo path; `qryRegressionDesignViewParameters` pins Long + Text, `qryRegressionDesignViewParameterTypes` pins Boolean, DateTime, Currency + Double (plus an unbracketed parameter name), and `qryRegressionDesignViewParametersJoinOrderBy` pins Long + Short (unbracketed) alongside an INNER JOIN and ORDER BY \u2014 all through the Design View `Begin Parameters` block. `ParameterFlagFromType` maps the remaining DAO flags Riddington documents (Byte, Single, OLE, Memo, GUID, BigInt), but those are not yet exercised by a round-trip fixture; add fixtures for them if observed in the wild. |
-| `WITH OWNERACCESS OPTION` (Attribute 3 Flag = 4)   | No fixture. Verify the option flag round-trips (currently unknown whether it's preserved in `OptionFlag`).                     |
+| `WITH OWNERACCESS OPTION` (Attribute 3 Flag = 4)   | **Covered** by [regression/qryRegressionOwnerAccess.sql](../Testing/Fixtures/queries/regression/qryRegressionOwnerAccess.sql) and [regression/qryRegressionOwnerAccessLiteral.sql](../Testing/Fixtures/queries/regression/qryRegressionOwnerAccessLiteral.sql), which repeats the phrase inside a criterion so the clause scan cannot be satisfied by a string literal. |
 | Multi-value field (MVF) references                 | No fixture. Riddington Part 1 § 21. Likely shows up in Attribute 12 Flag = 2.                                                  |
 | Attachment field references                        | No fixture. Same Attribute 12 Flag = 2 family as MVF.                                                                          |
 | Long-text version-history references               | No fixture. Attribute 12 Flag = 1. Likely out of scope (version history is an Access-managed feature).                         |
