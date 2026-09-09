@@ -142,10 +142,6 @@ Begin Form
                     Top =1440
                     Width =6420
                     Name ="Line0"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1440
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =1440
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -159,10 +155,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label1"
                     Caption ="External Databases"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =1380
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -213,10 +205,6 @@ Begin Form
                     End
                     BackStyle =0
 
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =180
-                    LayoutCachedWidth =540
-                    LayoutCachedHeight =660
                     Gradient =0
                     BorderWidth =1
                     BorderThemeColorIndex =1
@@ -233,10 +221,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label3"
                     Caption ="Generate sql files for external database systems"
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =240
-                    LayoutCachedWidth =6285
-                    LayoutCachedHeight =630
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -247,10 +231,6 @@ Begin Form
                     Top =5880
                     Width =6420
                     Name ="Line4"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =5880
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =5880
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -264,10 +244,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label5"
                     Caption ="Info"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =5520
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =5820
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -289,10 +265,6 @@ Begin Form
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =1740
-                    LayoutCachedWidth =5940
-                    LayoutCachedHeight =4620
                 End
                 Begin CommandButton
                     OverlapFlags =85
@@ -345,10 +317,6 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =4740
-                    LayoutCachedWidth =1740
-                    LayoutCachedHeight =5100
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -415,10 +383,6 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =4740
-                    LayoutCachedTop =4740
-                    LayoutCachedWidth =5940
-                    LayoutCachedHeight =5100
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -485,10 +449,6 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =3480
-                    LayoutCachedTop =4740
-                    LayoutCachedWidth =4620
-                    LayoutCachedHeight =5100
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -516,10 +476,6 @@ Begin Form
                         "se, you can use version control to track changes in those external database obje"
                         "cts.\015\012\015\012Please see documentation for additional notes."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =6120
-                    LayoutCachedWidth =6180
-                    LayoutCachedHeight =8700
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End

@@ -219,9 +219,6 @@ Begin Form
                     BorderColor =15321539
                     Name ="Line10"
                     HorizontalAnchor =2
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =10800
-                    LayoutCachedHeight =1080
                     BorderThemeColorIndex =-1
                 End
                 Begin Rectangle
@@ -234,8 +231,6 @@ Begin Form
                     BackColor =5324600
                     Name ="Box1"
                     HorizontalAnchor =2
-                    LayoutCachedWidth =10800
-                    LayoutCachedHeight =1020
                     BackThemeColorIndex =-1
                 End
                 Begin Label
@@ -248,10 +243,6 @@ Begin Form
                     FontWeight =700
                     Name ="lblOptions"
                     Caption ="Split Files and Preserve History"
-                    LayoutCachedLeft =540
-                    LayoutCachedTop =240
-                    LayoutCachedWidth =6600
-                    LayoutCachedHeight =780
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
@@ -270,10 +261,6 @@ Begin Form
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =1800
-                    LayoutCachedWidth =6840
-                    LayoutCachedHeight =5760
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -283,10 +270,6 @@ Begin Form
                             Height =315
                             Name ="Label241"
                             Caption ="List of files to split:"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =1440
-                            LayoutCachedWidth =3000
-                            LayoutCachedHeight =1755
                         End
                     End
                 End
@@ -779,10 +762,6 @@ Begin Form
                         0x0000000049454e44ae426082
                     End
 
-                    LayoutCachedLeft =7560
-                    LayoutCachedTop =3960
-                    LayoutCachedWidth =9960
-                    LayoutCachedHeight =4740
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -808,10 +787,6 @@ Begin Form
                     Caption ="Use this tool to duplicate files while preserving commit history in Git.\015\012"
                         "\015\012Paste in a list of Pipe delimited paths and click the button below."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7560
-                    LayoutCachedTop =1800
-                    LayoutCachedWidth =10200
-                    LayoutCachedHeight =3705
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -828,10 +803,6 @@ Begin Form
                         "paths.\015\012\015\012Each entry should be on a new line. The list will be valid"
                         "ated before running the operation."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7560
-                    LayoutCachedTop =5040
-                    LayoutCachedWidth =10200
-                    LayoutCachedHeight =6600
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -848,10 +819,6 @@ Begin Form
                     HorizontalAnchor =2
                     VerticalAnchor =1
 
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =6300
-                    LayoutCachedWidth =6840
-                    LayoutCachedHeight =6615
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -862,10 +829,6 @@ Begin Form
                             Name ="Label244"
                             Caption ="Final Commit Message:"
                             VerticalAnchor =1
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =5940
-                            LayoutCachedWidth =5340
-                            LayoutCachedHeight =6255
                         End
                     End
                 End
@@ -883,10 +846,6 @@ Begin Form
                     BackStyle =0
 
                     CursorOnHover =1
-                    LayoutCachedLeft =4020
-                    LayoutCachedTop =1440
-                    LayoutCachedWidth =6840
-                    LayoutCachedHeight =1800
                     Alignment =3
                     ForeThemeColorIndex =10
                     ForeTint =100.0

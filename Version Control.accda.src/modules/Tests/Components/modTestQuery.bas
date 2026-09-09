@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestQuery"
+﻿Attribute VB_Name = "modTestQuery"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestQuery
 ' Author    : Adam Waller

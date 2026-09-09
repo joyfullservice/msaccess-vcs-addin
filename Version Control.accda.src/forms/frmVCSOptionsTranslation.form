@@ -135,10 +135,6 @@ Begin Form
                     Top =1440
                     Width =6420
                     Name ="Line0"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1440
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =1440
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -152,10 +148,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label1"
                     Caption ="Contribute"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =1380
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -206,10 +198,6 @@ Begin Form
                     End
                     BackStyle =0
 
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =180
-                    LayoutCachedWidth =540
-                    LayoutCachedHeight =660
                     Gradient =0
                     BorderWidth =1
                     BorderThemeColorIndex =1
@@ -226,10 +214,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label3"
                     Caption ="Contribute to translations"
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =240
-                    LayoutCachedWidth =6240
-                    LayoutCachedHeight =660
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -243,10 +227,6 @@ Begin Form
                     TabIndex =2
                     Name ="txtTranslationsPath"
 
-                    LayoutCachedLeft =2280
-                    LayoutCachedTop =4500
-                    LayoutCachedWidth =5640
-                    LayoutCachedHeight =4815
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -257,10 +237,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label297"
                             Caption ="Translations Path: "
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =4500
-                            LayoutCachedWidth =2160
-                            LayoutCachedHeight =4815
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -277,10 +253,6 @@ Begin Form
                     Caption ="..."
                     OnClick ="[Event Procedure]"
 
-                    LayoutCachedLeft =5700
-                    LayoutCachedTop =4500
-                    LayoutCachedWidth =6060
-                    LayoutCachedHeight =4800
                 End
                 Begin CommandButton
                     OverlapFlags =85
@@ -335,10 +307,6 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =5220
-                    LayoutCachedWidth =2760
-                    LayoutCachedHeight =5880
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -365,10 +333,6 @@ Begin Form
                                 ", and then update the master template and language files with the latest strings"
                                 " from the database."
                             HorizontalAnchor =2
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =6120
-                            LayoutCachedWidth =6000
-                            LayoutCachedHeight =7215
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -384,10 +348,6 @@ Begin Form
                     Name ="lblWorkingPathExplanation"
                     Caption ="Specify the path for the working language files."
                     HorizontalAnchor =2
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =4020
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =4320
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -398,10 +358,6 @@ Begin Form
                     Top =3780
                     Width =6420
                     Name ="Line6"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =3780
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =3780
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -415,10 +371,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label7"
                     Caption ="Language Files"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =3420
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =3720
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -429,10 +381,6 @@ Begin Form
                     TabIndex =1
                     Name ="chkContributeTranslations"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =1680
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =1920
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -443,10 +391,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label251"
                             Caption ="Contribute to translations"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =1620
-                            LayoutCachedWidth =4260
-                            LayoutCachedHeight =1935
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -463,10 +407,6 @@ Begin Form
                     Caption ="If you would like to help translate this add-in interface into your local langua"
                         "ge, please check this box and check out the details in the documentation."
                     HorizontalAnchor =2
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =2160
-                    LayoutCachedWidth =5940
-                    LayoutCachedHeight =3255
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End

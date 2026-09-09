@@ -144,10 +144,6 @@ Begin Form
                     Top =1440
                     Width =6420
                     Name ="Line0"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1440
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =1440
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -161,10 +157,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label1"
                     Caption ="Select tables to export data"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =1380
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -215,10 +207,6 @@ Begin Form
                     End
                     BackStyle =0
 
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =180
-                    LayoutCachedWidth =540
-                    LayoutCachedHeight =660
                     Gradient =0
                     BorderWidth =1
                     BorderThemeColorIndex =1
@@ -235,10 +223,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label3"
                     Caption ="Export configuration data from tables"
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =240
-                    LayoutCachedWidth =6240
-                    LayoutCachedHeight =660
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -250,10 +234,6 @@ Begin Form
                     Width =6420
                     Name ="Line4"
                     VerticalAnchor =1
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =6120
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =6120
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -268,10 +248,6 @@ Begin Form
                     Name ="Label5"
                     Caption ="Other tables (may not exist in this database)"
                     VerticalAnchor =1
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =5760
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =6060
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -285,10 +261,6 @@ Begin Form
                     OnClick ="[Event Procedure]"
                     VerticalAnchor =1
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =5160
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =5400
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -300,10 +272,6 @@ Begin Form
                             Name ="lblTableShowHidden"
                             Caption ="Show Hidden"
                             VerticalAnchor =1
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =5100
-                            LayoutCachedWidth =2400
-                            LayoutCachedHeight =5415
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -319,10 +287,6 @@ Begin Form
                     OnClick ="[Event Procedure]"
                     VerticalAnchor =1
 
-                    LayoutCachedLeft =2460
-                    LayoutCachedTop =5160
-                    LayoutCachedWidth =2720
-                    LayoutCachedHeight =5400
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -334,10 +298,6 @@ Begin Form
                             Name ="lblTableShowSystem"
                             Caption ="Show System"
                             VerticalAnchor =1
-                            LayoutCachedLeft =2760
-                            LayoutCachedTop =5100
-                            LayoutCachedWidth =4500
-                            LayoutCachedHeight =5415
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -353,10 +313,6 @@ Begin Form
                     OnClick ="[Event Procedure]"
                     VerticalAnchor =1
 
-                    LayoutCachedLeft =4560
-                    LayoutCachedTop =5160
-                    LayoutCachedWidth =4820
-                    LayoutCachedHeight =5400
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -368,10 +324,6 @@ Begin Form
                             Name ="lblTableShowOther"
                             Caption ="Show Other"
                             VerticalAnchor =1
-                            LayoutCachedLeft =4860
-                            LayoutCachedTop =5100
-                            LayoutCachedWidth =6480
-                            LayoutCachedHeight =5415
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -389,10 +341,6 @@ Begin Form
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1680
-                    LayoutCachedWidth =6120
-                    LayoutCachedHeight =4980
                 End
                 Begin TextBox
                     OverlapFlags =85
@@ -405,10 +353,6 @@ Begin Form
                     Name ="txtOtherTableName"
                     VerticalAnchor =1
 
-                    LayoutCachedLeft =2400
-                    LayoutCachedTop =6420
-                    LayoutCachedWidth =5220
-                    LayoutCachedHeight =6780
                     BackShade =95.0
                     Begin
                         Begin Label
@@ -421,10 +365,6 @@ Begin Form
                             Name ="Label79"
                             Caption ="Other Table Name:"
                             VerticalAnchor =1
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =6420
-                            LayoutCachedWidth =2250
-                            LayoutCachedHeight =6735
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -481,10 +421,6 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =2400
-                    LayoutCachedTop =7620
-                    LayoutCachedWidth =4320
-                    LayoutCachedHeight =7980
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -521,10 +457,6 @@ Begin Form
                     RightMargin =44
                     BottomMargin =22
 
-                    LayoutCachedLeft =2400
-                    LayoutCachedTop =7020
-                    LayoutCachedWidth =5220
-                    LayoutCachedHeight =7380
                     ForeThemeColorIndex =0
                     ForeTint =75.0
                     ForeShade =100.0
@@ -540,10 +472,6 @@ Begin Form
                             Caption ="Export As:"
                             BottomPadding =150
                             VerticalAnchor =1
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =7020
-                            LayoutCachedWidth =2250
-                            LayoutCachedHeight =7380
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End

@@ -158,10 +158,6 @@ Begin Form
                     End
                     BackStyle =0
 
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =180
-                    LayoutCachedWidth =540
-                    LayoutCachedHeight =660
                     Gradient =0
                     BorderWidth =1
                     BorderThemeColorIndex =1
@@ -178,10 +174,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label1"
                     Caption ="MCP agent tool permissions"
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =240
-                    LayoutCachedWidth =6240
-                    LayoutCachedHeight =660
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -192,10 +184,6 @@ Begin Form
                     Top =1440
                     Width =6420
                     Name ="Line2"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1440
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =1440
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -209,10 +197,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label3"
                     Caption ="Agent Capabilities"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =1380
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -223,10 +207,6 @@ Begin Form
                     TabIndex =1
                     Name ="chkMcpAllowImport"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =1800
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =2040
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -237,10 +217,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label5"
                             Caption ="Allow Object Import from Source"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =1740
-                            LayoutCachedWidth =4320
-                            LayoutCachedHeight =2055
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -255,10 +231,6 @@ Begin Form
                     FontSize =10
                     Name ="Label6"
                     Caption ="Allows agents to load source files into the database via MCP."
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =2160
-                    LayoutCachedWidth =6300
-                    LayoutCachedHeight =2520
                     ForeTint =50.0
                 End
                 Begin CheckBox
@@ -268,10 +240,6 @@ Begin Form
                     TabIndex =2
                     Name ="chkMcpAllowCallVBA"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =2760
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =3000
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -282,10 +250,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label8"
                             Caption ="Allow VBA Function Calls"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =2700
-                            LayoutCachedWidth =4320
-                            LayoutCachedHeight =3015
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -300,10 +264,6 @@ Begin Form
                     FontSize =10
                     Name ="Label9"
                     Caption ="Allows agents to call existing public VBA functions by name."
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =3120
-                    LayoutCachedWidth =6300
-                    LayoutCachedHeight =3480
                     ForeTint =50.0
                 End
                 Begin CheckBox
@@ -313,10 +273,6 @@ Begin Form
                     TabIndex =3
                     Name ="chkMcpAllowExecuteSQL"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =3720
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =3960
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -327,10 +283,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label11"
                             Caption ="Allow Read-Only SQL Queries"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =3660
-                            LayoutCachedWidth =4320
-                            LayoutCachedHeight =3975
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -345,10 +297,6 @@ Begin Form
                     FontSize =10
                     Name ="Label12"
                     Caption ="Allows agents to run SELECT queries via the add-in's DAO connection."
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =4080
-                    LayoutCachedWidth =6300
-                    LayoutCachedHeight =4440
                     ForeTint =50.0
                 End
                 Begin CheckBox
@@ -358,10 +306,6 @@ Begin Form
                     TabIndex =4
                     Name ="chkMcpAllowRunVBA"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =4680
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =4920
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -372,10 +316,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label14"
                             Caption ="Allow Arbitrary VBA Execution"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =4620
-                            LayoutCachedWidth =4320
-                            LayoutCachedHeight =4935
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -390,10 +330,6 @@ Begin Form
                     FontSize =10
                     Name ="Label15"
                     Caption ="Allows agents to write and execute VBA code in a temp module. Off by default."
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =5040
-                    LayoutCachedWidth =6300
-                    LayoutCachedHeight =5520
                     ForeTint =50.0
                 End
             End

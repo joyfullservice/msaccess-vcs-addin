@@ -258,9 +258,6 @@ Begin Form
                     BorderColor =15321539
                     Name ="Line10"
                     HorizontalAnchor =2
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =10080
-                    LayoutCachedHeight =1080
                     BorderThemeColorIndex =-1
                 End
                 Begin Rectangle
@@ -273,8 +270,6 @@ Begin Form
                     BackColor =5324600
                     Name ="Box1"
                     HorizontalAnchor =2
-                    LayoutCachedWidth =10080
-                    LayoutCachedHeight =1020
                     BackThemeColorIndex =-1
                 End
                 Begin Label
@@ -287,10 +282,6 @@ Begin Form
                     FontWeight =700
                     Name ="lblOptions"
                     Caption ="Options"
-                    LayoutCachedLeft =540
-                    LayoutCachedTop =240
-                    LayoutCachedWidth =4560
-                    LayoutCachedHeight =780
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
@@ -305,10 +296,6 @@ Begin Form
                     Name ="Label9"
                     Caption ="Version Control System "
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7140
-                    LayoutCachedTop =300
-                    LayoutCachedWidth =9180
-                    LayoutCachedHeight =540
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
@@ -329,10 +316,6 @@ Begin Form
                     HorizontalAnchor =1
                     VerticalAnchor =1
 
-                    LayoutCachedLeft =5880
-                    LayoutCachedTop =7980
-                    LayoutCachedWidth =7380
-                    LayoutCachedHeight =8400
                     BackColor =14262935
                     BackThemeColorIndex =-1
                     BackTint =100.0
@@ -400,10 +383,6 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =7680
-                    LayoutCachedTop =7980
-                    LayoutCachedWidth =9540
-                    LayoutCachedHeight =8400
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -469,10 +448,6 @@ Begin Form
                     End
                     BackStyle =0
 
-                    LayoutCachedLeft =3720
-                    LayoutCachedTop =8040
-                    LayoutCachedWidth =5280
-                    LayoutCachedHeight =8400
                     PictureCaptionArrangement =4
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -502,10 +477,6 @@ Begin Form
                     Name ="Label32"
                     Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
-                    LayoutCachedLeft =240
-                    LayoutCachedTop =8100
-                    LayoutCachedWidth =3615
-                    LayoutCachedHeight =8340
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                     ForeShade =50.0
@@ -520,10 +491,6 @@ Begin Form
                     FontSize =10
                     Name ="lblVersion"
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7140
-                    LayoutCachedTop =540
-                    LayoutCachedWidth =9180
-                    LayoutCachedHeight =780
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
@@ -542,10 +509,6 @@ Begin Form
                     DefaultValue ="1"
                     VerticalAnchor =2
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =1500
-                    LayoutCachedWidth =2739
-                    LayoutCachedHeight =7738
                     BackThemeColorIndex =-1
                     Begin
                         Begin ToggleButton
@@ -560,10 +523,6 @@ Begin Form
                             Name ="tglGeneral"
                             Caption ="General"
 
-                            LayoutCachedLeft =480
-                            LayoutCachedTop =1560
-                            LayoutCachedWidth =2667
-                            LayoutCachedHeight =2010
                             Shape =1
                             Bevel =0
                             BackColor =13155516
@@ -596,10 +555,6 @@ Begin Form
                             Name ="tglExport"
                             Caption ="Export"
 
-                            LayoutCachedLeft =480
-                            LayoutCachedTop =2040
-                            LayoutCachedWidth =2667
-                            LayoutCachedHeight =2490
                             Shape =1
                             Bevel =0
                             BackColor =13155516
@@ -632,10 +587,6 @@ Begin Form
                             Name ="tglBuild"
                             Caption ="Build"
 
-                            LayoutCachedLeft =480
-                            LayoutCachedTop =2520
-                            LayoutCachedWidth =2667
-                            LayoutCachedHeight =2970
                             Shape =1
                             Bevel =0
                             BackColor =13155516
@@ -668,10 +619,6 @@ Begin Form
                             Name ="tglTableData"
                             Caption ="Table Data"
 
-                            LayoutCachedLeft =480
-                            LayoutCachedTop =3000
-                            LayoutCachedWidth =2667
-                            LayoutCachedHeight =3450
                             Shape =1
                             Bevel =0
                             BackColor =13155516
@@ -704,10 +651,6 @@ Begin Form
                             Name ="tglDatabases"
                             Caption ="External Databases"
 
-                            LayoutCachedLeft =480
-                            LayoutCachedTop =3480
-                            LayoutCachedWidth =2667
-                            LayoutCachedHeight =3930
                             Shape =1
                             Bevel =0
                             BackColor =13155516
@@ -740,10 +683,6 @@ Begin Form
                             Name ="tglTranslation"
                             Caption ="Translation"
 
-                            LayoutCachedLeft =480
-                            LayoutCachedTop =3960
-                            LayoutCachedWidth =2667
-                            LayoutCachedHeight =4410
                             Shape =1
                             Bevel =0
                             BackColor =13155516
@@ -776,10 +715,6 @@ Begin Form
                             Name ="tglDefaults"
                             Caption ="Defaults"
 
-                            LayoutCachedLeft =480
-                            LayoutCachedTop =4440
-                            LayoutCachedWidth =2667
-                            LayoutCachedHeight =4890
                             Shape =1
                             Bevel =0
                             BackColor =13155516
@@ -812,10 +747,6 @@ Begin Form
                             Name ="tglAdvanced"
                             Caption ="Advanced"
 
-                            LayoutCachedLeft =480
-                            LayoutCachedTop =4920
-                            LayoutCachedWidth =2667
-                            LayoutCachedHeight =5370
                             Shape =1
                             Bevel =0
                             BackColor =13155516
@@ -848,10 +779,6 @@ Begin Form
                             Name ="tglMCP"
                             Caption ="MCP"
 
-                            LayoutCachedLeft =480
-                            LayoutCachedTop =5400
-                            LayoutCachedWidth =2667
-                            LayoutCachedHeight =5850
                             Shape =1
                             Bevel =0
                             BackColor =13155516
@@ -885,10 +812,6 @@ Begin Form
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
-                    LayoutCachedLeft =3120
-                    LayoutCachedTop =1500
-                    LayoutCachedWidth =9840
-                    LayoutCachedHeight =7740
                 End
                 Begin Label
                     Visible = NotDefault
@@ -901,10 +824,6 @@ Begin Form
                     ForeColor =255
                     Name ="lblSubformWarning"
                     Caption ="NOTE: Leave this subform unbound in design view"
-                    LayoutCachedLeft =4080
-                    LayoutCachedTop =1140
-                    LayoutCachedWidth =8790
-                    LayoutCachedHeight =1455
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End

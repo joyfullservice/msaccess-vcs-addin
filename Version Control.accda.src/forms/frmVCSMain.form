@@ -149,9 +149,6 @@ Begin Form
                     BorderColor =15321539
                     Name ="Line10"
                     HorizontalAnchor =2
-                    LayoutCachedTop =1725
-                    LayoutCachedWidth =9360
-                    LayoutCachedHeight =1725
                     BorderThemeColorIndex =-1
                 End
                 Begin Rectangle
@@ -164,8 +161,6 @@ Begin Form
                     BackColor =5324600
                     Name ="Box1"
                     HorizontalAnchor =2
-                    LayoutCachedWidth =9360
-                    LayoutCachedHeight =1680
                     BackThemeColorIndex =-1
                 End
                 Begin Label
@@ -178,10 +173,6 @@ Begin Form
                     FontWeight =700
                     Name ="Label4"
                     Caption ="Version Control System"
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =300
-                    LayoutCachedWidth =4650
-                    LayoutCachedHeight =840
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
@@ -674,10 +665,6 @@ Begin Form
                         0x0000000049454e44ae426082
                     End
 
-                    LayoutCachedLeft =5100
-                    LayoutCachedTop =2400
-                    LayoutCachedWidth =7980
-                    LayoutCachedHeight =3300
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -704,10 +691,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="lblHeading"
                     Caption ="Choose Action"
-                    LayoutCachedLeft =540
-                    LayoutCachedTop =2100
-                    LayoutCachedWidth =2640
-                    LayoutCachedHeight =2460
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -1218,10 +1201,6 @@ Begin Form
                         0xc50be7919696f6d83c807f0002cb58d9e9f027800000000049454e44ae426082
                     End
 
-                    LayoutCachedLeft =5100
-                    LayoutCachedTop =3960
-                    LayoutCachedWidth =7980
-                    LayoutCachedHeight =4860
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -1247,10 +1226,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="lblSubheading"
                     Caption ="What would you like to do?"
-                    LayoutCachedLeft =540
-                    LayoutCachedTop =2580
-                    LayoutCachedWidth =2940
-                    LayoutCachedHeight =3120
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -1263,10 +1238,6 @@ Begin Form
                     FontSize =10
                     Name ="Label9"
                     Caption ="Designed for \015\012GitHub && GitLab"
-                    LayoutCachedLeft =540
-                    LayoutCachedTop =840
-                    LayoutCachedWidth =2340
-                    LayoutCachedHeight =1305
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
@@ -1289,10 +1260,6 @@ Begin Form
                     TextFormat =1
                     VerticalAnchor =2
 
-                    LayoutCachedLeft =780
-                    LayoutCachedTop =3300
-                    LayoutCachedWidth =2760
-                    LayoutCachedHeight =5700
                     BackThemeColorIndex =-1
                     BorderThemeColorIndex =0
                     BorderTint =50.0
@@ -1318,10 +1285,6 @@ Begin Form
                     HorizontalAnchor =1
                     VerticalAnchor =1
 
-                    LayoutCachedLeft =7680
-                    LayoutCachedTop =5880
-                    LayoutCachedWidth =9180
-                    LayoutCachedHeight =6300
                     BackColor =14262935
                     BackThemeColorIndex =-1
                     BackTint =100.0
@@ -1386,10 +1349,6 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =6480
-                    LayoutCachedTop =1200
-                    LayoutCachedWidth =8040
-                    LayoutCachedHeight =1560
                     PictureCaptionArrangement =5
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -1419,10 +1378,6 @@ Begin Form
                     Name ="Label32"
                     Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
-                    LayoutCachedLeft =300
-                    LayoutCachedTop =5940
-                    LayoutCachedWidth =3675
-                    LayoutCachedHeight =6180
                     BorderThemeColorIndex =1
                     BorderTint =100.0
                     BorderShade =50.0
@@ -1481,10 +1436,6 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =8100
-                    LayoutCachedTop =1200
-                    LayoutCachedWidth =9180
-                    LayoutCachedHeight =1560
                     PictureCaptionArrangement =5
                     ForeThemeColorIndex =1
                     ForeTint =100.0
@@ -1514,10 +1465,6 @@ Begin Form
                     FontSize =10
                     Name ="lblVersion"
                     HorizontalAnchor =1
-                    LayoutCachedLeft =5820
-                    LayoutCachedTop =360
-                    LayoutCachedWidth =9000
-                    LayoutCachedHeight =600
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
@@ -1531,10 +1478,6 @@ Begin Form
                     Name ="lblProgBack"
                     HorizontalAnchor =2
                     VerticalAnchor =1
-                    LayoutCachedLeft =3120
-                    LayoutCachedTop =5640
-                    LayoutCachedWidth =8280
-                    LayoutCachedHeight =5820
                 End
                 Begin Label
                     Visible = NotDefault
@@ -1544,10 +1487,6 @@ Begin Form
                     Width =2220
                     Height =180
                     Name ="lblProgFront"
-                    LayoutCachedLeft =4500
-                    LayoutCachedTop =6000
-                    LayoutCachedWidth =6720
-                    LayoutCachedHeight =6180
                 End
                 Begin Label
                     Visible = NotDefault
@@ -1558,10 +1497,6 @@ Begin Form
                     Height =180
                     FontSize =8
                     Name ="lblProgCaption"
-                    LayoutCachedLeft =4980
-                    LayoutCachedTop =6120
-                    LayoutCachedWidth =6240
-                    LayoutCachedHeight =6300
                 End
                 Begin Line
                     Visible = NotDefault
@@ -1570,10 +1505,6 @@ Begin Form
                     Top =1080
                     Width =660
                     Name ="Line27"
-                    LayoutCachedLeft =2460
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =3120
-                    LayoutCachedHeight =1080
                     BorderThemeColorIndex =1
                 End
                 Begin CheckBox
@@ -1583,10 +1514,6 @@ Begin Form
                     TabIndex =7
                     Name ="chkFullExport"
 
-                    LayoutCachedLeft =5700
-                    LayoutCachedTop =3390
-                    LayoutCachedWidth =5960
-                    LayoutCachedHeight =3630
                     Begin
                         Begin Label
                             OverlapFlags =255
@@ -1598,10 +1525,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label29"
                             Caption ="Full Export"
-                            LayoutCachedLeft =5925
-                            LayoutCachedTop =3360
-                            LayoutCachedWidth =7260
-                            LayoutCachedHeight =3630
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1616,10 +1539,6 @@ Begin Form
                     DefaultValue ="True"
                     OnClick ="[Event Procedure]"
 
-                    LayoutCachedLeft =5700
-                    LayoutCachedTop =4950
-                    LayoutCachedWidth =5960
-                    LayoutCachedHeight =5190
                     Begin
                         Begin Label
                             OverlapFlags =255
@@ -1631,10 +1550,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label31"
                             Caption ="Full Build"
-                            LayoutCachedLeft =5925
-                            LayoutCachedTop =4920
-                            LayoutCachedWidth =7260
-                            LayoutCachedHeight =5190
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1664,10 +1579,6 @@ Begin Form
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
-                    LayoutCachedLeft =3120
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =8280
-                    LayoutCachedHeight =5580
                     ThemeFontIndex =-1
                     ForeTint =100.0
                 End
@@ -1693,10 +1604,6 @@ Begin Form
                     BackStyle =0
 
                     CursorOnHover =1
-                    LayoutCachedLeft =3120
-                    LayoutCachedTop =5640
-                    LayoutCachedWidth =4980
-                    LayoutCachedHeight =5880
                     Alignment =1
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -1740,10 +1647,6 @@ Begin Form
                     BackStyle =0
 
                     CursorOnHover =1
-                    LayoutCachedLeft =5100
-                    LayoutCachedTop =5640
-                    LayoutCachedWidth =6600
-                    LayoutCachedHeight =5880
                     Alignment =1
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -1787,10 +1690,6 @@ Begin Form
                     BackStyle =0
 
                     CursorOnHover =1
-                    LayoutCachedLeft =6720
-                    LayoutCachedTop =5640
-                    LayoutCachedWidth =9120
-                    LayoutCachedHeight =5880
                     Alignment =1
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -1835,10 +1734,6 @@ Begin Form
                     BackStyle =0
 
                     CursorOnHover =1
-                    LayoutCachedLeft =5820
-                    LayoutCachedTop =660
-                    LayoutCachedWidth =9000
-                    LayoutCachedHeight =900
                     Alignment =3
                     ForeThemeColorIndex =7
                     ForeTint =40.0
