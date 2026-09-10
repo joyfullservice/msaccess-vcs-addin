@@ -259,6 +259,306 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BenchmarkFormGeometry
+' Author    : Adam Waller
+' Date      : 9/9/2026
+' Purpose   : Measure the cost the form geometry canonicalizer adds to a form export,
+'           : through the real sanitize path rather than isolated primitives. The
+'           : 5.0.0 row runs the identical parser with the canonicalizer gated off, so
+'           : the difference between the two sanitize rows is the production cost of
+'           : the pass. Phase rows attribute that cost across the four passes.
+'           :
+'           :   ?modTestPerf.BenchmarkFormGeometry("C:\path\to\Some.form")
+'---------------------------------------------------------------------------------------
+'
+Public Function BenchmarkFormGeometry(strFormPath As String, Optional lngReps As Long = 5, _
+    Optional lngRounds As Long = 3) As String
+
+    Dim cOut As clsConcat
+    Dim cParser As clsSourceParser
+    Dim cCanon As clsFormGeometryCanonicalizer
+    Dim strText As String
+    Dim strResult As String
+    Dim varLines As Variant
+    Dim lngIdx As Long
+    Dim lngRound As Long
+    Dim dblStart As Double
+    Dim dblRound As Double
+    Dim dblOn As Double
+    Dim dblOff As Double
+    Dim dblCanon As Double
+    Dim dblSplit As Double
+    Dim lngOldFormat As Long
+    Dim intOldSanitize As eSanitizeLevel
+    Dim eimPrior As eInteractionMode
+    Dim dblCopyIn As Double
+    Dim dblParse As Double
+    Dim dblGroups As Double
+    Dim dblTabs As Double
+    Dim dblEnvelopes As Double
+    Dim dblCopyOut As Double
+
+    If Not FSO.FileExists(strFormPath) Then
+        BenchmarkFormGeometry = "File not found: " & strFormPath
+        Exit Function
+    End If
+    If lngReps < 1 Then lngReps = 1
+    If lngRounds < 1 Then lngRounds = 1
+    dblOn = 1E+30
+    dblOff = 1E+30
+    dblCanon = 1E+30
+    dblSplit = 1E+30
+
+    strText = ReadFile(strFormPath)
+    lngOldFormat = Options.ExportFormatVersion
+    intOldSanitize = Options.SanitizeLevel
+    Options.SanitizeLevel = eslStandard
+
+    ' A form whose geometry cannot be planned logs a warning. With no console attached
+    ' that warning becomes a modal dialog, which blocks the run and lands in the
+    ' timings as if it were work.
+    eimPrior = Operation.InteractionMode
+    Operation.InteractionMode = eimSilent
+
+    ' Warm up, and capture the canonical output so an optimization can be checked
+    ' for byte identity rather than just speed.
+    Options.ExportFormatVersion = EFV_5_1_0
+    Set cParser = New clsSourceParser
+    cParser.LoadString strText, edbForm
+    strResult = cParser.Sanitize(ectObjectDefinition)
+
+    Set cOut = New clsConcat
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add "FORM GEOMETRY BENCHMARK", vbCrLf
+    cOut.Add "  File:  ", FSO.GetFileName(strFormPath), vbCrLf
+    cOut.Add "  Lines: ", CStr(UBound(Split(strText, vbCrLf)) + 1), vbCrLf
+    cOut.Add "  Reps:  ", CStr(lngReps), " x ", CStr(lngRounds), " rounds (min reported)", vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add PadRight("Operation", clngLabelWidth), PadLeft("Calls", 8), _
+        PadLeft("Seconds", 10), PadLeft("ms/call", 12), vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+    ' Rounds interleave the measurements so drift affects them alike; the minimum is
+    ' the least noise-sensitive estimator available on a busy desktop.
+    For lngRound = 1 To lngRounds
+
+        ' Full sanitize, canonicalizer on
+        Options.ExportFormatVersion = EFV_5_1_0
+        dblStart = MicroSeconds
+        For lngIdx = 1 To lngReps
+            Set cParser = New clsSourceParser
+            cParser.LoadString strText, edbForm
+            cParser.Sanitize ectObjectDefinition
+        Next lngIdx
+        dblRound = MicroSeconds - dblStart
+        If dblRound < dblOn Then dblOn = dblRound
+
+        ' Full sanitize, canonicalizer gated off by export format version
+        Options.ExportFormatVersion = EFV_5_0_0
+        dblStart = MicroSeconds
+        For lngIdx = 1 To lngReps
+            Set cParser = New clsSourceParser
+            cParser.LoadString strText, edbForm
+            cParser.Sanitize ectObjectDefinition
+        Next lngIdx
+        dblRound = MicroSeconds - dblStart
+        If dblRound < dblOff Then dblOff = dblRound
+        Options.ExportFormatVersion = EFV_5_1_0
+
+        ' Canonicalize alone, capturing phase attribution from the fastest round
+        dblStart = MicroSeconds
+        For lngIdx = 1 To lngReps
+            varLines = Split(strText, vbCrLf)
+            Set cCanon = New clsFormGeometryCanonicalizer
+            cCanon.Canonicalize varLines, "benchmark"
+        Next lngIdx
+        dblRound = MicroSeconds - dblStart
+        If dblRound < dblCanon Then
+            dblCanon = dblRound
+            dblCopyIn = cCanon.PhaseCopyIn
+            dblParse = cCanon.PhaseParse
+            dblGroups = cCanon.PhaseGroups
+            dblTabs = cCanon.PhaseTabs
+            dblEnvelopes = cCanon.PhaseEnvelopes
+            dblCopyOut = cCanon.PhaseCopyOut
+        End If
+
+        ' Control: the Split alone, with no canonicalization
+        dblStart = MicroSeconds
+        For lngIdx = 1 To lngReps
+            varLines = Split(strText, vbCrLf)
+        Next lngIdx
+        dblRound = MicroSeconds - dblStart
+        If dblRound < dblSplit Then dblSplit = dblRound
+
+    Next lngRound
+
+    AddPhase cOut, "Sanitize form (5.1.0, canonicalize on)", lngReps, dblOn
+    AddPhase cOut, "Sanitize form (5.0.0, canonicalize off)", lngReps, dblOff
+    AddPhase cOut, "  => canonicalization overhead", lngReps, dblOn - dblOff
+    If dblOff > 0 Then
+        cOut.Add PadRight("  => sanitize cost multiple", clngLabelWidth), _
+            PadLeft(Format$(dblOn / dblOff, "0.00") & "x", 8), vbCrLf
+    End If
+
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    AddPhase cOut, "Canonicalize only (excludes sanitize)", lngReps, dblCanon
+    AddPhase cOut, "  phase: copy array in", 1, dblCopyIn
+    AddPhase cOut, "  phase: ParseDocument", 1, dblParse
+    AddPhase cOut, "  phase: CanonicalizeGroups", 1, dblGroups
+    AddPhase cOut, "  phase: CanonicalizeTabs", 1, dblTabs
+    AddPhase cOut, "  phase: GrowEnvelopes", 1, dblEnvelopes
+    AddPhase cOut, "  phase: copy array out", 1, dblCopyOut
+    AddPhase cOut, "Split control (no canonicalization)", lngReps, dblSplit
+
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add PadRight("  blocks parsed", clngLabelWidth), _
+        PadLeft(CStr(cCanon.BlockCount), 8), vbCrLf
+    cOut.Add PadRight("  groups / PlanAxis calls / rewrites", clngLabelWidth), _
+        PadLeft(CStr(cCanon.GroupCount) & " / " & CStr(cCanon.PlanAxisCalls) & _
+        " / " & CStr(cCanon.RewriteCalls), 20), vbCrLf
+    cOut.Add PadRight("  output length / hash", clngLabelWidth), _
+        PadLeft(CStr(Len(strResult)), 8), " ", GetStringHash(strResult), vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+    Options.ExportFormatVersion = lngOldFormat
+    Options.SanitizeLevel = intOldSanitize
+    Operation.InteractionMode = eimPrior
+
+    BenchmarkFormGeometry = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BenchmarkFormCorpus
+' Author    : Adam Waller
+' Date      : 9/9/2026
+' Purpose   : Canonicalize every .form file in a folder, reporting total and per-form
+'           : cost against a real corpus rather than a single file.
+'           :
+'           : Already-exported source files are a fixed point of the canonicalizer, so
+'           : any file this reports as CHANGED means the canonicalizer no longer agrees
+'           : with the output committed to that repository. That makes this an
+'           : equivalence check across the whole corpus, not just a timing run.
+'           :
+'           :   ?modTestPerf.BenchmarkFormCorpus("C:\repo\db.accdb.src\forms")
+'---------------------------------------------------------------------------------------
+'
+Public Function BenchmarkFormCorpus(strFolder As String, Optional lngLimit As Long = 0) As String
+
+    Dim cOut As clsConcat
+    Dim cCanon As clsFormGeometryCanonicalizer
+    Dim oFile As Object
+    Dim strIn As String
+    Dim varLines As Variant
+    Dim curStart As Currency
+    Dim dblOne As Double
+    Dim dblTotal As Double
+    Dim dblWorst As Double
+    Dim strWorst As String
+    Dim lngForms As Long
+    Dim lngChanged As Long
+    Dim lngErrors As Long
+    Dim lngLines As Long
+    Dim eimPrior As eInteractionMode
+
+    If Not FSO.FolderExists(strFolder) Then
+        BenchmarkFormCorpus = "Folder not found: " & strFolder
+        Exit Function
+    End If
+
+    ' Any form whose geometry cannot be planned logs a warning, and with no console
+    ' attached each one becomes a modal dialog that stalls the whole corpus run.
+    eimPrior = Operation.InteractionMode
+    Operation.InteractionMode = eimSilent
+
+    Set cOut = New clsConcat
+    For Each oFile In FSO.GetFolder(strFolder).Files
+        If StrComp(FSO.GetExtensionName(oFile.Name), "form", vbTextCompare) = 0 Then
+            strIn = ReadFile(oFile.Path)
+            varLines = Split(strIn, vbCrLf)
+            lngLines = lngLines + UBound(varLines) + 1
+            Set cCanon = New clsFormGeometryCanonicalizer
+            curStart = Perf.MicroTimer
+            On Error Resume Next
+            Err.Clear
+            cCanon.Canonicalize varLines, oFile.Name
+            If Err.Number <> 0 Then
+                lngErrors = lngErrors + 1
+                If lngErrors <= 15 Then
+                    cOut.Add "  ERROR ", CStr(Err.Number), " ", Err.Description, _
+                        " in ", oFile.Name, vbCrLf
+                End If
+                Err.Clear
+            End If
+            On Error GoTo 0
+            dblOne = CDbl(Perf.MicroTimer - curStart)
+            dblTotal = dblTotal + dblOne
+            lngForms = lngForms + 1
+            If dblOne > dblWorst Then
+                dblWorst = dblOne
+                strWorst = oFile.Name
+            End If
+            If cCanon.ChangedLines > 0 Then
+                lngChanged = lngChanged + 1
+                If lngChanged <= 15 Then
+                    cOut.Add "  CHANGED: ", oFile.Name, " (", _
+                        CStr(cCanon.ChangedLines), " lines)", vbCrLf
+                End If
+            End If
+            ' A long uninterrupted VBA loop starves the message pump, which makes Access
+            ' look unresponsive to the automation client driving this run.
+            If lngForms Mod 20 = 0 Then DoEvents
+            If lngLimit > 0 And lngForms >= lngLimit Then Exit For
+        End If
+    Next oFile
+
+    Operation.InteractionMode = eimPrior
+
+    If lngForms = 0 Then
+        BenchmarkFormCorpus = "No .form files found in " & strFolder
+        Exit Function
+    End If
+
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add "FORM CORPUS CANONICALIZATION", vbCrLf
+    cOut.Add "  Folder:        ", strFolder, vbCrLf
+    cOut.Add "  Forms:         ", CStr(lngForms), vbCrLf
+    cOut.Add "  Lines:         ", CStr(lngLines), vbCrLf
+    cOut.Add "  Changed:       ", CStr(lngChanged), _
+        IIf(lngChanged = 0, "  (idempotent: matches committed output)", "  <-- REVIEW"), vbCrLf
+    cOut.Add "  Errors:        ", CStr(lngErrors), vbCrLf
+    cOut.Add "  Total:         ", Format$(dblTotal, "0.000"), " sec", vbCrLf
+    cOut.Add "  Per form:      ", Format$(dblTotal / lngForms * 1000, "0.0"), " ms", vbCrLf
+    cOut.Add "  Slowest:       ", strWorst, " (", Format$(dblWorst * 1000, "0.0"), " ms)", vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+    BenchmarkFormCorpus = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddPhase
+' Author    : Adam Waller
+' Date      : 9/9/2026
+' Purpose   : Append a phase row where the elapsed time was accumulated by the caller
+'           : rather than measured from a start marker.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddPhase(cOut As clsConcat, ByVal strLabel As String, _
+    ByVal lngCalls As Long, ByVal dblElapsed As Double)
+
+    cOut.Add PadRight(strLabel, clngLabelWidth), _
+        PadLeft(CStr(lngCalls), 8), _
+        PadLeft(Format$(dblElapsed, "0.000"), 10), _
+        PadLeft(Format$((dblElapsed / lngCalls) * 1000, "0.0000"), 12), vbCrLf
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : AddCategoryBenchmark
 ' Author    : Adam Waller
 ' Date      : 7/29/2026

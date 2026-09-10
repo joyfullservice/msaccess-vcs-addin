@@ -20,6 +20,12 @@ Option Explicit
 
 Private m_parser As clsSourceParser
 
+' Two payload lines for an inline binary block. The canonicalizer skips such a block
+' wholesale, so the content is arbitrary; these are kept over 60 characters so they also
+' exercise the binary fast path in clsSourceParser.
+Private Const BIN_LINE_1 As String = "0x0e00000000000000010000006c0000000000000000000000000000000000ff01"
+Private Const BIN_LINE_2 As String = "0x0000000000000000bb4400008541000020454d46000001000000000000000002"
+
 
 Private Sub Class_Initialize()
     Set m_parser = New clsSourceParser
@@ -161,6 +167,46 @@ Public Sub TestFormGeometry_PriorFormatLeavesCaches()
 End Sub
 
 
+Public Sub TestFormGeometry_ResumesAfterInlineBinary()
+    Dim strOut As String
+    strOut = SanitizeForm(InlineBinaryForm)
+    TestAssert InStr(strOut, "Left =120") > 0, "cells after a binary block still snap"
+    TestAssert InStr(strOut, "Name =""lblA""") > 0, "first cell after payload kept"
+    TestAssert InStr(strOut, "Name =""lblB""") > 0, "second cell after payload kept"
+    TestAssert InStr(strOut, "LayoutCached") = 0, "LayoutCached* still stripped"
+End Sub
+
+
+Public Sub TestFormGeometry_PreservesInlineBinaryPayload()
+    Dim strOut As String
+    strOut = SanitizeForm(InlineBinaryForm)
+    TestAssert InStr(strOut, BIN_LINE_1) > 0, "first payload line unaltered"
+    TestAssert InStr(strOut, BIN_LINE_2) > 0, "second payload line unaltered"
+    TestAssert CountToken(strOut, "0x") = 2, "no payload line added or dropped"
+    TestAssert InStr(strOut, "Name =""imgLogo""") > 0, "control owning the payload kept"
+End Sub
+
+
+Public Sub TestFormGeometry_SnapsTabControl()
+    Dim strOut As String
+    strOut = SanitizeForm(TabControlForm)
+    TestAssert InStr(strOut, "Width =4800") > 0, "tab width snaps to lattice"
+    TestAssert InStr(strOut, "Name =""pgOne""") > 0, "tab page survives"
+End Sub
+
+
+' What the VBA section is replaced with is the sanitizer's business and depends on
+' SplitLayoutFromVBA, so this only pins down that the boundary still terminates the
+' geometry parse and survives into the output.
+Public Sub TestFormGeometry_StopsAtCodeBehindForm()
+    Dim strOut As String
+    strOut = SanitizeForm(TabularPairForm(105, 1995, 1800) & vbCrLf & _
+        "CodeBehindForm" & vbCrLf & "Option Compare Database" & vbCrLf & "Option Explicit")
+    TestAssert InStr(strOut, "Left =120") > 0, "geometry before the terminator canonicalized"
+    TestAssert InStr(strOut, "CodeBehindForm") > 0, "VBA boundary marker retained"
+End Sub
+
+
 Private Function SanitizeForm(strContent As String, Optional lngFormat As Long = EFV_5_1_0) As String
     Dim lngOldFormat As Long
     Dim intOldSanitize As eSanitizeLevel
@@ -268,6 +314,85 @@ Private Function UnderdeterminedForm() As String
         "        End" & vbCrLf & _
         "    End" & vbCrLf & _
         "End"
+End Function
+
+
+' The payload sits ahead of the layout cells on purpose. If the parser mis-detected the
+' terminator of a binary block it would resume on the wrong line, and the cells that
+' follow would never be recognized as a group to snap.
+Private Function InlineBinaryForm() As String
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "Version =20"
+        .Add "Begin Form"
+        .Add "    Width =6000"
+        .Add "    Begin"
+        .Add "        Begin FormHeader"
+        .Add "            Height =600"
+        .Add "            Name =""FormHeader"""
+        .Add "            Begin"
+        .Add "                Begin Image"
+        .Add "                    Left =60"
+        .Add "                    Top =60"
+        .Add "                    Width =480"
+        .Add "                    Height =480"
+        .Add "                    Name =""imgLogo"""
+        .Add "                    PictureData = Begin"
+        .Add "                        ", BIN_LINE_1
+        .Add "                        ", BIN_LINE_2
+        .Add "                    End"
+        .Add "                End"
+
+        ' CellBlock brings its own line breaks
+        .AppendOnAdd = vbNullString
+        .Add CellBlock("Label", "lblA", 105, 120, 1800, 360, 0, 0)
+        .Add CellBlock("Label", "lblB", 1995, 120, 1800, 360, 1, 1)
+
+        .AppendOnAdd = vbCrLf
+        .Add "            End"
+        .Add "        End"
+        .Add "    End"
+        .AppendOnAdd = vbNullString
+        .Add "End"
+        InlineBinaryForm = .GetStr
+    End With
+
+End Function
+
+
+Private Function TabControlForm() As String
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "Version =20"
+        .Add "Begin Form"
+        .Add "    Width =6000"
+        .Add "    Begin"
+        .Add "        Begin FormHeader"
+        .Add "            Height =2100"
+        .Add "            Name =""FormHeader"""
+        .Add "            Begin"
+        .Add "                Begin Tab"
+        .Add "                    Left =120"
+        .Add "                    Top =120"
+        .Add "                    Width =4805"
+        .Add "                    Height =1800"
+        .Add "                    Name =""tabMain"""
+        .Add "                    Begin"
+        .Add "                        Begin Page"
+        .Add "                            Name =""pgOne"""
+        .Add "                        End"
+        .Add "                    End"
+        .Add "                End"
+        .Add "            End"
+        .Add "        End"
+        .Add "    End"
+        .AppendOnAdd = vbNullString
+        .Add "End"
+        TabControlForm = .GetStr
+    End With
+
 End Function
 
 
