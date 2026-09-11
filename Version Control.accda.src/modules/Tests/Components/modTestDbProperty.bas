@@ -1,10 +1,12 @@
 ﻿Attribute VB_Name = "modTestDbProperty"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestDbProperty
-' Author    : Adam Waller
+' Author    : Adam Waller; bclothier
 ' Date      : 9/7/2026
-' Purpose   : Change-detection tests for DAO database properties, including the
-'           : issue #773 case where unsetting a property deletes it.
+' Purpose   : Tests for DAO database properties. Covers change detection,
+'           : including the issue #773 case where unsetting a property deletes
+'           : it, and clsDbProperty's handling of read-only/computed properties
+'           : during import.
 '           : Run: ?VCS.RunTests("modTestDbProperty")
 '---------------------------------------------------------------------------------------
 Option Compare Database
@@ -138,3 +140,64 @@ Private Sub DeleteTestLiveProperty()
     SharedDb.Properties.Delete LIVE_PROP
     Err.Clear
 End Sub
+
+
+Public Sub TestImport_SkipsReadOnlyPropertyInsteadOfCrashing()
+    Dim strFolder As String
+    Dim strFile As String
+    Dim comp As IDbComponent
+    Dim blnCrashed As Boolean
+
+    strFolder = GetTempFolder("vcs_dbproperty_test") & PathSep
+    VerifyPath strFolder
+    strFile = strFolder & "dbs-properties.json"
+    WriteFile BuildReadOnlyPropertyFixture(), strFile
+
+    Set comp = New clsDbProperty
+    On Error Resume Next
+    Err.Clear
+    comp.Import strFile
+    blnCrashed = (Err.Number <> 0)
+    Err.Clear
+    On Error GoTo 0
+
+    TestAssert Not blnCrashed, "import does not crash on a type-mismatched read-only property"
+
+    FSO.DeleteFile strFile, True
+End Sub
+
+
+Public Sub TestPropertyIsSettable_DetectsKnownReadOnlyProperties()
+    ' RecordsAffected is a read-only, computed DAO.Database property on every
+    ' database -- a reliable, environment-independent probe target.
+    Dim prp As DAO.Property
+    Set prp = CurrentDb.Properties("RecordsAffected")
+    TestAssert Not PropertyIsSettableForTest(prp), "RecordsAffected is detected as read-only"
+End Sub
+
+
+Private Function PropertyIsSettableForTest(prp As DAO.Property) As Boolean
+    Dim varCurrent As Variant
+    On Error Resume Next
+    Err.Clear
+    varCurrent = prp.Value
+    prp.Value = varCurrent
+    PropertyIsSettableForTest = (Err.Number = 0)
+    Err.Clear
+    On Error GoTo 0
+End Function
+
+
+Private Function BuildReadOnlyPropertyFixture() As String
+    ' RecordsAffected is read-only; a quoted-string value against its real Long
+    ' type is exactly BUG-3's original crash trigger (type mismatch made the
+    ' "different from current value" check true, so an unconditional assignment
+    ' to a read-only property raised Run-time error 3001, unhandled).
+    Dim cOut As New clsConcat
+    cOut.Add "{" & vbCrLf
+    cOut.Add "  ""Items"": {" & vbCrLf
+    cOut.Add "    ""RecordsAffected"": {""Value"": ""0"", ""Type"": 4}" & vbCrLf
+    cOut.Add "  }" & vbCrLf
+    cOut.Add "}" & vbCrLf
+    BuildReadOnlyPropertyFixture = cOut.GetStr
+End Function

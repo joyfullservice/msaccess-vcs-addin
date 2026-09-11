@@ -1206,6 +1206,76 @@ already does.
 
 **Relevant files**: `clsVersionControl.cls` (`FindSourceFile`), `modFileWinAPI.bas`
 (`ScanFolderMetadata`, read-only reference), `modTestFolderPlacement.bas` (new test).
+## 2026-08-24 — clsDbProperty detects unsettable database properties via a live write-back probe, not a hardcoded name list
+
+**Trigger**: `clsDbProperty.IDbComponent_Import` excluded only `Connection`, `Name`, `Version`,
+`CollatingOrder` by name from its settable-property loop. Every other read-only/computed
+`DAO.Database` member (`RecordsAffected`, `Transactions`, `Updatable`, `ReplicaID`,
+`DesignMasterID`, and any future one) was still offered as overridable, and a type-mismatched
+value for one of them could crash import with a raw `Run-time error '3001'` when
+`dbs.Properties(varKey).Value = varValue` was attempted.
+
+**Options explored**:
+- **Extend the hardcoded `Case` list** with the remaining known read-only members: rejected as
+  the primary fix. A name list only ever covers what someone happened to observe; it silently
+  goes stale against any DAO member not yet hit in practice (this investigation itself found
+  `DesignMasterID`, not previously on anyone's list) and duplicates knowledge DAO itself already
+  enforces at runtime.
+- **Generic, live detection via a same-value write-back probe**: chosen. Tested directly against
+  a real `CurrentDb.Properties` collection (not assumed): for every property, read its current
+  value and immediately write that same value back, under `On Error Resume Next`. Every one of
+  the known-unsettable properties failed this trivial no-op write with a real, catchable error —
+  `Name`, `Transactions`, `Updatable`, `CollatingOrder`, `Version`, `RecordsAffected`, `ReplicaID`
+  all raised error 3001 ("Invalid argument"); `DesignMasterID` raised 3032 ("Cannot perform this
+  operation"). Every genuinely settable property raised nothing. This matches the underlying DAO
+  reality directly: a `DAO.Database`'s `.Properties` collection always contains an entry for
+  every one of its own built-in interface members (some read-only, no setter) alongside any
+  custom, `Properties.Append`'d property (always writable by definition) — whether a given entry
+  is actually settable is a real, checkable runtime fact, not something that needs a maintained
+  list to approximate.
+
+**Decision**: `IDbComponent_Import` now determines settability per-property via this probe
+(read current value, attempt writing it back unchanged, catch any error) immediately before
+attempting the real, caller-supplied value assignment — skipping the property (not erroring)
+when the probe itself fails. `Connection` keeps its own explicit exclusion (an object-typed
+property, structurally different from the scalar values this probe handles) rather than being
+folded into the generic check. The prior name-based exclusions for `Name`/`Version`/
+`CollatingOrder` are superseded by the generic probe, which catches them (and everything else)
+without needing their names hardcoded at all.
+
+**What this rules out**: Adding new database-property names to a hardcoded exclusion list going
+forward — the generic probe already covers any current or future read-only/computed member
+without maintenance. Attempting to derive settability from a property's `.Type` or any other
+static attribute — the live write-back probe is the only mechanism confirmed (by direct testing,
+not documentation alone) to distinguish settable from unsettable reliably.
+
+**Addendum**: skipping an unsettable property silently would hide a real, potentially meaningful
+case — the source file's recorded value for a read-only property (e.g. `CollatingOrder`) genuinely
+differing from the live database's actual value, which could indicate the database was created
+under different regional/locale settings than its own history implies. (This gap already existed
+for the three previously hardcoded exclusions, `Name`/`Version`/`CollatingOrder`, which were
+skipped with zero comparison or logging — this fix does not make that worse, and actually
+improves it.) `PropertyIsSettable`'s caller now compares the source value against the live value
+before skipping, and logs (`Log.Add`, matching this codebase's existing `T()`-translated logging
+convention used elsewhere for import-time fallbacks) when they genuinely differ, rather than
+silently discarding the mismatch either way.
+
+**Addendum 2**: the crash's own original trigger is a type-mismatch comparison, not just a
+missing settability check — a JSON value serialized as the String `"0"` for a property whose
+declared Type is `dbLong` makes `varValue <> dExisting(varKey)(0)` evaluate `True` even though
+the values are equal, because `varValue` never gets coerced to the declared type before the
+comparison. That spurious "difference" is what triggers a write attempt against a read-only
+property in the first place (the `PropertyIsSettable` guard above stops the crash once a write is
+attempted, but doesn't stop the unwanted attempt from being triggered at all). Added
+`CoercePropertyValueType`, converting the raw imported value to its declared Type's native
+Variant subtype (mirroring the same DAO `DataTypeEnum` groupings a sibling project's own
+`ResponseFileHandler.ConvertPropertyValue` fix already established as correct, just applied here
+defensively on the *import* side so the add-in doesn't depend on any particular caller's exporter
+having already normalized types) immediately after the existing date-conversion step, before any
+comparison happens.
+
+**Relevant files**: `clsDbProperty.cls` (`IDbComponent_Import`, `PropertyIsSettable`,
+`CoercePropertyValueType`).
 
 ---
 
