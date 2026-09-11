@@ -16,11 +16,10 @@ Attribute VB_Exposed = False
 '           : values in place; never adds or removes a geometry property.
 '           : See docs\access-form-geometry.md.
 '           :
-'           : Performance note: block properties are reached through typed Dictionary
-'           : locals rather than chained expressions like dBlock("Props")(strName).
-'           : Dictionary.Item returns a Variant, so a chained access dispatches late on
-'           : every call, which measured roughly seven times slower across the parse.
-'           : Keep the hoisted locals when editing these routines.
+'           : Performance note: parsed blocks and geometry properties live in a typed
+'           : UDT array. The parser classifies structural and property lines by length
+'           : before binary comparisons. Replacing either path with generic Dictionary
+'           : lookups or locale-aware comparisons materially slows large forms.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -29,22 +28,87 @@ Option Explicit
 Private Const GRID_TWIPS As Long = 60
 Private Const ModuleNameConst As String = "clsFormGeometryCanonicalizer"
 
-' A single planned geometry rewrite. Held in an array rather than a Dictionary so the
-' planning passes do not allocate an object per change.
+Private Enum eGeometryAxis
+    egaHorizontal
+    egaVertical
+End Enum
+
+Private Enum eGeometryProperty
+    egpNone
+    egpLeft
+    egpTop
+    egpWidth
+    egpHeight
+    egpColumnStart
+    egpColumnEnd
+    egpRowStart
+    egpRowEnd
+    egpLayoutGroup
+    egpGroupTable
+    egpCachedLeft
+    egpCachedTop
+    egpCachedWidth
+    egpCachedHeight
+End Enum
+
+' Parsed geometry for one Begin/End block. Long indices link blocks to their section
+' and tab ancestors without creating object reference cycles.
+Private Type udtBlock
+    strType As String
+    lngSection As Long
+    lngTab As Long
+
+    lngLeft As Long
+    lngLeftLine As Long
+    lngTop As Long
+    lngTopLine As Long
+    lngWidth As Long
+    lngWidthLine As Long
+    lngHeight As Long
+    lngHeightLine As Long
+
+    blnColumnStart As Boolean
+    lngColumnStart As Long
+    blnColumnEnd As Boolean
+    lngColumnEnd As Long
+    blnRowStart As Boolean
+    lngRowStart As Long
+    blnRowEnd As Boolean
+    lngRowEnd As Long
+    blnLayoutGroup As Boolean
+    lngLayoutGroup As Long
+    blnGroupTable As Boolean
+    lngGroupTable As Long
+    blnCachedLeft As Boolean
+    lngCachedLeft As Long
+    blnCachedTop As Boolean
+    lngCachedTop As Long
+    blnCachedWidth As Boolean
+    lngCachedWidth As Long
+    blnCachedHeight As Boolean
+    lngCachedHeight As Long
+End Type
+
+' A single planned geometry rewrite. Held in an array so the planning passes do not
+' allocate an object per change.
 Private Type udtChange
-    dBlock As Dictionary
-    dProps As Dictionary
-    strName As String
+    lngBlock As Long
+    eProperty As eGeometryProperty
     lngValue As Long
 End Type
 
 Private Type udtThis
-    colBlocks As Collection
-    dRoot As Dictionary
+    lngRoot As Long
     strFormName As String
     lngChanged As Long
 End Type
 Private this As udtThis
+
+' Typed storage replaces three Dictionaries and one Collection previously allocated
+' for every parsed block.
+Private m_aBlocks() As udtBlock
+Private m_lngBlockCount As Long
+Private m_blnHasLayout As Boolean
 
 ' The line buffer is read once per line by the parse and written by each rewrite. It is
 ' held directly rather than as a UDT member, and its bound cached, because both indirect
@@ -97,8 +161,15 @@ Public Sub Canonicalize(ByRef varLines As Variant, Optional strFormName As Strin
     Next lngLine
     this.strFormName = strFormName
     this.lngChanged = 0
-    Set this.colBlocks = New Collection
-    Set this.dRoot = Nothing
+    this.lngRoot = -1
+    m_lngBlockCount = 0
+    m_blnHasLayout = False
+    ReDim m_aBlocks(0 To 255)
+    Me.BlockCount = 0
+    Me.GroupCount = 0
+    Me.PlanAxisCalls = 0
+    Me.RewriteCalls = 0
+    Me.ChangedLines = 0
     Me.PhaseCopyIn = CDbl(Perf.MicroTimer - curPhase)
 
     curPhase = Perf.MicroTimer
@@ -118,16 +189,14 @@ Public Sub Canonicalize(ByRef varLines As Variant, Optional strFormName As Strin
     Me.PhaseEnvelopes = CDbl(Perf.MicroTimer - curPhase)
 
     curPhase = Perf.MicroTimer
-    Me.BlockCount = this.colBlocks.Count
+    Me.BlockCount = m_lngBlockCount
     Me.ChangedLines = this.lngChanged
     If this.lngChanged > 0 Then
         For lngLine = 0 To m_lngUpper
             varLines(lngLine) = m_strLines(lngLine)
         Next lngLine
     End If
-    ReleaseBlocks
-    Set this.colBlocks = Nothing
-    Set this.dRoot = Nothing
+    Erase m_aBlocks
     Erase m_strLines
     Me.PhaseCopyOut = CDbl(Perf.MicroTimer - curPhase)
     Perf.OperationEnd
@@ -139,39 +208,14 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : ReleaseBlocks
-' Author    : Adam Waller
-' Date      : 9/9/2026
-' Purpose   : Break the parent/child reference cycles in the block graph. Dictionary and
-'           : Collection are reference counted, so a parent holding its children while
-'           : each child holds its parent would never be reclaimed, leaking the whole
-'           : graph for every form exported.
-'---------------------------------------------------------------------------------------
-'
-Private Sub ReleaseBlocks()
-
-    Dim dBlock As Dictionary
-
-    If this.colBlocks Is Nothing Then Exit Sub
-    For Each dBlock In this.colBlocks
-        If dBlock.Exists("Parent") Then dBlock.Remove "Parent"
-        If dBlock.Exists("Children") Then dBlock.Remove "Children"
-        If dBlock.Exists("Section") Then dBlock.Remove "Section"
-        If dBlock.Exists("Tab") Then dBlock.Remove "Tab"
-    Next dBlock
-
-End Sub
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : ParseDocument
 '---------------------------------------------------------------------------------------
 '
 Private Sub ParseDocument()
 
     Dim lngLine As Long
+    Dim lngBlock As Long
     Dim strTrimmed As String
-    Dim dBlock As Dictionary
 
     lngLine = 0
     Do While lngLine <= m_lngUpper
@@ -180,9 +224,8 @@ Private Sub ParseDocument()
             If strTrimmed = "CodeBehindForm" Then Exit Do
         End If
         If StartsWith(strTrimmed, "Begin") Then
-            Set dBlock = ParseBlock(lngLine + 1, Mid$(strTrimmed, 6), lngLine, Nothing)
-            Set this.dRoot = dBlock
-            lngLine = dBlock("NextLine")
+            lngLine = ParseBlock(lngLine + 1, Mid$(strTrimmed, 6), -1, lngBlock)
+            this.lngRoot = lngBlock
         Else
             lngLine = lngLine + 1
         End If
@@ -196,82 +239,180 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function ParseBlock(ByVal lngLine As Long, strType As String, _
-    lngStart As Long, dParent As Dictionary) As Dictionary
+    lngParent As Long, ByRef lngBlock As Long) As Long
 
-    Dim dBlock As Dictionary
-    Dim dProps As Dictionary
-    Dim dPropLines As Dictionary
     Dim strTrimmed As String
     Dim strName As String
     Dim strValue As String
     Dim lngPos As Long
     Dim lngLen As Long
     Dim lngUpper As Long
-    Dim blnIsEnd As Boolean
-    Dim dChild As Dictionary
+    Dim blnIsBegin As Boolean
+    Dim blnIsInlineBinary As Boolean
+    Dim lngChild As Long
+    Dim eProperty As eGeometryProperty
+    Dim lngValue As Long
 
     lngUpper = m_lngUpper
-    Set dBlock = NewBlock(Trim$(strType), lngStart, dParent)
-    Set dProps = dBlock("Props")
-    Set dPropLines = dBlock("PropLines")
+    lngBlock = NewBlock(Trim$(strType), lngParent)
 
     Do While lngLine <= lngUpper
         strTrimmed = Trim$(m_strLines(lngLine))
         lngLen = Len(strTrimmed)
 
-        ' Compare lengths before contents. Option Compare Database makes every string
-        ' comparison locale aware, and an inline binary payload such as an embedded
-        ' PictureData image can run to tens of thousands of long hex lines. Collating
-        ' each of those against a short keyword dominated the parse on such forms.
-        ' VBA does not short-circuit And, so these gates have to nest.
-        If lngLen = 14 Then
-            If strTrimmed = "CodeBehindForm" Then
-                dBlock("EndLine") = lngLine
-                dBlock("NextLine") = lngUpper + 1
-                Set ParseBlock = dBlock
+        ' Classify structural lines by length and first character before comparing
+        ' contents. VBA does not short-circuit And, so the gates have to nest.
+        If lngLen = 3 Then
+            If StrComp(strTrimmed, "End", vbBinaryCompare) = 0 Then
+                ParseBlock = lngLine + 1
+                Exit Function
+            End If
+        ElseIf lngLen = 14 Then
+            If StrComp(strTrimmed, "CodeBehindForm", vbBinaryCompare) = 0 Then
+                ParseBlock = lngUpper + 1
                 Exit Function
             End If
         End If
-        blnIsEnd = False
-        If lngLen = 3 Then blnIsEnd = (strTrimmed = "End")
 
-        If IsInlineBinary(strTrimmed) Then
-            lngLine = lngLine + 1
-            Do While lngLine <= lngUpper
-                strTrimmed = Trim$(m_strLines(lngLine))
-                If Len(strTrimmed) = 3 Then
-                    If strTrimmed = "End" Then Exit Do
-                End If
-                lngLine = lngLine + 1
-            Loop
-            lngLine = lngLine + 1
-        ElseIf StartsWith(strTrimmed, "Begin") Then
-            Set dChild = ParseBlock(lngLine + 1, Mid$(strTrimmed, 6), lngLine, dBlock)
-            lngLine = dChild("NextLine")
-        ElseIf blnIsEnd Then
-            dBlock("EndLine") = lngLine
-            dBlock("NextLine") = lngLine + 1
-            Set ParseBlock = dBlock
-            Exit Function
+        blnIsBegin = False
+        If lngLen >= 5 Then
+            If AscW(strTrimmed) = 66 Then
+                blnIsBegin = (StrComp(Left$(strTrimmed, 5), "Begin", vbBinaryCompare) = 0)
+            End If
+        End If
+        If blnIsBegin Then
+            lngLine = ParseBlock(lngLine + 1, Mid$(strTrimmed, 6), lngBlock, lngChild)
         Else
             lngPos = InStr(strTrimmed, " =")
             If lngPos > 1 Then
-                strName = Left$(strTrimmed, lngPos - 1)
-                strValue = Mid$(strTrimmed, lngPos + 2)
-                If strName = "Name" And StartsWith(strValue, """") Then
-                    dBlock("Name") = Mid$(strValue, 2, Len(strValue) - 2)
-                ElseIf IsIntegerToken(strValue) Then
-                    dProps(strName) = CLng(strValue)
-                    dPropLines(strName) = lngLine
+                ' Inline binary blocks are properties whose value is Begin. Detect
+                ' them here instead of calling EndsWith/StartsWith for every line.
+                blnIsInlineBinary = False
+                If lngLen - lngPos = 7 Then
+                    blnIsInlineBinary = (StrComp(Right$(strTrimmed, 7), _
+                        "= Begin", vbBinaryCompare) = 0)
+                End If
+                If blnIsInlineBinary Then
+                    lngLine = lngLine + 1
+                    Do While lngLine <= lngUpper
+                        strTrimmed = Trim$(m_strLines(lngLine))
+                        If Len(strTrimmed) = 3 Then
+                            If StrComp(strTrimmed, "End", vbBinaryCompare) = 0 Then Exit Do
+                        End If
+                        lngLine = lngLine + 1
+                    Loop
+                Else
+                    ' Dispatch first on property-name length. This avoids locale-aware
+                    ' comparisons and value parsing for unrelated form properties.
+                    eProperty = egpNone
+                    Select Case lngPos
+                    Case 4
+                        If StrComp(Left$(strTrimmed, 3), "Top", vbBinaryCompare) = 0 Then _
+                            eProperty = egpTop
+                    Case 5
+                        If StrComp(Left$(strTrimmed, 4), "Left", vbBinaryCompare) = 0 Then _
+                            eProperty = egpLeft
+                    Case 6
+                        If StrComp(Left$(strTrimmed, 5), "Width", vbBinaryCompare) = 0 Then _
+                            eProperty = egpWidth
+                    Case 7
+                        strName = Left$(strTrimmed, 6)
+                        If StrComp(strName, "Height", vbBinaryCompare) = 0 Then
+                            eProperty = egpHeight
+                        ElseIf StrComp(strName, "RowEnd", vbBinaryCompare) = 0 Then
+                            eProperty = egpRowEnd
+                        End If
+                    Case 9
+                        If StrComp(Left$(strTrimmed, 8), "RowStart", vbBinaryCompare) = 0 Then _
+                            eProperty = egpRowStart
+                    Case 10
+                        If StrComp(Left$(strTrimmed, 9), "ColumnEnd", vbBinaryCompare) = 0 Then _
+                            eProperty = egpColumnEnd
+                    Case 11
+                        If StrComp(Left$(strTrimmed, 10), "GroupTable", vbBinaryCompare) = 0 Then _
+                            eProperty = egpGroupTable
+                    Case 12
+                        strName = Left$(strTrimmed, 11)
+                        If StrComp(strName, "ColumnStart", vbBinaryCompare) = 0 Then
+                            eProperty = egpColumnStart
+                        ElseIf StrComp(strName, "LayoutGroup", vbBinaryCompare) = 0 Then
+                            eProperty = egpLayoutGroup
+                        End If
+                    Case 16
+                        If StrComp(Left$(strTrimmed, 15), "LayoutCachedTop", _
+                            vbBinaryCompare) = 0 Then eProperty = egpCachedTop
+                    Case 17
+                        If StrComp(Left$(strTrimmed, 16), "LayoutCachedLeft", _
+                            vbBinaryCompare) = 0 Then eProperty = egpCachedLeft
+                    Case 18
+                        If StrComp(Left$(strTrimmed, 17), "LayoutCachedWidth", _
+                            vbBinaryCompare) = 0 Then eProperty = egpCachedWidth
+                    Case 19
+                        If StrComp(Left$(strTrimmed, 18), "LayoutCachedHeight", _
+                            vbBinaryCompare) = 0 Then eProperty = egpCachedHeight
+                    End Select
+
+                    If eProperty <> egpNone Then
+                        strValue = Mid$(strTrimmed, lngPos + 2)
+                        If IsIntegerToken(strValue) Then
+                            lngValue = CLng(strValue)
+                            With m_aBlocks(lngBlock)
+                                Select Case eProperty
+                                Case egpLeft
+                                    .lngLeft = lngValue
+                                    .lngLeftLine = lngLine
+                                Case egpTop
+                                    .lngTop = lngValue
+                                    .lngTopLine = lngLine
+                                Case egpWidth
+                                    .lngWidth = lngValue
+                                    .lngWidthLine = lngLine
+                                Case egpHeight
+                                    .lngHeight = lngValue
+                                    .lngHeightLine = lngLine
+                                Case egpColumnStart
+                                    .blnColumnStart = True
+                                    .lngColumnStart = lngValue
+                                Case egpColumnEnd
+                                    .blnColumnEnd = True
+                                    .lngColumnEnd = lngValue
+                                Case egpRowStart
+                                    .blnRowStart = True
+                                    .lngRowStart = lngValue
+                                Case egpRowEnd
+                                    .blnRowEnd = True
+                                    .lngRowEnd = lngValue
+                                Case egpLayoutGroup
+                                    .blnLayoutGroup = True
+                                    .lngLayoutGroup = lngValue
+                                    m_blnHasLayout = True
+                                Case egpGroupTable
+                                    .blnGroupTable = True
+                                    .lngGroupTable = lngValue
+                                    m_blnHasLayout = True
+                                Case egpCachedLeft
+                                    .blnCachedLeft = True
+                                    .lngCachedLeft = lngValue
+                                Case egpCachedTop
+                                    .blnCachedTop = True
+                                    .lngCachedTop = lngValue
+                                Case egpCachedWidth
+                                    .blnCachedWidth = True
+                                    .lngCachedWidth = lngValue
+                                Case egpCachedHeight
+                                    .blnCachedHeight = True
+                                    .lngCachedHeight = lngValue
+                                End Select
+                            End With
+                        End If
+                    End If
                 End If
             End If
             lngLine = lngLine + 1
         End If
     Loop
 
-    dBlock("EndLine") = lngLine
-    dBlock("NextLine") = lngLine
-    Set ParseBlock = dBlock
+    ParseBlock = lngLine
 
 End Function
 
@@ -280,37 +421,41 @@ End Function
 ' Procedure : NewBlock
 '---------------------------------------------------------------------------------------
 '
-Private Function NewBlock(strType As String, lngStart As Long, dParent As Dictionary) As Dictionary
+Private Function NewBlock(strType As String, lngParent As Long) As Long
 
-    Dim dBlock As Dictionary
-    Dim colChildren As Collection
-    Dim strParentType As String
+    Dim lngBlock As Long
 
-    Set dBlock = New Dictionary
-    dBlock("Type") = strType
-    dBlock("Start") = lngStart
-    dBlock("Name") = vbNullString
-    Set dBlock("Props") = New Dictionary
-    Set dBlock("PropLines") = New Dictionary
-    Set dBlock("Children") = New Collection
-    Set dBlock("Parent") = dParent
-    If Not dParent Is Nothing Then
-        Set colChildren = dParent("Children")
-        colChildren.Add dBlock
-        strParentType = dParent("Type")
-        If IsSectionType(strParentType) Then
-            Set dBlock("Section") = dParent
-        ElseIf dParent.Exists("Section") Then
-            Set dBlock("Section") = dParent("Section")
-        End If
-        If strParentType = "Tab" Then
-            Set dBlock("Tab") = dParent
-        ElseIf dParent.Exists("Tab") Then
-            Set dBlock("Tab") = dParent("Tab")
-        End If
+    If m_lngBlockCount > UBound(m_aBlocks) Then
+        ReDim Preserve m_aBlocks(0 To (UBound(m_aBlocks) + 1) * 2 - 1)
     End If
-    this.colBlocks.Add dBlock
-    Set NewBlock = dBlock
+    lngBlock = m_lngBlockCount
+    m_lngBlockCount = m_lngBlockCount + 1
+
+    With m_aBlocks(lngBlock)
+        .strType = strType
+        .lngSection = -1
+        .lngTab = -1
+        .lngLeftLine = -1
+        .lngTopLine = -1
+        .lngWidthLine = -1
+        .lngHeightLine = -1
+    End With
+
+    If lngParent >= 0 Then
+        With m_aBlocks(lngParent)
+            If IsSectionType(.strType) Then
+                m_aBlocks(lngBlock).lngSection = lngParent
+            Else
+                m_aBlocks(lngBlock).lngSection = .lngSection
+            End If
+            If .strType = "Tab" Then
+                m_aBlocks(lngBlock).lngTab = lngParent
+            Else
+                m_aBlocks(lngBlock).lngTab = .lngTab
+            End If
+        End With
+    End If
+    NewBlock = lngBlock
 
 End Function
 
@@ -322,27 +467,36 @@ End Function
 Private Sub CanonicalizeGroups()
 
     Dim dGroups As Dictionary
-    Dim dBlock As Dictionary
-    Dim dProps As Dictionary
     Dim colGroup As Collection
     Dim strKey As String
     Dim varKey As Variant
+    Dim lngBlock As Long
 
     Set dGroups = New Dictionary
-    For Each dBlock In this.colBlocks
-        Set dProps = dBlock("Props")
-        If dProps.Exists("LayoutGroup") Or dProps.Exists("GroupTable") Then
-            strKey = PropOrDefault(dProps, "GroupTable", -1) & "/" & _
-                PropOrDefault(dProps, "LayoutGroup", -1)
-            If dGroups.Exists(strKey) Then
-                Set colGroup = dGroups(strKey)
-            Else
-                Set colGroup = New Collection
-                dGroups.Add strKey, colGroup
+    For lngBlock = 0 To m_lngBlockCount - 1
+        With m_aBlocks(lngBlock)
+            If .blnLayoutGroup Or .blnGroupTable Then
+                If .blnGroupTable Then
+                    strKey = CStr(.lngGroupTable)
+                Else
+                    strKey = "-1"
+                End If
+                strKey = strKey & "/"
+                If .blnLayoutGroup Then
+                    strKey = strKey & .lngLayoutGroup
+                Else
+                    strKey = strKey & "-1"
+                End If
+                If dGroups.Exists(strKey) Then
+                    Set colGroup = dGroups(strKey)
+                Else
+                    Set colGroup = New Collection
+                    dGroups.Add strKey, colGroup
+                End If
+                colGroup.Add lngBlock
             End If
-            colGroup.Add dBlock
-        End If
-    Next dBlock
+        End With
+    Next lngBlock
 
     Me.GroupCount = dGroups.Count
     For Each varKey In dGroups.Keys
@@ -362,52 +516,46 @@ Private Sub CanonicalizeGroup(colCells As Collection, strLabel As String)
     Dim aChanges() As udtChange
     Dim lngChanges As Long
     Dim dBySection As Dictionary
-    Dim dBlock As Dictionary
-    Dim dSectionRef As Dictionary
     Dim colSection As Collection
     Dim strSection As String
+    Dim varBlock As Variant
     Dim varSection As Variant
     Dim lngI As Long
+    Dim lngBlock As Long
 
     ReDim aChanges(0 To 63)
     lngChanges = 0
 
-    If Not PlanAxis(colCells, "x", "ColumnStart", "ColumnEnd", "Left", "Width", _
-        aChanges, lngChanges) Then
+    If Not PlanAxis(colCells, egaHorizontal, aChanges, lngChanges) Then
         WarnSkip strLabel & " (horizontal)"
         Exit Sub
     End If
 
     ' Vertical geometry is planned per section, since rows restart in each one.
     Set dBySection = New Dictionary
-    For Each dBlock In colCells
-        If dBlock.Exists("Section") Then
-            Set dSectionRef = dBlock("Section")
-            strSection = CStr(ObjPtr(dSectionRef))
-        Else
-            strSection = "none"
-        End If
+    For Each varBlock In colCells
+        lngBlock = CLng(varBlock)
+        strSection = CStr(m_aBlocks(lngBlock).lngSection)
         If dBySection.Exists(strSection) Then
             Set colSection = dBySection(strSection)
         Else
             Set colSection = New Collection
             dBySection.Add strSection, colSection
         End If
-        colSection.Add dBlock
-    Next dBlock
+        colSection.Add lngBlock
+    Next varBlock
 
     For Each varSection In dBySection.Keys
         Set colSection = dBySection(varSection)
-        If Not PlanAxis(colSection, "y", "RowStart", "RowEnd", "Top", "Height", _
-            aChanges, lngChanges) Then
+        If Not PlanAxis(colSection, egaVertical, aChanges, lngChanges) Then
             WarnSkip strLabel & " (vertical)"
             Exit Sub
         End If
     Next varSection
 
     For lngI = 0 To lngChanges - 1
-        RewriteProp aChanges(lngI).dBlock, aChanges(lngI).dProps, _
-            aChanges(lngI).strName, aChanges(lngI).lngValue
+        RewriteProp aChanges(lngI).lngBlock, aChanges(lngI).eProperty, _
+            aChanges(lngI).lngValue
     Next lngI
 
 End Sub
@@ -419,55 +567,53 @@ End Sub
 '           : the group cannot be solved, in which case no change is applied at all.
 '---------------------------------------------------------------------------------------
 '
-Private Function PlanAxis(colCells As Collection, strAxis As String, _
-    strStartName As String, strEndName As String, strPosName As String, _
-    strSizeName As String, ByRef aChanges() As udtChange, _
+Private Function PlanAxis(colCells As Collection, eAxis As eGeometryAxis, _
+    ByRef aChanges() As udtChange, _
     ByRef lngChanges As Long) As Boolean
 
-    Dim aProps() As Dictionary
-    Dim aBlocks() As Dictionary
+    Dim aBlocks() As Long
     Dim lngCount As Long
     Dim dSizes As Dictionary
     Dim dPositions As Dictionary
-    Dim dProps As Dictionary
-    Dim dBlock As Dictionary
     Dim lngStart As Long
     Dim lngEnd As Long
     Dim lngI As Long
     Dim varDerived As Variant
+    Dim varBlock As Variant
 
     Me.PlanAxisCalls = Me.PlanAxisCalls + 1
 
-    ' Hoist each cell's Props once, so the passes below never chain through a Variant.
     lngCount = colCells.Count
     If lngCount = 0 Then
         PlanAxis = True
         Exit Function
     End If
     ReDim aBlocks(0 To lngCount - 1)
-    ReDim aProps(0 To lngCount - 1)
     lngI = 0
-    For Each dBlock In colCells
-        Set aBlocks(lngI) = dBlock
-        Set aProps(lngI) = dBlock("Props")
+    For Each varBlock In colCells
+        aBlocks(lngI) = CLng(varBlock)
         lngI = lngI + 1
-    Next dBlock
+    Next varBlock
 
-    Set dSizes = TrackSizes(aProps, lngCount, strAxis, strStartName, strEndName)
-    Set dPositions = BoundaryPositions(aProps, lngCount, strAxis, strStartName)
+    Set dSizes = TrackSizes(aBlocks, lngCount, eAxis)
+    Set dPositions = BoundaryPositions(aBlocks, lngCount, eAxis)
     If dPositions Is Nothing Then Exit Function
-    InferEndSizes aProps, lngCount, strAxis, strStartName, strEndName, dPositions, dSizes
+    InferEndSizes aBlocks, lngCount, eAxis, dPositions, dSizes
 
     For lngI = 0 To lngCount - 1
-        Set dProps = aProps(lngI)
-        lngStart = PropOrDefault(dProps, strStartName, 0)
-        lngEnd = PropOrDefault(dProps, strEndName, lngStart)
-        If dProps.Exists(strPosName) Then
+        lngStart = GetTrackStart(aBlocks(lngI), eAxis)
+        lngEnd = GetTrackEnd(aBlocks(lngI), eAxis, lngStart)
+        If HasPosition(aBlocks(lngI), eAxis) Then
             If Not dPositions.Exists(lngStart) Then Exit Function
-            AddChange aChanges, lngChanges, aBlocks(lngI), dProps, strPosName, _
-                CLng(dPositions(lngStart))
+            If eAxis = egaHorizontal Then
+                AddChange aChanges, lngChanges, aBlocks(lngI), egpLeft, _
+                    CLng(dPositions(lngStart))
+            Else
+                AddChange aChanges, lngChanges, aBlocks(lngI), egpTop, _
+                    CLng(dPositions(lngStart))
+            End If
         End If
-        If dProps.Exists(strSizeName) Then
+        If HasSize(aBlocks(lngI), eAxis) Then
             If lngStart = lngEnd Then
                 If dSizes.Exists(lngStart) Then
                     varDerived = CLng(dSizes(lngStart))
@@ -478,8 +624,11 @@ Private Function PlanAxis(colCells As Collection, strAxis As String, _
                 varDerived = DeriveSpan(lngStart, lngEnd, dPositions, dSizes)
             End If
             If IsNull(varDerived) Then Exit Function
-            AddChange aChanges, lngChanges, aBlocks(lngI), dProps, strSizeName, _
-                CLng(varDerived)
+            If eAxis = egaHorizontal Then
+                AddChange aChanges, lngChanges, aBlocks(lngI), egpWidth, CLng(varDerived)
+            Else
+                AddChange aChanges, lngChanges, aBlocks(lngI), egpHeight, CLng(varDerived)
+            End If
         End If
     Next lngI
 
@@ -493,14 +642,13 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub AddChange(ByRef aChanges() As udtChange, ByRef lngChanges As Long, _
-    dBlock As Dictionary, dProps As Dictionary, strName As String, lngValue As Long)
+    lngBlock As Long, eProperty As eGeometryProperty, lngValue As Long)
 
     If lngChanges > UBound(aChanges) Then
         ReDim Preserve aChanges(0 To (UBound(aChanges) + 1) * 2 - 1)
     End If
-    Set aChanges(lngChanges).dBlock = dBlock
-    Set aChanges(lngChanges).dProps = dProps
-    aChanges(lngChanges).strName = strName
+    aChanges(lngChanges).lngBlock = lngBlock
+    aChanges(lngChanges).eProperty = eProperty
     aChanges(lngChanges).lngValue = lngValue
     lngChanges = lngChanges + 1
 
@@ -511,33 +659,32 @@ End Sub
 ' Procedure : TrackSizes
 '---------------------------------------------------------------------------------------
 '
-Private Function TrackSizes(ByRef aProps() As Dictionary, lngCount As Long, _
-    strAxis As String, strStartName As String, strEndName As String) As Dictionary
+Private Function TrackSizes(ByRef aBlocks() As Long, lngCount As Long, _
+    eAxis As eGeometryAxis) As Dictionary
 
     Dim dObserved As Dictionary
     Dim dSizes As Dictionary
-    Dim dProps As Dictionary
     Dim colObs As Collection
     Dim lngStart As Long
     Dim lngEnd As Long
+    Dim lngSize As Long
     Dim lngI As Long
-    Dim varSize As Variant
     Dim varIndex As Variant
 
     Set dObserved = New Dictionary
     For lngI = 0 To lngCount - 1
-        Set dProps = aProps(lngI)
-        lngStart = PropOrDefault(dProps, strStartName, 0)
-        lngEnd = PropOrDefault(dProps, strEndName, lngStart)
-        varSize = GetSize(dProps, strAxis)
-        If lngStart = lngEnd And Not IsNull(varSize) Then
-            If dObserved.Exists(lngStart) Then
-                Set colObs = dObserved(lngStart)
-            Else
-                Set colObs = New Collection
-                dObserved.Add lngStart, colObs
+        lngStart = GetTrackStart(aBlocks(lngI), eAxis)
+        lngEnd = GetTrackEnd(aBlocks(lngI), eAxis, lngStart)
+        If lngStart = lngEnd Then
+            If TryGetSize(aBlocks(lngI), eAxis, lngSize) Then
+                If dObserved.Exists(lngStart) Then
+                    Set colObs = dObserved(lngStart)
+                Else
+                    Set colObs = New Collection
+                    dObserved.Add lngStart, colObs
+                End If
+                colObs.Add lngSize
             End If
-            colObs.Add CLng(varSize)
         End If
     Next lngI
 
@@ -555,15 +702,14 @@ End Function
 ' Procedure : BoundaryPositions
 '---------------------------------------------------------------------------------------
 '
-Private Function BoundaryPositions(ByRef aProps() As Dictionary, lngCount As Long, _
-    strAxis As String, strStartName As String) As Dictionary
+Private Function BoundaryPositions(ByRef aBlocks() As Long, lngCount As Long, _
+    eAxis As eGeometryAxis) As Dictionary
 
     Dim dObserved As Dictionary
     Dim dRaw As Dictionary
     Dim dPositions As Dictionary
-    Dim dProps As Dictionary
     Dim colObs As Collection
-    Dim varPos As Variant
+    Dim lngPosition As Long
     Dim lngStarts() As Long
     Dim lngPrev As Long
     Dim lngCurrent As Long
@@ -571,17 +717,15 @@ Private Function BoundaryPositions(ByRef aProps() As Dictionary, lngCount As Lon
 
     Set dObserved = New Dictionary
     For lngI = 0 To lngCount - 1
-        Set dProps = aProps(lngI)
-        varPos = GetPos(dProps, strAxis)
-        If Not IsNull(varPos) Then
-            lngCurrent = PropOrDefault(dProps, strStartName, 0)
+        If TryGetPos(aBlocks(lngI), eAxis, lngPosition) Then
+            lngCurrent = GetTrackStart(aBlocks(lngI), eAxis)
             If dObserved.Exists(lngCurrent) Then
                 Set colObs = dObserved(lngCurrent)
             Else
                 Set colObs = New Collection
                 dObserved.Add lngCurrent, colObs
             End If
-            colObs.Add CLng(varPos)
+            colObs.Add lngPosition
         End If
     Next lngI
     If dObserved.Count = 0 Then Exit Function
@@ -610,34 +754,33 @@ End Function
 ' Procedure : InferEndSizes
 '---------------------------------------------------------------------------------------
 '
-Private Sub InferEndSizes(ByRef aProps() As Dictionary, lngCount As Long, _
-    strAxis As String, strStartName As String, strEndName As String, _
-    dPositions As Dictionary, dSizes As Dictionary)
+Private Sub InferEndSizes(ByRef aBlocks() As Long, lngCount As Long, _
+    eAxis As eGeometryAxis, dPositions As Dictionary, dSizes As Dictionary)
 
     Dim dInferred As Dictionary
-    Dim dProps As Dictionary
     Dim colObs As Collection
     Dim lngStart As Long
     Dim lngEnd As Long
+    Dim lngSize As Long
     Dim lngI As Long
-    Dim varSize As Variant
     Dim varIndex As Variant
 
     Set dInferred = New Dictionary
     For lngI = 0 To lngCount - 1
-        Set dProps = aProps(lngI)
-        lngStart = PropOrDefault(dProps, strStartName, 0)
-        lngEnd = PropOrDefault(dProps, strEndName, lngStart)
-        varSize = GetSize(dProps, strAxis)
-        If (Not IsNull(varSize)) And lngStart <> lngEnd Then
-            If dPositions.Exists(lngStart) And dPositions.Exists(lngEnd) Then
-                If dInferred.Exists(lngEnd) Then
-                    Set colObs = dInferred(lngEnd)
-                Else
-                    Set colObs = New Collection
-                    dInferred.Add lngEnd, colObs
+        lngStart = GetTrackStart(aBlocks(lngI), eAxis)
+        lngEnd = GetTrackEnd(aBlocks(lngI), eAxis, lngStart)
+        If lngStart <> lngEnd Then
+            If TryGetSize(aBlocks(lngI), eAxis, lngSize) Then
+                If dPositions.Exists(lngStart) And dPositions.Exists(lngEnd) Then
+                    If dInferred.Exists(lngEnd) Then
+                        Set colObs = dInferred(lngEnd)
+                    Else
+                        Set colObs = New Collection
+                        dInferred.Add lngEnd, colObs
+                    End If
+                    colObs.Add lngSize - _
+                        (CLng(dPositions(lngEnd)) - CLng(dPositions(lngStart)))
                 End If
-                colObs.Add CLng(varSize) - (CLng(dPositions(lngEnd)) - CLng(dPositions(lngStart)))
             End If
         End If
     Next lngI
@@ -659,8 +802,11 @@ End Sub
 Private Function DeriveSpan(lngStart As Long, lngEnd As Long, _
     dPositions As Dictionary, dSizes As Dictionary) As Variant
 
-    If dPositions.Exists(lngStart) And dPositions.Exists(lngEnd) And dSizes.Exists(lngEnd) Then
-        DeriveSpan = CLng(dPositions(lngEnd)) + CLng(dSizes(lngEnd)) - CLng(dPositions(lngStart))
+    If dPositions.Exists(lngStart) And dPositions.Exists(lngEnd) And _
+        dSizes.Exists(lngEnd) Then
+
+        DeriveSpan = CLng(dPositions(lngEnd)) + CLng(dSizes(lngEnd)) - _
+            CLng(dPositions(lngStart))
     Else
         DeriveSpan = Null
     End If
@@ -674,22 +820,22 @@ End Function
 '
 Private Sub CanonicalizeTabs()
 
-    Dim dBlock As Dictionary
-    Dim dProps As Dictionary
+    Dim lngBlock As Long
 
-    For Each dBlock In this.colBlocks
-        If dBlock("Type") = "Tab" Then
-            Set dProps = dBlock("Props")
-            If Not (dProps.Exists("LayoutGroup") Or dProps.Exists("GroupTable")) Then
-                If dProps.Exists("Width") Then
-                    RewriteProp dBlock, dProps, "Width", SnapTwips(CLng(dProps("Width")))
-                End If
-                If dProps.Exists("Height") Then
-                    RewriteProp dBlock, dProps, "Height", SnapTwips(CLng(dProps("Height")))
+    For lngBlock = 0 To m_lngBlockCount - 1
+        With m_aBlocks(lngBlock)
+            If .strType = "Tab" Then
+                If Not (.blnLayoutGroup Or .blnGroupTable) Then
+                    If .lngWidthLine >= 0 Then
+                        RewriteProp lngBlock, egpWidth, SnapTwips(.lngWidth)
+                    End If
+                    If .lngHeightLine >= 0 Then
+                        RewriteProp lngBlock, egpHeight, SnapTwips(.lngHeight)
+                    End If
                 End If
             End If
-        End If
-    Next dBlock
+        End With
+    Next lngBlock
 
 End Sub
 
@@ -700,84 +846,56 @@ End Sub
 '
 Private Sub GrowEnvelopes()
 
-    Dim dBlock As Dictionary
-    Dim dProps As Dictionary
-    Dim dSection As Dictionary
-    Dim dSectionRef As Dictionary
-    Dim dRootProps As Dictionary
-    Dim dChildren As Dictionary
-    Dim colChildren As Collection
-    Dim strSection As String
+    Dim aSectionBottom() As Long
+    Dim lngBlock As Long
+    Dim lngSection As Long
+    Dim lngExtent As Long
     Dim lngMaxRight As Long
-    Dim lngMaxBottom As Long
     Dim lngGrown As Long
-    Dim blnHasLayout As Boolean
 
-    If this.dRoot Is Nothing Then Exit Sub
+    If this.lngRoot < 0 Or Not m_blnHasLayout Then Exit Sub
+    ReDim aSectionBottom(0 To m_lngBlockCount - 1)
 
-    For Each dBlock In this.colBlocks
-        Set dProps = dBlock("Props")
-        If dProps.Exists("LayoutGroup") Or dProps.Exists("GroupTable") Then
-            blnHasLayout = True
-            Exit For
-        End If
-    Next dBlock
-    If Not blnHasLayout Then Exit Sub
-
-    ' Index children by section in one pass, rather than rescanning every block for
-    ' each section.
-    Set dChildren = New Dictionary
-    For Each dBlock In this.colBlocks
-        If dBlock.Exists("Section") Then
-            Set dSectionRef = dBlock("Section")
-            strSection = CStr(ObjPtr(dSectionRef))
-            If dChildren.Exists(strSection) Then
-                Set colChildren = dChildren(strSection)
-            Else
-                Set colChildren = New Collection
-                dChildren.Add strSection, colChildren
+    ' Gather form and section extents in one pass. Section indices map directly into
+    ' the typed block array, so no child index Dictionary or per-section Collection
+    ' is needed.
+    For lngBlock = 0 To m_lngBlockCount - 1
+        With m_aBlocks(lngBlock)
+            If Not IsEnvelopeContainer(.strType) Then
+                lngMaxRight = MaxLong(lngMaxRight, ChildExtent(lngBlock, egaHorizontal))
             End If
-            colChildren.Add dBlock
-        End If
-    Next dBlock
+            lngSection = .lngSection
+            If lngSection >= 0 And .strType <> "Tab" And .strType <> "Page" _
+                And .lngTab < 0 Then
 
-    For Each dBlock In this.colBlocks
-        If Not IsEnvelopeContainer(dBlock("Type")) Then
-            Set dProps = dBlock("Props")
-            lngMaxRight = MaxLong(lngMaxRight, ChildExtent(dProps, "Left", "Width"))
-        End If
-    Next dBlock
-    Set dRootProps = this.dRoot("Props")
-    If dRootProps.Exists("Width") Then
-        lngGrown = MaxLong(SnapTwips(CLng(dRootProps("Width"))), SnapUp(lngMaxRight))
-        RewriteProp this.dRoot, dRootProps, "Width", lngGrown
-    End If
-
-    For Each dSection In this.colBlocks
-        If IsSectionType(dSection("Type")) Then
-            Set dProps = dSection("Props")
-            If dProps.Exists("Height") Then
-                lngMaxBottom = 0
-                strSection = CStr(ObjPtr(dSection))
-                If dChildren.Exists(strSection) Then
-                    Set colChildren = dChildren(strSection)
-                    For Each dBlock In colChildren
-                        If dBlock("Type") <> "Tab" And dBlock("Type") <> "Page" _
-                            And Not dBlock.Exists("Tab") Then
-                            lngMaxBottom = MaxLong(lngMaxBottom, _
-                                ChildExtent(dBlock("Props"), "Top", "Height"))
-                        End If
-                    Next dBlock
+                lngExtent = ChildExtent(lngBlock, egaVertical)
+                If lngExtent > aSectionBottom(lngSection) Then
+                    aSectionBottom(lngSection) = lngExtent
                 End If
-                If lngMaxBottom > 0 Then
-                    lngGrown = MaxLong(SnapTwips(CLng(dProps("Height"))), SnapUp(lngMaxBottom))
+            End If
+        End With
+    Next lngBlock
+
+    With m_aBlocks(this.lngRoot)
+        If .lngWidthLine >= 0 Then
+            lngGrown = MaxLong(SnapTwips(.lngWidth), SnapUp(lngMaxRight))
+            RewriteProp this.lngRoot, egpWidth, lngGrown
+        End If
+    End With
+
+    For lngBlock = 0 To m_lngBlockCount - 1
+        With m_aBlocks(lngBlock)
+            If IsSectionType(.strType) And .lngHeightLine >= 0 Then
+                If aSectionBottom(lngBlock) > 0 Then
+                    lngGrown = MaxLong(SnapTwips(.lngHeight), _
+                        SnapUp(aSectionBottom(lngBlock)))
                 Else
-                    lngGrown = SnapTwips(CLng(dProps("Height")))
+                    lngGrown = SnapTwips(.lngHeight)
                 End If
-                RewriteProp dSection, dProps, "Height", lngGrown
+                RewriteProp lngBlock, egpHeight, lngGrown
             End If
-        End If
-    Next dSection
+        End With
+    Next lngBlock
 
 End Sub
 
@@ -825,76 +943,152 @@ Private Function IsIntegerToken(strValue As String) As Boolean
     IsIntegerToken = IsNumeric(strValue)
 End Function
 
-Private Function PropOrDefault(dProps As Dictionary, strName As String, lngDefault As Long) As Long
-    If dProps.Exists(strName) Then
-        PropOrDefault = CLng(dProps(strName))
-    Else
-        PropOrDefault = lngDefault
-    End If
-End Function
-
-Private Function GetSize(dProps As Dictionary, strAxis As String) As Variant
-    If strAxis = "x" Then
-        If dProps.Exists("Width") Then
-            GetSize = CLng(dProps("Width"))
-        ElseIf dProps.Exists("LayoutCachedWidth") And dProps.Exists("Left") Then
-            GetSize = CLng(dProps("LayoutCachedWidth")) - CLng(dProps("Left"))
+Private Function GetTrackStart(lngBlock As Long, eAxis As eGeometryAxis) As Long
+    With m_aBlocks(lngBlock)
+        If eAxis = egaHorizontal Then
+            If .blnColumnStart Then GetTrackStart = .lngColumnStart
         Else
-            GetSize = Null
+            If .blnRowStart Then GetTrackStart = .lngRowStart
         End If
-    Else
-        If dProps.Exists("Height") Then
-            GetSize = CLng(dProps("Height"))
-        ElseIf dProps.Exists("LayoutCachedHeight") And dProps.Exists("Top") Then
-            GetSize = CLng(dProps("LayoutCachedHeight")) - CLng(dProps("Top"))
+    End With
+End Function
+
+Private Function GetTrackEnd(lngBlock As Long, eAxis As eGeometryAxis, _
+    lngDefault As Long) As Long
+
+    With m_aBlocks(lngBlock)
+        If eAxis = egaHorizontal Then
+            If .blnColumnEnd Then
+                GetTrackEnd = .lngColumnEnd
+            Else
+                GetTrackEnd = lngDefault
+            End If
+        ElseIf .blnRowEnd Then
+            GetTrackEnd = .lngRowEnd
         Else
-            GetSize = Null
+            GetTrackEnd = lngDefault
         End If
-    End If
+    End With
+
 End Function
 
-Private Function GetPos(dProps As Dictionary, strAxis As String) As Variant
-    Dim strKey As String
-    Dim strCache As String
-    If strAxis = "x" Then
-        strKey = "Left"
-        strCache = "LayoutCachedLeft"
+Private Function HasPosition(lngBlock As Long, eAxis As eGeometryAxis) As Boolean
+    If eAxis = egaHorizontal Then
+        HasPosition = (m_aBlocks(lngBlock).lngLeftLine >= 0)
     Else
-        strKey = "Top"
-        strCache = "LayoutCachedTop"
+        HasPosition = (m_aBlocks(lngBlock).lngTopLine >= 0)
     End If
-    If dProps.Exists(strKey) Then
-        GetPos = CLng(dProps(strKey))
-    ElseIf dProps.Exists(strCache) Then
-        GetPos = CLng(dProps(strCache))
+End Function
+
+Private Function HasSize(lngBlock As Long, eAxis As eGeometryAxis) As Boolean
+    If eAxis = egaHorizontal Then
+        HasSize = (m_aBlocks(lngBlock).lngWidthLine >= 0)
     Else
-        GetPos = Null
+        HasSize = (m_aBlocks(lngBlock).lngHeightLine >= 0)
     End If
 End Function
 
-Private Function ChildExtent(dProps As Dictionary, strPos As String, strSize As String) As Long
-    If dProps.Exists(strPos) And dProps.Exists(strSize) Then
-        ChildExtent = CLng(dProps(strPos)) + CLng(dProps(strSize))
-    End If
+Private Function TryGetSize(lngBlock As Long, eAxis As eGeometryAxis, _
+    ByRef lngSize As Long) As Boolean
+
+    With m_aBlocks(lngBlock)
+        If eAxis = egaHorizontal Then
+            If .lngWidthLine >= 0 Then
+                lngSize = .lngWidth
+                TryGetSize = True
+            ElseIf .blnCachedWidth And .lngLeftLine >= 0 Then
+                lngSize = .lngCachedWidth - .lngLeft
+                TryGetSize = True
+            End If
+        Else
+            If .lngHeightLine >= 0 Then
+                lngSize = .lngHeight
+                TryGetSize = True
+            ElseIf .blnCachedHeight And .lngTopLine >= 0 Then
+                lngSize = .lngCachedHeight - .lngTop
+                TryGetSize = True
+            End If
+        End If
+    End With
 End Function
 
-Private Sub RewriteProp(dBlock As Dictionary, dProps As Dictionary, _
-    strName As String, lngValue As Long)
+Private Function TryGetPos(lngBlock As Long, eAxis As eGeometryAxis, _
+    ByRef lngPosition As Long) As Boolean
 
-    Dim dPropLines As Dictionary
+    With m_aBlocks(lngBlock)
+        If eAxis = egaHorizontal Then
+            If .lngLeftLine >= 0 Then
+                lngPosition = .lngLeft
+                TryGetPos = True
+            ElseIf .blnCachedLeft Then
+                lngPosition = .lngCachedLeft
+                TryGetPos = True
+            End If
+        Else
+            If .lngTopLine >= 0 Then
+                lngPosition = .lngTop
+                TryGetPos = True
+            ElseIf .blnCachedTop Then
+                lngPosition = .lngCachedTop
+                TryGetPos = True
+            End If
+        End If
+    End With
+End Function
+
+Private Function ChildExtent(lngBlock As Long, eAxis As eGeometryAxis) As Long
+    With m_aBlocks(lngBlock)
+        If eAxis = egaHorizontal Then
+            If .lngLeftLine >= 0 And .lngWidthLine >= 0 Then
+                ChildExtent = .lngLeft + .lngWidth
+            End If
+        ElseIf .lngTopLine >= 0 And .lngHeightLine >= 0 Then
+            ChildExtent = .lngTop + .lngHeight
+        End If
+    End With
+End Function
+
+Private Sub RewriteProp(lngBlock As Long, eProperty As eGeometryProperty, lngValue As Long)
+
     Dim lngLine As Long
     Dim strLine As String
+    Dim strName As String
+    Dim lngCurrent As Long
     Dim intIndent As Integer
 
-    ' Order matters: reading a missing key from a Dictionary would add it.
-    Set dPropLines = dBlock("PropLines")
-    If Not dPropLines.Exists(strName) Then Exit Sub
-    If CLng(dProps(strName)) = lngValue Then Exit Sub
-    lngLine = dPropLines(strName)
+    With m_aBlocks(lngBlock)
+        Select Case eProperty
+            Case egpLeft
+                strName = "Left"
+                lngLine = .lngLeftLine
+                lngCurrent = .lngLeft
+            Case egpTop
+                strName = "Top"
+                lngLine = .lngTopLine
+                lngCurrent = .lngTop
+            Case egpWidth
+                strName = "Width"
+                lngLine = .lngWidthLine
+                lngCurrent = .lngWidth
+            Case egpHeight
+                strName = "Height"
+                lngLine = .lngHeightLine
+                lngCurrent = .lngHeight
+        End Select
+    End With
+    If lngLine < 0 Or lngCurrent = lngValue Then Exit Sub
+
     strLine = m_strLines(lngLine)
     intIndent = Len(strLine) - Len(LTrim$(strLine))
     m_strLines(lngLine) = Space$(intIndent) & strName & " =" & lngValue
-    dProps(strName) = lngValue
+    With m_aBlocks(lngBlock)
+        Select Case eProperty
+            Case egpLeft:   .lngLeft = lngValue
+            Case egpTop:    .lngTop = lngValue
+            Case egpWidth:  .lngWidth = lngValue
+            Case egpHeight: .lngHeight = lngValue
+        End Select
+    End With
     this.lngChanged = this.lngChanged + 1
     Me.RewriteCalls = Me.RewriteCalls + 1
 

@@ -167,6 +167,14 @@ Public Sub TestFormGeometry_PriorFormatLeavesCaches()
 End Sub
 
 
+Public Sub TestFormGeometry_MinimalSanitizeLeavesGeometry()
+    Dim strOut As String
+    strOut = SanitizeForm(TabularPairForm(105, 1995, 1800), EFV_5_1_0, eslMinimal)
+    TestAssert InStr(strOut, "LayoutCachedLeft") > 0, "minimal sanitize keeps LayoutCached*"
+    TestAssert InStr(strOut, "Left =105") > 0, "minimal sanitize does not snap geometry"
+End Sub
+
+
 Public Sub TestFormGeometry_ResumesAfterInlineBinary()
     Dim strOut As String
     strOut = SanitizeForm(InlineBinaryForm)
@@ -207,13 +215,16 @@ Public Sub TestFormGeometry_StopsAtCodeBehindForm()
 End Sub
 
 
-Private Function SanitizeForm(strContent As String, Optional lngFormat As Long = EFV_5_1_0) As String
+Private Function SanitizeForm(strContent As String, _
+    Optional lngFormat As Long = EFV_5_1_0, _
+    Optional intSanitize As eSanitizeLevel = eslStandard) As String
+
     Dim lngOldFormat As Long
     Dim intOldSanitize As eSanitizeLevel
     lngOldFormat = Options.ExportFormatVersion
     intOldSanitize = Options.SanitizeLevel
     Options.ExportFormatVersion = lngFormat
-    Options.SanitizeLevel = eslStandard
+    Options.SanitizeLevel = intSanitize
     m_parser.LoadString strContent, edbForm
     m_parser.Sanitize ectObjectDefinition
     SanitizeForm = m_parser.GetOutput

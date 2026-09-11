@@ -568,6 +568,8 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     Dim cCFBuffer As clsConcat
     Dim strCFKind As String
     Dim blnStripCF As Boolean
+    Dim blnTrackFormGeometry As Boolean
+    Dim blnNeedsFormGeometry As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -587,6 +589,9 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     blnStripCF = (Options.ExportFormatVersion >= EFV_5_0_0) _
         And Options.DecodeConditionalFormatting _
         And (this.intObjectType = edbForm Or this.intObjectType = edbReport)
+    blnTrackFormGeometry = (this.intObjectType = edbForm) _
+        And Options.SanitizeLevel >= eslStandard _
+        And Options.ExportFormatVersion >= EFV_5_1_0
 
     ' Set up index of lines to skip
     ReDim this.lngSkipLines(0 To UBound(varLines)) As Long
@@ -790,11 +795,31 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         End If
                     ElseIf StartsWith(strTLine, "Begin ") Then
                         ' Include block type name for controls
+                        If blnTrackFormGeometry And Not blnNeedsFormGeometry Then
+                            blnNeedsFormGeometry = _
+                                (StrComp(strTLine, "Begin Tab", vbBinaryCompare) = 0)
+                        End If
                         BeginBlock Mid$(strTLine, 7)
                     ElseIf EndsWith(strTLine, " = Begin") Then
                         BeginBlock
                     Else
                         ' All other lines will be added.
+
+                        ' Geometry can only affect layout groups and tab controls.
+                        ' Piggyback on this existing scan so forms without either can
+                        ' skip the canonicalizer without another pass over the file.
+                        If blnTrackFormGeometry And Not blnNeedsFormGeometry Then
+                            If Len(strTLine) > 0 Then
+                                Select Case AscW(strTLine)
+                                    Case 71 ' G
+                                        blnNeedsFormGeometry = _
+                                            StartsWith(strTLine, "GroupTable =")
+                                    Case 76 ' L
+                                        blnNeedsFormGeometry = _
+                                            StartsWith(strTLine, "LayoutGroup =")
+                                End Select
+                            End If
+                        End If
 
                         ' Track the current control name so conditional formatting
                         ' blocks can be keyed correctly in the companion JSON.
@@ -834,12 +859,14 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
 
     ' Normalize form designer viewport coordinates
     If this.intObjectType = edbForm Then
-        If Options.SanitizeLevel > eslMinimal Then
+        If Options.SanitizeLevel >= eslStandard Then
             If Options.ExportFormatVersion >= EFV_5_0_0 Then NormalizeViewport varLines
             If Options.ExportFormatVersion >= EFV_5_1_0 Then
-                With New clsFormGeometryCanonicalizer
-                    .Canonicalize varLines, Me.ObjectName
-                End With
+                If blnNeedsFormGeometry Then
+                    With New clsFormGeometryCanonicalizer
+                        .Canonicalize varLines, Me.ObjectName
+                    End With
+                End If
             End If
         End If
     End If
