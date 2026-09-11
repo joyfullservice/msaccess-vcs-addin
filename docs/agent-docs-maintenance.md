@@ -141,6 +141,7 @@ the content to `docs/`.
 | A pointer telling an agent which reference to open for a given task | root `AGENTS.md`, routing table |
 | A procedure, a mechanism, a format, a protocol, or a table of internals | a `docs/*.md` reference |
 | Guidance needed only while editing a particular kind of file | a glob-scoped `.cursor/rules/*.mdc` that links to the `docs/` reference |
+| A prohibition that applies regardless of which file is open (publishing, confidentiality) | an `alwaysApply` `.cursor/rules/*.mdc` |
 | Why a decision was made, and what was rejected | `DECISIONS.md` |
 | A how-to for end users | `Wiki/` |
 
