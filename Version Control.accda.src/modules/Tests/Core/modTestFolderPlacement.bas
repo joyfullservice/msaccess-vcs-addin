@@ -306,6 +306,48 @@ Private Sub WriteMovedModuleFixture(strStaleFolder As String, strCorrectFolder A
 End Sub
 
 
+Public Sub TestFindFileRecursive_FindsFileInNestedSubfolder()
+    Dim strRoot As String
+    Dim strBase As String
+    Dim strNestedFolder As String
+    Dim strExpected As String
+    Dim strFound As String
+
+    strRoot = GetTempFolder("vcs_find_file_recursive") & PathSep
+    strBase = strRoot & "modules" & PathSep
+    strNestedFolder = strBase & "Builder" & PathSep & "Tests" & PathSep & "Units" & PathSep
+    VerifyPath strNestedFolder
+
+    strExpected = strNestedFolder & "modNewNestedObject.bas"
+    WriteFile BuildTestModuleSource("modNewNestedObject", "Builder.Tests.Units"), strExpected
+
+    strFound = FindFileRecursive(strBase, "modNewNestedObject", Array(".bas", ".cls"))
+
+    TestAssert strFound = strExpected, _
+        "found nested file at '" & strFound & "', expected '" & strExpected & "'"
+
+    DeleteFolderPlacementFixture strRoot
+End Sub
+
+
+Public Sub TestFindFileRecursive_ReturnsEmptyWhenNoMatchExists()
+    Dim strRoot As String
+    Dim strBase As String
+
+    strRoot = GetTempFolder("vcs_find_file_recursive") & PathSep
+    strBase = strRoot & "modules" & PathSep
+    VerifyPath strBase & "Core" & PathSep
+
+    ' A file exists in the tree, but under a different name -- must not match.
+    WriteFile BuildTestModuleSource("modUnrelated", "Core"), strBase & "Core" & PathSep & "modUnrelated.bas"
+
+    TestAssert Len(FindFileRecursive(strBase, "modDoesNotExist", Array(".bas", ".cls"))) = 0, _
+        "no match anywhere in the tree returns empty string"
+
+    DeleteFolderPlacementFixture strRoot
+End Sub
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : BuildTestModuleSource
 ' Author    : Adam Waller

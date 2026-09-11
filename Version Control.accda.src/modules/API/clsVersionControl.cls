@@ -1764,6 +1764,13 @@ Private Function FindSourceFile(cComponent As IDbComponent, strObjectName As Str
         End If
     Next varExt
 
+    ' Not found at the flat base-folder root -- the object may live under a
+    ' '@Folder-nested subfolder (e.g. a brand-new object created directly at
+    ' its real, nested location rather than the flat root, per issue tracked
+    ' upstream). Fall back to a single recursive scan of the whole category
+    ' folder rather than reporting "not found" prematurely.
+    FindSourceFile = modFileWinAPI.FindFileRecursive(strFolder, strObjectName, aExtensions)
+
 End Function
 
 
