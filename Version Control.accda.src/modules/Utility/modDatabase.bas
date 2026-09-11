@@ -1035,6 +1035,67 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetSystemTableNames
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 8/21/2026
+' Purpose   : Return the set of table names that belong to the database engine or to
+'           : Access itself, and should therefore be left out of version control.
+'           : The system attribute set by the engine is used instead of the object
+'           : name, so that user tables which happen to carry the MSys prefix are
+'           : exported as regular tables.
+'           : dbSystemObject (&H80000002) matches both the engine tables (&H80000000:
+'           : MSysObjects, MSysQueries, MSysACEs, MSysRelationships) and the tables
+'           : owned by Access (&H00000002: MSysIMEXSpecs, MSysIMEXColumns,
+'           : MSysNavPaneGroups, MSysAccessStorage, MSysResources), while user tables
+'           : report 0 and linked tables report dbAttachedTable (&H40000000).
+'           : Read once per scan so that callers can test names inside their loop
+'           : without a lookup per object. Reading the attribute does not open a
+'           : linked back-end.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSystemTableNames() As Dictionary
+
+    Dim dSysTables As Dictionary
+    Dim tdf As DAO.TableDef
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Set dSysTables = New Dictionary
+    dSysTables.CompareMode = TextCompare
+
+    For Each tdf In SharedDb.TableDefs
+        If (tdf.Attributes And dbSystemObject) <> 0 Then
+            dSysTables.Add tdf.Name, True
+            ' A user table can carry the system attribute: hiding implementation tables
+            ' that way is an old Access idiom. Such a table was exported while the filter
+            ' went by name, and is excluded now, so warn instead of dropping it in
+            ' silence. This matters because the orphaned-file cleanup deletes its source
+            ' file in the same pass.
+            If Not (tdf.Name Like "MSys*") Then
+                Log.Error eelWarning, T("Table '{0}' carries the system attribute and is " & _
+                    "excluded from version control.", var0:=tdf.Name), _
+                    ModuleName & ".GetSystemTableNames"
+            End If
+        End If
+    Next tdf
+
+    ' Tables created by the engine that carry no system attribute, and so have to be
+    ' listed by name. (MSysCompactError is left behind by a failed compact operation.)
+    ' Listing a name that does not exist in this database is harmless.
+    If Not dSysTables.Exists("MSysCompactError") Then dSysTables.Add "MSysCompactError", True
+
+    ' A partial set (the handler above covers the whole loop) is detectable afterwards.
+    Log.Add "System tables: " & dSysTables.Count, Options.ShowDebug
+
+    Set GetSystemTableNames = dSysTables
+
+    CatchAny eelError, T("Error reading the list of system tables"), ModuleName & ".GetSystemTableNames"
+
+End Function
+
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : TableIndexesAvailable
 ' Author    : Adam Waller
 ' Date      : 7/27/2026
@@ -1668,6 +1729,7 @@ Public Sub BuildTableTypeCache()
     Dim dbs As Database
     Dim rst As DAO.Recordset
     Dim strName As String
+    Dim dSysTables As Dictionary
 
     Perf.OperationStart "Build Table Type Cache"
 
@@ -1677,6 +1739,7 @@ Public Sub BuildTableTypeCache()
     If DebugMode(True) Then On Error GoTo Err_Handler Else On Error Resume Next
 
     Set dbs = SharedDb
+    Set dSysTables = GetSystemTableNames
     Set rst = dbs.OpenRecordset( _
         "SELECT Name, Type FROM MSysObjects WHERE Type IN (1,4,6)", _
         dbOpenSnapshot, dbReadOnly)
@@ -1685,7 +1748,7 @@ Public Sub BuildTableTypeCache()
     Do While Not rst.EOF
         strName = Nz(rst!Name, vbNullString)
         If Len(strName) > 0 Then
-            If Not (strName Like "MSys*" Or strName Like "~*") Then
+            If Not (dSysTables.Exists(strName) Or strName Like "~*") Then
                 m_dTableTypeCache(strName) = Nz(rst!Type, 1)
             End If
         End If

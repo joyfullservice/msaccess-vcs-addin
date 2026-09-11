@@ -146,6 +146,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim blnNeedAll As Boolean
     Dim sngStart As Single
     Dim lngScanCount As Long
+    Dim dSysTables As Dictionary
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -157,9 +158,10 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             lngScanCount = dbs.TableDefs.Count
             sngStart = Timer
         End If
+        Set dSysTables = GetSystemTableNames
         For Each tdf In dbs.TableDefs
             ' Skip system, temp, and linked tables
-            If Left$(tdf.Name, 4) <> "MSys" Then
+            If Not dSysTables.Exists(tdf.Name) Then
                 If Left$(tdf.Name, 1) <> "~" Then
                     If Len(tdf.Connect) = 0 Then
                         ' Check to see if the table has a data macro
