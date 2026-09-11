@@ -74,7 +74,7 @@ Reference for the folder and file layout created when you export source. Your `.
 | `*.cls` | Code-behind when **Split Layout from VBA** is On |
 | `*.json` | Optional print settings |
 
-See [Split Files](Split-Files).
+See [Split Files](Split-Files). From export format 5.1, the layout file's position and size values are normalized so they do not differ between machines with different display scaling — see [Form Layout Geometry](Form-Layout-Geometry).
 
 ---
 

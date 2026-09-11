@@ -276,12 +276,62 @@ def _track_sizes(
     return sizes, reasons
 
 
+def _span_extents(
+    cells: list[Block],
+    axis: str,
+    start_name: str,
+    end_name: str,
+) -> dict[tuple[int, int], int]:
+    """Return snapped sizes for multi-track ranges that nothing subdivides.
+
+    When every cell touching a range spans exactly that range, no observation
+    can attribute size to the individual tracks, but none needs to: the range
+    behaves as one merged track whose total size is a free variable. The
+    snapped median of the observed sizes is then canonical, which is the same
+    rule `_track_sizes` applies to a single track. A range that some other
+    cell subdivides is genuinely underdetermined and is left to
+    `_derive_span`.
+    """
+    spans = [
+        (
+            cell.props.get(start_name, 0),
+            cell.props.get(end_name, cell.props.get(start_name, 0)),
+        )
+        for cell in cells
+    ]
+
+    observed: dict[tuple[int, int], list[int]] = collections.defaultdict(list)
+    for cell, span in zip(cells, spans):
+        if span[0] == span[1]:
+            continue
+        size = cell.get_size(axis)
+        if size is not None:
+            observed[span].append(size)
+
+    extents: dict[tuple[int, int], int] = {}
+    for span, values in observed.items():
+        start, end = span
+        subdivided = any(
+            other != span and other[0] <= end and other[1] >= start
+            for other in spans
+        )
+        if not subdivided:
+            extents[span] = snap(_median_int(values))
+    return extents
+
+
 def _boundary_positions(
     cells: list[Block],
     axis: str,
     start_name: str,
 ) -> tuple[dict[int, int], list[str]]:
-    """Snap the group origin and each observed pitch, then accumulate."""
+    """Snap the group origin and each observed pitch, then accumulate.
+
+    No observed position is not a failure. Continuous-form and datasheet
+    layouts omit Top on every cell in the detail section, and a cell whose
+    position line is absent has nothing to rewrite. Sizes in such a group are
+    still canonical; only multi-track spans, which need boundaries, are not.
+    """
     observed: dict[int, list[int]] = collections.defaultdict(list)
     for cell in cells:
         pos = cell.get_pos(axis)
@@ -289,7 +339,7 @@ def _boundary_positions(
             continue
         observed[cell.props.get(start_name, 0)].append(pos)
     if not observed:
-        return {}, [f"no {axis} positions"]
+        return {}, []
 
     starts = sorted(observed)
     raw = {index: _median_int(values) for index, values in observed.items()}
@@ -350,6 +400,7 @@ def _plan_axis(
     if pos_reasons:
         return [], [], reasons
     _infer_end_sizes(cells, axis, start_name, end_name, positions, sizes)
+    extents = _span_extents(cells, axis, start_name, end_name)
 
     planned: list[tuple[Block, str, int, int]] = []
     logical: list[tuple[Block, str, int]] = []
@@ -370,6 +421,8 @@ def _plan_axis(
             if start != end
             else sizes.get(start)
         )
+        if derived is None and start != end:
+            derived = extents.get((start, end))
         if derived is not None:
             logical.append((cell, size_name, derived))
         if size_name in cell.props:

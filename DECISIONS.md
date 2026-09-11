@@ -83,6 +83,83 @@ contradictory guidance.
 
 ---
 
+## 2026-09-11 — Unsubdivided spans and position-free axes are solvable, not underdetermined
+
+**Trigger**: A private production export logged `Form geometry: skipped 4/4
+(horizontal) on frmExample` 53 times per run. The message reads like "4 of
+4" but is the `GroupTable`/`LayoutGroup` bucket key, and it named neither the
+cause nor the consequence. Investigating one instance showed the fail-closed
+path was firing on two shapes it could have solved.
+
+**Options explored**:
+- Leave it; document the shape only. The warning is by design. Rejected once
+  measurement showed 48 of the 54 skips were solvable — each one costing its
+  whole group, so a 4-cell totals row kept four DPI-derived origins because of
+  one attached label.
+- For an unwitnessed span, snap the span's own size directly. Agrees with the
+  structural answer on 34 of 36 corpus cases, but the two disagreements are the
+  reason to reject it: a corpus form has a span of 6510 twips, exactly a
+  30-twip midpoint, where banker's rounding is a coin flip across DPI. The
+  documented "naive independent snap" dead end in a new place.
+- Recover the far edge as `positions[end+1] - inset`, with a per-group inset
+  estimated from tracks where size and pitch are both known. Rejected on
+  measurement: the inset is consistent within a group in only 324 of 372
+  group/axis units (87%), spreading up to 180 twips, so it is a per-track
+  property and cannot be extrapolated to an unwitnessed track. It is also
+  unavailable for the 45 of 81 spans that run to the last observed track.
+- Size a range that nothing subdivides from the snapped median of the cells that
+  span it (chosen). When every cell touching `[start, end]` spans exactly that
+  range, nothing can move the internal boundaries, so the range is one merged
+  track and its total size is a free variable — the same rule already applied to
+  a single track, and stable for the same reason. A range another cell overlaps
+  with different bounds stays underdetermined.
+- Treat an axis with no observed position as a failure (previous behavior).
+  Rejected. Continuous-form and datasheet detail cells omit `Top` *and*
+  `LayoutCachedTop` on every cell, so there is no boundary to accumulate — but
+  also no `Top` line to rewrite, and the heights are still canonical. This was
+  40 of the 54 skips.
+
+**Decision**: Added `SpanExtents` (merged-range sizing) and made an empty
+position map a no-op rather than a failure. `PlanAxis` now reports the track
+range it failed on so the warning can name it. Folded into `EFV_5_1_0` rather
+than a new gate, because `EFV_5_1_0` is unreleased — v5.0.1 predates it, so no
+user has exported with the old algorithm. Corpus skips fall from 54 to 6 across
+416 forms; 43 forms move once (max 180 twips, p95 120); idempotence stays
+byte-identical on all 416; cross-DPI unification on the `access-proof` fixtures
+is unchanged. Cost fell from the documented 3.2 ms/form to 2.8 ms/form.
+
+Rewrote the warning to name the group in prose ("layout table 4, group 4"), give
+the failing track range, state in plain language that the sizes needed for
+scaling-independent coordinates are absent and what that means for the file, and
+link to a wiki page. It is deliberately self-contained and repeated per group
+rather than logged once per export, because these lines are read one at a time
+out of context — which is exactly how this investigation started.
+
+**What this rules out**: Reading an omitted `ColumnStart` as anything but zero
+(an attached label with `ColumnEnd = 2` and no `ColumnStart` spans columns 0-2;
+both readings occur in real forms and only the span reading resolves). Deriving
+an unwitnessed track's size from neighbouring pitch via a per-group inset.
+Falling back to snapping a value the structural pass could not derive. Claiming
+the remaining 6 skips are tractable from the file alone — they are overlapping
+spans with different bounds and no witness between them.
+
+**Measured on a live project afterwards**: the merged-range group round-trips
+through Access unchanged, so the new rule is stable. But the form as a whole was
+not a fixed point on the first cycle — `N(P_d(C₁)) = C₂ ≠ C₁`, with `C₂` then
+byte-identical on the next cycle. `C₂` differed by one 60-twip step on one
+layout table's right-most column. A control form that canonicalization does not
+alter at all moved the same way, so this is a pre-existing property of the
+canonicalizer's interaction with Access's layout engine, not a consequence of
+this change. It is now recorded as a known limit in `docs/access-form-geometry.md`
+§9. The §7 round-trip proof missed it because its fixtures were harvested
+through Access and were therefore already fixed points.
+
+**Relevant files**: `clsFormGeometryCanonicalizer.cls`,
+`tools/dpi-layout-probe/form_geometry.py`, `clsTestSourceParser.cls`,
+`docs/access-form-geometry.md`.
+
+---
+
 ## 2026-09-08 — SQL is authoritative for query option modifiers
 
 **Trigger**: A private production database export showed `OptionFlag: 2`
@@ -130,6 +207,12 @@ export, so adding one means adding its SQL spelling too.
 ---
 
 ## 2026-09-08 — Canonical 60-twip form layout geometry
+
+> **⚠ Partially superseded** (2026-09-11): "53 groups lacked witnesses and are
+> left unchanged" is now 6. Two of the three shapes counted there were solvable:
+> a span no other cell subdivides, and an axis with no observed position at all.
+> See "Unsubdivided spans and position-free axes are solvable, not
+> underdetermined" above.
 
 **Trigger**: Untouched forms churned between developers, and a one-control edit
 exported hundreds of unrelated geometry values re-solved to the editor's DPI.

@@ -55,12 +55,15 @@ Behavior:
 - Rewrites present `Left` / `Top` / `Width` / `Height` in place. Never
   adds or removes a geometry property.
 - Snaps layout-group track sizes and boundary pitches to 60 twips, then
-  derives spanning bounds.
+  derives spanning bounds. A span that no other cell subdivides is sized
+  from its own snapped median, since nothing can move its internal
+  boundaries.
 - Leaves free-positioned control geometry alone, preserves distinct gap
   classes, and retains every `EmptyCell` block while canonicalizing its
   layout geometry.
 - Fails closed on underdetermined groups: the group is logged and left
-  unchanged.
+  unchanged. The warning explains itself and links to the wiki; see
+  [§5.6](#56-reading-the-skip-warning).
 - Snaps Tab `Width` / `Height`. Page insets stay DPI-local.
 - Snaps form `Width` and section `Height` to the nearest lattice point,
   then raises them when necessary so canonical children do not clip.
@@ -112,6 +115,15 @@ A cell with `ColumnStart = ColumnEnd` occupies one column. A cell with
 `ColumnStart < ColumnEnd` spans. The same applies to rows. `EmptyCell`
 blocks are spacer cells Access inserts to keep the grid rectangular;
 they carry the same group and track properties as a visible control.
+
+**An omitted track property means zero, not "same as the other end."**
+Access drops any property equal to its default, so a cell in column 0
+has no `ColumnStart` line, and an attached label written as `ColumnEnd = 2`
+with no `ColumnStart` spans columns 0 through 2. This is easy to misread as
+a single cell in column 2 — both shapes occur, and the geometry only
+resolves under the span reading. Attached labels are also nested *inside*
+their parent control's child block rather than sitting beside it, so a
+spanning cell is not always where you would look for it.
 
 **Free-positioned controls** have no `LayoutGroup` / `GroupTable`. Their
 geometry is authored, not solved, and does not drift with DPI. The
@@ -293,12 +305,29 @@ For each group:
    origins are known can imply the last track's size:
    `size(end) = spanWidth - (pos(end) - pos(start))`. Used only when
    that track has no single-span witness.
-4. **Rewrite.** If `Left` is present, replace it with the planned
+4. **Size unsubdivided ranges.** When every cell touching a range
+   `[start, end]` spans exactly that range, no observation can attribute
+   size to its individual tracks — and none needs to. Nothing can move
+   the internal boundaries, so the range behaves as one merged track
+   whose total size is a free variable, and the snapped median of those
+   cells' own sizes is canonical. This is the same rule step 1 applies
+   to a single track. A range that some *other* cell overlaps with
+   different bounds is genuinely underdetermined and falls through to
+   step 5. `SpanExtents` implements this.
+5. **Rewrite.** If `Left` is present, replace it with the planned
    origin of `ColumnStart`. If `Width` is present, replace it with the
-   track size (single-span) or `pos(end) + size(end) - pos(start)`
-   (span). If any required witness is missing, the group is
-   underdetermined: log a warning and leave every property in the
-   group as written.
+   track size (single-span), `pos(end) + size(end) - pos(start)`
+   (span), or the merged-range extent from step 4. If any required
+   witness is missing, the group is underdetermined: log a warning and
+   leave every property in the group as written.
+
+**An axis with no observed position at all is not a failure.** Continuous-form
+and datasheet detail cells omit `Top` *and* `LayoutCachedTop` on every cell,
+so the vertical axis has no boundary to accumulate from. Nothing needs a
+`Top` rewrite in that case either, and the heights are still canonical, so
+the position map comes back empty and planning continues. Treating that as a
+failure used to abandon the group, which cost those forms their height
+canonicalization and produced most of the skip warnings in a real project.
 
 ### 5.3 Plan the vertical axis, per section
 
@@ -338,6 +367,43 @@ are skipped entirely.
 `RewriteProp` is a no-op when the value is already correct and when the
 property is absent. The sanitizer cannot invent a line Access did not
 write.
+
+### 5.6 Reading the skip warning
+
+A group that cannot be solved produces one warning per group per axis in
+the export log:
+
+```text
+WARNING: Form layout geometry left unchanged in frmExample: layout
+table 4, group 4, columns 0 to 2. These tracks do not record the sizes
+needed to compute coordinates that are independent of display scaling, so
+this group is exported exactly as Access saved it. Its values may differ
+between machines that run at different display scaling (DPI).
+For an explanation and how to resolve it, see
+https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Form-Layout-Geometry
+```
+
+"layout table 4, group 4" is the `GroupTable` / `LayoutGroup` pair that
+buckets the cells, and "columns 0 to 2" is the track range planning failed
+on — not a count, and not a fraction. The message used to render that pair
+as the bare bucket key (`skipped 4/4 (horizontal)`), which reads like "4 of
+4" and told the reader nothing about the cause.
+
+The warning names the range but not the control. To identify the specific
+cell, run the Python oracle, which reports it:
+
+```console
+python tools/dpi-layout-probe/form_geometry.py path/to/Some.form --json
+```
+
+Its `skippedGroups` entries read
+`GroupTable=4/LayoutGroup=4 (horizontal): Label359: no x size for tracks 0-2`.
+
+The wiki page the warning links to is
+[`Wiki/Form-Layout-Geometry.md`](../Wiki/Form-Layout-Geometry.md), which explains
+the same thing for end users and tells them which layout edits resolve it. That
+folder syncs to the GitHub wiki when changes reach `main`, so the URL in the
+warning 404s until this branch merges.
 
 ---
 
@@ -439,12 +505,28 @@ not a cross-DPI compare:
 | Forms in the corpus | 400+ |
 | Max absolute shift | 300 twips |
 | 95th-percentile shift | 165 twips |
-| Groups left unchanged (no witnesses) | 53 |
+| Groups left unchanged (no witnesses) | 6 |
 | Oracle runtime | 0.75 s |
 
 300 twips is 5 mm — noticeable on a one-time upgrade export, then
-stable. The 53 skipped groups are the fail-closed path working as
+stable. The 6 skipped groups are the fail-closed path working as
 designed: the add-in logs a warning rather than inventing a track.
+
+That count was **54** before merged-range sizing (step 4) and the
+empty-position-map rule landed, and those 48 groups were not close
+calls. 40 of them were continuous-form vertical axes that the canonicalizer
+could have solved all along, and most of the rest hinged on a single
+attached label spanning the empty leading columns of a totals row. Each one
+cost its whole group, so a 4-cell totals row kept four DPI-derived origins
+because of one label. Re-canonicalizing the corpus with both rules moved 43
+of 416 forms once, max shift 180 twips, 95th percentile 120, with
+byte-identical idempotence on all 416 and no change to the cross-DPI
+unification result.
+
+The remaining 6 all have the same shape: two or more spans that overlap with
+*different* bounds and no single-track witness between them, so each span
+subdivides the other and no boundary inside the overlap is observable. These
+are not solvable from the file alone.
 
 ### Edit minimality
 
@@ -541,12 +623,35 @@ the remaining 14.5%.
 - **Reports are not canonicalized.** The same layout properties exist
   on reports; no probe corpus was captured for them, and the
   sanitizer does not touch them.
-- **Underdetermined groups stay as Access wrote them.** 53 such groups
-  in the external corpus. Typical cause: a spanning cell with no
-  single-span witness for an end track. Fail closed, do not invent.
+- **Underdetermined groups stay as Access wrote them.** 6 such groups
+  in the external corpus. Remaining cause: two spans that overlap with
+  different bounds, so each subdivides the other. Fail closed, do not
+  invent. A span nothing else subdivides *is* solvable and no longer
+  counts here — see step 4 of §5.2.
 - **One-time visual shift on upgrade.** Existing projects re-export
   once (Forms revision 2). Worst measured movement is 300 twips
   (5 mm). After that, source is stable.
+- **A freshly exported canonical file is not always a fixed point of
+  `N ∘ P_d`.** It becomes one after a single import/export cycle.
+  Measured 2026-09-11 on a live project: `frmExample` exported to
+  `C₁`, then `N(P_d(C₁)) = C₂ ≠ C₁`, but `N(P_d(C₂)) = C₂` byte-identical.
+  `C₂` differed from `C₁` by one 60-twip step on the right-most column of
+  one layout table, plus `Top = 0` and default `Height` lines Access
+  dropped. **This is not specific to the merged-range rule**: a second
+  corpus form that canonicalization does not alter at all moved
+  by exactly 60 twips on the same round trip.
+
+  The reason is that `N` reconstructs the grid from what the *file*
+  records, while Access re-solves it with its own layout engine, and an
+  accumulated column boundary can land one lattice step away. Both values
+  are on the lattice, so `N` accepts either and has no basis to prefer one.
+  The §7 round-trip proof does not catch this because its fixtures were
+  harvested *through* Access and so were already fixed points.
+
+  Practical consequence: the first build-from-source followed by a
+  re-export can show a one-step diff on layout-table columns, after which
+  the form is stable. Cross-DPI unification is unaffected — every
+  machine converges on the same value.
 
 ---
 

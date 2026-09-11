@@ -142,9 +142,60 @@ End Sub
 
 Public Sub TestFormGeometry_FailClosedOnUnderdeterminedSpan()
     Dim strOut As String
-    strOut = SanitizeForm(UnderdeterminedForm)
+    strOut = SanitizeForm(SubdividedSpanForm)
     TestAssert InStr(strOut, "Left =100") > 0, "uncertain Left left unchanged"
     TestAssert InStr(strOut, "Width =5000") > 0, "uncertain Width left unchanged"
+    TestAssert InStr(strOut, "Left =2100") > 0, "the cell that subdivides it is also left alone"
+End Sub
+
+
+' The logged warning is the only thing most people ever see about a skipped group, so
+' its content is pinned here: which group, which tracks, why, and where to read more.
+' Warnings do not fail a test because Log.ErrorCount counts only error and critical.
+Public Sub TestFormGeometry_WarnsWithActionableDetail()
+    Dim lngStart As Long
+    Dim colLogged As Collection
+    Dim dEntry As Dictionary
+    Dim strMsg As String
+
+    lngStart = Log.ErrorJournalCount
+    SanitizeForm SubdividedSpanForm
+    Set colLogged = Log.GetErrorJournalSince(lngStart)
+    TestAssert colLogged.Count = 1, "one warning per unsolvable group"
+    If colLogged.Count < 1 Then Exit Sub
+
+    Set dEntry = colLogged(1)
+    strMsg = CStr(dEntry("message"))
+    TestAssert CStr(dEntry("level")) = "warning", "logged at warning level"
+    TestAssert InStr(strMsg, "layout table 1, group 1") > 0, _
+        "group named in prose rather than as ""1/1"""
+    TestAssert InStr(strMsg, "columns 0 to 2") > 0, "failing track range reported"
+    TestAssert InStr(strMsg, "display scaling") > 0, "reason given in plain language"
+    TestAssert InStr(strMsg, "wiki/Form-Layout-Geometry") > 0, "links to the wiki page"
+End Sub
+
+
+' A span no other cell subdivides acts as one merged track, so it resolves even though
+' none of the tracks it covers has an individual witness. Before this, one such cell
+' cost the whole group its canonicalization.
+Public Sub TestFormGeometry_DerivesMergedRangeSpan()
+    Dim strOut As String
+    strOut = SanitizeForm(MergedRangeForm)
+    TestAssert InStr(strOut, "Left =17400") > 0, "merged-range origin snaps"
+    TestAssert InStr(strOut, "Width =1380") > 0, "merged-range width derived from its own size"
+    TestAssert InStr(strOut, "Left =18780") > 0, "neighbouring single track still canonicalized"
+    TestAssert InStr(strOut, "Height =360") > 0, "vertical axis runs instead of being abandoned"
+End Sub
+
+
+' An axis with no observed position is a no-op for positions, not a failure for the
+' group. Sizes on that axis are still canonical.
+Public Sub TestFormGeometry_SnapsSizesWithoutPositions()
+    Dim strOut As String
+    strOut = SanitizeForm(NoVerticalPositionForm)
+    TestAssert InStr(strOut, "Height =240") > 0, "height snaps with no Top to anchor it"
+    TestAssert InStr(strOut, "Left =660") > 0, "horizontal axis unaffected"
+    TestAssert InStr(strOut, "Top =") = 0, "no Top line is invented"
 End Sub
 
 
@@ -391,8 +442,12 @@ Private Function EmptyAndFreeForm() As String
 End Function
 
 
-Private Function UnderdeterminedForm() As String
-    UnderdeterminedForm = _
+' Two spans that overlap with different bounds, and no single-track cell anywhere. Each
+' one subdivides the other, so neither range can be treated as a merged track and no
+' boundary is observed for the tracks they end on. This is the shape that stays
+' underdetermined; a span nothing else subdivides is solvable (see MergedRangeForm).
+Private Function SubdividedSpanForm() As String
+    SubdividedSpanForm = _
         "Version =20" & vbCrLf & _
         "Begin Form" & vbCrLf & _
         "    Width =8000" & vbCrLf & _
@@ -401,11 +456,79 @@ Private Function UnderdeterminedForm() As String
         "            Height =600" & vbCrLf & _
         "            Name =""FormHeader""" & vbCrLf & _
         "            Begin" & vbCrLf & _
-        CellBlock("Label", "lblWide", 100, 120, 5000, 300, 0, 20) & _
+        CellBlock("Label", "lblOne", 100, 120, 5000, 300, 0, 2) & _
+        CellBlock("Label", "lblTwo", 2100, 480, 5000, 300, 1, 3) & _
         "            End" & vbCrLf & _
         "        End" & vbCrLf & _
         "    End" & vbCrLf & _
         "End"
+End Function
+
+
+' A cell spanning tracks 0-2 that nothing else touches, beside single-track cells in 3
+' and 4. Tracks 0-2 have no individual witness, but nothing subdivides the range, so its
+' total size is a free variable and the span is canonical. Real-world shape: a "Totals"
+' label whose attached-label cell spans the empty leading columns of a totals row.
+Private Function MergedRangeForm() As String
+    MergedRangeForm = _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =22000" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin FormHeader" & vbCrLf & _
+        "            Height =600" & vbCrLf & _
+        "            Name =""FormHeader""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        CellBlock("Label", "lblSpan", 17385, 300, 1371, 335, 0, 2) & _
+        CellBlock("TextBox", "txtA", 18750, 300, 900, 335, 3, 3) & _
+        CellBlock("TextBox", "txtB", 19650, 300, 1200, 335, 4, 4) & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
+' Continuous-form detail cells: Access omits Top and LayoutCachedTop on every one, so the
+' vertical axis has no observed boundary at all. Nothing needs a Top rewrite either, and
+' the heights are still canonical, so the group must not be abandoned.
+Private Function NoVerticalPositionForm() As String
+    NoVerticalPositionForm = _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =8000" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin FormHeader" & vbCrLf & _
+        "            Height =600" & vbCrLf & _
+        "            Name =""FormHeader""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        RowlessCellBlock("txtA", 645, 1725, 255, 1) & _
+        RowlessCellBlock("txtB", 2370, 3780, 255, 2) & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
+' A layout cell with a width and no vertical position of any kind. Kept separate from
+' CellBlock because the absence of both Top and LayoutCachedTop is the whole point.
+Private Function RowlessCellBlock(strName As String, lngLeft As Long, _
+    lngWidth As Long, lngHeight As Long, lngColumn As Long) As String
+
+    RowlessCellBlock = _
+        "                Begin TextBox" & vbCrLf & _
+        "                    Left =" & lngLeft & vbCrLf & _
+        "                    Width =" & lngWidth & vbCrLf & _
+        "                    Height =" & lngHeight & vbCrLf & _
+        "                    Name =""" & strName & """" & vbCrLf & _
+        "                    ColumnStart =" & lngColumn & vbCrLf & _
+        "                    ColumnEnd =" & lngColumn & vbCrLf & _
+        "                    RowStart =1" & vbCrLf & _
+        "                    RowEnd =1" & vbCrLf & _
+        "                    LayoutGroup =1" & vbCrLf & _
+        "                    GroupTable =1" & vbCrLf & _
+        "                End" & vbCrLf
 End Function
 
 

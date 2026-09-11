@@ -26,6 +26,7 @@ Welcome! This wiki documents installation and usage of the **MSAccess Version Co
 | [Split Files](Split-Files) | Separate form/report layout from VBA code-behind |
 | [Export / Import File Types](Export-Import-File-Types) | Source folder layout and file-type reference |
 | [Query Source Files](Query-Source-Files) | `.sql` + `.json` query pairs — what to edit in Git |
+| [Form Layout Geometry](Form-Layout-Geometry) | Why form dimensions used to differ between developers, and the layout warning |
 
 ---
 

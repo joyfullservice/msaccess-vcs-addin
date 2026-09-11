@@ -28,6 +28,10 @@ Option Explicit
 Private Const GRID_TWIPS As Long = 60
 Private Const ModuleNameConst As String = "clsFormGeometryCanonicalizer"
 
+' Linked from the warning logged when a group cannot be made scaling-independent.
+Private Const cstrWikiFormGeometry As String = _
+    "https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Form-Layout-Geometry"
+
 Private Enum eGeometryAxis
     egaHorizontal
     egaVertical
@@ -522,12 +526,16 @@ Private Sub CanonicalizeGroup(colCells As Collection, strLabel As String)
     Dim varSection As Variant
     Dim lngI As Long
     Dim lngBlock As Long
+    Dim lngFailStart As Long
+    Dim lngFailEnd As Long
 
     ReDim aChanges(0 To 63)
     lngChanges = 0
 
-    If Not PlanAxis(colCells, egaHorizontal, aChanges, lngChanges) Then
-        WarnSkip strLabel & " (horizontal)"
+    If Not PlanAxis(colCells, egaHorizontal, aChanges, lngChanges, _
+        lngFailStart, lngFailEnd) Then
+
+        WarnSkip strLabel, egaHorizontal, lngFailStart, lngFailEnd
         Exit Sub
     End If
 
@@ -547,8 +555,10 @@ Private Sub CanonicalizeGroup(colCells As Collection, strLabel As String)
 
     For Each varSection In dBySection.Keys
         Set colSection = dBySection(varSection)
-        If Not PlanAxis(colSection, egaVertical, aChanges, lngChanges) Then
-            WarnSkip strLabel & " (vertical)"
+        If Not PlanAxis(colSection, egaVertical, aChanges, lngChanges, _
+            lngFailStart, lngFailEnd) Then
+
+            WarnSkip strLabel, egaVertical, lngFailStart, lngFailEnd
             Exit Sub
         End If
     Next varSection
@@ -564,22 +574,27 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : PlanAxis
 ' Purpose   : Append the planned rewrites for one axis to aChanges. Returns False when
-'           : the group cannot be solved, in which case no change is applied at all.
+'           : the group cannot be solved, in which case no change is applied at all and
+'           : lngFailStart/lngFailEnd report the track range that could not be resolved.
 '---------------------------------------------------------------------------------------
 '
 Private Function PlanAxis(colCells As Collection, eAxis As eGeometryAxis, _
     ByRef aChanges() As udtChange, _
-    ByRef lngChanges As Long) As Boolean
+    ByRef lngChanges As Long, _
+    ByRef lngFailStart As Long, _
+    ByRef lngFailEnd As Long) As Boolean
 
     Dim aBlocks() As Long
     Dim lngCount As Long
     Dim dSizes As Dictionary
     Dim dPositions As Dictionary
+    Dim dExtents As Dictionary
     Dim lngStart As Long
     Dim lngEnd As Long
     Dim lngI As Long
     Dim varDerived As Variant
     Dim varBlock As Variant
+    Dim strKey As String
 
     Me.PlanAxisCalls = Me.PlanAxisCalls + 1
 
@@ -599,12 +614,17 @@ Private Function PlanAxis(colCells As Collection, eAxis As eGeometryAxis, _
     Set dPositions = BoundaryPositions(aBlocks, lngCount, eAxis)
     If dPositions Is Nothing Then Exit Function
     InferEndSizes aBlocks, lngCount, eAxis, dPositions, dSizes
+    Set dExtents = SpanExtents(aBlocks, lngCount, eAxis)
 
     For lngI = 0 To lngCount - 1
         lngStart = GetTrackStart(aBlocks(lngI), eAxis)
         lngEnd = GetTrackEnd(aBlocks(lngI), eAxis, lngStart)
         If HasPosition(aBlocks(lngI), eAxis) Then
-            If Not dPositions.Exists(lngStart) Then Exit Function
+            If Not dPositions.Exists(lngStart) Then
+                lngFailStart = lngStart
+                lngFailEnd = lngStart
+                Exit Function
+            End If
             If eAxis = egaHorizontal Then
                 AddChange aChanges, lngChanges, aBlocks(lngI), egpLeft, _
                     CLng(dPositions(lngStart))
@@ -622,8 +642,16 @@ Private Function PlanAxis(colCells As Collection, eAxis As eGeometryAxis, _
                 End If
             Else
                 varDerived = DeriveSpan(lngStart, lngEnd, dPositions, dSizes)
+                If IsNull(varDerived) Then
+                    strKey = lngStart & "/" & lngEnd
+                    If dExtents.Exists(strKey) Then varDerived = CLng(dExtents(strKey))
+                End If
             End If
-            If IsNull(varDerived) Then Exit Function
+            If IsNull(varDerived) Then
+                lngFailStart = lngStart
+                lngFailEnd = lngEnd
+                Exit Function
+            End If
             If eAxis = egaHorizontal Then
                 AddChange aChanges, lngChanges, aBlocks(lngI), egpWidth, CLng(varDerived)
             Else
@@ -699,7 +727,96 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SpanExtents
+' Purpose   : Snapped sizes for multi-track ranges that nothing subdivides, keyed
+'           : "start/end".
+'           :
+'           : When every cell touching a range spans exactly that range, no observation
+'           : can attribute size to the individual tracks, but none needs to: the range
+'           : behaves as one merged track whose total size is a free variable. The snapped
+'           : median of the observed sizes is then canonical, which is the same rule
+'           : TrackSizes applies to a single track. A range that some other cell
+'           : subdivides stays underdetermined and is left to DeriveSpan.
+'---------------------------------------------------------------------------------------
+'
+Private Function SpanExtents(ByRef aBlocks() As Long, lngCount As Long, _
+    eAxis As eGeometryAxis) As Dictionary
+
+    Dim aStart() As Long
+    Dim aEnd() As Long
+    Dim dObserved As Dictionary
+    Dim dExtents As Dictionary
+    Dim dRejected As Dictionary
+    Dim colObs As Collection
+    Dim strKey As String
+    Dim lngSize As Long
+    Dim lngI As Long
+    Dim lngJ As Long
+    Dim blnSubdivided As Boolean
+
+    Set dExtents = New Dictionary
+    Set SpanExtents = dExtents
+    If lngCount = 0 Then Exit Function
+
+    ReDim aStart(0 To lngCount - 1)
+    ReDim aEnd(0 To lngCount - 1)
+    Set dObserved = New Dictionary
+    For lngI = 0 To lngCount - 1
+        aStart(lngI) = GetTrackStart(aBlocks(lngI), eAxis)
+        aEnd(lngI) = GetTrackEnd(aBlocks(lngI), eAxis, aStart(lngI))
+        If aStart(lngI) <> aEnd(lngI) Then
+            If TryGetSize(aBlocks(lngI), eAxis, lngSize) Then
+                strKey = aStart(lngI) & "/" & aEnd(lngI)
+                If dObserved.Exists(strKey) Then
+                    Set colObs = dObserved(strKey)
+                Else
+                    Set colObs = New Collection
+                    dObserved.Add strKey, colObs
+                End If
+                colObs.Add lngSize
+            End If
+        End If
+    Next lngI
+    If dObserved.Count = 0 Then Exit Function
+
+    Set dRejected = New Dictionary
+    For lngI = 0 To lngCount - 1
+        If aStart(lngI) <> aEnd(lngI) Then
+            strKey = aStart(lngI) & "/" & aEnd(lngI)
+            If dObserved.Exists(strKey) And Not dExtents.Exists(strKey) _
+                And Not dRejected.Exists(strKey) Then
+
+                ' Any cell overlapping the range with different bounds splits it.
+                blnSubdivided = False
+                For lngJ = 0 To lngCount - 1
+                    If aStart(lngJ) <> aStart(lngI) Or aEnd(lngJ) <> aEnd(lngI) Then
+                        If aStart(lngJ) <= aEnd(lngI) And aEnd(lngJ) >= aStart(lngI) Then
+                            blnSubdivided = True
+                            Exit For
+                        End If
+                    End If
+                Next lngJ
+                If blnSubdivided Then
+                    dRejected(strKey) = True
+                Else
+                    Set colObs = dObserved(strKey)
+                    dExtents(strKey) = SnapTwips(MedianLong(colObs))
+                End If
+            End If
+        End If
+    Next lngI
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : BoundaryPositions
+' Purpose   : Snap the group origin and each observed pitch, then accumulate.
+'           :
+'           : An axis with no observed position is not a failure. Continuous-form and
+'           : datasheet layouts omit Top on every cell in the detail section, and a cell
+'           : whose position line is absent has nothing to rewrite. Sizes in such a group
+'           : are still canonical; only multi-track spans, which need boundaries, are not.
 '---------------------------------------------------------------------------------------
 '
 Private Function BoundaryPositions(ByRef aBlocks() As Long, lngCount As Long, _
@@ -728,7 +845,10 @@ Private Function BoundaryPositions(ByRef aBlocks() As Long, lngCount As Long, _
             colObs.Add lngPosition
         End If
     Next lngI
-    If dObserved.Count = 0 Then Exit Function
+    If dObserved.Count = 0 Then
+        Set BoundaryPositions = New Dictionary
+        Exit Function
+    End If
 
     lngStarts = SortedKeys(dObserved)
     Set dRaw = New Dictionary
@@ -1157,8 +1277,69 @@ Private Function MaxLong(lngA As Long, lngB As Long) As Long
     If lngA > lngB Then MaxLong = lngA Else MaxLong = lngB
 End Function
 
-Private Sub WarnSkip(strReason As String)
-    Log.Error eelWarning, T("Form geometry: skipped {0} on {1}", _
-        var0:=strReason, var1:=Nz2(this.strFormName, "form")), _
-        ModuleNameConst & ".Canonicalize"
+'---------------------------------------------------------------------------------------
+' Procedure : WarnSkip
+' Purpose   : Report a layout group the canonicalizer could not solve, in terms the
+'           : reader can act on: which layout table, which axis, which tracks, why it
+'           : was left alone, and what the consequence is.
+'           :
+'           : The message is deliberately self-contained. These warnings are read one at
+'           : a time, out of context, by whoever is looking at a single line of an export
+'           : log, so the explanation is repeated rather than logged once per export.
+'---------------------------------------------------------------------------------------
+'
+Private Sub WarnSkip(strKey As String, eAxis As eGeometryAxis, _
+    lngStart As Long, lngEnd As Long)
+
+    Dim strMsg As String
+
+    If eAxis = egaHorizontal Then
+        strMsg = T("Form layout geometry left unchanged in {0}: {1}, columns {2} to {3}.", _
+            var0:=Nz2(this.strFormName, "form"), var1:=GroupLabel(strKey), _
+            var2:=CStr(lngStart), var3:=CStr(lngEnd))
+    Else
+        strMsg = T("Form layout geometry left unchanged in {0}: {1}, rows {2} to {3}.", _
+            var0:=Nz2(this.strFormName, "form"), var1:=GroupLabel(strKey), _
+            var2:=CStr(lngStart), var3:=CStr(lngEnd))
+    End If
+
+    strMsg = strMsg & " " & T("These tracks do not record the sizes needed to compute " & _
+        "coordinates that are independent of display scaling, so this group is exported " & _
+        "exactly as Access saved it. Its values may differ between machines that run at " & _
+        "different display scaling (DPI).") & vbCrLf & _
+        T("For an explanation and how to resolve it, see {0}", var0:=cstrWikiFormGeometry)
+
+    Log.Error eelWarning, strMsg, ModuleNameConst & ".Canonicalize"
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GroupLabel
+' Purpose   : Render a "<GroupTable>/<LayoutGroup>" bucket key as prose. The raw key
+'           : reads like a fraction ("4/4"), which is how it used to be logged.
+'---------------------------------------------------------------------------------------
+'
+Private Function GroupLabel(strKey As String) As String
+
+    Dim lngPos As Long
+    Dim strTable As String
+    Dim strGroup As String
+
+    lngPos = InStr(strKey, "/")
+    If lngPos = 0 Then
+        GroupLabel = strKey
+        Exit Function
+    End If
+    strTable = Left$(strKey, lngPos - 1)
+    strGroup = Mid$(strKey, lngPos + 1)
+
+    If strTable = "-1" Then
+        GroupLabel = T("layout group {0}", var0:=strGroup)
+    ElseIf strGroup = "-1" Then
+        GroupLabel = T("layout table {0}", var0:=strTable)
+    Else
+        GroupLabel = T("layout table {0}, group {1}", var0:=strTable, var1:=strGroup)
+    End If
+
+End Function

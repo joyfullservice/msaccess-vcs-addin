@@ -56,7 +56,9 @@ Try **Sanitize Colors** on the Export options. See [Options](Options).
 <details>
 <summary><b>Changes in form dimension values</b></summary>
 
-Common with different screen DPI or monitor layouts. Often safe to ignore. Sanitization removes some report dimension noise; forms may still drift slightly.
+Caused by different screen DPI or display scaling. From export format **5.1**, form layout geometry is normalized to a fixed grid so this no longer happens — see [Form Layout Geometry](Form-Layout-Geometry). Check that every developer is on 5.1 in **Options → Export**.
+
+A small number of layouts cannot be normalized, and the export log says so explicitly; that page explains the warning and how to resolve it. Reports are not normalized.
 </details>
 
 <details>
