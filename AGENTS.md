@@ -55,7 +55,8 @@ projects, or untranslatable UI.
 
 - **Never use `Dir()`.** It does not support Unicode filenames and silently skips
   or fails on non-ASCII paths, which Access object names frequently produce. Use
-  `Scripting.FileSystemObject`, or `modFileWinAPI` for performance-critical scans.
+  `Scripting.FileSystemObject`, or `modFileWinAPI` (`FilePatternExists` and
+  `ScanFolderContents`) for performance-critical scans.
 - **Wrap every user-facing string in `T()`**, using `{0}`-style placeholders for
   substitution: `Log.Add T("Error in file: {0}", var0:=strFileName)`.
 - **Use library constants, not magic numbers.** All modules share the same

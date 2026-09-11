@@ -34,10 +34,11 @@ VBA break is on screen.
 
 ## Filtering a run
 
-`VCS.RunTests` resolves filters in this priority order: module name, suite or
-`@Folder` value (exact or final segment), procedure or `Module.Procedure` key,
-then `'@Tag`. Prefix with `-` to exclude; inclusions combine with OR and
-exclusions with AND.
+`VCS.RunTests` takes an optional `ParamArray` of filters and resolves each one in
+this priority order: module name, suite or `@Folder` value (exact or final
+segment), procedure or `Module.Procedure` key, then `'@Tag`. Prefix with `-` to
+exclude; inclusions combine with OR and exclusions with AND. A list containing
+only exclusions starts from all tests.
 
 ```vba
 ?VCS.RunTests                              ' Run everything
