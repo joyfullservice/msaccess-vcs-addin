@@ -215,6 +215,33 @@ Public Sub TestFormGeometry_StopsAtCodeBehindForm()
 End Sub
 
 
+' A report's own Right/Bottom pair is dropped because Access recalculates it from the
+' printer margins, but the lines between "Begin Report" and that pair still have to run
+' through every other sanitizer. The flag that marks the pair is only meaningful inside
+' that window, so it is tested ahead of the chain rather than within it; testing it in
+' place once cost every report in a real project its checksum and theme color lines.
+Public Sub TestSanitizeReport_RemovesEdgesAndKeepsSanitizing()
+    Dim strOut As String
+    strOut = SanitizeReport(EdgeAndColorReport)
+    TestAssert InStr(strOut, "Right =15000") = 0, "report Right removed"
+    TestAssert InStr(strOut, "Bottom =8000") = 0, "report Bottom removed"
+    TestAssert InStr(strOut, "Checksum =") = 0, "Checksum still removed before the edge pair"
+    TestAssert InStr(strOut, "WebImagePadding") = 0, "WebImagePadding still removed before the edge pair"
+    TestAssert InStr(strOut, "DatasheetGridlinesColor =") = 0, "themed color still removed before the edge pair"
+End Sub
+
+
+' Only the report's own edges and the color value backed by a theme index come out.
+Public Sub TestSanitizeReport_KeepsRemainingProperties()
+    Dim strOut As String
+    strOut = SanitizeReport(EdgeAndColorReport)
+    TestAssert InStr(strOut, "DatasheetGridlinesColor12 =") > 0, "property supplying the theme index retained"
+    TestAssert InStr(strOut, "RecordSource =""qryTest""") > 0, "property before the edge pair retained"
+    TestAssert InStr(strOut, "ItemSuffix =88") > 0, "property after the edge pair retained"
+    TestAssert InStr(strOut, "Name =""lblTitle""") > 0, "control retained"
+End Sub
+
+
 Private Function SanitizeForm(strContent As String, _
     Optional lngFormat As Long = EFV_5_1_0, _
     Optional intSanitize As eSanitizeLevel = eslStandard) As String
@@ -233,6 +260,29 @@ Private Function SanitizeForm(strContent As String, _
 End Function
 
 
+Private Function SanitizeReport(strContent As String, _
+    Optional lngFormat As Long = EFV_5_1_0, _
+    Optional intSanitize As eSanitizeLevel = eslStandard, _
+    Optional intColors As eSanitizeLevel = eslMinimal) As String
+
+    Dim lngOldFormat As Long
+    Dim intOldSanitize As eSanitizeLevel
+    Dim intOldColors As eSanitizeLevel
+    lngOldFormat = Options.ExportFormatVersion
+    intOldSanitize = Options.SanitizeLevel
+    intOldColors = Options.SanitizeColors
+    Options.ExportFormatVersion = lngFormat
+    Options.SanitizeLevel = intSanitize
+    Options.SanitizeColors = intColors
+    m_parser.LoadString strContent, edbReport
+    m_parser.Sanitize ectObjectDefinition
+    SanitizeReport = m_parser.GetOutput
+    Options.ExportFormatVersion = lngOldFormat
+    Options.SanitizeLevel = intOldSanitize
+    Options.SanitizeColors = intOldColors
+End Function
+
+
 Private Function CountToken(strText As String, strToken As String) As Long
     Dim lngPos As Long
     lngPos = 1
@@ -242,6 +292,37 @@ Private Function CountToken(strText As String, strToken As String) As Long
         CountToken = CountToken + 1
         lngPos = lngPos + Len(strToken)
     Loop
+End Function
+
+
+' Mirrors the property order Access writes for a report: the edge pair sits in the
+' middle of the report's own properties, with a themed color value above it and the
+' property that carries the theme index below it.
+Private Function EdgeAndColorReport() As String
+    EdgeAndColorReport = _
+        "Version =20" & vbCrLf & _
+        "Begin Report" & vbCrLf & _
+        "    RecordSource =""qryTest""" & vbCrLf & _
+        "    Checksum =1276036339" & vbCrLf & _
+        "    DatasheetGridlinesColor =12632256" & vbCrLf & _
+        "    WebImagePadding =1" & vbCrLf & _
+        "    Right =15000" & vbCrLf & _
+        "    Bottom =8000" & vbCrLf & _
+        "    DatasheetGridlinesColor12 =12632256" & vbCrLf & _
+        "    ItemSuffix =88" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin PageHeaderSection" & vbCrLf & _
+        "            Height =600" & vbCrLf & _
+        "            Name =""PageHeaderSection""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        "                Begin Label" & vbCrLf & _
+        "                    Left =120" & vbCrLf & _
+        "                    Name =""lblTitle""" & vbCrLf & _
+        "                End" & vbCrLf & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
 End Function
 
 

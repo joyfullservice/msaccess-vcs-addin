@@ -18,7 +18,7 @@ This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
 | Orienting; adding a component type; finding the class for an object type | [docs/architecture.md](docs/architecture.md) |
 | Anything that changes exported file content or layout | [docs/export-format-versioning.md](docs/export-format-versioning.md) |
 | Diagnosing an error in a log file | [docs/error-handling.md](docs/error-handling.md) |
-| Why an operation was slow; reading performance data as JSON | [docs/perf-diagnostics.md](docs/perf-diagnostics.md) |
+| Why an operation was slow; optimizing VBA performance | [docs/perf-diagnostics.md](docs/perf-diagnostics.md), [docs/perf-techniques.md](docs/perf-techniques.md) |
 | Inspecting a database's schema over MCP; a failing `vcs_run_vba` call | [docs/mcp-runvba.md](docs/mcp-runvba.md) |
 | Rebuilding the add-in unattended; a refused or stalled rebuild | [docs/agentic-rebuild.md](docs/agentic-rebuild.md) |
 | Running this repo's own tests over MCP; an all-`EMPTY` result | [docs/agent-test-runs.md](docs/agent-test-runs.md) |

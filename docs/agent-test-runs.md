@@ -12,14 +12,14 @@ For the layers, the round-trip harness, and where results land, see
 ## Host the run on the development copy
 
 ```
-vcs_run_tests("C:\Repos\msaccess-vcs-addin\Version Control.accda", "clsTestInstall")
+vcs_run_tests("C:\path\to\msaccess-vcs-addin\Version Control.accda", "clsTestInstall")
 ```
 
 MCP progress is best-effort in Cursor. For live per-test output, keep this
 CLI command in the foreground:
 
 ```text
-msaccess-vcs run-tests "C:\Repos\msaccess-vcs-addin\Version Control.accda" --filter clsTestInstall
+msaccess-vcs run-tests "C:\path\to\msaccess-vcs-addin\Version Control.accda" --filter clsTestInstall
 ```
 
 The stream is pytest-style: dots for fast passes, a named line after a test
@@ -105,7 +105,7 @@ the desktop so the instance outlives the launching script:
 
 ```powershell
 $app = New-Object -ComObject Access.Application
-$app.OpenCurrentDatabase("C:\Repos\msaccess-vcs-addin\Version Control.accda")
+$app.OpenCurrentDatabase("C:\path\to\msaccess-vcs-addin\Version Control.accda")
 $app.Visible = $true
 $app.UserControl = $true   # after opening, so AutoRun still sees automation
 ```

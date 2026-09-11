@@ -85,10 +85,10 @@ contradictory guidance.
 
 ## 2026-09-08 — SQL is authoritative for query option modifiers
 
-**Trigger**: A db-sec export showed `OptionFlag: 2` disappearing from 16
-queries while five others gained `SELECT DISTINCT`. The same SQL/JSON
-disagreement produced opposite results depending on whether import used
-SQL View or Design View.
+**Trigger**: A private production database export showed `OptionFlag: 2`
+disappearing from 16 queries while five others gained `SELECT DISTINCT`.
+The same SQL/JSON disagreement produced opposite results depending on
+whether import used SQL View or Design View.
 
 **Options explored**:
 - Keep ORing JSON `OptionFlag` into the SQL-derived mask. Cheap, but
@@ -1039,8 +1039,8 @@ property read can precede unfinished teardown.
 - `Version Control.accda.src/modules/Core/modVbeUtility.bas`
 - `Version Control.accda.src/modules/Tests/Infrastructure/modTestRunVBA.bas`
 - `docs/mcp-runvba.md`
-- `C:\Repos\msaccess-vcs-mcp\src\msaccess_vcs_mcp\vba_worker_manager.py`
-- `C:\Repos\msaccess-vcs-mcp\tests\test_vba_worker_manager.py`
+- `msaccess-vcs-mcp/src/msaccess_vcs_mcp/vba_worker_manager.py`
+- `msaccess-vcs-mcp/tests/test_vba_worker_manager.py`
 
 ---
 
@@ -5819,7 +5819,7 @@ different shape was needed.
 
 **What this rules out**: Switching to first-error-wins capture without a deliberate follow-up decision (the wrapper now exposes `errorLine` for the last error; flipping to first-error would change which `errorLine` value a given test reports). Removing line-number injection without breaking the documented `errorLine` contract. Agents writing tests that assume line numbers are *not* present in the executed code (e.g., parsing the `code` string back from `generatedSource` in compile-error responses) — `generatedSource` now contains numbered lines.
 
-**Relevant files**: `Version Control.accda.src/modules/API/clsVersionControl.cls` (added `AddVbaLineNumbers`, modified `RunVBA` wrapper template and JSON result construction); `C:\Repos\msaccess-vcs-mcp\src\msaccess_vcs_mcp\tools.py` (extended `vcs_run_vba` docstring with line-number behavior and multi-error pattern); cached MCP descriptor `mcps/user-msaccess-vcs-mcp/tools/vcs_run_vba.json` (mirrored docstring update); `AGENTS.md` (new "Debugging RunVBA Failures" section).
+**Relevant files**: `Version Control.accda.src/modules/API/clsVersionControl.cls` (added `AddVbaLineNumbers`, modified `RunVBA` wrapper template and JSON result construction); `msaccess-vcs-mcp/src/msaccess_vcs_mcp/tools.py` (extended `vcs_run_vba` docstring with line-number behavior and multi-error pattern); cached MCP descriptor `mcps/user-msaccess-vcs-mcp/tools/vcs_run_vba.json` (mirrored docstring update); `AGENTS.md` (new "Debugging RunVBA Failures" section).
 
 ---
 

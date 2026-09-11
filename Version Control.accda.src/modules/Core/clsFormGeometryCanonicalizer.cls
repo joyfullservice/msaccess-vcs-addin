@@ -142,7 +142,7 @@ Public ChangedLines As Long
 '           : form exports identically regardless of the DPI Access last solved it at.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Canonicalize(ByRef varLines As Variant, Optional strFormName As String)
+Public Sub Canonicalize(ByRef astrLines() As String, Optional strFormName As String)
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -152,12 +152,12 @@ Public Sub Canonicalize(ByRef varLines As Variant, Optional strFormName As Strin
     Perf.OperationStart "Canonicalize Form Geometry"
     curPhase = Perf.MicroTimer
 
-    ' Work from a String array with a cached bound. Reading lines through a Variant
-    ' array, and re-evaluating UBound on every loop pass, measured materially slower.
-    m_lngUpper = UBound(varLines)
+    ' Work from a String array with a cached bound. The caller passes its own buffer;
+    ' copy in once, rewrite locally, and copy out only when something changed.
+    m_lngUpper = UBound(astrLines)
     ReDim m_strLines(0 To m_lngUpper)
     For lngLine = 0 To m_lngUpper
-        m_strLines(lngLine) = CStr(varLines(lngLine))
+        m_strLines(lngLine) = astrLines(lngLine)
     Next lngLine
     this.strFormName = strFormName
     this.lngChanged = 0
@@ -193,7 +193,7 @@ Public Sub Canonicalize(ByRef varLines As Variant, Optional strFormName As Strin
     Me.ChangedLines = this.lngChanged
     If this.lngChanged > 0 Then
         For lngLine = 0 To m_lngUpper
-            varLines(lngLine) = m_strLines(lngLine)
+            astrLines(lngLine) = m_strLines(lngLine)
         Next lngLine
     End If
     Erase m_aBlocks

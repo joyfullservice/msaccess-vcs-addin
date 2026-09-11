@@ -23,9 +23,9 @@ Three sources contribute to this document:
   repo (Adam Waller) is an internally-maintained package built around
   Colin's example download — it organizes the queries by topic in a
   live test database and adds the April 2026 Lv/MSysObjects
-  binary-format addendum. Lives at `C:\Repos\MSysQueriesExamples\` (not
-  vendored into this repo); see `docs/how-access-stores-queries.md`
-  there for the exhaustive treatment.
+  binary-format addendum. It is not vendored into this repo; see
+  `docs/how-access-stores-queries.md` in that companion checkout for
+  the exhaustive treatment.
 - **Unique to this repo (sections 4–6):** empirical findings from
   running the round-trip fixture corpus and the `clsQueryComposer`
   test runs, including `Application.LoadFromText` /
@@ -962,9 +962,8 @@ insufficient for function-call operands; see the finding above.)
 
 - [Colin Riddington — Explaining Queries Part 1](https://www.isladogs.co.uk/explaining-queries/index.html)
 - [Colin Riddington — Explaining Queries Part 2 (Design vs SQL view)](https://www.isladogs.co.uk/explaining-queries-2/index.html)
-- `MSysQueriesExamples` companion repo (`C:\Repos\MSysQueriesExamples\`) —
-  worked-example queries, live test database, April 2026 binary-format
-  addendum.
+- `MSysQueriesExamples` companion repo — worked-example queries, live
+  test database, April 2026 binary-format addendum.
 - [Access Database Engine — Recover Deleted Database Objects](https://www.isladogs.co.uk/recover-deleted-objects/) (referenced from Riddington Part 1 § 29).
 
 **In this repo:**

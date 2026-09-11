@@ -117,16 +117,17 @@ End Sub
 Public Sub TestIsTargetFilePath()
 
     Const TARGETS As String = "C:\Users\Me\AppData\Roaming\MSAccessVCS\Version Control.accda" & _
-        vbCrLf & "C:\Repos\addin\Version Control.accda"
+        vbCrLf & "X:\Fixtures\AddIn\Version Control.accda"
 
     ' The VBE reports a project's FileName in upper case, which is the whole reason this
     ' comparison cannot be an equality test.
     TestAssert IsTargetFilePath( _
         "C:\USERS\ME\APPDATA\ROAMING\MSACCESSVCS\VERSION CONTROL.ACCDA", TARGETS), _
         "upper case FileName matches"
-    TestAssert IsTargetFilePath("C:\Repos\addin\Version Control.accda", TARGETS), _
+    TestAssert IsTargetFilePath("X:\Fixtures\AddIn\Version Control.accda", TARGETS), _
         "second entry in the list"
-    TestAssert Not IsTargetFilePath("C:\Repos\addin\Other.accdb", TARGETS), "unrelated file"
+    TestAssert Not IsTargetFilePath("X:\Fixtures\AddIn\Other.accdb", TARGETS), _
+        "unrelated file"
     TestAssert Not IsTargetFilePath(vbNullString, TARGETS), "empty file name"
     TestAssert Not IsTargetFilePath("C:\a.accda", vbNullString), "empty target list"
     TestAssert Not IsTargetFilePath("C:\a.accda", vbCrLf & vbCrLf), "blank entries are skipped"
@@ -136,11 +137,11 @@ End Sub
 
 Public Sub TestGetBuildTargetFileName()
 
-    TestAssert GetBuildTargetFileName("C:\Repos\addin\Version Control.accda.src") = _
-        "C:\Repos\addin\Version Control.accda", "source folder names its database"
-    TestAssert GetBuildTargetFileName("C:\Repos\addin\Version Control.accda.src\") = _
-        "C:\Repos\addin\Version Control.accda", "trailing separator"
-    TestAssert GetBuildTargetFileName("C:\Repos\addin\NotAnExport") = vbNullString, _
+    TestAssert GetBuildTargetFileName("X:\Fixtures\AddIn\Version Control.accda.src") = _
+        "X:\Fixtures\AddIn\Version Control.accda", "source folder names its database"
+    TestAssert GetBuildTargetFileName("X:\Fixtures\AddIn\Version Control.accda.src\") = _
+        "X:\Fixtures\AddIn\Version Control.accda", "trailing separator"
+    TestAssert GetBuildTargetFileName("X:\Fixtures\AddIn\NotAnExport") = vbNullString, _
         "folder without .src infers nothing"
     TestAssert GetBuildTargetFileName(vbNullString) = vbNullString, "empty"
 
@@ -332,7 +333,7 @@ Public Sub TestPathsMatchIgnoringExtension()
     ' The development copy is the whole point of the distinction: same base name, and it
     ' must never be mistaken for the install.
     TestAssert Not PathsMatchIgnoringExtension(strAccda, _
-        "C:\Repos\msaccess-vcs-addin\Version Control.accda"), _
+        "X:\Fixtures\Development\Version Control.accda"), _
         "same file name in another folder is a different file"
     TestAssert Not PathsMatchIgnoringExtension(strAccda, _
         "C:\Users\Me\AppData\Roaming\MSAccessVCS\Version Control Backup.accda"), _

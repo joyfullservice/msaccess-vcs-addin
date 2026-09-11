@@ -156,8 +156,18 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function StartsWith(strText As String, strStartsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
-    If Len(strStartsWith) = 0 Then
+    Dim lngPrefix As Long
+    lngPrefix = Len(strStartsWith)
+    If lngPrefix = 0 Then
         StartsWith = True
+    ElseIf Compare = vbBinaryCompare Then
+        ' InStr scans the whole string; prefix tests in hot loops only need the
+        ' first Len(strStartsWith) characters compared.
+        If Len(strText) < lngPrefix Then
+            StartsWith = False
+        Else
+            StartsWith = (StrComp(Left$(strText, lngPrefix), strStartsWith, vbBinaryCompare) = 0)
+        End If
     Else
         StartsWith = (InStr(1, strText, strStartsWith, Compare) = 1)
     End If

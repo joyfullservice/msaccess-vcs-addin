@@ -81,8 +81,8 @@ own copy. The JSON result looks like:
 {
   "success": true,
   "status": "launched",
-  "statusFile": "C:\\Repos\\msaccess-vcs-addin\\Version Control.accda.src\\logs\\rebuild-status.json",
-  "logFolder": "C:\\Repos\\msaccess-vcs-addin\\Version Control.accda.src\\logs"
+  "statusFile": "C:\\path\\to\\msaccess-vcs-addin\\Version Control.accda.src\\logs\\rebuild-status.json",
+  "logFolder": "C:\\path\\to\\msaccess-vcs-addin\\Version Control.accda.src\\logs"
 }
 ```
 
@@ -91,7 +91,7 @@ string. Every other running instance is listed in `otherInstances`, one line
 each, whether or not it was the one that blocked:
 
 ```
-PID 37340: C:\Repos\Testing.accdb (visible, responded to automation, holds C:\USERS\ME\APPDATA\ROAMING\MSACCESSVCS\VERSION CONTROL.ACCDA)
+PID 37340: C:\path\to\Testing.accdb (visible, responded to automation, holds C:\USERS\ME\APPDATA\ROAMING\MSACCESSVCS\VERSION CONTROL.ACCDA)
 PID 31002: no database open (hidden, responded to automation, holds no rebuild file)
 PID 8820: open database unknown (visible, did not respond to automation, loaded projects unknown)
 ```

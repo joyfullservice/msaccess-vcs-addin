@@ -32,8 +32,6 @@ End Enum
 
 ' Private type to handle internal variables
 Private Type udtThis
-    lngSkipLines() As Long  ' Array of lines to skip
-    lngSkipIndex As Long
     intObjectType As eDatabaseComponentType
     strFilePath As String   ' Path to loaded file
     blnOutputModified As Boolean
@@ -43,9 +41,11 @@ Private Type udtThis
     colBlocks As Collection
     dConditionalFormat As Dictionary    ' Control name -> {CF14, Legacy, Decoded, SkipLines}
     strCFControl As String              ' Name of the control currently being scanned
-    lngSkipSentinel As Long             ' Line index past EOF; neutralizes a skip entry
 End Type
 Private this As udtThis
+
+' Boolean membership map used by the sanitizer: source line index -> omit from output.
+Private m_blnSkipLine() As Boolean
 
 
 '---------------------------------------------------------------------------------------
@@ -409,7 +409,6 @@ Private Sub ResolveCapturedConditionalFormats()
     Dim cCF As clsConditionalFormat
     Dim colSkip As Collection
     Dim varLine As Variant
-    Dim lngI As Long
 
     If this.dConditionalFormat Is Nothing Then Exit Sub
 
@@ -423,11 +422,7 @@ Private Sub ResolveCapturedConditionalFormats()
             If dControl.Exists("SkipLines") Then
                 Set colSkip = dControl("SkipLines")
                 For Each varLine In colSkip
-                    For lngI = 0 To this.lngSkipIndex - 1
-                        If this.lngSkipLines(lngI) = CLng(varLine) Then
-                            this.lngSkipLines(lngI) = this.lngSkipSentinel
-                        End If
-                    Next lngI
+                    m_blnSkipLine(CLng(varLine)) = False
                 Next varLine
             End If
             Log.Add T("Conditional formatting on control {0} in {1} could not be decoded; keeping inline binary blocks.", _
@@ -439,6 +434,23 @@ NextControl:
     Next varKey
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsBinaryPayloadLine
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Identify a long inline binary payload without running a prefix comparison
+'           : on ordinary short property lines.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsBinaryPayloadLine(strLine As String) As Boolean
+
+    If Len(strLine) > 60 Then
+        IsBinaryPayloadLine = StartsWith(strLine, "0x")
+    End If
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -554,8 +566,9 @@ End Function
 '
 Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As Boolean, Optional strObjectName As String) As String
 
-    Dim varLines As Variant
+    Dim astrLines() As String
     Dim lngLine As Long
+    Dim lngUpper As Long
     Dim strLine As String
     Dim strTLine As String
     Dim blnInsideIgnoredBlock As Boolean
@@ -570,6 +583,9 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     Dim blnStripCF As Boolean
     Dim blnTrackFormGeometry As Boolean
     Dim blnNeedsFormGeometry As Boolean
+    Dim lngExportFormat As Long
+    Dim intSanitizeLevel As eSanitizeLevel
+    Dim intSanitizeColors As eSanitizeLevel
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -581,21 +597,24 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     End If
 
     Perf.OperationStart "Sanitize File"
-    varLines = Split(this.strInput, vbCrLf)
+    astrLines = Split(this.strInput, vbCrLf)
+    lngUpper = UBound(astrLines)
+    intSanitizeLevel = Options.SanitizeLevel
+    intSanitizeColors = Options.SanitizeColors
+    lngExportFormat = Options.ExportFormatVersion
 
     ' Determine whether to extract per-control conditional formatting blocks to the
     ' companion JSON file. Gated behind the export format version and the option, and
     ' only applies to forms and reports (the only objects that carry these blocks).
-    blnStripCF = (Options.ExportFormatVersion >= EFV_5_0_0) _
+    blnStripCF = (lngExportFormat >= EFV_5_0_0) _
         And Options.DecodeConditionalFormatting _
         And (this.intObjectType = edbForm Or this.intObjectType = edbReport)
     blnTrackFormGeometry = (this.intObjectType = edbForm) _
-        And Options.SanitizeLevel >= eslStandard _
-        And Options.ExportFormatVersion >= EFV_5_1_0
+        And intSanitizeLevel >= eslStandard _
+        And lngExportFormat >= EFV_5_1_0
 
-    ' Set up index of lines to skip
-    ReDim this.lngSkipLines(0 To UBound(varLines)) As Long
-    this.lngSkipIndex = 0
+    ' Set up direct membership map of lines to skip
+    ReDim m_blnSkipLine(0 To lngUpper)
     Set this.colBlocks = New Collection
 
     ' Initialize concatenation class to include line breaks
@@ -604,10 +623,10 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
 
     ' Using a do loop since we may adjust the line counter
     ' during a loop iteration.
-    Do While lngLine <= UBound(varLines)
+    Do While lngLine <= lngUpper
 
         ' Get unmodified and trimmed line
-        strLine = varLines(lngLine)
+        strLine = astrLines(lngLine)
         strTLine = Trim$(strLine)
 
         ' Improve performance by reducing comparisons
@@ -628,7 +647,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                 ' Unexpected content inside the block; skip to stay safe.
                 SkipLine lngLine
             End If
-        ElseIf Len(strTLine) > 60 And StartsWith(strTLine, "0x") Then
+        ElseIf IsBinaryPayloadLine(strTLine) Then
             ' Add binary data line. No need to test this line further.
         Else
             ' Run the rest of the tests
@@ -638,7 +657,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                 Case "Version =21"
                     ' Change version down to 20 to allow import into Access 2010.
                     ' (Haven't seen any significant issues with this.)
-                    varLines(lngLine) = "Version =20"
+                    astrLines(lngLine) = "Version =20"
 
                 ' Print settings blocks to ignore
                 Case "PrtMip = Begin", _
@@ -670,7 +689,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                     "NameMap = Begin", _
                     "dbLongBinary ""DOL"" = Begin", _
                     "dbBinary ""GUID"" = Begin"
-                    If Options.SanitizeLevel >= eslStandard Then
+                    If intSanitizeLevel >= eslStandard Then
                         blnInsideIgnoredBlock = True
                         SkipLine lngLine
                     End If
@@ -694,7 +713,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         SkipLine lngLine
                     Else
                         ' Check for theme color index
-                        CloseBlock
+                        CloseBlock intSanitizeColors
                     End If
 
                 ' See if this file is from a report object
@@ -708,21 +727,21 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                 Case "Begin"
                     If blnIsPassThroughQuery Then
                         ' Ignore remaining content. (See Issue #182)
-                        Do While lngLine < UBound(varLines)
+                        Do While lngLine < lngUpper
                             SkipLine lngLine, eslStandard
                             lngLine = lngLine + 1
                         Loop
                         Exit Do
-                    ElseIf IsQueryNameAliasBlock(lngLine, varLines) Then
+                    ElseIf IsQueryNameAliasBlock(lngLine, astrLines) Then
                         SkipLine lngLine, eslStandard
                         intIndent = GetIndent(strLine)
                         ' Skip following lines till we return to original indent level
                         Do
                             SkipLine lngLine + 1, eslStandard
                             lngLine = lngLine + 1
-                            If GetIndent(varLines(lngLine)) = intIndent Then Exit Do
+                            If GetIndent(astrLines(lngLine)) = intIndent Then Exit Do
                             ' Sanity check for malformed file
-                            If lngLine > UBound(varLines) Then Exit Do
+                            If lngLine > lngUpper Then Exit Do
                         Loop
                     Else
                         BeginBlock
@@ -737,23 +756,34 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         lngLine = lngLine + 1
                         Set cVBA = New clsConcat
                         cVBA.AppendOnAdd = vbCrLf
-                        cVBA.Add CStr(varLines(lngLine))
-                        varLines(lngLine) = "' See """ & Nz2(Me.ObjectName, "FileName") & ".cls"""
+                        cVBA.Add astrLines(lngLine)
+                        astrLines(lngLine) = "' See """ & Nz2(Me.ObjectName, "FileName") & ".cls"""
                         ' Skip remaining lines
-                        Do While lngLine < UBound(varLines)
+                        Do While lngLine < lngUpper
                             lngLine = lngLine + 1
-                            cVBA.Add CStr(varLines(lngLine))
+                            cVBA.Add astrLines(lngLine)
                             SkipLine lngLine, eslStandard
                         Loop
                         Exit Do
                     Else
                         ' Apply sanitize rules to VBA code
-                        SanitizeCodeLines lngLine, varLines
+                        SanitizeCodeLines lngLine, astrLines
                         ' Keep everything from this point on
                         Exit Do
                     End If
 
                 Case Else
+                    ' Report designer edges are independent of the other rules below.
+                    ' Mark them here without claiming the line from the ElseIf chain.
+                    If blnRemoveBottomRight Then
+                        If StartsWith(strLine, "    Right =") Then
+                            SkipLine lngLine, eslStandard
+                        ElseIf StartsWith(strLine, "    Bottom =") Then
+                            SkipLine lngLine, eslStandard
+                            blnRemoveBottomRight = False
+                        End If
+                    End If
+
                     If blnInsideIgnoredBlock Then
                         ' Skip content inside ignored blocks.
                         SkipLine lngLine
@@ -771,25 +801,18 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         SkipLine lngLine, eslStandard
                         intIndent = GetIndent(strLine)
                         ' Preview the next line, and check the indent level
-                        Do While GetIndent(varLines(lngLine + 1)) > intIndent
+                        Do While GetIndent(astrLines(lngLine + 1)) > intIndent
                             ' Skip previewed line and move to next line
                             SkipLine lngLine + 1, eslStandard
                             lngLine = lngLine + 1
                         Loop
-                    ElseIf blnRemoveBottomRight And StartsWith(strLine, "    Right =") Then
-                        ' Ignore this line. (Not important, and frequently changes.)
-                        SkipLine lngLine, eslStandard
-                    ElseIf blnRemoveBottomRight And StartsWith(strLine, "    Bottom =") Then
-                        ' Turn flag back off now that we have ignored these two lines.
-                        SkipLine lngLine, eslStandard
-                        blnRemoveBottomRight = False
                     ElseIf StartsWith(strTLine, "WebImagePadding") Then
                         ' These values tend to drift between builds. See #423
                         SkipLine lngLine, eslStandard
                     ElseIf StartsWith(strTLine, "LayoutCached") Then
                         ' Derived edges; used by form geometry canonicalization, then omitted.
                         If this.intObjectType = edbForm Then
-                            If Options.ExportFormatVersion >= EFV_5_1_0 Then
+                            If lngExportFormat >= EFV_5_1_0 Then
                                 SkipLine lngLine, eslStandard
                             End If
                         End If
@@ -828,7 +851,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         End If
 
                         ' Check for color properties
-                        If InStr(1, strTLine, " =") > 1 Then CheckColorProperties strTLine, lngLine
+                        CheckColorProperties strTLine, lngLine, intSanitizeColors
 
                         ' Check for pass-through query connection string
                         If StartsWith(strLine, "dbMemo ""Connect"" =""") Then
@@ -836,7 +859,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                             If Len(strLine) > 20 Then
                                 blnIsPassThroughQuery = True
                                 ' Check for env substitution of connection strings
-                                SubstituteEnvConnect lngLine, varLines
+                                SubstituteEnvConnect lngLine, astrLines
                             End If
                         End If
                     End If
@@ -859,12 +882,12 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
 
     ' Normalize form designer viewport coordinates
     If this.intObjectType = edbForm Then
-        If Options.SanitizeLevel >= eslStandard Then
-            If Options.ExportFormatVersion >= EFV_5_0_0 Then NormalizeViewport varLines
-            If Options.ExportFormatVersion >= EFV_5_1_0 Then
+        If intSanitizeLevel >= eslStandard Then
+            If lngExportFormat >= EFV_5_0_0 Then NormalizeViewport astrLines
+            If lngExportFormat >= EFV_5_1_0 Then
                 If blnNeedsFormGeometry Then
                     With New clsFormGeometryCanonicalizer
-                        .Canonicalize varLines, Me.ObjectName
+                        .Canonicalize astrLines, Me.ObjectName
                     End With
                 End If
             End If
@@ -872,11 +895,11 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     End If
 
     ' Decode captured CF14 before building output so failed blocks stay inline.
-    this.lngSkipSentinel = UBound(varLines) + 1
     If blnStripCF Then ResolveCapturedConditionalFormats
 
     ' Prepare primary output
-    this.strOutput = BuildOutput(varLines)
+    this.strOutput = BuildOutput(astrLines)
+    Erase m_blnSkipLine
     SanitizeObject = this.strOutput
 
     ' Prepare VBA output (if used)
@@ -906,22 +929,10 @@ End Function
 ' Purpose   : Splitting this out into its own sub to reduce complexity.
 '---------------------------------------------------------------------------------------
 '
-Private Function BuildOutput(varLines As Variant) As String
+Private Function BuildOutput(ByRef astrLines() As String) As String
 
     Dim cData As clsConcat
-    Dim lngSkip As Long
     Dim lngLine As Long
-
-    ' Check index of skipped lines
-    If this.lngSkipIndex = 0 Then
-        ' No lines to skip
-        ReDim this.lngSkipLines(0 To 0)
-        this.lngSkipLines(0) = UBound(varLines) + 1
-    Else
-        ' Trim and sort index array
-        ReDim Preserve this.lngSkipLines(0 To this.lngSkipIndex - 1)
-        QuickSort this.lngSkipLines
-    End If
 
     ' Use concatenation class to maximize performance
     Set cData = New clsConcat
@@ -929,17 +940,8 @@ Private Function BuildOutput(varLines As Variant) As String
         .AppendOnAdd = vbCrLf
 
         ' Loop through array of lines in source file
-        For lngLine = 0 To UBound(varLines)
-
-            ' Iterate the sorted skipped lines index to keep up with main loop
-            ' (Using parallel loops to optimize performance)
-            If this.lngSkipLines(lngSkip) < lngLine Then
-                If lngSkip < UBound(this.lngSkipLines) Then lngSkip = lngSkip + 1
-            End If
-
-            ' Add content, unless the line is flagged to skip
-            If this.lngSkipLines(lngSkip) <> lngLine Then .Add CStr(varLines(lngLine))
-
+        For lngLine = 0 To UBound(astrLines)
+            If Not m_blnSkipLine(lngLine) Then .Add astrLines(lngLine)
         Next lngLine
 
         ' Remove last vbcrlf
@@ -1018,12 +1020,9 @@ End Function
 '           : sanitize level to skip this line.
 '---------------------------------------------------------------------------------------
 '
-Private Function SkipLine(lngLine As Long, Optional intMinSanitizeLevel As eSanitizeLevel)
-    If Options.SanitizeLevel >= intMinSanitizeLevel Then
-        this.lngSkipLines(this.lngSkipIndex) = lngLine
-        this.lngSkipIndex = this.lngSkipIndex + 1
-    End If
-End Function
+Private Sub SkipLine(lngLine As Long, Optional intMinSanitizeLevel As eSanitizeLevel)
+    If Options.SanitizeLevel >= intMinSanitizeLevel Then m_blnSkipLine(lngLine) = True
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -1033,26 +1032,26 @@ End Function
 ' Purpose   : Perform any sanitizing of code lines.
 '---------------------------------------------------------------------------------------
 '
-Private Function SanitizeCodeLines(lngLineStart As Long, ByRef varLines As Variant)
+Private Sub SanitizeCodeLines(lngLineStart As Long, ByRef astrLines() As String)
 
     Dim lngLine As Long
 
     Perf.OperationStart "Sanitize Code Lines"
-    For lngLine = lngLineStart To UBound(varLines)
+    For lngLine = lngLineStart To UBound(astrLines)
         ' Check for lines that include only space padding
         ' added by the IDE automatic indenting. (The padding is removed if you
         ' comment out a block, then uncomment the same block, causing unwanted
         ' noise in version control.)
-        If Len(varLines(lngLine)) > 0 Then
-            If Trim(varLines(lngLine)) = vbNullString Then
+        If Len(astrLines(lngLine)) > 0 Then
+            If Trim(astrLines(lngLine)) = vbNullString Then
                 ' Remove the space padding
-                varLines(lngLine) = vbNullString
+                astrLines(lngLine) = vbNullString
             End If
         End If
     Next lngLine
     Perf.OperationEnd
 
-End Function
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -1079,15 +1078,15 @@ End Sub
 '           : be skipped in the output file. (See issue #183)
 '---------------------------------------------------------------------------------------
 '
-Private Sub CloseBlock()
+Private Sub CloseBlock(intSanitizeColors As eSanitizeLevel)
 
-    Dim varBase As Variant
-    Dim intCnt As Integer
+    Dim lngI As Long
     Dim dBlock As Dictionary
     Dim strKey As String
+    Dim varBase As Variant
 
     ' Skip if we are not using aggressive color sanitize
-    If Options.SanitizeColors <= eslNone Then Exit Sub
+    If intSanitizeColors <= eslNone Then Exit Sub
 
     ' Bail out if we don't have a block to review
     If this.colBlocks.Count = 0 Then Exit Sub
@@ -1101,19 +1100,18 @@ Private Sub CloseBlock()
         Exit Sub
     End If
 
-    ' Build array of base properties
     varBase = Array("Back", "AlternateBack", "Border", _
-            "Fore", "Gridline", "HoverFore", _
-            "Hover", "PressedFore", "Pressed", _
-            "DatasheetFore", "DatasheetBack", "DatasheetGridlines")
+        "Fore", "Gridline", "HoverFore", _
+        "Hover", "PressedFore", "Pressed", _
+        "DatasheetFore", "DatasheetBack", "DatasheetGridlines")
 
     ' Loop through properties, checking for index
-    For intCnt = 0 To UBound(varBase)
-        strKey = varBase(intCnt) & "ThemeColorIndex"
+    For lngI = 0 To UBound(varBase)
+        strKey = varBase(lngI) & "ThemeColorIndex"
         If dBlock.Exists(strKey) Then
             If dBlock(strKey) <> NO_THEME_INDEX Then
                 ' Check for corresponding color property
-                strKey = varBase(intCnt) & "Color"
+                strKey = varBase(lngI) & "Color"
                 If dBlock.Exists(strKey) Then
                     ' Skip the dynamic color line
                     SkipLine dBlock(strKey)
@@ -1130,8 +1128,8 @@ Private Sub CloseBlock()
                     ' unless otherwise specified.
                     ' As discussed in #183, this can be affected by incomplete
                     ' component definition blocks.
-                    If Options.SanitizeColors = eslExtended Then
-                        strKey = varBase(intCnt) & "Color"
+                    If intSanitizeColors = eslExtended Then
+                        strKey = varBase(lngI) & "Color"
                         If dBlock.Exists(strKey) Then
                             ' Skip the dynamic color line
                             SkipLine dBlock(strKey)
@@ -1139,7 +1137,7 @@ Private Sub CloseBlock()
                     End If
             End Select
         End If
-    Next intCnt
+    Next lngI
 
     ' Remove this block
     this.colBlocks.Remove this.colBlocks.Count
@@ -1157,25 +1155,28 @@ End Sub
 '           : These blocks can be safely removed with no impact on the database.
 '---------------------------------------------------------------------------------------
 '
-Private Function IsQueryNameAliasBlock(lngLine As Long, varLines As Variant) As Boolean
+Private Function IsQueryNameAliasBlock(lngLine As Long, ByRef astrLines() As String) As Boolean
 
     Dim lngNext As Long
+    Dim lngUpper As Long
 
     ' This only applies to queries
     If this.intObjectType <> edbQuery Then Exit Function
 
     ' Make sure we have additional lines to check
-    If UBound(varLines) < lngLine + 2 Then Exit Function
+    lngUpper = UBound(astrLines)
+    If lngUpper < lngLine + 2 Then Exit Function
 
     ' Look at the next two lines to see if we are just dealing with an alias block
-    If StartsWith(Trim(varLines(lngLine + 1)), "dbText ""Name"" =") Then
+    If StartsWith(Trim(astrLines(lngLine + 1)), "dbText ""Name"" =") Then
 
         ' Skip past any GUID lines
         lngNext = lngLine + 2
-        If StartsWith(Trim(varLines(lngNext)), "dbBinary ""GUID"" = Begin") Then lngNext = lngNext + 3
+        If StartsWith(Trim(astrLines(lngNext)), "dbBinary ""GUID"" = Begin") Then lngNext = lngNext + 3
+        If lngNext > lngUpper Then Exit Function
 
         ' See if the following line closes the block
-        If Trim(varLines(lngNext)) = "End" Then
+        If Trim(astrLines(lngNext)) = "End" Then
             ' Yes, this was simply a name alias block
             IsQueryNameAliasBlock = True
         End If
@@ -1192,24 +1193,29 @@ End Function
 '           : that we need to discard after finishing the block.
 '---------------------------------------------------------------------------------------
 '
-Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
+Private Sub CheckColorProperties(strTLine As String, lngLine As Long, _
+    intSanitizeColors As eSanitizeLevel)
 
     Dim dBlock As Dictionary
-    Dim varParts As Variant
     Dim lngCnt As Long
     Dim lngColor As Long
+    Dim lngEqPos As Long
+    Dim strProp As String
+    Dim strValue As String
 
     ' Skip if not using this option
-    If Options.SanitizeColors <= eslNone Then Exit Sub
+    If intSanitizeColors <= eslNone Then Exit Sub
 
     ' Exit if we are not inside a block
     If Not this.colBlocks Is Nothing Then lngCnt = this.colBlocks.Count
     If lngCnt = 0 Then Exit Sub
     Set dBlock = this.colBlocks(this.colBlocks.Count)
 
-    ' Split on property/value
-    varParts = Split(strTLine, " =")
-    Select Case varParts(0)
+    lngEqPos = InStr(1, strTLine, " =")
+    If lngEqPos <= 1 Then Exit Sub
+    strProp = Left$(strTLine, lngEqPos - 1)
+    strValue = Mid$(strTLine, lngEqPos + 2)
+    Select Case strProp
 
         ' Theme color index properties
         Case "BackThemeColorIndex", "AlternateBackThemeColorIndex", "BorderThemeColorIndex", _
@@ -1217,7 +1223,7 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             "HoverThemeColorIndex", "PressedForeThemeColorIndex", "PressedThemeColorIndex", _
             "DatasheetBackThemeColorIndex", "DatasheetForeThemeColorIndex", "DatasheetGridlinesThemeColorIndex"
             ' Save to dictionary if using a theme index color
-            dBlock.Add varParts(0), varParts(1)
+            dBlock.Add strProp, strValue
 
         ' Matching color properties
         Case "BackColor", "AlternateBackColor", "BorderColor", _
@@ -1226,26 +1232,26 @@ Private Sub CheckColorProperties(strTLine As String, lngLine As Long)
             "DatasheetBackColor", "DatasheetForeColor", "DatasheetGridlinesColor"
 
             ' Check for system color constants
-            If IsNumeric(varParts(1)) Then lngColor = varParts(1)
+            If IsNumeric(strValue) Then lngColor = strValue
             If lngColor < 0 Then
                 ' Using a system color constant or other Access constant value.
                 ' https://stackoverflow.com/a/30396550/4121863
                 ' Leave this color value intact.
             Else
                 ' Save line of color property
-                dBlock.Add varParts(0), lngLine
+                dBlock.Add strProp, lngLine
             End If
 
         Case "UseTheme"
             ' You can tell certain controls to not use the theme. (Buttons, Tabs, Toggles)
-            If varParts(1) = 0 Then dBlock.Add varParts(0), 0
+            If strValue = 0 Then dBlock.Add strProp, 0
 
         Case Else
             ' Check for other related dynamic color properties/indexes
             If StartsWith(strTLine, "DatasheetGridlinesColor") Then
                 ' May include the index number in the property name. (I.e. DatasheetGridlinesColor12 =0)
                 ' Convert to a more consistent identifier, using the index suffix as the value.
-                dBlock.Add "DatasheetGridlinesThemeColorIndex", Mid$(varParts(0), 24)
+                dBlock.Add "DatasheetGridlinesThemeColorIndex", Mid$(strProp, 24)
             End If
 
     End Select
@@ -1266,20 +1272,20 @@ End Sub
 '           : during the IntitializeForms process.)
 '---------------------------------------------------------------------------------------
 '
-Private Sub NormalizeViewport(varLines As Variant)
+Private Sub NormalizeViewport(ByRef astrLines() As String)
 
     Dim lngLine As Long
     Dim strLine As String
 
-    For lngLine = 1 To UBound(varLines)
-        strLine = varLines(lngLine)
+    For lngLine = 1 To UBound(astrLines)
+        strLine = astrLines(lngLine)
         ' Look for specific lines
         Select Case True
             ' Save current coordinate positions
-            Case StartsWith(strLine, "    Left ="):     varLines(lngLine) = "    Left =1000"
-            Case StartsWith(strLine, "    Top ="):      varLines(lngLine) = "    Top =1000"
-            Case StartsWith(strLine, "    Right ="):    varLines(lngLine) = "    Right =50000"
-            Case StartsWith(strLine, "    Bottom ="):   varLines(lngLine) = "    Bottom =50000": Exit For
+            Case StartsWith(strLine, "    Left ="):     astrLines(lngLine) = "    Left =1000"
+            Case StartsWith(strLine, "    Top ="):      astrLines(lngLine) = "    Top =1000"
+            Case StartsWith(strLine, "    Right ="):    astrLines(lngLine) = "    Right =50000"
+            Case StartsWith(strLine, "    Bottom ="):   astrLines(lngLine) = "    Bottom =50000": Exit For
         End Select
     Next lngLine
 
@@ -1708,7 +1714,7 @@ End Function
 '           : strings wrap across continuation lines (indented, starting with ").
 '---------------------------------------------------------------------------------------
 '
-Private Sub SubstituteEnvConnect(lngLine As Long, ByRef varLines As Variant)
+Private Sub SubstituteEnvConnect(lngLine As Long, ByRef astrLines() As String)
 
     Dim strFullConnect As String
     Dim strEnvKey As String
@@ -1717,12 +1723,12 @@ Private Sub SubstituteEnvConnect(lngLine As Long, ByRef varLines As Variant)
 
     ' Extract the quoted value from the first line
     ' Format: dbMemo "Connect" ="value"
-    strFullConnect = ExtractQuotedDbMemo(CStr(varLines(lngLine)))
+    strFullConnect = ExtractQuotedDbMemo(astrLines(lngLine))
 
     ' Collect continuation lines (indented, starting with ")
     lngNext = lngLine + 1
-    Do While lngNext <= UBound(varLines)
-        strFragment = CStr(varLines(lngNext))
+    Do While lngNext <= UBound(astrLines)
+        strFragment = astrLines(lngNext)
         ' Continuation lines are indented and start with "
         If Len(strFragment) > 0 And Left$(LTrim$(strFragment), 1) = """" Then
             If Len(strFragment) <> Len(LTrim$(strFragment)) Then
@@ -1745,7 +1751,7 @@ Private Sub SubstituteEnvConnect(lngLine As Long, ByRef varLines As Variant)
         Nz2(Me.ObjectName, "query") & " (pass-through query)"
 
     ' Replace the first line with the env reference
-    varLines(lngLine) = "dbMemo ""Connect"" =""env:" & strEnvKey & """"
+    astrLines(lngLine) = "dbMemo ""Connect"" =""env:" & strEnvKey & """"
 
     ' Skip all continuation lines that were part of the original value
     Dim lngSkipLine As Long

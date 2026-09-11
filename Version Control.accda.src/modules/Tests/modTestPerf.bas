@@ -279,7 +279,8 @@ Public Function BenchmarkFormGeometry(strFormPath As String, Optional lngReps As
     Dim cCanon As clsFormGeometryCanonicalizer
     Dim strText As String
     Dim strResult As String
-    Dim varLines As Variant
+    Dim astrCanon() As String
+    Dim astrBench() As String
     Dim lngIdx As Long
     Dim lngRound As Long
     Dim dblStart As Double
@@ -297,6 +298,7 @@ Public Function BenchmarkFormGeometry(strFormPath As String, Optional lngReps As
     Dim dblTabs As Double
     Dim dblEnvelopes As Double
     Dim dblCopyOut As Double
+    Dim strError As String
 
     If Not FSO.FileExists(strFormPath) Then
         BenchmarkFormGeometry = "File not found: " & strFormPath
@@ -319,6 +321,10 @@ Public Function BenchmarkFormGeometry(strFormPath As String, Optional lngReps As
     ' timings as if it were work.
     eimPrior = Operation.InteractionMode
     Operation.InteractionMode = eimSilent
+
+    ' The overrides above outlive this procedure, so a failure below has to fall
+    ' through the restore rather than leave the session on a benchmark's settings.
+    On Error GoTo CleanUp
 
     ' Warm up, and capture the canonical output so an optimization can be checked
     ' for byte identity rather than just speed.
@@ -368,9 +374,9 @@ Public Function BenchmarkFormGeometry(strFormPath As String, Optional lngReps As
         ' Canonicalize alone, capturing phase attribution from the fastest round
         dblStart = MicroSeconds
         For lngIdx = 1 To lngReps
-            varLines = Split(strText, vbCrLf)
+            astrCanon = Split(strText, vbCrLf)
             Set cCanon = New clsFormGeometryCanonicalizer
-            cCanon.Canonicalize varLines, "benchmark"
+            cCanon.Canonicalize astrCanon, "benchmark"
         Next lngIdx
         dblRound = MicroSeconds - dblStart
         If dblRound < dblCanon Then
@@ -386,7 +392,7 @@ Public Function BenchmarkFormGeometry(strFormPath As String, Optional lngReps As
         ' Control: the Split alone, with no canonicalization
         dblStart = MicroSeconds
         For lngIdx = 1 To lngReps
-            varLines = Split(strText, vbCrLf)
+            astrBench = Split(strText, vbCrLf)
         Next lngIdx
         dblRound = MicroSeconds - dblStart
         If dblRound < dblSplit Then dblSplit = dblRound
@@ -421,11 +427,21 @@ Public Function BenchmarkFormGeometry(strFormPath As String, Optional lngReps As
         PadLeft(CStr(Len(strResult)), 8), " ", GetStringHash(strResult), vbCrLf
     cOut.Add String$(clngLineWidth, "-"), vbCrLf
 
+    ' Clears Err, so the restore below can tell a failure from a clean finish.
+    On Error GoTo 0
+
+CleanUp:
+    If Err.Number <> 0 Then
+        strError = "Error " & CStr(Err.Number) & ": " & Err.Description
+    End If
     Options.ExportFormatVersion = lngOldFormat
     Options.SanitizeLevel = intOldSanitize
     Operation.InteractionMode = eimPrior
-
-    BenchmarkFormGeometry = cOut.GetStr
+    If Len(strError) > 0 Then
+        BenchmarkFormGeometry = strError
+    Else
+        BenchmarkFormGeometry = cOut.GetStr
+    End If
 
 End Function
 
@@ -451,7 +467,7 @@ Public Function BenchmarkFormCorpus(strFolder As String, Optional lngLimit As Lo
     Dim cCanon As clsFormGeometryCanonicalizer
     Dim oFile As Object
     Dim strIn As String
-    Dim varLines As Variant
+    Dim astrLines() As String
     Dim curStart As Currency
     Dim dblOne As Double
     Dim dblTotal As Double
@@ -462,6 +478,7 @@ Public Function BenchmarkFormCorpus(strFolder As String, Optional lngLimit As Lo
     Dim lngErrors As Long
     Dim lngLines As Long
     Dim eimPrior As eInteractionMode
+    Dim strError As String
 
     If Not FSO.FolderExists(strFolder) Then
         BenchmarkFormCorpus = "Folder not found: " & strFolder
@@ -473,17 +490,21 @@ Public Function BenchmarkFormCorpus(strFolder As String, Optional lngLimit As Lo
     eimPrior = Operation.InteractionMode
     Operation.InteractionMode = eimSilent
 
+    ' The override above outlives this procedure, so a failure reading or splitting a
+    ' form has to fall through the restore rather than leave the session silent.
+    On Error GoTo CleanUp
+
     Set cOut = New clsConcat
     For Each oFile In FSO.GetFolder(strFolder).Files
         If StrComp(FSO.GetExtensionName(oFile.Name), "form", vbTextCompare) = 0 Then
             strIn = ReadFile(oFile.Path)
-            varLines = Split(strIn, vbCrLf)
-            lngLines = lngLines + UBound(varLines) + 1
+            astrLines = Split(strIn, vbCrLf)
+            lngLines = lngLines + UBound(astrLines) + 1
             Set cCanon = New clsFormGeometryCanonicalizer
             curStart = Perf.MicroTimer
             On Error Resume Next
             Err.Clear
-            cCanon.Canonicalize varLines, oFile.Name
+            cCanon.Canonicalize astrLines, oFile.Name
             If Err.Number <> 0 Then
                 lngErrors = lngErrors + 1
                 If lngErrors <= 15 Then
@@ -492,7 +513,7 @@ Public Function BenchmarkFormCorpus(strFolder As String, Optional lngLimit As Lo
                 End If
                 Err.Clear
             End If
-            On Error GoTo 0
+            On Error GoTo CleanUp
             dblOne = CDbl(Perf.MicroTimer - curStart)
             dblTotal = dblTotal + dblOne
             lngForms = lngForms + 1
@@ -514,11 +535,12 @@ Public Function BenchmarkFormCorpus(strFolder As String, Optional lngLimit As Lo
         End If
     Next oFile
 
-    Operation.InteractionMode = eimPrior
+    ' Clears Err, so the restore below can tell a failure from a clean finish.
+    On Error GoTo 0
 
     If lngForms = 0 Then
-        BenchmarkFormCorpus = "No .form files found in " & strFolder
-        Exit Function
+        strError = "No .form files found in " & strFolder
+        GoTo CleanUp
     End If
 
     cOut.Add String$(clngLineWidth, "-"), vbCrLf
@@ -534,7 +556,365 @@ Public Function BenchmarkFormCorpus(strFolder As String, Optional lngLimit As Lo
     cOut.Add "  Slowest:       ", strWorst, " (", Format$(dblWorst * 1000, "0.0"), " ms)", vbCrLf
     cOut.Add String$(clngLineWidth, "-"), vbCrLf
 
-    BenchmarkFormCorpus = cOut.GetStr
+CleanUp:
+    If Err.Number <> 0 Then
+        strError = "Error " & CStr(Err.Number) & ": " & Err.Description
+    End If
+    Operation.InteractionMode = eimPrior
+    If Len(strError) > 0 Then
+        BenchmarkFormCorpus = strError
+    Else
+        BenchmarkFormCorpus = cOut.GetStr
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BenchmarkSanitizeCorpus
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Run the full Sanitize path over every matching source file in a folder and
+'           : compare the result to the file on disk. Committed source is a fixed point
+'           : of the sanitizer that produced it, so a DIFFERS count above zero means the
+'           : sanitizer no longer agrees with that repository's committed output.
+'           :
+'           : This covers the whole Case Else chain, not just the canonicalizer that
+'           : BenchmarkFormCorpus exercises. A refactor that broke report sanitizing left
+'           : that harness at 0 changed while every report in a real project silently
+'           : kept lines it should have dropped, so run this one for reports and macros
+'           : too. Match the export format and sanitize options to the ones the corpus
+'           : was exported with, or every file will differ for uninteresting reasons.
+'           :
+'           :   ?modTestPerf.BenchmarkSanitizeCorpus("C:\repo\db.accdb.src\reports", "report", edbReport)
+'---------------------------------------------------------------------------------------
+'
+Public Function BenchmarkSanitizeCorpus(strFolder As String, _
+    Optional strExtension As String = "form", _
+    Optional intObjectType As eDatabaseComponentType = edbForm, _
+    Optional lngFormat As Long = EFV_5_1_0, _
+    Optional intSanitize As eSanitizeLevel = eslStandard, _
+    Optional intColors As eSanitizeLevel = eslMinimal, _
+    Optional lngLimit As Long = 0) As String
+
+    Dim cOut As clsConcat
+    Dim cParser As clsSourceParser
+    Dim oFile As Object
+    Dim strIn As String
+    Dim strOut As String
+    Dim curStart As Currency
+    Dim dblOne As Double
+    Dim dblTotal As Double
+    Dim dblWorst As Double
+    Dim strWorst As String
+    Dim lngFiles As Long
+    Dim lngDiffer As Long
+    Dim lngErrors As Long
+    Dim lngOldFormat As Long
+    Dim intOldSanitize As eSanitizeLevel
+    Dim intOldColors As eSanitizeLevel
+    Dim eimPrior As eInteractionMode
+    Dim strError As String
+
+    If Not FSO.FolderExists(strFolder) Then
+        BenchmarkSanitizeCorpus = "Folder not found: " & strFolder
+        Exit Function
+    End If
+
+    lngOldFormat = Options.ExportFormatVersion
+    intOldSanitize = Options.SanitizeLevel
+    intOldColors = Options.SanitizeColors
+    eimPrior = Operation.InteractionMode
+    Options.ExportFormatVersion = lngFormat
+    Options.SanitizeLevel = intSanitize
+    Options.SanitizeColors = intColors
+    Operation.InteractionMode = eimSilent
+
+    ' The overrides above outlive this procedure, so a failure reading or sanitizing a
+    ' file has to fall through the restore rather than leave the session silent.
+    On Error GoTo CleanUp
+
+    Set cOut = New clsConcat
+    For Each oFile In FSO.GetFolder(strFolder).Files
+        If StrComp(FSO.GetExtensionName(oFile.Name), strExtension, vbTextCompare) = 0 Then
+            strIn = ReadFile(oFile.Path)
+            Set cParser = New clsSourceParser
+            cParser.LoadString strIn, intObjectType
+            ' Matches the export path, which names the object after the file. The
+            ' split-VBA marker line embeds this name, so leaving it blank makes every
+            ' file with code behind it differ.
+            cParser.ObjectName = FSO.GetBaseName(oFile.Name)
+            curStart = Perf.MicroTimer
+            On Error Resume Next
+            Err.Clear
+            strOut = cParser.Sanitize(ectObjectDefinition)
+            If Err.Number <> 0 Then
+                lngErrors = lngErrors + 1
+                If lngErrors <= 15 Then
+                    cOut.Add "  ERROR ", CStr(Err.Number), " ", Err.Description, _
+                        " in ", oFile.Name, vbCrLf
+                End If
+                Err.Clear
+            End If
+            On Error GoTo CleanUp
+            dblOne = CDbl(Perf.MicroTimer - curStart)
+            dblTotal = dblTotal + dblOne
+            lngFiles = lngFiles + 1
+            If dblOne > dblWorst Then
+                dblWorst = dblOne
+                strWorst = oFile.Name
+            End If
+            ' WriteFile terminates the file with a newline that Sanitize does not
+            ' return, so compare the content without trailing blank lines.
+            If StrComp(TrimTrailingCrLf(strIn), TrimTrailingCrLf(strOut), _
+                vbBinaryCompare) <> 0 Then
+                lngDiffer = lngDiffer + 1
+                If lngDiffer <= 15 Then
+                    cOut.Add "  DIFFERS: ", oFile.Name, " (in ", CStr(Len(strIn)), _
+                        " / out ", CStr(Len(strOut)), " chars)", vbCrLf
+                End If
+            End If
+            ' A long uninterrupted VBA loop starves the message pump, which makes Access
+            ' look unresponsive to the automation client driving this run.
+            If lngFiles Mod 20 = 0 Then DoEvents
+            If lngLimit > 0 And lngFiles >= lngLimit Then Exit For
+        End If
+    Next oFile
+
+    ' Clears Err, so the restore below can tell a failure from a clean finish.
+    On Error GoTo 0
+
+    If lngFiles = 0 Then
+        strError = "No ." & strExtension & " files found in " & strFolder
+        GoTo CleanUp
+    End If
+
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add "SOURCE CORPUS SANITIZE", vbCrLf
+    cOut.Add "  Folder:        ", strFolder, vbCrLf
+    cOut.Add "  Files:         ", CStr(lngFiles), " (.", strExtension, ")", vbCrLf
+    cOut.Add "  Format:        ", CStr(lngFormat), "  Sanitize: ", CStr(intSanitize), _
+        "  Colors: ", CStr(intColors), vbCrLf
+    cOut.Add "  Differs:       ", CStr(lngDiffer), _
+        IIf(lngDiffer = 0, "  (idempotent: matches committed output)", "  <-- REVIEW"), vbCrLf
+    cOut.Add "  Errors:        ", CStr(lngErrors), vbCrLf
+    cOut.Add "  Total:         ", Format$(dblTotal, "0.000"), " sec", vbCrLf
+    cOut.Add "  Per file:      ", Format$(dblTotal / lngFiles * 1000, "0.0"), " ms", vbCrLf
+    cOut.Add "  Slowest:       ", strWorst, " (", Format$(dblWorst * 1000, "0.0"), " ms)", vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+CleanUp:
+    If Err.Number <> 0 Then
+        strError = "Error " & CStr(Err.Number) & ": " & Err.Description
+    End If
+    Options.ExportFormatVersion = lngOldFormat
+    Options.SanitizeLevel = intOldSanitize
+    Options.SanitizeColors = intOldColors
+    Operation.InteractionMode = eimPrior
+    If Len(strError) > 0 Then
+        BenchmarkSanitizeCorpus = strError
+    Else
+        BenchmarkSanitizeCorpus = cOut.GetStr
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TrimTrailingCrLf
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Return the text without any trailing CRLF pairs.
+'---------------------------------------------------------------------------------------
+'
+Private Function TrimTrailingCrLf(strText As String) As String
+
+    Dim strResult As String
+
+    strResult = strText
+    Do While Right$(strResult, 2) = vbCrLf
+        strResult = Left$(strResult, Len(strResult) - 2)
+    Loop
+    TrimTrailingCrLf = strResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BenchmarkSanitize
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Measure sanitize cost through the real clsSourceParser path at EFV_5_0_0
+'           : so the form geometry canonicalizer is gated off. Reports min-of-rounds
+'           : timings and output hashes for a form, a module, and a table-definition XML
+'           : file so non-form sanitize paths are represented.
+'           :
+'           :   ?modTestPerf.BenchmarkSanitize()
+'           :   ?modTestPerf.BenchmarkSanitize("<form source file>")
+'---------------------------------------------------------------------------------------
+'
+Public Function BenchmarkSanitize(Optional strFormPath As String, _
+    Optional strModulePath As String, Optional strXmlPath As String, _
+    Optional lngReps As Long = 5, Optional lngRounds As Long = 3) As String
+
+    Dim cOut As clsConcat
+    Dim cParser As clsSourceParser
+    Dim strText As String
+    Dim strResult As String
+    Dim lngIdx As Long
+    Dim lngRound As Long
+    Dim dblStart As Double
+    Dim dblRound As Double
+    Dim dblForm As Double
+    Dim dblModule As Double
+    Dim dblXml As Double
+    Dim lngOldFormat As Long
+    Dim intOldSanitize As eSanitizeLevel
+    Dim eimPrior As eInteractionMode
+    Dim strFormHash As String
+    Dim strModuleHash As String
+    Dim strXmlHash As String
+    Dim strError As String
+    Dim strSourceFolder As String
+
+    strSourceFolder = FSO.BuildPath(CurrentProject.Path, "Version Control.accda.src")
+    If Len(strFormPath) = 0 Then
+        strFormPath = FSO.BuildPath(FSO.BuildPath(strSourceFolder, "forms"), _
+            "frmVCSMain.form")
+    End If
+    If Len(strModulePath) = 0 Then
+        strModulePath = FSO.BuildPath(FSO.BuildPath(strSourceFolder, _
+            "modules\Utility"), "modStringUtil.bas")
+    End If
+    If Len(strXmlPath) = 0 Then
+        strXmlPath = FSO.BuildPath(FSO.BuildPath(strSourceFolder, "tbldefs"), _
+            "tblConflicts.xml")
+    End If
+    If lngReps < 1 Then lngReps = 1
+    If lngRounds < 1 Then lngRounds = 1
+    dblForm = 1E+30
+    dblModule = 1E+30
+    dblXml = 1E+30
+
+    lngOldFormat = Options.ExportFormatVersion
+    intOldSanitize = Options.SanitizeLevel
+    Options.SanitizeLevel = eslStandard
+    Options.ExportFormatVersion = EFV_5_0_0
+
+    eimPrior = Operation.InteractionMode
+    Operation.InteractionMode = eimSilent
+
+    ' The three overrides above outlive this procedure, so a failure below has to fall
+    ' through the restore rather than leave the session on a benchmark's settings.
+    On Error GoTo CleanUp
+
+    ' Warm up and capture reference hashes at the canonicalizer-off format gate.
+    If FSO.FileExists(strFormPath) Then
+        strText = ReadFile(strFormPath)
+        Set cParser = New clsSourceParser
+        cParser.LoadString strText, edbForm
+        strResult = cParser.Sanitize(ectObjectDefinition)
+        strFormHash = GetStringHash(strResult)
+    End If
+    If FSO.FileExists(strModulePath) Then
+        strText = ReadFile(strModulePath)
+        Set cParser = New clsSourceParser
+        cParser.LoadString strText, edbModule
+        strResult = cParser.Sanitize(ectVBA)
+        strModuleHash = GetStringHash(strResult)
+    End If
+    If FSO.FileExists(strXmlPath) Then
+        strText = ReadFile(strXmlPath)
+        Set cParser = New clsSourceParser
+        cParser.LoadString strText, edbTableDef
+        strResult = cParser.Sanitize(ectXML)
+        strXmlHash = GetStringHash(strResult)
+    End If
+
+    Set cOut = New clsConcat
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add "SANITIZE BENCHMARK (EFV_5_0_0, canonicalizer off)", vbCrLf
+    cOut.Add "  Reps:  ", CStr(lngReps), " x ", CStr(lngRounds), " rounds (min reported)", vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add PadRight("Object", clngLabelWidth), PadLeft("Calls", 8), _
+        PadLeft("Seconds", 10), PadLeft("ms/call", 12), vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+    For lngRound = 1 To lngRounds
+        If FSO.FileExists(strFormPath) Then
+            strText = ReadFile(strFormPath)
+            dblStart = MicroSeconds
+            For lngIdx = 1 To lngReps
+                Set cParser = New clsSourceParser
+                cParser.LoadString strText, edbForm
+                cParser.Sanitize ectObjectDefinition
+            Next lngIdx
+            dblRound = MicroSeconds - dblStart
+            If dblRound < dblForm Then dblForm = dblRound
+        End If
+
+        If FSO.FileExists(strModulePath) Then
+            strText = ReadFile(strModulePath)
+            dblStart = MicroSeconds
+            For lngIdx = 1 To lngReps
+                Set cParser = New clsSourceParser
+                cParser.LoadString strText, edbModule
+                cParser.Sanitize ectVBA
+            Next lngIdx
+            dblRound = MicroSeconds - dblStart
+            If dblRound < dblModule Then dblModule = dblRound
+        End If
+
+        If FSO.FileExists(strXmlPath) Then
+            strText = ReadFile(strXmlPath)
+            dblStart = MicroSeconds
+            For lngIdx = 1 To lngReps
+                Set cParser = New clsSourceParser
+                cParser.LoadString strText, edbTableDef
+                cParser.Sanitize ectXML
+            Next lngIdx
+            dblRound = MicroSeconds - dblStart
+            If dblRound < dblXml Then dblXml = dblRound
+        End If
+    Next lngRound
+
+    If FSO.FileExists(strFormPath) Then
+        AddPhase cOut, "Form: " & FSO.GetFileName(strFormPath), lngReps, dblForm
+    Else
+        cOut.Add PadRight("Form: (missing)", clngLabelWidth), vbCrLf
+    End If
+    If FSO.FileExists(strModulePath) Then
+        AddPhase cOut, "Module: " & FSO.GetFileName(strModulePath), lngReps, dblModule
+    Else
+        cOut.Add PadRight("Module: (missing)", clngLabelWidth), vbCrLf
+    End If
+    If FSO.FileExists(strXmlPath) Then
+        AddPhase cOut, "XML: " & FSO.GetFileName(strXmlPath), lngReps, dblXml
+    Else
+        cOut.Add PadRight("XML: (missing)", clngLabelWidth), vbCrLf
+    End If
+
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add PadRight("  form hash", clngLabelWidth), strFormHash, vbCrLf
+    cOut.Add PadRight("  module hash", clngLabelWidth), strModuleHash, vbCrLf
+    cOut.Add PadRight("  xml hash", clngLabelWidth), strXmlHash, vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+    ' Clears Err, so the restore below can tell a failure from a clean finish.
+    On Error GoTo 0
+
+CleanUp:
+    If Err.Number <> 0 Then
+        strError = "Error " & CStr(Err.Number) & ": " & Err.Description
+    End If
+    Options.ExportFormatVersion = lngOldFormat
+    Options.SanitizeLevel = intOldSanitize
+    Operation.InteractionMode = eimPrior
+    If Len(strError) > 0 Then
+        BenchmarkSanitize = strError
+    Else
+        BenchmarkSanitize = cOut.GetStr
+    End If
 
 End Function
 
