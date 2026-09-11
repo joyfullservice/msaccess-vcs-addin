@@ -109,6 +109,13 @@ past that point. Anthropic's Agent Skills specification independently lands in t
 same place, capping a `SKILL.md` body at roughly 500 lines and pushing detail into
 `references/`.
 
+The repository root file below is unusually dense with tables and links. Its
+150-line limit stopped tracking actual context cost: joining four link lines into
+one 282-character line bought three nominal lines without removing a token, while
+blank lines consumed budget at almost no cost. It therefore uses character budgets
+plus a prose wrap guard. The stable shipped entry and references retain line
+budgets because they are not exhibiting that failure mode.
+
 ---
 
 # Part 2 — This repository's own documentation
@@ -122,7 +129,9 @@ sheds.
 
 | File | Budget | Why |
 |---|---|---|
-| Root `AGENTS.md` | **150 lines** | Loaded every turn. It is a router, not a manual. |
+| Root `AGENTS.md`, excluding its routing section | **6,000 characters** | Always-loaded guidance gets dedicated headroom. `Resources` counts here. |
+| Root `AGENTS.md`, `Where to read next` | **2,400 characters and 20 data rows** | Routing can grow without evicting guidance, but remains bounded and scannable. |
+| Root `AGENTS.md`, prose line | **120 characters** | Prevents reflow gaming; tables and fenced code are exempt. |
 | Each `.cursor/rules/*.mdc` | **120 lines** | Auto-attached by glob; cheap only while short. |
 | Each `docs/*.md` | no limit | Read on demand by an agent that chose to. |
 
@@ -130,8 +139,9 @@ sheds.
 `docs/` link in the root `AGENTS.md` must resolve, and no `docs/*.md` may be
 orphaned from both the root `AGENTS.md` and the `docs/README.md` index.
 
-An addition that breaks a budget must remove something in the same edit, or move
-the content to `docs/`.
+An addition that breaks a content budget must move still-valid guidance to
+`docs/` in the same edit. Routing rows have their own budget and require no
+content eviction.
 
 ## Where it goes
 
@@ -158,6 +168,19 @@ another harness never sees them, but it will follow a link from `AGENTS.md`.
 - **New depth goes in `docs/`.** Add the file, add a routing-table row in the root
   `AGENTS.md` pointing at it, and add a row to the `docs/README.md` index.
   Unlinked documents are read in under 10% of sessions; linked ones in over 90%.
+
+## Prevent budget thrash
+
+- **Relocate still-valid budget evictions.** Guidance removed solely to make room
+  must land in a `docs/` file in the same edit. Delete material that is obsolete,
+  incorrect, or genuinely duplicated.
+- **Check history before re-adding.** Inspect current docs and relevant history
+  before adding to Invariants or Development workflow. Use
+  `git log -S"<phrase>" -- AGENTS.md` for exact wording and
+  `git log -p -- AGENTS.md` for paraphrased or rewritten guidance. If it was
+  relocated, link to its maintained home instead of inlining it again.
+- **Do not charge routing against content.** A new reference consumes routing
+  budget only; it does not require deleting always-loaded guidance.
 
 ## Do not duplicate across venues
 

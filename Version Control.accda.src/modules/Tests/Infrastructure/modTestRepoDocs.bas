@@ -4,9 +4,9 @@
 ' Author    : Adam Waller
 ' Date      : 8/6/2026
 ' Purpose   : Guard this repository's own agent-facing documentation. The root AGENTS.md
-'           : is loaded on every turn of every session here, so it is budgeted the same
-'           : way the shipped entry file is, and the Cursor rules are budgeted because a
-'           : glob-scoped rule is cheap only while it stays short.
+'           : is loaded on every turn of every session here, so its content and routing
+'           : table have separate cost budgets. Cursor rules retain line budgets because
+'           : a glob-scoped rule is cheap only while it stays short.
 '           :
 '           : The two structural checks cover silent failures: a broken docs/ link sends
 '           : an agent looking for a file that is not there, and a reference document no
@@ -20,37 +20,100 @@ Option Explicit
 Option Private Module
 '@Folder("Tests.Infrastructure")
 
-' Line budgets. See docs\agent-docs-maintenance.md for where these come from.
-Private Const MAX_ROOT_LINES As Long = 150
+' Cost budgets. See docs\agent-docs-maintenance.md for where these come from.
+Private Const MAX_ROOT_CONTENT_CHARS As Long = 6000
+Private Const MAX_ROUTING_ROWS As Long = 20
+Private Const MAX_ROUTING_CHARS As Long = 2400
+Private Const MAX_PROSE_LINE_CHARS As Long = 120
 Private Const MAX_RULE_LINES As Long = 120
 
 Private Const ROOT_ENTRY_FILE As String = "AGENTS.md"
 Private Const DOCS_FOLDER As String = "docs"
 Private Const DOCS_INDEX_FILE As String = "README.md"
 Private Const RULES_FOLDER As String = ".cursor\rules"
+Private Const ROUTING_HEADING As String = "## Where to read next"
 
 ' Marker that opens a markdown link target pointing into the docs folder
 Private Const DOCS_LINK_PREFIX As String = "](docs/"
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : TestRootAgentsFileWithinLineBudget
+' Procedure : TestRootAgentsFileWithinCostBudgets
 ' Author    : Adam Waller
 ' Date      : 8/6/2026
-' Purpose   : The root AGENTS.md is a router into docs\, not a manual. An addition that
-'           : breaks this budget must remove something or move content into docs\.
+' Purpose   : Keep always-loaded guidance bounded without making new routing rows evict
+'           : content. Character counts ignore line endings so reflow does not change cost.
 '---------------------------------------------------------------------------------------
 '
-Public Sub TestRootAgentsFileWithinLineBudget()
+Public Sub TestRootAgentsFileWithinCostBudgets()
 
-    Dim lngLines As Long
+    Dim strContent As String
+    Dim strRouting As String
+    Dim lngTotalLines As Long
+    Dim lngRoutingLines As Long
+    Dim lngContentChars As Long
+    Dim lngRoutingChars As Long
+    Dim lngRoutingRows As Long
 
     If Not RepoIsAvailable Then Exit Sub
 
-    lngLines = CountLines(RepoRootPath & ROOT_ENTRY_FILE)
-    TestAssert lngLines <= MAX_ROOT_LINES, _
-        ROOT_ENTRY_FILE & " is " & lngLines & " lines, over the " & _
-        MAX_ROOT_LINES & " line budget"
+    strContent = ReadFile(RepoRootPath & ROOT_ENTRY_FILE)
+    strRouting = GetMarkdownSection(strContent, ROUTING_HEADING)
+    lngTotalLines = CountTextLines(strContent)
+    lngRoutingLines = CountTextLines(strRouting)
+    lngContentChars = CountChars(strContent) - CountChars(strRouting)
+    lngRoutingChars = CountChars(strRouting)
+    lngRoutingRows = CountMarkdownDataRows(strRouting)
+
+    TestAssert lngContentChars <= MAX_ROOT_CONTENT_CHARS, _
+        ROOT_ENTRY_FILE & " content is " & lngContentChars & " chars across " & _
+        (lngTotalLines - lngRoutingLines) & " lines, over the " & _
+        MAX_ROOT_CONTENT_CHARS & "-char budget"
+    TestAssert lngRoutingChars <= MAX_ROUTING_CHARS, _
+        ROOT_ENTRY_FILE & " routing is " & lngRoutingChars & " chars across " & _
+        lngRoutingLines & " lines, over the " & MAX_ROUTING_CHARS & "-char budget"
+    TestAssert lngRoutingRows <= MAX_ROUTING_ROWS, _
+        ROOT_ENTRY_FILE & " routing has " & lngRoutingRows & " data rows across " & _
+        lngRoutingLines & " lines and " & lngRoutingChars & " chars, over the " & _
+        MAX_ROUTING_ROWS & "-row budget"
+
+    TestProseLineLengths strContent
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestProseLineLengths
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Keep prose reviewable. Tables and fenced code cannot be wrapped safely and
+'           : remain controlled by their section's character budget.
+'---------------------------------------------------------------------------------------
+'
+Private Sub TestProseLineLengths(strContent As String)
+
+    Dim varLines As Variant
+    Dim varLine As Variant
+    Dim lngLine As Long
+    Dim blnInCodeFence As Boolean
+    Dim strTrimmed As String
+
+    varLines = Split(NormalizeLineEndings(strContent), vbLf)
+
+    For Each varLine In varLines
+        lngLine = lngLine + 1
+        strTrimmed = Trim$(CStr(varLine))
+
+        If Left$(strTrimmed, 3) = "```" Then
+            blnInCodeFence = Not blnInCodeFence
+        ElseIf Not blnInCodeFence And Left$(strTrimmed, 1) <> "|" Then
+            If Len(CStr(varLine)) > MAX_PROSE_LINE_CHARS Then
+                TestAssert False, ROOT_ENTRY_FILE & " line " & lngLine & " is " & _
+                    Len(CStr(varLine)) & " chars, over the " & _
+                    MAX_PROSE_LINE_CHARS & "-char prose-line budget"
+            End If
+        End If
+    Next varLine
 
 End Sub
 
@@ -261,19 +324,111 @@ End Function
 '
 Private Function CountLines(strPath As String) As Long
 
-    Dim strContent As String
+    CountLines = CountTextLines(ReadFile(strPath))
 
-    strContent = ReadFile(strPath)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CountTextLines
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Count logical lines in content, ignoring one trailing newline.
+'---------------------------------------------------------------------------------------
+'
+Private Function CountTextLines(strContent As String) As Long
+
+    strContent = NormalizeLineEndings(strContent)
     If Len(strContent) = 0 Then Exit Function
 
-    ' Drop one trailing newline so a file ending in CRLF is not counted as having an
-    ' extra empty line at the end.
-    If Right$(strContent, 2) = vbCrLf Then
-        strContent = Left$(strContent, Len(strContent) - 2)
-    ElseIf Right$(strContent, 1) = vbLf Then
+    If Right$(strContent, 1) = vbLf Then
         strContent = Left$(strContent, Len(strContent) - 1)
     End If
 
-    CountLines = UBound(Split(Replace(strContent, vbCrLf, vbLf), vbLf)) + 1
+    CountTextLines = UBound(Split(strContent, vbLf)) + 1
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CountChars
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Measure visible content cost without charging for CR/LF representation.
+'---------------------------------------------------------------------------------------
+'
+Private Function CountChars(strContent As String) As Long
+
+    strContent = NormalizeLineEndings(strContent)
+    CountChars = Len(Replace(strContent, vbLf, vbNullString))
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetMarkdownSection
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Return one level-two Markdown section, including its heading.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetMarkdownSection(strContent As String, strHeading As String) As String
+
+    Dim lngStart As Long
+    Dim lngEnd As Long
+
+    strContent = NormalizeLineEndings(strContent)
+    lngStart = InStr(1, strContent, strHeading, vbBinaryCompare)
+    If lngStart = 0 Then Exit Function
+
+    lngEnd = InStr(lngStart + Len(strHeading), strContent, vbLf & "## ")
+    If lngEnd = 0 Then lngEnd = Len(strContent) + 1
+
+    GetMarkdownSection = Mid$(strContent, lngStart, lngEnd - lngStart)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CountMarkdownDataRows
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Count table rows after the header separator, excluding header and rule.
+'---------------------------------------------------------------------------------------
+'
+Private Function CountMarkdownDataRows(strContent As String) As Long
+
+    Dim varLines As Variant
+    Dim varLine As Variant
+    Dim strLine As String
+    Dim blnFoundSeparator As Boolean
+
+    varLines = Split(NormalizeLineEndings(strContent), vbLf)
+
+    For Each varLine In varLines
+        strLine = Trim$(CStr(varLine))
+        If Left$(strLine, 1) = "|" Then
+            If Not blnFoundSeparator Then
+                blnFoundSeparator = InStr(1, strLine, "---", vbBinaryCompare) > 0
+            Else
+                CountMarkdownDataRows = CountMarkdownDataRows + 1
+            End If
+        End If
+    Next varLine
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NormalizeLineEndings
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Normalize CRLF and bare CR so text helpers behave consistently.
+'---------------------------------------------------------------------------------------
+'
+Private Function NormalizeLineEndings(strContent As String) As String
+
+    strContent = Replace(strContent, vbCrLf, vbLf)
+    NormalizeLineEndings = Replace(strContent, vbCr, vbLf)
 
 End Function

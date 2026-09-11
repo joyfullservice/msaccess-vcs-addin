@@ -256,6 +256,15 @@ case worth preserving, follow the four-layer documentation pattern at
 
 ## Header and option conventions
 
+| Element | Convention | Example |
+| --- | --- | --- |
+| Modules, classes, interfaces, forms | `mod` / `cls` / `I` / `frm` | `modImportExport`, `clsDbForm`, `IDbComponent`, `frmVCSMain` |
+| Test modules and classes | `modTest` / `clsTest` | `modTestRoundtrip` |
+| Private module vars; UDT instance | `m_`; `this` | `m_Items`; `Private this As udtThis` |
+| Constants; enums | `UPPER_CASE` or `PascalCase`; `e` | `CHUNK_SIZE`; `eErrorLevel` |
+| Boolean / String / numeric params | `bln` / `str` / `lng` / `int` | `blnModifiedOnly`, `strFile` |
+| Dictionary / Collection / class object | `d` / `col` / `c` | `dFiles`, `colCategories`, `cDbObject` |
+
 Every module and class opens with a header block:
 
 ```vba

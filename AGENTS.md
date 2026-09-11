@@ -8,16 +8,18 @@ supports ADP projects and external SQL schema export. The add-in's own source
 lives in `Version Control.accda.src/`, exported by the add-in itself, so the
 repository is its own largest test case.
 
-This file loads on every turn and is budgeted at **150 lines**. Depth belongs in
-[docs/](docs/README.md); read [docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md) first.
+This file loads on every turn. Its content is budgeted at **6,000 characters**;
+the routing table has a separate 2,400-character / 20-row budget. Depth belongs
+in [docs/](docs/README.md); read
+[docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md) first.
 
 ## Where to read next
 
 | Working on | Read |
 |---|---|
-| Orienting; adding a component type; finding the class for an object type | [docs/architecture.md](docs/architecture.md) |
+| Naming or adding VBA components; finding the class for an object type | [docs/architecture.md](docs/architecture.md) |
 | Anything that changes exported file content or layout | [docs/export-format-versioning.md](docs/export-format-versioning.md) |
-| Diagnosing an error in a log file | [docs/error-handling.md](docs/error-handling.md) |
+| Writing a fallible procedure; diagnosing an error in a log | [docs/error-handling.md](docs/error-handling.md) |
 | Why an operation was slow; optimizing VBA performance | [docs/perf-diagnostics.md](docs/perf-diagnostics.md), [docs/perf-techniques.md](docs/perf-techniques.md) |
 | Inspecting a database's schema over MCP; a failing `vcs_run_vba` call | [docs/mcp-runvba.md](docs/mcp-runvba.md) |
 | Rebuilding the add-in unattended; a refused or stalled rebuild | [docs/agentic-rebuild.md](docs/agentic-rebuild.md) |
@@ -70,46 +72,11 @@ projects, or untranslatable UI.
  `LoadFromText`, and `vcs_import_object` aimed at `Version Control.accda` reset a
  VBA project that is currently executing, killing the MCP session and possibly
  leaving the add-in broken. Edit the source and rebuild ([docs/agentic-rebuild.md](docs/agentic-rebuild.md)).
-
-## Error handling
-
-Procedures opt into a structured inline pattern rather than relying on a
-top-level handler:
-
-```vba
-Public Sub SomeOperation()
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
-
-    ' ... operation code ...
-
-    CatchAny eelError, "Error description", ModuleName & ".SomeOperation", True, True
-    If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
-
-CleanUp:
-End Sub
-```
-
-`DebugMode(True)` reports whether debug mode is on and internally calls
-`LogUnhandledErrors`, which must run before any `On Error` directive because
-`On Error` silently clears `Err`. `CatchAny` logs and optionally clears; `Catch`
-tests for specific error numbers. A log entry reading ``Unhandled error, likely
-before `On Error` directive`` does **not** mean the error originated there — it
-came from whatever ran immediately before, which
-[docs/error-handling.md](docs/error-handling.md) explains how to trace.
-
-## Naming conventions
-
-| Element | Convention | Example |
-| --- | --- | --- |
-| Modules, classes, interfaces, forms | `mod` / `cls` / `I` / `frm` | `modImportExport`, `clsDbForm`, `IDbComponent`, `frmVCSMain` |
-| Test modules and classes | `modTest` / `clsTest` | `modTestRoundtrip` |
-| Private module vars; UDT instance | `m_`; `this` | `m_Items`; `Private this As udtThis` |
-| Constants; enums | `UPPER_CASE` or `PascalCase`; `e` | `CHUNK_SIZE`; `eErrorLevel` |
-| Boolean / String / numeric params | `bln` / `str` / `lng` / `int` | `blnModifiedOnly`, `strFile` |
-| Dictionary / Collection / class object | `d` / `col` / `c` | `dFiles`, `colCategories`, `cDbObject` |
-
-Every module opens with a header block and `Option Compare Database` /
-`Option Explicit`; [docs/architecture.md](docs/architecture.md) has the template.
+- **Use the structured inline error pattern** in procedures that can fail.
+  `DebugMode(True)` must run before any `On Error` directive because the
+  directive clears `Err`. “Unhandled error, likely before `On Error` directive”
+  describes an earlier error, not its origin. See
+  [docs/error-handling.md](docs/error-handling.md).
 
 ## Running tests
 
@@ -119,17 +86,6 @@ The installed copy under `%AppData%` is only ever loaded as a library, where it
 supplies the runner and `TestAssert`; hosting a run on it is refused. Nothing in
 `Testing/` hosts a run either, and an all-`EMPTY` result is a broken harness, not
 a pass. [docs/agent-test-runs.md](docs/agent-test-runs.md) covers the traps.
-
-`VCS.RunTests` takes filters resolved in priority order: module name, suite or
-`@Folder` value (exact or final segment), procedure or `Module.Procedure` key,
-then `'@Tag`. Prefix with `-` to exclude; inclusions OR, exclusions AND.
-
-```vba
-?VCS.RunTests("modTestEncoding")   ' One module (omit all filters to run everything)
-?VCS.RunTests("SQL", "-slow")      ' Run SQL suite, skip slow tests
-?VCS.RunTestsHeadless("-slow")     ' Unattended: no forms, always writes JUnit
-?VCS.RunRoundtripTests             ' Object round-trip fixture corpus
-```
 
 ## Key files in an export folder
 
@@ -147,4 +103,8 @@ then `'@Tag`. Prefix with `-` to exclude; inclusions OR, exclusions AND.
 budgets, own gate. Read [docs/agent-docs-maintenance.md](docs/agent-docs-maintenance.md) first.
 
 ## Resources
-[Repository](https://github.com/joyfullservice/msaccess-vcs-addin) · [Wiki](https://github.com/joyfullservice/msaccess-vcs-addin/wiki) · [Issues](https://github.com/joyfullservice/msaccess-vcs-addin/issues) · [Releases](https://github.com/joyfullservice/msaccess-vcs-addin/releases)
+
+[Repository](https://github.com/joyfullservice/msaccess-vcs-addin) ·
+[Wiki](https://github.com/joyfullservice/msaccess-vcs-addin/wiki) ·
+[Issues](https://github.com/joyfullservice/msaccess-vcs-addin/issues) ·
+[Releases](https://github.com/joyfullservice/msaccess-vcs-addin/releases)

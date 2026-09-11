@@ -8,7 +8,8 @@ this repo:
   Audience: end users learning to use the add-in.
 - **`AGENTS.md`** (root) — the always-loaded entry point for contributors
   and agents: workflow, invariants, and a routing table into this folder.
-  It is budgeted at 150 lines, so depth belongs here, not there.
+  Its content and routing table have separate character budgets, so depth
+  belongs here, not there.
 - **`Version Control.accda.src/AGENTS.md`** and its `vcs-agent-docs/`
   siblings — shipped into every user's export folder. A different
   audience and a separate set of rules; see

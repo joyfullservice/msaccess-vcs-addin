@@ -9,8 +9,8 @@ alwaysApply: false
 The canonical guide for *authoring* a test in the VCS add-in or any Access
 database using the VCS test runner. For the three testing layers, the round-trip
 fixture harness, and where results land, see
-[docs/testing-strategy.md](../../docs/testing-strategy.md); for `VCS.RunTests`
-filter syntax, [AGENTS.md](../../AGENTS.md); for the runner's web UI and bridge,
+[docs/testing-strategy.md](../../docs/testing-strategy.md); for running and filtering,
+[docs/agent-test-runs.md](../../docs/agent-test-runs.md); for the web UI and bridge,
 [docs/web-test-runner.md](../../docs/web-test-runner.md).
 
 Tests assert with `TestAssert condition, "optional context"`, a drop-in

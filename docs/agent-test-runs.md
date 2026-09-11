@@ -32,6 +32,22 @@ Headless means no add-in UI (no web runner, no console form, silent dialogs),
 not a hidden Access window. The host instance stays visible so a dialog or a
 VBA break is on screen.
 
+## Filtering a run
+
+`VCS.RunTests` resolves filters in this priority order: module name, suite or
+`@Folder` value (exact or final segment), procedure or `Module.Procedure` key,
+then `'@Tag`. Prefix with `-` to exclude; inclusions combine with OR and
+exclusions with AND.
+
+```vba
+?VCS.RunTests                              ' Run everything
+?VCS.RunTests("modTestEncoding")           ' Run one module
+?VCS.RunTests("SQL", "-slow")              ' Run one suite without slow tests
+?VCS.RunTests("TestParseJoinExpression")   ' Run one procedure
+?VCS.RunTestsHeadless("-slow")             ' Unattended; always writes JUnit
+?VCS.RunRoundtripTests                     ' Run the object round-trip corpus
+```
+
 `database_path` is the development copy in the repository — the `.accda` beside
 `Version Control.accda.src`. The runner scans `CurrentVBProject`, so whichever
 database hosts the run is the one whose tests are found: point a run at a user
@@ -91,8 +107,15 @@ Line budgets from [agent-docs-maintenance.md](agent-docs-maintenance.md) are wor
 confirming directly either way, since a count is cheaper than a run:
 
 ```powershell
-Get-ChildItem 'AGENTS.md','.cursor\rules\*.mdc' |
-    ForEach-Object { "{0,-24} {1}" -f $_.Name, (Get-Content $_.FullName).Count }
+$root = Get-Content 'AGENTS.md' -Raw
+$routing = [regex]::Match(
+    $root, '(?ms)^## Where to read next\r?\n.*?(?=^## )'
+).Value
+"content chars: {0}/6000" -f (($root.Replace($routing, '') -replace '\r?\n').Length)
+"routing chars: {0}/2400" -f (($routing -replace '\r?\n').Length)
+"routing rows: {0}/20" -f ([regex]::Matches($routing, '(?m)^\| ').Count - 1)
+Get-ChildItem '.cursor\rules\*.mdc' |
+    ForEach-Object { "{0,-24} {1}/120 lines" -f $_.Name, (Get-Content $_).Count }
 ```
 
 ## Reaching an already-open instance

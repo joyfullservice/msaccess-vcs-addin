@@ -83,6 +83,59 @@ contradictory guidance.
 
 ---
 
+## 2026-09-11 — Budget root agent guidance by cost and role
+
+**Trigger**: The root `AGENTS.md` repeatedly reached its enforced 150-line
+ceiling as new reference documents needed routing rows. The baseline file was
+150 lines and 8,650 visible characters, including 29 blank lines and a
+282-character resources line. Reflowing that line from four lines to one bought
+three nominal lines without reducing context cost. In another sequence, test
+examples were removed to fund guidance that was itself removed later. The
+routing table had also grown to 1,751 characters and 15 data rows as progressive
+disclosure added references.
+
+**Options explored**:
+- **Raise the line ceiling to 175**: Provides temporary room, but the file had
+  already pinned itself to each available ceiling (148–152 lines). It preserves
+  the incentive to join lines and makes routing compete with invariants.
+  Rejected.
+- **Count only non-blank lines**: Stops blank spacing from consuming budget and
+  retains an easy visual measure, but reflow still changes the result without
+  changing context cost. Rejected.
+- **Use one character ceiling for the whole file**: Better approximates context
+  cost, but every necessary routing row would still evict always-loaded
+  guidance. Rejected.
+- **Separate character budgets for content and routing**: Measures visible cost
+  independently for the two roles, while a row ceiling preserves router
+  scanability. Chosen.
+
+**Decision**: `modTestRepoDocs` enforces 6,000 visible characters for root
+content (everything outside `Where to read next`, including `Resources`) and
+2,400 characters plus 20 data rows for the routing section. CR/LF characters do
+not count. Non-table prose outside fenced code is capped at 120 characters per
+line for readable diffs; this guard is not the cost measure. Cursor rules retain
+their 120-line budget, and the stable shipped agent documents retain their
+existing line budgets.
+
+Still-valid guidance removed solely to meet the content budget must move into a
+linked `docs/` reference in the same change. Before restoring root guidance,
+contributors inspect the current docs and root-file history so relocated content
+is linked rather than copied back. Routing consumes only its own budget and does
+not require content eviction.
+
+**What this rules out**: Do not buy root-file space by joining lines, deleting
+still-valid instructions, or omitting a needed routing link. Revisit the numeric
+ceilings only if measured agent behavior or sustained routing growth shows that
+the separated budgets no longer preserve discoverability at reasonable context
+cost.
+
+**Relevant files**: `AGENTS.md`, `docs/agent-docs-maintenance.md`,
+`docs/architecture.md`, `docs/agent-test-runs.md`, `docs/README.md`,
+`.cursor/rules/repo-docs.mdc`, `.cursor/rules/testing.mdc`,
+`Version Control.accda.src/modules/Tests/Infrastructure/modTestRepoDocs.bas`.
+
+---
+
 ## 2026-09-11 — The T() path must not use the DebugMode(True) branch
 
 **Trigger**: A compile error anywhere in the add-in makes `qryTranslatedStrings`
@@ -102,11 +155,16 @@ fixing.
   Error Resume Next` pattern and rely on `CatchAny` below it. Rejected:
   that is what already shipped (2026-08-18) and still breaks, because
   `On Error GoTo 0` means `CatchAny` is never reached.
-- Call `LogUnhandledErrors`, then `SuppressErrorBreaks` + `On Error Resume
-  Next`, and restore the counter on every exit (chosen). Preserves the
-  trap for errors that arrived from the caller; makes this procedure
-  incapable of breaking on its own work. Same treatment for `SaveString`,
-  which opens `tblStrings` for the same reason.
+- Call `SuppressErrorBreaks`, then `LogUnhandledErrors` + `On Error Resume
+  Next`, and restore the counter on every exit (chosen for `LoadLanguage`).
+  Reports an error that arrived from the caller without allowing that report
+  to enter break mode, then makes the procedure incapable of breaking on its
+  own work.
+- Same incoming-error trap in `SaveString`. Rejected after it `Stop`ped
+  in practice: `T()` is called from inside other procedures that may
+  already have a pending `Err`, and that leftover is not an unhandled
+  error in `SaveString`. `SaveString` suppresses first and does not call
+  `LogUnhandledErrors`.
 
 **Decision**: `LoadLanguage` and `SaveString` are an exception to the
 project-wide `DebugMode(True)` pattern. They always resume, log at
@@ -114,14 +172,15 @@ project-wide `DebugMode(True)` pattern. They always resume, log at
 `T()` only caches a new string when `SaveString` returns a real ID, so a
 failed write is retried rather than recorded as known. The suppression
 counter is balanced on every exit so Break On Error is not silently
-disabled for the rest of the session.
+disabled for the rest of the session. `LoadLanguage` still reports incoming
+errors after suppression; `SaveString` does not, because it sits under `T()`.
 
 **What this rules out**: Restoring `If DebugMode(True) Then On Error GoTo 0`
 in the `T()` path as a "consistency" fix. Breaking on a translation-table
 open that failed because something else does not compile.
 
 **Relevant files**: `clsTranslation.cls`, `modErrorHandling.bas`,
-`modTestTranslation.bas`.
+`modTestErrorHandling.bas`.
 
 ---
 

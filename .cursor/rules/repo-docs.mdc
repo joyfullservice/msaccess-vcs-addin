@@ -14,7 +14,10 @@ These files are read by contributors and agents working in *this* repo. The root
 
 Budgets, enforced by `modTestRepoDocs`:
 
-- Root `AGENTS.md` — **150 lines**. It is a router, not a manual.
+- Root `AGENTS.md` content — **6,000 characters**, including `Resources` but
+  excluding `Where to read next`.
+- Root routing table — **2,400 characters and 20 data rows**.
+- Root prose lines — **120 characters**; tables and fenced code are exempt.
 - Each `.cursor/rules/*.mdc` — **120 lines**.
 - Every `docs/*.md` must be reachable from the root `AGENTS.md` routing table,
   from a rule, or from the `docs/README.md` index. Orphaned docs fail the test.
