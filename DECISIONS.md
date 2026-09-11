@@ -83,6 +83,48 @@ contradictory guidance.
 
 ---
 
+## 2026-09-11 — The T() path must not use the DebugMode(True) branch
+
+**Trigger**: A compile error anywhere in the add-in makes `qryTranslatedStrings`
+fail with error 3085 (`Undefined function 'Len' in expression`). `T()` is
+called from everywhere, so `LoadLanguage` is on the path of the first
+translated string after that failure. With Break On Error enabled it opted
+into `On Error GoTo 0`, the 3085 escaped past `CatchAny`, and execution
+stopped in blocking break mode — hiding the compile error that needed
+fixing.
+
+**Options explored**:
+- Add a handler in `T()` / `CheckInit` so a 3085 from `LoadLanguage` cannot
+  unwind into calling code. Rejected as treating the symptom: the failure
+  is never actionable in the translation loader, so it should not raise at
+  all.
+- Keep the project-wide `If DebugMode(True) Then On Error GoTo 0 Else On
+  Error Resume Next` pattern and rely on `CatchAny` below it. Rejected:
+  that is what already shipped (2026-08-18) and still breaks, because
+  `On Error GoTo 0` means `CatchAny` is never reached.
+- Call `LogUnhandledErrors`, then `SuppressErrorBreaks` + `On Error Resume
+  Next`, and restore the counter on every exit (chosen). Preserves the
+  trap for errors that arrived from the caller; makes this procedure
+  incapable of breaking on its own work. Same treatment for `SaveString`,
+  which opens `tblStrings` for the same reason.
+
+**Decision**: `LoadLanguage` and `SaveString` are an exception to the
+project-wide `DebugMode(True)` pattern. They always resume, log at
+`eelNoError`, and continue untranslated (or return 0 from `SaveString`).
+`T()` only caches a new string when `SaveString` returns a real ID, so a
+failed write is retried rather than recorded as known. The suppression
+counter is balanced on every exit so Break On Error is not silently
+disabled for the rest of the session.
+
+**What this rules out**: Restoring `If DebugMode(True) Then On Error GoTo 0`
+in the `T()` path as a "consistency" fix. Breaking on a translation-table
+open that failed because something else does not compile.
+
+**Relevant files**: `clsTranslation.cls`, `modErrorHandling.bas`,
+`modTestTranslation.bas`.
+
+---
+
 ## 2026-09-11 — Unsubdivided spans and position-free axes are solvable, not underdetermined
 
 **Trigger**: A private production export logged `Form geometry: skipped 4/4

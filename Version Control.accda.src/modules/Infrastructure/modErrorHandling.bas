@@ -62,6 +62,18 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ErrorBreakSuppressionDepth
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Return the nesting depth for diagnostics and balance tests.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get ErrorBreakSuppressionDepth() As Long
+    ErrorBreakSuppressionDepth = this.lngSuppressBreaks
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DebugMode
 ' Author    : Adam Waller
 ' Date      : 4/14/2023

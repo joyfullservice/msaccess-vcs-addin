@@ -63,6 +63,16 @@ Public Sub TestCatch_NoError()
 End Sub
 
 
+Public Sub TestTranslationLoadLanguageBalancesErrorBreaks()
+    Dim lngBefore As Long
+
+    lngBefore = ErrorBreakSuppressionDepth
+    Translation.SetLanguage Translation.GetCurrentLanguage
+    TestAssert ErrorBreakSuppressionDepth = lngBefore, _
+        "LoadLanguage restores the exact break-suppression depth"
+End Sub
+
+
 Public Sub TestEffectiveVbeErrorTrappingFloor1()
     TestAssert EffectiveVbeErrorTrapping(eetBreakOnAllErrors, eetBreakInClassModule) = eetBreakInClassModule, _
         "floor 1 raises 0 to 1"

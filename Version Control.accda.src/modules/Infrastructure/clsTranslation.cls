@@ -73,6 +73,7 @@ Public Function T(strText As String, Optional strReference As String, _
 
     Dim strNew As String
     Dim strKey As String
+    Dim lngId As Long
 
     ' Skip processing if no value is passed
     If strText = vbNullString Then Exit Function
@@ -99,8 +100,11 @@ Public Function T(strText As String, Optional strReference As String, _
             ' as a new string in our translation database.
         Else
             ' Add to master list of strings (no translation exists)
-            this.dStrings.Add strKey, SaveString(strText, strReference, strContext, strComments)
-            this.dTranslated.Add strText, vbNullString
+            lngId = SaveString(strText, strReference, strContext, strComments)
+            If lngId > 0 Then
+                this.dStrings.Add strKey, lngId
+                this.dTranslated.Add strText, vbNullString
+            End If
         End If
     End If
 
@@ -541,8 +545,20 @@ Private Function SaveString(strText As String, strReference As String, _
     Dim dbs As Database
     Dim rst As Recordset
 
+    ' T() is called from inside other procedures that may already have a pending
+    ' Err. LogUnhandledErrors would treat that as unhandled and Stop here when
+    ' Break On Error is on, so suppress first and do not trap incoming errors.
+    ' Opening tblStrings fails for the same compile-error reason LoadLanguage
+    ' does; this procedure must not break on that either.
+    SuppressErrorBreaks
+    On Error Resume Next
+
     Set dbs = CodeDb
     Set rst = dbs.OpenRecordset("tblStrings")
+    If CatchAny(eelNoError, "Unable to open string table", _
+        ModuleName(Me) & ".SaveString", True, True, True) Or rst Is Nothing Then
+        GoTo CleanUp
+    End If
 
     With rst
         .AddNew
@@ -555,6 +571,14 @@ Private Function SaveString(strText As String, strReference As String, _
         SaveString = !Id
         .Close
     End With
+
+    If CatchAny(eelNoError, "Unable to save language string", _
+        ModuleName(Me) & ".SaveString", True, True, True) Then
+        SaveString = 0
+    End If
+
+CleanUp:
+    RestoreErrorBreaks
 
 End Function
 
@@ -615,8 +639,14 @@ Private Sub LoadLanguage(strLanguage As String)
     Set this.dTranslation = New Dictionary
     Set this.dTranslated = New Dictionary
 
-    ' Use inline error handling with debug mode check
-    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    ' Make this procedure incapable of breaking, then report anything that arrived from
+    ' the caller. A failure below usually means a compile error elsewhere in the add-in
+    ' stopped Access evaluating the query's expressions -- not a translation problem.
+    ' Breaking would stop on a call T() makes from everywhere, unattended runs included,
+    ' and hide the compile error that needs fixing.
+    SuppressErrorBreaks
+    LogUnhandledErrors
+    On Error Resume Next
 
     ' Load strings and translations
     Set dbs = CodeDb
@@ -632,7 +662,7 @@ Private Sub LoadLanguage(strLanguage As String)
     If CatchAny(eelNoError, "Unable to load language strings", _
         ModuleName(Me) & ".LoadLanguage", True, True, True) Or rst Is Nothing Then
         this.blnLoadFailed = True
-        Exit Sub
+        GoTo CleanUp
     End If
 
     With rst
@@ -658,7 +688,7 @@ Private Sub LoadLanguage(strLanguage As String)
     If CatchAny(eelNoError, "Unable to load all language strings", _
         ModuleName(Me) & ".LoadLanguage", True, True, True) Then
         this.blnLoadFailed = True
-        Exit Sub
+        GoTo CleanUp
     End If
 
     ' Reload the ribbon to reflect any translation changes there.
@@ -671,6 +701,9 @@ Private Sub LoadLanguage(strLanguage As String)
 
     CatchAny eelNoError, "Error reloading ribbon translations", _
         ModuleName(Me) & ".LoadLanguage", True, True, True
+
+CleanUp:
+    RestoreErrorBreaks
 
 End Sub
 
