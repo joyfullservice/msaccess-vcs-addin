@@ -207,19 +207,6 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : PropertyIsSettable
-' Author    : bclothier
-' Date      : 8/24/2026
-' Purpose   : Determine whether a DAO.Property can actually be assigned, by attempting
-'           : to write its own current value back unchanged. Some built-in Database
-'           : properties (RecordsAffected, ReplicaID, Transactions, Updatable,
-'           : DesignMasterID, and possibly others) are read-only despite appearing in
-'           : the Properties collection like any ordinary, settable property -- DAO
-'           : raises a real, catchable error on any write attempt to these, which this
-'           : function reports as False rather than letting it propagate.
-'---------------------------------------------------------------------------------------
-'
-'---------------------------------------------------------------------------------------
 ' Procedure : CoercePropertyValueType
 ' Author    : bclothier
 ' Date      : 8/24/2026
@@ -256,6 +243,19 @@ Private Function CoercePropertyValueType(varRawValue As Variant, lngDaoType As V
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : PropertyIsSettable
+' Author    : bclothier
+' Date      : 8/24/2026
+' Purpose   : Determine whether a DAO.Property can actually be assigned, by attempting
+'           : to write its own current value back unchanged. Some built-in Database
+'           : properties (RecordsAffected, ReplicaID, Transactions, Updatable,
+'           : DesignMasterID, and possibly others) are read-only despite appearing in
+'           : the Properties collection like any ordinary, settable property -- DAO
+'           : raises a real, catchable error on any write attempt to these, which this
+'           : function reports as False rather than letting it propagate.
+'---------------------------------------------------------------------------------------
+'
 Private Function PropertyIsSettable(prpToCheck As DAO.Property) As Boolean
 
     Dim varCurrent As Variant
