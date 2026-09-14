@@ -129,6 +129,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     Dim dHeader As Dictionary
     Dim dJsonProps As Dictionary
     Dim dJsonColumns As Dictionary
+    Dim dDescriptionProperty As Dictionary
     Dim varKey As Variant
     Dim dFieldProps As Dictionary
     Dim dPropEntry As Dictionary
@@ -303,6 +304,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     ' Option flag. Before 5.1.0 this is the raw Attribute 3 bitmask.
     ' From 5.1.0 the emitted SQL is authoritative for every modifier it can
     ' carry, so the companion just restates what the .sql already says.
+    Perf.OperationStart "Query JSON Option Flag"
     Dim lngOptionFlag As Long
     Dim lngAttr3 As Long
     lngAttr3 = 0
@@ -313,7 +315,8 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
         End If
     Next dR
     If Options.ExportFormatVersion >= EFV_5_1_0 And Not blnIsPassThrough Then
-        lngOptionFlag = ExportOptionFlagFromSql(strSql)
+        lngOptionFlag = cComposer.ReconstructedOptionFlag
+        If lngOptionFlag < 0 Then lngOptionFlag = ExportOptionFlagFromSql(strSql)
     Else
         lngOptionFlag = lngAttr3
         If lngOptionFlag <> 0 And IsImplicitSelectStarOption(colRows, lngOptionFlag) Then
@@ -323,6 +326,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     If lngOptionFlag <> 0 Then
         dItems.Add "OptionFlag", lngOptionFlag
     End If
+    Perf.OperationEnd
 
     ' Connection string (with env: substitution)
     If Len(strConnect) > 0 Then
@@ -362,14 +366,21 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     End If
 
     ' Design layout (only for Design View queries)
+    Perf.OperationStart "Query JSON Layout"
     If Not dLayout Is Nothing Then
         If dLayout.Count > 0 Then
             dItems.Add "DesignLayout", ConvertLayoutForJson(dLayout)
         End If
     End If
+    Perf.OperationEnd
 
     ' Collect document properties (Description, Hidden)
-    CollectObjectMetadata dItems, "Tables", strQueryName, acQuery
+    Perf.OperationStart "Query JSON Metadata"
+    If dJsonProps.Exists("Description") Then
+        Set dDescriptionProperty = dJsonProps("Description")
+    End If
+    CollectObjectMetadata dItems, "Tables", strQueryName, acQuery, True, dDescriptionProperty
+    Perf.OperationEnd
 
     ' Build the full JSON structure
     Set dHeader = New Dictionary

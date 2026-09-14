@@ -442,6 +442,8 @@ Public Sub TestReconstructSQL_InjectsDistinctAt510()
     strResult = m_qc.ReconstructSQL(colRows)
     TestAssert InStr(1, strResult, "DISTINCT", vbTextCompare) > 0, _
         "5.1.0 ReconstructSQL injects DISTINCT from Attribute 3"
+    TestAssert m_qc.ReconstructedOptionFlag = -1, _
+        "raw SQL retains the parse-required option sentinel"
 
     Options.ExportFormatVersion = EFV_5_0_0
     strResult = m_qc.ReconstructSQL(colRows)
@@ -449,6 +451,198 @@ Public Sub TestReconstructSQL_InjectsDistinctAt510()
         "5.0.0 ReconstructSQL leaves raw Attribute 0 SQL unchanged"
 
     Options.ExportFormatVersion = lngSaved
+End Sub
+
+
+Public Sub TestReconstructedOptionFlag_GeneratedSelect()
+    Dim colRows As Collection
+    Dim strResult As String
+
+    Set colRows = DesignedSelectWithOptions(55, True)
+    strResult = m_qc.ReconstructSQL(colRows)
+    TestAssert m_qc.ReconstructedOptionFlag = 55, _
+        "generated SELECT reports every modifier it emitted"
+
+    Set colRows = DesignedSelectWithOptions(55, False)
+    strResult = m_qc.ReconstructSQL(colRows)
+    TestAssert m_qc.ReconstructedOptionFlag = 54, _
+        "generated bare star is omitted from the companion option flag"
+End Sub
+
+
+Public Sub TestReconstructedOptionFlag_UnsetUntilReconstructed()
+    Dim cFresh As clsQueryComposer
+
+    Set cFresh = New clsQueryComposer
+    TestAssert cFresh.ReconstructedOptionFlag = -1, _
+        "a composer that has not reconstructed reports the parse-required sentinel"
+
+    cFresh.DecomposeSQL "SELECT DISTINCT a FROM t1"
+    TestAssert cFresh.ReconstructedOptionFlag = -1, _
+        "decomposing alone emits no SQL, so the sentinel stands"
+
+    cFresh.ReconstructSQL DesignedSelectWithOptions(2, True)
+    TestAssert cFresh.ReconstructedOptionFlag = 2, _
+        "reconstruction replaces the sentinel with the emitted bits"
+
+    cFresh.DecomposeSQL "SELECT a FROM t1"
+    TestAssert cFresh.ReconstructedOptionFlag = -1, _
+        "a later decompose clears the stale reconstruction result"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestReconstructedOptionFlag_MatchesExportParse
+' Author    : Adam Waller
+' Date      : 9/14/2026
+' Purpose   : Deterministic query export takes the companion OptionFlag from the bits
+'           : ReconstructSQL reports rather than from a parse of the SQL it emitted.
+'           : Those two readings must agree for every generated shape -- when they
+'           : diverge, the .json contradicts the .sql beside it and import warns about
+'           : a stale companion. ReconstructedOptionBits mirrors the emitter's grammar
+'           : by hand, so this pins the invariant: a change to either side fails here
+'           : instead of silently writing a wrong flag.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestReconstructedOptionFlag_MatchesExportParse()
+
+    Dim lngSaved As Long
+
+    lngSaved = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+
+    ' SELECT carries every SQL-representable modifier
+    AssertFlagMatchesExportParse OptionShapeRows(1, 0), "SELECT"
+    AssertFlagMatchesExportParse OptionShapeRows(1, 2), "SELECT DISTINCT"
+    AssertFlagMatchesExportParse OptionShapeRows(1, 8), "SELECT DISTINCTROW"
+    AssertFlagMatchesExportParse OptionShapeRows(1, 16, "5"), "SELECT TOP n"
+    AssertFlagMatchesExportParse OptionShapeRows(1, 48, "5"), "SELECT TOP n PERCENT"
+    AssertFlagMatchesExportParse OptionShapeRows(1, 4), "SELECT with OWNERACCESS"
+    AssertFlagMatchesExportParse OptionShapeRows(1, 1), "explicit star beside a named column"
+    AssertFlagMatchesExportParse OptionShapeRows(1, 1, , False), "bare star"
+    AssertFlagMatchesExportParse OptionShapeRows(1, 55, "5"), "every SELECT modifier at once"
+
+    ' A TOP bit with no row count emits no TOP, so neither reading may claim one
+    AssertFlagMatchesExportParse OptionShapeRows(1, 16), "TOP bit without a row count"
+
+    ' Shapes that deliberately drop bit 1 because they never emit a second star
+    AssertFlagMatchesExportParse OptionShapeRows(2, 3), "make-table keeps DISTINCT only"
+    AssertFlagMatchesExportParse OptionShapeRows(3, 3), "append keeps DISTINCT only"
+
+    ' Action queries express DISTINCTROW and OWNERACCESS but never DISTINCT or TOP
+    AssertFlagMatchesExportParse OptionShapeRows(4, 8), "UPDATE DISTINCTROW"
+    AssertFlagMatchesExportParse OptionShapeRows(4, 12), "UPDATE DISTINCTROW with OWNERACCESS"
+    AssertFlagMatchesExportParse OptionShapeRows(5, 8, , False), "DELETE DISTINCTROW"
+
+    ' UNION reuses bit 1 for ALL, and never emits OWNERACCESS
+    AssertFlagMatchesExportParse OptionShapeRows(9, 1), "UNION ALL"
+    AssertFlagMatchesExportParse OptionShapeRows(9, 3), "UNION"
+    AssertFlagMatchesExportParse OptionShapeRows(9, 7), "UNION drops an OWNERACCESS bit it cannot emit"
+
+    Options.ExportFormatVersion = lngSaved
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AssertFlagMatchesExportParse
+' Author    : Adam Waller
+' Date      : 9/14/2026
+' Purpose   : Reconstruct the given MSysQueries rows, then assert the reported option
+'           : bits equal what the reference path would read back out of that SQL.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AssertFlagMatchesExportParse(colRows As Collection, ByVal strContext As String)
+
+    Dim cComposer As clsQueryComposer
+    Dim strSql As String
+    Dim lngReported As Long
+    Dim lngParsed As Long
+
+    Set cComposer = New clsQueryComposer
+    cComposer.ContextLabel = "clsTestQueryComposer"
+    strSql = cComposer.ReconstructSQL(colRows)
+    lngReported = cComposer.ReconstructedOptionFlag
+
+    TestAssert lngReported >= 0, strContext & ": generated SQL reports its emitted bits"
+
+    lngParsed = ExportOptionBits(strSql)
+    TestAssert lngReported = lngParsed, strContext & ": reported " & CStr(lngReported) & _
+        " matches parsed " & CStr(lngParsed)
+
+End Sub
+
+
+' Reference reading of a .sql file's option bits, matching clsDbQuery.ExportOptionFlagFromSql.
+Private Function ExportOptionBits(ByVal strSql As String) As Long
+
+    Dim cOpt As clsQueryComposer
+
+    Set cOpt = New clsQueryComposer
+    cOpt.DecomposeSQL strSql
+    ExportOptionBits = cOpt.ParsedOptionFlag And cOpt.SqlRepresentableOptionBits
+    If cOpt.ImplicitOutputAllFields Then ExportOptionBits = ExportOptionBits And Not 1
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OptionShapeRows
+' Author    : Adam Waller
+' Date      : 9/14/2026
+' Purpose   : Minimal designed-query rows (no Attribute 0 raw SQL) for one operation and
+'           : option mask, so ReconstructSQL takes its generating path.
+'---------------------------------------------------------------------------------------
+'
+Private Function OptionShapeRows(ByVal lngOperation As Long, ByVal lngOption As Long, _
+    Optional ByVal strTopN As String = vbNullString, _
+    Optional ByVal blnNamedField As Boolean = True) As Collection
+
+    Dim colRows As Collection
+    Set colRows = New Collection
+
+    ' Attribute 1 Name1 is the target table for make-table and append queries
+    AddShapeRow colRows, 1, lngOperation, vbNullString, _
+        IIf(lngOperation = 2 Or lngOperation = 3, "t2", vbNullString), vbNullString
+    AddShapeRow colRows, 3, lngOption, vbNullString, strTopN, vbNullString
+
+    If lngOperation = 9 Then
+        ' UNION segments live in Attribute 5 Expression
+        AddShapeRow colRows, 5, 0, "SELECT a FROM t1", vbNullString, vbNullString
+        AddShapeRow colRows, 5, 0, "SELECT b FROM t2", vbNullString, vbNullString
+    Else
+        AddShapeRow colRows, 5, 0, vbNullString, "t1", vbNullString
+        If blnNamedField Then
+            Select Case lngOperation
+                Case 4  ' SET <Name2> = <Expression>
+                    AddShapeRow colRows, 6, 0, "1", vbNullString, "a"
+                Case 3  ' INSERT INTO t2 (<Name2>) SELECT <Expression>
+                    AddShapeRow colRows, 6, 0, "t1.a", vbNullString, "a"
+                Case Else
+                    AddShapeRow colRows, 6, 0, "t1.a", vbNullString, vbNullString
+            End Select
+        End If
+    End If
+
+    Set OptionShapeRows = colRows
+
+End Function
+
+
+Private Sub AddShapeRow(colRows As Collection, ByVal lngAttribute As Long, _
+    ByVal lngFlag As Long, ByVal strExpression As String, _
+    ByVal strName1 As String, ByVal strName2 As String)
+
+    Dim dRow As Dictionary
+
+    Set dRow = New Dictionary
+    dRow.Add "Attribute", lngAttribute
+    dRow.Add "Flag", lngFlag
+    dRow.Add "Expression", strExpression
+    dRow.Add "Name1", strName1
+    dRow.Add "Name2", strName2
+    colRows.Add dRow
+
 End Sub
 
 
@@ -534,6 +728,52 @@ End Function
 '
 Private Function RawSelectWithOption(ByVal lngOption As Long) As Collection
     Set RawSelectWithOption = RawSqlWithOption("SELECT a FROM t1", lngOption)
+End Function
+
+
+Private Function DesignedSelectWithOptions(ByVal lngOption As Long, _
+                                           ByVal blnNamedField As Boolean) As Collection
+
+    Dim colRows As Collection
+    Dim dRow As Dictionary
+
+    Set colRows = New Collection
+
+    Set dRow = New Dictionary
+    dRow.Add "Attribute", 1
+    dRow.Add "Flag", 1
+    dRow.Add "Expression", vbNullString
+    dRow.Add "Name1", vbNullString
+    dRow.Add "Name2", vbNullString
+    colRows.Add dRow
+
+    Set dRow = New Dictionary
+    dRow.Add "Attribute", 3
+    dRow.Add "Flag", lngOption
+    dRow.Add "Expression", vbNullString
+    dRow.Add "Name1", "5"
+    dRow.Add "Name2", vbNullString
+    colRows.Add dRow
+
+    Set dRow = New Dictionary
+    dRow.Add "Attribute", 5
+    dRow.Add "Flag", 0
+    dRow.Add "Expression", vbNullString
+    dRow.Add "Name1", "t1"
+    dRow.Add "Name2", vbNullString
+    colRows.Add dRow
+
+    If blnNamedField Then
+        Set dRow = New Dictionary
+        dRow.Add "Attribute", 6
+        dRow.Add "Flag", 0
+        dRow.Add "Expression", "t1.a"
+        dRow.Add "Name1", vbNullString
+        dRow.Add "Name2", vbNullString
+        colRows.Add dRow
+    End If
+
+    Set DesignedSelectWithOptions = colRows
 End Function
 
 

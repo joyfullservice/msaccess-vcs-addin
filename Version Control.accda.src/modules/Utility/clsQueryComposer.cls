@@ -59,6 +59,10 @@ Private m_syntax As clsSqlSyntax        ' Pure SQL token/identifier parsing core
 Private m_strContextLabel As String     ' Query name for export-path warning context
 Private m_dParamTypes As Dictionary     ' DAO data type -> canonical PARAMETERS keyword
 Private m_dParamFlags As Dictionary     ' PARAMETERS keyword -> DAO data type
+' Option bits the last ReconstructSQL wrote into generated SQL. -1 means the caller
+' must parse the SQL instead: either no reconstruction has run, or the query kept its
+' raw Attribute 0 text, which can carry modifiers the option row never recorded.
+Private m_lngReconstructedOptionFlag As Long
 
 ' Access does not store 0 for a declared parameter -- an untyped "Value" parameter is
 ' recorded as dbText -- but a zero flag is used as the fallback for an unknown type.
@@ -73,6 +77,7 @@ Private Const OPTION_BITS_FROM_SQL As Long = 63
 Private Sub Class_Initialize()
     Set m_syntax = New clsSqlSyntax
     Set m_colParameters = New Collection
+    m_lngReconstructedOptionFlag = -1
 End Sub
 
 
@@ -111,6 +116,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     Set m_colWarnings = New Collection
+    m_lngReconstructedOptionFlag = -1
 
     Dim dRow As Dictionary
     Dim dTbl As Dictionary
@@ -278,6 +284,8 @@ Public Function ReconstructSQL(colRows As Collection) As String
     ' Check if this is a crosstab query (operation 6 = TRANSFORM)
     Dim blnIsCrosstab As Boolean
     blnIsCrosstab = (lngOperation = 6)
+    m_lngReconstructedOptionFlag = ReconstructedOptionBits( _
+        lngOperation, lngOption, lngTopN, blnTopPercent, colFields.Count)
 
     ' Build SQL from decomposed structure
     cSql.AppendOnAdd = vbNullString
@@ -467,6 +475,52 @@ Public Function ReconstructSQL(colRows As Collection) As String
 CleanUp:
     CatchAny eelError, "Error reconstructing SQL (" & colRows.Count & " rows). " & SqlSnippet(), _
         ModuleName(Me) & ".ReconstructSQL"
+
+End Function
+
+
+' Return the Attribute 3 bits that ReconstructSQL writes into generated SQL.
+' Raw SQL keeps the -1 sentinel because it can contain modifiers not present in
+' the MSysQueries option row and must still be parsed after reconstruction.
+Private Function ReconstructedOptionBits(ByVal lngOperation As Long, _
+                                         ByVal lngOption As Long, _
+                                         ByVal lngTopN As Long, _
+                                         ByVal blnTopPercent As Boolean, _
+                                         ByVal lngFieldCount As Long) As Long
+
+    Dim lngBits As Long
+
+    Select Case lngOperation
+        Case 1, 2, 3, 6
+            If (lngOption And 8) <> 0 Then
+                lngBits = lngBits Or 8
+            ElseIf (lngOption And 2) <> 0 Then
+                lngBits = lngBits Or 2
+            End If
+            If lngTopN > 0 Then
+                lngBits = lngBits Or 16
+                If blnTopPercent Then lngBits = lngBits Or 32
+            End If
+            ' ReconstructSQL emits an explicit `, *` only for SELECT queries
+            ' that also have named output columns. A bare generated `*` is
+            ' self-describing and is intentionally omitted from OptionFlag.
+            If lngOperation = 1 And lngFieldCount > 0 And (lngOption And 1) <> 0 Then
+                lngBits = lngBits Or 1
+            End If
+
+        Case 4, 5
+            If (lngOption And 8) <> 0 Then lngBits = lngBits Or 8
+
+        Case 9
+            If (lngOption And 2) = 0 Then
+                lngBits = 1
+            Else
+                lngBits = 3
+            End If
+    End Select
+
+    If lngOperation <> 9 And (lngOption And 4) <> 0 Then lngBits = lngBits Or 4
+    ReconstructedOptionBits = lngBits
 
 End Function
 
@@ -2258,6 +2312,7 @@ Private Sub ResetState()
     m_blnIsDDL = False
     m_blnRequiresDesignView = False
     Set m_colWarnings = New Collection
+    m_lngReconstructedOptionFlag = -1
 End Sub
 
 
@@ -4526,6 +4581,10 @@ End Property
 
 Public Property Get ParsedOptionFlag() As Long
     ParsedOptionFlag = m_lngOption
+End Property
+
+Public Property Get ReconstructedOptionFlag() As Long
+    ReconstructedOptionFlag = m_lngReconstructedOptionFlag
 End Property
 
 Public Property Get OutputColumnCount() As Long

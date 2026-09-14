@@ -920,6 +920,280 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BenchmarkJsonSerialization
+' Author    : Adam Waller
+' Date      : 9/14/2026
+' Purpose   : Interleave the retained reference serializer and optimized serializer
+'           : against a representative nested payload. Reports the minimum round so
+'           : desktop contention does not become a claimed speedup.
+'---------------------------------------------------------------------------------------
+'
+Public Function BenchmarkJsonSerialization(Optional lngRounds As Long = 5) As String
+
+    Dim cOut As clsConcat
+    Dim dPayload As Dictionary
+
+    If lngRounds < 1 Then lngRounds = 1
+    Set dPayload = BuildJsonBenchmarkPayload()
+    Set cOut = New clsConcat
+
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add "JSON SERIALIZATION BENCHMARK", vbCrLf
+    cOut.Add "  Rounds: ", CStr(lngRounds), " (interleaved; minimum reported)", vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    AddJsonPayloadBenchmark cOut, "Synthetic nested payload (compact)", _
+        dPayload, False, lngRounds
+    AddJsonPayloadBenchmark cOut, "Synthetic nested payload (pretty)", _
+        dPayload, True, lngRounds
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+    BenchmarkJsonSerialization = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BenchmarkJsonCorpus
+' Author    : Adam Waller
+' Date      : 9/14/2026
+' Purpose   : Parse exported JSON files outside the timed region, then compare aggregate
+'           : reference and optimized serialization without printing any object names.
+'---------------------------------------------------------------------------------------
+'
+Public Function BenchmarkJsonCorpus(strFolder As String, _
+    Optional lngRounds As Long = 3, Optional lngLimit As Long = 0) As String
+
+    Dim cOut As clsConcat
+    Dim dFiles As Dictionary
+    Dim dPayload As Dictionary
+    Dim colPayloads As Collection
+    Dim varPath As Variant
+    Dim lngChars As Long
+    Dim lngDiffers As Long
+    Dim strReference As String
+    Dim strOptimized As String
+
+    If lngRounds < 1 Then lngRounds = 1
+    If Not FSO.FolderExists(strFolder) Then
+        BenchmarkJsonCorpus = "JSON corpus folder does not exist."
+        Exit Function
+    End If
+
+    Set dFiles = ScanFolderMetadata(strFolder, True)
+    Set colPayloads = New Collection
+    For Each varPath In dFiles.Keys
+        If StrComp(FSO.GetExtensionName(CStr(varPath)), "json", vbTextCompare) = 0 Then
+            Set dPayload = ReadJsonFile(CStr(varPath))
+            If Not dPayload Is Nothing Then
+                colPayloads.Add dPayload
+                strReference = modJsonConverter.ConvertToJsonReference(dPayload, JSON_WHITESPACE)
+                strOptimized = ConvertToJson(dPayload, JSON_WHITESPACE)
+                lngChars = lngChars + Len(strOptimized)
+                If StrComp(strReference, strOptimized, vbBinaryCompare) <> 0 Then
+                    lngDiffers = lngDiffers + 1
+                End If
+                If lngLimit > 0 Then
+                    If colPayloads.Count >= lngLimit Then Exit For
+                End If
+            End If
+        End If
+    Next varPath
+
+    Set cOut = New clsConcat
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    cOut.Add "JSON CORPUS BENCHMARK", vbCrLf
+    cOut.Add "  Files:   ", CStr(colPayloads.Count), vbCrLf
+    cOut.Add "  Chars:   ", CStr(lngChars), vbCrLf
+    cOut.Add "  Differs: ", CStr(lngDiffers), vbCrLf
+    cOut.Add "  Rounds:  ", CStr(lngRounds), " (interleaved; minimum reported)", vbCrLf
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+    AddJsonCorpusBenchmark cOut, colPayloads, lngRounds
+    cOut.Add String$(clngLineWidth, "-"), vbCrLf
+
+    BenchmarkJsonCorpus = cOut.GetStr
+
+End Function
+
+
+Private Function BuildJsonBenchmarkPayload() As Dictionary
+
+    Dim dRoot As Dictionary
+    Dim dInfo As Dictionary
+    Dim dItems As Dictionary
+    Dim dItem As Dictionary
+    Dim dColumns As Dictionary
+    Dim dColumn As Dictionary
+    Dim colTags As Collection
+    Dim lngItem As Long
+    Dim lngColumn As Long
+
+    Set dRoot = New Dictionary
+    Set dInfo = New Dictionary
+    Set dItems = New Dictionary
+    dInfo.Add "Class", "clsDbExample"
+    dInfo.Add "Description", "Representative nested JSON payload"
+    dRoot.Add "Info", dInfo
+    dRoot.Add "Items", dItems
+
+    For lngItem = 1 To 100
+        Set dItem = New Dictionary
+        Set dColumns = New Dictionary
+        Set colTags = New Collection
+        dItem.Add "Name", "Item " & Format$(lngItem, "000")
+        dItem.Add "Description", String$(96, Chr$(64 + ((lngItem - 1) Mod 26) + 1))
+        dItem.Add "Enabled", (lngItem Mod 2 = 0)
+        dItem.Add "Ordinal", lngItem
+        colTags.Add "metadata"
+        colTags.Add "export"
+        dItem.Add "Tags", colTags
+
+        For lngColumn = 1 To 8
+            Set dColumn = New Dictionary
+            dColumn.Add "Name", "Column " & CStr(lngColumn)
+            dColumn.Add "Type", 10&
+            dColumn.Add "Size", 255&
+            dColumn.Add "Required", (lngColumn Mod 2 = 0)
+            dColumns.Add "Column" & CStr(lngColumn), dColumn
+        Next lngColumn
+        dItem.Add "Columns", dColumns
+        dItems.Add "Item" & Format$(lngItem, "000"), dItem
+    Next lngItem
+
+    Set BuildJsonBenchmarkPayload = dRoot
+
+End Function
+
+
+Private Sub AddJsonPayloadBenchmark(cOut As clsConcat, ByVal strLabel As String, _
+    dPayload As Dictionary, ByVal blnPretty As Boolean, ByVal lngRounds As Long)
+
+    Dim lngRound As Long
+    Dim dblReference As Double
+    Dim dblOptimized As Double
+    Dim dblReferenceMin As Double
+    Dim dblOptimizedMin As Double
+    Dim strReference As String
+    Dim strOptimized As String
+
+    strReference = SerializeJsonVariant(dPayload, blnPretty, False)
+    strOptimized = SerializeJsonVariant(dPayload, blnPretty, True)
+    cOut.Add strLabel, vbCrLf
+    cOut.Add "  chars: ", CStr(Len(strOptimized)), _
+        "; byte-identical: ", CStr(StrComp(strReference, strOptimized, vbBinaryCompare) = 0), vbCrLf
+
+    For lngRound = 1 To lngRounds
+        If lngRound Mod 2 = 1 Then
+            dblReference = TimeJsonPayload(dPayload, blnPretty, False)
+            dblOptimized = TimeJsonPayload(dPayload, blnPretty, True)
+        Else
+            dblOptimized = TimeJsonPayload(dPayload, blnPretty, True)
+            dblReference = TimeJsonPayload(dPayload, blnPretty, False)
+        End If
+        KeepMinimum dblReferenceMin, dblReference
+        KeepMinimum dblOptimizedMin, dblOptimized
+    Next lngRound
+
+    AddJsonTiming cOut, dblReferenceMin, dblOptimizedMin
+
+End Sub
+
+
+Private Sub AddJsonCorpusBenchmark(cOut As clsConcat, colPayloads As Collection, _
+    ByVal lngRounds As Long)
+
+    Dim lngRound As Long
+    Dim dblReference As Double
+    Dim dblOptimized As Double
+    Dim dblReferenceMin As Double
+    Dim dblOptimizedMin As Double
+
+    For lngRound = 1 To lngRounds
+        If lngRound Mod 2 = 1 Then
+            dblReference = TimeJsonCorpus(colPayloads, False)
+            dblOptimized = TimeJsonCorpus(colPayloads, True)
+        Else
+            dblOptimized = TimeJsonCorpus(colPayloads, True)
+            dblReference = TimeJsonCorpus(colPayloads, False)
+        End If
+        KeepMinimum dblReferenceMin, dblReference
+        KeepMinimum dblOptimizedMin, dblOptimized
+    Next lngRound
+
+    AddJsonTiming cOut, dblReferenceMin, dblOptimizedMin
+
+End Sub
+
+
+Private Function SerializeJsonVariant(ByVal varPayload As Variant, _
+    ByVal blnPretty As Boolean, ByVal blnOptimized As Boolean) As String
+
+    If blnOptimized Then
+        If blnPretty Then
+            SerializeJsonVariant = ConvertToJson(varPayload, JSON_WHITESPACE)
+        Else
+            SerializeJsonVariant = ConvertToJson(varPayload)
+        End If
+    Else
+        If blnPretty Then
+            SerializeJsonVariant = modJsonConverter.ConvertToJsonReference(varPayload, JSON_WHITESPACE)
+        Else
+            SerializeJsonVariant = modJsonConverter.ConvertToJsonReference(varPayload)
+        End If
+    End If
+
+End Function
+
+
+Private Function TimeJsonPayload(ByVal varPayload As Variant, _
+    ByVal blnPretty As Boolean, ByVal blnOptimized As Boolean) As Double
+
+    Dim dblStart As Double
+    Dim strJunk As String
+
+    dblStart = MicroSeconds
+    strJunk = SerializeJsonVariant(varPayload, blnPretty, blnOptimized)
+    TimeJsonPayload = MicroSeconds - dblStart
+
+End Function
+
+
+Private Function TimeJsonCorpus(colPayloads As Collection, _
+    ByVal blnOptimized As Boolean) As Double
+
+    Dim dPayload As Dictionary
+    Dim dblStart As Double
+    Dim strJunk As String
+
+    dblStart = MicroSeconds
+    For Each dPayload In colPayloads
+        strJunk = SerializeJsonVariant(dPayload, True, blnOptimized)
+    Next dPayload
+    TimeJsonCorpus = MicroSeconds - dblStart
+
+End Function
+
+
+Private Sub KeepMinimum(ByRef dblMinimum As Double, ByVal dblCandidate As Double)
+    If dblMinimum = 0 Or dblCandidate < dblMinimum Then dblMinimum = dblCandidate
+End Sub
+
+
+Private Sub AddJsonTiming(cOut As clsConcat, ByVal dblReference As Double, _
+    ByVal dblOptimized As Double)
+
+    Dim dblReduction As Double
+
+    If dblReference > 0 Then
+        dblReduction = (dblReference - dblOptimized) / dblReference
+    End If
+    cOut.Add "  reference seconds: ", Format$(dblReference, "0.000"), vbCrLf
+    cOut.Add "  optimized seconds: ", Format$(dblOptimized, "0.000"), vbCrLf
+    cOut.Add "  elapsed reduction: ", Format$(dblReduction, "0.0%"), vbCrLf
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : AddPhase
 ' Author    : Adam Waller
 ' Date      : 9/9/2026

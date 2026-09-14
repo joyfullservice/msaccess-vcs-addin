@@ -55,6 +55,55 @@ format gate, compare against `git show HEAD:<path>` rather than the working tree
 (4.3×) when early binding alone was bisected out of the canonicalizer probe.
 Harness: `modTestPerf.BenchmarkFormGeometry`.
 
+### Avoid TypeName and per-character escaping in JSON serialization
+
+**Prefer:** dispatch known object nodes with `TypeOf value Is Dictionary` /
+`TypeOf value Is Collection`. Before escaping a string, scan its UTF-16 bytes for
+characters that actually require escaping and return the original string when none
+are present.
+
+**Why:** `TypeName()` on a live `Scripting.Dictionary` measured about 410 µs, so
+nested metadata trees can spend most of their serialization time identifying nodes.
+The original encoder also allocated a one-character string and appended it to a
+buffer for every character, even though most keys and values contain no escapes.
+The byte scan falls back to that established encoder on the first quote, backslash,
+configured solidus, control character, or Unicode character that options require it
+to escape.
+
+**Measured (interleaved, minimum-of-rounds):** a 75 KB compact synthetic tree dropped
+from **386 ms to 17 ms** and its 144 KB pretty form from **389 ms to 19 ms**. A
+4,960-file, 6.23-million-character exported JSON corpus dropped from **22.97 s to
+1.54 s** (**93.3%**) with **0 byte differences**. Harnesses:
+`modTestPerf.BenchmarkJsonSerialization` and `BenchmarkJsonCorpus`.
+
+In two user-run full exports, the serializer call count matched at 6,165 and dropped
+from **116.09 s to 52.40 s** (**54.9% raw**). Unchanged operations indicate that the
+second run was generally 11-17% faster. Normalizing by those controls puts the
+serializer improvement at **46-49% (about 48%)**, an attributable saving of roughly
+44-51 s, or 7.8-9.0% of the baseline export's total runtime. Use the interleaved
+harness above for causal comparison; use these normalized figures for realistic
+end-to-end expectations.
+
+### Reuse query state already parsed during deterministic export
+
+**Prefer:** derive companion `OptionFlag` bits from the `clsQueryComposer` that
+reconstructed generated SQL, falling back to a SQL parse only for raw-SQL queries.
+Likewise, reuse the Description property already parsed from `MSysObjects.LvProp`
+instead of rereading it through DAO. Retain the DAO path when
+`SaveAllDocumentProperties` requests a deep property scan.
+
+**Why:** deterministic query export already has both sources in memory. Reparsing
+every formatted SQL statement and reopening every DAO document repeats substantial
+work inside the `Write JSON` phase.
+
+**Measured:** across a 3,752-query production corpus, option-flag work dropped from
+**15.71 s to 0.11 s** and metadata collection from **10.68 s to 0.29 s**. The
+non-serialization portion of `Write JSON` fell from **27.22 s to 1.16 s** (**95.7%
+raw, about 95.9% normalized**); matched controls were 3-5% slower in the final run.
+Reference and optimized exports produced the same fingerprint across all 3,752 JSON
+files. Applied to the prior user-run full export, this predicts roughly 56 s saved,
+or 12.5% of that run; confirm that extrapolation with another full export.
+
 ### Use typed String() line buffers and cache bounds in hot loops
 
 **Prefer:** assign `Split` to a typed `String()` array. Keep it local when one

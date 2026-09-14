@@ -688,7 +688,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub CollectObjectMetadata(dItems As Dictionary, strContainerName As String, _
-                                 strObjectName As String, intObjType As AcObjectType)
+                                 strObjectName As String, intObjType As AcObjectType, _
+                                 Optional ByVal blnUsePreloadedDescription As Boolean = False, _
+                                 Optional dPreloadedDescription As Dictionary = Nothing)
 
     Dim dProps As Dictionary
     Dim dProp As Dictionary
@@ -729,6 +731,16 @@ Public Sub CollectObjectMetadata(dItems As Dictionary, strContainerName As Strin
         Next prp
         CatchAny eelError, "Error reading document properties for " & strObjectName, _
             ModuleName & ".CollectObjectMetadata"
+    ElseIf blnUsePreloadedDescription Then
+        ' Deterministic query export has already parsed the same Description from
+        ' MSysObjects.LvProp. Reuse it instead of making a second DAO document call.
+        If Not dPreloadedDescription Is Nothing Then
+            Set dProp = New Dictionary
+            dProp.CompareMode = TextCompare
+            dProp.Add "Type", dPreloadedDescription("Type")
+            dProp.Add "Value", dPreloadedDescription("Value")
+            dProps.Add "Description", dProp
+        End If
     Else
         ' Fast path: only check for Description property
         LogUnhandledErrors

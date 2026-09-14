@@ -113,3 +113,34 @@ Public Sub TestSidecarClassGating()
     Options.ExportFormatVersion = lngSaved
 
 End Sub
+
+
+Public Sub TestCollectObjectMetadataUsesPreloadedDescription()
+
+    Dim blnSaved As Boolean
+    Dim dItems As Dictionary
+    Dim dDescription As Dictionary
+    Dim dExported As Dictionary
+
+    blnSaved = Options.SaveAllDocumentProperties
+    Options.SaveAllDocumentProperties = False
+
+    Set dItems = New Dictionary
+    Set dDescription = New Dictionary
+    dDescription.Add "Type", dbText
+    dDescription.Add "Value", "Preloaded description"
+
+    CollectObjectMetadata dItems, "Modules", "modTestAssert", acModule, True, dDescription
+    Set dExported = dItems("Properties")("Description")
+
+    TestAssert dExported("Type") = dbText, "preloaded Description type preserved"
+    TestAssert dExported("Value") = "Preloaded description", _
+        "preloaded Description value preserved"
+
+    dDescription("Value") = "Changed after collection"
+    TestAssert dExported("Value") = "Preloaded description", _
+        "export metadata owns a copy of the preloaded property"
+
+    Options.SaveAllDocumentProperties = blnSaved
+
+End Sub
