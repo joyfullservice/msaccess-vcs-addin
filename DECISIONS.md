@@ -83,6 +83,55 @@ contradictory guidance.
 
 ---
 
+## 2026-09-15 — Optional interface batches full-build metadata finalization
+
+**Trigger**: A full build of a large project called DAO
+`Container.Documents.Refresh` 603 times, consuming 30.80 seconds of a 443.03-second
+build. `ImportObjectMetadata` refreshed immediately before applying each object's
+Description or custom document properties. The refresh is required because the
+long-lived `SharedDb` collection does not see newly created objects, but repeating
+the whole collection refresh for every metadata-bearing object is unnecessary when
+a full build already processes complete categories.
+
+**Options explored**:
+- **Keep immediate metadata finalization for every import** — simple and correct,
+  but refresh cost grows with the number of described objects.
+- **Skip refreshes under a global batch flag** — rejected because metadata would
+  still be applied against a stale collection; the application and index update
+  must both be deferred.
+- **Add batch methods to `IDbComponent`** — rejected because component types that
+  cannot batch would need empty interface stubs.
+- **Branch on every concrete class in `modBuild`** — workable, but duplicates
+  capability knowledge in the orchestrator.
+- **Add optional `IDbBatchImport` (chosen)** — six metadata-bearing component
+  classes opt in, while the universal component contract stays unchanged.
+
+**Decision**: Full builds call `IDbBatchImport.ImportFast` for every source file,
+then `FinalizeImports` once per category. Each implementation queues only successful
+structural imports, refreshes its DAO container once, rebinds each object, applies
+metadata with `blnSkipDocumentsRefresh:=True`, and records the final metadata hash
+and source-file index entry. Modules retain their existing two-pass save behavior.
+Tables and queries deliberately refresh the shared `Tables` container once per
+category rather than deferring table finalization across category boundaries.
+Merge, bootstrap, and single-object imports continue through immediate
+`IDbComponent.Import` / `Merge`. A self-rebuild with the batch-aware add-in
+recorded five `Refresh Documents` calls (the five participating categories that
+had source files) and 0.01 seconds in that operation; the large-project baseline
+must be rerun separately to measure end-to-end savings under the original load.
+
+**What this rules out**: Do not suppress `Documents.Refresh` without a real second
+pass. Do not use the batch interface for merge/export-after-merge unless its
+immediate finalization contract is redesigned. A whole-build metadata queue is not
+worth delaying category-local index and error handling for one fewer `Tables`
+refresh.
+
+**Relevant files**: `IDbBatchImport.cls`, `modBuild.bas`,
+`modLoadSaveText.bas`, `clsDbModule.cls`, `clsDbTableDef.cls`, `clsDbQuery.cls`,
+`clsDbForm.cls`, `clsDbMacro.cls`, `clsDbReport.cls`,
+`modTestBatchImport.bas`.
+
+---
+
 ## 2026-09-14 — Reuse reconstructed query state when writing companion JSON
 
 **Trigger**: After generic JSON serialization was optimized, a user-run full export
@@ -5182,6 +5231,10 @@ add-in is rebuilt. Gated at `EFV_5_0_0` (v5 unreleased).
 ---
 
 ## 2026-06-23 — Full-build module import: two-pass ImportFast + FinalizeImports
+
+> **⚠ Partially superseded** (2026-09-15): `IDbBatchImport` became worthwhile
+> once the same two-pass finalization applied to six component classes. See
+> "Optional interface batches full-build metadata finalization" above.
 
 **Trigger**: Full builds on module-heavy projects spend ~85% of the `Modules`
 category time in the per-file tail (save, `DoEvents`, `AllModules` retry,

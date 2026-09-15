@@ -35,6 +35,7 @@ End Type
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -217,6 +218,11 @@ Public Sub ImportFast(strFile As String)
 End Sub
 
 
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+    ImportFast strFile
+End Sub
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : FinalizeImports
 ' Author    : Adam Waller
@@ -256,9 +262,7 @@ Public Sub FinalizeImports()
     SaveAllBatchModules FunctionName
     If Operation.ErrorLevel >= eelCritical Then GoTo FinalizeCleanUp
 
-    Perf.OperationStart "Refresh Documents"
-    SharedDb.Containers("Modules").Documents.Refresh
-    Perf.OperationEnd
+    RefreshContainerDocuments "Modules"
 
     For Each varItem In m_colBatchItems
         Set dBatch = varItem
@@ -272,6 +276,11 @@ FinalizeCleanUp:
 
     CatchAny eelError, T("Error finalizing module imports"), FunctionName
 
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+    FinalizeImports
 End Sub
 
 

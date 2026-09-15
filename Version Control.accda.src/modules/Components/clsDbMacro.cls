@@ -21,12 +21,14 @@ Option Explicit
 Private m_Macro As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
+Private m_colBatchItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -60,19 +62,73 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim blnImportCheck As Boolean
     Dim strName As String
 
-    ' Only import files with the correct extension.
-    If Not (strFile Like "*.macro" Or strFile Like "*.bas") Then Exit Sub
+    If Not ImportMacroStructure(strFile, strName) Then Exit Sub
+    FinalizeOneMacro strFile, strName
+
+End Sub
+
+
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+
+    Dim strName As String
+    Dim dBatch As Dictionary
+
+    If Not ImportMacroStructure(strFile, strName) Then Exit Sub
+    If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
+
+    Set dBatch = New Dictionary
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    m_colBatchItems.Add dBatch
+
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+
+    If m_colBatchItems Is Nothing Then Exit Sub
+    If m_colBatchItems.Count = 0 Then
+        Set m_colBatchItems = Nothing
+        Exit Sub
+    End If
+
+    RefreshContainerDocuments "Scripts"
+
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        FinalizeOneMacro CStr(dBatch("File")), CStr(dBatch("Name")), True
+        If Operation.ErrorLevel = eelCritical Then Exit For
+    Next varItem
+
+    Set m_colBatchItems = Nothing
+
+End Sub
+
+
+Private Function ImportMacroStructure(strFile As String, ByRef strName As String) As Boolean
+
+    If Not (strFile Like "*.macro" Or strFile Like "*.bas") Then Exit Function
 
     strName = GetObjectNameFromFileName(strFile)
-    blnImportCheck = LoadComponentFromText(acMacro, strName, strFile)
-    If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
-    Set m_Macro = CurrentProject.AllMacros(strName)
+    If Not LoadComponentFromText(acMacro, strName, strFile) Then Exit Function
+    If Operation.ErrorLevel = eelCritical Then Exit Function
 
-    ' Apply object metadata (doc properties + hidden attribute) from companion .json
-    ImportObjectMetadata SwapExtension(strFile, "json"), "Scripts", strName, acMacro
+    ImportMacroStructure = True
+
+End Function
+
+
+Private Sub FinalizeOneMacro(strFile As String, strName As String, _
+    Optional blnSkipDocumentsRefresh As Boolean = False)
+
+    Set m_Macro = CurrentProject.AllMacros(strName)
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Scripts", strName, acMacro, _
+        blnSkipDocumentsRefresh:=blnSkipDocumentsRefresh
 
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
         strMetaHash:=GetMetadataHash("Scripts", strName, acMacro)

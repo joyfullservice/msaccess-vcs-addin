@@ -97,7 +97,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Dim blnPrepared As Boolean
     Dim lngCount As Long
     Dim lngCurrent As Long
-    Dim cModule As clsDbModule
+    Dim cBatch As IDbBatchImport
     Dim strRootToken As String
 
     LogUnhandledErrors FunctionName
@@ -517,22 +517,23 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         TraceInPlaceMerge "merge: " & cCategory.Category & " (" & lngCount & " files)"
 
         ' Loop through each file in this category.
-        If blnFullBuild And cCategory.ComponentType = edbModule Then
+        If blnFullBuild And TypeOf cCategory Is IDbBatchImport Then
 
-            Set cModule = cCategory
+            Set cBatch = cCategory
 
             For Each varFile In dFiles.Keys
                 lngCurrent = lngCurrent + 1
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 Log.Progress lngCurrent, lngCount, FSO.GetFileName(varFile)
                 Operation.Pulse
-                cModule.ImportFast CStr(varFile)
+                cBatch.ImportFast CStr(varFile)
                 CatchAny eelError, T("Build error in: {0}", var0:=varFile), FunctionName, True, True
                 If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
             Next varFile
 
-            cModule.FinalizeImports
-            CatchAny eelError, T("Build error finalizing modules"), FunctionName, True, True
+            cBatch.FinalizeImports
+            CatchAny eelError, T("Build error finalizing {0}", _
+                var0:=LCase$(cCategory.Category)), FunctionName, True, True
             If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
 
         Else

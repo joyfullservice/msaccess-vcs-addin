@@ -931,6 +931,29 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RefreshContainerDocuments
+' Author    : Adam Waller
+' Date      : 9/15/2026
+' Purpose   : Refresh one DAO container's Documents collection, preserving the shared
+'           : performance operation used by immediate and batched metadata imports.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RefreshContainerDocuments(strContainerName As String)
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Perf.OperationStart "Refresh Documents"
+    SharedDb.Containers(strContainerName).Documents.Refresh
+    Perf.OperationEnd
+
+    CatchAny eelError, T("Error refreshing database documents for {0}", _
+        var0:=strContainerName), ModuleName & ".RefreshContainerDocuments"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ImportObjectMetadata
 ' Author    : Adam Waller
 ' Date      : 3/12/2026
@@ -966,9 +989,7 @@ Public Sub ImportObjectMetadata(strJsonFile As String, strContainerName As Strin
     ' Apply document properties
     If dItems.Exists("Properties") Then
         If Not blnSkipDocumentsRefresh Then
-            Perf.OperationStart "Refresh Documents"
-            dbs.Containers(strContainerName).Documents.Refresh
-            Perf.OperationEnd
+            RefreshContainerDocuments strContainerName
         End If
         Set dProps = dItems("Properties")
         For Each varProp In dProps.Keys

@@ -22,12 +22,14 @@ Private m_Form As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_strSourceFile As String
+Private m_colBatchItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -97,12 +99,68 @@ Private Sub IDbComponent_Import(strFile As String)
 
     Dim strName As String
     Dim blnStage As Boolean
-    Dim blnImportCheck As Boolean
+
+    If Not ImportFormStructure(strFile, strName, blnStage) Then
+        If blnStage Then RestoreMainForm
+        Exit Sub
+    End If
+
+    FinalizeOneForm strFile, strName
+
+    If blnStage Then RestoreMainForm
+
+End Sub
+
+
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+
+    Dim strName As String
+    Dim blnStage As Boolean
+    Dim blnImported As Boolean
+    Dim dBatch As Dictionary
+
+    blnImported = ImportFormStructure(strFile, strName, blnStage)
+    If blnStage Then RestoreMainForm
+    If Not blnImported Then Exit Sub
+
+    If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
+    Set dBatch = New Dictionary
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    m_colBatchItems.Add dBatch
+
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+
+    If m_colBatchItems Is Nothing Then Exit Sub
+    If m_colBatchItems.Count = 0 Then
+        Set m_colBatchItems = Nothing
+        Exit Sub
+    End If
+
+    RefreshContainerDocuments "Forms"
+
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        FinalizeOneForm CStr(dBatch("File")), CStr(dBatch("Name")), True
+        If Operation.ErrorLevel = eelCritical Then Exit For
+    Next varItem
+
+    Set m_colBatchItems = Nothing
+
+End Sub
+
+
+Private Function ImportFormStructure(strFile As String, ByRef strName As String, _
+    ByRef blnStage As Boolean) As Boolean
 
     m_strSourceFile = vbNullString
-
-    ' Only import files with the correct extension.
-    If Not (strFile Like "*.form" Or strFile Like "*.bas") Then Exit Sub
+    If Not (strFile Like "*.form" Or strFile Like "*.bas") Then Exit Function
 
     strName = GetObjectNameFromFileName(strFile)
 
@@ -111,7 +169,7 @@ Private Sub IDbComponent_Import(strFile As String)
         If FormSourceRequiresEdgeControl(strFile) Then
             Log.Error eelWarning, T("Skipped importing form '{0}': this Access version lacks the Edge browser control it requires. Test-runner UI will be unavailable.", var0:=strName), _
                 ModuleName(Me) & ".Import"
-            Exit Sub
+            Exit Function
         End If
     End If
 
@@ -124,20 +182,25 @@ Private Sub IDbComponent_Import(strFile As String)
         End If
     End If
 
-    ' Load the form from the source file
-    blnImportCheck = LoadComponentFromText(acForm, strName, strFile)
-    If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
-    Set m_Form = CurrentProject.AllForms(strName)
+    If Not LoadComponentFromText(acForm, strName, strFile) Then Exit Function
+    If Operation.ErrorLevel = eelCritical Then Exit Function
 
-    ' Apply object metadata (doc properties + hidden attribute) from companion .json
-    ImportObjectMetadata SwapExtension(strFile, "json"), "Forms", strName, acForm
+    ImportFormStructure = True
+
+End Function
+
+
+Private Sub FinalizeOneForm(strFile As String, strName As String, _
+    Optional blnSkipDocumentsRefresh As Boolean = False)
+
+    m_strSourceFile = strFile
+    Set m_Form = CurrentProject.AllForms(strName)
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Forms", strName, acForm, _
+        blnSkipDocumentsRefresh:=blnSkipDocumentsRefresh
 
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
         GetCodeModuleHash(IDbComponent_ComponentType, strName), _
         strMetaHash:=GetMetadataHash("Forms", strName, acForm)
-
-    ' Restore main form if staged
-    If blnStage Then RestoreMainForm
 
 End Sub
 
