@@ -249,7 +249,8 @@ End Function
 Public Function FindTopLevelKeyword(strSql As String, strKeyword As String) As Long
     Dim lngPos As Long
     Dim lngDepth As Long
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
     Dim blnInBracket As Boolean
     Dim strUpper As String
     Dim strKeyUpper As String
@@ -260,18 +261,28 @@ Public Function FindTopLevelKeyword(strSql As String, strKeyword As String) As L
     For lngPos = 1 To Len(strUpper) - Len(strKeyUpper) + 1
         Select Case Mid$(strUpper, lngPos, 1)
             Case """"
-                If Not blnInBracket Then blnInString = Not blnInString
+                If Not blnInSingle And Not blnInBracket Then
+                    blnInDouble = Not blnInDouble
+                End If
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then
+                    blnInSingle = Not blnInSingle
+                End If
             Case "["
-                If Not blnInString Then blnInBracket = True
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
             Case "]"
-                If Not blnInString Then blnInBracket = False
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
             Case "("
-                If Not blnInString And Not blnInBracket Then lngDepth = lngDepth + 1
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+                    lngDepth = lngDepth + 1
+                End If
             Case ")"
-                If Not blnInString And Not blnInBracket Then lngDepth = lngDepth - 1
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+                    lngDepth = lngDepth - 1
+                End If
         End Select
 
-        If Not blnInString And Not blnInBracket And lngDepth = 0 Then
+        If Not blnInDouble And Not blnInSingle And Not blnInBracket And lngDepth = 0 Then
             If Mid$(strUpper, lngPos, Len(strKeyUpper)) = strKeyUpper Then
                 If Left$(strKeyUpper, 1) = " " Then
                     FindTopLevelKeyword = lngPos
@@ -369,7 +380,9 @@ End Function
 Public Function FindTopLevelKeywordFrom(strSql As String, strKeyword As String, lngStart As Long) As Long
     Dim lngPos As Long
     Dim lngDepth As Long
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
+    Dim blnInBracket As Boolean
     Dim strUpper As String
     Dim strKeyUpper As String
 
@@ -379,14 +392,28 @@ Public Function FindTopLevelKeywordFrom(strSql As String, strKeyword As String, 
     For lngPos = lngStart To Len(strUpper) - Len(strKeyUpper) + 1
         Select Case Mid$(strUpper, lngPos, 1)
             Case """"
-                blnInString = Not blnInString
+                If Not blnInSingle And Not blnInBracket Then
+                    blnInDouble = Not blnInDouble
+                End If
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then
+                    blnInSingle = Not blnInSingle
+                End If
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
             Case "("
-                If Not blnInString Then lngDepth = lngDepth + 1
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+                    lngDepth = lngDepth + 1
+                End If
             Case ")"
-                If Not blnInString Then lngDepth = lngDepth - 1
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+                    lngDepth = lngDepth - 1
+                End If
         End Select
 
-        If Not blnInString And lngDepth = 0 Then
+        If Not blnInDouble And Not blnInSingle And Not blnInBracket And lngDepth = 0 Then
             If Mid$(strUpper, lngPos, Len(strKeyUpper)) = strKeyUpper Then
                 FindTopLevelKeywordFrom = lngPos
                 Exit Function
@@ -399,17 +426,31 @@ End Function
 Public Function FindMatchingParen(strExpr As String, lngStart As Long) As Long
     Dim lngPos As Long
     Dim lngDepth As Long
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
+    Dim blnInBracket As Boolean
 
     lngDepth = 0
     For lngPos = lngStart To Len(strExpr)
         Select Case Mid$(strExpr, lngPos, 1)
             Case """"
-                blnInString = Not blnInString
+                If Not blnInSingle And Not blnInBracket Then
+                    blnInDouble = Not blnInDouble
+                End If
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then
+                    blnInSingle = Not blnInSingle
+                End If
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
             Case "("
-                If Not blnInString Then lngDepth = lngDepth + 1
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+                    lngDepth = lngDepth + 1
+                End If
             Case ")"
-                If Not blnInString Then
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
                     lngDepth = lngDepth - 1
                     If lngDepth = 0 Then
                         FindMatchingParen = lngPos

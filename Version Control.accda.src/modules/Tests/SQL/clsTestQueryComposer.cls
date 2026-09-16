@@ -53,6 +53,53 @@ Public Sub TestDecomposeAndReconstruct_WithJoin()
 End Sub
 
 
+Public Sub TestDesignViewQdef_PreservesSingleQuotedLiteralSpacing()
+    Dim strSql As String
+    Dim strQdef As String
+
+    strSql = "SELECT 'left  -  right' AS DashText, " & _
+        "'left = right' AS EqualText, 'it''s ""A - B""' AS EscapedText FROM tbl1"
+    m_qc.DecomposeSQL strSql
+    strQdef = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+
+    TestAssert InStr(1, strQdef, _
+        "Expression =""'left  -  right'""", vbBinaryCompare) > 0, _
+        "spaces around dash and repeated spaces survive Design View compaction"
+    TestAssert InStr(1, strQdef, _
+        "Expression =""'left = right'""", vbBinaryCompare) > 0, _
+        "spaces around equals survive Design View compaction"
+    TestAssert InStr(1, strQdef, "A - B", vbBinaryCompare) > 0, _
+        "double quotes inside a single-quoted literal do not end the literal"
+    TestAssert InStr(1, strQdef, "it''s", vbBinaryCompare) > 0, _
+        "a doubled single quote remains escaped"
+End Sub
+
+
+Public Sub TestDesignViewQdef_PreservesSingleQuotedWhereLiteral()
+    Dim strQdef As String
+
+    m_qc.DecomposeSQL _
+        "SELECT tbl1.id FROM tbl1 WHERE tbl1.note = 'left  =  right'"
+    strQdef = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+
+    TestAssert InStr(1, strQdef, "'left  =  right'", vbBinaryCompare) > 0, _
+        "WHERE compaction preserves literal whitespace"
+End Sub
+
+
+Public Sub TestDesignViewQdef_DoesNotSynthesizeLiteralAsColumn()
+    Dim strQdef As String
+
+    m_qc.DecomposeSQL _
+        "SELECT tbl1.id FROM tbl1 WHERE tbl1.note = 'fake.table'"
+    strQdef = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+
+    TestAssert InStr(1, strQdef, _
+        "dbText ""Name"" =""fake.table""", vbBinaryCompare) = 0, _
+        "table.field-shaped text inside a single-quoted literal is not metadata"
+End Sub
+
+
 Public Sub TestIsDesignerCompatible_SimpleSelect()
     m_qc.DecomposeSQL "SELECT a, b FROM tbl1"
     TestAssert m_qc.IsDesignerCompatible, "simple SELECT is designer compatible"

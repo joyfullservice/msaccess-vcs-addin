@@ -2317,30 +2317,46 @@ End Sub
 
 
 Private Function NormalizeWhitespace(strSql As String) As String
-    Dim strResult As String
     Dim lngPos As Long
     Dim strChar As String
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
+    Dim blnInBracket As Boolean
+    Dim blnProtected As Boolean
     Dim blnLastWasSpace As Boolean
 
-    strResult = Replace(strSql, vbCrLf, " ")
-    strResult = Replace(strResult, vbCr, " ")
-    strResult = Replace(strResult, vbLf, " ")
-    strResult = Replace(strResult, vbTab, " ")
-
-    ' Collapse multiple spaces (outside quotes)
+    ' Collapse whitespace only outside literals and bracketed identifiers.
+    ' Replacing line breaks before scanning would alter literal content, so
+    ' consume the original SQL one character at a time.
     Dim strOut As String
     strOut = vbNullString
-    blnInString = False
     blnLastWasSpace = False
-    For lngPos = 1 To Len(strResult)
-        strChar = Mid$(strResult, lngPos, 1)
-        If strChar = """" Then blnInString = Not blnInString
-        If blnInString Then
+
+    For lngPos = 1 To Len(strSql)
+        strChar = Mid$(strSql, lngPos, 1)
+
+        Select Case strChar
+            Case """"
+                If Not blnInSingle And Not blnInBracket Then
+                    blnInDouble = Not blnInDouble
+                End If
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then
+                    blnInSingle = Not blnInSingle
+                End If
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
+        End Select
+
+        blnProtected = blnInDouble Or blnInSingle Or blnInBracket
+        If blnProtected Then
             strOut = strOut & strChar
             blnLastWasSpace = False
         Else
-            If strChar = " " Then
+            If strChar = " " Or strChar = vbTab Or _
+                strChar = vbCr Or strChar = vbLf Then
                 If Not blnLastWasSpace Then
                     strOut = strOut & " "
                     blnLastWasSpace = True
@@ -3330,7 +3346,8 @@ Private Function CompactSql(strExpr As String) As String
     Dim lngLen As Long
     Dim strChar As String
     Dim cOut As New clsConcat
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
     Dim blnInBracket As Boolean
 
     lngLen = Len(strExpr)
@@ -3339,11 +3356,22 @@ Private Function CompactSql(strExpr As String) As String
     For lngI = 1 To lngLen
         strChar = Mid$(strExpr, lngI, 1)
 
-        If strChar = """" And Not blnInBracket Then blnInString = Not blnInString
-        If strChar = "[" And Not blnInString Then blnInBracket = True
-        If strChar = "]" And Not blnInString Then blnInBracket = False
+        Select Case strChar
+            Case """"
+                If Not blnInSingle And Not blnInBracket Then
+                    blnInDouble = Not blnInDouble
+                End If
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then
+                    blnInSingle = Not blnInSingle
+                End If
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
+        End Select
 
-        If blnInString Or blnInBracket Then
+        If blnInDouble Or blnInSingle Or blnInBracket Then
             cOut.Add strChar
         ElseIf strChar <> " " Then
             cOut.Add strChar
@@ -4394,7 +4422,8 @@ Private Sub AddWhereFieldsToColumns(dColumns As Dictionary)
     Dim lngLen As Long
     Dim lngStart As Long
     Dim strToken As String
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
 
     strWhere = m_strWhere
     lngLen = Len(strWhere)
@@ -4403,8 +4432,12 @@ Private Sub AddWhereFieldsToColumns(dColumns As Dictionary)
     For lngI = 1 To lngLen
         Dim strCh As String
         strCh = Mid$(strWhere, lngI, 1)
-        If strCh = """" Then blnInString = Not blnInString
-        If blnInString Then GoTo NextChar
+        If strCh = """" And Not blnInSingle Then
+            blnInDouble = Not blnInDouble
+        ElseIf strCh = "'" And Not blnInDouble Then
+            blnInSingle = Not blnInSingle
+        End If
+        If blnInDouble Or blnInSingle Then GoTo NextChar
 
         ' Look for table.field patterns: word characters and dots
         If IsIdentChar(strCh) Or strCh = "." Then

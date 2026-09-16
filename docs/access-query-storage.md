@@ -597,6 +597,7 @@ contract.
 | `IN (SELECT ...)` subquery                  | [regression/qryRegressionFindDuplicates.sql](../Testing/Fixtures/queries/regression/qryRegressionFindDuplicates.sql)     |
 | Derived table in `FROM` (`%$##@_Alias`)     | [regression/qryRegressionFromSubquery.sql](../Testing/Fixtures/queries/regression/qryRegressionFromSubquery.sql)         |
 | Quoted identifiers / brackets               | [regression/qryRegressionQuotes.sql](../Testing/Fixtures/queries/regression/qryRegressionQuotes.sql)                     |
+| Single-quoted literal spacing (Design View)  | [regression/qryRegressionSingleQuotedLiteralSpacing.sql](../Testing/Fixtures/queries/regression/qryRegressionSingleQuotedLiteralSpacing.sql) |
 | Backslash literals in string concat         | [regression/qryRegressionBackslash.sql](../Testing/Fixtures/queries/regression/qryRegressionBackslash.sql)               |
 | `TOP N PERCENT`                             | [regression/qryRegressionTopPercent.sql](../Testing/Fixtures/queries/regression/qryRegressionTopPercent.sql)             |
 | Scalar no-table SELECT                      | [regression/qryRegressionScalarNoTable.sql](../Testing/Fixtures/queries/regression/qryRegressionScalarNoTable.sql)       |
