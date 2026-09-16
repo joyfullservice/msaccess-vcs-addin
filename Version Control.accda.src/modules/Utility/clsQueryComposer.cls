@@ -3993,7 +3993,8 @@ Private Sub EmitDbMemoSql(cOut As clsConcat, strSql As String)
     Dim blnFirst As Boolean
 
     ' Escape the SQL for .qdef format:
-    ' - Escape backslashes as \\ and double quotes as \" (in that order)
+    ' - Escape backslashes as \\, double quotes as \", and tabs as \011
+    '   (backslashes first, so escape markers added afterward stay single)
     ' - Replace CR+LF with \015\012 (added after escaping so the leading \ is literal)
     ' - Wrap in dbMemo "SQL" ="..." with continuation lines
     strEscaped = EscapeQdefString(strSql)
@@ -4041,7 +4042,7 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 4/10/2026
 ' Purpose   : Returns a safe line length that does not split an escape sequence
-'           : (\\, \015, \012, \") across a line boundary. Access LoadFromText
+'           : (\\, \011, \015, \012, \") across a line boundary. Access LoadFromText
 '           : will misparse the file if a backslash escape spans two quoted
 '           : segments.
 '---------------------------------------------------------------------------------------
@@ -4060,7 +4061,7 @@ Private Function SafeBreak(strText As String, lngStart As Long, lngMaxLen As Lon
 
     ' Scan backward from the break point looking for a backslash within
     ' the last 3 characters that could start an escape extending past
-    ' the break. Escapes: \\ (2 chars), \" (2 chars), \015 (4 chars), \012 (4 chars).
+    ' the break. Escapes: \\ (2 chars), \" (2 chars), and \011/\015/\012 (4 chars).
     For lngI = 0 To 3
         lngCheckPos = lngEnd - lngI
         If lngCheckPos < lngStart Then Exit For
@@ -4075,7 +4076,7 @@ Private Function SafeBreak(strText As String, lngStart As Long, lngMaxLen As Lon
                 ElseIf lngCheckPos + 3 <= Len(strText) Then
                     Dim strSeq As String
                     strSeq = Mid$(strText, lngCheckPos + 1, 3)
-                    If strSeq = "015" Or strSeq = "012" Then
+                    If strSeq = "011" Or strSeq = "015" Or strSeq = "012" Then
                         lngEscLen = 4
                     End If
                 End If
@@ -4186,15 +4187,16 @@ End Sub
 ' Date      : 4/20/2026
 ' Purpose   : Escape a string value for inclusion inside a "..." segment of a
 '           : .qdef text file. Doubles backslashes first (so `\` becomes `\\`),
-'           : then escapes embedded double quotes (so `"` becomes `\"`).
-'           : The order matters -- escaping quotes first would re-double the
-'           : backslash that was just inserted as part of `\"`.
+'           : then escapes embedded double quotes (so `"` becomes `\"`) and tabs
+'           : (as octal `\011`). The order matters -- escape markers added after
+'           : the first replacement must remain single backslashes for LoadFromText.
 '---------------------------------------------------------------------------------------
 '
 Private Function EscapeQdefString(strValue As String) As String
     Dim s As String
     s = Replace(strValue, "\", "\\")
     s = Replace(s, """", "\""")
+    s = Replace(s, vbTab, "\011")
     EscapeQdefString = s
 End Function
 

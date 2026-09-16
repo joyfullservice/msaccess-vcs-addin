@@ -118,6 +118,28 @@ Public Sub TestIsPassThrough()
 End Sub
 
 
+Public Sub TestSqlViewQdef_EscapesTabsWithoutSplitting()
+    Dim strSql As String
+    Dim strQdef As String
+    Dim strWrapped As String
+
+    ' Put the tab escape across the normal 70-character boundary. SafeBreak
+    ' must move the boundary before \011 rather than splitting the escape.
+    strSql = String$(68, "X") & vbTab & "Y"
+    m_qc.DecomposeSQL strSql, True
+    m_qc.RawSQL = strSql
+    strQdef = m_qc.GenerateQdef(False, New Dictionary, New Dictionary)
+    strWrapped = String$(68, "X") & """" & vbCrLf & "    ""\011Y"""
+
+    TestAssert InStr(1, strQdef, vbTab, vbBinaryCompare) = 0, _
+        "generated qdef contains no literal tab"
+    TestAssert InStr(1, strQdef, "\011", vbBinaryCompare) > 0, _
+        "generated qdef encodes a tab as octal \011"
+    TestAssert InStr(1, strQdef, strWrapped, vbBinaryCompare) > 0, _
+        "line wrapping keeps the complete \011 escape in one quoted segment"
+End Sub
+
+
 Public Sub TestReconstructSQL_PassThroughNoRecords()
     Dim colRows As New Collection
     Dim dRow As Dictionary

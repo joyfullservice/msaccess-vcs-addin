@@ -666,6 +666,29 @@ and are **not** in the upstream Riddington documentation. They are
 specific to this add-in's use of `Application.LoadFromText` and
 `Application.SaveAsText` for object I/O.
 
+### Literal tabs in SQL View qdefs must use the octal `\011` escape
+
+**Symptom.** A pass-through query whose SQL uses leading tabs loses those tabs
+after build, while leading spaces survive. The query still runs, but the next
+export reports every affected line as changed.
+
+**Cause.** Pass-through queries are imported through a SQL View qdef because
+Access cannot represent them in Design View. A literal tab inside the generated
+`dbMemo "SQL"` value is consumed by `Application.LoadFromText` as qdef
+whitespace rather than stored as part of the memo. SQL formatting is not
+involved: pass-through SQL deliberately bypasses `clsSqlFormatter`.
+
+**Implementation.** `EscapeQdefString` serializes a tab as the qdef octal escape
+`\011`, alongside `EmitDbMemoSql`'s existing `\015`/`\012` CR/LF escapes.
+`SafeBreak` recognizes all three four-character escapes so a wrapped quoted
+segment cannot split one. This is an import-only fix; the authoritative `.sql`
+file remains byte-for-byte unchanged.
+
+**Pinned by:**
+[`regression/qryRegressionPassThroughTabs.sql`](../Testing/Fixtures/queries/regression/qryRegressionPassThroughTabs.sql)
+with sibling `.json` / `.qdef` / `.notes.md`
+([issue #786](https://github.com/joyfullservice/msaccess-vcs-addin/issues/786)).
+
 ### LoadFromText / SaveAsText asymmetry for multi-condition `ON`
 
 **Symptom.** A query with a multi-condition `ON` clause —
