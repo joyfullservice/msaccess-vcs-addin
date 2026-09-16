@@ -208,7 +208,7 @@ Public Sub MergePrintSettings(strJson As String)
         With New clsPrinterSettings
             ' Load default printer settings, then overlay
             ' settings saved with report.
-            .ApplySettings dSettings("Items")
+            .ApplySettings dSettings("Items"), Me.ObjectName
             ' Write the printer settings to the output content
             this.strOutput = .AddToExportFile(this.strOutput)
             this.blnOutputModified = True

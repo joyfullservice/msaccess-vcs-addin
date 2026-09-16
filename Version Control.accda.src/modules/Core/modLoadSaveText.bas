@@ -230,6 +230,7 @@ RetryImport:
             strContent = ReadFile(strFile)
             With New clsSourceParser
                 .LoadString strContent, intType
+                .ObjectName = strName
 
                 ' Check for companion JSON (print settings and conditional formatting)
                 strAltFile = SwapExtension(strFile, "json")

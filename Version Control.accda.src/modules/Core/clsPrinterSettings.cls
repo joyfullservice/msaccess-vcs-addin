@@ -324,7 +324,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub LoadFromDefaultPrinter()
-    LoadFromPrinter Application.Printer.DeviceName
+    Call LoadFromPrinter(Application.Printer.DeviceName, True)
 End Sub
 
 
@@ -339,7 +339,9 @@ End Sub
 '           : http://www.lessanvaezi.com/changing-printer-settings-using-the-windows-api/
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadFromPrinter(strPrinter As String)
+Public Function LoadFromPrinter(strPrinter As String, _
+    Optional blnUseDefaultPrinter As Boolean = False, _
+    Optional strObjectName As String = vbNullString) As Boolean
 
     Dim hPrinter As LongPtr
     Dim lngReturn As Long
@@ -385,21 +387,28 @@ Public Sub LoadFromPrinter(strPrinter As String)
     Set objPrinter = GetPrinterByName(strPrinter)
 
     If objPrinter Is Nothing Then
-        Log.Error eelWarning, "Could not find printer '" & strPrinter & "' on this system.", _
-            ModuleName(Me) & ".LoadFromPrinter"
+        If Len(strObjectName) > 0 Then
+            Log.Error eelWarning, T("Could not find printer '{0}' while restoring print settings for '{1}'. " & _
+                "The default printer will be used while retaining portable print settings.", _
+                var0:=strPrinter, var1:=strObjectName), ModuleName(Me) & ".LoadFromPrinter"
+        Else
+            Log.Error eelWarning, T("Could not find printer '{0}' on this system.", _
+                var0:=strPrinter), ModuleName(Me) & ".LoadFromPrinter"
+        End If
     Else
         ' Load in the DevNames structure
         If Options.ShowDebug Then Log.Add "Loading Printer info for: '" & strPrinter & "'."
 
-        SetDevNames objPrinter
+        SetDevNames objPrinter, blnUseDefaultPrinter
         ' Load in the margin defaults
         SetMipFromPrinter objPrinter
+        LoadFromPrinter = True
     End If
 
     CatchAny eelError, "Error with printer devMode " & strPrinter, _
         ModuleName(Me) & ".LoadFromPrinter", True, True
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -874,7 +883,8 @@ End Sub
 '           : like the "items" collection that is created when saving print settings.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ApplySettings(dSettings As Dictionary)
+Public Sub ApplySettings(dSettings As Dictionary, _
+    Optional strObjectName As String = vbNullString)
 
     Dim intCnt As Integer
     Dim strForm As String
@@ -893,14 +903,16 @@ Public Sub ApplySettings(dSettings As Dictionary)
     If strPrinter = vbNullString Then
         ' Use default printer
         LoadFromDefaultPrinter
-        ' Clear the device name, since we are not binding this
-        ' form/report to a specific printer.
-        For intCnt = 1 To 32
-            m_tDevMode.strDeviceName(intCnt) = 0
-        Next intCnt
+        ClearDevModeDeviceName
     Else
-        ' Load defaults from specific printer
-        LoadFromPrinter strPrinter
+        ' A Device block means the source object was explicitly bound to this
+        ' printer, even when that device is also the current Windows default.
+        If Not LoadFromPrinter(strPrinter, False, strObjectName) Then
+            ' The named printer is unavailable. Use the local default printer as
+            ' a valid DevMode base, then overlay the portable source settings.
+            LoadFromDefaultPrinter
+            ClearDevModeDeviceName
+        End If
     End If
 
     ' Set the properties in the DevMode structure.
@@ -1123,16 +1135,11 @@ End Function
 '
 Private Sub SetDmProp(ByRef cDMProp As Variant, lngFlag As edmFlags, varValue As Variant, ByRef lngFields As Long, ByRef blnChanged As Boolean)
 
-    ' Check existing flag
-    If Not BitSet(lngFields, lngFlag) Then
+    ' Assign both the value and its availability flag. An empty DevMode has no
+    ' flags set, but still needs the source value written before the flag is added.
+    If Not BitSet(lngFields, lngFlag) Or cDMProp <> varValue Then
+        cDMProp = varValue
         blnChanged = True
-    Else
-        ' Check existing value
-        If cDMProp <> varValue Then
-            ' Set property by name
-            cDMProp = varValue
-            blnChanged = True
-        End If
     End If
 
     ' Check fields flag, and update flag if we have made a change.
@@ -1148,7 +1155,7 @@ End Sub
 ' Purpose   : Wrapper to encode PrtDevNames values from passed printer object.
 '---------------------------------------------------------------------------------------
 '
-Private Sub SetDevNames(objPrinter As Access.Printer)
+Private Sub SetDevNames(objPrinter As Access.Printer, blnUseDefaultPrinter As Boolean)
 
     Dim strDriver As String
     Dim strDevice As String
@@ -1156,13 +1163,12 @@ Private Sub SetDevNames(objPrinter As Access.Printer)
     Dim strData As String
     Dim bteData() As Byte
     Dim intCnt As Integer
-    Dim blnDefault As Boolean
 
     ' Get device properties
     With objPrinter
-        ' Default printer is stored differently.
-        blnDefault = (.DeviceName = Application.Printer.DeviceName)
-        If blnDefault Then
+        ' Default-printer binding is an explicit report setting, not a property
+        ' inferred from whether this device happens to be Windows' current default.
+        If blnUseDefaultPrinter Then
             ' Determined the size by reviewing an exported report
             ' that uses the default printer and noting the offsets.
             strDriver = NullPad(23)
@@ -1180,7 +1186,7 @@ Private Sub SetDevNames(objPrinter As Access.Printer)
         .intDriverOffset = 8  ' This seems to match what I typically see...
         .intDeviceOffset = .intDriverOffset + Len(strDriver)
         .intOutputOffset = .intDeviceOffset + Len(strDevice)
-        .intDefault = Abs(blnDefault)
+        .intDefault = Abs(blnUseDefaultPrinter)
         ' Convert string data to byte array
         strData = StrConv(strData, vbFromUnicode)
         bteData = strData & NullPad(255 - Len(strData))
@@ -1188,6 +1194,25 @@ Private Sub SetDevNames(objPrinter As Access.Printer)
             .strData(intCnt) = bteData(intCnt - 1)
         Next intCnt
     End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearDevModeDeviceName
+' Author    : Adam Waller
+' Date      : 9/16/2026
+' Purpose   : Remove a concrete device name when the report/form should follow the
+'           : current default printer instead of retaining a specific binding.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ClearDevModeDeviceName()
+
+    Dim intCnt As Integer
+
+    For intCnt = 1 To 32
+        m_tDevMode.strDeviceName(intCnt) = 0
+    Next intCnt
 
 End Sub
 

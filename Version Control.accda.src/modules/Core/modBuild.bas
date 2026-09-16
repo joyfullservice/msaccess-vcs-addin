@@ -99,9 +99,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Dim lngCurrent As Long
     Dim cBatch As IDbBatchImport
     Dim strRootToken As String
+    Dim dPrinterWarnings As Dictionary
+    Dim lngErrorJournalStart As Long
 
     LogUnhandledErrors FunctionName
     On Error Resume Next
+    Set dPrinterWarnings = New Dictionary
 
     ' Close any previous cached connections
     CloseCachedConnections
@@ -526,7 +529,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 Log.Progress lngCurrent, lngCount, FSO.GetFileName(varFile)
                 Operation.Pulse
+                lngErrorJournalStart = Log.ErrorJournalCount
                 cBatch.ImportFast CStr(varFile)
+                CapturePrinterRestoreWarnings lngErrorJournalStart, CStr(varFile), dPrinterWarnings
                 CatchAny eelError, T("Build error in: {0}", var0:=varFile), FunctionName, True, True
                 If Operation.ErrorLevel = eelCritical Then Log.Add vbNullString: GoTo CleanUp
             Next varFile
@@ -544,6 +549,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                 Log.Add "  " & FSO.GetFileName(varFile), Options.ShowDebug
                 Log.Progress lngCurrent, lngCount, FSO.GetFileName(varFile)
                 Operation.Pulse
+                lngErrorJournalStart = Log.ErrorJournalCount
                 If blnFullBuild Then
                     cCategory.Import CStr(varFile)
                 Else
@@ -555,6 +561,7 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
                         If cCategory.ComponentType <> edbForm Then cCategory.Export
                     End If
                 End If
+                CapturePrinterRestoreWarnings lngErrorJournalStart, CStr(varFile), dPrinterWarnings
                 CatchAny eelError, T(IIf(blnFullBuild, "Build error in: {0}", "Merge error in: {0}"), _
                     var0:=varFile), FunctionName, True, True
 
@@ -727,6 +734,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         If Log.ErrorCount > 0 Then
             Log.Add T("See log for details."), , , strColor
         End If
+        If dPrinterWarnings.Count > 0 Then
+            Log.Add vbNullString
+            Log.Add FormatPrinterRestoreWarningSummary(dPrinterWarnings), , , strColor
+        End If
         ' List missing .env keys if any
         Set dMissing = GetMissingEnvKeys
         If dMissing.Count > 0 Then
@@ -821,6 +832,65 @@ CleanUp:
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CapturePrinterRestoreWarnings
+' Author    : Adam Waller
+' Date      : 9/16/2026
+' Purpose   : Add the current form/report to the build summary when its import logged
+'           : a printer lookup warning.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CapturePrinterRestoreWarnings(lngJournalStart As Long, strFile As String, _
+    dAffected As Dictionary)
+
+    Dim colEntries As Collection
+    Dim varEntry As Variant
+    Dim dEntry As Dictionary
+    Dim strName As String
+
+    Set colEntries = Log.GetErrorJournalSince(lngJournalStart)
+    For Each varEntry In colEntries
+        Set dEntry = varEntry
+        If CStr(dEntry("level")) = "warning" _
+            And CStr(dEntry("source")) = "clsPrinterSettings.LoadFromPrinter" Then
+            strName = GetObjectNameFromFileName(strFile)
+            If Not dAffected.Exists(strName) Then dAffected.Add strName, True
+            Exit For
+        End If
+    Next varEntry
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatPrinterRestoreWarningSummary
+' Author    : Adam Waller
+' Date      : 9/16/2026
+' Purpose   : Format the unique form/report names whose specific printer was not
+'           : available during the build.
+'---------------------------------------------------------------------------------------
+'
+Public Function FormatPrinterRestoreWarningSummary(dAffected As Dictionary) As String
+
+    Dim varName As Variant
+
+    If dAffected Is Nothing Then Exit Function
+    If dAffected.Count = 0 Then Exit Function
+
+    With New clsConcat
+        .AppendOnAdd = ", "
+        For Each varName In dAffected.Keys
+            .Add CStr(varName)
+        Next varName
+        .Remove 2
+        FormatPrinterRestoreWarningSummary = T( _
+            "Printer settings not fully restored (default printer substituted): {0}", _
+            var0:=.GetStr)
+    End With
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
