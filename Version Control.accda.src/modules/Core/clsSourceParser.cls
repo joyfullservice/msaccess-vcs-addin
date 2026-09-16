@@ -409,28 +409,36 @@ Private Sub ResolveCapturedConditionalFormats()
     Dim cCF As clsConditionalFormat
     Dim colSkip As Collection
     Dim varLine As Variant
+    Dim blnDecoded As Boolean
+    Dim blnCF14 As Boolean
 
     If this.dConditionalFormat Is Nothing Then Exit Sub
 
     For Each varKey In this.dConditionalFormat.Keys
         Set dControl = this.dConditionalFormat(varKey)
-        If Not dControl.Exists("CF14") Then GoTo NextControl
-        Set cCF = New clsConditionalFormat
-        If cCF.LoadFromCF14Hex(CStr(dControl("CF14"))) And cCF.HasRules Then
-            Set dControl("Decoded") = cCF.GetDictionary
-        Else
+        blnCF14 = dControl.Exists("CF14")
+        blnDecoded = False
+        If blnCF14 Then
+            Set cCF = New clsConditionalFormat
+            If cCF.LoadFromCF14Hex(CStr(dControl("CF14"))) And cCF.HasRules Then
+                Set dControl("Decoded") = cCF.GetDictionary
+                blnDecoded = True
+            End If
+        End If
+        If Not blnDecoded Then
             If dControl.Exists("SkipLines") Then
                 Set colSkip = dControl("SkipLines")
                 For Each varLine In colSkip
                     m_blnSkipLine(CLng(varLine)) = False
                 Next varLine
             End If
-            Log.Add T("Conditional formatting on control {0} in {1} could not be decoded; keeping inline binary blocks.", _
-                var0:=CStr(varKey), var1:=Nz2(Me.ObjectName, FSO.GetFileName(this.strFilePath)))
-            dControl.Remove "CF14"
+            If blnCF14 Then
+                Log.Add T("Conditional formatting on control {0} in {1} could not be decoded; keeping inline binary blocks.", _
+                    var0:=CStr(varKey), var1:=Nz2(Me.ObjectName, FSO.GetFileName(this.strFilePath)))
+                dControl.Remove "CF14"
+            End If
             If dControl.Exists("Legacy") Then dControl.Remove "Legacy"
         End If
-NextControl:
     Next varKey
 
 End Sub

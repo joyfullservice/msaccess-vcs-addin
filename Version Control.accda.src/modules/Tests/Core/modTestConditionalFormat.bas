@@ -707,6 +707,44 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestSanitizeKeepsInlineWhenLegacyOnly
+' Purpose   : Access 2000 MDB controls have no CF14 block. Their legacy block must remain
+'           : inline because the JSON model can only be decoded from CF14.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestSanitizeKeepsInlineWhenLegacyOnly()
+
+    Dim cParser As clsSourceParser
+    Dim strForm As String
+    Dim strOut As String
+    Dim lngOldFormat As Long
+    Dim intOldSanitize As eSanitizeLevel
+    Dim blnOldDecode As Boolean
+
+    lngOldFormat = Options.ExportFormatVersion
+    intOldSanitize = Options.SanitizeLevel
+    blnOldDecode = Options.DecodeConditionalFormatting
+    Options.ExportFormatVersion = EFV_5_0_0
+    Options.SanitizeLevel = eslStandard
+    Options.DecodeConditionalFormatting = True
+
+    strForm = BuildControlWithLegacy("TextLegacy", TEXT9_LEGACY)
+    Set cParser = New clsSourceParser
+    cParser.LoadString strForm, edbForm
+    cParser.ObjectName = "frmTest"
+    strOut = cParser.Sanitize(ectObjectDefinition)
+
+    Options.ExportFormatVersion = lngOldFormat
+    Options.SanitizeLevel = intOldSanitize
+    Options.DecodeConditionalFormatting = blnOldDecode
+
+    TestAssert InStr(strOut, "ConditionalFormat = Begin") > 0, "legacy-only block remains inline"
+    TestAssert cParser.GetConditionalFormats.Count = 0, "legacy-only block omits JSON entry"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : TestDecodeMultiRule
 ' Purpose   : A three-rule block decodes to the expected rule types in order.
 '---------------------------------------------------------------------------------------
@@ -939,11 +977,12 @@ End Function
 
 '---------------------------------------------------------------------------------------
 ' Procedure : BuildControl
-' Purpose   : Build a minimal control block (optionally with an inline CF14 block whose
-'           : hex content is a recognizable marker so tests can detect strip/keep).
+' Purpose   : Build a minimal control block with an optional inline conditional-format
+'           : block whose hex content is a recognizable marker.
 '---------------------------------------------------------------------------------------
 '
-Private Function BuildControl(strName As String, strInlineMarker As String) As String
+Private Function BuildControl(strName As String, strInlineMarker As String, _
+                              Optional strProperty As String = "ConditionalFormat14") As String
 
     Dim cData As clsConcat
 
@@ -952,7 +991,7 @@ Private Function BuildControl(strName As String, strInlineMarker As String) As S
     cData.Add "    Begin TextBox"
     cData.Add "        Name =""" & strName & """"
     If Len(strInlineMarker) > 0 Then
-        cData.Add "        ConditionalFormat14 = Begin"
+        cData.Add "        " & strProperty & " = Begin"
         cData.Add "            0x" & strInlineMarker
         cData.Add "        End"
     End If
@@ -971,6 +1010,16 @@ End Function
 '
 Private Function BuildControlWithCF14(strName As String, strCF14Hex As String) As String
     BuildControlWithCF14 = BuildControl(strName, strCF14Hex)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildControlWithLegacy
+' Purpose   : Build a minimal Access 2000-style control carrying only the legacy block.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildControlWithLegacy(strName As String, strLegacyHex As String) As String
+    BuildControlWithLegacy = BuildControl(strName, strLegacyHex, "ConditionalFormat")
 End Function
 
 
