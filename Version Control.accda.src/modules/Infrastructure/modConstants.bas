@@ -316,7 +316,9 @@ End Function
 '           :   CommandBars = 1  7/27/2026  Fixed _Images sidecar export
 '           :   Forms = 1        7/28/2026  Fixed CF14 data bar decode (issue #730)
 '           :   Forms = 2        9/7/2026   Canonical 60-twip form layout geometry; drop LayoutCached*
+'           :   Forms = 3        9/16/2026  Preserve legacy-only conditional formatting (issue #779)
 '           :   Reports = 1      7/28/2026  Fixed CF14 data bar decode (issue #730)
+'           :   Reports = 2      9/16/2026  Preserve legacy-only conditional formatting (issue #779)
 '           :   Tables = 1       8/21/2026  Fixed DECIMAL(p,s) in optional .sql sidecar (issue #756)
 '---------------------------------------------------------------------------------------
 '
@@ -325,8 +327,8 @@ Public Function GetExporterRevisions() As Dictionary
     Dim d As Dictionary
     Set d = New Dictionary
     d.Add "CommandBars", 1
-    d.Add "Forms", 2
-    d.Add "Reports", 1
+    d.Add "Forms", 3
+    d.Add "Reports", 2
     d.Add "Tables", 1
     Set GetExporterRevisions = d
 
