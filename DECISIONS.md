@@ -83,6 +83,66 @@ contradictory guidance.
 
 ---
 
+## 2026-09-16 — Defer a dual-runtime native export worker pending a focused speed probe
+
+**Trigger**: A historical full export took 451.29 s; its query profile attributed
+roughly 184 s to formatting, reconstruction, property parsing, and JSON work that did
+not inherently require Access. That is an upper bound, not a current opportunity:
+`4706a63c` subsequently accelerated JSON and reused query state without a new full
+profile. A separate historical full build took 443.03 s, including 253.20 s in
+`modLoadFromText.LoadFromText`, 28.82 s in `App.ImportXML() Data`, and 30.80 s in
+`Refresh Documents`; `ee7a8881` subsequently batched the refreshes. Import therefore
+has portable preparation work, but its measured long pole remains Access-bound.
+
+The same behavior must remain available in VBA because native binaries, helper
+processes, and COM add-ins can be blocked, disabled, or unavailable.
+
+**Options explored**:
+- **Build a general worker framework now** — potentially useful for large exports, but
+  the current profile no longer establishes its benefit and the fallback, parity,
+  threading, build, protocol, and lifecycle costs are substantial.
+- **Maintain separate VBA and twinBASIC implementations** — rejected. They would drift;
+  the ribbon's existing JSON-converter copy already demonstrates this risk.
+- **Use canonical Access-compatible `.bas`/`.cls` sources in both runtimes** — preferred
+  if revisited. A manifest-driven tool would copy an allowlist into generated twinBASIC
+  sources and fail in check mode on drift. Host adapters would own Access, I/O, logging,
+  queues, and errors. The current portable-looking code is not reentrant; see
+  [Parallelism and reentrancy constraints](docs/perf-techniques.md#parallelism-and-reentrancy-constraints).
+- **Prove one narrow synchronous native transform first** — chosen gate. `FormatSQL` is
+  a useful candidate only after its `Perf`/`Log`, static RegExp, and format-version
+  dependencies are made explicit. Its eventual string-in/string-out contract can be
+  checked byte-for-byte over the query fixture corpus before adding threading or IPC.
+
+**Decision**: Do not implement the worker now. VBA remains the authoritative
+implementation and universal runtime. Revisit only after a current `ExportPerfJson`
+profile still shows a large portable share and a byte-identical synchronous twinBASIC
+probe saves at least 15% end to end in an interleaved comparison with matched call
+counts. If that gate passes, ship maintainer-built binaries as optional acceleration;
+contributors must be able to update generated source and run VBA/parity checks without
+a twinBASIC licence.
+
+The existing `Worker.vbs` maintenance channel and export acceleration are independent
+capabilities. An in-process DLL cannot perform jobs whose requirement is another
+process, while a future native helper EXE could replace some VBScript actions through
+the existing `CallWorker` seam. Installer settings must not collapse maintenance
+backend, native export acceleration, and VBA-only processing into one choice.
+
+Two existing two-phase patterns are precedents, not concurrency mechanisms:
+`IDbBatchImport.ImportFast` / `FinalizeImports` defers full-build metadata and index
+finalization to a category boundary, while `MoveSource` / `UpdateFromAltExport` promotes
+temporary export files before measuring their canonical on-disk state.
+
+**What this rules out**: Do not duplicate hot-path algorithms by hand, build a Redis-like
+cache, submit one queue job per small hash, assume an old profile implies a 50% gain, or
+make successful native startup a correctness requirement. Do not infer an equivalent
+build improvement from an export result: `LoadFromText` and `ImportXML` set a separate
+Access-bound floor. Re-profile both paths before making any forecast.
+
+**Relevant files if revisited**: `modExport.bas`, `modLoadSaveText.bas`,
+`clsSourceParser.cls`, `clsSqlFormatter.cls`, `modJsonConverter.bas`, `modHash.bas`,
+`clsVCSIndex.cls`, `clsWorker.cls`, and a future twinBASIC worker project.
+
+---
 ## 2026-09-16 — Preserve legacy-only conditional formatting inline
 
 **Trigger**: hrschupp reported in issue #779 and contributed the fix in PR #780:

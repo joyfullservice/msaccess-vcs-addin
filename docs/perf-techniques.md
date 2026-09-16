@@ -42,6 +42,51 @@ unit suite and an unchanged single-file hash missed a report regression that
 separately; forms and reports do not share every rule. If the corpus predates a
 format gate, compare against `git show HEAD:<path>` rather than the working tree.
 
+## Parallelism and reentrancy constraints
+
+Code that does not call Access is not automatically safe to run concurrently. The
+add-in currently executes on Access's single VBA thread, and several optimizations
+deliberately reuse mutable state on that assumption:
+
+- `modHash` shares one CNG provider, hash-object buffer, lazily initialized hex table,
+  and pair of reusable `ADODB.Stream` objects. `BCryptCreateHash` writes into the
+  shared buffer, while concurrent UTF-8 conversions would rewind and overwrite the
+  same streams. The 2026-07-30 decision that introduced stream reuse explicitly
+  accepts this because VBA is single-threaded.
+- `modJsonConverter` exposes module-global `JsonOptions` and resets the module-global
+  `json_DateCache` at the beginning and end of each parse. Concurrent calls could
+  change another call's options or cache.
+- `clsSourceParser` reads `Options` and writes `Perf` / `Log` from transformation
+  routines. Its XML paths also cache `Static` DOM and XSLT documents, so giving each
+  job its own parser instance would not isolate all mutable state.
+- `clsSqlFormatter` keeps most parse state on the instance, but `HasMatches` mutates a
+  `Static` RegExp and the formatter contains nested `Perf` probes and a `Log.Error`
+  path. `FormatSQL` is therefore not yet a portable string-in/string-out function.
+
+Any native or asynchronous path must first move reusable state into an executor-owned
+context (one per VBA executor or worker thread), pass options explicitly, and return
+structured warnings for the host to log. Do not transfer live `Dictionary`,
+`Collection`, Access, DAO, VBE, or other COM objects between threads; capture scalar,
+string, array, or file-path inputs on the owning thread.
+
+The current Access-bound side includes `SaveAsText`, `LoadFromText`, `ImportXML`, VBE
+access, DAO/system-table reads, `Documents.Refresh`, and UI interaction.
+`VCSIndex.Update` is also Access-bound in its present form because it reads component
+dates and `CurrentProject` state before measuring the committed source files. That is
+a property of today's implementation, not a requirement that a future capture/commit
+split could never change.
+
+Two existing patterns demonstrate deferred finalization without providing concurrency:
+`IDbBatchImport.ImportFast` / `FinalizeImports` creates structures first and applies
+metadata/index state at the category boundary; `MoveSource` /
+`UpdateFromAltExport` promotes temporary export files before measuring their canonical
+paths. Preserve those ordering guarantees if processing is ever moved elsewhere.
+
+Measure any such probe at the host boundary, with the same instrumentation in both
+variants, matched call counts, and byte-identical corpus output. The deferred
+dual-runtime worker decision and its 15% end-to-end revisit gate are recorded in
+[DECISIONS.md](../DECISIONS.md#2026-09-16--defer-a-dual-runtime-native-export-worker-pending-a-focused-speed-probe).
+
 ## Techniques
 
 ### Hoist nested Dictionary access into typed locals
