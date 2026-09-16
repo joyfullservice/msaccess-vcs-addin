@@ -93,6 +93,35 @@ Public Sub TestExtractTableFromOnSide_ExpressionOperandReturnsEmpty()
 End Sub
 
 
+Public Sub TestFindTopLevelKeyword_IgnoresSingleQuotedKeyword()
+    Dim strSql As String
+
+    strSql = "tbl1 WHERE note = 'text ORDER BY value' ORDER BY tbl1.id"
+    TestAssert m_syntax.FindTopLevelKeyword(strSql, "ORDER BY ") = _
+        InStrRev(strSql, "ORDER BY "), _
+        "ORDER BY inside a single-quoted literal is not a clause boundary"
+End Sub
+
+
+Public Sub TestFindTopLevelKeywordFrom_IgnoresSingleQuotedJoin()
+    Dim strSql As String
+
+    strSql = "tbl1 ON tbl1.note = ' INNER JOIN ' INNER JOIN tbl2"
+    TestAssert m_syntax.FindTopLevelKeywordFrom(strSql, " INNER JOIN ", 1) = _
+        InStrRev(strSql, " INNER JOIN "), _
+        "JOIN inside a single-quoted literal is not a join boundary"
+End Sub
+
+
+Public Sub TestFindMatchingParen_IgnoresSingleQuotedParen()
+    Dim strExpr As String
+
+    strExpr = "(Fn('it''s ) still literal'), other)"
+    TestAssert m_syntax.FindMatchingParen(strExpr, 1) = Len(strExpr), _
+        "a parenthesis inside a single-quoted literal does not close the expression"
+End Sub
+
+
 Private Sub AssertSplitTableRef(ByVal strExpr As String, _
                                 ByVal strExpName As String, _
                                 ByVal strExpAlias As String, _

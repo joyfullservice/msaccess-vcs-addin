@@ -162,6 +162,16 @@ Every exportable object type implements this interface:
 | `Category` | Display name (e.g., "Forms", "Queries") |
 | `ComponentType` | Enum value from `eDatabaseComponentType` |
 
+### Optional batch import (`IDbBatchImport`)
+
+Component classes that can defer metadata and index work during a full build also
+implement `IDbBatchImport`. `ImportFast(strFile)` creates the object and records a
+successful import; `FinalizeImports()` refreshes the relevant DAO `Documents`
+collection once, then applies metadata and updates the index for every recorded
+file. `modBuild` discovers this capability with `TypeOf` and uses it only for full
+builds. Ordinary `IDbComponent.Import` and `Merge` remain immediate so
+single-object and merge/export flows see a fully finalized object before returning.
+
 ### Component classes (`clsDb*`)
 
 Each database object type has a dedicated class implementing `IDbComponent`.

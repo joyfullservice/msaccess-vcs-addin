@@ -83,6 +83,149 @@ contradictory guidance.
 
 ---
 
+## 2026-09-15 — Optional interface batches full-build metadata finalization
+
+**Trigger**: A full build of a large project called DAO
+`Container.Documents.Refresh` 603 times, consuming 30.80 seconds of a 443.03-second
+build. `ImportObjectMetadata` refreshed immediately before applying each object's
+Description or custom document properties. The refresh is required because the
+long-lived `SharedDb` collection does not see newly created objects, but repeating
+the whole collection refresh for every metadata-bearing object is unnecessary when
+a full build already processes complete categories.
+
+**Options explored**:
+- **Keep immediate metadata finalization for every import** — simple and correct,
+  but refresh cost grows with the number of described objects.
+- **Skip refreshes under a global batch flag** — rejected because metadata would
+  still be applied against a stale collection; the application and index update
+  must both be deferred.
+- **Add batch methods to `IDbComponent`** — rejected because component types that
+  cannot batch would need empty interface stubs.
+- **Branch on every concrete class in `modBuild`** — workable, but duplicates
+  capability knowledge in the orchestrator.
+- **Add optional `IDbBatchImport` (chosen)** — six metadata-bearing component
+  classes opt in, while the universal component contract stays unchanged.
+
+**Decision**: Full builds call `IDbBatchImport.ImportFast` for every source file,
+then `FinalizeImports` once per category. Each implementation queues only successful
+structural imports, refreshes its DAO container once, rebinds each object, applies
+metadata with `blnSkipDocumentsRefresh:=True`, and records the final metadata hash
+and source-file index entry. Modules retain their existing two-pass save behavior.
+Tables and queries deliberately refresh the shared `Tables` container once per
+category rather than deferring table finalization across category boundaries.
+Merge, bootstrap, and single-object imports continue through immediate
+`IDbComponent.Import` / `Merge`. A self-rebuild with the batch-aware add-in
+recorded five `Refresh Documents` calls (the five participating categories that
+had source files) and 0.01 seconds in that operation; the large-project baseline
+must be rerun separately to measure end-to-end savings under the original load.
+
+**What this rules out**: Do not suppress `Documents.Refresh` without a real second
+pass. Do not use the batch interface for merge/export-after-merge unless its
+immediate finalization contract is redesigned. A whole-build metadata queue is not
+worth delaying category-local index and error handling for one fewer `Tables`
+refresh.
+
+**Relevant files**: `IDbBatchImport.cls`, `modBuild.bas`,
+`modLoadSaveText.bas`, `clsDbModule.cls`, `clsDbTableDef.cls`, `clsDbQuery.cls`,
+`clsDbForm.cls`, `clsDbMacro.cls`, `clsDbReport.cls`,
+`modTestBatchImport.bas`.
+
+---
+
+## 2026-09-14 — Reuse reconstructed query state when writing companion JSON
+
+**Trigger**: After generic JSON serialization was optimized, a user-run full export
+still spent 58.99 s in the exclusive `Write JSON` path for 3,752 queries. Phase
+instrumentation on the same production corpus attributed 15.71 s to reparsing
+formatted SQL solely to recover `OptionFlag`, and 10.68 s to rereading document
+metadata already present in the query's parsed `LvProp`.
+
+**Options explored**:
+- **Optimize generic whitespace normalization** — rejected for this path after an A/B
+  corpus run showed no material change in option parsing.
+- **Add a second lightweight SQL parser** — rejected because it would duplicate
+  modifier grammar and create another correctness surface.
+- **Reuse reconstruction and `LvProp` state** (chosen) — generated SQL's emitted
+  modifier bits are known by `clsQueryComposer`; raw SQL retains the reference parse
+  fallback. The already-parsed Description property supplies normal metadata export,
+  while `SaveAllDocumentProperties` retains the complete DAO scan.
+
+**Decision**: `ReconstructSQL` records the SQL-representable option bits it emitted.
+Deterministic query export consumes those bits directly and reparses only raw SQL.
+`CollectObjectMetadata` accepts an explicitly preloaded Description without changing
+its default behavior for other callers.
+
+**What this rules out**: Reparsing every generated query during export, maintaining
+a long-lived global Description cache for file writing, or changing companion JSON
+content to gain speed.
+
+**Verification**: On 3,752 queries, option work measured 15.71 s -> 0.11 s and
+metadata 10.68 s -> 0.29 s. The non-serializer `Write JSON` phases measured 27.22 s
+-> 1.16 s (95.7% raw, about 95.9% after matched-control normalization). A reference
+export and optimized export produced an identical aggregate fingerprint over all
+3,752 JSON files. The finalized SQL suite passed 434/434 assertions, and the
+metadata/JSON regression selection passed 27/27.
+
+**Relevant files**: `Version Control.accda.src/modules/Components/clsDbQuery.cls`,
+`Version Control.accda.src/modules/Utility/clsQueryComposer.cls`,
+`Version Control.accda.src/modules/Core/modLoadSaveText.bas`,
+`Version Control.accda.src/modules/Tests/SQL/clsTestQueryComposer.cls`,
+`Version Control.accda.src/modules/Tests/modTestSuite.bas`,
+`docs/perf-techniques.md`.
+
+---
+
+## 2026-09-14 — Fast-path generic JSON serialization before deeper buffering
+
+**Trigger**: A representative full export spent 116.09 s across 6,165
+`ConvertToJson` calls, 20.5% of its 565.35 s runtime and its largest measured
+operation. The generic converter identified every object node with `TypeName()` and
+ran every character of every string through `Mid$`, `AscW`, a `Select Case`, and a
+buffer append. Existing live-Access measurements put `TypeName()` on a
+`Scripting.Dictionary` at about 410 µs.
+
+**Options explored**:
+- **Schema-specific emitters** — retained for fixed test-runner payloads, but rejected
+  as the general answer because exported metadata has many independent shapes.
+- **One shared buffer threaded through recursion** — plausible, but deferred. It is a
+  substantially larger rewrite and the low-risk changes already exceeded the 50%
+  elapsed-time reduction gate.
+- **Compact exported JSON** — rejected. It would churn user source and require an
+  export-format gate; output size was not necessary to obtain the speedup.
+- **Fast object dispatch plus a clean-string escape scan** (chosen) — use `TypeOf` for
+  Dictionary/Collection nodes and scan UTF-16 code units without allocating
+  one-character strings. Fall back to the original encoder whenever current
+  `JsonOptions` require an escape.
+
+**Decision**: Keep the public `ConvertToJson` contract and byte output unchanged.
+Route it through the optimized path, while an Option Private reference entry point
+selects the original dispatch and encoding behavior for interleaved benchmarks.
+Do not refactor recursive buffering unless a future corpus no longer clears the 50%
+gate.
+
+**What this rules out**: Using `TypeName()` for known object types in this hot path,
+minifying exported JSON as a performance shortcut, or proceeding to an invasive
+single-buffer rewrite without new measurements showing the fast paths are
+insufficient.
+
+**Verification**: A 75 KB compact synthetic tree measured 386 ms -> 17 ms and its
+144 KB pretty form 389 ms -> 19 ms. A 4,960-file, 6.23-million-character exported
+JSON corpus measured 22.97 s -> 1.54 s (93.3%), with zero byte differences.
+Two user-run full exports had the same 6,165 callback-free serializer calls and
+measured 116.09 s -> 52.40 s (54.9% raw). Unchanged operations showed an 11-17%
+general speed difference, putting the normalized serializer gain at 46-49% (about
+48%), or approximately 44-51 s / 7.8-9.0% of baseline total runtime.
+`modTestJsonConverter` covers exact output and option behavior;
+`modTestPerf.BenchmarkJsonSerialization` and `BenchmarkJsonCorpus` hold the A/B
+measurement.
+
+**Relevant files**: `Version Control.accda.src/modules/Lib/modJsonConverter.bas`,
+`Version Control.accda.src/modules/Tests/JSON/modTestJsonConverter.bas`,
+`Version Control.accda.src/modules/Tests/modTestPerf.bas`,
+`docs/perf-techniques.md`.
+
+---
+
 ## 2026-09-11 — Budget root agent guidance by cost and role
 
 **Trigger**: The root `AGENTS.md` repeatedly reached its enforced 150-line
@@ -5088,6 +5231,10 @@ add-in is rebuilt. Gated at `EFV_5_0_0` (v5 unreleased).
 ---
 
 ## 2026-06-23 — Full-build module import: two-pass ImportFast + FinalizeImports
+
+> **⚠ Partially superseded** (2026-09-15): `IDbBatchImport` became worthwhile
+> once the same two-pass finalization applied to six component classes. See
+> "Optional interface batches full-build metadata finalization" above.
 
 **Trigger**: Full builds on module-heavy projects spend ~85% of the `Modules`
 category time in the per-file tail (save, `DoEvents`, `AllModules` retry,

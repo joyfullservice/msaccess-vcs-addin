@@ -27,8 +27,10 @@ Private m_Query As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_strSourceFile As String
+Private m_colBatchItems As Collection
 
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -129,6 +131,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     Dim dHeader As Dictionary
     Dim dJsonProps As Dictionary
     Dim dJsonColumns As Dictionary
+    Dim dDescriptionProperty As Dictionary
     Dim varKey As Variant
     Dim dFieldProps As Dictionary
     Dim dPropEntry As Dictionary
@@ -303,6 +306,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     ' Option flag. Before 5.1.0 this is the raw Attribute 3 bitmask.
     ' From 5.1.0 the emitted SQL is authoritative for every modifier it can
     ' carry, so the companion just restates what the .sql already says.
+    Perf.OperationStart "Query JSON Option Flag"
     Dim lngOptionFlag As Long
     Dim lngAttr3 As Long
     lngAttr3 = 0
@@ -313,7 +317,8 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
         End If
     Next dR
     If Options.ExportFormatVersion >= EFV_5_1_0 And Not blnIsPassThrough Then
-        lngOptionFlag = ExportOptionFlagFromSql(strSql)
+        lngOptionFlag = cComposer.ReconstructedOptionFlag
+        If lngOptionFlag < 0 Then lngOptionFlag = ExportOptionFlagFromSql(strSql)
     Else
         lngOptionFlag = lngAttr3
         If lngOptionFlag <> 0 And IsImplicitSelectStarOption(colRows, lngOptionFlag) Then
@@ -323,6 +328,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     If lngOptionFlag <> 0 Then
         dItems.Add "OptionFlag", lngOptionFlag
     End If
+    Perf.OperationEnd
 
     ' Connection string (with env: substitution)
     If Len(strConnect) > 0 Then
@@ -362,14 +368,21 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     End If
 
     ' Design layout (only for Design View queries)
+    Perf.OperationStart "Query JSON Layout"
     If Not dLayout Is Nothing Then
         If dLayout.Count > 0 Then
             dItems.Add "DesignLayout", ConvertLayoutForJson(dLayout)
         End If
     End If
+    Perf.OperationEnd
 
     ' Collect document properties (Description, Hidden)
-    CollectObjectMetadata dItems, "Tables", strQueryName, acQuery
+    Perf.OperationStart "Query JSON Metadata"
+    If dJsonProps.Exists("Description") Then
+        Set dDescriptionProperty = dJsonProps("Description")
+    End If
+    CollectObjectMetadata dItems, "Tables", strQueryName, acQuery, True, dDescriptionProperty
+    Perf.OperationEnd
 
     ' Build the full JSON structure
     Set dHeader = New Dictionary
@@ -621,17 +634,81 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim strName As String
+
+    If Not ImportQueryStructure(strFile, strName) Then Exit Sub
+    FinalizeOneQuery strFile, strName
+
+End Sub
+
+
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+
+    Dim strName As String
+    Dim dBatch As Dictionary
+
+    If Not ImportQueryStructure(strFile, strName) Then Exit Sub
+    If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
+
+    Set dBatch = New Dictionary
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    m_colBatchItems.Add dBatch
+
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+
+    If m_colBatchItems Is Nothing Then Exit Sub
+    If m_colBatchItems.Count = 0 Then
+        Set m_colBatchItems = Nothing
+        Exit Sub
+    End If
+
+    RefreshContainerDocuments "Tables"
+
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        FinalizeOneQuery CStr(dBatch("File")), CStr(dBatch("Name")), True
+        If Operation.ErrorLevel = eelCritical Then Exit For
+    Next varItem
+
+    Set m_colBatchItems = Nothing
+
+End Sub
+
+
+Private Function ImportQueryStructure(strFile As String, ByRef strName As String) As Boolean
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Route to appropriate import method based on file extension
     If strFile Like "*.sql" Then
-        ImportNewFormat strFile
+        ImportQueryStructure = ImportNewFormat(strFile, strName)
     ElseIf strFile Like "*.qdef" Or strFile Like "*.bas" Then
-        ImportLegacyFormat strFile
+        ImportQueryStructure = ImportLegacyFormat(strFile, strName)
     End If
 
     CatchAny eelError, "Error importing query from '" & strFile & "'", _
-        ModuleName(Me) & ".IDbComponent_Import"
+        ModuleName(Me) & ".ImportQueryStructure"
+
+End Function
+
+
+Private Sub FinalizeOneQuery(strFile As String, strName As String, _
+    Optional blnSkipDocumentsRefresh As Boolean = False)
+
+    Set m_Query = CurrentData.AllQueries(strName)
+    m_strSourceFile = strFile
+
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Tables", strName, acQuery, _
+        blnSkipDocumentsRefresh:=blnSkipDocumentsRefresh
+
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
+        strMetaHash:=GetMetadataHash("Tables", strName, acQuery)
 
 End Sub
 
@@ -644,11 +721,10 @@ End Sub
 '           : and calling LoadFromText.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ImportNewFormat(strSqlFile As String)
+Private Function ImportNewFormat(strSqlFile As String, ByRef strQueryName As String) As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    Dim strQueryName As String
     Dim strSql As String
     Dim strJsonFile As String
     Dim strQdefContent As String
@@ -781,15 +857,7 @@ Private Sub ImportNewFormat(strSqlFile As String)
         End If
     End If
 
-    Set m_Query = CurrentData.AllQueries(strQueryName)
-    m_strSourceFile = vbNullString
-
-    ' Apply document metadata from the .json file
-    ImportObjectMetadata strJsonFile, "Tables", strQueryName, acQuery
-
-    ' Update index
-    VCSIndex.Update Me, eatImport, GetFileHash(strSqlFile), _
-        strMetaHash:=GetMetadataHash("Tables", strQueryName, acQuery)
+    ImportNewFormat = True
 
 CleanUp:
     ' Log any unexpected error first (before file ops below can clobber Err)
@@ -803,7 +871,7 @@ CleanUp:
     ' Don't leak cleanup-induced errors to the caller
     Err.Clear
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -864,10 +932,9 @@ End Function
 ' Purpose   : Import from legacy .qdef or .bas files (backward compatibility).
 '---------------------------------------------------------------------------------------
 '
-Private Sub ImportLegacyFormat(strFile As String)
+Private Function ImportLegacyFormat(strFile As String, ByRef strQueryName As String) As Boolean
 
     Dim dbs As DAO.Database
-    Dim strQueryName As String
     Dim strFileSql As String
     Dim strSql As String
     Dim blnRecreated As Boolean
@@ -894,18 +961,14 @@ Private Sub ImportLegacyFormat(strFile As String)
                 Log.Error eelError, T("Couldn't get original SQL for {0} from {1}.", _
                     var0:=strQueryName, var1:=strFileSql), _
                     ModuleName(Me) & ".ImportLegacyFormat"
-                Exit Sub
+                Exit Function
             End If
         End If
     Else
         If LoadComponentFromText(acQuery, strQueryName, strFile) = False Then
-            Exit Sub
+            Exit Function
         End If
     End If
-
-    Set m_Query = CurrentData.AllQueries(strQueryName)
-    m_strSourceFile = vbNullString
-    ImportObjectMetadata SwapExtension(strFile, "json"), "Tables", strQueryName, acQuery
 
     If Options.ForceImportOriginalQuerySQL And (blnRecreated = False) Then
         strSql = ReadFile(strFileSql)
@@ -921,10 +984,9 @@ Private Sub ImportLegacyFormat(strFile As String)
         End If
     End If
 
-    VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
-        strMetaHash:=GetMetadataHash("Tables", strQueryName, acQuery)
+    ImportLegacyFormat = True
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------

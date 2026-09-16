@@ -40,6 +40,7 @@ Private m_Table As AccessObject
 Private m_lngTableType As Long
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
+Private m_colBatchItems As Collection
 
 ' Fast-path eligibility, resolved once and cached. 0 = not yet checked, 1 = yes, 2 = no.
 ' These live on the instance because one instance serves one operation: modContainers
@@ -52,6 +53,7 @@ Private m_lngFastPathFailures As Long
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -257,10 +259,59 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim strName As String
+
+    If Not ImportTableStructure(strFile, strName) Then Exit Sub
+    ApplyMetadataAndUpdateIndex strName, strFile
+
+End Sub
+
+
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+
+    Dim strName As String
+    Dim dBatch As Dictionary
+
+    If Not ImportTableStructure(strFile, strName) Then Exit Sub
+    If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
+
+    Set dBatch = New Dictionary
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    m_colBatchItems.Add dBatch
+
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+
+    If m_colBatchItems Is Nothing Then Exit Sub
+    If m_colBatchItems.Count = 0 Then
+        Set m_colBatchItems = Nothing
+        Exit Sub
+    End If
+
+    RefreshContainerDocuments "Tables"
+
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        ApplyMetadataAndUpdateIndex CStr(dBatch("Name")), CStr(dBatch("File")), True
+        If Operation.ErrorLevel = eelCritical Then Exit For
+    Next varItem
+
+    Set m_colBatchItems = Nothing
+
+End Sub
+
+
+Private Function ImportTableStructure(strFile As String, ByRef strName As String) As Boolean
+
     Dim blnUseTemp As Boolean
     Dim blnImportFailed As Boolean
     Dim strTempFile As String
-    Dim strName As String
     Dim strFileName As String
     Dim colBigIntFields As Collection
 
@@ -269,21 +320,21 @@ Private Sub IDbComponent_Import(strFile As String)
     strName = GetObjectNameFromFileName(strFile)
     strFileName = FSO.GetFileName(strFile)
 
-    If FileHasGitConflictMarkers(strFile, ModuleName(Me) & ".Import") Then Exit Sub
+    If FileHasGitConflictMarkers(strFile, ModuleName(Me) & ".Import") Then Exit Function
 
     ' Determine import type from extension
     Select Case LCase$(FSO.GetExtensionName(strFile))
 
         Case "json"
-            If Not ImportLinkedTable(strFile) Then Exit Sub
+            If Not ImportLinkedTable(strFile) Then Exit Function
 
         Case "xml"
             ' Build the table directly through DAO where that is worth doing, and only
             ' keep the result if it re-exports to exactly the source file. Everything
             ' below is the fallback, unchanged.
             If TryFastTableDefImport(strFile, strName) Then
-                ApplyMetadataAndUpdateIndex strName, strFile
-                Exit Sub
+                ImportTableStructure = True
+                Exit Function
             End If
 
             ' Watch out for errors when importing XML
@@ -341,14 +392,13 @@ Private Sub IDbComponent_Import(strFile As String)
 
         Case Else
             ' Unsupported file
-            Exit Sub
+            Exit Function
 
     End Select
 
-    ' Apply metadata and update index
-    ApplyMetadataAndUpdateIndex strName, strFile
+    If Not blnImportFailed Then ImportTableStructure = True
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -569,7 +619,8 @@ End Sub
 '           : place, since both need the table to end up in the same recorded state.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ApplyMetadataAndUpdateIndex(strName As String, strFile As String)
+Private Sub ApplyMetadataAndUpdateIndex(strName As String, strFile As String, _
+    Optional blnSkipDocumentsRefresh As Boolean = False)
 
     Dim strJsonFile As String
 
@@ -577,7 +628,8 @@ Private Sub ApplyMetadataAndUpdateIndex(strName As String, strFile As String)
     Set m_Table = CurrentData.AllTables(strName)
 
     strJsonFile = IDbComponent_BaseFolder & GetSafeFileName(strName) & ".json"
-    ImportObjectMetadata strJsonFile, "Tables", strName, acTable
+    ImportObjectMetadata strJsonFile, "Tables", strName, acTable, _
+        blnSkipDocumentsRefresh:=blnSkipDocumentsRefresh
 
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
         strMetaHash:=GetMetadataHash("Tables", strName, acTable)

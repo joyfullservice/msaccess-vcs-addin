@@ -230,6 +230,7 @@ RetryImport:
             strContent = ReadFile(strFile)
             With New clsSourceParser
                 .LoadString strContent, intType
+                .ObjectName = strName
 
                 ' Check for companion JSON (print settings and conditional formatting)
                 strAltFile = SwapExtension(strFile, "json")
@@ -688,7 +689,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub CollectObjectMetadata(dItems As Dictionary, strContainerName As String, _
-                                 strObjectName As String, intObjType As AcObjectType)
+                                 strObjectName As String, intObjType As AcObjectType, _
+                                 Optional ByVal blnUsePreloadedDescription As Boolean = False, _
+                                 Optional dPreloadedDescription As Dictionary = Nothing)
 
     Dim dProps As Dictionary
     Dim dProp As Dictionary
@@ -729,6 +732,16 @@ Public Sub CollectObjectMetadata(dItems As Dictionary, strContainerName As Strin
         Next prp
         CatchAny eelError, "Error reading document properties for " & strObjectName, _
             ModuleName & ".CollectObjectMetadata"
+    ElseIf blnUsePreloadedDescription Then
+        ' Deterministic query export has already parsed the same Description from
+        ' MSysObjects.LvProp. Reuse it instead of making a second DAO document call.
+        If Not dPreloadedDescription Is Nothing Then
+            Set dProp = New Dictionary
+            dProp.CompareMode = TextCompare
+            dProp.Add "Type", dPreloadedDescription("Type")
+            dProp.Add "Value", dPreloadedDescription("Value")
+            dProps.Add "Description", dProp
+        End If
     Else
         ' Fast path: only check for Description property
         LogUnhandledErrors
@@ -919,6 +932,29 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RefreshContainerDocuments
+' Author    : Adam Waller
+' Date      : 9/15/2026
+' Purpose   : Refresh one DAO container's Documents collection, preserving the shared
+'           : performance operation used by immediate and batched metadata imports.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RefreshContainerDocuments(strContainerName As String)
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Perf.OperationStart "Refresh Documents"
+    SharedDb.Containers(strContainerName).Documents.Refresh
+    Perf.OperationEnd
+
+    CatchAny eelError, T("Error refreshing database documents for {0}", _
+        var0:=strContainerName), ModuleName & ".RefreshContainerDocuments"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ImportObjectMetadata
 ' Author    : Adam Waller
 ' Date      : 3/12/2026
@@ -954,9 +990,7 @@ Public Sub ImportObjectMetadata(strJsonFile As String, strContainerName As Strin
     ' Apply document properties
     If dItems.Exists("Properties") Then
         If Not blnSkipDocumentsRefresh Then
-            Perf.OperationStart "Refresh Documents"
-            dbs.Containers(strContainerName).Documents.Refresh
-            Perf.OperationEnd
+            RefreshContainerDocuments strContainerName
         End If
         Set dProps = dItems("Properties")
         For Each varProp In dProps.Keys

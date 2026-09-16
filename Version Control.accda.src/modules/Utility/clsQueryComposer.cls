@@ -59,6 +59,10 @@ Private m_syntax As clsSqlSyntax        ' Pure SQL token/identifier parsing core
 Private m_strContextLabel As String     ' Query name for export-path warning context
 Private m_dParamTypes As Dictionary     ' DAO data type -> canonical PARAMETERS keyword
 Private m_dParamFlags As Dictionary     ' PARAMETERS keyword -> DAO data type
+' Option bits the last ReconstructSQL wrote into generated SQL. -1 means the caller
+' must parse the SQL instead: either no reconstruction has run, or the query kept its
+' raw Attribute 0 text, which can carry modifiers the option row never recorded.
+Private m_lngReconstructedOptionFlag As Long
 
 ' Access does not store 0 for a declared parameter -- an untyped "Value" parameter is
 ' recorded as dbText -- but a zero flag is used as the fallback for an unknown type.
@@ -73,6 +77,7 @@ Private Const OPTION_BITS_FROM_SQL As Long = 63
 Private Sub Class_Initialize()
     Set m_syntax = New clsSqlSyntax
     Set m_colParameters = New Collection
+    m_lngReconstructedOptionFlag = -1
 End Sub
 
 
@@ -111,6 +116,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     Set m_colWarnings = New Collection
+    m_lngReconstructedOptionFlag = -1
 
     Dim dRow As Dictionary
     Dim dTbl As Dictionary
@@ -278,6 +284,8 @@ Public Function ReconstructSQL(colRows As Collection) As String
     ' Check if this is a crosstab query (operation 6 = TRANSFORM)
     Dim blnIsCrosstab As Boolean
     blnIsCrosstab = (lngOperation = 6)
+    m_lngReconstructedOptionFlag = ReconstructedOptionBits( _
+        lngOperation, lngOption, lngTopN, blnTopPercent, colFields.Count)
 
     ' Build SQL from decomposed structure
     cSql.AppendOnAdd = vbNullString
@@ -467,6 +475,52 @@ Public Function ReconstructSQL(colRows As Collection) As String
 CleanUp:
     CatchAny eelError, "Error reconstructing SQL (" & colRows.Count & " rows). " & SqlSnippet(), _
         ModuleName(Me) & ".ReconstructSQL"
+
+End Function
+
+
+' Return the Attribute 3 bits that ReconstructSQL writes into generated SQL.
+' Raw SQL keeps the -1 sentinel because it can contain modifiers not present in
+' the MSysQueries option row and must still be parsed after reconstruction.
+Private Function ReconstructedOptionBits(ByVal lngOperation As Long, _
+                                         ByVal lngOption As Long, _
+                                         ByVal lngTopN As Long, _
+                                         ByVal blnTopPercent As Boolean, _
+                                         ByVal lngFieldCount As Long) As Long
+
+    Dim lngBits As Long
+
+    Select Case lngOperation
+        Case 1, 2, 3, 6
+            If (lngOption And 8) <> 0 Then
+                lngBits = lngBits Or 8
+            ElseIf (lngOption And 2) <> 0 Then
+                lngBits = lngBits Or 2
+            End If
+            If lngTopN > 0 Then
+                lngBits = lngBits Or 16
+                If blnTopPercent Then lngBits = lngBits Or 32
+            End If
+            ' ReconstructSQL emits an explicit `, *` only for SELECT queries
+            ' that also have named output columns. A bare generated `*` is
+            ' self-describing and is intentionally omitted from OptionFlag.
+            If lngOperation = 1 And lngFieldCount > 0 And (lngOption And 1) <> 0 Then
+                lngBits = lngBits Or 1
+            End If
+
+        Case 4, 5
+            If (lngOption And 8) <> 0 Then lngBits = lngBits Or 8
+
+        Case 9
+            If (lngOption And 2) = 0 Then
+                lngBits = 1
+            Else
+                lngBits = 3
+            End If
+    End Select
+
+    If lngOperation <> 9 And (lngOption And 4) <> 0 Then lngBits = lngBits Or 4
+    ReconstructedOptionBits = lngBits
 
 End Function
 
@@ -2258,34 +2312,51 @@ Private Sub ResetState()
     m_blnIsDDL = False
     m_blnRequiresDesignView = False
     Set m_colWarnings = New Collection
+    m_lngReconstructedOptionFlag = -1
 End Sub
 
 
 Private Function NormalizeWhitespace(strSql As String) As String
-    Dim strResult As String
     Dim lngPos As Long
     Dim strChar As String
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
+    Dim blnInBracket As Boolean
+    Dim blnProtected As Boolean
     Dim blnLastWasSpace As Boolean
 
-    strResult = Replace(strSql, vbCrLf, " ")
-    strResult = Replace(strResult, vbCr, " ")
-    strResult = Replace(strResult, vbLf, " ")
-    strResult = Replace(strResult, vbTab, " ")
-
-    ' Collapse multiple spaces (outside quotes)
+    ' Collapse whitespace only outside literals and bracketed identifiers.
+    ' Replacing line breaks before scanning would alter literal content, so
+    ' consume the original SQL one character at a time.
     Dim strOut As String
     strOut = vbNullString
-    blnInString = False
     blnLastWasSpace = False
-    For lngPos = 1 To Len(strResult)
-        strChar = Mid$(strResult, lngPos, 1)
-        If strChar = """" Then blnInString = Not blnInString
-        If blnInString Then
+
+    For lngPos = 1 To Len(strSql)
+        strChar = Mid$(strSql, lngPos, 1)
+
+        Select Case strChar
+            Case """"
+                If Not blnInSingle And Not blnInBracket Then
+                    blnInDouble = Not blnInDouble
+                End If
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then
+                    blnInSingle = Not blnInSingle
+                End If
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
+        End Select
+
+        blnProtected = blnInDouble Or blnInSingle Or blnInBracket
+        If blnProtected Then
             strOut = strOut & strChar
             blnLastWasSpace = False
         Else
-            If strChar = " " Then
+            If strChar = " " Or strChar = vbTab Or _
+                strChar = vbCr Or strChar = vbLf Then
                 If Not blnLastWasSpace Then
                     strOut = strOut & " "
                     blnLastWasSpace = True
@@ -3275,7 +3346,8 @@ Private Function CompactSql(strExpr As String) As String
     Dim lngLen As Long
     Dim strChar As String
     Dim cOut As New clsConcat
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
     Dim blnInBracket As Boolean
 
     lngLen = Len(strExpr)
@@ -3284,11 +3356,22 @@ Private Function CompactSql(strExpr As String) As String
     For lngI = 1 To lngLen
         strChar = Mid$(strExpr, lngI, 1)
 
-        If strChar = """" And Not blnInBracket Then blnInString = Not blnInString
-        If strChar = "[" And Not blnInString Then blnInBracket = True
-        If strChar = "]" And Not blnInString Then blnInBracket = False
+        Select Case strChar
+            Case """"
+                If Not blnInSingle And Not blnInBracket Then
+                    blnInDouble = Not blnInDouble
+                End If
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then
+                    blnInSingle = Not blnInSingle
+                End If
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
+        End Select
 
-        If blnInString Or blnInBracket Then
+        If blnInDouble Or blnInSingle Or blnInBracket Then
             cOut.Add strChar
         ElseIf strChar <> " " Then
             cOut.Add strChar
@@ -3910,7 +3993,8 @@ Private Sub EmitDbMemoSql(cOut As clsConcat, strSql As String)
     Dim blnFirst As Boolean
 
     ' Escape the SQL for .qdef format:
-    ' - Escape backslashes as \\ and double quotes as \" (in that order)
+    ' - Escape backslashes as \\, double quotes as \", and tabs as \011
+    '   (backslashes first, so escape markers added afterward stay single)
     ' - Replace CR+LF with \015\012 (added after escaping so the leading \ is literal)
     ' - Wrap in dbMemo "SQL" ="..." with continuation lines
     strEscaped = EscapeQdefString(strSql)
@@ -3958,7 +4042,7 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 4/10/2026
 ' Purpose   : Returns a safe line length that does not split an escape sequence
-'           : (\\, \015, \012, \") across a line boundary. Access LoadFromText
+'           : (\\, \011, \015, \012, \") across a line boundary. Access LoadFromText
 '           : will misparse the file if a backslash escape spans two quoted
 '           : segments.
 '---------------------------------------------------------------------------------------
@@ -3977,7 +4061,7 @@ Private Function SafeBreak(strText As String, lngStart As Long, lngMaxLen As Lon
 
     ' Scan backward from the break point looking for a backslash within
     ' the last 3 characters that could start an escape extending past
-    ' the break. Escapes: \\ (2 chars), \" (2 chars), \015 (4 chars), \012 (4 chars).
+    ' the break. Escapes: \\ (2 chars), \" (2 chars), and \011/\015/\012 (4 chars).
     For lngI = 0 To 3
         lngCheckPos = lngEnd - lngI
         If lngCheckPos < lngStart Then Exit For
@@ -3992,7 +4076,7 @@ Private Function SafeBreak(strText As String, lngStart As Long, lngMaxLen As Lon
                 ElseIf lngCheckPos + 3 <= Len(strText) Then
                     Dim strSeq As String
                     strSeq = Mid$(strText, lngCheckPos + 1, 3)
-                    If strSeq = "015" Or strSeq = "012" Then
+                    If strSeq = "011" Or strSeq = "015" Or strSeq = "012" Then
                         lngEscLen = 4
                     End If
                 End If
@@ -4103,15 +4187,16 @@ End Sub
 ' Date      : 4/20/2026
 ' Purpose   : Escape a string value for inclusion inside a "..." segment of a
 '           : .qdef text file. Doubles backslashes first (so `\` becomes `\\`),
-'           : then escapes embedded double quotes (so `"` becomes `\"`).
-'           : The order matters -- escaping quotes first would re-double the
-'           : backslash that was just inserted as part of `\"`.
+'           : then escapes embedded double quotes (so `"` becomes `\"`) and tabs
+'           : (as octal `\011`). The order matters -- escape markers added after
+'           : the first replacement must remain single backslashes for LoadFromText.
 '---------------------------------------------------------------------------------------
 '
 Private Function EscapeQdefString(strValue As String) As String
     Dim s As String
     s = Replace(strValue, "\", "\\")
     s = Replace(s, """", "\""")
+    s = Replace(s, vbTab, "\011")
     EscapeQdefString = s
 End Function
 
@@ -4339,7 +4424,8 @@ Private Sub AddWhereFieldsToColumns(dColumns As Dictionary)
     Dim lngLen As Long
     Dim lngStart As Long
     Dim strToken As String
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
 
     strWhere = m_strWhere
     lngLen = Len(strWhere)
@@ -4348,8 +4434,12 @@ Private Sub AddWhereFieldsToColumns(dColumns As Dictionary)
     For lngI = 1 To lngLen
         Dim strCh As String
         strCh = Mid$(strWhere, lngI, 1)
-        If strCh = """" Then blnInString = Not blnInString
-        If blnInString Then GoTo NextChar
+        If strCh = """" And Not blnInSingle Then
+            blnInDouble = Not blnInDouble
+        ElseIf strCh = "'" And Not blnInDouble Then
+            blnInSingle = Not blnInSingle
+        End If
+        If blnInDouble Or blnInSingle Then GoTo NextChar
 
         ' Look for table.field patterns: word characters and dots
         If IsIdentChar(strCh) Or strCh = "." Then
@@ -4526,6 +4616,10 @@ End Property
 
 Public Property Get ParsedOptionFlag() As Long
     ParsedOptionFlag = m_lngOption
+End Property
+
+Public Property Get ReconstructedOptionFlag() As Long
+    ReconstructedOptionFlag = m_lngReconstructedOptionFlag
 End Property
 
 Public Property Get OutputColumnCount() As Long
