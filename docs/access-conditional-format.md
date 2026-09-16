@@ -22,10 +22,11 @@ It is wired into the export/import pipeline by
 
 Behavior:
 
-- On **export** (forms and reports), each control's `ConditionalFormat` /
-  `ConditionalFormat14` blocks are stripped from the `.form` / `.report` source and the
-  decoded rules are written to the companion `.json` under `Items.ConditionalFormatting`,
-  keyed by control name.
+- On **export** (forms and reports), controls with a decodable `ConditionalFormat14`
+  block have their `ConditionalFormat` / `ConditionalFormat14` blocks stripped from the
+  `.form` / `.report` source and the decoded rules written to the companion `.json` under
+  `Items.ConditionalFormatting`, keyed by control name. A control with only the legacy
+  `ConditionalFormat` block is left inline because the JSON decoder requires CF14.
 - On **import**, both binary blocks are rebuilt from the JSON model and reinserted into
   each matching control, anchored immediately after the control's `Name` property line.
 - **The JSON is authoritative.** If a control has a JSON entry, any inline
@@ -35,7 +36,7 @@ Behavior:
   hand-edited files) and makes the merge **idempotent** — re-importing cannot accumulate
   blocks. A control that has an inline block but **no** JSON entry is left untouched (so
   option-off / un-migrated source round-trips unchanged, and will be decoded to JSON on the
-  next export if the option is enabled).
+  next export if the option is enabled and the control has a CF14 block).
 - The feature is gated behind export format version **`EFV_5_0_0`** and the
   **`DecodeConditionalFormatting`** option (default **on**). The rules are always
   preserved; the option only chooses whether they are decoded to JSON (on) or left as
@@ -116,13 +117,15 @@ Conditional formatting on text boxes and combo boxes is stored as opaque binary 
 a form is exported to text. Access also exposes the same rules through the VBA
 `FormatConditions` collection on each control.
 
-| Export property | Typical Access versions | Notes |
-|-----------------|-------------------------|-------|
-| `ConditionalFormat` | 2007+ | Legacy layout; includes self-referential total byte length |
-| `ConditionalFormat14` | 2010+ | Compact layout; preferred for analysis and editing |
+| Export property | Database formats seen | Notes |
+|-----------------|-----------------------|-------|
+| `ConditionalFormat` | Access 2000 MDB and later | Legacy layout; includes self-referential total byte length |
+| `ConditionalFormat14` | Access 2002-2003 MDB and ACCDB | Compact layout; preferred for analysis and editing |
 
 Both properties are present on the same control in Access 365 exports. **Round-trip import
-keeps both blocks consistent.**
+keeps both blocks consistent.** Access 2000-format MDB exports contain only the legacy
+block; the add-in preserves it inline rather than dropping formatting or manufacturing
+JSON from an incomplete source.
 
 ### Relationship to VBA
 

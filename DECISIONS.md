@@ -83,6 +83,42 @@ contradictory guidance.
 
 ---
 
+## 2026-09-16 — Preserve legacy-only conditional formatting inline
+
+**Trigger**: hrschupp reported in issue #779 and contributed the fix in PR #780:
+Access 2000-format MDB controls export only the legacy `ConditionalFormat` block,
+without `ConditionalFormat14`. The JSON export path marked the legacy block for
+removal, then skipped the control when CF14 was absent. The result contained neither
+inline hex nor a JSON rule model, so importing the source lost the formatting.
+
+**Options explored**:
+- **Disable `DecodeConditionalFormatting` for an entire Access 2000 database** —
+  preserves the blocks, but requires database-format detection at a higher layer and
+  prevents modern controls from being decoded if another CF14-less case appears.
+- **Decode the legacy block into JSON** — gives a uniform source format, but the legacy
+  block is incomplete for mixed rule types and data bars. Import also currently emits
+  CF14, which an Access 2000-format source never contained.
+- **Treat missing CF14 like a decode failure (chosen)** — restore the captured block's
+  skipped lines and omit the JSON entry for only that control.
+
+**Decision**: A captured conditional-format block is stripped only after its CF14 copy
+decodes successfully. If CF14 is absent, the original legacy block remains inline,
+without a warning because this is valid Access 2000 behavior. A present but malformed
+CF14 block follows the same preservation path and retains its existing warning.
+Forms and Reports exporter revisions are bumped so fast-save users get a one-time
+re-export that restores source files already affected by the bug, provided the database
+still contains the rules. This fix was contributed by hrschupp in PR #780.
+
+**What this rules out**: Do not infer that enabling `DecodeConditionalFormatting`
+guarantees every control gets a JSON entry. CF14 remains the authoritative decode source;
+legacy-only controls deliberately retain opaque inline hex. Do not add an export-format
+gate for this preservation fix.
+
+**Relevant files**: `clsSourceParser.cls`, `modConstants.bas`,
+`modTestConditionalFormat.bas`, `docs/access-conditional-format.md`
+
+---
+
 ## 2026-09-15 — Optional interface batches full-build metadata finalization
 
 **Trigger**: A full build of a large project called DAO
