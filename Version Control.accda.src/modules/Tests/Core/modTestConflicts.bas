@@ -146,9 +146,11 @@ Public Sub TestTableDefSourceFile_ResetsLinkTypeCache()
     Dim strLinkedFile As String
     Dim strLocalName As String
     Dim strLinkedName As String
+    Dim dSysTables As Dictionary
 
+    Set dSysTables = GetSystemTableNames
     For Each tdf In CurrentData.AllTables
-        If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
+        If dSysTables.Exists(tdf.Name) Or tdf.Name Like "~*" Then
             ' Skip system tables
         Else
             Set cTable = New clsDbTableDef

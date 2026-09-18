@@ -18,6 +18,7 @@ Private Const TEST_TABLE_OUTSIDE_EXPORT As String = "vcs_test_td_outside_export"
 Private Const TEST_TABLE_DECIMAL_SQL As String = "vcs_test_decimal_sql"
 Private Const TEST_TABLE_DECIMAL_DAO As String = "vcs_test_decimal_dao"
 Private Const TEST_TABLE_HIDDEN_SIDECAR As String = "vcs_test_hidden_sidecar"
+Private Const TEST_TABLE_SYSTEM_PREFIX As String = "MSysVcsTestUserTable"
 
 
 '---------------------------------------------------------------------------------------
@@ -626,6 +627,62 @@ Public Sub TestHiddenLocalTableKeepsMetadataSidecar()
     DropTestTable TEST_TABLE_HIDDEN_SIDECAR
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestUserTableWithSystemPrefixIsExported
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/1/2026
+' Purpose   : A user table whose name begins with MSys must be enumerated for export.
+'           : The prefix is not reserved, and DAO creates such a table with no system
+'           : attribute, which makes it indistinguishable from any other user table.
+'           : Checked in both directions on purpose: the engine's own tables must stay
+'           : out, so that fixing the omission does not start exporting them instead.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestUserTableWithSystemPrefixIsExported()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim cCategory As IDbComponent
+    Dim cItem As IDbComponent
+    Dim dAllTables As Dictionary
+    Dim varItem As Variant
+    Dim blnFound As Boolean
+    Dim blnSystemLeaked As Boolean
+    Dim blnNoSystemAttribute As Boolean
+
+    DropTestTable TEST_TABLE_SYSTEM_PREFIX
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_SYSTEM_PREFIX)
+    tdf.Fields.Append tdf.CreateField("ID", dbLong)
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+
+    ' The premise of the fix: the prefix carries no attribute of its own.
+    ' Assign the comparison first: a Sub call whose first argument opens with a
+    ' parenthesis does not compile in VBA.
+    blnNoSystemAttribute = ((dbs.TableDefs(TEST_TABLE_SYSTEM_PREFIX).Attributes And dbSystemObject) = 0)
+    TestAssert blnNoSystemAttribute, "a user table named MSys* carries no system attribute"
+
+    ' Access GetAllFromDB through the IDbComponent interface (same pattern as modExport)
+    Set cCategory = New clsDbTableDef
+    Set dAllTables = cCategory.GetAllFromDB(False)
+    For Each varItem In dAllTables.Items
+        Set cItem = varItem
+        If cItem.Name = TEST_TABLE_SYSTEM_PREFIX Then blnFound = True
+        If cItem.Name = "MSysObjects" Then blnSystemLeaked = True
+    Next varItem
+
+    TestAssert blnFound, "user table named MSys* should be enumerated for export"
+    TestAssert Not blnSystemLeaked, "engine system tables should stay excluded"
+
+    DropTestTable TEST_TABLE_SYSTEM_PREFIX
+
+End Sub
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : DropTestTable
