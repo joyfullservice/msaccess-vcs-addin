@@ -328,8 +328,8 @@ Public Function IDbComponent_IsModified() As Boolean
         If VbaProjectUnchangedSinceExport Then
             IDbComponent_IsModified = False
         Else
-            IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> _
-                GetCodeModuleHash(IDbComponent_ComponentType, m_Form.Name)
+            IDbComponent_IsModified = Not CodeModuleHashMatches(VCSIndex.Item(Me).OtherHash, _
+                IDbComponent_ComponentType, m_Form.Name)
         End If
     End If
 

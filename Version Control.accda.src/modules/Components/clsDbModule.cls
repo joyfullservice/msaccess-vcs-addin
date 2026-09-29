@@ -631,7 +631,7 @@ Public Function IDbComponent_IsModified() As Boolean
 
     ' VBE is dirty or date changed -- hash the code to detect changes.
     ' NOTE: This will not detect changes to hidden VBE attributes
-    IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Module.Name)
+    IDbComponent_IsModified = Not CodeModuleHashMatches(VCSIndex.Item(Me).OtherHash, IDbComponent_ComponentType, m_Module.Name)
 
 CheckMetadata:
     ' Check metadata (Description/Hidden) which don't update DateModified
