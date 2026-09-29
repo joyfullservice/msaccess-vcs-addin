@@ -117,3 +117,4 @@ ErrHandler:
 Cleanup stays under `On Error Resume Next` to the end; the state is per-procedure
 and does not leak to the caller. To end a tolerated scope mid-body — one statement
 whose failure *is* the thing under test — go back to `On Error GoTo ErrHandler`.
+`modTestTestProcedures` fails any discovered test that uses either banned construct.
