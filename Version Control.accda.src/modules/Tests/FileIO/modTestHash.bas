@@ -289,3 +289,225 @@ Public Sub TestUtf8StreamsSurviveRelease()
         "repeated release is safe"
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AssertNormalized
+' Author    : Adam Waller
+' Date      : 9/29/2026
+' Purpose   : Check the output of NormalizeVbaCodeCasing, comparing in binary mode since
+'           : the whole point is the letter case.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AssertNormalized(strInput As String, strExpected As String, strDescription As String)
+
+    Dim blnMatch As Boolean
+
+    blnMatch = (StrComp(NormalizeVbaCodeCasing(strInput), strExpected, vbBinaryCompare) = 0)
+    TestAssert blnMatch, strDescription
+
+End Sub
+
+
+Public Sub TestNormalizeCasing_01_Basic()
+    AssertNormalized "Const B = 1", "const b = 1", "code is lower case"
+End Sub
+
+
+Public Sub TestNormalizeCasing_02_StringUntouched()
+    AssertNormalized "s = ""Hola Mundo""", "s = ""Hola Mundo""", "string literal keeps its case"
+End Sub
+
+
+Public Sub TestNormalizeCasing_03_EscapedQuote()
+    AssertNormalized "s = ""A""""B"" & Foo", "s = ""A""""B"" & foo", "doubled quote does not close the string"
+End Sub
+
+
+Public Sub TestNormalizeCasing_04_ApostropheComment()
+    AssertNormalized "x = 1 ' Nota Con Caja", "x = 1 ' Nota Con Caja", "apostrophe comment keeps its case"
+End Sub
+
+
+Public Sub TestNormalizeCasing_05_ApostropheInString()
+    AssertNormalized "MsgBox ""It's"" & Nombre", "msgbox ""It's"" & nombre", "apostrophe inside a string is not a comment"
+End Sub
+
+
+Public Sub TestNormalizeCasing_06_QuoteInComment()
+    AssertNormalized "s = ""a"" ' c ""B""", "s = ""a"" ' c ""B""", "quote inside a comment is not a string"
+End Sub
+
+
+Public Sub TestNormalizeCasing_07_RemAtLineStart()
+    AssertNormalized "Rem Nota X", "Rem Nota X", "Rem at the start of a line is a comment"
+End Sub
+
+
+Public Sub TestNormalizeCasing_08_RemAfterColon()
+    AssertNormalized "x = 1: Rem Nota X", "x = 1: Rem Nota X", "Rem after a colon is a comment"
+End Sub
+
+
+Public Sub TestNormalizeCasing_09_RemAfterLineNumber()
+    AssertNormalized "10 Rem Nota X", "10 Rem Nota X", "Rem after a line number is a comment"
+End Sub
+
+
+Public Sub TestNormalizeCasing_10_RemAsIdentifierPrefix()
+    AssertNormalized "Call RemoveItem(X)", "call removeitem(x)", "RemoveItem is not a comment"
+End Sub
+
+
+Public Sub TestNormalizeCasing_11_RemInsideStatement()
+    AssertNormalized "x = Remanente", "x = remanente", "Rem not at the start of a statement is not a comment"
+End Sub
+
+
+Public Sub TestNormalizeCasing_12_CommentContinuation()
+    AssertNormalized "' Sigue _" & vbCrLf & "Linea Dos", "' Sigue _" & vbCrLf & "Linea Dos", _
+        "a comment ending in space-underscore continues on the next line"
+End Sub
+
+
+Public Sub TestNormalizeCasing_13_UnderscoreWithoutSpace()
+    AssertNormalized "' Nota_" & vbCrLf & "Dim X", "' Nota_" & vbCrLf & "dim x", _
+        "an underscore attached to the text does not continue the comment"
+End Sub
+
+
+Public Sub TestNormalizeCasing_14_CodeContinuation()
+    AssertNormalized "x = Foo _" & vbCrLf & "  + Bar", "x = foo _" & vbCrLf & "  + bar", _
+        "continued code is all lower case"
+End Sub
+
+
+Public Sub TestNormalizeCasing_15_UnclosedString()
+    AssertNormalized "x = ""Sin Cerrar" & vbCrLf & "Dim Y", "x = ""Sin Cerrar" & vbCrLf & "dim y", _
+        "an unclosed string ends with its line"
+End Sub
+
+
+Public Sub TestNormalizeCasing_16_HashSign()
+    AssertNormalized "#If VBA7 Then" & vbCrLf & "Print #1, Dato", "#if vba7 then" & vbCrLf & "print #1, dato", _
+        "the # sign delimits nothing"
+End Sub
+
+
+Public Sub TestNormalizeCasing_17_AccentedIdentifier()
+    AssertNormalized "Dim Descripci" & ChrW$(243) & "n", "dim descripci" & ChrW$(243) & "n", _
+        "identifier with an accent"
+End Sub
+
+
+Public Sub TestNormalizeCasing_18_Empty()
+    AssertNormalized vbNullString, vbNullString, "empty text stays empty"
+End Sub
+
+
+Public Sub TestNormalizeCasing_19_MixedLines()
+    AssertNormalized "Const B = 1" & vbCrLf & "' B" & vbCrLf & "s = ""B""", _
+        "const b = 1" & vbCrLf & "' B" & vbCrLf & "s = ""B""", "code, comment and string on separate lines"
+End Sub
+
+
+Public Sub TestNormalizeCasing_20_UpperRemOnLaterLine()
+    AssertNormalized "Dim A" & vbCrLf & "REM Nota X" & vbCrLf & "Call REMOVE(A)", _
+        "dim a" & vbCrLf & "REM Nota X" & vbCrLf & "call remove(a)", _
+        "REM in upper case on a later line is a comment, REMOVE is not"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestNormalizeCasing_21_LargeModule
+' Author    : Adam Waller
+' Date      : 9/29/2026
+' Purpose   : A module of about 500 KB, with strings, comments and Rem on every few
+'           : lines, must come out right and fast. A text search would cost the length
+'           : of the whole module on every call, and this would take over a minute.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestNormalizeCasing_21_LargeModule()
+
+    Const clngBlocks As Long = 4000
+
+    Dim strBlock As String
+    Dim strExpected As String
+    Dim strInput As String
+    Dim strOutput As String
+    Dim sngStart As Single
+    Dim sngSeconds As Single
+
+    strBlock = "    s = ""Texto Con Caja"" ' Comentario Con Caja" & vbCrLf & _
+        "    Call RemoveItem(X): Rem Nota Con Caja" & vbCrLf & _
+        "    Dim Remanente As Long" & vbCrLf
+    strExpected = "    s = ""Texto Con Caja"" ' Comentario Con Caja" & vbCrLf & _
+        "    call removeitem(x): Rem Nota Con Caja" & vbCrLf & _
+        "    dim remanente as long" & vbCrLf
+    strInput = Replace(Space$(clngBlocks), " ", strBlock)
+    strExpected = Replace(Space$(clngBlocks), " ", strExpected)
+
+    sngStart = Timer
+    strOutput = NormalizeVbaCodeCasing(strInput)
+    sngSeconds = Timer - sngStart
+
+    TestAssert Len(strInput) > 450000, "the module is large"
+    TestAssert StrComp(strOutput, strExpected, vbBinaryCompare) = 0, "large module normalized as expected"
+    TestAssert sngSeconds < 2, "large module normalized in under 2 seconds (took " & sngSeconds & " s)"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCodeTextHash_IgnoresCodeCasing
+' Author    : Adam Waller
+' Date      : 9/29/2026
+' Purpose   : The code hash must not change when the VBE re-cases an identifier, but it
+'           : must change when the case changes inside a string or a comment.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCodeTextHash_IgnoresCodeCasing()
+
+    Dim blnSame As Boolean
+
+    blnSame = (GetCodeTextHash("Const B = 1", vbNullString) = GetCodeTextHash("Const b = 1", vbNullString))
+    TestAssert blnSame, "identifier case does not change the hash"
+
+    blnSame = (GetCodeTextHash("x = ""B""", vbNullString) = GetCodeTextHash("x = ""b""", vbNullString))
+    TestAssert Not blnSame, "case inside a string changes the hash"
+
+    blnSame = (GetCodeTextHash("x = 1 ' B", vbNullString) = GetCodeTextHash("x = 1 ' b", vbNullString))
+    TestAssert Not blnSame, "case inside a comment changes the hash"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCodeTextHash_PrefixAndLegacy
+' Author    : Adam Waller
+' Date      : 9/29/2026
+' Purpose   : The new hash carries the version prefix, empty code gives an empty hash,
+'           : and the legacy hash is exactly the hash of the text and the flag, which
+'           : the upgrade of existing index entries depends on.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCodeTextHash_PrefixAndLegacy()
+
+    Dim strLegacy As String
+    Dim blnMatch As Boolean
+
+    TestAssert Left$(GetCodeTextHash("Const B = 1", vbNullString), Len(cstrCodeHashPrefix)) = cstrCodeHashPrefix, _
+        "hash starts with the version prefix"
+    TestAssert cstrCodeHashPrefix = "ci1:", "prefix is ci1:"
+    TestAssert Len(GetCodeTextHash(vbNullString, vbNullString)) = 0, "empty code gives an empty hash"
+    TestAssert Len(GetCodeTextHash(vbNullString, vbNullString, True)) = 0, "empty code gives an empty legacy hash"
+
+    strLegacy = GetCodeTextHash("Const B = 1", "1", True)
+    blnMatch = (strLegacy = GetStringHash("Const B = 1" & "1"))
+    TestAssert blnMatch, "legacy hash is the hash of the text and the flag"
+    TestAssert Left$(strLegacy, Len(cstrCodeHashPrefix)) <> cstrCodeHashPrefix, "legacy hash has no prefix"
+
+    blnMatch = (GetCodeTextHash("Const B = 1", "1", True) = GetCodeTextHash("Const b = 1", "1", True))
+    TestAssert Not blnMatch, "legacy hash is case sensitive"
+
+End Sub
