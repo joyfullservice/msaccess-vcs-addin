@@ -112,6 +112,142 @@ ErrHandler:
 End Sub
 
 
+Public Sub TestQueryBatchImport_RetriesDeferredQuery()
+    '@Tag("integration")
+
+    Const strCustomers As String = "vcs_test_batch_customers"
+    Const strProducts As String = "vcs_test_batch_products"
+    Const strEarly As String = "vcs_test_batch_early"
+    Const strConsumer As String = "vcs_test_batch_consumer"
+    Const strLate As String = "vcs_test_batch_late"
+    Const strDescription As String = "Deferred batch query"
+
+    Dim dbs As DAO.Database
+    Dim qdf As DAO.QueryDef
+    Dim cComponent As IDbComponent
+    Dim cBatch As IDbBatchImport
+    Dim strRoot As String
+    Dim strConsumerFile As String
+    Dim strLateFile As String
+    Dim strSavedExport As String
+    Dim lngSavedFormat As Long
+    Dim blnSavedDeterministic As Boolean
+    Dim cSavedIndex As clsVCSIndex
+    Dim lngProbeErr As Long
+    Dim strProbeErr As String
+    Dim intLockedFile As Integer
+    Dim blnFileLocked As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    BeginQuerySandbox strRoot, strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
+    strConsumerFile = strRoot & "queries" & PathSep & strConsumer & ".sql"
+    strLateFile = strRoot & "queries" & PathSep & strLate & ".sql"
+
+    DeleteObjectIfExists acQuery, strConsumer
+    DeleteObjectIfExists acQuery, strLate
+    DeleteObjectIfExists acQuery, strEarly
+    DeleteObjectIfExists acTable, strProducts
+    DeleteObjectIfExists acTable, strCustomers
+
+    Set dbs = SharedDb
+    dbs.Execute "CREATE TABLE " & strCustomers & " (CustomerId LONG, DisplayText TEXT(20))", dbFailOnError
+    dbs.Execute "CREATE TABLE " & strProducts & " (ProductCode LONG, ProductText TEXT(20))", dbFailOnError
+    dbs.Execute "INSERT INTO " & strCustomers & " (CustomerId, DisplayText) VALUES (1, 'One')", dbFailOnError
+    dbs.Execute "INSERT INTO " & strProducts & " (ProductCode, ProductText) VALUES (1, 'One')", dbFailOnError
+    Set qdf = dbs.CreateQueryDef(strEarly, _
+        "SELECT CustomerId, DisplayText FROM " & strCustomers & ";")
+    dbs.TableDefs.Refresh
+    dbs.QueryDefs.Refresh
+    RefreshContainerDocuments "Tables"
+
+    WriteFile "SELECT DISTINCTROW" & vbCrLf & _
+        "  " & strEarly & ".CustomerId," & vbCrLf & _
+        "  " & strEarly & ".DisplayText" & vbCrLf & _
+        "FROM" & vbCrLf & _
+        "  " & strEarly & vbCrLf & _
+        "  INNER JOIN " & strLate & " ON (" & strEarly & ".CustomerId = " & strLate & ".ProductCode)" & vbCrLf & _
+        "    AND (" & strEarly & ".DisplayText = " & strLate & ".ProductText);", _
+        strConsumerFile
+    WriteDescriptionSidecar SwapExtension(strConsumerFile, "json"), strDescription
+    WriteFile "SELECT ProductCode, ProductText FROM " & strProducts & ";", strLateFile
+    WriteDescriptionSidecar SwapExtension(strLateFile, "json"), "Late batch dependency"
+
+    Set qdf = dbs.CreateQueryDef(strLate, ReadFile(strLateFile))
+    Set qdf = Nothing
+
+    ' A rejected SQL string here is the thing under test, not a test failure, so this
+    ' one statement runs untrapped and hands the handler back immediately after.
+    On Error Resume Next
+    Set qdf = dbs.CreateQueryDef(strConsumer, ReadFile(strConsumerFile))
+    lngProbeErr = Err.Number
+    strProbeErr = Err.Description
+    Err.Clear
+    On Error GoTo ErrHandler
+    TestAssert lngProbeErr = 0, _
+        "sanitized consumer SQL is valid: " & lngProbeErr & " " & strProbeErr
+    Set qdf = Nothing
+    DeleteObjectIfExists acQuery, strConsumer
+    DeleteObjectIfExists acQuery, strLate
+    dbs.QueryDefs.Refresh
+    RefreshContainerDocuments "Tables"
+
+    ' This Access database accepts the sanitized missing-query reference, while the
+    ' production shape from #783 rejects it. Lock the unchanged, valid source for the
+    ' first attempt to exercise the same transient ImportFast failure boundary.
+    intLockedFile = FreeFile
+    Open strConsumerFile For Binary Access Read Write Lock Read Write As #intLockedFile
+    blnFileLocked = True
+    Set cComponent = New clsDbQuery
+    Set cBatch = cComponent
+    cBatch.ImportFast strConsumerFile
+    Close #intLockedFile
+    blnFileLocked = False
+    TestAssert Not QueryDefExists(strConsumer), "transient first-pass failure is deferred"
+    cBatch.ImportFast strLateFile
+    cBatch.FinalizeImports
+
+    TestAssert QueryDefExists(strLate), "late dependency imported"
+    TestAssert QueryDefExists(strConsumer), "deferred consumer imported"
+    TestAssert QueryDocumentExists(strConsumer), "deferred consumer published as a document"
+    If QueryDocumentExists(strConsumer) Then
+        TestAssert QueryDescription(strConsumer) = strDescription, _
+            "deferred consumer metadata applied"
+    End If
+    TestAssert VCSIndex.Exists(cComponent, strConsumerFile), _
+        "deferred consumer indexed"
+    TestAssert VCSIndex.Exists(cComponent, strLateFile), _
+        "late dependency indexed"
+
+CleanUp:
+    On Error Resume Next
+    If blnFileLocked Then Close #intLockedFile
+    Set qdf = Nothing
+    Set dbs = Nothing
+    DeleteObjectIfExists acQuery, strConsumer
+    DeleteObjectIfExists acQuery, strLate
+    DeleteObjectIfExists acQuery, strEarly
+    DeleteObjectIfExists acTable, strProducts
+    DeleteObjectIfExists acTable, strCustomers
+    If Not cComponent Is Nothing Then
+        If Len(strConsumerFile) > 0 Then VCSIndex.Remove cComponent, strConsumerFile
+        If Len(strLateFile) > 0 Then VCSIndex.Remove cComponent, strLateFile
+    End If
+    RestoreQuerySandbox strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected deferred import error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
 Public Sub TestQueryMerge_AppliesMetadataImmediately()
     '@Tag("integration")
 
@@ -217,6 +353,32 @@ Private Sub WriteDescriptionSidecar(strFile As String, strDescription As String,
     WriteFile ConvertToJson(dFile, JSON_WHITESPACE), strFile
 
 End Sub
+
+
+Private Function QueryDefExists(strQueryName As String) As Boolean
+
+    Dim qdf As DAO.QueryDef
+
+    SharedDb.QueryDefs.Refresh
+    On Error Resume Next
+    Set qdf = SharedDb.QueryDefs(strQueryName)
+    QueryDefExists = (Err.Number = 0)
+    Err.Clear
+
+End Function
+
+
+Private Function QueryDocumentExists(strQueryName As String) As Boolean
+
+    Dim doc As DAO.Document
+
+    RefreshContainerDocuments "Tables"
+    On Error Resume Next
+    Set doc = SharedDb.Containers("Tables").Documents(strQueryName)
+    QueryDocumentExists = (Err.Number = 0)
+    Err.Clear
+
+End Function
 
 
 Private Function QueryDescription(strQueryName As String) As String

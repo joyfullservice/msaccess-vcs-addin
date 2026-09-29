@@ -213,9 +213,11 @@ If a same-named object already exists in the host database when the session
 starts, the harness emits a warning and skips that scaffold file rather than
 clobbering the user's data.
 
-For v1 (queries only), most fixtures are self-contained because Access does
-not validate references on import. The convention is established now to avoid
-retrofitting it when forms / reports / modules join the corpus.
+For v1 (queries only), most fixtures are self-contained because Access accepts
+many unresolved references on import. Some SQL View shapes do validate saved-query
+dependencies, however, so put those dependencies in `_scaffold/`. The convention
+also avoids retrofitting shared support when forms / reports / modules join the
+corpus.
 
 ## Bug-as-fixture: contributing a regression case
 

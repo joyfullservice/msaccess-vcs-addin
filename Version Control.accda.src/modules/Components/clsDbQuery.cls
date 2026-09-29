@@ -28,6 +28,7 @@ Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_strSourceFile As String
 Private m_colBatchItems As Collection
+Private m_colDeferredBatchItems As Collection
 
 Implements IDbComponent
 Implements IDbBatchImport
@@ -645,15 +646,14 @@ End Sub
 Private Sub IDbBatchImport_ImportFast(strFile As String)
 
     Dim strName As String
-    Dim dBatch As Dictionary
 
-    If Not ImportQueryStructure(strFile, strName) Then Exit Sub
-    If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
-
-    Set dBatch = New Dictionary
-    dBatch.Add "File", strFile
-    dBatch.Add "Name", strName
-    m_colBatchItems.Add dBatch
+    If Not ImportQueryStructure(strFile, strName, True, True) Then
+        QueueBatchItem m_colDeferredBatchItems, strFile, strName
+        Log.Error eelWarning, T("Deferring import of '{0}' until all queries have been processed.", _
+            var0:=strName), ModuleName(Me) & ".ImportFast"
+        Exit Sub
+    End If
+    QueueBatchItem m_colBatchItems, strFile, strName
 
 End Sub
 
@@ -663,37 +663,142 @@ Private Sub IDbBatchImport_FinalizeImports()
     Dim varItem As Variant
     Dim dBatch As Dictionary
 
-    If m_colBatchItems Is Nothing Then Exit Sub
-    If m_colBatchItems.Count = 0 Then
-        Set m_colBatchItems = Nothing
-        Exit Sub
+    If Not m_colDeferredBatchItems Is Nothing Then
+        RetryDeferredBatchImports
+        If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
     End If
+
+    If m_colBatchItems Is Nothing Then GoTo CleanUp
+    If m_colBatchItems.Count = 0 Then GoTo CleanUp
 
     RefreshContainerDocuments "Tables"
 
     For Each varItem In m_colBatchItems
         Set dBatch = varItem
         FinalizeOneQuery CStr(dBatch("File")), CStr(dBatch("Name")), True
-        If Operation.ErrorLevel = eelCritical Then Exit For
+        If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
     Next varItem
 
+CleanUp:
     Set m_colBatchItems = Nothing
+    Set m_colDeferredBatchItems = Nothing
 
 End Sub
 
 
-Private Function ImportQueryStructure(strFile As String, ByRef strName As String) As Boolean
+Private Sub RetryDeferredBatchImports()
+
+    Dim colPending As Collection
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+    Dim strFile As String
+    Dim strName As String
+    Dim lngImported As Long
+
+    ' Retry silently while a pass makes progress. Each successful pass can
+    ' unlock another level of a saved-query dependency chain.
+    Do While Not m_colDeferredBatchItems Is Nothing
+        Set colPending = m_colDeferredBatchItems
+        Set m_colDeferredBatchItems = Nothing
+        lngImported = 0
+
+        PublishBatchQueries m_colBatchItems
+        RefreshContainerDocuments "Tables"
+        Log.Add T("Retrying {0} deferred query imports...", var0:=colPending.Count)
+
+        For Each varItem In colPending
+            Set dBatch = varItem
+            strFile = CStr(dBatch("File"))
+            strName = CStr(dBatch("Name"))
+            DeleteObjectIfExists acQuery, strName
+            If ImportQueryStructure(strFile, strName, True, True) Then
+                Set m_Query = CurrentData.AllQueries(strName)
+                QueueBatchItem m_colBatchItems, strFile, strName
+                lngImported = lngImported + 1
+            Else
+                QueueBatchItem m_colDeferredBatchItems, strFile, strName
+            End If
+        Next varItem
+
+        If m_colDeferredBatchItems Is Nothing Then Exit Do
+        If lngImported = 0 Then Exit Do
+    Loop
+
+    ' A cycle or permanent import error made no progress. Preserve the existing
+    ' attended Abort/Retry/Ignore behavior for these final attempts.
+    If Not m_colDeferredBatchItems Is Nothing Then
+        Set colPending = m_colDeferredBatchItems
+        Set m_colDeferredBatchItems = Nothing
+        For Each varItem In colPending
+            Set dBatch = varItem
+            strFile = CStr(dBatch("File"))
+            strName = CStr(dBatch("Name"))
+            DeleteObjectIfExists acQuery, strName
+            If ImportQueryStructure(strFile, strName) Then
+                Set m_Query = CurrentData.AllQueries(strName)
+                QueueBatchItem m_colBatchItems, strFile, strName
+            End If
+            If Operation.ErrorLevel = eelCritical Then Exit For
+        Next varItem
+    End If
+
+End Sub
+
+
+Private Sub PublishBatchQueries(colItems As Collection)
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
+    If colItems Is Nothing Then Exit Sub
+
+    For Each varItem In colItems
+        Set dBatch = varItem
+        Set m_Query = CurrentData.AllQueries(CStr(dBatch("Name")))
+    Next varItem
+
+    CatchAny eelError, T("Error publishing imported queries"), _
+        ModuleName(Me) & ".PublishBatchQueries"
+
+End Sub
+
+
+Private Sub QueueBatchItem(ByRef colItems As Collection, strFile As String, strName As String)
+
+    Dim dBatch As New Dictionary
+
+    If colItems Is Nothing Then Set colItems = New Collection
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    colItems.Add dBatch
+
+End Sub
+
+
+Private Function ImportQueryStructure(strFile As String, ByRef strName As String, _
+    Optional blnSuppressImportError As Boolean = False, _
+    Optional blnSilentProbe As Boolean = False) As Boolean
+
+    If blnSuppressImportError Then
+        On Error Resume Next
+    ElseIf DebugMode(True) Then
+        On Error GoTo 0
+    Else
+        On Error Resume Next
+    End If
+
     If strFile Like "*.sql" Then
-        ImportQueryStructure = ImportNewFormat(strFile, strName)
+        ImportQueryStructure = ImportNewFormat(strFile, strName, _
+            blnSuppressImportError, blnSilentProbe)
     ElseIf strFile Like "*.qdef" Or strFile Like "*.bas" Then
-        ImportQueryStructure = ImportLegacyFormat(strFile, strName)
+        ImportQueryStructure = ImportLegacyFormat(strFile, strName, _
+            blnSuppressImportError, blnSilentProbe)
     End If
 
     CatchAny eelError, "Error importing query from '" & strFile & "'", _
-        ModuleName(Me) & ".ImportQueryStructure"
+        ModuleName(Me) & ".ImportQueryStructure", blnLogError:=Not blnSilentProbe
 
 End Function
 
@@ -721,7 +826,9 @@ End Sub
 '           : and calling LoadFromText.
 '---------------------------------------------------------------------------------------
 '
-Private Function ImportNewFormat(strSqlFile As String, ByRef strQueryName As String) As Boolean
+Private Function ImportNewFormat(strSqlFile As String, ByRef strQueryName As String, _
+    Optional blnSuppressImportError As Boolean = False, _
+    Optional blnSilentProbe As Boolean = False) As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -841,7 +948,8 @@ Private Function ImportNewFormat(strSqlFile As String, ByRef strQueryName As Str
 
     ' Attempt to import (suppress errors on Design View so the fallback
     ' to SQL View can happen without showing a dialog for each query)
-    If LoadComponentFromText(acQuery, strQueryName, strTempFile, blnDesignView, strSqlFile) = False Then
+    If LoadComponentFromText(acQuery, strQueryName, strTempFile, _
+        blnDesignView Or blnSuppressImportError, strSqlFile, blnSilentProbe) = False Then
         ' Design View import failed -- fall back to SQL View
         If blnDesignView Then
             Log.Error eelWarning, "Design View import failed for '" & strQueryName & _
@@ -849,7 +957,8 @@ Private Function ImportNewFormat(strSqlFile As String, ByRef strQueryName As Str
                 "clsDbQuery.ImportNewFormat"
             strQdefContent = cComposer.GenerateQdef(False, dProperties, dColumns, , lngOptionFlag)
             WriteFile strQdefContent, strTempFile
-            If LoadComponentFromText(acQuery, strQueryName, strTempFile, False, strSqlFile) = False Then
+            If LoadComponentFromText(acQuery, strQueryName, strTempFile, _
+                blnSuppressImportError, strSqlFile, blnSilentProbe) = False Then
                 GoTo CleanUp
             End If
         Else
@@ -932,7 +1041,9 @@ End Function
 ' Purpose   : Import from legacy .qdef or .bas files (backward compatibility).
 '---------------------------------------------------------------------------------------
 '
-Private Function ImportLegacyFormat(strFile As String, ByRef strQueryName As String) As Boolean
+Private Function ImportLegacyFormat(strFile As String, ByRef strQueryName As String, _
+    Optional blnSuppressImportError As Boolean = False, _
+    Optional blnSilentProbe As Boolean = False) As Boolean
 
     Dim dbs As DAO.Database
     Dim strFileSql As String
@@ -947,7 +1058,8 @@ Private Function ImportLegacyFormat(strFile As String, ByRef strQueryName As Str
         ' A successful LoadFromText still continues so the paired .sql can
         ' overwrite QueryDefs.SQL. Exiting on success left that overlay
         ' unreachable (issue #769).
-        blnLoaded = LoadComponentFromText(acQuery, strQueryName, strFile, True)
+        blnLoaded = LoadComponentFromText(acQuery, strQueryName, strFile, _
+            blnSuppressError:=True, blnSilentProbe:=blnSilentProbe)
         If Not blnLoaded Then
             strSql = ReadFile(strFileSql)
             If strSql <> vbNullString Then
@@ -965,7 +1077,9 @@ Private Function ImportLegacyFormat(strFile As String, ByRef strQueryName As Str
             End If
         End If
     Else
-        If LoadComponentFromText(acQuery, strQueryName, strFile) = False Then
+        If LoadComponentFromText(acQuery, strQueryName, strFile, _
+            blnSuppressError:=blnSuppressImportError, _
+            blnSilentProbe:=blnSilentProbe) = False Then
             Exit Function
         End If
     End If

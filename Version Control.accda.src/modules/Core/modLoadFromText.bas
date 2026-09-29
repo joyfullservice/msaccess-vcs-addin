@@ -53,7 +53,8 @@ End Sub
 ' Purpose   : Wraps the Application.LoadFromText to return detailed errors.
 '---------------------------------------------------------------------------------------
 '
-Public Sub LoadFromText(ObjectType As AcObjectType, ObjectName As String, FileName As String)
+Public Sub LoadFromText(ObjectType As AcObjectType, ObjectName As String, FileName As String, _
+    Optional DeleteGeneratedErrorFile As Boolean = False)
 
     Dim ErrNumberOriginal As Long
     Dim ErrSourceOriginal As String
@@ -85,7 +86,7 @@ ErrHandler:
     ' Clear Err before ReadErrorFile; FSO and other helpers call LogUnhandledErrors
     ' and would otherwise log this error again as "Unhandled".
     Err.Clear
-    ReadErrorFile
+    ReadErrorFile DeleteGeneratedErrorFile
     If Len(this.LastReadError) > 0 Then
         ErrDescriptionOriginal = ErrDescriptionOriginal & vbCrLf & this.LastReadError
     End If
@@ -121,7 +122,7 @@ Private Sub PopulateErrorFileList()
     If Len(strProjectPath) Then
         Set dErrorFiles = GetFileList(strProjectPath, "errors*.txt")
         For Each strErrorFilePath In dErrorFiles.Keys
-            this.ErrorFileList.Add strErrorFilePath, vbNullString
+            this.ErrorFileList.Add strErrorFilePath, dErrorFiles(strErrorFilePath)
         Next strErrorFilePath
     End If
     this.IsInitialized = True
@@ -136,11 +137,12 @@ End Sub
 ' Purpose   : Locate the latest error file and read the contents
 '---------------------------------------------------------------------------------------
 '
-Private Function ReadErrorFile() As String
+Private Function ReadErrorFile(Optional DeleteGeneratedErrorFile As Boolean = False) As String
 
     Dim strProjectPath As String
     Dim dErrorFiles As Dictionary
     Dim strErrorFilePath As Variant
+    Dim strFullPath As String
     Dim txtStream As TextStream
 
     this.LastReadError = vbNullString
@@ -151,16 +153,27 @@ Private Function ReadErrorFile() As String
     If Len(strProjectPath) Then
         Set dErrorFiles = GetFileList(strProjectPath, "errors*.txt")
         For Each strErrorFilePath In dErrorFiles.Keys
-            If Not this.ErrorFileList.Exists(strErrorFilePath) Then
-                ' It's a new file, so read it.
-                Set txtStream = FSO.OpenTextFile(BuildPath2(strProjectPath, strErrorFilePath), ForReading, False)
+            If Not this.ErrorFileList.Exists(strErrorFilePath) Or _
+                this.ErrorFileList(strErrorFilePath) <> dErrorFiles(strErrorFilePath) Then
+                ' Read a new file or one Access reused and overwrote.
+                strFullPath = BuildPath2(strProjectPath, strErrorFilePath)
+                Set txtStream = FSO.OpenTextFile(strFullPath, ForReading, False)
                 'Skip the first line
                 txtStream.ReadLine
 
                 this.LastReadError = Trim$(txtStream.ReadAll)
                 txtStream.Close
-                ' Add to the list so it'll be ignored next time.
-                this.ErrorFileList.Add strErrorFilePath, vbNullString
+                If DeleteGeneratedErrorFile Then
+                    ' A deferred probe may retry several times. Remove its diagnostic
+                    ' file so Access can reuse the name without filling the build folder.
+                    FSO.DeleteFile strFullPath, True
+                End If
+                If FSO.FileExists(strFullPath) Then
+                    ' Remember the version read so an overwrite is still detected.
+                    this.ErrorFileList(strErrorFilePath) = dErrorFiles(strErrorFilePath)
+                ElseIf this.ErrorFileList.Exists(strErrorFilePath) Then
+                    this.ErrorFileList.Remove strErrorFilePath
+                End If
 
                 ' We can exit early since only one file will be created
                 Exit For

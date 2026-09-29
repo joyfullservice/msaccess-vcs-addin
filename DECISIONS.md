@@ -143,6 +143,48 @@ Access-bound floor. Re-profile both paths before making any forecast.
 `clsVCSIndex.cls`, `clsWorker.cls`, and a future twinBASIC worker project.
 
 ---
+
+## 2026-09-16 — Defer order-sensitive query imports within full builds
+
+**Trigger**: Issue #783 reported that Access rejected a SQL View query before a
+referenced saved query had been imported, even though simpler forward references
+were accepted. The existing Abort/Retry/Ignore path retried immediately, before
+the missing dependency could exist.
+
+**Options explored**:
+- **Topologically sort query files from SQL or design metadata** — can avoid forward
+  references, but requires a second dependency parser, cycle handling, and complete
+  support for legacy query formats and unusual Access SQL.
+- **Change the shared Retry button to mean retry at category end** — changes prompt
+  semantics for every component and still needs query-specific queue state.
+- **Create failed queries directly from source SQL** — can bypass a text-import
+  failure, but loses positional geometry and other qdef-only state from the JSON
+  sidecar.
+- **Retry deferred imports while each pass makes progress (chosen)** — resolves
+  dependency chains without parsing Access SQL and preserves the complete qdef.
+
+**Decision**: During a full-build query batch, the first structural import attempt
+suppresses the import prompt and queues failures. `FinalizeImports` retries each
+queued query after every source query has had its first attempt. It first resolves
+successful imports through `CurrentData.AllQueries`, then refreshes the `Tables`
+container so Access can resolve them as dependencies. Silent deferred passes repeat
+only while at least one query imports successfully. Probe-generated `errors*.txt`
+files are consumed and deleted, and repeated probe failures do not add warning
+noise. When a pass makes no progress, the remaining cycle or permanent failures
+run once through the existing Abort/Retry/Ignore interaction. Deferred successes
+are resolved before the category's ordinary metadata/index refresh. This is
+import-only behavior, so it does not require an export-format gate.
+
+**What this rules out**: Do not add query dependency sorting merely to fix import
+order, do not globally defer `LoadComponentFromText` failures, and do not replace
+qdef import with direct SQL creation because that discards sidecar-backed state.
+Ordinary merge and single-object imports retain their current interaction.
+
+**Relevant files**: `clsDbQuery.cls`, `modLoadSaveText.bas`,
+`modLoadFromText.bas`, `modTestBatchImport.bas`, `Testing/Fixtures/README.md`.
+
+---
+
 ## 2026-09-16 — Preserve legacy-only conditional formatting inline
 
 **Trigger**: hrschupp reported in issue #779 and contributed the fix in PR #780:
@@ -180,6 +222,10 @@ gate for this preservation fix.
 ---
 
 ## 2026-09-15 — Optional interface batches full-build metadata finalization
+
+> **⚠ Partially superseded** (2026-09-16): The query implementation now also queues
+> failed structural imports for one retry at category end. See
+> "Defer order-sensitive query imports within full builds" above.
 
 **Trigger**: A full build of a large project called DAO
 `Container.Documents.Refresh` 603 times, consuming 30.80 seconds of a 443.03-second

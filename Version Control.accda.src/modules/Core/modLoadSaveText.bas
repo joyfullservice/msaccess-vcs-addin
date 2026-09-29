@@ -177,7 +177,8 @@ Public Function LoadComponentFromText(intType As AcObjectType _
                                     , ByRef strName As String _
                                     , ByRef strFile As String _
                                     , Optional blnSuppressError As Boolean = False _
-                                    , Optional strSourceDisplayFile As String = vbNullString) As Boolean
+                                    , Optional strSourceDisplayFile As String = vbNullString _
+                                    , Optional blnSilentProbe As Boolean = False) As Boolean
 
     Const FunctionName As String = ModuleName & ".LoadComponentFromText"
 
@@ -292,14 +293,14 @@ RetryImport:
             ConvertUtf8Ucs2 strSourceFile, strTempFile, False
         End If
         Perf.OperationStart "modLoadFromText.LoadFromText"
-        modLoadFromText.LoadFromText intType, strName, strTempFile
+        modLoadFromText.LoadFromText intType, strName, strTempFile, blnSilentProbe
         Perf.OperationEnd
         DeleteFile strTempFile, True
 
     Else
         ' Load UTF-8 file
         Perf.OperationStart "modLoadFromText.LoadFromText"
-        modLoadFromText.LoadFromText intType, strName, strSourceFile
+        modLoadFromText.LoadFromText intType, strName, strSourceFile, blnSilentProbe
         Perf.OperationEnd
     End If
 
@@ -332,7 +333,10 @@ ErrHandler:
 
     If blnSuppressError Then
         ' Generate warning entries for suppressed errors
-        Log.Error eelWarning, T("Import issue with '{0}'; {1}", var0:=strName, var1:=strErrDescription), FunctionName
+        If Not blnSilentProbe Then
+            Log.Error eelWarning, T("Import issue with '{0}'; {1}", _
+                var0:=strName, var1:=strErrDescription), FunctionName
+        End If
         blnErrInFunction = True
         Resume CleanUp
     End If
