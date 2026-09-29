@@ -1840,6 +1840,16 @@ Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String)
     ' Catch any errors with deleting the object
     CatchAny eelError, T("Error deleting object: {0}", var0:=strName), ModuleName & ".DeleteObjectIfExists"
 
+    ' DoCmd.DeleteObject works outside SharedDb. If SharedDb had already loaded its
+    ' TableDefs or QueryDefs collection, a definition created and appended through
+    ' that handle afterwards is dead after the Refresh (empty Connect, no properties,
+    ' error 3420 on first use). A merged linked table hits this whenever an earlier
+    ' step of the same category (the conflict check's export) read TableDefs.
+    Select Case intType
+        Case acTable, acQuery
+            ReleaseDbReferences
+    End Select
+
     ' Return success if the object no longer exists
     DeleteObjectIfExists = Not ObjectExists(intType, strName)
 
