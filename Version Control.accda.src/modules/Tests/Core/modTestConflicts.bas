@@ -418,6 +418,250 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ImportCasingFixtures
+' Author    : Adam Waller
+' Date      : 9/29/2026
+' Purpose   : Import the two casing fixture modules, the holder always and the declarer
+'           : if requested. The declarer declares VCSCASINGPROBE, and when it is imported
+'           : after the holder the VBE re-cases the identifier in the holder. Returns
+'           : false if the fixtures are not available. The identifier is unique to these
+'           : fixtures so that it cannot re-case any code of the add-in itself.
+'           : Import skips indexing at eelError or above, and no operation begins in this
+'           : project during a test run to clear a level left by an earlier test, so the
+'           : level is cleared here and restored by RemoveCasingFixtures.
+'---------------------------------------------------------------------------------------
+'
+Private Function ImportCasingFixtures(cMod As IDbComponent, strHolderFile As String, _
+    strDeclarerFile As String, blnDeclarer As Boolean, eelSavedLevel As eErrorLevel) As Boolean
+
+    Dim strRepoRoot As String
+    Dim strBase As String
+
+    strRepoRoot = Git.GetRepositoryRoot
+    If Len(strRepoRoot) = 0 Then Exit Function
+    strBase = strRepoRoot & "Testing\Fixtures\modules\"
+    strHolderFile = strBase & "vcs_test_casing_holder.bas"
+    strDeclarerFile = strBase & "vcs_test_casing_declarer.bas"
+    If Not FSO.FileExists(strHolderFile) Then Exit Function
+    If Not FSO.FileExists(strDeclarerFile) Then Exit Function
+
+    RemoveTestImportFixtureModule "vcs_test_casing_holder"
+    RemoveTestImportFixtureModule "vcs_test_casing_declarer"
+
+    eelSavedLevel = Operation.ErrorLevel
+    Operation.ErrorLevel = eelNoError
+
+    Set cMod = New clsDbModule
+    cMod.Import strHolderFile
+    If blnDeclarer Then cMod.Import strDeclarerFile
+    ImportCasingFixtures = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveCasingFixtures
+' Author    : Adam Waller
+' Date      : 9/29/2026
+' Purpose   : Remove the casing fixture modules and their index entries, and restore the
+'           : error level that ImportCasingFixtures cleared.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveCasingFixtures(cMod As IDbComponent, strHolderFile As String, strDeclarerFile As String, _
+    eelSavedLevel As eErrorLevel)
+
+    Operation.ErrorLevel = eelSavedLevel
+    RemoveTestImportFixtureModule "vcs_test_casing_holder"
+    RemoveTestImportFixtureModule "vcs_test_casing_declarer"
+    If Not cMod Is Nothing Then
+        If VCSIndex.Exists(cMod, strHolderFile) Then VCSIndex.Remove cMod, strHolderFile
+        If VCSIndex.Exists(cMod, strDeclarerFile) Then VCSIndex.Remove cMod, strDeclarerFile
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCodeHash_IgnoresVbeRecasing
+' Author    : Adam Waller
+' Date      : 9/29/2026
+' Purpose   : Import a module that uses an identifier, then another module that declares
+'           : it with a different case. The VBE re-cases the identifier in the first
+'           : module, which nobody edited, and its stored hash must still match.
+'           : (Calls the comparison directly, since IsModified can return before hashing.)
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCodeHash_IgnoresVbeRecasing()
+'@Tag("integration")
+
+    Dim cMod As IDbComponent
+    Dim strHolderFile As String
+    Dim strDeclarerFile As String
+    Dim eelSavedLevel As eErrorLevel
+    Dim strStored As String
+    Dim strLegacyBefore As String
+    Dim strLegacyAfter As String
+    Dim strCode As String
+    Dim blnRecased As Boolean
+
+    If Not ImportCasingFixtures(cMod, strHolderFile, strDeclarerFile, False, eelSavedLevel) Then Exit Sub
+    TestAssert VCSIndex.Exists(cMod, strHolderFile), "precondition: the holder was indexed on import"
+    If Not VCSIndex.Exists(cMod, strHolderFile) Then GoTo CleanUp
+
+    strStored = VCSIndex.Item(cMod, strHolderFile).OtherHash
+    strLegacyBefore = GetCodeModuleHash(edbModule, "vcs_test_casing_holder", True)
+    TestAssert Left$(strStored, Len(cstrCodeHashPrefix)) = cstrCodeHashPrefix, "import stores a prefixed hash"
+
+    ' Now declare the identifier with a different case in another module
+    cMod.Import strDeclarerFile
+
+    ' Precondition: the VBE really re-cased the identifier in the holder
+    strCode = CurrentVBProject.VBComponents("vcs_test_casing_holder").CodeModule.Lines(1, 999999)
+    blnRecased = (InStr(1, strCode, "VCSCASINGPROBE", vbBinaryCompare) > 0)
+    TestAssert blnRecased, "precondition: the holder now contains VCSCASINGPROBE"
+    If Not blnRecased Then GoTo CleanUp
+
+    ' Control: the old hash no longer matches, so the old comparison would have failed
+    strLegacyAfter = GetCodeModuleHash(edbModule, "vcs_test_casing_holder", True)
+    TestAssert StrComp(strLegacyBefore, strLegacyAfter, vbBinaryCompare) <> 0, _
+        "control: the case-sensitive hash changed after the re-casing"
+
+    TestAssert CodeModuleHashMatches(strStored, edbModule, "vcs_test_casing_holder"), _
+        "stored hash still matches after the VBE re-cased an identifier"
+
+CleanUp:
+    RemoveCasingFixtures cMod, strHolderFile, strDeclarerFile, eelSavedLevel
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCodeHash_DetectsStringCaseChange
+' Author    : Adam Waller
+' Date      : 9/29/2026
+' Purpose   : The negative control: a change of case inside a string is a real change and
+'           : must not match, and neither must an added line of code.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCodeHash_DetectsStringCaseChange()
+'@Tag("integration")
+
+    Dim cMod As IDbComponent
+    Dim strHolderFile As String
+    Dim strDeclarerFile As String
+    Dim eelSavedLevel As eErrorLevel
+    Dim strStored As String
+    Dim cmpHolder As VBComponent
+    Dim lngLine As Long
+    Dim strLine As String
+    Dim lngString As Long
+
+    If Not ImportCasingFixtures(cMod, strHolderFile, strDeclarerFile, False, eelSavedLevel) Then Exit Sub
+    TestAssert VCSIndex.Exists(cMod, strHolderFile), "precondition: the holder was indexed on import"
+    If Not VCSIndex.Exists(cMod, strHolderFile) Then GoTo CleanUp
+
+    strStored = VCSIndex.Item(cMod, strHolderFile).OtherHash
+    Set cmpHolder = CurrentVBProject.VBComponents("vcs_test_casing_holder")
+
+    TestAssert CodeModuleHashMatches(strStored, edbModule, "vcs_test_casing_holder"), _
+        "control: unchanged module matches"
+
+    ' Find the line with the string
+    With cmpHolder.CodeModule
+        For lngLine = 1 To .CountOfLines
+            If InStr(1, .Lines(lngLine, 1), """Probe", vbBinaryCompare) > 0 Then
+                lngString = lngLine
+                Exit For
+            End If
+        Next lngLine
+    End With
+    TestAssert lngString > 0, "precondition: found the line with the string"
+    If lngString = 0 Then GoTo CleanUp
+
+    ' Change the case inside the string
+    strLine = cmpHolder.CodeModule.Lines(lngString, 1)
+    cmpHolder.CodeModule.ReplaceLine lngString, Replace(strLine, "Probe", "PROBE", , , vbBinaryCompare)
+    TestAssert Not CodeModuleHashMatches(strStored, edbModule, "vcs_test_casing_holder"), _
+        "case change inside a string is detected"
+
+    ' Restore it, and add a line of code instead
+    cmpHolder.CodeModule.ReplaceLine lngString, strLine
+    TestAssert CodeModuleHashMatches(strStored, edbModule, "vcs_test_casing_holder"), _
+        "control: restored module matches again"
+    cmpHolder.CodeModule.InsertLines cmpHolder.CodeModule.CountOfLines + 1, _
+        "Public Sub vcsTestCasingExtra()" & vbCrLf & "End Sub"
+    TestAssert Not CodeModuleHashMatches(strStored, edbModule, "vcs_test_casing_holder"), _
+        "an added line of code is detected"
+
+CleanUp:
+    RemoveCasingFixtures cMod, strHolderFile, strDeclarerFile, eelSavedLevel
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestUpgradeLegacyCodeHashes
+' Author    : Adam Waller
+' Date      : 9/29/2026
+' Purpose   : An index entry with an older hash that still matches its module is
+'           : upgraded without touching the dates. One that does not match is left as
+'           : is, and no entry is created for an object that has none.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestUpgradeLegacyCodeHashes()
+'@Tag("integration")
+
+    Const cstrFakeLegacy As String = "0123456789abcdef0123456789abcdef"
+
+    Dim cMod As IDbComponent
+    Dim strHolderFile As String
+    Dim strDeclarerFile As String
+    Dim eelSavedLevel As eErrorLevel
+    Dim dteExport As Date
+    Dim dteImport As Date
+    Dim strLegacy As String
+
+    If Not ImportCasingFixtures(cMod, strHolderFile, strDeclarerFile, True, eelSavedLevel) Then Exit Sub
+    TestAssert VCSIndex.Exists(cMod, strHolderFile), "precondition: the holder was indexed on import"
+    If Not VCSIndex.Exists(cMod, strHolderFile) Then GoTo CleanUp
+    TestAssert VCSIndex.Exists(cMod, strDeclarerFile), "precondition: the declarer was indexed on import"
+    If Not VCSIndex.Exists(cMod, strDeclarerFile) Then GoTo CleanUp
+
+    ' A legacy entry that still matches its module is upgraded
+    With VCSIndex.Item(cMod, strHolderFile)
+        dteExport = .ExportDate
+        dteImport = .ImportDate
+        strLegacy = GetCodeModuleHash(edbModule, "vcs_test_casing_holder", True)
+        .OtherHash = strLegacy
+    End With
+    VCSIndex.UpgradeLegacyCodeHashes
+    With VCSIndex.Item(cMod, strHolderFile)
+        TestAssert Left$(.OtherHash, Len(cstrCodeHashPrefix)) = cstrCodeHashPrefix, "matching legacy hash was upgraded"
+        TestAssert CodeModuleHashMatches(.OtherHash, edbModule, "vcs_test_casing_holder"), "upgraded hash matches the module"
+        TestAssert .ExportDate = dteExport, "export date was not touched"
+        TestAssert .ImportDate = dteImport, "import date was not touched"
+    End With
+
+    ' A legacy entry that does not match is left alone
+    VCSIndex.Item(cMod, strHolderFile).OtherHash = cstrFakeLegacy
+    VCSIndex.Item(cMod, strDeclarerFile).OtherHash = cstrFakeLegacy
+    VCSIndex.UpgradeLegacyCodeHashes
+    TestAssert StrComp(VCSIndex.Item(cMod, strHolderFile).OtherHash, cstrFakeLegacy, vbBinaryCompare) = 0, _
+        "non-matching legacy hash was left as it was"
+
+    ' No entry is created for an object that has none
+    VCSIndex.Remove cMod, strHolderFile
+    VCSIndex.Item(cMod, strDeclarerFile).OtherHash = cstrFakeLegacy
+    VCSIndex.UpgradeLegacyCodeHashes
+    TestAssert Not VCSIndex.Exists(cMod, strHolderFile), "no index entry was created for an object without one"
+
+CleanUp:
+    RemoveCasingFixtures cMod, strHolderFile, strDeclarerFile, eelSavedLevel
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RemoveTestImportFixtureModule
 ' Author    : Adam Waller
 ' Date      : 5/29/2026
