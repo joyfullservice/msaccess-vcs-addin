@@ -247,28 +247,39 @@ Public Sub TestUnrecognizedTypeWarns()
 
     Dim strQdef As String
     Dim eimPriorMode As eInteractionMode
+    Dim blnModeSaved As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
 
     ' This is the only test here that provokes a real builder warning, and clsLog
     ' turns a warning into a modal MsgBox whenever no console is attached to display
     ' it. Whether one is attached depends on how the suite was launched, so force
     ' silent mode for the duration rather than inherit the caller's mode -- the same
     ' guard modTestRoundtrip uses to keep prompts from stalling an unattended run.
+    On Error GoTo ErrHandler
+
     eimPriorMode = Operation.InteractionMode
+    blnModeSaved = True
     Operation.InteractionMode = eimSilent
-    Err.Clear
-    On Error GoTo RestoreMode
 
     strQdef = DesignQdef("PARAMETERS [P] Frobnicate; " & _
         "SELECT t1.ID FROM t1 WHERE (((t1.ID)=[P]))")
 
-RestoreMode:
-    Operation.InteractionMode = eimPriorMode
-    If Err.Number <> 0 Then Err.Raise Err.Number, Err.Source, Err.Description
-    On Error GoTo 0
-
     TestAssert m_qc.WarningCount > 0, "unrecognized parameter type raises a warning"
     TestAssert ParameterFlagInQdef(strQdef) = 0, _
         "unrecognized parameter type falls back to an untyped flag"
+
+CleanUp:
+    On Error Resume Next
+    If blnModeSaved Then Operation.InteractionMode = eimPriorMode
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected parameter warning error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
 
 End Sub
 

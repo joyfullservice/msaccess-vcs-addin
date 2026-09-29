@@ -37,6 +37,10 @@ Public Sub TestUnnamedSpecExportMergeRoundtrip()
     Dim lngId As Long
     Dim lngBlank As Long
     Dim lngCols As Long
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
 
     DeleteTestSpecs
     strFile = WriteTestSpecFile(vbNullString)
@@ -63,7 +67,18 @@ Public Sub TestUnnamedSpecExportMergeRoundtrip()
     TestAssert DCount("*", "MSysIMEXColumns", "FieldName=""" & TEST_COL & """") = 1, _
         "test column is not attached to any other spec"
 
+CleanUp:
+    On Error Resume Next
     DeleteTestSpecs
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected unnamed spec round-trip error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
 End Sub
 
 
@@ -84,6 +99,10 @@ Public Sub TestUnnamedSpecMergeAfterIdDrift()
     Dim lngOld As Long
     Dim lngNew As Long
     Dim rst As DAO.Recordset
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
 
     DeleteTestSpecs
     strFile = WriteTestSpecFile(vbNullString)
@@ -116,7 +135,21 @@ Public Sub TestUnnamedSpecMergeAfterIdDrift()
     TestAssert DCount("*", "MSysIMEXColumns", "SpecID=" & lngNew) = 0, _
         "drifted SpecID was replaced, not left behind"
 
+CleanUp:
+    On Error Resume Next
+    If Not rst Is Nothing Then rst.Close
+    Set rst = Nothing
+    Set dbs = Nothing
     DeleteTestSpecs
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected spec ID drift error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
 End Sub
 
 
@@ -134,6 +167,10 @@ Public Sub TestNamedSpecMergeLeavesUnnamed()
     Dim strNamed As String
     Dim strUnnamed As String
     Dim lngUnnamedId As Long
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
 
     DeleteTestSpecs
     strNamed = WriteTestSpecFile(TEST_NAMED)
@@ -156,7 +193,18 @@ Public Sub TestNamedSpecMergeLeavesUnnamed()
     TestAssert DCount("*", "MSysIMEXColumns", "SpecID=" & lngUnnamedId & " AND FieldName=""" & TEST_COL & """") = 1, _
         "unnamed spec columns intact"
 
+CleanUp:
+    On Error Resume Next
     DeleteTestSpecs
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected named spec merge error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
 End Sub
 
 
@@ -182,6 +230,10 @@ Public Sub TestSpecIdAllocationIgnoresAutonumberSeed()
     Dim strHigh As String
     Dim strLast As String
     Dim strNew As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
 
     DeleteTestSpecs
     Set rst = CurrentDb.OpenRecordset("SELECT Max(SpecID) FROM MSysIMEXSpecs", dbOpenSnapshot, dbReadOnly)
@@ -217,7 +269,20 @@ Public Sub TestSpecIdAllocationIgnoresAutonumberSeed()
     TestAssert lngNew <> lngOccupy, "new spec did not reuse the occupied seed target"
     TestAssert lngNew = lngHigh + 1, "new spec used Max(SpecID)+1"
 
+CleanUp:
+    On Error Resume Next
+    If Not rst Is Nothing Then rst.Close
+    Set rst = Nothing
     DeleteTestSpecs
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected spec ID allocation error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
 End Sub
 
 
@@ -239,6 +304,11 @@ Public Sub TestDuplicateDerivedFileNameWarns()
     Dim strNamed As String
     Dim strUnnamed As String
     Dim eimPriorMode As eInteractionMode
+    Dim blnModeSaved As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
 
     DeleteTestSpecs
     strUnnamed = WriteTestSpecFile(vbNullString)
@@ -260,25 +330,31 @@ Public Sub TestDuplicateDerivedFileNameWarns()
     ' prompt nobody is there to click. Same guard clsTestQueryComposerParameters and
     ' modTestRoundtrip use.
     eimPriorMode = Operation.InteractionMode
+    blnModeSaved = True
     Operation.InteractionMode = eimSilent
-    Err.Clear
-    On Error GoTo RestoreMode
 
     ' A skipped duplicate is logged at eelWarning, which ErrorCount does not count.
     lngWarnBefore = Log.WarningCount
     Set cSpec = New clsDbImexSpec
     Set dItems = cSpec.GetAllFromDB
 
-RestoreMode:
-    Operation.InteractionMode = eimPriorMode
-    If Err.Number <> 0 Then Err.Raise Err.Number, Err.Source, Err.Description
-    On Error GoTo 0
-
     TestAssert Log.WarningCount > lngWarnBefore, "duplicate derived file name logged a warning"
     TestAssert dItems.Exists(cSpec.BaseFolder & GetSafeFileName("Spec " & lngId) & ".json"), _
         "derived file name is present once in the collection"
 
+CleanUp:
+    On Error Resume Next
+    If blnModeSaved Then Operation.InteractionMode = eimPriorMode
     DeleteTestSpecs
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected import/export spec error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
 End Sub
 
 

@@ -101,6 +101,8 @@ Public Sub TestConsumeXmlImportErrors_FromImportXml()
     Dim strDetails As String
     Dim strXml As String
     Dim lngErr As Long
+    Dim lngTrapErr As Long
+    Dim strTrapErr As String
 
     Set dbs = CurrentDb
     Set cTable = New clsDbTableData
@@ -117,11 +119,14 @@ Public Sub TestConsumeXmlImportErrors_FromImportXml()
     WriteFile strXml, strFile
 
     LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    ' The rejected row is the point of the test, so ImportXML is expected to fail.
     On Error Resume Next
     Application.ImportXML strFile, acAppendData
     lngErr = Err.Number
     If Err Then Err.Clear
-    On Error GoTo 0
+    On Error GoTo ErrHandler
 
     TestAssert lngErr = 31550, "ImportXML reports rejected rows"
     TestAssert TableExists("ImportErrors"), "ImportXML created an ImportErrors table"
@@ -132,9 +137,19 @@ Public Sub TestConsumeXmlImportErrors_FromImportXml()
     TestAssert Not TableExists("ImportErrors"), "ImportErrors table consumed"
     TestAssert DCount("*", "[" & TEST_TABLE_IMPORT_XML & "]", "ID=1") = 1, "valid row was imported"
 
+CleanUp:
+    On Error Resume Next
     DeleteTestSourceFile strFile
     DropTestTable TEST_TABLE_IMPORT_XML, dbs
     DropTestTable "ImportErrors", dbs
+    If lngTrapErr <> 0 Then TestAssert False, _
+        "unexpected XML import error " & lngTrapErr & ": " & strTrapErr
+    Exit Sub
+
+ErrHandler:
+    lngTrapErr = Err.Number
+    strTrapErr = Err.Description
+    Resume CleanUp
 
 End Sub
 

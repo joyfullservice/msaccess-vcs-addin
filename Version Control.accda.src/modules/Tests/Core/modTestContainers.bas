@@ -388,7 +388,7 @@ Public Sub TestQuerySourceFileExtensions()
     lngSavedFormat = Options.ExportFormatVersion
     blnSavedDet = Options.UseDeterministicQueryExport
 
-    On Error GoTo CleanUp
+    On Error GoTo ErrHandler
 
     If Not ObjectExists(acQuery, strName) Then
         Set dbs = CurrentDb
@@ -417,12 +417,18 @@ Public Sub TestQuerySourceFileExtensions()
         "format 5.0 non-deterministic uses .qdef"
 
 CleanUp:
-    lngErr = Err.Number
-    strErr = Err.Description
+    On Error Resume Next
     Options.ExportFormatVersion = lngSavedFormat
     Options.UseDeterministicQueryExport = blnSavedDet
     If blnCreated Then DeleteObjectIfExists acQuery, strName
-    If lngErr <> 0 Then Err.Raise lngErr, , strErr
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected query source extension error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
 
 End Sub
 

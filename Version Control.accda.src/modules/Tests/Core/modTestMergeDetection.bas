@@ -122,6 +122,8 @@ Public Sub TestMergeSkipsTableDataAfterExport()
     Dim strTable As String
     Dim strFile As String
     Dim dModified As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
 
     strTable = "vcs_test_export_idx"
     strFile = vbNullString
@@ -129,17 +131,26 @@ Public Sub TestMergeSkipsTableDataAfterExport()
     Set cCategory = New clsDbTableData
 
     LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    ' A leftover table from an interrupted run is expected, so the drop is tolerated.
     On Error Resume Next
     dbs.Execute "DROP TABLE [" & strTable & "]"
-    On Error GoTo 0
+    Err.Clear
+    On Error GoTo ErrHandler
+
     dbs.Execute "CREATE TABLE [" & strTable & "] (ID LONG, Name TEXT(10))"
     dbs.Execute "INSERT INTO [" & strTable & "] (ID, Name) VALUES (1, 'a')"
 
     Set cTable = New clsDbTableData
     cTable.Format = etdTabDelimited
+
+    ' An unbindable table is reported as a skip below, not as an error.
     On Error Resume Next
     Set cTable.Parent.DbObject = CurrentData.AllTables(strTable)
-    On Error GoTo 0
+    Err.Clear
+    On Error GoTo ErrHandler
+
     If cTable.Parent.DbObject Is Nothing Then
         TestAssert True, "SKIP: could not bind test table"
         GoTo CleanUp
@@ -163,7 +174,15 @@ CleanUp:
         If FSO.FileExists(strFile) Then DeleteFile strFile
         VCSIndex.Remove cCategory, strFile
     End If
-    On Error GoTo 0
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected table data export index error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
 End Sub
 
 

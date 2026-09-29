@@ -42,7 +42,7 @@ Public Sub TestLegacyQueryForceSqlOverride()
     blnSavedForce = Options.ForceImportOriginalQuerySQL
     blnIndexDisabled = VCSIndex.Disabled
     VCSIndex.Disabled = True
-    On Error GoTo CleanUp
+    On Error GoTo ErrHandler
 
     DeleteObjectIfExists acQuery, TEST_QUERY
     strFolder = GetTempFolder("VCS") & PathSep
@@ -77,15 +77,21 @@ Public Sub TestLegacyQueryForceSqlOverride()
         "missing .qdef is reported instead of treated as present"
 
 CleanUp:
-    lngErr = Err.Number
-    strErr = Err.Description
+    On Error Resume Next
     Options.ForceImportOriginalQuerySQL = blnSavedForce
     VCSIndex.Disabled = blnIndexDisabled
     DeleteObjectIfExists acQuery, TEST_QUERY
     If Len(strFolder) > 0 Then
         If FSO.FolderExists(StripSlash(strFolder)) Then FSO.DeleteFolder StripSlash(strFolder), True
     End If
-    If lngErr <> 0 Then Err.Raise lngErr, , strErr
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected legacy query import error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
 
 End Sub
 

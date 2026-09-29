@@ -66,6 +66,10 @@ Public Sub TestMenuFixtureRoundtripCustomComboList()
     Dim colControls As Collection
     Dim dCtl As Dictionary
     Dim colList As Collection
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
 
     strFixture = GetMenuFixturePath(strFixtureFile)
     If Not FSO.FileExists(strFixture) Then
@@ -83,13 +87,15 @@ Public Sub TestMenuFixtureRoundtripCustomComboList()
 
     Set bar = Nothing
     LogUnhandledErrors
+
+    ' A missing bar is the failure this asserts on, so the lookup is tolerated.
     On Error Resume Next
     Set bar = CommandBars(strBarName)
     If CatchAny(eelNoError, vbNullString) Or bar Is Nothing Then
         TestAssert False, "command bar not created: " & strBarName
         GoTo CleanUp
     End If
-    On Error GoTo 0
+    On Error GoTo ErrHandler
 
     Set cbo = FindComboControl(bar)
     TestAssert Not cbo Is Nothing, "custom combo control exists after import"
@@ -123,11 +129,20 @@ Public Sub TestMenuFixtureRoundtripCustomComboList()
     End If
 
 CleanUp:
-    DeleteCommandBarIfExists strBarName
     On Error Resume Next
+    DeleteCommandBarIfExists strBarName
     FSO.DeleteFile strPass1, True
     FSO.DeleteFile strPass2, True
     Err.Clear
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected combo list round-trip error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
 End Sub
 
 

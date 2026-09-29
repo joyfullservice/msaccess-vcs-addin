@@ -7,11 +7,10 @@ alwaysApply: false
 # Writing VBA tests
 
 The canonical guide for *authoring* a test in the VCS add-in or any Access
-database using the VCS test runner. For the three testing layers, the round-trip
-fixture harness, and where results land, see
-[docs/testing-strategy.md](../../docs/testing-strategy.md); for running and filtering,
-[docs/agent-test-runs.md](../../docs/agent-test-runs.md); for the web UI and bridge,
-[docs/web-test-runner.md](../../docs/web-test-runner.md).
+database using the VCS test runner. For the testing layers, the round-trip fixture
+harness, and where results land, see [docs/testing-strategy.md](../../docs/testing-strategy.md);
+for running and filtering, [docs/agent-test-runs.md](../../docs/agent-test-runs.md);
+for the web UI and bridge, [docs/web-test-runner.md](../../docs/web-test-runner.md).
 
 Tests assert with `TestAssert condition, "optional context"`, a drop-in
 replacement for `Debug.Assert`. The context string identifies which assertion
@@ -23,12 +22,6 @@ standalone (F5 or Immediate Window) it falls back to `Debug.Assert`.
 Parameterless `Public Sub` procedures in a module identified as a test module:
 
 ```vba
-Attribute VB_Name = "modTestMyFeature"
-Option Compare Database
-Option Explicit
-Option Private Module
-'@Folder("Tests")
-
 Public Sub TestSomeBehavior()
     TestAssert MyFunction(42) = 84, "MyFunction should double input"
 End Sub
@@ -36,22 +29,8 @@ End Sub
 
 ## Class module tests (preferred for new tests)
 
-Class modules get setup/teardown for free, and each test method runs against a
-**fresh instance**, giving complete isolation:
-
-```vba
-Private Sub Class_Initialize()
-    Set m_db = CurrentDb          ' before each test method
-End Sub
-
-Private Sub Class_Terminate()
-    Set m_db = Nothing            ' after each test method
-End Sub
-```
-
-Keep the standard `VERSION 1.0 CLASS` / `BEGIN` / `END` block, the
-`Attribute VB_Name` line, and the `Option` / `'@Folder("Tests")` header, as in
-any exported class file.
+Class modules get setup/teardown for free and each test method runs against a **fresh
+instance**: `Class_Initialize` runs before each test method, `Class_Terminate` after it.
 
 ## Discovery rules
 
@@ -60,30 +39,22 @@ standalone class module (`vbext_ct_ClassModule`), AND either carries a
 `'@Folder("...Tests...")` annotation (when the project uses `@Folder` anywhere) or
 has `Test` in its name (case-insensitive fallback). Within one, a procedure is a
 **test** if it is a `Public Sub` with zero parameters — or, in class modules, a
-`Public Sub` or `Public Function` with zero parameters, excluding
-`Class_Initialize` and `Class_Terminate`. To keep a helper out of discovery, make
-it `Private` or give it a parameter (even an unused `Optional` one).
+`Public Sub` or `Public Function` with zero parameters, excluding `Class_Initialize`
+and `Class_Terminate`. Keep a helper out by making it `Private` or giving it a parameter.
 
 ## Tagging
 
-`'@Tag("name")` annotations categorize tests for filtering. Tags are
-case-insensitive and appear in the JSON results under a `"tags"` array.
-Module-level tags sit in the first ~30 lines, before any procedure, and apply to
-every test in the module. Procedure-level tags go at the very top of the body,
-before any `Dim`. The two sets are merged.
-
-## Class test factory
-
-The runner auto-maintains a `TestClassFactory` function inside `modTestAssert`,
-one `Select Case` entry per test class. Do not hand-edit between the markers.
-
+`'@Tag("name")` annotations categorize tests for filtering. Tags are case-insensitive
+and appear in the JSON results under a `"tags"` array. Module-level tags sit in the
+first ~30 lines, before any procedure, and apply to every test in the module;
+procedure-level tags go at the top of the body, before any `Dim`. Both sets merge.
 ## Global suite hooks
 
 Optional **once-per-run** setup/teardown in the target project's `modTestAssert`:
 `GlobalTestSetup` runs before the first test, `GlobalTestTeardown` after all tests
-and the results JSON. They ship as empty stubs in fresh installs, are skipped when
-absent, and do not run when a filter matches nothing. Hook errors are non-fatal
-and teardown still runs. `Class_Initialize` / `Class_Terminate` nest inside.
+and the results JSON. They ship as empty stubs, are skipped when absent or when a
+filter matches nothing, and their errors are non-fatal — teardown still runs.
+`Class_Initialize` / `Class_Terminate` nest inside.
 
 ## Conventions
 
@@ -92,6 +63,8 @@ and teardown still runs. `Class_Initialize` / `Class_Terminate` nest inside.
 - Use `Option Private Module` on standard test modules to keep test subs out of
   the macro list — the runner can still call them.
 - One assertion concept per test method; use `context` to distinguish assertions.
+- The runner auto-maintains `TestClassFactory` in `modTestAssert`, one `Select Case`
+  entry per test class. Do not hand-edit between the markers.
 - Do not add per-test `Operation.InteractionMode = eimSilent` guards; the runner
   owns root interaction policy (see below).
 
@@ -99,22 +72,48 @@ and teardown still runs. `Class_Initialize` / `Class_Terminate` nest inside.
 
 The *installed* add-in drives the run and owns the operation; test procedures
 execute in the project being tested. For this repo those are two loaded copies of
-the same project, so `Operation` inside a test is a different, idle instance from
-the one hosting the run — its `Status`, `InteractionMode`, and `Attended` say
-nothing about the run. What every hosted project can see is
-`modTestAssert.TestRunActive`, true for the duration of the run.
+the same project, so `Operation` inside a test is a different, idle instance whose
+`Status`, `InteractionMode`, and `Attended` say nothing about the run. What every
+hosted project can see is `modTestAssert.TestRunActive`, true during the run.
 
-## Three ways a test can sabotage its own run
+## Four ways a test can sabotage its own run
 
 - **Never call `Operation.TryBeginRoot`** (or legacy `Begin`/`Finish`) on the
-  session operation. Where a root is active it is refused — a dialog on an
-  attended run — or you complete the run's root, which runs `ReleaseObjects` and
-  destroys `Log` and `TestRunner` mid-run. To test root lifecycle behavior, drive
-  a private `New clsOperation`: no registry writes, no MCP callback, no singleton
-  teardown. See `modTestOperationLifecycle`.
+  session operation. It can be refused with a dialog or destroy the active runner.
+  Test lifecycle behavior through a private `New clsOperation`; see
+  `modTestOperationLifecycle`.
 - **Never call `Log.Error`** on the session log. The runner reports any error
-  logged during a test as a failure of that test, so such a test can never pass.
-  Assert on the decision instead of the side effect.
-- **Never open a prompt.** While a run is active `PromptWouldDisplay` is false for
-  every prompt, gesture prompts included. Assert that rather than calling one, and
-  use `MsgBox2` only where suppression is already established.
+  logged during a test as a failure. Assert on the decision instead.
+- **Never use `Err.Raise` in a test procedure**, including cleanup rethrows; it can
+  open a blocking VBA error dialog. Trap and report instead, as below.
+- **Never open a prompt.** Assert `PromptWouldDisplay` is false; call `MsgBox2`
+  only where suppression is already established.
+
+## Trapping errors in a test
+
+Trapping must be **on at every line** of a test procedure. `On Error GoTo 0` is
+banned: it disables trapping, so the next failure — including one inside
+`TestAssert` — breaks into a modal dialog and stalls the whole run.
+`On Error Resume Next` over a whole body is the opposite mistake, running on
+through the broken state until follow-on errors bury the real one. Trap to a
+handler, clean up unconditionally, then report:
+
+```vba
+    On Error GoTo ErrHandler
+    ' ... fallible work and TestAssert calls ...
+
+CleanUp:
+    On Error Resume Next
+    ' ... restore saved options, delete temp objects ...
+    If lngErr <> 0 Then TestAssert False, "context " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+```
+
+Cleanup stays under `On Error Resume Next` to the end; the state is per-procedure
+and does not leak to the caller. To end a tolerated scope mid-body — one statement
+whose failure *is* the thing under test — go back to `On Error GoTo ErrHandler`.

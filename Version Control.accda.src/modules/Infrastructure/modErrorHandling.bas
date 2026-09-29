@@ -6,6 +6,7 @@
 ' Purpose   : General error handling functions.
 ' Layer     : Infrastructure
 ' Depends on: modObjects (Log singleton, Options.BreakOnError via OptionsLoaded guard)
+'           : modTestAssert (TestRunActive, to suppress breaks during a test run)
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -62,6 +63,32 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : BreakOnUnhandledError
+' Author    : Adam Waller
+' Date      : 9/16/2026
+' Purpose   : Whether an unhandled error should Stop in the debugger. Only the break
+'           : decision: DebugMode still reports the raw BreakOnError option, because
+'           : callers use it to choose between On Error GoTo 0 and Resume Next, and
+'           : changing that would reroute error handling throughout the product.
+'           : A test run never breaks. The runner calls SuppressErrorBreaks, but it
+'           : runs in the add-in, so that scope only covers the add-in's copy of this
+'           : module; test procedures execute in the project under test, whose copy has
+'           : its own counter sitting at zero. A test that tripped BreakOnError hit the
+'           : Stop and parked the run on a modal break with nobody to dismiss it.
+'           : TestRunActive is the signal the runner does propagate across that
+'           : boundary, so honor it here.
+'---------------------------------------------------------------------------------------
+'
+Public Function BreakOnUnhandledError() As Boolean
+    If Not OptionsLoaded Then Exit Function
+    If Not Options.BreakOnError Then Exit Function
+    If ErrorBreaksSuppressed Then Exit Function
+    If modTestAssert.TestRunActive Then Exit Function
+    BreakOnUnhandledError = True
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ErrorBreakSuppressionDepth
 ' Author    : Adam Waller
 ' Date      : 9/11/2026
@@ -115,8 +142,7 @@ Public Sub LogUnhandledErrors(Optional ByRef CallingFunction As String = vbNullS
         this.blnInError = True ' Set flag so we don't create a loop while logging the error
 
         ' Check live BreakOnError setting
-        If OptionsLoaded Then blnBreak = Options.BreakOnError
-        If ErrorBreaksSuppressed Then blnBreak = False
+        blnBreak = BreakOnUnhandledError
         If blnBreak Then
             ' Stop the code here so we can investigate the source of the error.
             Debug.Print "Error " & Err.Number & ": " & Err.Description

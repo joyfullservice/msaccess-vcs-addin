@@ -100,8 +100,8 @@ CleanUp:
         If Len(strFile2) > 0 Then VCSIndex.Remove cComponent, strFile2
     End If
     RestoreQuerySandbox strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
-    On Error GoTo 0
-    If lngErr <> 0 Then Err.Raise lngErr, , strErr
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected batch import error " & lngErr & ": " & strErr
     Exit Sub
 
 ErrHandler:
@@ -287,8 +287,8 @@ CleanUp:
         If Len(strFile) > 0 Then VCSIndex.Remove cComponent, strFile
     End If
     RestoreQuerySandbox strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
-    On Error GoTo 0
-    If lngErr <> 0 Then Err.Raise lngErr, , strErr
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected query merge error " & lngErr & ": " & strErr
     Exit Sub
 
 ErrHandler:

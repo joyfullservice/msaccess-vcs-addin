@@ -147,6 +147,10 @@ Public Sub TestImport_SkipsReadOnlyPropertyInsteadOfCrashing()
     Dim strFile As String
     Dim comp As IDbComponent
     Dim blnCrashed As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
 
     strFolder = GetTempFolder("vcs_dbproperty_test") & PathSep
     VerifyPath strFolder
@@ -154,16 +158,29 @@ Public Sub TestImport_SkipsReadOnlyPropertyInsteadOfCrashing()
     WriteFile BuildReadOnlyPropertyFixture(), strFile
 
     Set comp = New clsDbProperty
+
+    ' Whether Import raises is the thing under test, so it runs untrapped.
     On Error Resume Next
     Err.Clear
     comp.Import strFile
     blnCrashed = (Err.Number <> 0)
     Err.Clear
-    On Error GoTo 0
+    On Error GoTo ErrHandler
 
     TestAssert Not blnCrashed, "import does not crash on a type-mismatched read-only property"
 
+CleanUp:
+    On Error Resume Next
     FSO.DeleteFile strFile, True
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected read-only property import error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
 End Sub
 
 

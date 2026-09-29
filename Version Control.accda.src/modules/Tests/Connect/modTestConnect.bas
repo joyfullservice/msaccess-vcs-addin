@@ -256,7 +256,6 @@ Public Sub TestGetFileDsnDriverName()
 
     On Error Resume Next
     If FSO.FolderExists(StripSlash(strDir)) Then FSO.DeleteFolder StripSlash(strDir), True
-    On Error GoTo 0
     ClearConnState
 
 End Sub

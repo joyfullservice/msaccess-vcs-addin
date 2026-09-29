@@ -72,6 +72,10 @@ Public Sub TestBigIntImportXmlRepair()
     Dim colNames As Collection
     Dim lngImportError As Long
     Dim strImportError As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
 
     DropTestTable TEST_TABLE_BIGINT
 
@@ -91,12 +95,15 @@ Public Sub TestBigIntImportXmlRepair()
 
     DropTestTable TEST_TABLE_BIGINT
     LogUnhandledErrors
+
+    ' ImportXML's own error code is asserted below, so this call runs untrapped.
     On Error Resume Next
     Application.ImportXML strTemp, acStructureOnly
     lngImportError = Err.Number
     strImportError = Err.Description
     Err.Clear
-    On Error GoTo 0
+    On Error GoTo ErrHandler
+
     ReleaseDbReferences
 
     TestAssert lngImportError = 0 Or lngImportError = 31550, _
@@ -122,8 +129,18 @@ Public Sub TestBigIntImportXmlRepair()
             "field ordinal is preserved"
     End If
 
+CleanUp:
+    On Error Resume Next
     DeleteFile strTemp
     DropTestTable TEST_TABLE_BIGINT
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected bigint repair error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
 
 End Sub
 
