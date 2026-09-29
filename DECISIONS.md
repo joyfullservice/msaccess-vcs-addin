@@ -83,6 +83,88 @@ contradictory guidance.
 
 ---
 
+## 2026-09-29 — VBA code hash ignores the letter case the VBE rewrites
+
+**Trigger**: `GetCodeModuleHash` hashed `CodeModule.Lines` case-sensitively. The VBE
+re-cases an identifier throughout the project when another module declares it with a
+different case, so modules nobody edited stopped matching their stored `OtherHash`.
+`IsModified` then reported them as modified, and the next merge that brought a new
+source file for them raised a false conflict. Separately, `CheckMergeConflicts` passed
+`cItem.DateModified` as the sync date, so the conflict log showed the same value for
+the object date and the sync date.
+
+**Options explored**:
+- **A. Re-hash every module at the end of each merge or build.** Only covers the
+  re-casing caused by the operation itself, not the one caused by a user editing in the
+  VBE, and it would bless modules that really were modified before the merge unless they
+  were excluded one by one.
+- **B. Compare the temporary export against the source file case-insensitively in
+  `IsMergeConflict`.** Wrong place: after a pull the source file is new and differs by
+  content. The false positive comes from `IsModified`.
+- **C. No version prefix, comparing against both the old and the new hash.** Two hashes
+  per modified module forever, and no way to know which index entries can be upgraded.
+- **D. Rescue modules that were already re-cased when the add-in is updated, by reading
+  their source file.** Turning a source file into `CodeModule.Lines` is the import's job
+  (attribute lines, headers), and by then the source file of the modules being imported
+  is already the new one. Fragile, and the cost of skipping it is bounded (see below).
+- **E. `StandardizeLetterCasing`.** Imposes one canonical case so it cannot diverge, but
+  does not fix detection and needs a class per project. Complementary, not an alternative.
+
+**Decision**:
+- **D1.** `NormalizeVbaCodeCasing` (pure, no VBE access) lower-cases everything outside
+  string literals and comments, and leaves those byte for byte. Strings end at the next
+  quote that is not doubled and never cross a physical line. `'` and a `Rem` at the start
+  of a statement open a comment that runs to the end of the line, and on to the next
+  line while it ends in a space or tab followed by `_`. `#` delimits nothing. If
+  `LCase$` changes the length, the text is returned untouched (a false difference at
+  worst, never a missed one). Every search in it, and in `IsRemComment`, passes
+  `vbBinaryCompare`: `modHash` has `Option Compare Database`, and there a text
+  `InStr` costs the length of the whole string on every call, wherever it starts, which
+  makes the function quadratic on large modules (a 470 KB module: 84 s against 0.03 s).
+  `InStrRev` without the argument compares as text too, although the VBA documentation
+  says it defaults to binary. `"rem"` is found in the lower case copy, still untouched to
+  the right of the scan. Binary and text searches find the same positions here: checked
+  for every ANSI character next to each delimiter. `TestNormalizeCasing_21_LargeModule`
+  guards it.
+- **D2.** `GetCodeModuleHash` returns `ci1:` plus the hash of the normalized code and
+  the instancing flag. `blnLegacyCaseSensitive:=True` returns exactly the previous hash,
+  with no prefix. No code module still gives an empty string.
+- **D3.** `CodeModuleHashMatches` is the single comparison point. The prefix on the
+  stored hash tells which algorithm to use, so only one hash is ever calculated. The
+  three `IsModified` implementations (modules, forms, reports) use it, and nothing else
+  in them changed.
+- **D4.** `clsVCSIndex.UpgradeLegacyCodeHashes` runs before a merge build, a scoped
+  merge or a single-object import imports anything. For each module, form and report
+  that already has an index entry and still matches its old hash, it replaces only
+  `OtherHash`, with no dates touched and no new entries created. Without this,
+  existing entries would keep the old hash and the module re-cased by the merge itself
+  would still be flagged. A module that is already re-cased when the add-in is
+  installed does not match its old hash, so it is left alone and can cause one more false
+  conflict, at most, when its source file changes. Resolving it re-imports it with the
+  new hash.
+- **D5.** The conflict log shows the index `SyncDate` of the source file (zero when there
+  is no entry) instead of the object date.
+
+**What this rules out**: A deliberate change of letter case in an identifier, made in the
+database and not yet exported, is no longer detected as a conflict and the merge will
+overwrite it with the case in the source file. VBA identifiers are not case-sensitive and
+the VBE imposes the case of the declaration again anyway. A case change inside a string or
+a comment is still detected. The incremental export also stops re-exporting modules that
+were only re-cased, so the source keeps the previous case until the next full export or a
+real change. Hashes already stored are changed on purpose, which `TestKnownSha256Digest`
+guards against doing silently, so the prefix declares it. Revisit if the VBE starts
+re-casing string or comment content, or if the prefix has to change again (bump it to
+`ci2:`, and the older prefix is then handled like a legacy entry).
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/modHash.bas` — `NormalizeVbaCodeCasing`, `GetCodeTextHash`, `GetCodeModuleHash`, `CodeModuleHashMatches`
+- `Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls` — `UpgradeLegacyCodeHashes`, sync date in `CheckMergeConflicts`
+- `Version Control.accda.src/modules/Core/modBuild.bas` — calls to `UpgradeLegacyCodeHashes`
+- `Version Control.accda.src/modules/Components/clsDbModule.cls`, `clsDbForm.cls`, `clsDbReport.cls` — `IsModified`
+- `Version Control.accda.src/modules/Tests/FileIO/modTestHash.bas`, `Tests/Core/modTestConflicts.bas`, `Testing/Fixtures/modules/vcs_test_casing_*.bas` — tests
+
+---
+
 ## 2026-09-16 — Defer a dual-runtime native export worker pending a focused speed probe
 
 **Trigger**: A historical full export took 451.29 s; its query profile attributed

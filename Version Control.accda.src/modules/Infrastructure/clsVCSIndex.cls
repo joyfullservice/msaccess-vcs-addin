@@ -1099,6 +1099,108 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : UpgradeLegacyCodeHashes
+' Date      : 9/29/2026
+' Purpose   : Replace the older, case-sensitive code hash of modules, forms and reports
+'           : with the current one, but only where the object still matches its old hash
+'           : (meaning it is exactly as it was in the last sync). This must run before a
+'           : merge imports anything, because importing one module can make the VBE
+'           : re-case identifiers in other modules that nobody touched. With the old hash
+'           : those would look modified and turn into false conflicts on the next merge.
+'           : Only the hash is changed, never the dates. Objects without an index entry
+'           : are left alone, and so are objects that do not match their old hash.
+'           : Optionally pass the collection of categories in use, to reuse their cache.
+'---------------------------------------------------------------------------------------
+'
+Public Sub UpgradeLegacyCodeHashes(Optional colCategories As Collection)
+
+    Dim colUse As Collection
+    Dim varCategory As Variant
+    Dim cCategory As IDbComponent
+    Dim dItems As Dictionary
+    Dim varKey As Variant
+    Dim cItem As IDbComponent
+    Dim cIdx As clsVCSIndexItem
+    Dim lngCount As Long
+
+    If Me.Disabled Then Exit Sub
+
+    ' Quick exit, without touching the database, when there is nothing to upgrade.
+    ' (Themes and shared images also use OtherHash, but as a signature, so they are
+    ' not on this list.)
+    If Not (HasLegacyCodeHash("Modules") Or HasLegacyCodeHash("Forms") _
+        Or HasLegacyCodeHash("Reports")) Then Exit Sub
+
+    Perf.OperationStart "Upgrade Code Hashes"
+
+    ' Only the categories that have a code module
+    Set colUse = New Collection
+    If colCategories Is Nothing Then
+        colUse.Add New clsDbModule
+        colUse.Add New clsDbForm
+        colUse.Add New clsDbReport
+    Else
+        For Each varCategory In colCategories
+            Set cCategory = varCategory
+            Select Case cCategory.ComponentType
+                Case edbModule, edbForm, edbReport
+                    colUse.Add cCategory
+            End Select
+        Next varCategory
+    End If
+
+    For Each varCategory In colUse
+        Set cCategory = varCategory
+        Set dItems = cCategory.GetAllFromDB(False)
+        For Each varKey In dItems.Keys
+            Set cItem = dItems(varKey)
+            ' Do not use Item() to check, since that would create a missing entry.
+            If Me.Exists(cCategory, cItem.SourceFile) Then
+                Set cIdx = Me.Item(cItem)
+                If Len(cIdx.OtherHash) > 0 And Left$(cIdx.OtherHash, Len(cstrCodeHashPrefix)) <> cstrCodeHashPrefix Then
+                    ' Still exactly as it was in the last sync?
+                    If cIdx.OtherHash = GetCodeModuleHash(cItem.ComponentType, cItem.Name, True) Then
+                        cIdx.OtherHash = GetCodeModuleHash(cItem.ComponentType, cItem.Name)
+                        lngCount = lngCount + 1
+                    End If
+                End If
+            End If
+        Next varKey
+    Next varCategory
+
+    Log.Add T("Upgraded {0} VBA code hashes in the index.", var0:=CStr(lngCount)), Options.ShowDebug
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasLegacyCodeHash
+' Date      : 9/29/2026
+' Purpose   : Returns true if any index entry in this category has a code hash that was
+'           : calculated the older way (not empty, and without the current prefix).
+'---------------------------------------------------------------------------------------
+'
+Private Function HasLegacyCodeHash(strCategory As String) As Boolean
+
+    Dim varItem As Variant
+    Dim strHash As String
+
+    With m_dIndex("Components")
+        If Not .Exists(strCategory) Then Exit Function
+        For Each varItem In .Item(strCategory).Items
+            strHash = varItem.OtherHash
+            If Len(strHash) > 0 And Left$(strHash, Len(cstrCodeHashPrefix)) <> cstrCodeHashPrefix Then
+                HasLegacyCodeHash = True
+                Exit Function
+            End If
+        Next varItem
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CheckImportConflicts
 ' Author    : Adam Waller
 ' Date      : 2/24/2023

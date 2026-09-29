@@ -64,6 +64,10 @@ Private Declare PtrSafe Function BCryptGetProperty Lib "BCrypt.dll" ( _
 
 Private Const ModuleName As String = "modHash"
 
+' Prefix on a code hash calculated after normalizing the letter case (see GetCodeModuleHash).
+' An index entry without it was calculated the older, case-sensitive way.
+Public Const cstrCodeHashPrefix As String = "ci1:"
+
 ' Cached CNG algorithm provider. Opening a provider and querying its two size
 ' properties costs more than hashing the small inputs this add-in mostly deals with
 ' (file property strings, combined hash strings, VBA module text), and an export or
@@ -368,10 +372,17 @@ End Sub
 ' Procedure : GetCodeModuleHash
 ' Author    : Adam Waller
 ' Date      : 11/30/2020
-' Purpose   : Return a hash from the VBA code module behind an object.
+' Purpose   : Return a hash from the VBA code module behind an object. By default the
+'           : code is hashed with the letter case of everything outside string literals
+'           : and comments removed (see NormalizeVbaCodeCasing), and the hash carries a
+'           : version prefix (cstrCodeHashPrefix) so we know how it was calculated.
+'           : Use blnLegacyCaseSensitive to get the previous, case-sensitive hash with
+'           : no prefix, which is how any older index entry was calculated.
+'           : Returns an empty string when the object has no code module.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String) As String
+Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As String, _
+    Optional blnLegacyCaseSensitive As Boolean = False) As String
 
     Dim strHash As String
     Dim cmpItem As VBComponent
@@ -413,7 +424,7 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
                     strInstancingFlag = CStr(.Properties("Instancing"))
                 End If
                 ' Generate hash from code and instancing flag (if applicable)
-                strHash = GetStringHash(.CodeModule.Lines(1, 999999) & strInstancingFlag)
+                strHash = GetCodeTextHash(.CodeModule.Lines(1, 999999), strInstancingFlag, blnLegacyCaseSensitive)
             End With
         End If
 
@@ -422,6 +433,207 @@ Public Function GetCodeModuleHash(intType As eDatabaseComponentType, strName As 
     ' Return hash (if any)
     GetCodeModuleHash = strHash
     Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetCodeTextHash
+' Date      : 9/29/2026
+' Purpose   : The pure part of GetCodeModuleHash, without any access to the VBE. Returns
+'           : an empty string when there is no code (an object without code has no hash,
+'           : with or without the prefix). The instancing flag is added after normalizing
+'           : the code, and is never modified.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetCodeTextHash(strCode As String, strInstancingFlag As String, _
+    Optional blnLegacyCaseSensitive As Boolean = False) As String
+
+    Dim strHash As String
+
+    If Len(strCode) = 0 Then Exit Function
+
+    If blnLegacyCaseSensitive Then
+        GetCodeTextHash = GetStringHash(strCode & strInstancingFlag)
+    Else
+        strHash = GetStringHash(NormalizeVbaCodeCasing(strCode) & strInstancingFlag)
+        If Len(strHash) Then GetCodeTextHash = cstrCodeHashPrefix & strHash
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CodeModuleHashMatches
+' Date      : 9/29/2026
+' Purpose   : Compare a stored hash against the current code module of an object. The
+'           : prefix on the stored hash says how it was calculated, so we only ever
+'           : calculate one hash. A stored hash without the prefix is an older entry (or
+'           : an empty one) and is compared with the legacy case-sensitive hash.
+'---------------------------------------------------------------------------------------
+'
+Public Function CodeModuleHashMatches(strStoredHash As String, _
+    intType As eDatabaseComponentType, strName As String) As Boolean
+
+    If Left$(strStoredHash, Len(cstrCodeHashPrefix)) = cstrCodeHashPrefix Then
+        CodeModuleHashMatches = (strStoredHash = GetCodeModuleHash(intType, strName))
+    Else
+        CodeModuleHashMatches = (strStoredHash = GetCodeModuleHash(intType, strName, True))
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NormalizeVbaCodeCasing
+' Date      : 9/29/2026
+' Purpose   : Return the code with everything that is not a string literal or a comment
+'           : in lower case, and the strings and comments exactly as they were. The VBE
+'           : re-cases an identifier throughout the project when another module declares
+'           : it with a different case, but never touches the content of a string or a
+'           : comment, so this is the part of the code that can be compared safely.
+'           : Expects the text as returned by CodeModule.Lines, with lines separated by
+'           : vbCrLf. A string never continues past the end of its physical line.
+'           : A comment (' or Rem) runs to the end of the line, and on to the next line
+'           : if that one ends with a line continuation (space or tab, then underscore).
+'           : Every search is binary. Under Option Compare Database a text search costs
+'           : the length of the whole string on each call (InStrRev included), which
+'           : made this quadratic on large modules. "rem" is found in the lower case copy.
+'---------------------------------------------------------------------------------------
+'
+Public Function NormalizeVbaCodeCasing(strCode As String) As String
+
+    Dim strOut As String
+    Dim lngLen As Long
+    Dim lngPos As Long
+    Dim lngQuote As Long
+    Dim lngApos As Long
+    Dim lngRem As Long
+    Dim lngNext As Long
+    Dim lngScan As Long
+    Dim lngClose As Long
+    Dim lngEol As Long
+    Dim lngEnd As Long
+    Dim strChar As String
+
+    lngLen = Len(strCode)
+    strOut = LCase$(strCode)
+
+    ' The copy back of protected zones depends on both texts having the same length.
+    ' If not, fall back to the text as is (it can only cause a false difference).
+    If Len(strOut) <> lngLen Then
+        NormalizeVbaCodeCasing = strCode
+        Exit Function
+    End If
+
+    lngPos = 1
+    Do While lngPos <= lngLen
+
+        ' Look for the next delimiter of each kind, reusing the earlier result
+        ' until we have moved past it.
+        If lngQuote < lngPos Then
+            lngQuote = InStr(lngPos, strCode, """", vbBinaryCompare)
+            If lngQuote = 0 Then lngQuote = lngLen + 1
+        End If
+        If lngApos < lngPos Then
+            lngApos = InStr(lngPos, strCode, "'", vbBinaryCompare)
+            If lngApos = 0 Then lngApos = lngLen + 1
+        End If
+        If lngRem < lngPos Then
+            lngScan = lngPos
+            Do
+                lngRem = InStr(lngScan, strOut, "rem", vbBinaryCompare)
+                If lngRem = 0 Then
+                    lngRem = lngLen + 1
+                    Exit Do
+                End If
+                If IsRemComment(strCode, lngRem, lngLen) Then Exit Do
+                lngScan = lngRem + 1
+            Loop
+        End If
+
+        ' The closest one wins
+        lngNext = lngQuote
+        If lngApos < lngNext Then lngNext = lngApos
+        If lngRem < lngNext Then lngNext = lngRem
+        If lngNext > lngLen Then Exit Do
+
+        ' End of the physical line
+        lngEol = InStr(lngNext, strCode, vbCrLf, vbBinaryCompare)
+        If lngEol = 0 Then lngEol = lngLen + 1
+
+        If lngNext = lngQuote Then
+            ' String literal. A doubled quote is an escaped quote.
+            lngScan = lngNext + 1
+            Do
+                lngClose = InStr(lngScan, strCode, """", vbBinaryCompare)
+                If lngClose = 0 Or lngClose >= lngEol Then
+                    ' Not closed, so it ends with the line
+                    lngEnd = lngEol - 1
+                    Exit Do
+                ElseIf Mid$(strCode, lngClose + 1, 1) = """" Then
+                    lngScan = lngClose + 2
+                Else
+                    lngEnd = lngClose
+                    Exit Do
+                End If
+            Loop
+        Else
+            ' Comment, which may continue on the next lines
+            Do While lngEol <= lngLen
+                If lngEol - 2 < lngNext Then Exit Do
+                If Mid$(strCode, lngEol - 1, 1) <> "_" Then Exit Do
+                strChar = Mid$(strCode, lngEol - 2, 1)
+                If strChar <> " " And strChar <> vbTab Then Exit Do
+                lngEol = InStr(lngEol + 2, strCode, vbCrLf, vbBinaryCompare)
+                If lngEol = 0 Then lngEol = lngLen + 1
+            Loop
+            lngEnd = lngEol - 1
+        End If
+
+        ' Put the protected zone back exactly as it was
+        Mid$(strOut, lngNext, lngEnd - lngNext + 1) = Mid$(strCode, lngNext, lngEnd - lngNext + 1)
+        lngPos = lngEnd + 1
+
+    Loop
+
+    NormalizeVbaCodeCasing = strOut
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsRemComment
+' Date      : 9/29/2026
+' Purpose   : Return true if the "rem" found at this position opens a comment. It must
+'           : be at the start of a statement (nothing before it on the line, or only a
+'           : line number, or a colon) and be followed by a space, a tab or the end of
+'           : the line. (So RemoveItem is not a comment.)
+'---------------------------------------------------------------------------------------
+'
+Private Function IsRemComment(strCode As String, lngPos As Long, lngLen As Long) As Boolean
+
+    Dim strAfter As String
+    Dim strBefore As String
+    Dim lngStart As Long
+
+    ' What follows
+    If lngPos + 3 <= lngLen Then
+        strAfter = Mid$(strCode, lngPos + 3, 1)
+        If strAfter <> " " And strAfter <> vbTab And strAfter <> vbCr Then Exit Function
+    End If
+
+    ' What precedes it on the same line
+    lngStart = 1
+    If lngPos > 1 Then lngStart = InStrRev(strCode, vbLf, lngPos - 1, vbBinaryCompare) + 1
+    strBefore = Trim$(Replace(Mid$(strCode, lngStart, lngPos - lngStart), vbTab, " "))
+    If Len(strBefore) = 0 Then
+        IsRemComment = True
+    ElseIf Right$(strBefore, 1) = ":" Then
+        IsRemComment = True
+    Else
+        IsRemComment = Not (strBefore Like "*[!0-9]*")
+    End If
 
 End Function
 
