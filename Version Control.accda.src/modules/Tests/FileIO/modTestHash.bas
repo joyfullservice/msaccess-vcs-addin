@@ -500,7 +500,7 @@ Public Sub TestCodeTextHash_PrefixAndLegacy()
         "hash starts with the version prefix"
     TestAssert cstrCodeHashPrefix = "ci1:", "prefix is ci1:"
     TestAssert Len(GetCodeTextHash(vbNullString, vbNullString)) = 0, "empty code gives an empty hash"
-    TestAssert Len(GetCodeTextHash(vbNullString, vbNullString, True)) = 0, "empty code gives an empty legacy hash"
+    TestAssert GetCodeTextHash(vbNullString, vbNullString, True) = GetStringHash(vbNullString), "empty code keeps the old legacy hash"
 
     strLegacy = GetCodeTextHash("Const B = 1", "1", True)
     blnMatch = (strLegacy = GetStringHash("Const B = 1" & "1"))

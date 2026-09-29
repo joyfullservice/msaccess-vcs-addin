@@ -441,9 +441,11 @@ End Function
 ' Procedure : GetCodeTextHash
 ' Date      : 9/29/2026
 ' Purpose   : The pure part of GetCodeModuleHash, without any access to the VBE. Returns
-'           : an empty string when there is no code (an object without code has no hash,
-'           : with or without the prefix). The instancing flag is added after normalizing
-'           : the code, and is never modified.
+'           : an empty string when there is no code (an object without code has no hash
+'           : with the prefix). The legacy mode keeps the previous behavior exactly,
+'           : empty code included, since older index entries are compared against it.
+'           : The instancing flag is added after normalizing the code, and is never
+'           : modified.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetCodeTextHash(strCode As String, strInstancingFlag As String, _
@@ -451,11 +453,9 @@ Public Function GetCodeTextHash(strCode As String, strInstancingFlag As String, 
 
     Dim strHash As String
 
-    If Len(strCode) = 0 Then Exit Function
-
     If blnLegacyCaseSensitive Then
         GetCodeTextHash = GetStringHash(strCode & strInstancingFlag)
-    Else
+    ElseIf Len(strCode) > 0 Then
         strHash = GetStringHash(NormalizeVbaCodeCasing(strCode) & strInstancingFlag)
         If Len(strHash) Then GetCodeTextHash = cstrCodeHashPrefix & strHash
     End If
