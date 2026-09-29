@@ -50,12 +50,14 @@ Public Sub TestQueryBatchImport_AppliesMetadataAndIndexesEachFile()
     Dim lngSavedFormat As Long
     Dim blnSavedDeterministic As Boolean
     Dim cSavedIndex As clsVCSIndex
+    Dim eelSavedLevel As eErrorLevel
     Dim lngErr As Long
     Dim strErr As String
 
     On Error GoTo ErrHandler
 
-    BeginQuerySandbox strRoot, strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
+    BeginQuerySandbox strRoot, strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex, _
+        eelSavedLevel
     strFile1 = strRoot & "queries" & PathSep & strQuery1 & ".sql"
     strFile2 = strRoot & "queries" & PathSep & strQuery2 & ".sql"
     WriteFile "SELECT 1 AS One;", strFile1
@@ -99,7 +101,8 @@ CleanUp:
         If Len(strFile1) > 0 Then VCSIndex.Remove cComponent, strFile1
         If Len(strFile2) > 0 Then VCSIndex.Remove cComponent, strFile2
     End If
-    RestoreQuerySandbox strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
+    RestoreQuerySandbox strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex, _
+        eelSavedLevel
     If lngErr <> 0 Then TestAssert False, _
         "unexpected batch import error " & lngErr & ": " & strErr
     Exit Sub
@@ -133,6 +136,7 @@ Public Sub TestQueryBatchImport_RetriesDeferredQuery()
     Dim lngSavedFormat As Long
     Dim blnSavedDeterministic As Boolean
     Dim cSavedIndex As clsVCSIndex
+    Dim eelSavedLevel As eErrorLevel
     Dim lngProbeErr As Long
     Dim strProbeErr As String
     Dim intLockedFile As Integer
@@ -142,7 +146,8 @@ Public Sub TestQueryBatchImport_RetriesDeferredQuery()
 
     On Error GoTo ErrHandler
 
-    BeginQuerySandbox strRoot, strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
+    BeginQuerySandbox strRoot, strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex, _
+        eelSavedLevel
     strConsumerFile = strRoot & "queries" & PathSep & strConsumer & ".sql"
     strLateFile = strRoot & "queries" & PathSep & strLate & ".sql"
 
@@ -235,7 +240,8 @@ CleanUp:
         If Len(strConsumerFile) > 0 Then VCSIndex.Remove cComponent, strConsumerFile
         If Len(strLateFile) > 0 Then VCSIndex.Remove cComponent, strLateFile
     End If
-    RestoreQuerySandbox strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
+    RestoreQuerySandbox strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex, _
+        eelSavedLevel
     If lngErr <> 0 Then TestAssert False, _
         "unexpected deferred import error " & lngErr & ": " & strErr
     Exit Sub
@@ -261,12 +267,14 @@ Public Sub TestQueryMerge_AppliesMetadataImmediately()
     Dim lngSavedFormat As Long
     Dim blnSavedDeterministic As Boolean
     Dim cSavedIndex As clsVCSIndex
+    Dim eelSavedLevel As eErrorLevel
     Dim lngErr As Long
     Dim strErr As String
 
     On Error GoTo ErrHandler
 
-    BeginQuerySandbox strRoot, strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
+    BeginQuerySandbox strRoot, strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex, _
+        eelSavedLevel
     strFile = strRoot & "queries" & PathSep & strQuery & ".sql"
     WriteFile "SELECT 3 AS Three;", strFile
     WriteDescriptionSidecar SwapExtension(strFile, "json"), strDescription
@@ -286,7 +294,8 @@ CleanUp:
     If Not cComponent Is Nothing Then
         If Len(strFile) > 0 Then VCSIndex.Remove cComponent, strFile
     End If
-    RestoreQuerySandbox strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex
+    RestoreQuerySandbox strSavedExport, lngSavedFormat, blnSavedDeterministic, cSavedIndex, _
+        eelSavedLevel
     If lngErr <> 0 Then TestAssert False, _
         "unexpected query merge error " & lngErr & ": " & strErr
     Exit Sub
@@ -299,14 +308,21 @@ ErrHandler:
 End Sub
 
 
+' Start from the state an operation starts from. No operation begins in this project
+' during a test run, so an earlier test can leave a SharedDb handle that predates the
+' queries created here, or an eelCritical level that makes LoadComponentFromText
+' report failure after a successful load.
 Private Sub BeginQuerySandbox(ByRef strRoot As String, ByRef strSavedExport As String, _
     ByRef lngSavedFormat As Long, ByRef blnSavedDeterministic As Boolean, _
-    ByRef cSavedIndex As clsVCSIndex)
+    ByRef cSavedIndex As clsVCSIndex, ByRef eelSavedLevel As eErrorLevel)
 
     Set cSavedIndex = VCSIndex
     strSavedExport = Options.ExportFolder
     lngSavedFormat = Options.ExportFormatVersion
     blnSavedDeterministic = Options.UseDeterministicQueryExport
+    eelSavedLevel = Operation.ErrorLevel
+    Operation.ErrorLevel = eelNoError
+    ReleaseDbReferences
 
     strRoot = GetTempFolder("vcs_batch_import") & PathSep
     VerifyPath strRoot & "queries" & PathSep
@@ -319,12 +335,14 @@ End Sub
 
 
 Private Sub RestoreQuerySandbox(strSavedExport As String, lngSavedFormat As Long, _
-    blnSavedDeterministic As Boolean, cSavedIndex As clsVCSIndex)
+    blnSavedDeterministic As Boolean, cSavedIndex As clsVCSIndex, eelSavedLevel As eErrorLevel)
 
     Options.ExportFolder = strSavedExport
     Options.ExportFormatVersion = lngSavedFormat
     Options.UseDeterministicQueryExport = blnSavedDeterministic
     Set VCSIndex = cSavedIndex
+    Operation.ErrorLevel = eelSavedLevel
+    ReleaseDbReferences
 
 End Sub
 

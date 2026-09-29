@@ -284,6 +284,7 @@ Public Sub TestModuleImport_IndexesEachFileOnSharedInstance()
     Dim strFile2 As String
     Dim strBase As String
     Dim strRepoRoot As String
+    Dim eelSavedLevel As eErrorLevel
 
     ' Use fixture modules that are not already loaded in the add-in project.
     ' Re-importing live modules (e.g. modTimer) fails to remove the in-use
@@ -299,6 +300,11 @@ Public Sub TestModuleImport_IndexesEachFileOnSharedInstance()
     RemoveTestImportFixtureModule "vcs_test_import_alpha"
     RemoveTestImportFixtureModule "vcs_test_import_beta"
 
+    ' Import skips indexing at eelError or above, and no operation begins in this
+    ' project during a test run to clear a level left by an earlier test.
+    eelSavedLevel = Operation.ErrorLevel
+    Operation.ErrorLevel = eelNoError
+
     Set cMod = New clsDbModule
     cMod.Import strFile1
     cMod.Import strFile2
@@ -306,6 +312,7 @@ Public Sub TestModuleImport_IndexesEachFileOnSharedInstance()
     TestAssert VCSIndex.Exists(cMod, strFile1), "first imported module indexed"
     TestAssert VCSIndex.Exists(cMod, strFile2), "second imported module indexed under its own name"
 
+    Operation.ErrorLevel = eelSavedLevel
     RemoveTestImportFixtureModule "vcs_test_import_alpha"
     RemoveTestImportFixtureModule "vcs_test_import_beta"
 
@@ -328,6 +335,7 @@ Public Sub TestModuleImportFast_IndexesEachFileOnSharedInstance()
     Dim strFile2 As String
     Dim strBase As String
     Dim strRepoRoot As String
+    Dim eelSavedLevel As eErrorLevel
 
     strRepoRoot = Git.GetRepositoryRoot
     If Len(strRepoRoot) = 0 Then Exit Sub
@@ -340,6 +348,9 @@ Public Sub TestModuleImportFast_IndexesEachFileOnSharedInstance()
     RemoveTestImportFixtureModule "vcs_test_import_alpha"
     RemoveTestImportFixtureModule "vcs_test_import_beta"
 
+    eelSavedLevel = Operation.ErrorLevel
+    Operation.ErrorLevel = eelNoError
+
     Set cMod = New clsDbModule
     cMod.ImportFast strFile1
     cMod.ImportFast strFile2
@@ -348,6 +359,7 @@ Public Sub TestModuleImportFast_IndexesEachFileOnSharedInstance()
     TestAssert VCSIndex.Exists(cMod.Parent, strFile1), "first batch-imported module indexed"
     TestAssert VCSIndex.Exists(cMod.Parent, strFile2), "second batch-imported module indexed under its own name"
 
+    Operation.ErrorLevel = eelSavedLevel
     RemoveTestImportFixtureModule "vcs_test_import_alpha"
     RemoveTestImportFixtureModule "vcs_test_import_beta"
 

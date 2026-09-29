@@ -36,12 +36,18 @@ Public Sub TestLegacyQueryForceSqlOverride()
     Dim blnSavedForce As Boolean
     Dim blnIndexDisabled As Boolean
     Dim strImported As String
+    Dim eelSavedLevel As eErrorLevel
     Dim lngErr As Long
     Dim strErr As String
 
     blnSavedForce = Options.ForceImportOriginalQuerySQL
     blnIndexDisabled = VCSIndex.Disabled
     VCSIndex.Disabled = True
+    ' No operation begins in this project during a test run, so an error level left
+    ' by an earlier test persists, and at eelCritical LoadComponentFromText reports
+    ' failure even after the query loads.
+    eelSavedLevel = Operation.ErrorLevel
+    Operation.ErrorLevel = eelNoError
     On Error GoTo ErrHandler
 
     DeleteObjectIfExists acQuery, TEST_QUERY
@@ -80,6 +86,7 @@ CleanUp:
     On Error Resume Next
     Options.ForceImportOriginalQuerySQL = blnSavedForce
     VCSIndex.Disabled = blnIndexDisabled
+    Operation.ErrorLevel = eelSavedLevel
     DeleteObjectIfExists acQuery, TEST_QUERY
     If Len(strFolder) > 0 Then
         If FSO.FolderExists(StripSlash(strFolder)) Then FSO.DeleteFolder StripSlash(strFolder), True

@@ -1088,6 +1088,8 @@ Private Function ImportLegacyFormat(strFile As String, ByRef strQueryName As Str
         strSql = ReadFile(strFileSql)
         If strSql <> vbNullString Then
             Set dbs = SharedDb
+            ' LoadFromText created the query outside this cached handle.
+            dbs.QueryDefs.Refresh
             dbs.QueryDefs(strQueryName).SQL = strSql
             Log.Add T("Restored original SQL for {0} from {1}", _
                 var0:=strQueryName, var1:=FSO.GetFileName(strFileSql))

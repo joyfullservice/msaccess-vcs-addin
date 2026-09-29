@@ -141,6 +141,10 @@ Public Sub TestMergeSkipsTableDataAfterExport()
 
     dbs.Execute "CREATE TABLE [" & strTable & "] (ID LONG, Name TEXT(10))"
     dbs.Execute "INSERT INTO [" & strTable & "] (ID, Name) VALUES (1, 'a')"
+    ' Export reads the table through SharedDb, and a handle cached before the table
+    ' existed raises error 3265 for it.
+    dbs.TableDefs.Refresh
+    ReleaseDbReferences
 
     Set cTable = New clsDbTableData
     cTable.Format = etdTabDelimited
@@ -170,6 +174,8 @@ Public Sub TestMergeSkipsTableDataAfterExport()
 CleanUp:
     On Error Resume Next
     dbs.Execute "DROP TABLE [" & strTable & "]"
+    dbs.TableDefs.Refresh
+    ReleaseDbReferences
     If Len(strFile) > 0 Then
         If FSO.FileExists(strFile) Then DeleteFile strFile
         VCSIndex.Remove cCategory, strFile
