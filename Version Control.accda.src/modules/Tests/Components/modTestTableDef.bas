@@ -21,6 +21,7 @@ Private Const TEST_TABLE_HIDDEN_SIDECAR As String = "vcs_test_hidden_sidecar"
 Private Const TEST_TABLE_SYSTEM_PREFIX As String = "MSysVcsTestUserTable"
 Private Const TEST_TABLE_SYSTEM_ATTRIBUTE As String = "vcs_test_system_attribute"
 Private Const TEST_TABLE_SYSTEM_BOTH As String = "MSysVcsTestSystemTable"
+Private Const TEST_TABLE_LINKED_MERGE As String = "vcs_test_linked_merge"
 
 
 '---------------------------------------------------------------------------------------
@@ -783,6 +784,153 @@ Private Function TableDefEnumerated(strTable As String) As Boolean
         End If
     Next varItem
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeLinkedTableAfterSharedDbLoaded
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Merging a linked table deletes it with DoCmd.DeleteObject, outside
+'           : SharedDb, and ImportLinkedTable then appends the new TableDef through
+'           : SharedDb. If SharedDb had already loaded TableDefs -- the conflict check
+'           : exports the same table first, and that reads TableDefs -- the appended
+'           : TableDef was dead after the Refresh: error 3420, and the link came back
+'           : without its field and table properties. The warm-up line below is what
+'           : a Merge Build does before merging the table.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeLinkedTableAfterSharedDbLoaded()
+    '@Tag("integration")
+
+    Dim dbsBack As DAO.Database
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim cComponent As IDbComponent
+    Dim dFile As Dictionary
+    Dim cSavedIndex As clsVCSIndex
+    Dim strFolder As String
+    Dim strBackEnd As String
+    Dim strJsonFile As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim lngPriorEnv As Long
+    Dim strConnect As String
+    Dim strCaption As String
+    Dim blnFixtureHasProps As Boolean
+    Dim blnSaved As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_LINKED_MERGE
+
+    ' Back end with the source table
+    strFolder = GetTempFolder("vcs_linked_merge")
+    strBackEnd = strFolder & PathSep & "backend.accdb"
+    Set dbsBack = DBEngine.CreateDatabase(strBackEnd, dbLangGeneral)
+    dbsBack.Execute "CREATE TABLE [Source] ([ID] LONG, [Nombre] TEXT(50))", dbFailOnError
+    dbsBack.Close
+    Set dbsBack = Nothing
+
+    ' Linked table carrying a front-end field property
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_LINKED_MERGE)
+    tdf.Connect = ";DATABASE=" & strBackEnd
+    tdf.SourceTableName = "Source"
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+    Set dbs = CurrentDb
+    Set fld = dbs.TableDefs(TEST_TABLE_LINKED_MERGE).Fields("Nombre")
+    fld.Properties.Append fld.CreateProperty("Caption", dbText, "Etiqueta")
+    Set fld = Nothing
+    Set dbs = Nothing
+
+    ' Sandbox the export folder and the index
+    Set cSavedIndex = VCSIndex
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    lngPriorEnv = Options.UseEnvForConnections
+    blnSaved = True
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_1_0
+    Options.UseEnvForConnections = uecNever
+    Set VCSIndex = Nothing
+
+    ' Source file for the merge, through the normal export path
+    Set cComponent = New clsDbTableDef
+    Set cComponent.DbObject = CurrentData.AllTables(TEST_TABLE_LINKED_MERGE)
+    cComponent.Export
+    strJsonFile = Options.GetExportFolder & "tbldefs" & PathSep & _
+        GetSafeFileName(TEST_TABLE_LINKED_MERGE) & ".json"
+    If FSO.FileExists(strJsonFile) Then
+        Set dFile = ReadJsonFile(strJsonFile)
+        If Not dFile Is Nothing Then
+            If dFile.Exists("Items") Then blnFixtureHasProps = dFile("Items").Exists("FieldProperties")
+        End If
+    End If
+
+    ' What the conflict check leaves behind: SharedDb with TableDefs loaded
+    strConnect = SharedDb.TableDefs(TEST_TABLE_LINKED_MERGE).Connect
+
+    Set cComponent = New clsDbTableDef
+    cComponent.Merge strJsonFile
+
+    ' Read back through a fresh handle
+    ReleaseDbReferences
+    Set dbs = CurrentDb
+    If TableExists(TEST_TABLE_LINKED_MERGE, dbs) Then
+        Set fld = dbs.TableDefs(TEST_TABLE_LINKED_MERGE).Fields("Nombre")
+        strCaption = FieldCaption(fld)
+        Set fld = Nothing
+        strConnect = dbs.TableDefs(TEST_TABLE_LINKED_MERGE).Connect
+    Else
+        strConnect = vbNullString
+    End If
+    Set dbs = Nothing
+
+    TestAssert blnFixtureHasProps, "fixture source file carries FieldProperties"
+    TestAssert Len(strConnect) > 0, "merged linked table exists and keeps its Connect"
+    TestAssert strCaption = "Etiqueta", "merge restores the field properties of the linked table"
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        If Not cComponent Is Nothing And Len(strJsonFile) > 0 Then VCSIndex.Remove cComponent, strJsonFile
+        Options.ExportFolder = strPriorFolder
+        Options.ExportFormatVersion = lngPriorFormat
+        Options.UseEnvForConnections = lngPriorEnv
+        Set VCSIndex = cSavedIndex
+    End If
+    DropTestTable TEST_TABLE_LINKED_MERGE
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    Err.Clear
+    On Error GoTo 0
+    If lngErr <> 0 Then Err.Raise lngErr, , strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FieldCaption
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Caption of a field, or an empty string when the property does not exist.
+'           : Clears the expected "not found" error so it cannot leak to a later caller.
+'---------------------------------------------------------------------------------------
+'
+Private Function FieldCaption(fld As DAO.Field) As String
+    On Error Resume Next
+    FieldCaption = fld.Properties("Caption").Value
+    Err.Clear
 End Function
 
 
