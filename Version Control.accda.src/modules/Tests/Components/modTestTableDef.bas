@@ -906,9 +906,7 @@ CleanUp:
     End If
     DropTestTable TEST_TABLE_LINKED_MERGE
     If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
-    Err.Clear
-    On Error GoTo 0
-    If lngErr <> 0 Then Err.Raise lngErr, , strErr
+    If lngErr <> 0 Then TestAssert False, "linked table merge error " & lngErr & ": " & strErr
     Exit Sub
 
 ErrHandler:
