@@ -609,6 +609,8 @@ Private Sub VerifyImexTables()
     If (Not TableExists("MSysIMEXSpecs")) Or (Not TableExists("MSysIMEXColumns")) Then
         ' Use an undocumented SysCmd function to create the tables.
         SysCmd 555
+        ' SysCmd creates the tables outside SharedDb's TableDefs snapshot.
+        ReleaseDbReferences
     End If
 End Sub
 

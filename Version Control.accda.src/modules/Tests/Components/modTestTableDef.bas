@@ -19,6 +19,8 @@ Private Const TEST_TABLE_DECIMAL_SQL As String = "vcs_test_decimal_sql"
 Private Const TEST_TABLE_DECIMAL_DAO As String = "vcs_test_decimal_dao"
 Private Const TEST_TABLE_HIDDEN_SIDECAR As String = "vcs_test_hidden_sidecar"
 Private Const TEST_TABLE_SYSTEM_PREFIX As String = "MSysVcsTestUserTable"
+Private Const TEST_TABLE_SYSTEM_ATTRIBUTE As String = "vcs_test_system_attribute"
+Private Const TEST_TABLE_SYSTEM_BOTH As String = "MSysVcsTestSystemTable"
 
 
 '---------------------------------------------------------------------------------------
@@ -661,44 +663,127 @@ Public Sub TestUserTableWithSystemPrefixIsExported()
     '@Tag("integration")
 
     Dim dbs As DAO.Database
-    Dim tdf As DAO.TableDef
-    Dim cCategory As IDbComponent
-    Dim cItem As IDbComponent
-    Dim dAllTables As Dictionary
-    Dim varItem As Variant
-    Dim blnFound As Boolean
-    Dim blnSystemLeaked As Boolean
     Dim blnNoSystemAttribute As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
 
     DropTestTable TEST_TABLE_SYSTEM_PREFIX
-
     Set dbs = CurrentDb
-    Set tdf = dbs.CreateTableDef(TEST_TABLE_SYSTEM_PREFIX)
+    CreateAttributeTestTable dbs, TEST_TABLE_SYSTEM_PREFIX, 0
+
+    blnNoSystemAttribute = ((dbs.TableDefs(TEST_TABLE_SYSTEM_PREFIX).Attributes And dbSystemObject) = 0)
+    TestAssert blnNoSystemAttribute, "a user table named MSys* carries no system attribute"
+    TestAssert TableDefEnumerated(TEST_TABLE_SYSTEM_PREFIX), "user table named MSys* should be enumerated for export"
+    TestAssert Not TableDefEnumerated("MSysObjects"), "engine system tables should stay excluded"
+
+CleanUp:
+    On Error Resume Next
+    DropTestTable TEST_TABLE_SYSTEM_PREFIX
+    If lngErr <> 0 Then TestAssert False, "unexpected MSys* user table error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestSystemAttributeExcludesOnlyMSysTables
+' Author    : Adam Waller
+' Date      : 10/1/2026
+' Purpose   : Setting dbSystemObject on a user table stores the same bits the engine
+'           : uses, so the attribute alone cannot identify an engine table. A table
+'           : outside the MSys prefix that carries it is a hidden user table and must
+'           : still export; an MSys* table that carries it is treated as a system table.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestSystemAttributeExcludesOnlyMSysTables()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim blnHasAttribute As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_SYSTEM_ATTRIBUTE
+    DropTestTable TEST_TABLE_SYSTEM_BOTH
+    Set dbs = CurrentDb
+    CreateAttributeTestTable dbs, TEST_TABLE_SYSTEM_ATTRIBUTE, dbSystemObject
+    CreateAttributeTestTable dbs, TEST_TABLE_SYSTEM_BOTH, dbSystemObject
+
+    blnHasAttribute = ((dbs.TableDefs(TEST_TABLE_SYSTEM_ATTRIBUTE).Attributes And dbSystemObject) <> 0)
+    TestAssert blnHasAttribute, "fixture table carries the system attribute"
+    TestAssert TableDefEnumerated(TEST_TABLE_SYSTEM_ATTRIBUTE), _
+        "user table hidden with the system attribute should be enumerated for export"
+    TestAssert Not TableDefEnumerated(TEST_TABLE_SYSTEM_BOTH), _
+        "MSys* table with the system attribute should be excluded"
+
+CleanUp:
+    On Error Resume Next
+    DropTestTable TEST_TABLE_SYSTEM_ATTRIBUTE
+    DropTestTable TEST_TABLE_SYSTEM_BOTH
+    If lngErr <> 0 Then TestAssert False, "unexpected system attribute error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CreateAttributeTestTable
+' Author    : Adam Waller
+' Date      : 10/1/2026
+' Purpose   : Create a one-field local table through DAO with the given attributes.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CreateAttributeTestTable(dbs As DAO.Database, strTable As String, lngAttributes As Long)
+
+    Dim tdf As DAO.TableDef
+
+    Set tdf = dbs.CreateTableDef(strTable)
     tdf.Fields.Append tdf.CreateField("ID", dbLong)
+    If lngAttributes <> 0 Then tdf.Attributes = lngAttributes
     dbs.TableDefs.Append tdf
     RefreshTableCollections dbs
 
-    ' The premise of the fix: the prefix carries no attribute of its own.
-    ' Assign the comparison first: a Sub call whose first argument opens with a
-    ' parenthesis does not compile in VBA.
-    blnNoSystemAttribute = ((dbs.TableDefs(TEST_TABLE_SYSTEM_PREFIX).Attributes And dbSystemObject) = 0)
-    TestAssert blnNoSystemAttribute, "a user table named MSys* carries no system attribute"
+End Sub
 
-    ' Access GetAllFromDB through the IDbComponent interface (same pattern as modExport)
+
+'---------------------------------------------------------------------------------------
+' Procedure : TableDefEnumerated
+' Author    : Adam Waller
+' Date      : 10/1/2026
+' Purpose   : True when clsDbTableDef.GetAllFromDB returns the named table, read through
+'           : the IDbComponent interface as modExport does.
+'---------------------------------------------------------------------------------------
+'
+Private Function TableDefEnumerated(strTable As String) As Boolean
+
+    Dim cCategory As IDbComponent
+    Dim cItem As IDbComponent
+    Dim varItem As Variant
+
     Set cCategory = New clsDbTableDef
-    Set dAllTables = cCategory.GetAllFromDB(False)
-    For Each varItem In dAllTables.Items
+    For Each varItem In cCategory.GetAllFromDB(False).Items
         Set cItem = varItem
-        If cItem.Name = TEST_TABLE_SYSTEM_PREFIX Then blnFound = True
-        If cItem.Name = "MSysObjects" Then blnSystemLeaked = True
+        If StrComp(cItem.Name, strTable, vbTextCompare) = 0 Then
+            TableDefEnumerated = True
+            Exit Function
+        End If
     Next varItem
 
-    TestAssert blnFound, "user table named MSys* should be enumerated for export"
-    TestAssert Not blnSystemLeaked, "engine system tables should stay excluded"
-
-    DropTestTable TEST_TABLE_SYSTEM_PREFIX
-
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
