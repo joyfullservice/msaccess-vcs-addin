@@ -219,6 +219,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
     Dim dbs As Database
     Dim contType As AcObjectType
     Dim colItems As Collection
+    Dim dSysTables As Dictionary
 
     ' Check cache parameter
     If blnUseCache And Not m_dItems Is Nothing Then
@@ -243,6 +244,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Legacy path: Loop through all the containers, documents, and check hidden property
+    Set dSysTables = GetSystemTableNames
     For Each cont In dbs.Containers
         Set dCont = New Dictionary
         Set colItems = New Collection
@@ -250,7 +252,7 @@ Public Function GetDictionary(Optional blnUseCache As Boolean = True) As Diction
         For Each doc In cont.Documents
             If contType <> acDefault Then
                 If Left(doc.Name, 1) <> "~" Then
-                    If Not (contType = acTable And (doc.Name Like "MSys*")) Then
+                    If Not (contType = acTable And dSysTables.Exists(doc.Name)) Then
                         ' Check Hidden Attribute property (only exposed here)
                         If Application.GetHiddenAttribute(contType, doc.Name) Then
                             ' Add to collection of hidden item item names of this type.
@@ -287,10 +289,12 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
     Dim varDoc As Variant
     Dim strDoc As String
     Dim blnRemove As Boolean
+    Dim dSysTables As Dictionary
 
     ' Go through target dictionary, removing the flag that doesn't exist
     ' in the master dictionary.
     Set dbs = SharedDb
+    Set dSysTables = GetSystemTableNames
     For Each varCont In dTarget.Keys
         Set colItems = dTarget(varCont)
         contType = GetObjectTypeFromContainer(dbs.Containers(varCont))
@@ -298,7 +302,7 @@ Private Sub RemoveMissing(dMaster As Dictionary, dTarget As Dictionary)
             strDoc = CStr(varDoc)
             If contType <> acDefault _
                 And Not (contType = acTable _
-                And (strDoc Like "MSys*" Or strDoc Like "~*")) Then
+                And (dSysTables.Exists(strDoc) Or strDoc Like "~*")) Then
                     ' Check the master dictionary (incoming file) for a match
                     ' Set flag to remove unless we find a match
                     blnRemove = True
