@@ -59,6 +59,14 @@ Public Sub TestDblQ()
 End Sub
 
 
+Public Sub TestEscapeSqlQuote()
+    TestAssert EscapeSqlQuote("say ""hi""") = "say """"hi""""", "doubles double quotes"
+    TestAssert EscapeSqlQuote("it's") = "it's", "leaves single quotes alone"
+    TestAssert EscapeSqlQuote("plain") = "plain", "no quotes unchanged"
+    TestAssert EscapeSqlQuote("") = "", "empty string"
+End Sub
+
+
 Public Sub TestBracketFieldList()
     TestAssert BracketFieldList("+ID") = "[ID]", "DAO ascending prefix"
     TestAssert BracketFieldList("+A;+B") = "[A], [B]", "DAO multi-field semicolon"

@@ -64,6 +64,20 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : EscapeSqlQuote
+' Author    : Adam Waller
+' Date      : 4/10/2026
+' Purpose   : Escape double quotes in a string for use in an Access SQL query, inside a
+'           : double-quoted literal. Unlike DblQ, apostrophes are left alone, since
+'           : only the double quote delimits the literal.
+'---------------------------------------------------------------------------------------
+'
+Public Function EscapeSqlQuote(strValue As String) As String
+    EscapeSqlQuote = Replace(strValue, """", """""")
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : BracketFieldList
 ' Author    : Adam Waller
 ' Date      : 7/30/2026

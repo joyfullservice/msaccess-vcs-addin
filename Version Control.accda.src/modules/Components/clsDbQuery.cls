@@ -1399,18 +1399,6 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : EscapeSqlQuote
-' Author    : Adam Waller
-' Date      : 4/10/2026
-' Purpose   : Escape double quotes in a string for use in an Access SQL query.
-'---------------------------------------------------------------------------------------
-'
-Private Function EscapeSqlQuote(strValue As String) As String
-    EscapeSqlQuote = Replace(strValue, """", """""")
-End Function
-
-
-'---------------------------------------------------------------------------------------
 ' Procedure : IsArrayAllocated
 ' Author    : Adam Waller
 ' Date      : 4/10/2026
