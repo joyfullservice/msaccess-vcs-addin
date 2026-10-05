@@ -166,10 +166,12 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ' from MSysObjects. This is sub-millisecond, works offline, and captures
         ' all locally-stored properties (column widths, lookup combos, formatting,
         ' datasheet colors, custom properties, etc.)
+        ' Filter on the linked table types (6 = Access, 4 = ODBC): a form or report
+        ' may share the table's name, and its LvProp would be parsed as the table's.
         If Options.ExportFormatVersion >= EFV_5_0_0 Then
             Perf.OperationStart "Export Linked Props"
             Set rst = dbs.OpenRecordset( _
-                "SELECT LvProp FROM MSysObjects WHERE Name=""" & tdf.Name & """", _
+                "SELECT LvProp FROM MSysObjects WHERE Name=""" & tdf.Name & """ AND Type IN (4,6)", _
                 dbOpenSnapshot)
             If Not rst.EOF Then
                 If Not IsNull(rst!LvProp) Then
