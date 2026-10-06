@@ -46,6 +46,92 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestCertifyRecordsDateOfSavedProject
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/6/2026
+' Purpose   : An operation that checked the whole project certifies the project date.
+'           : Only meaningful while the project is saved, so it stays empty otherwise.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCertifyRecordsDateOfSavedProject()
+
+    Dim cIndex As clsVCSIndex
+    Dim dteProject As Date
+    Dim blnRecorded As Boolean
+
+    If Not CurrentVBProject.Saved Then Exit Sub
+    dteProject = GetVbaProjectDate
+    If dteProject = 0 Then Exit Sub
+
+    Set cIndex = New clsVCSIndex
+    cIndex.VBAProjectDate = cdteStale
+    cIndex.CertifyVBAProjectDate dteProject
+
+    blnRecorded = (cIndex.VBAProjectDate = dteProject)
+    TestAssert blnRecorded, "certifying the current project date records it"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestCertifyIgnoresProjectSavedSinceCheck
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/6/2026
+' Purpose   : If the project was saved after the date the operation captured (a hook or
+'           : a casing correction changed code), the certificate must not be issued.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestCertifyIgnoresProjectSavedSinceCheck()
+
+    Dim cIndex As clsVCSIndex
+    Dim dteProject As Date
+    Dim blnKept As Boolean
+
+    dteProject = GetVbaProjectDate
+    If dteProject = 0 Then Exit Sub
+
+    Set cIndex = New clsVCSIndex
+    cIndex.VBAProjectDate = cdteStale
+    cIndex.CertifyVBAProjectDate DateAdd("s", -1, dteProject)
+
+    blnKept = (cIndex.VBAProjectDate = cdteStale)
+    TestAssert blnKept, "a date older than the project is not certified"
+
+End Sub
+
+
+Public Sub TestCertifyIgnoresMissingDate()
+
+    Dim cIndex As clsVCSIndex
+    Dim blnKept As Boolean
+
+    Set cIndex = New clsVCSIndex
+    cIndex.VBAProjectDate = cdteStale
+    cIndex.CertifyVBAProjectDate 0
+
+    blnKept = (cIndex.VBAProjectDate = cdteStale)
+    TestAssert blnKept, "an operation that captured no date certifies nothing"
+
+End Sub
+
+
+Public Sub TestCertifyIgnoresDisabledIndex()
+
+    Dim cIndex As clsVCSIndex
+    Dim blnKept As Boolean
+
+    Set cIndex = New clsVCSIndex
+    cIndex.Disabled = True
+    cIndex.VBAProjectDate = cdteStale
+    cIndex.CertifyVBAProjectDate GetVbaProjectDate
+
+    blnKept = (cIndex.VBAProjectDate = cdteStale)
+    TestAssert blnKept, "a disabled index certifies nothing"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : AssertUpdateKeepsDate
 ' Author    : Ricardo Hernandez (Notarnet)
 ' Date      : 10/6/2026

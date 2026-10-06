@@ -422,19 +422,12 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         ' Save the object's DateModified for accurate change detection.
         ' Truncate to seconds since serialization cannot preserve sub-second
         ' precision, and Access DateModified may carry fractional seconds.
-        ' Modules use the top-level VBAProjectDate; forms/reports keep layout
-        ' ObjectDate but also refresh VBAProjectDate when exported so a code-only
-        ' form change does not leave the date stale for every later scan.
+        ' Modules rely on the top-level VBAProjectDate instead, which is NOT
+        ' refreshed here: recording one module, form, or report says nothing about
+        ' the rest of the VBA project. (See CertifyVBAProjectDate.)
         If cItem.ComponentType <> edbModule Then
             .ObjectDate = DateTruncToSeconds(cItem.DateModified)
         End If
-        Select Case cItem.ComponentType
-            Case edbModule, edbForm, edbReport
-                If CurrentProject.AllModules.Count > 0 Then
-                    Me.VBAProjectDate = DateTruncToSeconds( _
-                        CurrentProject.AllModules(0).DateModified)
-                End If
-        End Select
 
         ' Save timestamp and property hash of exported source file.
         ' (Skip for alternate exports -- the canonical source file may not
@@ -451,6 +444,29 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
     Set Update = cEntry
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CertifyVBAProjectDate
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/6/2026
+' Purpose   : Record dteInSyncDate as VBAProjectDate, the date at which every module,
+'           : form, and report was known to match the index. Callers capture the date
+'           : at the point where that became true, and call this only after an
+'           : operation that checked the whole VBA project without skipping anything.
+'           : Nothing is recorded if the project was saved again after dteInSyncDate
+'           : (a hook or casing correction may have changed code nobody exported), or
+'           : has unsaved changes. Leaving the date stale is always safe: the next
+'           : scan hashes the code instead of trusting the fast path.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CertifyVBAProjectDate(dteInSyncDate As Date)
+    If Me.Disabled Then Exit Sub
+    If dteInSyncDate = 0 Then Exit Sub
+    If Not CurrentVBProject.Saved Then Exit Sub
+    If GetVbaProjectDate <> dteInSyncDate Then Exit Sub
+    Me.VBAProjectDate = dteInSyncDate
+End Sub
 
 
 '---------------------------------------------------------------------------------------
