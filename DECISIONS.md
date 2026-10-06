@@ -83,6 +83,51 @@ contradictory guidance.
 
 ---
 
+## 2026-10-06 — VBAProjectDate is a whole-project certificate
+
+**Trigger**: A merge with several modules edited in the database and changed in
+source reported a conflict only for the first one; the rest were imported over
+the database edits without a conflict. `CheckMergeConflicts` checks one file at a
+time: the temp export of the first modified module went through
+`clsVCSIndex.Update`, which set `VBAProjectDate` to the current project date, so
+`VbaProjectUnchangedSinceExport` passed for every module, form, and report checked
+after it. The same refresh hides changes in other paths: an export conflict scan
+temp-exports during the scan (modules are scanned before forms and reports); a
+merge that imports module A hides an unexported edit in module C; a single-object
+or category-scoped export vouches for objects it never looked at.
+
+**Options explored**:
+- **Skip the refresh for `eatAltExport` only** — smallest change; fixes the merge
+  and export conflict scans, but not the merge import, single-object, or scoped
+  export paths. Rejected as incomplete.
+- **Latch the fast-path verdict at the start of each operation** — fixes
+  interleaving inside one operation, but a partial operation still saves a date
+  that the next operation trusts. Rejected.
+- **Write the date only when the whole project is proven in sync (chosen)**.
+
+**Decision**: `Update` no longer touches `VBAProjectDate`. `CertifyVBAProjectDate`
+records a date captured by an operation that checked every module, form, and
+report: an `ExportSource` over `ecfAllObjects` or `ecfVBAItems` (date captured after
+saving and casing corrections, before the scan) that completed without errors or
+skipped conflicts; a full build; and a merge that started with the project already
+in sync. It refuses if the project was saved again after the captured date or has
+unsaved changes. Every other path leaves the date stale, which only costs one
+hashing pass on the next scan.
+
+**What this rules out**: Refreshing `VBAProjectDate` from per-object index updates
+(the 2026-05-05 and 2026-08-31 entries). Revisit if the hashing pass after partial
+operations proves too slow; the answer then is a cheaper proof, not a per-object
+refresh.
+
+**Relevant files**:
+- `clsVCSIndex.cls` — `Update` no longer refreshes; new `CertifyVBAProjectDate`
+- `modVbeUtility.bas` — `GetVbaProjectDate`
+- `modExport.bas`, `modBuild.bas` — certification points
+- `clsConflicts.cls` — `SkippedAny`
+- `modTestVbaProjectDate.bas` — tests
+
+---
+
 ## 2026-09-16 — Defer a dual-runtime native export worker pending a focused speed probe
 
 **Trigger**: A historical full export took 451.29 s; its query profile attributed
@@ -968,6 +1013,11 @@ form code-behind.
 it from `clsDbModule`, `clsDbForm`, and `clsDbReport`. Refresh `VBAProjectDate`
 in `clsVCSIndex.Update` when exporting or importing forms and reports (not only
 modules), so a form-only export heals the date for subsequent scans.
+
+> **⚠ Superseded** (2026-10-06): `Update` no longer refreshes `VBAProjectDate` for
+> any component; healing a single export hid the unchecked rest of the project. The
+> shared `VbaProjectUnchangedSinceExport` guard stays. See "VBAProjectDate is a
+> whole-project certificate" above.
 
 **What this rules out**: Using `Not CurrentVBProject.Saved` as the sole signal for
 form/report code changes. Skipping `VBAProjectDate` refresh on form/report index
@@ -6169,6 +6219,10 @@ single-object import.)*
 - **Per-module ObjectDate (existing)** — rejected: all 110 values are always identical, and partial exports only update N entries, leaving the other 110-N stale until a full export "heals" them.
 - **Per-module ObjectDate with post-export healing pass** — rejected: unnecessary iteration when a single value suffices.
 - **Top-level VBAProjectDate (chosen)** — one value in the index, updated whenever any module is exported. Eliminates redundant storage, eliminates the healing problem, eliminates 110 per-module COM property reads during change detection.
+
+> **⚠ Superseded** (2026-10-06): "Updated whenever any module is exported" let one
+> export vouch for modules nobody checked. The date is now written only by
+> `CertifyVBAProjectDate`. See "VBAProjectDate is a whole-project certificate" above.
 
 **Decision**: Two-tier guard in `clsDbModule.IsModified`: (1) `CurrentVBProject.Saved = True`, (2) `AllModules(0).DateModified = VCSIndex.VBAProjectDate`. When both pass, skip `GetCodeModuleHash` entirely. `MetaHash` check always runs (metadata changes don't affect `Saved` or `DateModified`). For forms/reports, the same `VBProject.Saved` guard skips the code-behind hash when the layout `DateModified` also matches.
 

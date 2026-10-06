@@ -36,6 +36,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Dim lngCount As Long
     Dim lngCurrent As Long
     Dim strTempFile As String
+    Dim dteVbaInSync As Date
+    Dim blnCompleted As Boolean
 
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -218,6 +220,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Export any external database schemas
     ExportSchemas blnFullExport
     If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
+
+    ' The VBA project is saved and will not change from here on. If this export checks
+    ' every module, form, and report, the index will match the project as of this date.
+    If intFilter = ecfAllObjects Or intFilter = ecfVBAItems Then dteVbaInSync = GetVbaProjectDate
 
     ' Finish header section
     Log.Spacer
@@ -406,6 +412,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Show final output and save log
     Log.Spacer
     Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
+    blnCompleted = True
 
 CleanUp:
 
@@ -440,6 +447,12 @@ CleanUp:
             .ExportDate = Now
             If blnFullExport Then .FullExportDate = Now
             Set .CategoryHashes = dCurrentHashes
+            ' Every modified module, form, and report was exported, so the fast path
+            ' can trust the project date again. Not after a skip or an error: the
+            ' object left behind must still be found by hashing on the next scan.
+            If blnCompleted And Operation.ErrorLevel < eelError Then
+                If Not .Conflicts.SkippedAny Then .CertifyVBAProjectDate dteVbaInSync
+            End If
             .Save
         End With
     End If

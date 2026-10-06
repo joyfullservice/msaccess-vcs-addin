@@ -303,6 +303,26 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SkippedAny
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/6/2026
+' Purpose   : True if any conflict was resolved by skipping it, which leaves that object
+'           : out of sync with the index.
+'---------------------------------------------------------------------------------------
+'
+Public Function SkippedAny() As Boolean
+    Dim varKey As Variant
+    If m_dItems Is Nothing Then Exit Function
+    For Each varKey In m_dItems.Keys
+        If m_dItems(varKey).Resolution = ercSkip Then
+            SkippedAny = True
+            Exit Function
+        End If
+    Next varKey
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : LogDetectedConflicts
 ' Author    : Adam Waller
 ' Date      : 5/20/2026

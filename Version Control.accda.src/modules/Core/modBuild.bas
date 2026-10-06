@@ -101,6 +101,8 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Dim strRootToken As String
     Dim dPrinterWarnings As Dictionary
     Dim lngErrorJournalStart As Long
+    Dim blnVbaInSyncBefore As Boolean
+    Dim dteVbaInSync As Date
 
     LogUnhandledErrors FunctionName
     On Error Resume Next
@@ -383,6 +385,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     ' Now that we have a new database file, we can load the index.
     Set VCSIndex = Nothing
 
+    ' A merge only rewrites what changed in source. It can vouch for the whole VBA
+    ' project afterwards only if the project already matched the index before it began.
+    If Not blnFullBuild Then blnVbaInSyncBefore = VbaProjectUnchangedSinceExport
+
     If blnFullBuild Then
         ' Remove any non-built-in references before importing from source.
         Log.Add T("Removing non built-in references..."), False
@@ -585,6 +591,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
 
     Next varCategory
     TraceInPlaceMerge "phase: merge loop complete"
+
+    ' Every module, form, and report now matches the index: a full build imported all
+    ' of them, and a merge that started in sync imported the ones that changed.
+    If intFilter = ecfAllObjects Or intFilter = ecfVBAItems Then
+        If blnFullBuild Or blnVbaInSyncBefore Then dteVbaInSync = GetVbaProjectDate
+    End If
 
     If Operation.ErrorLevel <> eelCritical Then PromptAndSaveConnections
 
@@ -811,6 +823,8 @@ CleanUp:
         Else
             VCSIndex.MergeBuildDate = DateAdd("s", 2, Now)
         End If
+        ' Not after an error: an object that failed to import is out of sync.
+        If Operation.ErrorLevel < eelError Then VCSIndex.CertifyVBAProjectDate dteVbaInSync
         VCSIndex.Save strSourceFolder
     End If
     Set VCSIndex = Nothing
