@@ -626,6 +626,144 @@ Public Sub TestMergeIgnoresFolderDriftForExistingObject()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeReportsDataOfMissingConfiguredTable
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : When a table configured in TablesToExportData is missing from the
+'           : database, its unchanged data file must be reported for merging, so the
+'           : table comes back with its records after the table def is restored.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeReportsDataOfMissingConfiguredTable()
+    '@Tag("integration")
+
+    Dim cCategory As IDbComponent
+    Dim strTable As String
+    Dim strFile As String
+    Dim blnConfigured As Boolean
+    Dim dModified As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
+
+    strTable = "vcs_test_missing_data"
+    strFile = Options.GetExportFolder & "tables\" & strTable & ".txt"
+    If Options.TablesToExportData.Exists(strTable) Then
+        TestAssert True, "SKIP: test table already configured for data export"
+        Exit Sub
+    End If
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    ' A leftover table from an interrupted run is expected, so the drop is tolerated.
+    On Error Resume Next
+    CurrentDb.Execute "DROP TABLE [" & strTable & "]"
+    Err.Clear
+    On Error GoTo ErrHandler
+
+    ' Data file for a configured table that does not exist in the database
+    VerifyPath strFile
+    WriteFile "ID" & vbTab & "Name" & vbCrLf & "1" & vbTab & "a" & vbCrLf, strFile
+    Options.AddTableToExportData strTable, etdTabDelimited
+    blnConfigured = True
+
+    ' New instance, so the cached file list includes the data file.
+    Set cCategory = New clsDbTableData
+    SeedMergeIndexBaseline cCategory, strFile
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cCategory)
+    TestAssert dModified.Exists(strFile), _
+        "unchanged data file of a configured table missing from the database is reported"
+
+CleanUp:
+    On Error Resume Next
+    If blnConfigured Then Options.TablesToExportData.Remove strTable
+    If Not cCategory Is Nothing Then VCSIndex.Remove cCategory, strFile
+    If FSO.FileExists(strFile) Then DeleteFile strFile
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected missing table data error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeIgnoresDataFileOfUnconfiguredTable
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A leftover data file for a table that exists in the database but is no
+'           : longer in TablesToExportData must not count as missing: GetAllFromDB only
+'           : lists configured tables, and merging the file would overwrite the
+'           : table's records.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeIgnoresDataFileOfUnconfiguredTable()
+    '@Tag("integration")
+
+    Dim cCategory As IDbComponent
+    Dim dbs As DAO.Database
+    Dim strTable As String
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
+
+    strTable = "vcs_test_unconfigured_data"
+    strFile = Options.GetExportFolder & "tables\" & strTable & ".txt"
+    If Options.TablesToExportData.Exists(strTable) Then
+        TestAssert True, "SKIP: test table already configured for data export"
+        Exit Sub
+    End If
+    Set dbs = CurrentDb
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    ' A leftover table from an interrupted run is expected, so the drop is tolerated.
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strTable & "]"
+    Err.Clear
+    On Error GoTo ErrHandler
+
+    ' The table exists, is not configured, and still has a data file in source.
+    dbs.Execute "CREATE TABLE [" & strTable & "] (ID LONG, Name TEXT(10))"
+    dbs.TableDefs.Refresh
+    VerifyPath strFile
+    WriteFile "ID" & vbTab & "Name" & vbCrLf & "1" & vbTab & "a" & vbCrLf, strFile
+
+    ' New instance, so the cached file list includes the data file.
+    Set cCategory = New clsDbTableData
+    SeedMergeIndexBaseline cCategory, strFile
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cCategory)
+    TestAssert Not dModified.Exists(strFile), _
+        "unchanged data file of an unconfigured table is not reported as missing"
+
+CleanUp:
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strTable & "]"
+    dbs.TableDefs.Refresh
+    ReleaseDbReferences
+    If Not cCategory Is Nothing Then VCSIndex.Remove cCategory, strFile
+    If FSO.FileExists(strFile) Then DeleteFile strFile
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected unconfigured table data error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
 Private Sub RunMetadataOnlyMergeTest(cCategory As IDbComponent, strBaseName As String)
     Dim strFile As String
     Dim strJson As String
