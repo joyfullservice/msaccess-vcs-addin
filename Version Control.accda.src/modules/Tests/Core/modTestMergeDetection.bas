@@ -529,6 +529,103 @@ Public Sub TestAltExportPromotionRecordsSourceFileState()
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeReportsObjectMissingFromDatabase
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A source file whose object does not exist in the database must be
+'           : reported for merging even when the index holds matching hashes for it
+'           : (issue #471). Otherwise a deleted object is never restored.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeReportsObjectMissingFromDatabase()
+
+    Dim cModule As IDbComponent
+    Dim strFile As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    ' A module source file with no matching module in the database
+    strFile = cModule.BaseFolder & "modTestMissingFromDb.bas"
+    WriteFile "Attribute VB_Name = ""modTestMissingFromDb""" & vbCrLf & "Option Explicit" & vbCrLf, strFile
+
+    ' The file list is cached per component instance, so create a new one that
+    ' sees the file just written.
+    Set cModule = GetTestModuleComponent
+
+    ' Give the file an index entry whose hashes match the file on disk.
+    SeedMergeIndexBaseline cModule, strFile
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert dModified.Exists(strFile), _
+        "unchanged source file of an object missing from the database is reported (issue #471)"
+
+    ' Leave neither the file nor its index entry behind.
+    VCSIndex.Remove cModule, strFile
+    DeleteFile strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeIgnoresFolderDriftForExistingObject
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A source file that differs from the object's expected path only by
+'           : folder and casing (@Folder drift) must not count as missing: when the
+'           : index matches, it is not reported for merging.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeIgnoresFolderDriftForExistingObject()
+
+    Dim cModule As IDbComponent
+    Dim strOriginal As String
+    Dim strFolder As String
+    Dim strCopy As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strOriginal = ResolveSourceFilePath(cModule, "modTestIndex")
+    If Len(strOriginal) = 0 Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Same module, different folder and casing
+    strFolder = cModule.BaseFolder & "zzTestFolderDrift" & PathSep
+    strCopy = strFolder & "MODTESTINDEX.bas"
+    If Not FSO.FolderExists(strFolder) Then FSO.CreateFolder strFolder
+    FSO.CopyFile strOriginal, strCopy, True
+
+    ' New instance, so the cached file list includes the copy.
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strCopy
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert Not dModified.Exists(strCopy), _
+        "folder and casing drift of an existing object is not reported as missing"
+
+    ' The index keys on the file name, so the copy may share the original's entry.
+    ' Remove it, drop the copy, and describe the original again.
+    VCSIndex.Remove cModule, strCopy
+    DeleteFile strCopy
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder Left$(strFolder, Len(strFolder) - 1), True
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strOriginal
+
+End Sub
+
+
 Private Sub RunMetadataOnlyMergeTest(cCategory As IDbComponent, strBaseName As String)
     Dim strFile As String
     Dim strJson As String
