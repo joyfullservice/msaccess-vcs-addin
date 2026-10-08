@@ -83,6 +83,46 @@ contradictory guidance.
 
 ---
 
+## 2026-11-16 — Emit RecordLocks and NoFormat in the generated query .qdef
+
+**Trigger**: Issue #813. The export writes `RecordLocks` and `NoFormat` to
+`Items.QueryProperties`, but `clsQueryComposer.EmitAllProperties` skipped
+`RecordLocks` ("LvProp-only property; not part of the .qdef text format") and let
+`NoFormat` fall through to `Case Else`, so Build from Source lost both.
+
+**Options explored**:
+- *Emit both in the `.qdef`.* `SaveAsText` does not write `RecordLocks` (in every
+  query measured), but `LoadFromText` accepts `dbByte "RecordLocks"` and stores the
+  property on the `QueryDef` and on its document in the `Tables` container, in SQL
+  View and in Design View (measured on Access 16.0 32-bit, with and without the
+  add-in). `SaveAsText` writes `NoFormat` itself, as `dbBoolean`. Chosen.
+- *Apply the stored `QueryProperties` through DAO after `LoadFromText`*, as #813
+  suggests. Also works (`CreateProperty` on the built query). Not chosen here: the
+  composer already restores every other query property in the one `.qdef`, and a
+  general DAO pass over `QueryProperties` would also bring back the datasheet
+  styling properties that `Case Else` skips on purpose. That is a larger change in
+  behaviour, left as a separate decision.
+
+**Decision**: `EmitAllProperties` emits `RecordLocks` as `dbByte` and `NoFormat`
+through `EmitBoolProp`, in the block of non-default extras, and
+`ResolvePropertyOverrides` normalizes `NoFormat` as a boolean.
+
+**What this rules out**: Nothing for the other `Case Else` properties
+(`ECLScaleFactor` among them); they still do not round-trip. The `.json` keeps
+`QueryProperties` in LvProp order, and the composer emits these two after the
+properties it writes first (`FailOnError`, `DefaultView`, ...). So the first export
+that rewrites a built query (a full export, or its next change under fast save) can
+move `RecordLocks` or `NoFormat` below them, with the same values. `OrderByOnLoad`
+already moves the same way on a select query. The round-trip fixtures, written in the
+composer's order, pass with Pass 1 equal to the fixture.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` — `EmitAllProperties`, `ResolvePropertyOverrides`
+- `Version Control.accda.src/modules/Tests/SQL/clsTestQueryComposer.cls`, `modules/Tests/Components/modTestQuery.bas` — tests
+- `Testing/Fixtures/queries/regression/qryRegressionRecordLocks*`, `qryRegressionNoFormatUnion` — round-trip fixtures
+
+---
+
 ## 2026-10-27 — An interactive command gives a live root back its Source; a suppressed cancel resumes
 
 **Trigger**: Review after merging #818. `ResetForInteractiveCommand` set `Source` to
