@@ -960,3 +960,39 @@ Private Function RawSqlWithOption(ByVal strSql As String, ByVal lngOption As Lon
 
     Set RawSqlWithOption = colRows
 End Function
+
+
+Public Sub TestGenerateQdef_EmitsRecordLocksAndNoFormat()
+    ' RecordLocks and NoFormat travel in the .json QueryProperties but were dropped
+    ' when the .qdef was generated, so a build lost them. SaveAsText does not write
+    ' RecordLocks, but LoadFromText accepts the dbByte line and keeps the property.
+    Dim dProps As Dictionary
+    Dim strQdef As String
+
+    m_qc.DecomposeSQL "UPDATE tbl1 SET a = 1 WHERE b = 0"
+    Set dProps = New Dictionary
+    dProps.Add "RecordLocks", PropEntry(2, 2)
+    strQdef = m_qc.GenerateQdef(False, dProps, New Dictionary)
+    TestAssert InStr(1, strQdef, "dbByte ""RecordLocks"" =""2""", vbBinaryCompare) > 0, _
+        "action query qdef emits RecordLocks"
+
+    Set m_qc = New clsQueryComposer
+    m_qc.DecomposeSQL "SELECT a FROM tbl1"
+    Set dProps = New Dictionary
+    dProps.Add "RecordLocks", PropEntry(2, 1)
+    dProps.Add "NoFormat", PropEntry(1, False)
+    strQdef = m_qc.GenerateQdef(False, dProps, New Dictionary)
+    TestAssert InStr(1, strQdef, "dbByte ""RecordLocks"" =""1""", vbBinaryCompare) > 0, _
+        "select query qdef emits RecordLocks"
+    TestAssert InStr(1, strQdef, "dbBoolean ""NoFormat"" =""0""", vbBinaryCompare) > 0, _
+        "select query qdef emits NoFormat as an Access boolean"
+End Sub
+
+
+Private Function PropEntry(intType As Integer, varValue As Variant) As Dictionary
+    Dim dEntry As Dictionary
+    Set dEntry = New Dictionary
+    dEntry.Add "Type", intType
+    dEntry.Add "Value", varValue
+    Set PropEntry = dEntry
+End Function
