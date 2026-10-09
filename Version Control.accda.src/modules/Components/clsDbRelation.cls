@@ -22,6 +22,7 @@ Private m_Relation As DAO.Relation
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_Dbs As DAO.Database
+Private m_SysTables As Dictionary
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
@@ -40,6 +41,7 @@ Implements IDbComponent
 Private Sub Class_Terminate()
     Set m_Relation = Nothing
     Set m_Dbs = Nothing
+    Set m_SysTables = Nothing
 End Sub
 
 
@@ -80,9 +82,17 @@ Private Sub IDbComponent_Import(strFile As String)
     Set dFile = ReadJsonFile(strFile)
     If Not dFile Is Nothing Then
 
+        ' A relation on a table that is not exported is not recreated either:
+        ' the export leaves it out, and Access may refuse to create it on a
+        ' system table (error 3033 where the user has no permission on it).
+        Set dItem = dFile("Items")
+        If IsExcludedRelation(dNZ(dFile, "Items\Table"), dNZ(dFile, "Items\ForeignTable")) Then
+            Log.Add "  Skipped relation on a table that is not exported: " & FSO.GetFileName(strFile), False
+            Exit Sub
+        End If
+
         ' Create new relation
         Set m_Dbs = SharedDb
-        Set dItem = dFile("Items")
         Set rel = m_Dbs.CreateRelation(dItem("Name"), dItem("Table"), dItem("ForeignTable"))
         rel.Attributes = dItem("Attributes")
 
@@ -184,10 +194,13 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
             sngStart = Timer
         End If
         For Each rel In m_Dbs.Relations
-            ' Navigation pane groups are handled separately
+            ' Navigation pane groups are handled separately. More generally, a relation
+            ' on a table that is not exported is not exported either, whatever its name:
+            ' the navigation pane relations may carry a GUID instead of the standard name.
             If Not (rel.Name = "MSysNavPaneGroupsMSysNavPaneGroupToObjects" _
                 Or rel.Name = "MSysNavPaneGroupCategoriesMSysNavPaneGroups" _
-                Or IsInherited(rel)) Then
+                Or IsInherited(rel) _
+                Or IsExcludedRelation(rel.Table, rel.ForeignTable)) Then
                 Set cRelation = New clsDbRelation
                 Set cRelation.DbObject = rel
                 If blnNeedAll Then m_Items(False).Add cRelation.SourceFile, cRelation
@@ -215,6 +228,80 @@ End Function
 '
 Private Function IsInherited(objRelation As Relation) As Boolean
     IsInherited = ((objRelation.Attributes And dbRelationInherited) = dbRelationInherited)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsExcludedRelation
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/9/2026
+' Purpose   : Returns true if either table of the relation is one the table export leaves
+'           : out (see IsExcludedTable). Such a relation is not exported, and its source
+'           : file is neither built nor merged.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsExcludedRelation(strTable As String, strForeignTable As String) As Boolean
+    IsExcludedRelation = IsExcludedTable(strTable) Or IsExcludedTable(strForeignTable)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsExcludedTable
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/9/2026
+' Purpose   : Returns true for a table the table export leaves out: a system table
+'           : (GetSystemTableNames) or a temporary one (~*). The name alone decides
+'           : nothing: a user table may begin with MSys, and its relations are kept.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsExcludedTable(strTable As String) As Boolean
+    If SystemTables.Exists(strTable) Then
+        IsExcludedTable = True
+    ElseIf strTable Like "~*" Then
+        IsExcludedTable = True
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SystemTables
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/9/2026
+' Purpose   : The system tables of the current database, read once per instance. A build
+'           : imports every relation file through the same instance, so this avoids
+'           : scanning the table definitions once per relation.
+'---------------------------------------------------------------------------------------
+'
+Private Function SystemTables() As Dictionary
+    If m_SysTables Is Nothing Then Set m_SysTables = GetSystemTableNames
+    Set SystemTables = m_SysTables
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsExcludedRelationFile
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/9/2026
+' Purpose   : Returns true if the source file describes a relation on a table that is
+'           : not exported. A file that cannot be read is not excluded here: it stays
+'           : in the file list, and its import reports the error.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsExcludedRelationFile(strFile As String) As Boolean
+
+    Dim dFile As Dictionary
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set dFile = ReadJsonFile(strFile)
+    If Err Then
+        Err.Clear
+    ElseIf Not dFile Is Nothing Then
+        IsExcludedRelationFile = IsExcludedRelation( _
+            dNZ(dFile, "Items\Table"), dNZ(dFile, "Items\ForeignTable"))
+    End If
+    CatchAny eelNoError, vbNullString, , False
+
 End Function
 
 
@@ -301,11 +388,32 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return a list of file names to import for this component type.
+'           : Files of relations on tables that are not exported are left out, so a
+'           : build or a merge never tries to recreate them. (A source folder may still
+'           : hold them from an older export. The orphan check of the next export sees
+'           : them, since they match no relation from GetAllFromDB: it deletes one only
+'           : when the index holds it unchanged, and otherwise reports a conflict.)
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
-    If m_FileList Is Nothing Then Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+
+    Dim colExcluded As Collection
+    Dim varFile As Variant
+
+    If m_FileList Is Nothing Then
+        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.json")
+        If m_FileList.Count > 0 Then
+            Set colExcluded = New Collection
+            For Each varFile In m_FileList.Keys
+                If IsExcludedRelationFile(CStr(varFile)) Then colExcluded.Add varFile
+            Next varFile
+            For Each varFile In colExcluded
+                m_FileList.Remove varFile
+            Next varFile
+        End If
+    End If
     Set IDbComponent_GetFileList = m_FileList
+
 End Function
 
 
