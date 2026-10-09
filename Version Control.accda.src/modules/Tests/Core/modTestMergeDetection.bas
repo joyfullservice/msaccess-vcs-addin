@@ -627,6 +627,149 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestMergeKeepsObjectWithFolderDriftedSource
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A database object whose source file sits in another folder and with other
+'           : casing than its expected path (@Folder drift) must not be reported as an
+'           : orphan: merging an orphan deletes the object from the database.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeKeepsObjectWithFolderDriftedSource()
+
+    Dim cModule As IDbComponent
+    Dim strExpected As String
+    Dim strFolder As String
+    Dim strMoved As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strExpected = cModule.SourceFile
+    If Not FSO.FileExists(strExpected) Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Move the module's own source file to another folder, with other casing.
+    strFolder = cModule.BaseFolder & "zzTestOrphanDrift" & PathSep
+    strMoved = strFolder & "MODTESTINDEX.bas"
+    If Not FSO.FolderExists(strFolder) Then FSO.CreateFolder strFolder
+    FSO.MoveFile strExpected, strMoved
+
+    ' New instance, so the cached file list sees the move.
+    Set cModule = GetTestModuleComponent
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert Not dModified.Exists(strExpected), _
+        "object whose source file drifted to another folder is not reported as an orphan"
+
+    ' Put the file back and describe it again.
+    FSO.MoveFile strMoved, strExpected
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder Left$(strFolder, Len(strFolder) - 1), True
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strExpected
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeKeepsObjectWithRecasedSource
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A database object whose source file differs from its expected path only
+'           : by casing must not be reported as an orphan.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeKeepsObjectWithRecasedSource()
+
+    Dim cModule As IDbComponent
+    Dim strExpected As String
+    Dim strTemp As String
+    Dim strRecased As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strExpected = cModule.SourceFile
+    If Not FSO.FileExists(strExpected) Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Rename in place to other casing. (Through a temporary name: a case-only
+    ' rename is a no-op on a case-insensitive file system.)
+    strTemp = strExpected & ".tmp"
+    strRecased = FSO.GetParentFolderName(strExpected) & PathSep & "MODTESTINDEX.bas"
+    FSO.MoveFile strExpected, strTemp
+    FSO.MoveFile strTemp, strRecased
+
+    Set cModule = GetTestModuleComponent
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert Not dModified.Exists(strExpected), _
+        "object whose source file differs only by casing is not reported as an orphan"
+
+    ' Restore the original casing and describe the file again.
+    FSO.MoveFile strRecased, strTemp
+    FSO.MoveFile strTemp, strExpected
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strExpected
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeReportsOrphanWithoutSourceFile
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A database object with no source file of its name anywhere in the
+'           : category folder is still reported as an orphan, so the merge removes it.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeReportsOrphanWithoutSourceFile()
+
+    Dim cModule As IDbComponent
+    Dim strExpected As String
+    Dim strHidden As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strExpected = cModule.SourceFile
+    If Not FSO.FileExists(strExpected) Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Hide the source file from the file list (other extension).
+    strHidden = strExpected & ".tmp"
+    FSO.MoveFile strExpected, strHidden
+
+    Set cModule = GetTestModuleComponent
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert dModified.Exists(strExpected), _
+        "object with no source file of its name is reported as an orphan"
+
+    ' Put the file back and describe it again.
+    FSO.MoveFile strHidden, strExpected
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strExpected
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : TestMergeReportsDataOfMissingConfiguredTable
 ' Author    : Ricardo Hernandez (Notarnet)
 ' Date      : 10/7/2026

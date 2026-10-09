@@ -783,6 +783,9 @@ End Property
 '           : the index entry recorded at the last export or import.
 '           : NOTE: This will also include source file paths for database objects that
 '           : no longer exist. (Orphaned database objects not represented in source.)
+'           : An object only counts as orphaned when no source file shares its base file
+'           : name, so a file in another folder (@Folder drift) or with other casing does
+'           : not get its object deleted by the merge.
 '           : It also includes every source file whose object is missing from the
 '           : database, even when the file itself is unchanged, so a merge restores it.
 '           :
@@ -818,6 +821,7 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent, _
     Dim dAllFiles As Dictionary
     Dim dItems As Dictionary
     Dim dDbBaseNames As Dictionary
+    Dim dSourceBaseNames As Dictionary
     Dim dMeta As Dictionary
     Dim varItem As Variant
     Dim cItem As IDbComponent
@@ -958,16 +962,23 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent, _
 
         ' Now loop through database objects, and compare to source file list
         ' to identify orphaned database objects no longer represented in source.
+        ' The expected path alone is not enough: it follows the object's @Folder
+        ' annotation and casing, so a source file in another folder or with other
+        ' casing would be taken for an orphan, and merging an orphan deletes the
+        ' object. Like the missing check above, compare by base file name.
+        Set dSourceBaseNames = GetBaseNameKeys(dAllFiles)
         For Each varItem In dItems.Items
             Set cItem = varItem
             ' We are only concerned about non single-file items.
             If Not cItem.SingleFile Then
                 ' See if the path exists in the list of source files
                 If Not dAllFiles.Exists(cItem.SourceFile) Then
-                    ' This object does not appear to exist in the source files.
-                    ' Add to list of files to process. (This will remove the
-                    ' existing database object during the merge.)
-                    .Add cItem.SourceFile, vbNullString
+                    If Not dSourceBaseNames.Exists(LCase$(FSO.GetBaseName(cItem.SourceFile))) Then
+                        ' This object does not appear to exist in the source files.
+                        ' Add to list of files to process. (This will remove the
+                        ' existing database object during the merge.)
+                        .Add cItem.SourceFile, vbNullString
+                    End If
                 End If
             End If
         Next varItem
@@ -981,16 +992,16 @@ End Function
 ' Author    : Ricardo Hernandez (Notarnet)
 ' Date      : 10/7/2026
 ' Purpose   : Return the lower case base file names (no folder, no extension) of the
-'           : source file paths keyed in a GetAllFromDB dictionary.
+'           : file paths keyed in a dictionary (a GetAllFromDB or GetFileList result).
 '---------------------------------------------------------------------------------------
 '
-Private Function GetBaseNameKeys(dItems As Dictionary) As Dictionary
+Private Function GetBaseNameKeys(dPaths As Dictionary) As Dictionary
 
     Dim varKey As Variant
     Dim strBaseName As String
 
     Set GetBaseNameKeys = New Dictionary
-    For Each varKey In dItems.Keys
+    For Each varKey In dPaths.Keys
         strBaseName = LCase$(FSO.GetBaseName(CStr(varKey)))
         If Not GetBaseNameKeys.Exists(strBaseName) Then GetBaseNameKeys.Add strBaseName, vbNullString
     Next varKey
