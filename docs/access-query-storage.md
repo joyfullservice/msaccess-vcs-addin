@@ -597,6 +597,7 @@ contract.
 | `IN (SELECT ...)` subquery                  | [regression/qryRegressionFindDuplicates.sql](../Testing/Fixtures/queries/regression/qryRegressionFindDuplicates.sql)     |
 | Derived table in `FROM` (`%$##@_Alias`)     | [regression/qryRegressionFromSubquery.sql](../Testing/Fixtures/queries/regression/qryRegressionFromSubquery.sql)         |
 | Quoted identifiers / brackets               | [regression/qryRegressionQuotes.sql](../Testing/Fixtures/queries/regression/qryRegressionQuotes.sql)                     |
+| Bracketed table name with parentheses (Design View) | [regression/qryRegressionBracketedParenName.sql](../Testing/Fixtures/queries/regression/qryRegressionBracketedParenName.sql) |
 | Single-quoted literal spacing (Design View)  | [regression/qryRegressionSingleQuotedLiteralSpacing.sql](../Testing/Fixtures/queries/regression/qryRegressionSingleQuotedLiteralSpacing.sql) |
 | Backslash literals in string concat         | [regression/qryRegressionBackslash.sql](../Testing/Fixtures/queries/regression/qryRegressionBackslash.sql)               |
 | `TOP N PERCENT`                             | [regression/qryRegressionTopPercent.sql](../Testing/Fixtures/queries/regression/qryRegressionTopPercent.sql)             |
@@ -834,9 +835,16 @@ already-parenthesized expressions (derived-table subqueries) through
 unchanged.
 
 **Why `IsDesignerCompatible` is still the right gate.** `HasSubqueries`
-(line 511 of the post-fix file) returns True whenever any input table
-name contains `(` or starts with `SELECT `, so the importer continues to
-emit SQL View qdef (`dbMemo "SQL"`) for these. Access's `LoadFromText`
+returns True when any FROM operand is a derived table, so the importer
+continues to emit SQL View qdef (`dbMemo "SQL"`) for these. Each operand
+is classified in `AddInputTable` while it still carries its brackets
+(`IsDerivedTableOperand`): a single bracketed identifier such as
+`[Funds (Clients)]` is a name, whatever it contains; any other operand
+is a derived table when its name contains `(` or `SELECT `. Checking the
+stored (unbracketed) names instead, as the first version did, sent every
+query on a table with parentheses in its name to SQL View and dropped its
+`DesignLayout` without a warning
+([regression/qryRegressionBracketedParenName](../Testing/Fixtures/queries/regression/qryRegressionBracketedParenName.sql)). Access's `LoadFromText`
 accepts SQL View qdefs containing FROM-clause subqueries (verified by
 the harness); the legacy 4.x `.bas` shape that triggered the original
 user report --

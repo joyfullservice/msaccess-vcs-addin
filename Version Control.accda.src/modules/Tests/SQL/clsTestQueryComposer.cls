@@ -112,6 +112,94 @@ Public Sub TestIsDesignerCompatible_Union()
 End Sub
 
 
+Public Sub TestIsDesignerCompatible_BracketedNameWithParentheses()
+    m_qc.DecomposeSQL "SELECT [Funds (Clients)].ID FROM [Funds (Clients)]"
+    TestAssert m_qc.IsDesignerCompatible, _
+        "bracketed table name containing parentheses is not a derived table"
+End Sub
+
+
+Public Sub TestIsDesignerCompatible_BracketedNameWithParenthesesInJoin()
+    m_qc.DecomposeSQL "SELECT DISTINCTROW [Funds (Clients)].ID, Clients.Name " & _
+        "FROM [Funds (Clients)] INNER JOIN Clients ON [Funds (Clients)].ID = Clients.ID"
+    TestAssert m_qc.IsDesignerCompatible, _
+        "joined bracketed table name containing parentheses is not a derived table"
+End Sub
+
+
+Public Sub TestIsDesignerCompatible_BracketedNameWithSelectWord()
+    m_qc.DecomposeSQL "SELECT [Select Clients].ID FROM [Select Clients]"
+    TestAssert m_qc.IsDesignerCompatible, _
+        "bracketed table name containing the word SELECT is not a derived table"
+End Sub
+
+
+Public Sub TestIsDesignerCompatible_DerivedTableWithAlias()
+    m_qc.DecomposeSQL "SELECT q.ID FROM t1 INNER JOIN (SELECT ID FROM t2) AS q ON t1.ID = q.ID"
+    TestAssert Not m_qc.IsDesignerCompatible, _
+        "derived table in a join is not designer compatible"
+End Sub
+
+
+Public Sub TestIsDesignerCompatible_DerivedTableWithoutAlias()
+    m_qc.DecomposeSQL "SELECT ID FROM (SELECT ID FROM t2)"
+    TestAssert Not m_qc.IsDesignerCompatible, _
+        "derived table as the only source is not designer compatible"
+End Sub
+
+
+Public Sub TestIsDesignerCompatible_BracketedNameWithParenthesesAndAlias()
+    m_qc.DecomposeSQL "SELECT F.ID FROM [Funds (Clients)] AS F"
+    TestAssert m_qc.IsDesignerCompatible, _
+        "aliased bracketed table name containing parentheses is not a derived table"
+End Sub
+
+
+Public Sub TestIsDesignerCompatible_BracketedNameJoinedToDerivedTable()
+    m_qc.DecomposeSQL "SELECT q.ID FROM [Funds (Clients)] " & _
+        "INNER JOIN (SELECT ID FROM t2) AS q ON [Funds (Clients)].ID = q.ID"
+    TestAssert Not m_qc.IsDesignerCompatible, _
+        "a derived table still wins when joined to a bracketed name with parentheses"
+End Sub
+
+
+Public Sub TestIsDesignerCompatible_SeveralBracketGroupsKeepOriginalRule()
+    ' Not a single identifier, so the original rule still applies to it.
+    m_qc.DecomposeSQL "SELECT ID FROM [C:\Program Files (x86)\be.mdb].[Clients]"
+    TestAssert Not m_qc.IsDesignerCompatible, _
+        "a qualified name with parentheses keeps the original classification"
+End Sub
+
+
+Public Sub TestRequiresDesignView_BracketedNameWithCompoundOn()
+    Dim strSql As String
+    strSql = "SELECT [A (x)].ID FROM [A (x)] INNER JOIN B " & _
+        "ON ([A (x)].ID = B.ID) AND ([A (x)].K = B.K)"
+    m_qc.DecomposeSQL strSql
+    TestAssert m_qc.RequiresDesignView, "compound ON requires Design View"
+    TestAssert m_qc.IsDesignerCompatible, _
+        "compound ON with a bracketed name containing parentheses can use Design View"
+End Sub
+
+
+Public Sub TestIsDesignerCompatible_ResetBetweenDecompositions()
+    m_qc.DecomposeSQL "SELECT ID FROM (SELECT ID FROM t2)"
+    TestAssert Not m_qc.IsDesignerCompatible, "first query has a derived table"
+    m_qc.DecomposeSQL "SELECT [Funds (Clients)].ID FROM [Funds (Clients)]"
+    TestAssert m_qc.IsDesignerCompatible, _
+        "derived-table state does not leak into the next decomposition"
+End Sub
+
+
+Public Sub TestDesignViewQdef_BracketedNameWithParentheses()
+    Dim strQdef As String
+    m_qc.DecomposeSQL "SELECT [Funds (Clients)].ID FROM [Funds (Clients)]"
+    strQdef = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+    TestAssert InStr(1, strQdef, "Name =""Funds (Clients)""") > 0, _
+        "Design View qdef lists the input table by its unbracketed name"
+End Sub
+
+
 Public Sub TestIsPassThrough()
     m_qc.DecomposeSQL "SELECT 1", True
     TestAssert m_qc.IsPassThrough, "pass-through flag set"

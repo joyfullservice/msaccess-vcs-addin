@@ -54,6 +54,7 @@ Private m_blnDesignerCompatible As Boolean
 Private m_blnIsPassThrough As Boolean
 Private m_blnIsDDL As Boolean
 Private m_blnRequiresDesignView As Boolean   ' True when SQL has shapes (e.g. multi-condition ON) that dbMemo "SQL" cannot represent
+Private m_blnHasDerivedTable As Boolean      ' True when a FROM operand is a derived table (subquery)
 Private m_colWarnings As Collection     ' Builder warnings captured for diagnostics
 Private m_syntax As clsSqlSyntax        ' Pure SQL token/identifier parsing core
 Private m_strContextLabel As String     ' Query name for export-path warning context
@@ -2311,6 +2312,7 @@ Private Sub ResetState()
     m_blnIsPassThrough = False
     m_blnIsDDL = False
     m_blnRequiresDesignView = False
+    m_blnHasDerivedTable = False
     Set m_colWarnings = New Collection
     m_lngReconstructedOptionFlag = -1
 End Sub
@@ -2496,14 +2498,40 @@ End Function
 
 
 Private Function HasSubqueries() As Boolean
-    Dim dTbl As Dictionary
-    For Each dTbl In m_colInputTables
-        If InStr(1, CStr(dTbl("name")), "(") > 0 Or _
-           InStr(1, CStr(dTbl("name")), "SELECT ", vbTextCompare) > 0 Then
-            HasSubqueries = True
-            Exit Function
-        End If
-    Next dTbl
+    ' Decided per operand in AddInputTable, while the operand still carries its
+    ' brackets -- InputTables names are stored unbracketed, so they can no longer
+    ' tell [Funds (Clients)] apart from a derived table.
+    HasSubqueries = m_blnHasDerivedTable
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsDerivedTableOperand
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/9/2026
+' Purpose   : Report whether a FROM operand is a derived table (subquery) rather
+'           : than a table or query name.
+'           : A single bracketed identifier is a name whatever it contains: Access
+'           : allows parentheses and words like SELECT inside [Funds (Clients)].
+'           : Access names cannot contain "]", so the operand is one identifier
+'           : only when its first "]" is its last character; [db].[Table] or
+'           : [T] [Alias] are not. Anything else keeps the original rule -- a
+'           : parenthesis or SELECT in the name -- so it is classified as before.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsDerivedTableOperand(strTableExpr As String, strName As String) As Boolean
+
+    Dim strRef As String
+    Dim lngAs As Long
+
+    strRef = Trim$(strTableExpr)
+    lngAs = FindTopLevelKeyword(strRef, " AS ")
+    If lngAs > 0 Then strRef = Trim$(Left$(strRef, lngAs - 1))
+    If Left$(strRef, 1) = "[" And InStr(1, strRef, "]") = Len(strRef) Then Exit Function
+
+    IsDerivedTableOperand = InStr(1, strName, "(") > 0 Or _
+        InStr(1, strName, "SELECT ", vbTextCompare) > 0
+
 End Function
 
 
@@ -3183,6 +3211,7 @@ Private Sub AddInputTable(strTableExpr As String)
     Dim strAlias As String
 
     m_syntax.SplitTableRef strTableExpr, strName, strAlias
+    If IsDerivedTableOperand(strTableExpr, strName) Then m_blnHasDerivedTable = True
 
     Set dTbl = New Dictionary
     dTbl.Add "name", strName
