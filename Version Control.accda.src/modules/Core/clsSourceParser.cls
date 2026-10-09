@@ -24,6 +24,15 @@ Public RowSortFields As Dictionary
 Private Const NS_XSD_URI As String = "http://www.w3.org/2001/XMLSchema"
 Private Const NS_OD_URI As String = "urn:schemas-microsoft-com:officedata"
 
+' Kinds of tag told apart by IndentXmlText.
+Private Enum eXmlTagKind
+    extNone = 0
+    extOther
+    extStart
+    extEnd
+    extEmpty
+End Enum
+
 Public Enum eContentType
     ectObjectDefinition
     ectXML
@@ -1403,6 +1412,10 @@ Private Function SanitizeXML() As String
 
     If objXml Is Nothing Then
         Set objXml = New MSXML2.DOMDocument60
+        ' A field value made only of spaces, tabs, or line breaks is data. Without this the
+        ' parser takes it for layout and drops it, and the serializer re-emits the element
+        ' as a line break plus indentation -- the value the import then stores.
+        objXml.preserveWhiteSpace = True
     End If
 
     If objXml.LoadXML(strXml) = False Then
@@ -1413,6 +1426,12 @@ Private Function SanitizeXML() As String
             ModuleName(Me) & ".SanitizeXML"
         Exit Function
     End If
+
+    ' Whitespace is preserved only for the sake of field values. The XSLT formatter below
+    ' copies every text node, so for it the layout between elements has to go first. The
+    ' formatter for large documents tells layout from values on its own, and must not be
+    ' handed this: removing nodes one at a time grows with the square of the row count.
+    If Len(strXml) < 30000 Then RemoveLayoutWhitespace objXml
 
     ' Determine if it's a table data with schema
     For Each objNode In objXml.SelectNodes("/root/dataroot")
@@ -1473,7 +1492,7 @@ Private Function SanitizeXML() As String
         ' For very large XML strings like exporting data from large tables,
         ' use an alternate simplified formatting function that avoids
         ' the memory errors than can occur with XSLT.
-        this.strOutput = FormatXML2(objXml.XML)
+        this.strOutput = FormatXML2(objXml)
     End If
 
     ' Save the output
@@ -1513,7 +1532,8 @@ Private Sub SortXmlDataRows(objXml As MSXML2.DOMDocument60)
     End If
     If objRoot Is Nothing Then Exit Sub
 
-    Set objRows = objRoot.ChildNodes
+    ' Elements only: with whitespace preserved, the layout between rows is text nodes.
+    Set objRows = objRoot.SelectNodes("*")
     lngCount = objRows.Length
     If lngCount < 2 Then Exit Sub
 
@@ -1541,9 +1561,10 @@ Private Sub SortXmlDataRows(objXml As MSXML2.DOMDocument60)
         colSorted.Add objRows.Item(varSortedIdx(lngIdx))
     Next lngIdx
 
-    For lngIdx = lngCount - 1 To 0 Step -1
+    ' The layout text goes too; the formatter lays the rows out again.
+    Do While Not objRoot.FirstChild Is Nothing
         objRoot.RemoveChild objRoot.FirstChild
-    Next lngIdx
+    Loop
 
     For lngIdx = 1 To colSorted.Count
         objRoot.appendChild colSorted(lngIdx)
@@ -1913,55 +1934,192 @@ End Function
 ' Date      : 12/12/2023
 ' Purpose   : Alternate approach to formatting XML for use in large data sets where
 '           : the XSL transformation may encounter memory errors.
+'           :
+'           : The document is serialized as it stands and the text is laid out in one
+'           : pass, see IndentXmlText. Reindenting the serialized text line by line, as
+'           : this used to, cannot tell layout from a value that spans lines, and turned
+'           : the tabs at the start of each line of a memo into spaces. Laying it out
+'           : through the DOM instead is correct but not usable here: removing or
+'           : inserting nodes one at a time grows with the square of the row count, and
+'           : a table of a few hundred thousand rows took minutes instead of seconds.
 '---------------------------------------------------------------------------------------
 '
-Private Function FormatXML2(strInput As String) As String
-
-    Dim varLines As Variant
-    Dim varLine As Variant
-    Dim lngChar As Long
+Private Function FormatXML2(objInput As MSXML2.DOMDocument60) As String
 
     Perf.OperationStart "Format XML (alt)"
-
-    ' Split file into lines
-    varLines = Split(strInput, vbCrLf)
-
-    With New clsConcat
-        .AppendOnAdd = vbCrLf
-
-        ' Loop through lines
-        For Each varLine In varLines
-
-            ' Reset position
-            lngChar = 1
-
-            ' Loop through leading characters, watching for tabs.
-            Do While lngChar < Len(varLine)
-                ' See if this is
-                Select Case AscW(Mid(varLine, lngChar, 1))
-                    Case vbKeyTab   ' 9
-                        ' Increment tab counter
-                        lngChar = lngChar + 1
-                    Case Else
-                        ' Some other character.
-                        Exit Do
-                End Select
-            Loop
-
-            ' Add line with any indent
-            .Add Space$((lngChar - 1) * 2), Mid(varLine, lngChar)
-
-        Next varLine
-
-        ' Remove trailing vbCrLf and return result
-        .Remove 2
-        FormatXML2 = .GetStr
-
-    End With
-
+    FormatXML2 = IndentXmlText(objInput.XML)
     Perf.OperationEnd
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IndentXmlText
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Lay serialized XML out with each element on its own line, two spaces per
+'           : level, in a single pass over the text.
+'           :
+'           : The text between an element's start tag and its own end tag is the value
+'           : of a field and is kept exactly as it is, even when it is only whitespace.
+'           : Any other whitespace between tags is layout, and is replaced. That is the
+'           : whole rule, and it holds because Access writes no mixed content: an element
+'           : holds either text or elements, never both.
+'---------------------------------------------------------------------------------------
+'
+Private Function IndentXmlText(strXml As String) As String
+
+    Dim cOut As clsConcat
+    Dim strText As String
+    Dim lngPos As Long
+    Dim lngOpen As Long
+    Dim lngClose As Long
+    Dim lngLevel As Long
+    Dim intTag As eXmlTagKind
+    Dim intPrevious As eXmlTagKind
+    Dim blnStarted As Boolean
+
+    Set cOut = New clsConcat
+    lngPos = 1
+    lngOpen = InStr(lngPos, strXml, "<", vbBinaryCompare)
+
+    Do While lngOpen > 0
+        lngClose = FindXmlTagEnd(strXml, lngOpen)
+        If lngClose = 0 Then Exit Do
+        intTag = GetXmlTagKind(strXml, lngOpen, lngClose)
+        strText = Mid$(strXml, lngPos, lngOpen - lngPos)
+
+        If intTag = extEnd And intPrevious = extStart Then
+            ' The value of a field, whatever it is made of.
+            cOut.Add strText
+            lngLevel = lngLevel - 1
+        ElseIf Not IsXmlWhitespace(strText) Then
+            ' Text mixed in with elements. Kept as it is, and not laid out.
+            cOut.Add strText
+            If intTag = extEnd Then lngLevel = lngLevel - 1
+        Else
+            ' Layout: replaced by a line break and the indent for this level.
+            If intTag = extEnd Then lngLevel = lngLevel - 1
+            If blnStarted Then cOut.Add vbCrLf
+            If lngLevel > 0 Then cOut.Add Space$(lngLevel * 2)
+        End If
+
+        cOut.Add Mid$(strXml, lngOpen, lngClose - lngOpen + 1)
+        If intTag = extStart Then lngLevel = lngLevel + 1
+        intPrevious = intTag
+        blnStarted = True
+        lngPos = lngClose + 1
+        lngOpen = InStr(lngPos, strXml, "<", vbBinaryCompare)
+    Loop
+
+    cOut.Add vbCrLf
+    IndentXmlText = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindXmlTagEnd
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Position of the ">" that closes the tag opened at lngOpen, or 0 if there is
+'           : none. A ">" inside a quoted attribute value does not count. The quotes are
+'           : counted within the candidate tag only, so the search never runs ahead into
+'           : the rest of the document.
+'---------------------------------------------------------------------------------------
+'
+Private Function FindXmlTagEnd(strXml As String, lngOpen As Long) As Long
+
+    Dim strTag As String
+    Dim lngEnd As Long
+    Dim lngQuote As Long
+    Dim blnInQuote As Boolean
+
+    lngEnd = lngOpen
+    Do
+        lngEnd = InStr(lngEnd + 1, strXml, ">", vbBinaryCompare)
+        If lngEnd = 0 Then Exit Function
+        strTag = Mid$(strXml, lngOpen, lngEnd - lngOpen)
+        blnInQuote = False
+        lngQuote = InStr(1, strTag, """", vbBinaryCompare)
+        Do While lngQuote > 0
+            blnInQuote = Not blnInQuote
+            lngQuote = InStr(lngQuote + 1, strTag, """", vbBinaryCompare)
+        Loop
+    Loop While blnInQuote
+
+    FindXmlTagEnd = lngEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetXmlTagKind
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Classify the tag between lngOpen and lngClose.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetXmlTagKind(strXml As String, lngOpen As Long, lngClose As Long) As eXmlTagKind
+    Select Case Mid$(strXml, lngOpen + 1, 1)
+        Case "?", "!"
+            GetXmlTagKind = extOther
+        Case "/"
+            GetXmlTagKind = extEnd
+        Case Else
+            If Mid$(strXml, lngClose - 1, 1) = "/" Then
+                GetXmlTagKind = extEmpty
+            Else
+                GetXmlTagKind = extStart
+            End If
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsXmlWhitespace
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : True when the text is empty or made only of the characters XML counts as
+'           : whitespace: space, tab, carriage return and line feed.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsXmlWhitespace(strText As String) As Boolean
+
+    Dim lngChar As Long
+
+    For lngChar = 1 To Len(strText)
+        Select Case AscW(Mid$(strText, lngChar, 1))
+            Case 9, 10, 13, 32
+            Case Else
+                Exit Function
+        End Select
+    Next lngChar
+
+    IsXmlWhitespace = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveLayoutWhitespace
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Remove the whitespace-only text that only separates elements, and keep the
+'           : whitespace that is the whole content of an element, which is a field value.
+'           : Loading with whitespace preserved keeps both; this is the half that the
+'           : formatters must be free to replace.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RemoveLayoutWhitespace(objXml As MSXML2.DOMDocument60)
+
+    Dim objNode As MSXML2.IXMLDOMNode
+
+    For Each objNode In objXml.SelectNodes("//*[*]/text()[normalize-space(.)='']")
+        objNode.ParentNode.RemoveChild objNode
+    Next objNode
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
