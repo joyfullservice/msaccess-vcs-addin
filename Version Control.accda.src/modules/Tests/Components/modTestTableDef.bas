@@ -21,6 +21,8 @@ Private Const TEST_TABLE_HIDDEN_SIDECAR As String = "vcs_test_hidden_sidecar"
 Private Const TEST_TABLE_SYSTEM_PREFIX As String = "MSysVcsTestUserTable"
 Private Const TEST_TABLE_SYSTEM_ATTRIBUTE As String = "vcs_test_system_attribute"
 Private Const TEST_TABLE_SYSTEM_BOTH As String = "MSysVcsTestSystemTable"
+Private Const TEST_TABLE_LINKED_HOMONYM As String = "vcs_test_linked_homonym"
+Private Const TEST_TABLE_LINKED_ALONE As String = "vcs_test_linked_alone"
 
 
 '---------------------------------------------------------------------------------------
@@ -688,6 +690,195 @@ ErrHandler:
     lngErr = Err.Number
     strErr = Err.Description
     Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestLinkedTableWithHomonymKeepsProperties
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/5/2026
+' Purpose   : The export reads the front-end properties of a linked table from its
+'           : MSysObjects.LvProp row, looked up by name. A form or report may share
+'           : the table's name, and without a filter on Type the lookup could return
+'           : that row instead: the .json came out without the table's own properties,
+'           : or with the form's in their place. The form is created
+'           : before the link so that its row is the one a name-only lookup meets first.
+'           : The second table, with no homonym, is the control.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestLinkedTableWithHomonymKeepsProperties()
+    '@Tag("integration")
+
+    Dim dbsBack As DAO.Database
+    Dim frm As Form
+    Dim strForm As String
+    Dim strFolder As String
+    Dim strBackEnd As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim lngPriorEnv As Long
+    Dim blnSaved As Boolean
+    Dim blnFormCreated As Boolean
+    Dim blnHomonymTable As Boolean
+    Dim blnHomonymField As Boolean
+    Dim blnAloneTable As Boolean
+    Dim blnAloneField As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_LINKED_HOMONYM
+    DropTestTable TEST_TABLE_LINKED_ALONE
+    DeleteTestForm TEST_TABLE_LINKED_HOMONYM
+
+    ' Back end with the source table
+    strFolder = GetTempFolder("vcs_linked_homonym")
+    strBackEnd = strFolder & PathSep & "backend.accdb"
+    Set dbsBack = DBEngine.CreateDatabase(strBackEnd, dbLangGeneral)
+    dbsBack.Execute "CREATE TABLE [Source] ([ID] LONG, [Nombre] TEXT(50))", dbFailOnError
+    dbsBack.Close
+    Set dbsBack = Nothing
+
+    ' The homonym form goes first, so its MSysObjects row precedes the table's
+    Set frm = Application.CreateForm
+    strForm = frm.Name
+    Set frm = Nothing
+    DoCmd.Close acForm, strForm, acSaveYes
+    DoCmd.Rename TEST_TABLE_LINKED_HOMONYM, acForm, strForm
+    blnFormCreated = True
+
+    CreateLinkedTableWithProperties TEST_TABLE_LINKED_HOMONYM, strBackEnd
+    CreateLinkedTableWithProperties TEST_TABLE_LINKED_ALONE, strBackEnd
+
+    ' Sandbox the export folder
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    lngPriorEnv = Options.UseEnvForConnections
+    blnSaved = True
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_0_0
+    Options.UseEnvForConnections = uecNever
+
+    ExportLinkedTableProperties TEST_TABLE_LINKED_HOMONYM, blnHomonymTable, blnHomonymField
+    ExportLinkedTableProperties TEST_TABLE_LINKED_ALONE, blnAloneTable, blnAloneField
+
+    TestAssert blnFormCreated, "homonym form exists before the link"
+    TestAssert blnAloneTable, "control: linked table exports its TableProperties"
+    TestAssert blnAloneField, "control: linked table exports its FieldProperties"
+    TestAssert blnHomonymTable, "linked table with a homonym form exports its TableProperties"
+    TestAssert blnHomonymField, "linked table with a homonym form exports its FieldProperties"
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        Options.ExportFolder = strPriorFolder
+        Options.ExportFormatVersion = lngPriorFormat
+        Options.UseEnvForConnections = lngPriorEnv
+    End If
+    DropTestTable TEST_TABLE_LINKED_HOMONYM
+    DropTestTable TEST_TABLE_LINKED_ALONE
+    DeleteTestForm TEST_TABLE_LINKED_HOMONYM
+    If Len(strForm) > 0 Then DeleteTestForm strForm
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    Err.Clear
+    If lngErr <> 0 Then TestAssert False, "linked table homonym error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CreateLinkedTableWithProperties
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/5/2026
+' Purpose   : Link the back-end Source table under a new name, with one front-end
+'           : table property (Description) and one field property (Caption), both of
+'           : them stored only in the front end's LvProp.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CreateLinkedTableWithProperties(strTable As String, strBackEnd As String)
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(strTable)
+    tdf.Connect = ";DATABASE=" & strBackEnd
+    tdf.SourceTableName = "Source"
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.TableDefs(strTable)
+    tdf.Properties.Append tdf.CreateProperty("Description", dbText, "Descripcion local")
+    Set fld = tdf.Fields("Nombre")
+    fld.Properties.Append fld.CreateProperty("Caption", dbText, "Etiqueta")
+    Set fld = Nothing
+    Set tdf = Nothing
+    RefreshTableCollections dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportLinkedTableProperties
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/5/2026
+' Purpose   : Export a linked table through the normal path and report whether its
+'           : .json carries the fixture's table and field properties.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportLinkedTableProperties(strTable As String, _
+    ByRef blnTableProps As Boolean, ByRef blnFieldProps As Boolean)
+
+    Dim cComponent As IDbComponent
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim strJsonFile As String
+
+    Set cComponent = New clsDbTableDef
+    Set cComponent.DbObject = CurrentData.AllTables(strTable)
+    cComponent.Export
+
+    strJsonFile = Options.GetExportFolder & "tbldefs" & PathSep & GetSafeFileName(strTable) & ".json"
+    If FSO.FileExists(strJsonFile) Then Set dFile = ReadJsonFile(strJsonFile)
+    If Not dFile Is Nothing Then
+        If dFile.Exists("Items") Then
+            Set dItems = dFile("Items")
+            If dItems.Exists("TableProperties") Then blnTableProps = dItems("TableProperties").Exists("Description")
+            If dItems.Exists("FieldProperties") Then blnFieldProps = dItems("FieldProperties").Exists("Nombre")
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteTestForm
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/5/2026
+' Purpose   : Delete a fixture form if it exists. Checked first rather than swallowing
+'           : the "not found" error, for the same reason as DropTestTable.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DeleteTestForm(strForm As String)
+
+    Dim objForm As AccessObject
+
+    For Each objForm In CurrentProject.AllForms
+        If objForm.Name = strForm Then
+            DoCmd.DeleteObject acForm, strForm
+            Exit For
+        End If
+    Next objForm
 
 End Sub
 
