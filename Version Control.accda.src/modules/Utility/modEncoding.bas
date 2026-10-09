@@ -493,6 +493,13 @@ End Function
 ' Date      : 7/27/2026
 ' Purpose   : Escape a field or table name the way Access does for XML data export
 '           : element names (_xHHHH_ for disallowed characters).
+'           :
+'           : Access follows the XML 1.0 name rules, except that it escapes the colon,
+'           : which would otherwise read as a namespace prefix. A character that cannot
+'           : start a name is escaped only in the first position: table "0T" exports its
+'           : rows as <_x0030_T> while "T0" stays as it is, and "1-2" becomes <_x0031_-2>.
+'           : Letters outside ASCII are left alone, so "Año" stays <Año>, but a symbol
+'           : such as the ordinal indicator is not a name character: "Nº" is <N_x00BA_>.
 '---------------------------------------------------------------------------------------
 '
 Public Function EscapeXmlName(strName As String) As String
@@ -506,7 +513,8 @@ Public Function EscapeXmlName(strName As String) As String
     Dim cOut As New clsConcat
 
     For lngPos = 1 To Len(strName)
-        lngChar = AscW(Mid$(strName, lngPos, 1))
+        ' AscW returns an Integer, which is negative above &H7FFF.
+        lngChar = AscW(Mid$(strName, lngPos, 1)) And &HFFFF&
         If lngChar = CHAR_UNDERSCORE Then
             ' Access escapes an underscore only when a lowercase "x" follows it, so the
             ' pair cannot be misread as the start of an _xHHHH_ escape sequence. An
@@ -515,11 +523,13 @@ Public Function EscapeXmlName(strName As String) As String
             If lngPos < Len(strName) Then
                 blnEscape = (AscW(Mid$(strName, lngPos + 1, 1)) = CHAR_LOWER_X)
             End If
+        ElseIf lngPos = 1 Then
+            blnEscape = Not IsXmlExportNameStartChar(lngChar)
         Else
             blnEscape = Not IsXmlExportNameChar(lngChar)
         End If
         If blnEscape Then
-            cOut.Add "_x", Right$("0000" & Hex$(lngChar And &HFFFF&), 4), "_"
+            cOut.Add "_x", Right$("0000" & Hex$(lngChar), 4), "_"
         Else
             cOut.Add ChrW$(lngChar)
         End If
@@ -773,13 +783,35 @@ End Function
 ' Function  : IsXmlExportNameChar
 ' Author    : Adam Waller
 ' Date      : 7/27/2026
-' Purpose   : Characters Access leaves unescaped in exported XML element names.
+' Purpose   : Characters Access leaves unescaped in exported XML element names after
+'           : the first position: the XML 1.0 NameChar set, without the colon.
 '---------------------------------------------------------------------------------------
 '
 Private Function IsXmlExportNameChar(lngChar As Long) As Boolean
-    IsXmlExportNameChar = _
-        (lngChar >= 48 And lngChar <= 57) _
-        Or (lngChar >= 65 And lngChar <= 90) _
-        Or (lngChar >= 97 And lngChar <= 122) _
-        Or lngChar = 95
+    Select Case lngChar
+        Case 45, 46, 48 To 57, &HB7&, &H300& To &H36F&, &H203F& To &H2040&
+            IsXmlExportNameChar = True
+        Case Else
+            IsXmlExportNameChar = IsXmlExportNameStartChar(lngChar)
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : IsXmlExportNameStartChar
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Characters Access leaves unescaped at the start of an exported XML element
+'           : name: the XML 1.0 NameStartChar set, without the colon. Measured against
+'           : Application.ExportXML output, which escapes "0", "-" and "º" there but
+'           : keeps letters such as "Á".
+'---------------------------------------------------------------------------------------
+'
+Private Function IsXmlExportNameStartChar(lngChar As Long) As Boolean
+    Select Case lngChar
+        Case 65 To 90, 95, 97 To 122, &HC0& To &HD6&, &HD8& To &HF6&, &HF8& To &H2FF&, _
+            &H370& To &H37D&, &H37F& To &H1FFF&, &H200C& To &H200D&, &H2070& To &H218F&, _
+            &H2C00& To &H2FEF&, &H3001& To &HD7FF&, &HF900& To &HFDCF&, &HFDF0& To &HFFFD&
+            IsXmlExportNameStartChar = True
+    End Select
 End Function
