@@ -83,6 +83,56 @@ contradictory guidance.
 
 ---
 
+## 2026-10-09 — Capture driver-completed ODBC connections via Database.Connect
+
+**Trigger**: A project linked to SQL Server through ODBC Driver 18 prompted for the
+connection on every build. The user completed the driver dialog, including "Trust
+server certificate", but the build never saved the result to `.env`. Two causes:
+`CacheConnection` reported `QueryDef.Connect` as the completed string, and
+`RecordAuthenticatedConnection` skipped saving whenever the stored value already
+carried authentication. Probing a complete connection string showed that
+`QueryDef.Connect` echoes the assigned string, while `Database.Connect` returns what
+the driver completed (adding `APP=`, and `UID=` set to the Windows user, and keeping
+`TrustServerCertificate`). A separate export bug, where the sanitized outer key of
+`db-connection.json` overwrote the full `.env` value, made the prompt recur even when
+a value had been saved; that was fixed in `clsDbConnection.GetExportItems`.
+
+**Options explored**:
+- *Open with `dbDriverNoPrompt` first, then `dbDriverComplete`* — rejected after
+  testing: in an Access workspace the `OpenDatabase` Options argument does not
+  suppress the driver dialog, and a "no-prompt" probe of an incomplete string opened
+  the login dialog in a headless session.
+- *Keep `QueryDef.Connect`* — rejected; it never reflects dialog choices.
+- *Call `SQLDriverConnect` directly through the ODBC API* — stronger guarantees about
+  the output string, but disproportionate complexity for a DAO-based add-in.
+- *Open the connection as a `Database` only when `PromptWouldDisplay(False)`, read
+  `Database.Connect`, then prime `CurrentDb` with the existing QueryDef probe* — chosen.
+
+**Decision**: When prompts are allowed, `CacheConnection` opens the connection through
+`Workspaces(0).OpenDatabase`, uses `Database.Connect` as the completed string, and runs
+the existing QueryDef probe with it (keeping Oracle handling and the CurrentDb cache).
+It reports `blnSettingsCompleted` when the completed string differs from the input in
+more than driver-added keys (`ConnectionSettingsMatch` ignores `APP`, `WSID`, the
+trusted-connection `UID`, braces, order, and key case). `ShouldSaveCompletedConnect`
+then saves any meaningful difference even if the stored value already authenticates.
+`PrepareCompletedConnectForSave` carries a stored password into a completed string that
+omits it for the same user, and refuses to save (with a warning) for a different user.
+The first caller to schedule a save for a key fixes the saved value, so later linked
+tables cannot replace it with a Connect that Access has stripped.
+
+**What this rules out**: Silent and test-run builds keep the old QueryDef-only path, so
+they cannot capture dialog choices (and an incomplete string can still raise the native
+dialog there, as before). Saved values may include driver-added keys such as `APP=` and
+`UID=`; they are harmless in a per-developer `.env`. Revisit if a driver omits settings
+from `Database.Connect`, or if Access starts honoring the `OpenDatabase` prompt options.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/modConnect.bas`
+- `Version Control.accda.src/modules/Components/clsDbConnection.cls`
+- `Version Control.accda.src/modules/Tests/Connect/modTestConnect.bas`
+
+---
+
 ## 2026-09-16 — Defer a dual-runtime native export worker pending a focused speed probe
 
 **Trigger**: A historical full export took 451.29 s; its query profile attributed

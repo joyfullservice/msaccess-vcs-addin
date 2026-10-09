@@ -216,6 +216,7 @@ Public Function GetConnState(strKey As String) As Dictionary
         dState.Add "EnvKey", vbNullString
         dState.Add "Source", vbNullString
         dState.Add "NeedsSave", False
+        dState.Add "SaveConnect", vbNullString
         m_dConnState.Add strKey, dState
         Set GetConnState = dState
     End If
@@ -673,14 +674,19 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 06/19/2026
 ' Purpose   : Remember a successfully authenticated connection for reuse and optional
-'           : .env save at the end of the build.
+'           : .env save at the end of the build. Pass blnSettingsCompleted when the
+'           : driver completed settings beyond the stored string (see CacheConnection).
+'           : The first caller to schedule a save for a key decides the saved value;
+'           : later linked tables may report a Connect that Access has stripped.
 '---------------------------------------------------------------------------------------
 '
 Public Sub RecordAuthenticatedConnection(strKey As String, strEnvKey As String, _
-    strCompletedConnect As String, strSource As String)
+    strCompletedConnect As String, strSource As String, _
+    Optional blnSettingsCompleted As Boolean = False)
 
     Dim dState As Dictionary
     Dim strEnvValue As String
+    Dim strSaveConnect As String
     Dim cEnv As clsDotEnv
 
     If Len(strKey) = 0 Then Exit Sub
@@ -692,26 +698,26 @@ Public Sub RecordAuthenticatedConnection(strKey As String, strEnvKey As String, 
 
     If Len(strEnvKey) = 0 Then Exit Sub
     If Options.UseEnvForConnections = uecNever Then Exit Sub
-
-    ' Only worth saving if the completed string carries the authentication detail
-    ' (UID/PWD, trusted, or an AD/SSPI authentication method) that lets a future
-    ' build connect without prompting.
-    If Not HasAuthInfo(strCompletedConnect) Then Exit Sub
+    If dState("NeedsSave") Then Exit Sub
 
     Set cEnv = GetEnvCache(False)
     strEnvValue = cEnv.GetVar(strEnvKey, False)
-    If Len(strEnvValue) > 0 Then
-        strEnvValue = GetFullConnect(strEnvValue)
-        ' If the stored value already resolves authentication on its own, it would
-        ' not prompt, so there is nothing new to save.
-        If HasAuthInfo(strEnvValue) Then Exit Sub
-        ' Identical parameters mean nothing meaningful changed.
-        If ConnectionParamsMatch(strCompletedConnect, strEnvValue) Then Exit Sub
+    If Len(strEnvValue) > 0 Then strEnvValue = GetFullConnect(strEnvValue)
+
+    If Not ShouldSaveCompletedConnect(strEnvValue, strCompletedConnect, blnSettingsCompleted) Then Exit Sub
+
+    strSaveConnect = PrepareCompletedConnectForSave(strEnvValue, strCompletedConnect)
+    If Len(strSaveConnect) = 0 Then
+        Log.Error eelWarning, T("Did not save the completed connection for {0} to .env because " & _
+            "it omits the stored password and names a different user.", var0:=strEnvKey), _
+            ModuleName & ".RecordAuthenticatedConnection"
+        Exit Sub
     End If
 
     dState("NeedsSave") = True
     dState("EnvKey") = strEnvKey
     dState("Source") = strSource
+    dState("SaveConnect") = strSaveConnect
 
 End Sub
 
@@ -759,7 +765,7 @@ Public Sub PromptAndSaveConnections()
     End With
 
     If Options.UseEnvForConnections = uecAuto Then
-        If MsgBox2(T("Save Connection Credentials?"), strList, _
+        If MsgBox2(T("Save Connection Settings?"), strList, _
             T("Save them to your .env file so you are not prompted again?"), _
             vbYesNo Or vbQuestion, , vbNo) <> vbYes Then
             Set m_dConnState = Nothing
@@ -769,13 +775,13 @@ Public Sub PromptAndSaveConnections()
 
     For Each varKey In colSave
         Set dState = m_dConnState(CStr(varKey))
-        SaveConnectionToEnv CStr(dState("EnvKey")), CStr(dState("Completed")), CStr(dState("Source"))
+        SaveConnectionToEnv CStr(dState("EnvKey")), CStr(dState("SaveConnect")), CStr(dState("Source"))
         lngCount = lngCount + 1
     Next varKey
 
     ClearEnvCache
     If lngCount > 0 Then
-        Log.Add T("Saved {0} connection credential(s) to .env.", var0:=lngCount), False
+        Log.Add T("Saved {0} connection setting(s) to .env.", var0:=lngCount), False
     End If
     Set m_dConnState = Nothing
 
@@ -788,18 +794,25 @@ End Sub
 ' Date      : 3/31/2023
 ' Purpose   : Open an ODBC database to allow us to leverage Access' built-in caching
 '             and hopefully reduce the numbers of ODBC prompts. Because the connection
-'             may be incomplete, we will force a prompt for the user to then fill in
+'             may be incomplete, we will force a prompt for the user to then fill in.
+'           : QueryDef.Connect only echoes the string that was assigned, so when prompts
+'           : are allowed the connection is first opened as a Database, whose Connect
+'           : property returns the string the driver completed (including any dialog
+'           : choices such as TrustServerCertificate). blnSettingsCompleted reports
+'           : whether that string differs from strConnect beyond driver-added keys.
 '---------------------------------------------------------------------------------------
 '
 Public Function CacheConnection(strConnect As String, _
     ByRef strCompletedConnect As String, ByRef lngErr As Long, _
-    ByRef strErrDesc As String) As Boolean
+    ByRef strErrDesc As String, Optional ByRef blnSettingsCompleted As Boolean) As Boolean
 
     Dim qdf As DAO.QueryDef
+    Dim strProbeConnect As String
 
     lngErr = 0
     strCompletedConnect = vbNullString
     strErrDesc = vbNullString
+    blnSettingsCompleted = False
 
     If Not (Left$(strConnect, 5) = "ODBC;") Then
         Exit Function
@@ -814,6 +827,15 @@ Public Function CacheConnection(strConnect As String, _
         strCompletedConnect = qdf.Connect
         CacheConnection = True
     Else
+        strProbeConnect = strConnect
+        If PromptWouldDisplay(False) Then
+            ' The driver dialog cannot be suppressed through DAO, so this only runs
+            ' when a prompt is allowed anyway.
+            strProbeConnect = OpenDriverCompletedConnect(strConnect, lngErr, strErrDesc)
+            If lngErr Then Exit Function
+            blnSettingsCompleted = Not ConnectionSettingsMatch(strConnect, strProbeConnect)
+        End If
+
         ' We need to use the CurrentDb because it's the one that'll get stuff imported into. Otherwise,
         ' we will get unwanted prompts during the import.
         Set qdf = CurrentDb.CreateQueryDef
@@ -823,10 +845,11 @@ Public Function CacheConnection(strConnect As String, _
         ' string will avoid the bug.
         qdf.Name = ""
 
-        RunConnectivityProbe qdf, strConnect, lngErr, strErrDesc
+        RunConnectivityProbe qdf, strProbeConnect, lngErr, strErrDesc
 
         If lngErr Then
             Set qdf = Nothing
+            blnSettingsCompleted = False
         Else
             strCompletedConnect = qdf.Connect
         End If
@@ -1177,6 +1200,39 @@ Private Sub RunConnectivityProbe(qdf As DAO.QueryDef, strConnect As String, _
     On Error GoTo 0
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenDriverCompletedConnect
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Open the ODBC connection as a Database (prompting through the driver
+'           : dialog if it is incomplete) and return Database.Connect, the string the
+'           : driver completed. The Options argument cannot suppress the dialog in an
+'           : Access workspace, so callers must only use this when a prompt is allowed.
+'---------------------------------------------------------------------------------------
+'
+Private Function OpenDriverCompletedConnect(strConnect As String, _
+    ByRef lngErr As Long, ByRef strErrDesc As String) As String
+
+    Dim dbs As DAO.Database
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set dbs = DBEngine.Workspaces(0).OpenDatabase(vbNullString, False, True, strConnect)
+    lngErr = Err.Number
+    If lngErr Then
+        strErrDesc = GetConnectErrorDetail()
+    Else
+        strErrDesc = vbNullString
+        OpenDriverCompletedConnect = dbs.Connect
+        dbs.Close
+    End If
+    On Error GoTo 0
+
+    If lngErr = 0 And Len(OpenDriverCompletedConnect) = 0 Then OpenDriverCompletedConnect = strConnect
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -1791,6 +1847,152 @@ Private Function ParseConnectionParams(strConnect As String) As Dictionary
     Next lngPart
 
     Set ParseConnectionParams = dParams
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConnectionSettingsMatch
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Compare two connection strings like ConnectionParamsMatch, but ignore
+'           : what a driver changes on its own when it completes a string: the APP and
+'           : WSID keys, the UID it reports for a trusted connection, and braces
+'           : around values. A completed string then matches its unchanged input.
+'---------------------------------------------------------------------------------------
+'
+Public Function ConnectionSettingsMatch(strConnect1 As String, strConnect2 As String) As Boolean
+
+    Dim d1 As Dictionary
+    Dim d2 As Dictionary
+    Dim varKey As Variant
+
+    Set d1 = GetComparableConnectParams(strConnect1)
+    Set d2 = GetComparableConnectParams(strConnect2)
+
+    If d1.Count <> d2.Count Then Exit Function
+
+    For Each varKey In d1.Keys
+        If Not d2.Exists(CStr(varKey)) Then Exit Function
+        If StrComp(CStr(d1(varKey)), CStr(d2(varKey)), vbTextCompare) <> 0 Then Exit Function
+    Next varKey
+
+    ConnectionSettingsMatch = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetComparableConnectParams
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Parse a connection string for ConnectionSettingsMatch, dropping the keys
+'           : and value braces that drivers add when completing a connection.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetComparableConnectParams(strConnect As String) As Dictionary
+
+    Dim dParams As Dictionary
+    Dim varKey As Variant
+    Dim strValue As String
+
+    Set dParams = ParseConnectionParams(strConnect)
+
+    If dParams.Exists("APP") Then dParams.Remove "APP"
+    If dParams.Exists("WSID") Then dParams.Remove "WSID"
+    If dParams.Exists("Trusted_Connection") And dParams.Exists("UID") Then
+        strValue = CStr(dParams("Trusted_Connection"))
+        If StrComp(strValue, "yes", vbTextCompare) = 0 _
+            Or StrComp(strValue, "true", vbTextCompare) = 0 Then dParams.Remove "UID"
+    End If
+
+    For Each varKey In dParams.Keys
+        strValue = Trim$(CStr(dParams(varKey)))
+        If Left$(strValue, 1) = "{" And Right$(strValue, 1) = "}" Then
+            strValue = Mid$(strValue, 2, Len(strValue) - 2)
+        End If
+        dParams(varKey) = strValue
+    Next varKey
+
+    Set GetComparableConnectParams = dParams
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ShouldSaveCompletedConnect
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Decide whether a connection completed during a build should replace the
+'           : stored .env value. The completed string must carry authentication. When
+'           : the driver completed settings beyond the stored string (for example a
+'           : TrustServerCertificate choice in the dialog), any meaningful difference
+'           : is saved even if the stored value already authenticates. Otherwise only
+'           : a stored value with no authentication is replaced.
+'---------------------------------------------------------------------------------------
+'
+Public Function ShouldSaveCompletedConnect(strStored As String, strCompleted As String, _
+    blnSettingsCompleted As Boolean) As Boolean
+
+    If Not HasAuthInfo(strCompleted) Then Exit Function
+
+    If Len(strStored) = 0 Then
+        ShouldSaveCompletedConnect = True
+    ElseIf blnSettingsCompleted Then
+        ShouldSaveCompletedConnect = Not ConnectionSettingsMatch(strStored, strCompleted)
+    ElseIf Not HasAuthInfo(strStored) Then
+        ShouldSaveCompletedConnect = Not ConnectionParamsMatch(strCompleted, strStored)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrepareCompletedConnectForSave
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Return the completed connection string to save, without losing a stored
+'           : password the driver left out of its completed string. The stored
+'           : password is carried over only for the same user; for a different user
+'           : an empty string is returned and the caller must not save.
+'---------------------------------------------------------------------------------------
+'
+Public Function PrepareCompletedConnectForSave(strStored As String, strCompleted As String) As String
+
+    Dim dStored As Dictionary
+    Dim dCompleted As Dictionary
+    Dim strPwd As String
+    Dim strCompletedPwd As String
+    Dim strStoredUid As String
+    Dim strCompletedUid As String
+    Dim varParts As Variant
+    Dim lngPart As Long
+    Dim strPart As String
+
+    Set dStored = ParseConnectionParams(strStored)
+    Set dCompleted = ParseConnectionParams(strCompleted)
+
+    If dStored.Exists("PWD") Then strPwd = CStr(dStored("PWD"))
+    If dCompleted.Exists("PWD") Then strCompletedPwd = CStr(dCompleted("PWD"))
+    If dStored.Exists("UID") Then strStoredUid = CStr(dStored("UID"))
+    If dCompleted.Exists("UID") Then strCompletedUid = CStr(dCompleted("UID"))
+
+    If Len(strPwd) = 0 Or Len(strCompletedPwd) > 0 Then
+        PrepareCompletedConnectForSave = strCompleted
+    ElseIf StrComp(strStoredUid, strCompletedUid, vbTextCompare) = 0 Then
+        ' Drop an empty PWD= first; SQL Server drivers use the first value of a key.
+        varParts = Split(strCompleted, ";")
+        With New clsConcat
+            .AppendOnAdd = ";"
+            For lngPart = 0 To UBound(varParts)
+                strPart = Trim$(CStr(varParts(lngPart)))
+                If Len(strPart) > 0 And Not StartsWith(strPart, "PWD=", vbTextCompare) Then .Add strPart
+            Next lngPart
+            .Add "PWD=" & strPwd
+            .Remove 1
+            PrepareCompletedConnectForSave = .GetStr
+        End With
+    End If
 
 End Function
 

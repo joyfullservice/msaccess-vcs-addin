@@ -74,6 +74,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strConnect As String
     Dim strKey As String
     Dim strCompleted As String
+    Dim blnSettingsCompleted As Boolean
     Dim lngErr As Long
     Dim strErrDesc As String
     Dim dState As Dictionary
@@ -112,10 +113,10 @@ Private Sub IDbComponent_Import(strFile As String)
             End If
 
             Do
-                If CacheConnection(strConnect, strCompleted, lngErr, strErrDesc) Then
+                If CacheConnection(strConnect, strCompleted, lngErr, strErrDesc, blnSettingsCompleted) Then
                     RecordAuthenticatedConnection strKey, _
                         IIf(IsEnvReference(strRef), strKey, vbNullString), _
-                        strCompleted, "db connection"
+                        strCompleted, "db connection", blnSettingsCompleted
                     Exit Do
                 End If
                 If Not IsConnectionError(lngErr) Then Exit Do
@@ -153,8 +154,25 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function GetSource() As String
+    GetSource = BuildJsonFile(TypeName(Me), GetExportItems(GetDictionary), _
+        "Database connections used within the project used to prime Access' internal cache during import.")
+End Function
 
-    Dim dOriginal As Dictionary
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetExportItems
+' Author    : Adam Waller
+' Date      : 10/8/2026
+' Purpose   : Apply .env substitution to the connection dictionary for export. Inner
+'           : keys are the original connection strings and are saved to .env. Outer
+'           : keys are sanitized grouping keys that drop parameters such as
+'           : Trusted_Connection and TrustServerCertificate. They usually resolve to
+'           : the same .env key as their inner strings, so only the reference is
+'           : written; saving the value would overwrite the full connection string.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetExportItems(dOriginal As Dictionary) As Dictionary
+
     Dim dExport As Dictionary
     Dim dInner As Dictionary
     Dim dNewInner As Dictionary
@@ -163,7 +181,6 @@ Private Function GetSource() As String
     Dim strEnvKey As String
     Dim strSafeConnect As String
 
-    Set dOriginal = GetDictionary
     Set dExport = New Dictionary
 
     ' Apply env substitution to connection strings if applicable.
@@ -200,8 +217,6 @@ Private Function GetSource() As String
         ' Use env ref for outer key too if applicable
         strEnvKey = ShouldUseEnvForConnection(CStr(varOuterKey))
         If Len(strEnvKey) Then
-            SaveConnectionToEnv strEnvKey, CStr(varOuterKey), _
-                "db connection (sanitized)"
             If Not dExport.Exists("env:" & strEnvKey) Then
                 Set dExport("env:" & strEnvKey) = dNewInner
             End If
@@ -214,8 +229,7 @@ Private Function GetSource() As String
         End If
     Next varOuterKey
 
-    GetSource = BuildJsonFile(TypeName(Me), dExport, _
-        "Database connections used within the project used to prime Access' internal cache during import.")
+    Set GetExportItems = dExport
 
 End Function
 
