@@ -171,7 +171,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         If Options.ExportFormatVersion >= EFV_5_0_0 Then
             Perf.OperationStart "Export Linked Props"
             Set rst = dbs.OpenRecordset( _
-                "SELECT LvProp FROM MSysObjects WHERE Name=""" & tdf.Name & """ AND Type IN (4,6)", _
+                "SELECT LvProp FROM MSysObjects WHERE Name=""" & EscapeSqlQuote(tdf.Name) & """ AND Type IN (4,6)", _
                 dbOpenSnapshot)
             If Not rst.EOF Then
                 If Not IsNull(rst!LvProp) Then

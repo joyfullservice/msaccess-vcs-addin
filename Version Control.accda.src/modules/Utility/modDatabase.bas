@@ -953,7 +953,7 @@ Public Function TableExists(strName As String, Optional dbs As DAO.Database) As 
     Dim tdf As TableDef
 
     ' Read type of table from internal system table
-    lngType = Nz(DLookup("Type", "MSysObjects", "Name=""" & strName & """ AND Type in (1,4,6)"), 0)
+    lngType = Nz(DLookup("Type", "MSysObjects", "Name=""" & EscapeSqlQuote(strName) & """ AND Type in (1,4,6)"), 0)
 
     ' Watch for errors connecting to linked tables
     LogUnhandledErrors
@@ -1030,7 +1030,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IsLocalTable(strName As String) As Boolean
-    IsLocalTable = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type = 1") = 0)
+    IsLocalTable = Not (DCount("*", "MSysObjects", "Name=""" & EscapeSqlQuote(strName) & """ AND Type = 1") = 0)
 End Function
 
 
