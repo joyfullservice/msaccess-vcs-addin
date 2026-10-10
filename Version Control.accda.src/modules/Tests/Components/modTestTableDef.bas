@@ -979,6 +979,10 @@ Public Sub TestMergeLinkedTablesKeepsFrontEndRelation()
     Options.ExportFormatVersion = EFV_5_0_0
     Options.UseEnvForConnections = uecNever
     Set VCSIndex = Nothing
+    ' The connection state is keyed by the back end's file name and outlives a test,
+    ' so a linked-table test that ran before, with its own backend.accdb, would hand
+    ' this one its completed connection string. A build clears it before merging.
+    ClearConnState
 
     ' Merge each linked table from its own source file. A failed merge is recorded
     ' rather than raised, so the checks below still run: the relationship has already
@@ -1018,6 +1022,7 @@ CleanUp:
         Options.UseEnvForConnections = lngPriorEnv
         Set VCSIndex = cSavedIndex
     End If
+    ClearConnState
     DropInheritanceFixture
     If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
     Err.Clear
