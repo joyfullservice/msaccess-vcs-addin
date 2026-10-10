@@ -777,6 +777,12 @@ End Function
 '           : Each relation is represented by a string value of the JSON source file
 '           : content for that relation. (This way we can release the object reference
 '           : and delete the actual relation object, but still recreate it later.)
+'           : Relations inherited from a linked database are left to the database
+'           : engine, which drops one with its linked table and adds it back when the
+'           : table is linked again. Restoring one would fail anyway: CreateRelation or
+'           : Relations.Append rejects the name the engine gives it, which carries the
+'           : path of the linked database in brackets. And deleting one from the front
+'           : end deletes the relationship in the linked database as well.
 '---------------------------------------------------------------------------------------
 '
 Private Function StageRelations(strTableName As String) As Dictionary
@@ -792,7 +798,9 @@ Private Function StageRelations(strTableName As String) As Dictionary
     ' Loop through relations, looking for matching table name
     Set dbs = SharedDb
     For Each rel In dbs.Relations
-        If StrComp(rel.Table, strTableName, vbTextCompare) = 0 Or _
+        If (rel.Attributes And dbRelationInherited) = dbRelationInherited Then
+            ' Maintained by the database engine (see above)
+        ElseIf StrComp(rel.Table, strTableName, vbTextCompare) = 0 Or _
             StrComp(rel.ForeignTable, strTableName, vbTextCompare) = 0 Then
             If strTempFile = vbNullString Then
                 ' Create temp file for export
