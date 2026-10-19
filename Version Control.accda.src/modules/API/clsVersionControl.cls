@@ -3193,11 +3193,13 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
         Exit Function
     End If
 
-    ' ForceUnattended must be set before the root begins: Attended is captured once, at
-    ' root creation, and is immutable for the life of the operation.
-    If blnHeadless Then Operation.ForceUnattended = True
-
-    Set cRoot = Operation.TryBeginRoot(eotTestRun)
+    ' A headless root has to be marked unattended before it begins: Attended is captured
+    ' once, at root creation, and is immutable for the life of the operation.
+    If blnHeadless Then
+        Set cRoot = Operation.TryBeginUnattendedRoot(eotTestRun)
+    Else
+        Set cRoot = Operation.TryBeginRoot(eotTestRun)
+    End If
     If cRoot Is Nothing Then Exit Function
 
     Operation.InteractionMode = eimSilent
