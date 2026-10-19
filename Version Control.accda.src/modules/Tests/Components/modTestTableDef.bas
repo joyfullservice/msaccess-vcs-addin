@@ -1049,6 +1049,10 @@ Public Sub TestMergeLinkedTableAfterSharedDbLoaded()
     Options.ExportFormatVersion = EFV_5_1_0
     Options.UseEnvForConnections = uecNever
     Set VCSIndex = Nothing
+    ' The connection state is keyed by the back end's base name and outlives a test:
+    ' the add-in's build and merge operations clear it, a component's own Merge does
+    ' not. Start from a clean state, as those operations would.
+    ClearConnState
 
     ' Source file for the merge, through the normal export path
     Set cComponent = New clsDbTableDef
@@ -1095,6 +1099,10 @@ CleanUp:
         Options.UseEnvForConnections = lngPriorEnv
         Set VCSIndex = cSavedIndex
     End If
+    ' The Merge left this backend.accdb in the connection state, and its folder is
+    ' deleted below: a later linked-table test that merges without a build would
+    ' be handed that dead path.
+    ClearConnState
     DropTestTable TEST_TABLE_LINKED_MERGE
     If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
     If lngErr <> 0 Then TestAssert False, "linked table merge error " & lngErr & ": " & strErr
