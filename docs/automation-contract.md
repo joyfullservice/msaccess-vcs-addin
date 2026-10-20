@@ -168,6 +168,46 @@ add-in can report that condition, because its own code is what did not run.
 Trusting the folder is a precondition of unattended install, and an absent status
 file is how a pipeline detects that it was not met.
 
+## Prompts
+
+An unattended caller is never prompted: an API or MCP call, or a headless entry point
+(`ForceUnattended`). That holds in normal interaction mode as well as silent, so a
+caller no longer has to call `SetInteractionMode` to keep a `MsgBox2` from blocking
+it. The prompt goes to the log, marked `[**MessageBox Not Displayed**]`, and
+`MsgBox2` returns its `intDefaultResult`. Dialogs that do not go through `MsgBox2`
+are not covered: VBA runtime errors, and Access's own prompts.
+
+Every question passes that answer explicitly, and
+`modTestPromptDefaults.TestEveryQuestionPassesAnUnattendedAnswer` fails on one that
+does not. The answers are the ones silent mode already gave, so a caller that was
+suppressed before sees no change. The ones an automation caller is most likely to
+meet:
+
+| Question | Answer | Effect |
+|---|---|---|
+| *Could not import* (`LoadComponentFromText`) | Abort | the build or import fails |
+| *Connection Failed* (`HandleConnectionFailure`) | Abort | the build fails |
+| *Newer VCS Version Detected*, build or merge | Yes | the build goes on |
+| *Newer VCS Version Detected*, export | No | the export stops and fails |
+| Database file name differs from the source (full build) | OK | builds under the source's name |
+| *Save Connection Settings?* | No | nothing saved to `.env` |
+
+A suppressed question that ends an operation reports it:
+
+- `BuildHeadless` and `MergeHeadless` return `success: false`, with the log path when
+  the log was started.
+- `Export`, `FullExport` and `ExportVBA` return `True` only for an export that ran to
+  the end. An export stopped before it began, by a newer add-in version in the
+  project's options or by a locked project, saves its log and leaves the options and
+  the index as they were.
+- An export or a build that ends at a critical error completes its root as
+  `eorFailed`, so an MCP caller gets an `error` callback with the log path rather
+  than `complete`.
+- `MigrateDebugAssert` and `StandardizeLetterCasing` return `False` when their
+  confirmation was answered for nobody.
+- `Build` and `MergeBuild` still return when the build is scheduled; their outcome
+  reaches an MCP caller through the callback only. Use the headless pair for a result.
+
 ## Operation ownership and interaction
 
 Root work is owned by a **root lease** (`Operation.TryBeginRoot` →
@@ -217,11 +257,20 @@ for the life of the operation, so automation and headless entry points must set
 `Operation.ForceUnattended = True` *before* `TryBeginRoot`.
 `Operation.TryBeginUnattendedRoot` does both, and puts the flag back when the root
 is refused: no root of that call will finish and clear it.
+Outside a live root, `Attended` describes the incoming caller with the same rule,
+since the value the last root captured belongs to the previous operation. The
+interactive entry points, the ribbon through `HandleRibbonCommand` and the Add-Ins
+menu items, call `Operation.ResetForInteractiveCommand`, which resets `Source` and
+clears `ForceUnattended`.
 
-`PromptWouldDisplay` is the single rule deciding whether a prompt blocks or is
-logged, and `MsgBox2` is its only caller. It honors `blnUserGesturePrompt` only when
-`Attended` is true, so a user-initiated cancel confirmation can appear during an
-attended silent test run without relaxing the global mode. A refused root logs its
+`PromptWouldDisplay` decides whether a prompt blocks or is logged, and `MsgBox2` is
+its only caller; the policy itself is `Operation.AllowsPrompt`. An unattended caller
+is never prompted, whatever the interaction mode: `MsgBox2` logs the prompt and
+returns its `intDefaultResult` (see [Prompts](#prompts)). An attended caller is
+prompted unless the operation is silent. `blnUserGesturePrompt` lets a prompt through
+silent mode when the root or the caller acting now is attended, so a user-initiated
+cancel confirmation can appear during an attended silent test run, and a refused
+ribbon command can say so while an unattended root runs. A refused root logs its
 refusal instead of prompting whenever the caller is automated or explicitly
 unattended.
 
