@@ -445,6 +445,35 @@ Public Property Get AutomationSource() As Boolean
 End Property
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : AllowsPrompt
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/20/2026
+' Purpose   : The interaction policy behind modUIUtil.PromptWouldDisplay, kept on the
+'           : operation so a test can drive it on a private instance. A silent
+'           : operation suppresses everything except a prompt the user's own gesture
+'           : asked for, and even that requires an attended root.
+'---------------------------------------------------------------------------------------
+'
+Public Function AllowsPrompt(Optional blnUserGesturePrompt As Boolean = False) As Boolean
+    AllowsPrompt = (Me.InteractionMode = eimNormal) Or (blnUserGesturePrompt And Me.Attended)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResetForInteractiveCommand
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/20/2026
+' Purpose   : Called by entry points that are interactive by definition, such as a
+'           : ribbon command. Source is sticky, so clear any value left behind by an
+'           : earlier API or MCP call in this instance.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ResetForInteractiveCommand()
+    Me.Source = eosUserInterface
+End Sub
+
+
 Private Function CanBeginRoot() As Boolean
 
     Select Case m_Root.State

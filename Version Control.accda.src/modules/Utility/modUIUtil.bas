@@ -46,9 +46,8 @@ End Function
 ' Procedure : PromptWouldDisplay
 ' Author    : Adam Waller
 ' Date      : 8/21/2026
-' Purpose   : The single rule deciding whether a prompt blocks or is logged. A silent
-'           : operation suppresses everything except a prompt the user's own gesture
-'           : asked for, and even that requires an attended root.
+' Purpose   : The single rule deciding whether a prompt blocks or is logged. The policy
+'           : itself is Operation.AllowsPrompt.
 '           : A test run driving this project suppresses everything, gestures included:
 '           : the run is the caller, there is no gesture behind the prompt, and a dialog
 '           : stalls the suite. This is the only signal available when the run is hosted
@@ -59,8 +58,7 @@ End Function
 '
 Public Function PromptWouldDisplay(Optional blnUserGesturePrompt As Boolean = False) As Boolean
     If modTestAssert.TestRunActive Then Exit Function
-    PromptWouldDisplay = (Operation.InteractionMode = eimNormal) _
-        Or (blnUserGesturePrompt And Operation.Attended)
+    PromptWouldDisplay = Operation.AllowsPrompt(blnUserGesturePrompt)
 End Function
 
 
