@@ -123,29 +123,38 @@ to suppress. Issue #810 asked which behavior is intended; the answer was (b) bel
   with an automation caller's state. A live headless root keeps its flag.
 - Every `MsgBox2` question passes `intDefaultResult`, set to the answer its call site
   already took for `vbOK`, so a caller that was suppressed before (silent mode, a test
-  run, `INSTALL SILENT`) sees no change. `modTestPromptDefaults` fails on a question
-  without one.
+  run, `INSTALL SILENT`) sees no change. Two are the exception and answer Cancel: *Save
+  User Settings* on uninstall and *Multiple Batches Required* in `frmVCSSplitFiles`.
+  Both acted on `vbOK`, and a form opened through the API holds an unattended root, so
+  a person working in it now gets the default. `modTestPromptDefaults` fails on a
+  question without one.
 - A suppressed question that ends an operation fails visibly. `ExportSource` saves the
   log on the stops that come after its log has started, without saving options or
   index; `cmdExport_Click` finishes a critical export as `eorFailed` (a cancelled
   conflict dialog stays `eorCanceled`); and `Export`, `FullExport`, `ExportVBA`,
   `MigrateDebugAssert` and `StandardizeLetterCasing` return a Boolean.
+  `StandardizeLetterCasing` also finishes its root as `eorFailed` when it returns
+  `False`, which includes invalid entries and a missing module, for a person too.
 - `modConnect.CacheConnection` also reads `PromptWouldDisplay`. An unattended build in
   normal mode therefore takes the path silent builds take: no `OpenDatabase` probe, so
   no driver-completed string to save to `.env` (see 2026-10-09).
 
 **What this rules out**: An API or MCP caller can no longer get a dialog by leaving the
-mode normal. A caller who wants a person to answer goes through `HandleRibbonCommand`,
-which is interactive by definition. A new question must name its unattended answer.
+mode normal. `HandleRibbonCommand` is interactive by definition, so a script that
+drives it, as `ExampleBuildFromSource` suggests, is still treated as attended and can
+still meet a modal; it should call `SetInteractionMode` first. A new question must name its unattended answer.
 Revisit if a caller needs per-question answers rather than defaults. Left open:
 - *An expired headless root* still leaves `eimSilent` sticky, and `ForceUnattended`
   until an interactive command. Finishing it where it is found expired is the agreed
   direction; it changes the lifecycle of three call sites and does not depend on this
   policy, so it is a change of its own.
-- `Source` stays sticky on other paths: the Immediate Window, a form an API call opened
-  (`ShowOptions`), and a form that was already open when an API call ran. A person who
-  then clicks Export on `frmVCSMain`, or closes its progress form, gets the
-  unattended answers. Only the ribbon and the Add-Ins menu reset it.
+- A form opened through the API (`ShowOptions`, `SplitFiles`) holds a root that
+  captured an unattended caller, so the person working in it gets every question's
+  default answer, not the dialog.
+- `Source` stays sticky on other paths: the Immediate Window, and a form that was
+  already open when an API call ran. A person who then clicks Export on `frmVCSMain`,
+  or closes its progress form, gets the unattended answers. Only the ribbon and the
+  Add-Ins menu reset it.
 - An `APIAsync` method that never begins a root (`MergeBuild` with no full build, a
   refused root) posts no MCP callback, so the client waits for its timeout. This was
   true before, behind a modal; it is now silent. Posting an `error` from

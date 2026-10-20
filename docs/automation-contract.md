@@ -181,14 +181,18 @@ it. The prompt goes to the log, marked `[**MessageBox Not Displayed**]`, and
   database has no source folder);
 - a root-less API call made while another caller's attended root is live, such as the
   options form, which reads that root's `Attended`;
-- a person at a form that was open, or opened by an API call, when the last caller
-  was automated: `Source` is reset only by the ribbon and the Add-Ins menu.
+- a person at a form opened by an API call (`ShowOptions`, `SplitFiles`), whose root
+  is unattended, or at a form that was already open when an API call ran: `Source` is
+  reset only by the ribbon and the Add-Ins menu, and they get the default answers;
+- a script that drives `HandleRibbonCommand`, as `ExampleBuildFromSource` suggests: a
+  ribbon command is interactive by definition, so call `SetInteractionMode` first.
 
 Every question passes that answer explicitly, and
 `modTestPromptDefaults.TestEveryQuestionPassesAnUnattendedAnswer` fails on one that
 does not. The answers are the ones silent mode already gave, so a caller that was
-suppressed before sees no change. The ones an automation caller is most likely to
-meet:
+suppressed before sees no change. The two exceptions are reached only from a form, and
+now answer Cancel: *Save User Settings* on uninstall and *Multiple Batches Required*
+when splitting files. The ones an automation caller is most likely to meet:
 
 | Question | Answer | Effect |
 |---|---|---|
