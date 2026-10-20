@@ -426,10 +426,10 @@ End Property
 ' when it began. Outside one, that value describes the previous operation, so the
 ' incoming caller decides, as in ReportRefusal.
 Public Property Get Attended() As Boolean
-    If m_Root.State = eosReady Or Len(m_Root.Token) = 0 Then
-        Attended = CallerIsAttended
-    Else
+    If RootIsLive Then
         Attended = m_Root.Attended
+    Else
+        Attended = CallerIsAttended
     End If
 End Property
 
@@ -484,21 +484,28 @@ End Function
 ' Date      : 10/20/2026
 ' Purpose   : Called by entry points that are interactive by definition: a ribbon
 '           : command or an Add-Ins menu item. Source is sticky, so clear any value
-'           : left behind by an earlier API or MCP call in this instance, and any
-'           : ForceUnattended left behind by a headless call whose root never reached
-'           : its Finish. Outside a root, either would keep every prompt from the
-'           : person at the screen.
+'           : left behind by an earlier API or MCP call in this instance. Outside a
+'           : root, also clear a ForceUnattended left behind by a headless call whose
+'           : root never reached its Finish: either would keep every prompt from the
+'           : person at the screen. A live root still needs its flag, and its own
+'           : Finish clears it.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ResetForInteractiveCommand()
     Me.Source = eosUserInterface
-    Me.ForceUnattended = False
+    If Not RootIsLive Then Me.ForceUnattended = False
 End Sub
 
 
 ' The rule a root captures as Attended when it begins.
 Private Function CallerIsAttended() As Boolean
     CallerIsAttended = Not (Me.AutomationSource Or Me.ForceUnattended)
+End Function
+
+
+' A root that has begun and has not finished or expired. The test InteractionMode uses.
+Private Function RootIsLive() As Boolean
+    RootIsLive = Not (m_Root.State = eosReady Or Len(m_Root.Token) = 0)
 End Function
 
 

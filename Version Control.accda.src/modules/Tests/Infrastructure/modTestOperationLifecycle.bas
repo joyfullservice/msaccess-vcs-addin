@@ -382,6 +382,21 @@ Public Sub TestInteractiveCommandClearsForceUnattended()
 End Sub
 
 
+Public Sub TestInteractiveCommandKeepsALiveRootsForceUnattended()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    ' A ribbon click while a headless root runs is not that root's caller. The root
+    ' still needs the flag, and its own Finish clears it.
+    Set cOp = NewOperation
+    Set cRoot = cOp.TryBeginUnattendedRoot(eotBuild)
+    cOp.ResetForInteractiveCommand
+    TestAssert cOp.ForceUnattended, "a live headless root keeps ForceUnattended"
+    cRoot.Complete eorSuccess
+    TestAssert Not cOp.ForceUnattended, "its Finish clears it"
+End Sub
+
+
 Public Sub TestUnattendedRootSuppressesEveryPrompt()
     Dim cOp As clsOperation
     Dim cRoot As clsRootOperationLease
@@ -402,12 +417,12 @@ Public Sub TestGesturePromptFollowsThePersonActing()
     Dim cOp As clsOperation
     Dim cRoot As clsRootOperationLease
 
-    ' A ribbon click while a headless root runs: the root's own prompts stay
-    ' suppressed, but a prompt answering that click (ReportRefusal) is for the person
-    ' who clicked.
-    Set cOp = NewOperation(True)
-    cOp.InteractionMode = eimSilent
-    Set cRoot = cOp.TryBeginRoot(eotBuild)
+    ' A ribbon click while an MCP export runs in normal mode: the root's own prompts
+    ' stay suppressed, but a prompt answering that click (ReportRefusal) is for the
+    ' person who clicked.
+    Set cOp = NewOperation
+    cOp.Source = eosMCPTool
+    Set cRoot = cOp.TryBeginRoot(eotExport)
     cOp.ResetForInteractiveCommand
     TestAssert Not cOp.Attended, "live root keeps the value it captured"
     TestAssert Not cOp.AllowsPrompt(False), "live unattended root still suppresses its prompts"
