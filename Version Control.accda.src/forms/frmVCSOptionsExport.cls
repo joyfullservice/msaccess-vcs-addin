@@ -205,7 +205,7 @@ Private Sub OnSplitLayoutChange(varNewValue As Variant)
                 If MsgBox2(T("May I make a Suggestion?"), _
                     T("This project appears to be within a Git repository. This add-in includes a special utility " & _
                     "that can split the files (layout and VBA) while preserving this history of previous changes in BOTH files."), _
-                    T("Would you like to see additional information on this from the wiki?"), vbQuestion + vbYesNo) = vbYes Then
+                    T("Would you like to see additional information on this from the wiki?"), vbQuestion + vbYesNo, , vbNo) = vbYes Then
                     FollowHyperlink "https://github.com/joyfullservice/msaccess-vcs-addin/wiki/Split-Files"
                 End If
             End If

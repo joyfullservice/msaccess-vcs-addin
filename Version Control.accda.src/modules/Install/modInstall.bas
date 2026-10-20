@@ -380,7 +380,7 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
         If MsgBox2("Default Open Mode set to Exclusive", _
             "The default open mode option for Microsoft Access is currently set to open databases in Exclusive mode by default. " & vbCrLf & _
             "This add-in needs to be opened in shared mode in order to install successfully.", _
-            "Change the default open mode to 'Shared'?", vbYesNo + vbExclamation) = vbYes Then
+            "Change the default open mode to 'Shared'?", vbYesNo + vbExclamation, , vbNo) = vbYes Then
             Application.SetOption OPEN_MODE_OPTION, 0
             MsgBox2 "Default Option Changed", _
                 "Please restart Microsoft Access and run the install again.", , vbInformation
@@ -489,7 +489,7 @@ Public Sub UninstallVCSAddin()
     ' Ask the user if they want to preserve their user settings.
     intResponse = MsgBox2("Save User Settings", "Would you like your user settings/options preserved?", _
         "Click YES to save these items so they can be used if you reinstall the add-in," & vbCrLf & _
-        "Or click NO to remove all settings related to this add-on.", vbQuestion + vbYesNoCancel)
+        "Or click NO to remove all settings related to this add-on.", vbQuestion + vbYesNoCancel, , vbNo)
 
     ' Allow user to cancel if they are not sure how to answer the above prompt.
     If intResponse = vbCancel Then GoTo CleanExit
@@ -1057,7 +1057,7 @@ Private Sub RunUpgrades()
                 "because the add-in is now installed for the current user with no special " & _
                 "privileges required." _
                 , "Can we go ahead and clean those up now? (Requires admin to remove the registry keys.)" _
-                , vbQuestion + vbYesNo) = vbYes Then
+                , vbQuestion + vbYesNo, , vbNo) = vbYes Then
                 RelaunchAsAdmin
             End If
         End If
@@ -1227,14 +1227,15 @@ Private Function VerifyTrustedLocation() As Boolean
             VerifyTrustedLocation = True
 
         Else
-            ' Get permission from user to add trusted location
+            ' Get permission from user to add trusted location. A silent install has
+            ' nobody to ask and adds it, since the saved install settings asked for it.
             If MsgBox2("Add Trusted Location?", _
                 "To function correctly, this add-in needs to be ""trusted"" by Microsoft Access." & vbCrLf & _
                 "Typically this is accomplished by adding the add-in folder as a trusted location" & vbCrLf & _
                 "in your security settings. More information is available on the GitHub wiki for" & vbCrLf & _
                 "this add-in project.", _
                 "<<PLEASE CONFIRM>> Add the following path as a trusted location?" & vbCrLf & vbCrLf & strTrusted _
-                , vbQuestion + vbOKCancel + vbDefaultButton2) = vbOK Then
+                , vbQuestion + vbOKCancel + vbDefaultButton2, , vbOK) = vbOK Then
 
                 ' Add trusted location
                 .RegWrite strPath & "Path", strTrusted

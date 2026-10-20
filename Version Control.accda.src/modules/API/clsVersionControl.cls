@@ -988,7 +988,7 @@ Public Sub StandardizeLetterCasing()
         If vbYes = MsgBox2(T("Module Not Found"), _
             T("The clsStandardLetterCasing class module was not found in the current project."), _
             T("Would you like to create a starter template?"), _
-            vbYesNo + vbQuestion) Then
+            vbYesNo + vbQuestion, , vbNo) Then
             CreateLetterCasingTemplate
         End If
     Else
@@ -3148,7 +3148,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
         If vbYes = MsgBox2(T("Test Helper Not Found"), _
             T("The modTestAssert module was not found in the current project."), _
             T("Would you like to install it now?"), _
-            vbYesNo + vbQuestion) Then
+            vbYesNo + vbQuestion, , vbNo) Then
             InstallTestAssertModule
         Else
             Exit Function
@@ -3162,7 +3162,7 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
             T("No test modules are using TestAssert yet. Would you like to migrate " & _
               "Debug.Assert calls to TestAssert in your test modules?"), _
             T("You can always do this manually later."), _
-            vbYesNo + vbQuestion) Then
+            vbYesNo + vbQuestion, , vbNo) Then
             MigrateDebugAssert
         End If
     End If
@@ -3652,7 +3652,7 @@ NextModule:
     If vbYes <> MsgBox2(T("Migrate Debug.Assert to TestAssert"), _
         T("Replace Debug.Assert with TestAssert in the following test modules?"), _
         strPreview, _
-        vbYesNo + vbQuestion) Then
+        vbYesNo + vbQuestion, , vbNo) Then
         Exit Sub
     End If
 

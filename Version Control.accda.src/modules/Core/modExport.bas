@@ -151,7 +151,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                     vbNewLine & "Would you like to continue anyway?", _
                     var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), _
                 T("Click YES to continue this operation, or NO to cancel."), _
-                vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
+                vbExclamation + vbYesNo + vbDefaultButton2, , vbNo) <> vbYes Then
                     Log.Spacer
                     Log.Add T("Export Canceled"), , , "Red", True
                     Log.Flush
