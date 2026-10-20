@@ -321,6 +321,101 @@ Public Sub TestAttendedIsImmutableForRootLifetime()
 End Sub
 
 
+Public Sub TestAttendedRootKeepsItsPrompts()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    ' The half of the policy an unattended caller does not change.
+    Set cOp = NewOperation
+    Set cRoot = cOp.TryBeginRoot(eotOther)
+    TestAssert cOp.AllowsPrompt(False), "attended normal root shows ordinary prompts"
+    cOp.InteractionMode = eimSilent
+    TestAssert Not cOp.AllowsPrompt(False), "attended silent root suppresses ordinary prompts"
+    TestAssert cOp.AllowsPrompt(True), "attended silent root shows gesture prompts"
+    cRoot.Complete eorSuccess
+End Sub
+
+
+Public Sub TestAutomationCallerIsUnattendedOutsideARoot()
+    Dim cOp As clsOperation
+
+    ' Some API calls prompt before their root begins, or never begin one. No root has
+    ' captured anything for them yet, so Attended has to describe the caller.
+    Set cOp = NewOperation
+    cOp.Source = eosExternalAPI
+    TestAssert Not cOp.Attended, "API caller unattended outside a root"
+    TestAssert Not cOp.AllowsPrompt(False), "API caller not prompted outside a root"
+    cOp.Source = eosMCPTool
+    TestAssert Not cOp.Attended, "MCP caller unattended outside a root"
+    cOp.Source = eosUserInterface
+    cOp.ForceUnattended = True
+    TestAssert Not cOp.Attended, "ForceUnattended caller unattended outside a root"
+End Sub
+
+
+Public Sub TestInteractiveCallerIsAttendedAfterAnApiRoot()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    ' What the root captured belongs to the root. Once it finishes, a ribbon command
+    ' in the same instance is a different caller and has to see its own prompts.
+    Set cOp = NewOperation
+    cOp.Source = eosExternalAPI
+    Set cRoot = cOp.TryBeginRoot(eotOther)
+    cRoot.Complete eorSuccess
+    cOp.ResetForInteractiveCommand
+    TestAssert cOp.Attended, "ribbon caller attended after an API root"
+    TestAssert cOp.AllowsPrompt(False), "ribbon caller prompted after an API root"
+End Sub
+
+
+Public Sub TestInteractiveCommandClearsForceUnattended()
+    Dim cOp As clsOperation
+
+    ' A headless call that never reaches the Finish of its own root leaves the flag
+    ' behind. Outside a root it now silences every prompt, so an interactive command
+    ' has to clear it along with Source.
+    Set cOp = NewOperation(True)
+    cOp.ResetForInteractiveCommand
+    TestAssert Not cOp.ForceUnattended, "interactive command clears ForceUnattended"
+    TestAssert cOp.Attended, "interactive command is attended"
+End Sub
+
+
+Public Sub TestUnattendedRootSuppressesEveryPrompt()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    ' An API root runs in normal mode unless the caller asked for silence, and nobody
+    ' is there to answer a dialog it opens.
+    Set cOp = NewOperation
+    cOp.Source = eosExternalAPI
+    Set cRoot = cOp.TryBeginRoot(eotExport)
+    TestAssert cOp.InteractionMode = eimNormal, "precondition: API root in normal mode"
+    TestAssert Not cOp.AllowsPrompt(False), "unattended root suppresses ordinary prompts"
+    TestAssert Not cOp.AllowsPrompt(True), "unattended root suppresses the caller's gesture prompts"
+    cRoot.Complete eorSuccess
+End Sub
+
+
+Public Sub TestGesturePromptFollowsThePersonActing()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    ' A ribbon click while a headless root runs: the root's own prompts stay
+    ' suppressed, but a prompt answering that click (ReportRefusal) is for the person
+    ' who clicked.
+    Set cOp = NewOperation(True)
+    cOp.InteractionMode = eimSilent
+    Set cRoot = cOp.TryBeginRoot(eotBuild)
+    cOp.ResetForInteractiveCommand
+    TestAssert Not cOp.Attended, "live root keeps the value it captured"
+    TestAssert Not cOp.AllowsPrompt(False), "live unattended root still suppresses its prompts"
+    TestAssert cOp.AllowsPrompt(True), "gesture prompt shown to the interactive caller"
+    cRoot.Complete eorSuccess
+End Sub
+
+
 Public Sub TestRunningRootExpiresAfterHeartbeatTimeout()
     Dim cOp As clsOperation
     Dim cRoot As clsRootOperationLease
