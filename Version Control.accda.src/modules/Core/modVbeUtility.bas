@@ -1204,17 +1204,32 @@ End Function
 '           : report change detection to skip GetCodeModuleHash on no-change fast saves.
 '           : Saved alone is not enough: a user can save VBE edits without changing a
 '           : form's layout DateModified, which is why forms/reports need this guard too.
+'           : VBAProjectDate is only written by VCSIndex.CertifyVBAProjectDate, after an
+'           : operation has proven that every module, form, and report matches the index.
 '---------------------------------------------------------------------------------------
 '
 Public Function VbaProjectUnchangedSinceExport() As Boolean
 
     If Not CurrentVBProject.Saved Then Exit Function
     If VCSIndex.VBAProjectDate = 0 Then Exit Function
+
+    VbaProjectUnchangedSinceExport = (GetVbaProjectDate = VCSIndex.VBAProjectDate)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetVbaProjectDate
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/6/2026
+' Purpose   : The monolithic module date of the VBA project, truncated to seconds as
+'           : the index stores it. (Access saves all modules together, so every module
+'           : date moves in lockstep.) Returns 0 when the project has no modules.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetVbaProjectDate() As Date
     If CurrentProject.AllModules.Count = 0 Then Exit Function
-
-    VbaProjectUnchangedSinceExport = _
-        (DateTruncToSeconds(CurrentProject.AllModules(0).DateModified) = VCSIndex.VBAProjectDate)
-
+    GetVbaProjectDate = DateTruncToSeconds(CurrentProject.AllModules(0).DateModified)
 End Function
 
 
