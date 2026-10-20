@@ -164,7 +164,7 @@ Private Sub cmdSplitFiles_Click()
                     "This requires {0} batches, creating {1} additional commits to preserve history in all files.", _
                     var0:=lngBatchCount, var1:=lngBatchCount * 2), _
                     T("Click OK to proceed or Cancel to abort."), _
-                    vbOKCancel + vbInformation, , vbOK) <> vbOK Then
+                    vbOKCancel + vbInformation, , vbCancel) <> vbOK Then
                     GoTo CleanUp
                 End If
             End If

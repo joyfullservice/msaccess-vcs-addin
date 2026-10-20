@@ -489,7 +489,7 @@ Public Sub UninstallVCSAddin()
     ' Ask the user if they want to preserve their user settings.
     intResponse = MsgBox2("Save User Settings", "Would you like your user settings/options preserved?", _
         "Click YES to save these items so they can be used if you reinstall the add-in," & vbCrLf & _
-        "Or click NO to remove all settings related to this add-on.", vbQuestion + vbYesNoCancel, , vbNo)
+        "Or click NO to remove all settings related to this add-on.", vbQuestion + vbYesNoCancel, , vbCancel)
 
     ' Allow user to cancel if they are not sure how to answer the above prompt.
     If intResponse = vbCancel Then GoTo CleanExit
