@@ -10,6 +10,8 @@
 '           : So every question has to say what it answers when nobody is there. This
 '           : scans the code of the project under test for MsgBox2 calls whose buttons
 '           : ask a question, and fails on any that passes no intDefaultResult.
+'           : It reads the buttons as written at the call, so a question whose buttons
+'           : arrive in a variable is not seen.
 '           : Run: ?VCS.RunTests("modTestPromptDefaults")
 '---------------------------------------------------------------------------------------
 Option Compare Database
@@ -76,8 +78,10 @@ Public Sub TestPromptScanReadsBothCallForms()
     ScanLogicalLine "x = MsgBox2(""a"", intButtons:=vbRetryCancel, intDefaultResult:=vbCancel)", "named", colMissing, lngQuestions
     ScanLogicalLine "MsgBox2 ""a"", ""vbYesNo in a string"", , vbInformation", "notice", colMissing, lngQuestions
     ScanLogicalLine "' MsgBox2 ""a"", , , vbYesNo", "comment", colMissing, lngQuestions
+    ScanLogicalLine "x = modUIUtil.MsgBox2(""a"", , , vbYesNo, , vbNo)", "qualified", colMissing, lngQuestions
+    ScanLogicalLine "x = cOther.MsgBox2(""a"", , , vbYesNo)", "other", colMissing, lngQuestions
 
-    TestAssert lngQuestions = 3, "three questions found (" & lngQuestions & ")"
+    TestAssert lngQuestions = 4, "four questions found (" & lngQuestions & ")"
     TestAssert colMissing.Count = 1, "one question without a default (" & colMissing.Count & ")"
     If colMissing.Count = 1 Then TestAssert colMissing(1) = "call", "the call form without a default"
 
@@ -222,7 +226,12 @@ Private Function IsCallAt(strCode As String, lngPos As Long, lngLen As Long) As 
 
     If lngPos > 1 Then strBefore = Mid$(strCode, lngPos - 1, 1)
     strAfter = Mid$(strCode, lngPos + lngLen, 1)
-    If strBefore Like "[A-Za-z0-9_.]" Then Exit Function
+    ' A call qualified by its module still counts.
+    If strBefore = "." Then
+        If Right$(Left$(strCode, lngPos - 1), Len("modUIUtil.")) <> "modUIUtil." Then Exit Function
+    ElseIf strBefore Like "[A-Za-z0-9_]" Then
+        Exit Function
+    End If
     If strAfter Like "[A-Za-z0-9_]" Then Exit Function
     If InStr(1, strCode, "Function MsgBox2", vbTextCompare) > 0 Then Exit Function
     IsCallAt = True
