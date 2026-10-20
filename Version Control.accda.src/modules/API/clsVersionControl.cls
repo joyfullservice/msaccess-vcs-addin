@@ -58,36 +58,38 @@ End Sub
 ' Procedure : Export
 ' Author    : Adam Waller
 ' Date      : 1/13/2021
-' Purpose   : Export the source code for the current database
+' Purpose   : Export the source code for the current database. Returns False when the
+'           : export did not run to the end: refused, stopped by a check, or failed.
 '---------------------------------------------------------------------------------------
 '
-Public Sub Export()
-    RunExport ecfAllObjects
-End Sub
+Public Function Export() As Boolean
+    Export = RunExport(ecfAllObjects)
+End Function
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : FullExport
 ' Author    : Adam Waller
 ' Date      : 1/26/2026
-' Purpose   : Force a full export of all objects (ignoring Fast Save)
+' Purpose   : Force a full export of all objects (ignoring Fast Save). Returns False
+'           : as Export does.
 '---------------------------------------------------------------------------------------
 '
-Public Sub FullExport()
-    RunExport ecfAllObjects, , True
-End Sub
+Public Function FullExport() As Boolean
+    FullExport = RunExport(ecfAllObjects, , True)
+End Function
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ExportVBA
 ' Author    : Adam Waller
 ' Date      : 4/1/2022
-' Purpose   : Export just the VBA related components
+' Purpose   : Export just the VBA related components. Returns False as Export does.
 '---------------------------------------------------------------------------------------
 '
-Public Sub ExportVBA()
-    RunExport ecfVBAItems
-End Sub
+Public Function ExportVBA() As Boolean
+    ExportVBA = RunExport(ecfVBAItems)
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -121,7 +123,7 @@ End Sub
 ' Purpose   : Handle different kinds of exports based on filter
 '---------------------------------------------------------------------------------------
 '
-Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Optional objItem As AccessObject, Optional blnFullExport As Boolean = False)
+Private Function RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Optional objItem As AccessObject, Optional blnFullExport As Boolean = False) As Boolean
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     With Form_frmVCSMain
         If objItem Is Nothing Then
@@ -133,9 +135,10 @@ Private Sub RunExport(Optional intFilter As eContainerFilter = ecfAllObjects, Op
         If blnFullExport Then .chkFullExport = True
         .Visible = True
         .cmdExport_Click
+        RunExport = .blnLastExportSucceeded
         If Operation.ErrorLevel < eelError Then .AutoClose
     End With
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -968,9 +971,11 @@ End Sub
 ' Purpose   : Apply standard letter casing rules to VBA identifiers.
 '           : Requires a clsStandardLetterCasing module in the current project.
 '           : If the module is not found, offers to create a starter template.
+'           : Returns True when the rules were applied with no invalid entry. A caller
+'           : nobody can ask gets no template, and False.
 '---------------------------------------------------------------------------------------
 '
-Public Sub StandardizeLetterCasing()
+Public Function StandardizeLetterCasing() As Boolean
 
     Dim colResult As Collection
     Dim colIssues As New Collection
@@ -980,7 +985,7 @@ Public Sub StandardizeLetterCasing()
     Dim lngShown As Long
     Const MaxDetailLines As Long = 10
 
-    If Not Operation.Begin(eotOther) Then Exit Sub
+    If Not Operation.Begin(eotOther) Then Exit Function
 
     Set colResult = modLetterCasing.StandardizeLetterCasing(colIssues)
 
@@ -1031,11 +1036,12 @@ Public Sub StandardizeLetterCasing()
                 T("All VBA identifiers already match the standard letter casing rules."), _
                 , vbInformation
         End If
+        StandardizeLetterCasing = (colIssues.Count = 0)
     End If
 
-    Operation.Finish
+    Operation.Finish IIf(StandardizeLetterCasing, eorSuccess, eorFailed)
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -3521,9 +3527,11 @@ End Sub
 '           : procedure signature, so a renamed helper is still excluded) -- its
 '           : Debug.Assert is the intentional fallback when the add-in is not
 '           : driving the run. Shows a preview and requires confirmation.
+'           : Returns True when it ran to the end, with nothing to migrate or with the
+'           : replacements made. A caller nobody can ask is not migrated, and gets False.
 '---------------------------------------------------------------------------------------
 '
-Public Sub MigrateDebugAssert()
+Public Function MigrateDebugAssert() As Boolean
 
     Dim proj As VBIDE.VBProject
     Dim cmp As VBIDE.VBComponent
@@ -3552,7 +3560,7 @@ Public Sub MigrateDebugAssert()
     If Not DatabaseFileOpen Then
         MsgBox2 T("No Database Open"), _
             T("Please open a database file first."), , vbInformation
-        Exit Sub
+        Exit Function
     End If
 
     Set proj = CurrentVBProject
@@ -3633,7 +3641,8 @@ NextModule:
         MsgBox2 T("No Replacements Found"), _
             T("No Debug.Assert calls were found in test modules."), _
             , vbInformation
-        Exit Sub
+        MigrateDebugAssert = True
+        Exit Function
     End If
 
     ' Build preview text
@@ -3653,7 +3662,7 @@ NextModule:
         T("Replace Debug.Assert with TestAssert in the following test modules?"), _
         strPreview, _
         vbYesNo + vbQuestion, , vbNo) Then
-        Exit Sub
+        Exit Function
     End If
 
     ' Apply replacements (bottom to top so line numbers stay valid)
@@ -3676,7 +3685,9 @@ NextModule:
         T("{0} Debug.Assert call(s) replaced with TestAssert.", var0:=lngApplied), _
         , vbInformation
 
-End Sub
+    MigrateDebugAssert = True
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

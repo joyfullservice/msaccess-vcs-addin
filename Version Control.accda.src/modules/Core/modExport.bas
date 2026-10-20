@@ -41,12 +41,16 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Can't export without an open database
-    If Not DatabaseFileOpen Then Exit Sub
+    If Not DatabaseFileOpen Then
+        Operation.ErrorLevel = eelCritical
+        Exit Sub
+    End If
 
     ' If we are running this from the current database, we need to run it a different
     ' way to prevent file corruption issues. (This really shouldn't happen after v4.02)
     If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
         MsgBox2 T("Unabled to Export Running Database", "Please launch the export using the add-in menu or ribbon"), , vbExclamation
+        Operation.ErrorLevel = eelCritical
         Exit Sub
     End If
 
@@ -139,7 +143,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Log.Add T("Export Canceled"), , , "Red", True
         Log.Flush
         Operation.ErrorLevel = eelCritical
-        Exit Sub
+        GoTo StoppedBeforeExport
     End If
 
     ' Check project VCS version
@@ -156,7 +160,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                     Log.Add T("Export Canceled"), , , "Red", True
                     Log.Flush
                     Operation.ErrorLevel = eelCritical
-                    Exit Sub
+                    GoTo StoppedBeforeExport
             End If
         Case evcOlderVersion
             Log.Add T("Updated VCS ({0} -> {1})", var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), , , "blue"
@@ -443,6 +447,20 @@ CleanUp:
             .Save
         End With
     End If
+    Exit Sub
+
+StoppedBeforeExport:
+    ' Stopped before anything was exported, by a check the caller may not have seen:
+    ' an unattended caller gets the default answer instead of the question. Save the
+    ' log so the reason reaches it, but leave the options and the index as they were.
+    ' Saving the options would write this add-in's version into the project, which is
+    ' what the newer version check is there to prevent.
+    Perf.EndTiming
+    With Log
+        .SaveFile
+        .Active = False
+        .Flush
+    End With
 
 End Sub
 
