@@ -174,8 +174,15 @@ An unattended caller is never prompted: an API or MCP call, or a headless entry 
 (`ForceUnattended`). That holds in normal interaction mode as well as silent, so a
 caller no longer has to call `SetInteractionMode` to keep a `MsgBox2` from blocking
 it. The prompt goes to the log, marked `[**MessageBox Not Displayed**]`, and
-`MsgBox2` returns its `intDefaultResult`. Dialogs that do not go through `MsgBox2`
-are not covered: VBA runtime errors, and Access's own prompts.
+`MsgBox2` returns its `intDefaultResult`. Not covered:
+
+- dialogs that do not go through `MsgBox2`: VBA runtime errors, Access's own prompts,
+  and the add-in's folder and file pickers (`BuildAs`, and `Build` when the open
+  database has no source folder);
+- a root-less API call made while another caller's attended root is live, such as the
+  options form, which reads that root's `Attended`;
+- a person at a form that was open, or opened by an API call, when the last caller
+  was automated: `Source` is reset only by the ribbon and the Add-Ins menu.
 
 Every question passes that answer explicitly, and
 `modTestPromptDefaults.TestEveryQuestionPassesAnUnattendedAnswer` fails on one that
@@ -207,6 +214,8 @@ A suppressed question that ends an operation reports it:
   confirmation was answered for nobody.
 - `Build` and `MergeBuild` still return when the build is scheduled; their outcome
   reaches an MCP caller through the callback only. Use the headless pair for a result.
+  An `APIAsync` call whose method never begins a root, such as `MergeBuild` before any
+  full build, posts no callback at all.
 
 ## Operation ownership and interaction
 
@@ -260,19 +269,20 @@ is refused: no root of that call will finish and clear it.
 Outside a live root, `Attended` describes the incoming caller with the same rule,
 since the value the last root captured belongs to the previous operation. The
 interactive entry points, the ribbon through `HandleRibbonCommand` and the Add-Ins
-menu items, call `Operation.ResetForInteractiveCommand`, which resets `Source` and
-clears `ForceUnattended`.
+menu items, call `Operation.ResetForInteractiveCommand`, which resets `Source` and,
+when no root is live, clears `ForceUnattended`.
 
-`PromptWouldDisplay` decides whether a prompt blocks or is logged, and `MsgBox2` is
-its only caller; the policy itself is `Operation.AllowsPrompt`. An unattended caller
+`PromptWouldDisplay` decides whether a prompt blocks or is logged; `MsgBox2` asks it,
+and so does `modConnect.CacheConnection` before a probe that can raise the ODBC
+driver dialog. The policy itself is `Operation.AllowsPrompt`. An unattended caller
 is never prompted, whatever the interaction mode: `MsgBox2` logs the prompt and
 returns its `intDefaultResult` (see [Prompts](#prompts)). An attended caller is
 prompted unless the operation is silent. `blnUserGesturePrompt` lets a prompt through
 silent mode when the root or the caller acting now is attended, so a user-initiated
 cancel confirmation can appear during an attended silent test run, and a refused
-ribbon command can say so while an unattended root runs. A refused root logs its
-refusal instead of prompting whenever the caller is automated or explicitly
-unattended.
+ribbon command can say so while an unattended root runs in normal mode, such as an
+MCP export. A refused root logs its refusal instead of prompting whenever the
+caller is automated or explicitly unattended.
 
 Interaction mode reaches only as far as the operation instance does, which is one
 VBA project. A test run drives a *second* project, so the mode the driver set is

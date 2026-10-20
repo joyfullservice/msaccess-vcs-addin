@@ -104,9 +104,9 @@ to suppress. Issue #810 asked which behavior is intended; the answer was (b) bel
   and the API layer would still have to manage it across timer continuations.
 - *Suppress in the gate when the root is unattended*. Fixes prompts inside an API root,
   not outside one: `Attended` was whatever the previous root captured, `True` in a fresh
-  instance. An API call that prompts before its root (`RunTestsHeadless` installing
-  `modTestAssert`, `MigrateDebugAssert`) still opened a modal, and the first ribbon
-  prompt after an API call was suppressed. Not enough on its own.
+  instance. An API call that prompts without a root (`MigrateDebugAssert`) still
+  opened a modal, and the first ribbon prompt after an API call was suppressed. Not
+  enough on its own.
 - *(b) An unattended caller suppresses every `MsgBox2`, and outside a root the incoming
   caller decides* — chosen, with the rule `ReportRefusal` already used.
 
@@ -115,20 +115,24 @@ to suppress. Issue #810 asked which behavior is intended; the answer was (b) bel
   `TestRunActive`. An ordinary prompt shows when `Attended` and the mode is normal. A
   gesture prompt shows, in silent mode too, when the root or the caller acting now is
   attended; `ReportRefusal` uses that, since its dialog answers the refused caller and
-  not the root that is running.
+  not the root that is running (it still only logs while that root is silent).
 - `Attended` returns what a live root captured; outside a root,
   `Not (AutomationSource Or ForceUnattended)`.
 - `ResetForInteractiveCommand`, called by the ribbon and the Add-Ins menu items, resets
-  `Source` and clears `ForceUnattended`, so a person is not left with an automation
-  caller's state.
+  `Source` and, when no root is live, clears `ForceUnattended`, so a person is not left
+  with an automation caller's state. A live headless root keeps its flag.
 - Every `MsgBox2` question passes `intDefaultResult`, set to the answer its call site
   already took for `vbOK`, so a caller that was suppressed before (silent mode, a test
   run, `INSTALL SILENT`) sees no change. `modTestPromptDefaults` fails on a question
   without one.
 - A suppressed question that ends an operation fails visibly. `ExportSource` saves the
-  log on its early stops without saving options or index, `cmdExport_Click` finishes a
-  critical export as `eorFailed`, and `Export`, `FullExport`, `ExportVBA`,
+  log on the stops that come after its log has started, without saving options or
+  index; `cmdExport_Click` finishes a critical export as `eorFailed` (a cancelled
+  conflict dialog stays `eorCanceled`); and `Export`, `FullExport`, `ExportVBA`,
   `MigrateDebugAssert` and `StandardizeLetterCasing` return a Boolean.
+- `modConnect.CacheConnection` also reads `PromptWouldDisplay`. An unattended build in
+  normal mode therefore takes the path silent builds take: no `OpenDatabase` probe, so
+  no driver-completed string to save to `.env` (see 2026-10-09).
 
 **What this rules out**: An API or MCP caller can no longer get a dialog by leaving the
 mode normal. A caller who wants a person to answer goes through `HandleRibbonCommand`,
@@ -138,8 +142,14 @@ Revisit if a caller needs per-question answers rather than defaults. Left open:
   until an interactive command. Finishing it where it is found expired is the agreed
   direction; it changes the lifecycle of three call sites and does not depend on this
   policy, so it is a change of its own.
-- `Source` stays sticky on other paths (Immediate Window, a form an API call opened, as
-  with `ShowOptions`): outside a root, prompts there follow the last API caller.
+- `Source` stays sticky on other paths: the Immediate Window, a form an API call opened
+  (`ShowOptions`), and a form that was already open when an API call ran. A person who
+  then clicks Export on `frmVCSMain`, or closes its progress form, gets the
+  unattended answers. Only the ribbon and the Add-Ins menu reset it.
+- An `APIAsync` method that never begins a root (`MergeBuild` with no full build, a
+  refused root) posts no MCP callback, so the client waits for its timeout. This was
+  true before, behind a modal; it is now silent. Posting an `error` from
+  `HandleAPIAsyncOperation` when no root of the call is live would close it.
 - A root-less API call made while another caller's attended root is live reads that
   root's `Attended`.
 - Dialogs that do not go through `MsgBox2`: VBA runtime errors, Access's own prompts.
