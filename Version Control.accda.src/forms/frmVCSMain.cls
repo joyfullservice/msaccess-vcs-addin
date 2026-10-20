@@ -386,7 +386,7 @@ Public Sub cmdExport_Click()
 
     ' Don't attempt to access controls if we are in the process of closing the form.
     If FormLoaded(Me) Then
-        If m_blnCancelRequested Then
+        If m_blnCancelRequested Or Operation.Result = eorCanceled Then
             SetStatusText T("Canceled"), T("Export Canceled"), _
                 T("The export was canceled. Additional details can be found in the project log file.<br><br>You may now close this window.")
         ElseIf Operation.ErrorLevel = eelCritical Then
@@ -404,7 +404,7 @@ Public Sub cmdExport_Click()
         ' check that ended it before it began, such as a newer add-in version in the
         ' project's options. Without a result the MCP callback would report it as
         ' complete.
-        If m_blnCancelRequested Then
+        If m_blnCancelRequested Or Operation.Result = eorCanceled Then
             Operation.Finish eorCanceled
         ElseIf Operation.ErrorLevel = eelCritical Then
             Operation.Finish eorFailed

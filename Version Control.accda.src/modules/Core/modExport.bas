@@ -292,6 +292,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 Log.Spacer
                 Log.Add T("Export Canceled"), , , "Red", True
                 Operation.ErrorLevel = eelCritical
+                Operation.Result = eorCanceled
                 GoTo CleanUp
             End If
         End If
@@ -814,6 +815,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
                     Log.Spacer
                     Log.Add T("Export Canceled"), , , "Red", True
                     Operation.ErrorLevel = eelCritical
+                    Operation.Result = eorCanceled
                     GoTo CleanUp
                 End If
             End If
