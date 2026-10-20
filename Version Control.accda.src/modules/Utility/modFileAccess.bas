@@ -1257,7 +1257,7 @@ HandleDriveLoss:
                         , "This usually just means you need to simply open the drive in File Explorer. " _
                         , "Click Cancel to stop operation." _
                         , vbRetryCancel + vbDefaultButton1 + vbExclamation _
-                        , "Drive not ready.")
+                        , "Drive not ready.", vbCancel)
 
         Case vbRetry
             GoTo Retry

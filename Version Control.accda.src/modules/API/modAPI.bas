@@ -103,9 +103,8 @@ Public Function HandleRibbonCommand(strCommand As String, Optional strArgument A
         GoTo CleanUp
     End If
 
-    ' Ribbon commands are interactive by definition. Operation.Source is sticky,
-    ' so clear any value left behind by an earlier API/MCP call in this instance.
-    Operation.Source = eosUserInterface
+    ' Ribbon commands are interactive by definition.
+    Operation.ResetForInteractiveCommand
 
     ' If a function is not found, this will throw an error. It is up to the ribbon
     ' designer to ensure that the control IDs match public procedures in the VCS

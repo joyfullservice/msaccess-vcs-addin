@@ -168,6 +168,59 @@ add-in can report that condition, because its own code is what did not run.
 Trusting the folder is a precondition of unattended install, and an absent status
 file is how a pipeline detects that it was not met.
 
+## Prompts
+
+An unattended caller is never prompted: an API or MCP call, or a headless entry point
+(`ForceUnattended`). That holds in normal interaction mode as well as silent, so a
+caller no longer has to call `SetInteractionMode` to keep a `MsgBox2` from blocking
+it. The prompt goes to the log, marked `[**MessageBox Not Displayed**]`, and
+`MsgBox2` returns its `intDefaultResult`. Not covered:
+
+- dialogs that do not go through `MsgBox2`: VBA runtime errors, Access's own prompts,
+  and the add-in's folder and file pickers (`BuildAs`, and `Build` when the open
+  database has no source folder);
+- a root-less API call made while another caller's attended root is live, such as the
+  options form, which reads that root's `Attended`;
+- a person at a form opened by an API call (`ShowOptions`, `SplitFiles`), whose root
+  is unattended, or at a form that was already open when an API call ran: `Source` is
+  reset only by the ribbon and the Add-Ins menu, and they get the default answers;
+- a script that drives `HandleRibbonCommand`, as `ExampleBuildFromSource` suggests: a
+  ribbon command is interactive by definition, so call `SetInteractionMode` first.
+
+Every question passes that answer explicitly, and
+`modTestPromptDefaults.TestEveryQuestionPassesAnUnattendedAnswer` fails on one that
+does not. The answers are the ones silent mode already gave, so a caller that was
+suppressed before sees no change. The two exceptions are reached only from a form, and
+now answer Cancel: *Save User Settings* on uninstall and *Multiple Batches Required*
+when splitting files. The ones an automation caller is most likely to meet:
+
+| Question | Answer | Effect |
+|---|---|---|
+| *Could not import* (`LoadComponentFromText`) | Abort | the build or import fails |
+| *Connection Failed* (`HandleConnectionFailure`) | Abort | the build fails |
+| *Newer VCS Version Detected*, build or merge | Yes | the build goes on |
+| *Newer VCS Version Detected*, export | No | the export stops and fails |
+| Database file name differs from the source (full build) | OK | builds under the source's name |
+| *Save Connection Settings?* | No | nothing saved to `.env` |
+
+A suppressed question that ends an operation reports it:
+
+- `BuildHeadless` and `MergeHeadless` return `success: false`, with the log path when
+  the log was started.
+- `Export`, `FullExport` and `ExportVBA` return `True` only for an export that ran to
+  the end. An export stopped before it began, by a newer add-in version in the
+  project's options or by a locked project, saves its log and leaves the options and
+  the index as they were.
+- An export or a build that ends at a critical error completes its root as
+  `eorFailed`, so an MCP caller gets an `error` callback with the log path rather
+  than `complete`.
+- `MigrateDebugAssert` and `StandardizeLetterCasing` return `False` when their
+  confirmation was answered for nobody.
+- `Build` and `MergeBuild` still return when the build is scheduled; their outcome
+  reaches an MCP caller through the callback only. Use the headless pair for a result.
+  An `APIAsync` call whose method never begins a root, such as `MergeBuild` before any
+  full build, posts no callback at all.
+
 ## Operation ownership and interaction
 
 Root work is owned by a **root lease** (`Operation.TryBeginRoot` →
@@ -215,13 +268,25 @@ no longer restore it by hand. **`Attended`** is a root capability (`Not
 (AutomationSource Or ForceUnattended)`) captured once at root creation and immutable
 for the life of the operation, so automation and headless entry points must set
 `Operation.ForceUnattended = True` *before* `TryBeginRoot`.
+`Operation.TryBeginUnattendedRoot` does both, and puts the flag back when the root
+is refused: no root of that call will finish and clear it.
+Outside a live root, `Attended` describes the incoming caller with the same rule,
+since the value the last root captured belongs to the previous operation. The
+interactive entry points, the ribbon through `HandleRibbonCommand` and the Add-Ins
+menu items, call `Operation.ResetForInteractiveCommand`, which resets `Source` and,
+when no root is live, clears `ForceUnattended`.
 
-`PromptWouldDisplay` is the single rule deciding whether a prompt blocks or is
-logged, and `MsgBox2` is its only caller. It honors `blnUserGesturePrompt` only when
-`Attended` is true, so a user-initiated cancel confirmation can appear during an
-attended silent test run without relaxing the global mode. A refused root logs its
-refusal instead of prompting whenever the caller is automated or explicitly
-unattended.
+`PromptWouldDisplay` decides whether a prompt blocks or is logged; `MsgBox2` asks it,
+and so does `modConnect.CacheConnection` before a probe that can raise the ODBC
+driver dialog. The policy itself is `Operation.AllowsPrompt`. An unattended caller
+is never prompted, whatever the interaction mode: `MsgBox2` logs the prompt and
+returns its `intDefaultResult` (see [Prompts](#prompts)). An attended caller is
+prompted unless the operation is silent. `blnUserGesturePrompt` lets a prompt through
+silent mode when the root or the caller acting now is attended, so a user-initiated
+cancel confirmation can appear during an attended silent test run, and a refused
+ribbon command can say so while an unattended root runs in normal mode, such as an
+MCP export. A refused root logs its refusal instead of prompting whenever the
+caller is automated or explicitly unattended.
 
 Interaction mode reaches only as far as the operation instance does, which is one
 VBA project. A test run drives a *second* project, so the mode the driver set is
