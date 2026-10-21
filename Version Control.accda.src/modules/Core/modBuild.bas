@@ -430,6 +430,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     Set colCategories = GetContainers(intFilter)
     If Not blnFullBuild Then Set dScanMeta = GetSharedScanMetadata(colCategories)
 
+    ' Bring older code hashes up to date before anything is imported, since an import
+    ' can make the VBE re-case identifiers in modules that were not changed.
+    If Not blnFullBuild Then VCSIndex.UpgradeLegacyCodeHashes colCategories
+
     Perf.OperationStart "Scan Source Files"
     For Each cCategory In colCategories
         Set dCategory = New Dictionary
@@ -1372,6 +1376,10 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     End If
 
     If Not blnNoIndex Then
+        ' Bring older code hashes up to date first. Importing even a single module can
+        ' make the VBE re-case identifiers in other modules (see Build).
+        VCSIndex.UpgradeLegacyCodeHashes
+
         ' Check for conflicts
         Set dSourceFiles = New Dictionary
         Set dCategory = New Dictionary
@@ -1853,6 +1861,9 @@ Public Sub MergeScoped(colContainers As Collection, blnFullMerge As Boolean)
 
     ' One shared file date/size map for the targeted categories (see Build).
     If Not blnFullMerge Then Set dScanMeta = GetSharedScanMetadata(colContainers)
+
+    ' Bring older code hashes up to date before anything is imported (see Build).
+    If Not blnFullMerge Then VCSIndex.UpgradeLegacyCodeHashes colContainers
 
     Perf.OperationStart "Scan Source Files"
     For Each cCategory In colContainers

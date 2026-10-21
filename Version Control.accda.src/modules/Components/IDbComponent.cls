@@ -24,7 +24,10 @@ Attribute VB_Exposed = False
 '           :     Used when Access reliably tracks modification dates (TableDef, Query,
 '           :     Macro, TableDataMacro, and all ADP types).
 '           :   - Hash-only: Compare a hash of the serialized object content to the
-'           :     indexed FileHash (or OtherHash for code modules and themes). Used
+'           :     indexed FileHash (or OtherHash for code modules and themes). For the
+'           :     code of modules, forms and reports OtherHash is the hash of the code
+'           :     with the letter case normalized outside strings and comments, and
+'           :     carries a version prefix (see GetCodeModuleHash). Used
 '           :     when Access does not expose a reliable modification date (properties,
 '           :     references, relations, command bars, documents, nav pane groups, etc.).
 '           :   - Date+hash: Check DateModified first; if the date matches, also check
