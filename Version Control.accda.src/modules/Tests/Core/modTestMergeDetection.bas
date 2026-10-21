@@ -1134,6 +1134,229 @@ ErrHandler:
 End Sub
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeTableKeepsRelationsOnExcludedTables
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/21/2026
+' Purpose   : Merging a local table stages and deletes every relation that involves it,
+'           : then restores them. A relation on a table that is not exported -- a
+'           : temporary (~) table, or a system table -- must be restored as well: the
+'           : rule that keeps such a relation out of the source files is no reason to
+'           : delete it from the database. It is restored without an index entry, since
+'           : it has no source file, while a relation between two exported tables keeps
+'           : its entry. The table is changed after the export, so the merge has to
+'           : rebuild it, and the test checks that it did.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeTableKeepsRelationsOnExcludedTables()
+    '@Tag("integration")
+
+    Const TABLE_MAIN As String = "vcs_test_excluded_main"
+    Const TABLE_TEMP As String = "~vcs_test_excluded_temp"
+    Const TABLE_OTHER As String = "vcs_test_excluded_other"
+    Const RELATION_USER As String = "vcs_test_relation_on_user"
+    Const RELATION_TEMP As String = "vcs_test_relation_on_temp"
+    Const RELATION_SYSTEM As String = "vcs_test_relation_on_system"
+
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+    Dim fld As DAO.Field
+    Dim cComponent As IDbComponent
+    Dim cSavedIndex As clsVCSIndex
+    Dim strFolder As String
+    Dim strXmlFile As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim blnSaved As Boolean
+    Dim blnSystem As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+    Dim lngMergeErr As Long
+    Dim strMergeErr As String
+
+    On Error GoTo ErrHandler
+
+    DropExcludedRelationFixture TABLE_MAIN, TABLE_TEMP, TABLE_OTHER, RELATION_TEMP, RELATION_SYSTEM, RELATION_USER
+
+    ' A local table related to a temporary table, with referential integrity, and to
+    ' MSysObjects without it. (Access refuses an enforced relation on a system table.)
+    ' A relation to another user table is the contrast: it keeps its index entry.
+    Set dbs = CurrentDb
+    dbs.Execute "CREATE TABLE [" & TABLE_MAIN & "] " & _
+        "([ID] LONG CONSTRAINT [pk] PRIMARY KEY, [Name] TEXT(50), [ObjectID] LONG)", dbFailOnError
+    dbs.Execute "CREATE TABLE [" & TABLE_TEMP & "] " & _
+        "([ID] LONG CONSTRAINT [pk] PRIMARY KEY, [MainID] LONG)", dbFailOnError
+    dbs.Execute "CREATE TABLE [" & TABLE_OTHER & "] " & _
+        "([ID] LONG CONSTRAINT [pk] PRIMARY KEY, [MainID] LONG)", dbFailOnError
+    Set rel = dbs.CreateRelation(RELATION_USER, TABLE_MAIN, TABLE_OTHER)
+    Set fld = rel.CreateField("ID")
+    fld.ForeignName = "MainID"
+    rel.Fields.Append fld
+    dbs.Relations.Append rel
+    Set rel = dbs.CreateRelation(RELATION_TEMP, TABLE_MAIN, TABLE_TEMP)
+    Set fld = rel.CreateField("ID")
+    fld.ForeignName = "MainID"
+    rel.Fields.Append fld
+    dbs.Relations.Append rel
+    Set rel = dbs.CreateRelation(RELATION_SYSTEM, "MSysObjects", TABLE_MAIN, dbRelationDontEnforce)
+    Set fld = rel.CreateField("Id")
+    fld.ForeignName = "ObjectID"
+    rel.Fields.Append fld
+    On Error Resume Next
+    dbs.Relations.Append rel
+    blnSystem = (Err.Number = 0)
+    Err.Clear
+    On Error GoTo ErrHandler
+    Set fld = Nothing
+    Set rel = Nothing
+    dbs.TableDefs.Refresh
+    Set dbs = Nothing
+    ReleaseDbReferences
+
+    ' Sandbox the export folder and the index
+    strFolder = GetTempFolder("vcs_excluded_relation")
+    Set cSavedIndex = VCSIndex
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    blnSaved = True
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_0_0
+    Set VCSIndex = Nothing
+
+    ' Export the table, then change it in the database so it no longer matches its
+    ' source file. Without this, the merge would skip the rebuild and prove nothing.
+    Set cComponent = New clsDbTableDef
+    Set cComponent.DbObject = CurrentData.AllTables(TABLE_MAIN)
+    cComponent.Export
+    strXmlFile = Options.GetExportFolder & "tbldefs" & PathSep & GetSafeFileName(TABLE_MAIN) & ".xml"
+    TestAssert FSO.FileExists(strXmlFile), "the table is exported to its source file"
+    Set dbs = CurrentDb
+    Set fld = dbs.TableDefs(TABLE_MAIN).Fields("Name")
+    fld.Properties.Append fld.CreateProperty("Description", dbText, "not in the source file")
+    Set fld = Nothing
+    Set dbs = Nothing
+    ReleaseDbReferences
+
+    ' Merge the table. A failed merge is recorded rather than raised, so the checks
+    ' below still run.
+    Set cComponent = New clsDbTableDef
+    On Error Resume Next
+    cComponent.Merge strXmlFile
+    If Err.Number <> 0 Then
+        lngMergeErr = Err.Number
+        strMergeErr = Err.Description
+    End If
+    Err.Clear
+    On Error GoTo ErrHandler
+    ReleaseDbReferences
+
+    If lngMergeErr <> 0 Then TestAssert False, _
+        "merge of a table related to excluded tables, error " & lngMergeErr & ": " & strMergeErr
+    TestAssert Not FieldHasDescription(TABLE_MAIN, "Name"), "the merge rebuilt the table from its source file"
+    TestAssert RelationExists(RELATION_TEMP), "the merge keeps the relation on a temporary table"
+    If blnSystem Then
+        TestAssert RelationExists(RELATION_SYSTEM), "the merge keeps the relation on a system table"
+    Else
+        TestAssert True, "SKIP: a relation on MSysObjects could not be created here"
+    End If
+    TestAssert RelationExists(RELATION_USER), "the merge keeps the relation between user tables"
+    TestAssert VCSIndex.Exists(New clsDbRelation, RELATION_USER & ".json"), _
+        "a relation between user tables keeps its index entry"
+    TestAssert Not VCSIndex.Exists(New clsDbRelation, RELATION_TEMP & ".json"), _
+        "a relation on an excluded table gets no index entry"
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        If Len(strXmlFile) Then VCSIndex.Remove New clsDbTableDef, strXmlFile
+        Options.ExportFolder = strPriorFolder
+        Options.ExportFormatVersion = lngPriorFormat
+        Set VCSIndex = cSavedIndex
+    End If
+    DropExcludedRelationFixture TABLE_MAIN, TABLE_TEMP, TABLE_OTHER, RELATION_TEMP, RELATION_SYSTEM, RELATION_USER
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    Err.Clear
+    If lngErr <> 0 Then TestAssert False, _
+        "merge of a table related to excluded tables, error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DropExcludedRelationFixture
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/21/2026
+' Purpose   : Remove the relations and tables of TestMergeTableKeepsRelationsOnExcludedTables,
+'           : whatever a previous run left behind.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DropExcludedRelationFixture(strMain As String, strTemp As String, strOther As String, _
+    strRelationTemp As String, strRelationSystem As String, strRelationUser As String)
+
+    Dim dbs As DAO.Database
+
+    Set dbs = CurrentDb
+    On Error Resume Next
+    dbs.Relations.Delete strRelationTemp
+    dbs.Relations.Delete strRelationSystem
+    dbs.Relations.Delete strRelationUser
+    dbs.TableDefs.Delete strTemp
+    dbs.TableDefs.Delete strOther
+    dbs.TableDefs.Delete strMain
+    Err.Clear
+    On Error GoTo 0
+    dbs.TableDefs.Refresh
+    Set dbs = Nothing
+    ReleaseDbReferences
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RelationExists
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/21/2026
+' Purpose   : True when the current database holds a relation with this name.
+'---------------------------------------------------------------------------------------
+'
+Private Function RelationExists(strName As String) As Boolean
+
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+
+    Set dbs = CurrentDb
+    For Each rel In dbs.Relations
+        If rel.Name = strName Then RelationExists = True
+    Next rel
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FieldHasDescription
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/21/2026
+' Purpose   : True when the field of the table carries a Description property.
+'---------------------------------------------------------------------------------------
+'
+Private Function FieldHasDescription(strTable As String, strField As String) As Boolean
+
+    Dim strValue As String
+
+    On Error Resume Next
+    strValue = CurrentDb.TableDefs(strTable).Fields(strField).Properties("Description")
+    FieldHasDescription = (Err.Number = 0)
+    Err.Clear
+
+End Function
+
+
 Private Function GetTestRelationJson(strName As String, strTable As String, _
     strForeignTable As String, strField As String, strForeignField As String) As String
     GetTestRelationJson = "{" & vbCrLf & _
