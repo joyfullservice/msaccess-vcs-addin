@@ -595,6 +595,12 @@ Private Sub IDbComponent_Import(strFile As String)
         Select Case GetFormatByExt(strFile)
             Case etdXML
 
+                If CanImportThroughStaging(strTable, strFile) Then
+                    Perf.OperationStart "Import Table Data (XML Staging)"
+                    blnImported = ImportXmlThroughStaging(strFile, strTable)
+                    Perf.OperationEnd
+                    LogGitConflictMarkerIfPresent strFile, ModuleName(Me) & ".Import"
+                Else
                     ' The ImportXML function does not properly handle UrlEncoded paths
                     blnUseTemp = (InStr(1, strFile, "%") > 0)
                     Perf.OperationStart "App.ImportXML() Data"
@@ -615,6 +621,7 @@ Private Sub IDbComponent_Import(strFile As String)
                     blnImported = FinishXmlDataImport(strFile, ModuleName(Me) & ".Import")
                     If blnUseTemp Then DeleteFile strTempFile
                     LogGitConflictMarkerIfPresent strFile, ModuleName(Me) & ".Import"
+                End If
 
             Case etdTabDelimited
                 Perf.OperationStart "Import Table Data (TDF)"
@@ -646,6 +653,87 @@ Private Sub IDbComponent_Import(strFile As String)
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CanImportThroughStaging
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Whether the rows in this file can reach the table through a staging copy
+'           : rather than through Application.ImportXML directly.
+'           :
+'           : Why it matters: ExportXML leaves a field's element out of the row when the
+'           : value is Null, and ImportXML fills an element that is absent from a row with
+'           : the field's DefaultValue. Imported straight into the table, every Null in a
+'           : field with a default comes back as that default -- usually 0 -- with no error
+'           : and the row count unchanged. A staging table made with SELECT INTO carries no
+'           : DefaultValue, so the absent element stays Null there, and the explicit INSERT
+'           : that follows writes that Null into the table.
+'           :
+'           : The staging copy only works where the merge path already does: no complex or
+'           : calculated fields, and a file without an embedded schema, since the schema
+'           : names the table the rows belong to. Those tables still import directly.
+'---------------------------------------------------------------------------------------
+'
+Private Function CanImportThroughStaging(strTable As String, strFile As String) As Boolean
+
+    If TableRequiresXmlSchema(SharedDb.TableDefs(strTable)) Then Exit Function
+    If InStr(1, ReadFile(strFile), "xsd:schema", vbTextCompare) > 0 Then Exit Function
+    CanImportThroughStaging = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportXmlThroughStaging
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Load the rows into a staging table, then append them to the table in one
+'           : statement. See CanImportThroughStaging for why the rows take this detour.
+'           :
+'           : The append runs with dbFailOnError, so a row the table refuses leaves the
+'           : table exactly as it was rather than partly loaded, and the refusal is logged.
+'---------------------------------------------------------------------------------------
+'
+Private Function ImportXmlThroughStaging(strFile As String, strTable As String) As Boolean
+
+    Dim dbs As DAO.Database
+    Dim fld As DAO.Field
+    Dim cFields As clsConcat
+    Dim strStaging As String
+
+    strStaging = CreateTableDataStagingTable(strTable)
+    If Len(strStaging) = 0 Then
+        Log.Error eelError, T("Unable to create a staging table to import table data for {0}.", _
+            var0:=strTable), ModuleName(Me) & ".ImportXmlThroughStaging"
+        Exit Function
+    End If
+
+    If LoadStagingTable(strFile, strTable, strStaging) Then
+        Set dbs = SharedDb
+        Set cFields = New clsConcat
+        For Each fld In dbs.TableDefs(strTable).Fields
+            cFields.Add "[", fld.Name, "], "
+        Next fld
+        cFields.Remove 2
+
+        LogUnhandledErrors
+        On Error Resume Next
+        dbs.Execute "INSERT INTO [" & strTable & "] (" & cFields.GetStr & ") SELECT " & _
+            cFields.GetStr & " FROM [" & strStaging & "]", dbFailOnError
+        If Err Then
+            Log.Error eelError, T("Unable to import table data for {0}. {1}", _
+                var0:=strTable, var1:=Err.Description), ModuleName(Me) & ".ImportXmlThroughStaging"
+            Err.Clear
+        Else
+            ImportXmlThroughStaging = True
+        End If
+        On Error GoTo 0
+    End If
+
+    DropTableDataStagingTable strStaging
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -940,7 +1028,7 @@ Private Function LoadStagingTable(strFile As String, strTable As String, _
             ' any parameter, so the rows have to be relabeled to reach the staging table.
             strTempFile = GetTempFile
             Perf.OperationStart "Relabel Staging XML"
-            If Not WriteStagingXml(strFile, strTable, strStaging, strTempFile, lngSourceRows) Then
+            If Not WriteStagingXml(strFile, strStaging, strTempFile, lngSourceRows) Then
                 On Error GoTo 0
                 Perf.OperationEnd
                 Log.Error eelError, T("Unable to prepare table data from '{0}' for merge.", _
@@ -1016,10 +1104,18 @@ End Function
 '           : The rows are rebuilt through the DOM rather than by replacing tag text,
 '           : because a table is allowed to have a field with the same name as the table
 '           : itself. A blind text replacement would rename that field element too.
+'           :
+'           : Every child of the data root is taken as a row, rather than the children
+'           : named after the table. A data file without a schema holds the rows of one
+'           : table and nothing else, and the name cannot be relied on: Access escapes a
+'           : leading digit (0T becomes _x0030_T), keeps an inner hyphen and accented
+'           : letters, and EscapeXmlName does neither. A name it got wrong made the lookup
+'           : an invalid XPath, or matched no rows at all -- and zero rows read agrees with
+'           : zero rows counted, so an empty staging table passed as a complete one.
 '---------------------------------------------------------------------------------------
 '
-Private Function WriteStagingXml(strFile As String, strTable As String, _
-    strStaging As String, strOutputFile As String, ByRef lngRows As Long) As Boolean
+Private Function WriteStagingXml(strFile As String, strStaging As String, _
+    strOutputFile As String, ByRef lngRows As Long) As Boolean
 
     Dim objXml As MSXML2.DOMDocument60
     Dim objRow As MSXML2.IXMLDOMNode
@@ -1030,6 +1126,9 @@ Private Function WriteStagingXml(strFile As String, strTable As String, _
     ' Parsed from the file's content rather than its path, since the DOM treats the path
     ' as a URL and these file names can contain percent-encoded characters.
     Set objXml = New MSXML2.DOMDocument60
+    ' A value made only of whitespace is data, so it has to survive the parse; the layout
+    ' between fields that this also keeps is skipped below.
+    objXml.preserveWhiteSpace = True
     If Not objXml.LoadXML(ReadFile(strFile)) Then Exit Function
 
     strRowTag = EscapeXmlName(strStaging)
@@ -1039,10 +1138,10 @@ Private Function WriteStagingXml(strFile As String, strTable As String, _
     ' field element that does carry an od: attribute still resolves.
     cData.Add "<dataroot xmlns:od=""urn:schemas-microsoft-com:officedata"">", vbCrLf
 
-    For Each objRow In objXml.SelectNodes("/dataroot/" & EscapeXmlName(strTable))
+    For Each objRow In objXml.SelectNodes("/dataroot/*")
         cData.Add "<", strRowTag, ">"
         For Each objField In objRow.ChildNodes
-            cData.Add objField.XML
+            If objField.NodeType = NODE_ELEMENT Then cData.Add objField.XML
         Next objField
         cData.Add "</", strRowTag, ">", vbCrLf
         lngRows = lngRows + 1

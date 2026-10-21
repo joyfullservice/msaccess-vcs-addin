@@ -35,6 +35,11 @@ Private Const WIDE_FIELD_COUNT As Long = 80
 ' Used to exercise Application.ImportXML rejected-row handling (error 31550).
 Private Const TEST_TABLE_IMPORT_XML As String = "vcs_test_import_xml"
 
+' Used by the import round-trip tests (Null over DefaultValue, whitespace values).
+Private Const TEST_TABLE_IMPORT_NULLS As String = "vcs_test_import_nulls"
+Private Const TEST_TABLE_IMPORT_SPACES As String = "vcs_test_import_spaces"
+Private Const TEST_TABLE_IMPORT_NAMED As String = "vcs_test_import_named"
+
 
 Public Sub TestEscapeXmlName()
     TestAssert EscapeXmlName("NotReq'd") = "NotReq_x0027_d", "apostrophe"
@@ -1073,6 +1078,205 @@ Public Sub TestTableDataMerge_RollsBackWhenDeleteBlocked()
     DeleteTestSourceFile strFile
     DropTestTable TEST_TABLE_MERGE_CHILD, dbs
     DropTestTable TEST_TABLE_MERGE_PARENT, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataImport_NullOverDefaultValue
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : ExportXML leaves a Null field out of its row, and ImportXML fills a missing
+'           : element with the field's DefaultValue. A Null in a field with a default has
+'           : to come back as Null, not as the default. The field without a default is
+'           : the control: it kept its Null even before the import went through staging.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataImport_NullOverDefaultValue()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strExpected As String
+
+    Set dbs = CurrentDb
+    CreateTestTable dbs, TEST_TABLE_IMPORT_NULLS, _
+        "CREATE TABLE [" & TEST_TABLE_IMPORT_NULLS & "] (ID LONG PRIMARY KEY," & _
+        " WithDefault LONG, NoDefault LONG, Label TEXT(50))"
+    dbs.TableDefs(TEST_TABLE_IMPORT_NULLS).Fields("WithDefault").DefaultValue = "0"
+    dbs.TableDefs(TEST_TABLE_IMPORT_NULLS).Fields("Label").DefaultValue = """none"""
+    RefreshTableCollections dbs
+    strSql = "SELECT ID, WithDefault, NoDefault, Label FROM [" & TEST_TABLE_IMPORT_NULLS & "] ORDER BY ID"
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_IMPORT_NULLS & "] (ID, WithDefault, NoDefault, Label)" & _
+        " VALUES (1, Null, Null, Null)", dbFailOnError
+    dbs.Execute "INSERT INTO [" & TEST_TABLE_IMPORT_NULLS & "] (ID, WithDefault, NoDefault, Label)" & _
+        " VALUES (2, 5, 5, 'A')", dbFailOnError
+
+    strFile = GetTestSourceFile(TEST_TABLE_IMPORT_NULLS, "xml")
+    ExportTestTableData TEST_TABLE_IMPORT_NULLS, etdXML, strFile
+    strExpected = GetRowSummary(strSql)
+    TestAssert strExpected = "1:<null>:<null>:<null>:|2:5:5:A:|", _
+        "the Nulls are in place before the round trip"
+
+    dbs.Execute "DELETE FROM [" & TEST_TABLE_IMPORT_NULLS & "]", dbFailOnError
+    ImportTestTableData etdXML, strFile
+    TestAssert GetRowSummary(strSql) = strExpected, _
+        "Null comes back as Null in fields with and without a default value"
+
+    AssertNoStagingTables
+
+    DeleteTestSourceFile strFile
+    DropTestTable TEST_TABLE_IMPORT_NULLS, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataImport_WhitespaceValues
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Values made of or starting with whitespace survive export and import. The
+'           : second pass adds a row long enough to send the export through the formatter
+'           : for large documents, which is where tabs at the start of a line used to turn
+'           : into spaces and a lone space into a line break plus indentation.
+'           :
+'           : A lone LF is left out on purpose: ImportXML itself stores it as CRLF, from
+'           : any file, so no export format can bring it back.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataImport_WhitespaceValues()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strSql As String
+    Dim strExpected As String
+    Dim intPass As Integer
+
+    Set dbs = CurrentDb
+    For intPass = 1 To 2
+        CreateTestTable dbs, TEST_TABLE_IMPORT_SPACES, _
+            "CREATE TABLE [" & TEST_TABLE_IMPORT_SPACES & "] (ID LONG PRIMARY KEY, [Note] MEMO)"
+        dbs.TableDefs(TEST_TABLE_IMPORT_SPACES).Fields("Note").AllowZeroLength = True
+        RefreshTableCollections dbs
+        strSql = "SELECT ID, [Note] FROM [" & TEST_TABLE_IMPORT_SPACES & "] ORDER BY ID"
+        InsertNoteRow dbs, 1, " "
+        InsertNoteRow dbs, 2, "x" & vbCrLf & vbTab & "y"
+        InsertNoteRow dbs, 3, vbTab & "z"
+        InsertNoteRow dbs, 4, "  m  "
+        InsertNoteRow dbs, 5, vbNullString
+        InsertNoteRow dbs, 6, "p" & vbCrLf & "q"
+        If intPass = 2 Then InsertNoteRow dbs, 99, String$(30000, "w")
+
+        strFile = GetTestSourceFile(TEST_TABLE_IMPORT_SPACES, "xml")
+        ExportTestTableData TEST_TABLE_IMPORT_SPACES, etdXML, strFile
+        strExpected = GetRowSummary(strSql)
+
+        dbs.Execute "DELETE FROM [" & TEST_TABLE_IMPORT_SPACES & "]", dbFailOnError
+        ImportTestTableData etdXML, strFile
+        TestAssert GetRowSummary(strSql) = strExpected, _
+            "whitespace in values survives the round trip (" & _
+            IIf(intPass = 1, "small", "large") & " document)"
+
+        AssertNoStagingTables
+        DeleteTestSourceFile strFile
+    Next intPass
+
+    DropTestTable TEST_TABLE_IMPORT_SPACES, dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestTableDataImport_RowsWhateverTheirElementName
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : The staging copy has to find every row however Access named its element.
+'           : Access keeps an inner hyphen and accented letters, and escapes a leading
+'           : digit; EscapeXmlName did neither, so looking the rows up by name matched
+'           : none of them, or was not even a valid XPath. Nothing complained: zero rows
+'           : read agreed with zero rows counted. The files here are written the way
+'           : Application.ExportXML writes them.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestTableDataImport_RowsWhateverTheirElementName()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim varTable As Variant
+    Dim strTable As String
+    Dim strTag As String
+    Dim strFile As String
+
+    Set dbs = CurrentDb
+    For Each varTable In Array(TEST_TABLE_IMPORT_NAMED & "-" & ChrW$(241), "0" & TEST_TABLE_IMPORT_NAMED)
+        strTable = varTable
+        ' The row element as Application.ExportXML names it (measured on 9/29/2026).
+        If Left$(strTable, 1) = "0" Then strTag = "_x0030_" & Mid$(strTable, 2) Else strTag = strTable
+        CreateTestTable dbs, strTable, _
+            "CREATE TABLE [" & strTable & "] (ID LONG PRIMARY KEY, Label TEXT(50))"
+
+        strFile = GetTestSourceFile(strTable, "xml")
+        WriteFile "<?xml version=""1.0"" encoding=""UTF-8""?>" & vbCrLf & "<dataroot>" & vbCrLf & _
+            "<" & strTag & "><ID>1</ID><Label>A</Label></" & strTag & ">" & vbCrLf & _
+            "<" & strTag & "><ID>2</ID><Label>B</Label></" & strTag & ">" & vbCrLf & _
+            "</dataroot>", strFile
+
+        ImportTestTableData etdXML, strFile
+        TestAssert DCount("*", "[" & strTable & "]") = 2, "both rows imported into " & strTable
+
+        AssertNoStagingTables
+        DeleteTestSourceFile strFile
+        DropTestTable strTable, dbs
+    Next varTable
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : InsertNoteRow
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Add a row with an exact memo value. Through a recordset, since control
+'           : characters cannot be written into a SQL literal.
+'---------------------------------------------------------------------------------------
+'
+Private Sub InsertNoteRow(dbs As DAO.Database, lngId As Long, strNote As String)
+
+    With dbs.OpenRecordset(TEST_TABLE_IMPORT_SPACES, dbOpenDynaset)
+        .AddNew
+        !ID = lngId
+        !Note = strNote
+        .Update
+        .Close
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportTestTableData
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Import one source file through clsDbTableData, as a full build does. As in
+'           : MergeTestTableData, the change index is disabled so temp test tables never
+'           : reach the project index.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ImportTestTableData(intFormat As eTableDataExportFormat, strFile As String)
+
+    Dim cTable As clsDbTableData
+    Dim blnIndexDisabled As Boolean
+
+    blnIndexDisabled = VCSIndex.Disabled
+    VCSIndex.Disabled = True
+
+    Set cTable = New clsDbTableData
+    cTable.Format = intFormat
+    cTable.Parent.Import strFile
+
+    VCSIndex.Disabled = blnIndexDisabled
 
 End Sub
 
