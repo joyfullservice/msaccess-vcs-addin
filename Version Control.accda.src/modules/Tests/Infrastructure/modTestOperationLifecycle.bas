@@ -92,6 +92,42 @@ Public Sub TestSecondRootRefusedWhileFirstIsActive()
 End Sub
 
 
+Public Sub TestUnattendedRootIsCapturedUnattended()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    Set cOp = NewOperation
+    Set cRoot = cOp.TryBeginUnattendedRoot(eotTestRun)
+    TestAssert Not cRoot Is Nothing, "unattended root acquired"
+    TestAssert Not cOp.Attended, "root captured as unattended"
+    cRoot.Complete eorSuccess
+    TestAssert Not cOp.ForceUnattended, "ForceUnattended cleared after finish"
+End Sub
+
+
+Public Sub TestUnattendedRootRefusalRestoresForceUnattended()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+    Dim cOther As clsRootOperationLease
+
+    ' Refused, the headless caller has no root of its own to finish and clear the flag.
+    ' Left set, it outlives the call: the live root's own finish clears it, but a root
+    ' that expires on its heartbeat instead hands it to the next root.
+    Set cOp = NewOperation
+    Set cRoot = cOp.TryBeginRoot(eotOther)
+    Set cOther = cOp.TryBeginUnattendedRoot(eotTestRun)
+    TestAssert cOther Is Nothing, "unattended root refused while another is active"
+    TestAssert Not cOp.ForceUnattended, "refusal puts ForceUnattended back"
+
+    ' A caller that had set the flag itself keeps it.
+    cOp.ForceUnattended = True
+    Set cOther = cOp.TryBeginUnattendedRoot(eotTestRun)
+    TestAssert cOther Is Nothing, "unattended root refused again"
+    TestAssert cOp.ForceUnattended, "refusal leaves a caller's own setting in place"
+    cRoot.Complete eorSuccess
+End Sub
+
+
 Public Sub TestRootLeaseRejectsMismatchedComplete()
     Dim cOp As clsOperation
     Dim cRoot As clsRootOperationLease
