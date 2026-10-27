@@ -202,6 +202,7 @@ when splitting files. The ones an automation caller is most likely to meet:
 | *Newer VCS Version Detected*, export | No | the export stops and fails |
 | Database file name differs from the source (full build) | OK | builds under the source's name |
 | *Save Connection Settings?* | No | nothing saved to `.env` |
+| *Cancel Current Operation?* (closing the progress form) | No | the operation goes on |
 
 A suppressed question that ends an operation reports it:
 
@@ -215,7 +216,8 @@ A suppressed question that ends an operation reports it:
   `eorFailed`, so an MCP caller gets an `error` callback with the log path rather
   than `complete`.
 - `MigrateDebugAssert` and `StandardizeLetterCasing` return `False` when their
-  confirmation was answered for nobody.
+  confirmation was answered for nobody. `StandardizeLetterCasing` returns `True`
+  when a person chose to create the starter template.
 - `Build` and `MergeBuild` still return when the build is scheduled; their outcome
   reaches an MCP caller through the callback only. Use the headless pair for a result.
   An `APIAsync` call whose method never begins a root, such as `MergeBuild` before any
@@ -274,7 +276,11 @@ Outside a live root, `Attended` describes the incoming caller with the same rule
 since the value the last root captured belongs to the previous operation. The
 interactive entry points, the ribbon through `HandleRibbonCommand` and the Add-Ins
 menu items, call `Operation.ResetForInteractiveCommand`, which resets `Source` and,
-when no root is live, clears `ForceUnattended`.
+when no root is live, clears `ForceUnattended`. They call
+`Operation.EndInteractiveCommand` when the command returns: if the command ran during
+a live root and that root is still live, it gets its own `Source` back, because code
+later in the root branches on it (the conflict check opens the conflict form for a
+caller that is not automation).
 
 `PromptWouldDisplay` decides whether a prompt blocks or is logged; `MsgBox2` asks it,
 and so does `modConnect.CacheConnection` before a probe that can raise the ODBC

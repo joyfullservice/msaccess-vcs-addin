@@ -83,7 +83,53 @@ contradictory guidance.
 
 ---
 
+## 2026-10-27 — An interactive command gives a live root back its Source; a suppressed cancel resumes
+
+**Trigger**: Review after merging #818. `ResetForInteractiveCommand` set `Source` to
+`eosUserInterface` even while another caller's root was live, and nothing put it back.
+Code later in that root branches on `Source`: `clsConflicts` auto-resolves conflicts
+for an automation caller and otherwise opens the conflict form, which no
+`MsgBox2` rule suppresses. A staged MCP build leaves Access idle between its stages, so
+one ribbon click was enough. Separately, *Cancel Current Operation?* answered Yes when
+suppressed, so closing the progress form of an MCP or API root cancelled it without
+asking. On `dev` before #818 that dialog was shown in normal mode.
+
+**Options explored**:
+- *Leave `Source` alone while a root is live.* Rejected: `ReportRefusal` decides from
+  the caller acting now, so a refused ribbon click would only log.
+- *Save and restore `Source` in `HandleRibbonCommand` itself.* Works for the ribbon
+  only, and `clsOperation` already holds the token needed to tell the same root from
+  a new one. Chosen in `clsOperation` instead: `EndInteractiveCommand` restores the
+  saved `Source` only when the root it was saved for is still live.
+- *Show the cancel confirmation to whoever closes the form.* Rejected: the form can
+  also be closed by code (an `AutoClose` timer), and an unattended root would then
+  hang on the dialog.
+- *Answer No when suppressed* — chosen. `Form_Unload` keeps the form open either way,
+  so the operation goes on.
+
+**Decision**: The ribbon and the Add-Ins menu items pair `ResetForInteractiveCommand`
+with `EndInteractiveCommand`. `ConfirmCancel` passes `vbNo` as its unattended answer.
+`StandardizeLetterCasing` also returns `True` when a person creates the starter
+template, so that path no longer finishes as `eorFailed`.
+
+**What this rules out**: A person cannot cancel an unattended root by closing its
+progress form; the MCP client cancels it (`vcs_cancel_operation`), or the root times
+out. A new interactive entry point has to call both procedures, not only the reset.
+
+**Relevant files**: `clsOperation.cls`, `modAPI.bas`, `modAddInMenu.bas`,
+`frmVCSMain.cls`, `clsVersionControl.cls`, `modTestOperationLifecycle.bas`,
+`docs/automation-contract.md`.
+
+---
+
 ## 2026-10-20 — An unattended caller is never prompted
+
+> **⚠ Partially superseded** (2026-10-27): `ResetForInteractiveCommand` no longer
+> leaves a live root with the interactive `Source`: `EndInteractiveCommand` restores it.
+> The cancel confirmation on the progress form now answers No when suppressed, so the
+> operation goes on, and `StandardizeLetterCasing` returns `True` after creating the
+> starter template. See "An interactive command gives a live root back its Source; a
+> suppressed cancel resumes" above.
 
 **Trigger**: An API or MCP call runs in normal interaction mode unless the caller asks
 for silence, and `PromptWouldDisplay` read `Attended` only for gesture prompts. So any
