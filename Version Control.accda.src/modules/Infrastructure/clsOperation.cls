@@ -103,6 +103,30 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TryBeginUnattendedRoot
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/19/2026
+' Purpose   : TryBeginRoot for a headless caller. ForceUnattended has to be set before
+'           : the root exists, since Attended is captured at root creation. When the
+'           : root is refused, no root of this call will finish and clear the flag, so
+'           : the value it had is put back here.
+'---------------------------------------------------------------------------------------
+'
+Public Function TryBeginUnattendedRoot(intType As eOperationType) As clsRootOperationLease
+
+    Dim cLease As clsRootOperationLease
+    Dim blnPriorForceUnattended As Boolean
+
+    blnPriorForceUnattended = Me.ForceUnattended
+    Me.ForceUnattended = True
+    Set cLease = TryBeginRoot(intType)
+    If cLease Is Nothing Then Me.ForceUnattended = blnPriorForceUnattended
+    Set TryBeginUnattendedRoot = cLease
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ResumeRoot
 ' Author    : Adam Waller
 ' Date      : 8/20/2026

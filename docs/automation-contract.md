@@ -215,6 +215,8 @@ no longer restore it by hand. **`Attended`** is a root capability (`Not
 (AutomationSource Or ForceUnattended)`) captured once at root creation and immutable
 for the life of the operation, so automation and headless entry points must set
 `Operation.ForceUnattended = True` *before* `TryBeginRoot`.
+`Operation.TryBeginUnattendedRoot` does both, and puts the flag back when the root
+is refused: no root of that call will finish and clear it.
 
 `PromptWouldDisplay` is the single rule deciding whether a prompt blocks or is
 logged, and `MsgBox2` is its only caller. It honors `blnUserGesturePrompt` only when

@@ -3142,12 +3142,10 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
         Exit Function
     End If
 
-    ' Ensure modTestAssert is present (installed silently in headless mode; an
-    ' automation session has no one to answer a prompt)
-    If Not TestAssertModuleExists Then
-        If blnHeadless Then
-            InstallTestAssertModule
-        ElseIf vbYes = MsgBox2(T("Test Helper Not Found"), _
+    ' Ensure modTestAssert is present. A headless run installs it further down, inside
+    ' its root: an automation session has no one to answer a prompt.
+    If Not TestAssertModuleExists And Not blnHeadless Then
+        If vbYes = MsgBox2(T("Test Helper Not Found"), _
             T("The modTestAssert module was not found in the current project."), _
             T("Would you like to install it now?"), _
             vbYesNo + vbQuestion) Then
@@ -3193,11 +3191,13 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
         Exit Function
     End If
 
-    ' ForceUnattended must be set before the root begins: Attended is captured once, at
-    ' root creation, and is immutable for the life of the operation.
-    If blnHeadless Then Operation.ForceUnattended = True
-
-    Set cRoot = Operation.TryBeginRoot(eotTestRun)
+    ' A headless root has to be marked unattended before it begins: Attended is captured
+    ' once, at root creation, and is immutable for the life of the operation.
+    If blnHeadless Then
+        Set cRoot = Operation.TryBeginUnattendedRoot(eotTestRun)
+    Else
+        Set cRoot = Operation.TryBeginRoot(eotTestRun)
+    End If
     If cRoot Is Nothing Then Exit Function
 
     Operation.InteractionMode = eimSilent
@@ -3236,6 +3236,13 @@ Private Function ExecuteTests(varFilters As Variant, blnFiltered As Boolean, _
         .Add Now
         .Spacer
     End With
+
+    ' A headless run installs a missing modTestAssert here rather than before the root:
+    ' InstallTestAssertModule reports with MsgBox2, which the silent root routes to the
+    ' log instead of a dialog, and a refused run leaves the project untouched.
+    If blnHeadless Then
+        If Not TestAssertModuleExists Then InstallTestAssertModule
+    End If
 
     ' Scan for tests
     Log.Add T("Scanning for tests...")
