@@ -24,6 +24,9 @@ Private Const TEST_TABLE_SYSTEM_BOTH As String = "MSysVcsTestSystemTable"
 Private Const TEST_TABLE_LINKED_HOMONYM As String = "vcs_test_linked_homonym"
 Private Const TEST_TABLE_LINKED_ALONE As String = "vcs_test_linked_alone"
 Private Const TEST_TABLE_LINKED_MERGE As String = "vcs_test_linked_merge"
+Private Const TEST_TABLE_INHERIT_PARENT As String = "vcs_test_inherit_parent"
+Private Const TEST_TABLE_INHERIT_CHILD As String = "vcs_test_inherit_child"
+Private Const TEST_RELATION_FRONT_END As String = "vcs_test_front_end_relation"
 
 
 '---------------------------------------------------------------------------------------
@@ -880,6 +883,294 @@ Private Sub DeleteTestForm(strForm As String)
             Exit For
         End If
     Next objForm
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeLinkedTablesKeepsFrontEndRelation
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : When both tables of a back-end relationship are linked, the database
+'           : engine adds an inherited relation to the front end, named after the back
+'           : end's path in brackets. Merging either linked table staged that relation
+'           : with the others and could not restore it, since CreateRelation or
+'           : Relations.Append rejects that name. CreateRelation raises 3001 when the
+'           : name is over 64 characters, which stops the restore. Only the relations
+'           : defined in the front end are staged and restored; the engine drops the
+'           : inherited one with the linked table and adds it back when the table is
+'           : linked again. The front-end relation between the two linked tables,
+'           : without referential integrity, is the one that must survive. Both tables
+'           : are merged, so each side is covered.
+'           : Staging also deleted the inherited relation, and deleting it from the front
+'           : end deletes the relationship in the back end: the back end must keep it.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeLinkedTablesKeepsFrontEndRelation()
+    '@Tag("integration")
+
+    Dim dbsBack As DAO.Database
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+    Dim fld As DAO.Field
+    Dim cComponent As IDbComponent
+    Dim cSavedIndex As clsVCSIndex
+    Dim varTable As Variant
+    Dim strFolder As String
+    Dim strBackEnd As String
+    Dim strJsonFile As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim lngPriorEnv As Long
+    Dim blnSaved As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+    Dim lngMergeErr As Long
+    Dim strMergeErr As String
+
+    On Error GoTo ErrHandler
+
+    DropInheritanceFixture
+
+    ' Back end: two tables with an enforced relationship
+    strFolder = GetTempFolder("vcs_inherited_relation")
+    strBackEnd = strFolder & PathSep & "backend.accdb"
+    Set dbsBack = DBEngine.CreateDatabase(strBackEnd, dbLangGeneral)
+    dbsBack.Execute "CREATE TABLE [" & TEST_TABLE_INHERIT_PARENT & "] " & _
+        "([ID] LONG CONSTRAINT [pk] PRIMARY KEY, [Code] TEXT(10))", dbFailOnError
+    dbsBack.Execute "CREATE TABLE [" & TEST_TABLE_INHERIT_CHILD & "] " & _
+        "([ID] LONG CONSTRAINT [pk] PRIMARY KEY, [ParentID] LONG, [ParentCode] TEXT(10))", dbFailOnError
+    Set rel = dbsBack.CreateRelation("ParentChild", TEST_TABLE_INHERIT_PARENT, TEST_TABLE_INHERIT_CHILD)
+    Set fld = rel.CreateField("ID")
+    fld.ForeignName = "ParentID"
+    rel.Fields.Append fld
+    dbsBack.Relations.Append rel
+    Set fld = Nothing
+    Set rel = Nothing
+    dbsBack.Close
+    Set dbsBack = Nothing
+
+    ' Front end: link both tables, which adds the inherited relation, then define a
+    ' relation of its own between them, without referential integrity.
+    LinkInheritanceTable TEST_TABLE_INHERIT_PARENT, strBackEnd
+    LinkInheritanceTable TEST_TABLE_INHERIT_CHILD, strBackEnd
+    Set dbs = CurrentDb
+    Set rel = dbs.CreateRelation(TEST_RELATION_FRONT_END, _
+        TEST_TABLE_INHERIT_PARENT, TEST_TABLE_INHERIT_CHILD, dbRelationDontEnforce)
+    Set fld = rel.CreateField("Code")
+    fld.ForeignName = "ParentCode"
+    rel.Fields.Append fld
+    dbs.Relations.Append rel
+    Set fld = Nothing
+    Set rel = Nothing
+    Set dbs = Nothing
+
+    ' Without the inherited relation the test would not exercise anything
+    TestAssert CountInheritedRelations(TEST_TABLE_INHERIT_PARENT) = 1, _
+        "linking both tables adds the inherited relation"
+    If CountInheritedRelations(TEST_TABLE_INHERIT_PARENT) <> 1 Then GoTo CleanUp
+
+    ' Sandbox the export folder and the index
+    Set cSavedIndex = VCSIndex
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    lngPriorEnv = Options.UseEnvForConnections
+    blnSaved = True
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_0_0
+    Options.UseEnvForConnections = uecNever
+    Set VCSIndex = Nothing
+    ' The connection state is keyed by the back end's file name and outlives a test,
+    ' so a linked-table test that ran before, with its own backend.accdb, would hand
+    ' this one its completed connection string. A build clears it before merging.
+    ClearConnState
+
+    ' Merge each linked table from its own source file. A failed merge is recorded
+    ' rather than raised, so the checks below still run: the relationship has already
+    ' been deleted from the back end by the time the restore fails.
+    For Each varTable In Array(TEST_TABLE_INHERIT_CHILD, TEST_TABLE_INHERIT_PARENT)
+        Set cComponent = New clsDbTableDef
+        Set cComponent.DbObject = CurrentData.AllTables(CStr(varTable))
+        cComponent.Export
+        strJsonFile = Options.GetExportFolder & "tbldefs" & PathSep & GetSafeFileName(CStr(varTable)) & ".json"
+        ReleaseDbReferences
+        Set cComponent = New clsDbTableDef
+        On Error Resume Next
+        cComponent.Merge strJsonFile
+        If Err.Number <> 0 And lngMergeErr = 0 Then
+            lngMergeErr = Err.Number
+            strMergeErr = Err.Description
+        End If
+        Err.Clear
+        On Error GoTo ErrHandler
+        VCSIndex.Remove cComponent, strJsonFile
+    Next varTable
+
+    ReleaseDbReferences
+    If lngMergeErr <> 0 Then TestAssert False, _
+        "merge of linked tables with an inherited relation, error " & lngMergeErr & ": " & strMergeErr
+    TestAssert FrontEndRelationKept, "merge keeps the front-end relation between the linked tables"
+    TestAssert CountInheritedRelations(TEST_TABLE_INHERIT_PARENT) = 1, _
+        "the engine adds the inherited relation back when the table is linked again"
+    TestAssert BackEndRelationKept(strBackEnd), _
+        "the back end keeps its relationship (deleting the inherited one would remove it)"
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        Options.ExportFolder = strPriorFolder
+        Options.ExportFormatVersion = lngPriorFormat
+        Options.UseEnvForConnections = lngPriorEnv
+        Set VCSIndex = cSavedIndex
+    End If
+    ClearConnState
+    DropInheritanceFixture
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    Err.Clear
+    If lngErr <> 0 Then TestAssert False, "merge of linked tables with an inherited relation, error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LinkInheritanceTable
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : Link a back-end table under its own name, as ImportLinkedTable does.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LinkInheritanceTable(strTable As String, strBackEnd As String)
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(strTable)
+    tdf.Connect = ";DATABASE=" & strBackEnd
+    tdf.SourceTableName = strTable
+    dbs.TableDefs.Append tdf
+    Set tdf = Nothing
+    RefreshTableCollections dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CountInheritedRelations
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : Number of inherited relations in the current database that involve the
+'           : table, read through a fresh handle.
+'---------------------------------------------------------------------------------------
+'
+Private Function CountInheritedRelations(strTable As String) As Long
+
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+
+    Set dbs = CurrentDb
+    For Each rel In dbs.Relations
+        If (rel.Attributes And dbRelationInherited) = dbRelationInherited Then
+            If rel.Table = strTable Or rel.ForeignTable = strTable Then
+                CountInheritedRelations = CountInheritedRelations + 1
+            End If
+        End If
+    Next rel
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FrontEndRelationKept
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : True when the front-end relation of the fixture is still there, between
+'           : the same tables and fields, and still without referential integrity.
+'---------------------------------------------------------------------------------------
+'
+Private Function FrontEndRelationKept() As Boolean
+
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+
+    Set dbs = CurrentDb
+    For Each rel In dbs.Relations
+        If rel.Name = TEST_RELATION_FRONT_END Then
+            If rel.Table = TEST_TABLE_INHERIT_PARENT _
+                And rel.ForeignTable = TEST_TABLE_INHERIT_CHILD _
+                And (rel.Attributes And dbRelationDontEnforce) = dbRelationDontEnforce _
+                And rel.Fields.Count = 1 Then
+                FrontEndRelationKept = (rel.Fields(0).Name = "Code" _
+                    And rel.Fields(0).ForeignName = "ParentCode")
+            End If
+        End If
+    Next rel
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BackEndRelationKept
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : True when the back end of the fixture still holds its relationship. Deleting
+'           : the inherited relation from the front end deletes this one too.
+'---------------------------------------------------------------------------------------
+'
+Private Function BackEndRelationKept(strBackEnd As String) As Boolean
+
+    Dim dbsBack As DAO.Database
+    Dim rel As DAO.Relation
+
+    Set dbsBack = DBEngine.OpenDatabase(strBackEnd, False, True)
+    For Each rel In dbsBack.Relations
+        If rel.Name = "ParentChild" Then BackEndRelationKept = True
+    Next rel
+    dbsBack.Close
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DropInheritanceFixture
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : Remove the front-end relation, if present, and then the two linked tables.
+'           : The relation goes first: a table that takes part in a relation cannot be
+'           : dropped. The links are found in TableDefs rather than through TableExists,
+'           : which reports a link whose back end is gone as missing: a failed run
+'           : would then leave links behind that make every later run fail.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DropInheritanceFixture()
+
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+    Dim tdf As DAO.TableDef
+    Dim colLinks As Collection
+    Dim varName As Variant
+    Dim blnFound As Boolean
+
+    Set dbs = CurrentDb
+    For Each rel In dbs.Relations
+        If rel.Name = TEST_RELATION_FRONT_END Then blnFound = True
+    Next rel
+    If blnFound Then dbs.Relations.Delete TEST_RELATION_FRONT_END
+
+    Set colLinks = New Collection
+    For Each tdf In dbs.TableDefs
+        If tdf.Name = TEST_TABLE_INHERIT_CHILD Or tdf.Name = TEST_TABLE_INHERIT_PARENT Then colLinks.Add tdf.Name
+    Next tdf
+    For Each varName In colLinks
+        dbs.TableDefs.Delete CStr(varName)
+    Next varName
+    RefreshTableCollections dbs
 
 End Sub
 
