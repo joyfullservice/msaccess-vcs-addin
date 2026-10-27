@@ -154,7 +154,7 @@ Private Sub cmdDeleteDatabase_Click()
     Else
         If m_dSchemas.Exists(strName) Then
             If MsgBox2(T("Remove Connection?"), T("Are you sure you want to delete '{0}'?", var0:=strName), _
-                T("Click YES to remove or NO to cancel."), vbQuestion + vbYesNo) = vbYes Then
+                T("Click YES to remove or NO to cancel."), vbQuestion + vbYesNo, , vbNo) = vbYes Then
                 m_dSchemas.Remove strName
                 RefreshSchemaList
             End If
