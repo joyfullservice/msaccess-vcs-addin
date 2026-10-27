@@ -341,13 +341,15 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 7/8/2021
 ' Purpose   : Confirm that the user really wants to cancel the current operation.
+'           : When the prompt is suppressed, the operation resumes: nobody confirmed
+'           : the close, and it may have come from code, such as an AutoClose timer.
 '---------------------------------------------------------------------------------------
 '
 Private Function ConfirmCancel() As Boolean
     ConfirmCancel = MsgBox2(T("Cancel Current Operation?"), _
         T("You are in the midst of a running process. Are you sure you want to cancel?"), _
         T("Click [Yes] to cancel the process, or [No] to resume."), _
-        vbYesNo + vbDefaultButton2 + vbExclamation, , vbYes, True) = vbYes
+        vbYesNo + vbDefaultButton2 + vbExclamation, , vbNo, True) = vbYes
 End Function
 
 
