@@ -3509,6 +3509,10 @@ Public Sub InstallTestAssertModule()
     End If
     cmp.CodeModule.InsertLines 1, cCode.GetStr
 
+    ' Save now, or Access prompts the user to save the new module on close.
+    Set VBE.ActiveVBProject = CurrentVBProject
+    DoCmd.Save acModule, cmp.Name
+
     MsgBox2 T("Test Helper Installed"), _
         T("The modTestAssert module has been added to your project."), _
         T("Use TestAssert in your test subs to record assertions. " & _

@@ -1385,6 +1385,7 @@ Private Sub SyncFactoryEntries(proj As VBIDE.VBProject)
     ' Markers not found — append the full TestClassFactory template
     If lngBegin = 0 Or lngEnd = 0 Then
         AppendFactoryTemplate cmp, colClassNames
+        SaveFactoryModule proj, cmp
         Exit Sub
     End If
 
@@ -1405,7 +1406,22 @@ Private Sub SyncFactoryEntries(proj As VBIDE.VBProject)
         cmp.CodeModule.DeleteLines lngBegin + 1, lngEnd - lngBegin - 1
     End If
     cmp.CodeModule.InsertLines lngBegin + 1, strExpected
+    SaveFactoryModule proj, cmp
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveFactoryModule
+' Author    : Adam Waller
+' Date      : 10/27/2026
+' Purpose   : Save modTestAssert after the factory entries change, or Access prompts
+'           : the user to save it when the database closes.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveFactoryModule(proj As VBIDE.VBProject, cmp As VBIDE.VBComponent)
+    Set VBE.ActiveVBProject = proj
+    DoCmd.Save acModule, cmp.Name
 End Sub
 
 
