@@ -57,6 +57,11 @@ Private m_eimSticky As eInteractionMode
 ' Heartbeat value last copied to the registry, throttling Pulse's registry write.
 Private m_datRegistryPulse As Date
 
+' The Source and root token an interactive command found when it began during a live
+' root, so EndInteractiveCommand can give that root its own caller back.
+Private m_eosSourceBeforeCommand As eOperationSource
+Private m_strRootTokenBeforeCommand As String
+
 ' Lease issued by Begin. It has to be held here for the life of the root: a lease
 ' released while the root is still active abandons it (clsRootOperationLease.
 ' Class_Terminate), and Begin's caller does not complete until Finish.
@@ -489,11 +494,42 @@ End Function
 '           : root never reached its Finish: either would keep every prompt from the
 '           : person at the screen. A live root still needs its flag, and its own
 '           : Finish clears it.
+'           : A live root also still needs its Source after the command: code later in
+'           : the root branches on it, such as the conflict check, which would open
+'           : the conflict form for an MCP caller. The caller pairs this with
+'           : EndInteractiveCommand, which puts it back.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ResetForInteractiveCommand()
+    If RootIsLive Then
+        m_eosSourceBeforeCommand = Me.Source
+        m_strRootTokenBeforeCommand = m_Root.Token
+    Else
+        m_strRootTokenBeforeCommand = vbNullString
+        Me.ForceUnattended = False
+    End If
     Me.Source = eosUserInterface
-    If Not RootIsLive Then Me.ForceUnattended = False
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EndInteractiveCommand
+' Author    : Adam Waller
+' Date      : 10/27/2026
+' Purpose   : Called when an interactive command returns. When it ran during a live
+'           : root, and that same root is still live, give the root back the Source it
+'           : had. A root that finished meanwhile is left alone, and so is a new one,
+'           : which set its own Source.
+'---------------------------------------------------------------------------------------
+'
+Public Sub EndInteractiveCommand()
+    If Len(m_strRootTokenBeforeCommand) = 0 Then Exit Sub
+    If RootIsLive Then
+        If StrComp(m_Root.Token, m_strRootTokenBeforeCommand, vbBinaryCompare) = 0 Then
+            Me.Source = m_eosSourceBeforeCommand
+        End If
+    End If
+    m_strRootTokenBeforeCommand = vbNullString
 End Sub
 
 

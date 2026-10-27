@@ -431,6 +431,45 @@ Public Sub TestGesturePromptFollowsThePersonActing()
 End Sub
 
 
+Public Sub TestInteractiveCommandGivesALiveRootBackItsSource()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    ' The rest of an MCP root branches on Source, so a ribbon click during it must
+    ' not leave the root looking like a person once the click is handled.
+    Set cOp = NewOperation
+    cOp.Source = eosMCPTool
+    Set cRoot = cOp.TryBeginRoot(eotExport)
+    cOp.ResetForInteractiveCommand
+    TestAssert cOp.Source = eosUserInterface, "the command runs as the person"
+    cOp.EndInteractiveCommand
+    TestAssert cOp.Source = eosMCPTool, "the root gets its own caller back"
+    TestAssert Not cOp.AllowsPrompt(True), "and its gesture prompts are suppressed again"
+    cRoot.Complete eorSuccess
+End Sub
+
+
+Public Sub TestInteractiveCommandKeepsSourceWhenTheRootEnded()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    ' A root that finishes while the command runs, or a command with no root under
+    ' it, leaves the person's Source in place for what they do next.
+    Set cOp = NewOperation
+    cOp.Source = eosMCPTool
+    Set cRoot = cOp.TryBeginRoot(eotExport)
+    cOp.ResetForInteractiveCommand
+    cRoot.Complete eorSuccess
+    cOp.EndInteractiveCommand
+    TestAssert cOp.Source = eosUserInterface, "root finished during the command"
+
+    cOp.Source = eosExternalAPI
+    cOp.ResetForInteractiveCommand
+    cOp.EndInteractiveCommand
+    TestAssert cOp.Source = eosUserInterface, "no root under the command"
+End Sub
+
+
 Public Sub TestRunningRootExpiresAfterHeartbeatTimeout()
     Dim cOp As clsOperation
     Dim cRoot As clsRootOperationLease

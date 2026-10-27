@@ -22,6 +22,7 @@ Option Explicit
 Public Function AddInMenuItemLaunch()
     Operation.ResetForInteractiveCommand
     VCS.Show
+    Operation.EndInteractiveCommand
 End Function
 
 
@@ -35,6 +36,7 @@ End Function
 Public Function AddInOptionsLaunch()
     Operation.ResetForInteractiveCommand
     VCS.ShowOptions
+    Operation.EndInteractiveCommand
 End Function
 
 
@@ -48,4 +50,5 @@ End Function
 Public Function AddInMenuItemExport()
     Operation.ResetForInteractiveCommand
     VCS.Export
+    Operation.EndInteractiveCommand
 End Function
