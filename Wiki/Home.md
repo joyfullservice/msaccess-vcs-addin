@@ -2,7 +2,7 @@
 
 Welcome! This wiki documents installation and usage of the **MSAccess Version Control System (VCS) Add-in** for Microsoft Access — export database objects to text source, collaborate with Git, and build or merge databases from those files.
 
-**Current release:** v5.x (export format 5.0.0). See [What's New in Version 5](Version-5-Overview) for migration notes from older projects.
+**Current release:** v5.1 (export format 5.1.0). See [What's New in Version 5](Version-5-Overview) for migration notes from older projects.
 
 ---
 
@@ -44,7 +44,7 @@ Welcome! This wiki documents installation and usage of the **MSAccess Version Co
 
 | Page | Description |
 |------|-------------|
-| [Version 5 Overview](Version-5-Overview) | Export format 5.0, deterministic queries, binary index, migration steps |
+| [Version 5 Overview](Version-5-Overview) | Export formats 5.0 and 5.1, deterministic queries, binary index, migration steps |
 
 ---
 

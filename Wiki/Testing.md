@@ -47,12 +47,22 @@ Set **Default Test Filter** under **Options** → **Advanced**, then click **Run
 
 ![Run Tests Button](img/ribbon-run-tests.png)
 
+### Test runner
+
+On Microsoft 365 builds that include the Edge browser control (Version 2304 or later), **Run Tests** and `VCS.RunTests` open the test runner window. It lists the tests it finds and waits for you to choose what to run; nothing runs until you click **Run**.
+
+- **Sidebar:** *All tests*, *Failed tests*, and *New tests* (never run), a tree of your `@Folder` paths, your `@Tag` names (click to include, again to exclude), and *Recent* combinations you have run.
+- **Filter box:** accepts the same tokens as `VCS.RunTests`, such as `SQL -slow`. The **Run** button runs whatever is visible; play buttons on a folder, module, or single test run just that.
+- **Results:** pass, fail, and error status stream in as tests run, with duration and assertion counts. Click a location to open the VBE at that procedure. Results from the previous run are shown when the window reopens.
+- **Toolbar:** **Refresh** rescans the project after you edit tests, **Open report** opens the HTML results dashboard, and **Copy path** copies the path of the results file for pasting into an AI chat. A theme picker chooses light, dark, or your system setting.
+
+Closing the window hides it, so it reopens instantly. Turn off **Use HTML test runner** under **Options** → **Advanced** to use the console instead.
+
 ### Output
 
-- Progress in `frmVCSMain` console
-- JSON summary and `TestRun_*.log` under the add-in `logs/` folder
+Each run writes its results under `test-results/` in the export folder: `test-state.json` (the durable results the runner reloads), `test-results.xml` (JUnit, for CI), and `test-results.html` (a self-contained report). A `TestRun_*.log` is saved under `logs/`. The JUnit and HTML files can be turned off in **Options** → **Advanced**.
 
-When the run finishes, the console shows a summary of passed, failed, and skipped tests along with timing:
+With the console (older Access builds, or the runner turned off), progress appears in `frmVCSMain`, and the run ends with a summary of passed, failed, and skipped tests along with timing:
 
 ![Completed test run summary](img/tests-complete.png)
 

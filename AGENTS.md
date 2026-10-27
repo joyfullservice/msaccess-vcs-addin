@@ -46,7 +46,7 @@ By hand: install a recent release, clone the repo, use **Build From Source** on
 `Version Control.accda.src`, then modify the running `Version Control.accda`,
 test, and run `Deploy` in the VBA Immediate Window — it increments the version,
 exports to source files, and installs the development build. Commit the source
-files and open a pull request against `dev`; releases are cut from `master`.
+files and open a pull request against `dev`; releases are cut from `main`.
 
 ## Invariants
 
