@@ -1794,8 +1794,18 @@ Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String)
     On Error Resume Next
 
     If Not blnExistsInAddIn Then
-        ' Nice! We can use a simple call to delete the object
-        DoCmd.DeleteObject intType, strName
+        If intType = acTable Then
+            ' Delete tables through SharedDb, never around it. A TableDef created and
+            ' appended through a SharedDb whose TableDefs collection still lists the
+            ' deleted table is dead after the Refresh: empty Connect, no properties, and
+            ' error 3420 on first use. A merged linked table hits this whenever an
+            ' earlier step of the same category (the conflict check's export) had read
+            ' TableDefs.
+            SharedDb.TableDefs.Delete strName
+        Else
+            ' Nice! We can use a simple call to delete the object
+            DoCmd.DeleteObject intType, strName
+        End If
     Else
         ' This is where it gets fun... If you attempt to delete an object from the
         ' VBA code in the add-in, it will default to operating on the add-in object
@@ -1834,6 +1844,8 @@ Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String)
         If Not CatchAny(eelError, T("Error renaming object: {0}", var0:=strName), ModuleName & ".DeleteObjectIfExists") Then
             ' Delete object using the temp name
             DoCmd.DeleteObject intType, strTempName
+            ' This one went around SharedDb, so bring its collection up to date. (See above)
+            If intType = acTable Then SharedDb.TableDefs.Refresh
         End If
     End If
 
