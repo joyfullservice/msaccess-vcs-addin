@@ -971,8 +971,9 @@ End Sub
 ' Purpose   : Apply standard letter casing rules to VBA identifiers.
 '           : Requires a clsStandardLetterCasing module in the current project.
 '           : If the module is not found, offers to create a starter template.
-'           : Returns True when the rules were applied with no invalid entry. A caller
-'           : nobody can ask gets no template, and False.
+'           : Returns True when the rules were applied with no invalid entry, or when
+'           : the starter template was created. A caller nobody can ask gets no
+'           : template, and False.
 '---------------------------------------------------------------------------------------
 '
 Public Function StandardizeLetterCasing() As Boolean
@@ -995,6 +996,7 @@ Public Function StandardizeLetterCasing() As Boolean
             T("Would you like to create a starter template?"), _
             vbYesNo + vbQuestion, , vbNo) Then
             CreateLetterCasingTemplate
+            StandardizeLetterCasing = True
         End If
     Else
         If colResult.Count > 0 Then
