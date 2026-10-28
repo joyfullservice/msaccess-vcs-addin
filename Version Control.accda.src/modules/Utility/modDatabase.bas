@@ -1044,8 +1044,9 @@ End Function
 '           : is enough alone: the prefix is not reserved, so a user table may use it,
 '           : and setting dbSystemObject on a user table (an old way to hide it) stores
 '           : the same bits the engine uses on its own tables.
-'           : Test the attribute with <> 0: dbSystemObject is two bits (&H80000002), and
-'           : engine tables carry only &H80000000.
+'           : Test the attribute with <> 0: dbSystemObject is two bits (&H80000002).
+'           : Engine tables carry only &H80000000 and tables Access owns carry only
+'           : &H00000002, so neither group has both.
 '           : Built once per scan so callers can test names inside their loop.
 '---------------------------------------------------------------------------------------
 '
