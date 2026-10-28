@@ -51,6 +51,8 @@ Set **Default Test Filter** under **Options** → **Advanced**, then click **Run
 
 On Microsoft 365 builds that include the Edge browser control (Version 2304 or later), **Run Tests** and `VCS.RunTests` open the test runner window. It lists the tests it finds and waits for you to choose what to run; nothing runs until you click **Run**.
 
+![Test runner during a run](img/test-runner.png)
+
 - **Sidebar:** *All tests*, *Failed tests*, and *New tests* (never run), a tree of your `@Folder` paths, your `@Tag` names (click to include, again to exclude), and *Recent* combinations you have run.
 - **Filter box:** accepts the same tokens as `VCS.RunTests`, such as `SQL -slow`. The **Run** button runs whatever is visible; play buttons on a folder, module, or single test run just that.
 - **Results:** pass, fail, and error status stream in as tests run, with duration and assertion counts. Click a location to open the VBE at that procedure. Results from the previous run are shown when the window reopens.
