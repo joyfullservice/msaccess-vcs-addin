@@ -485,3 +485,301 @@ Public Function GetSystemEncoding(Optional blnAllowUtf8 As Boolean = False) As S
     End Select
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : EscapeXmlName
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Escape a field or table name the way Access does for XML data export
+'           : element names (_xHHHH_ for disallowed characters).
+'---------------------------------------------------------------------------------------
+'
+Public Function EscapeXmlName(strName As String) As String
+
+    Const CHAR_UNDERSCORE As Long = 95
+    Const CHAR_LOWER_X As Long = 120
+
+    Dim lngPos As Long
+    Dim lngChar As Long
+    Dim blnEscape As Boolean
+    Dim cOut As New clsConcat
+
+    For lngPos = 1 To Len(strName)
+        lngChar = AscW(Mid$(strName, lngPos, 1))
+        If lngChar = CHAR_UNDERSCORE Then
+            ' Access escapes an underscore only when a lowercase "x" follows it, so the
+            ' pair cannot be misread as the start of an _xHHHH_ escape sequence. An
+            ' uppercase "X" is left alone, so this test must be case sensitive.
+            blnEscape = False
+            If lngPos < Len(strName) Then
+                blnEscape = (AscW(Mid$(strName, lngPos + 1, 1)) = CHAR_LOWER_X)
+            End If
+        Else
+            blnEscape = Not IsXmlExportNameChar(lngChar)
+        End If
+        If blnEscape Then
+            cOut.Add "_x", Right$("0000" & Hex$(lngChar And &HFFFF&), 4), "_"
+        Else
+            cOut.Add ChrW$(lngChar)
+        End If
+    Next lngPos
+
+    EscapeXmlName = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : UnescapeXmlName
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Reverse of EscapeXmlName. Converts _xHHHH_ sequences in an exported XML
+'           : element or index-key name back to the original character.
+'           :
+'           : A sequence is only decoded when it is well formed (_x, four hex digits, and
+'           : a closing underscore). Anything else is literal text, which is what makes
+'           : EscapeXmlName's rule -- escape an underscore only when a lowercase "x"
+'           : follows it -- round-trip: "a_x1" escapes to "a_x005F_x1", and the "_x1"
+'           : tail here is left alone because "x1" is not four hex digits.
+'           :
+'           : Comparisons are binary because Access escapes "_x" but not "_X", and this
+'           : module compiles with Option Compare Database.
+'---------------------------------------------------------------------------------------
+'
+Public Function UnescapeXmlName(strName As String) As String
+
+    Const ESCAPE_LEN As Long = 7    ' _xHHHH_
+
+    Dim lngPos As Long
+    Dim lngLen As Long
+    Dim lngCode As Long
+    Dim cOut As New clsConcat
+
+    lngLen = Len(strName)
+    lngPos = 1
+
+    Do While lngPos <= lngLen
+        lngCode = -1
+        If lngPos + ESCAPE_LEN - 1 <= lngLen Then
+            If StrComp(Mid$(strName, lngPos, 2), "_x", vbBinaryCompare) = 0 _
+                And Mid$(strName, lngPos + 6, 1) = "_" Then
+                lngCode = HexWordValue(Mid$(strName, lngPos + 2, 4))
+            End If
+        End If
+        If lngCode >= 0 Then
+            cOut.Add ChrW$(lngCode)
+            lngPos = lngPos + ESCAPE_LEN
+        Else
+            cOut.Add Mid$(strName, lngPos, 1)
+            lngPos = lngPos + 1
+        End If
+    Loop
+
+    UnescapeXmlName = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : HexWordValue
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the value of exactly four hexadecimal digits, or -1 when the string
+'           : is not four hex digits. Returning the value and the verdict together is the
+'           : point: a caller cannot validate one string and convert a different one.
+'           :
+'           : The digits are accumulated arithmetically rather than passed to CLng with an
+'           : "&H" prefix. CLng does handle that prefix correctly over the full 0000-FFFF
+'           : range, but it raises a type mismatch on a trailing "&" -- the type-suffix
+'           : character is VBA source-literal syntax, not part of string-to-number
+'           : conversion. Doing the arithmetic keeps this off VBA's parser entirely.
+'---------------------------------------------------------------------------------------
+'
+Private Function HexWordValue(strValue As String) As Long
+
+    Dim lngPos As Long
+    Dim lngChar As Long
+    Dim lngDigit As Long
+    Dim lngResult As Long
+
+    HexWordValue = -1
+    If Len(strValue) <> 4 Then Exit Function
+
+    For lngPos = 1 To 4
+        lngChar = AscW(Mid$(strValue, lngPos, 1))
+        Select Case lngChar
+            Case 48 To 57:  lngDigit = lngChar - 48     ' 0-9
+            Case 65 To 70:  lngDigit = lngChar - 55     ' A-F
+            Case 97 To 102: lngDigit = lngChar - 87     ' a-f
+            Case Else:      Exit Function
+        End Select
+        lngResult = (lngResult * 16) + lngDigit
+    Next lngPos
+
+    HexWordValue = lngResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : NormalizeXmlSortValue
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Normalize a table-data XML element value for deterministic lexical sorting.
+'           : Null/missing fields pass blnIsNull=True.
+'---------------------------------------------------------------------------------------
+'
+Public Function NormalizeXmlSortValue(strValue As String, intFieldType As Integer, Optional blnIsNull As Boolean = False) As String
+
+    Const MAX_SORT_LEN As Long = 255
+
+    If blnIsNull Then
+        NormalizeXmlSortValue = Chr$(1) & "N"
+        Exit Function
+    End If
+
+    Select Case intFieldType
+        Case dbBoolean
+            If StrComp(strValue, "true", vbTextCompare) = 0 _
+                Or strValue = "1" _
+                Or StrComp(strValue, "-1", vbTextCompare) = 0 Then
+                NormalizeXmlSortValue = Chr$(2) & "1"
+            Else
+                NormalizeXmlSortValue = Chr$(2) & "0"
+            End If
+        Case dbByte, dbInteger, dbLong, dbSingle, dbDouble, dbCurrency, dbDecimal, dbNumeric
+            NormalizeXmlSortValue = Chr$(3) & NormalizeNumericXmlSortValue(strValue)
+        Case dbDate
+            NormalizeXmlSortValue = Chr$(4) & Left$(strValue, MAX_SORT_LEN)
+        Case Else
+            NormalizeXmlSortValue = Chr$(5) & Left$(strValue, MAX_SORT_LEN)
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : ComposeXmlSortKey
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Concatenate normalized sort-field parts into one lexical key. Each part
+'           : is terminated with vbNullChar so multi-field keys stay unambiguous without
+'           : making string length the primary sort dimension.
+'---------------------------------------------------------------------------------------
+'
+Public Function ComposeXmlSortKey(colParts As Collection, lngOrdinal As Long) As String
+
+    Const ORDINAL_WIDTH As Long = 10
+
+    Dim varPart As Variant
+    Dim cKey As New clsConcat
+
+    For Each varPart In colParts
+        cKey.Add CStr(varPart), vbNullChar
+    Next varPart
+
+    ComposeXmlSortKey = cKey.GetStr & Format$(lngOrdinal, String$(ORDINAL_WIDTH, "0"))
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : XmlSortKeyOrdinal
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Recover the stable-sort ordinal suffix from a ComposeXmlSortKey result.
+'---------------------------------------------------------------------------------------
+'
+Public Function XmlSortKeyOrdinal(strKey As String) As Long
+
+    Const ORDINAL_WIDTH As Long = 10
+
+    XmlSortKeyOrdinal = CLng(Right$(strKey, ORDINAL_WIDTH))
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : NormalizeNumericXmlSortValue
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Fixed-width numeric normalization so lexical order matches numeric order.
+'---------------------------------------------------------------------------------------
+'
+Public Function NormalizeNumericXmlSortValue(strValue As String) As String
+
+    ' Fractional digits are zero-padded rather than optional (########) so that every key
+    ' is the same length. Without padding, a nines-complemented "2" ("...97") would sort
+    ' ahead of "2.5" ("...97.4"), reversing the intended order for negative values.
+    Const NUM_SORT_FORMAT As String = "0000000000000000.00000000"
+
+    Dim dblVal As Double
+
+    If Len(strValue) = 0 Then
+        NormalizeNumericXmlSortValue = "P" & Format$(0, NUM_SORT_FORMAT)
+        Exit Function
+    End If
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    dblVal = CDbl(strValue)
+    If Err Then
+        Err.Clear
+        NormalizeNumericXmlSortValue = "T" & Left$(strValue, 255)
+        Exit Function
+    End If
+
+    If dblVal < 0 Then
+        ' Nines-complement the magnitude so that larger negatives sort first. Subtracting
+        ' the value from a large constant cannot be used here, because Format$ rounds a
+        ' Double to 15 significant digits and the 16-digit results collapse together.
+        NormalizeNumericXmlSortValue = "N" & NinesComplement(Format$(-dblVal, NUM_SORT_FORMAT))
+    Else
+        NormalizeNumericXmlSortValue = "P" & Format$(dblVal, NUM_SORT_FORMAT)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : NinesComplement
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Replace each digit with (9 - digit), leaving the decimal separator alone,
+'           : so that a descending magnitude produces an ascending lexical key.
+'---------------------------------------------------------------------------------------
+'
+Private Function NinesComplement(strNumber As String) As String
+
+    Dim lngPos As Long
+    Dim lngChar As Long
+    Dim cOut As New clsConcat
+
+    For lngPos = 1 To Len(strNumber)
+        lngChar = AscW(Mid$(strNumber, lngPos, 1))
+        If lngChar >= 48 And lngChar <= 57 Then
+            cOut.Add ChrW$(105 - lngChar)
+        Else
+            cOut.Add ChrW$(lngChar)
+        End If
+    Next lngPos
+
+    NinesComplement = cOut.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : IsXmlExportNameChar
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Characters Access leaves unescaped in exported XML element names.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsXmlExportNameChar(lngChar As Long) As Boolean
+    IsXmlExportNameChar = _
+        (lngChar >= 48 And lngChar <= 57) _
+        Or (lngChar >= 65 And lngChar <= 90) _
+        Or (lngChar >= 97 And lngChar <= 122) _
+        Or lngChar = 95
+End Function

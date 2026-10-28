@@ -40,6 +40,12 @@ Private Declare PtrSafe Function CreateFileW Lib "kernel32" ( _
     ByVal dwFlagsAndAttributes As Long, _
     ByVal hTemplateFile As LongPtr) As LongPtr
 
+' Convert a long path to its 8.3 short form (used to obtain a space-free path)
+Private Declare PtrSafe Function GetShortPathNameW Lib "kernel32" ( _
+    ByVal lpszLongPath As LongPtr, _
+    ByVal lpszShortPath As LongPtr, _
+    ByVal cchBuffer As Long) As Long
+
 ' Time zone conversions
 Private Declare PtrSafe Function GetTimeZoneInformation Lib "kernel32" (lpTimeZoneInformation As TIME_ZONE_INFORMATION) As Long
 Private Declare PtrSafe Function FileTimeToSystemTime Lib "kernel32" (lpFileTime As FILETIME, lpSystemTime As SYSTEMTIME) As Long
@@ -132,6 +138,30 @@ Private Type WIN32_FIND_DATA
     cFileName        As String * MAX_PATH
     cAlternate       As String * ALTERNATE
 End Type
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetShortPath
+' Author    : Adam Waller
+' Date      : 7/7/2026
+' Purpose   : Return the 8.3 short form of an existing path (no spaces). Falls back to
+'           : the original path if the volume has 8.3 name creation disabled or the
+'           : path does not exist. The path must exist for a short name to be produced.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetShortPath(strPath As String) As String
+
+    Dim strBuffer As String
+    Dim lngLen As Long
+
+    GetShortPath = strPath
+    If Len(strPath) = 0 Then Exit Function
+
+    strBuffer = String$(1024, vbNullChar)
+    lngLen = GetShortPathNameW(StrPtr(strPath), StrPtr(strBuffer), 1024)
+    If lngLen > 0 And lngLen <= 1024 Then GetShortPath = Left$(strBuffer, lngLen)
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -265,6 +295,36 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetFileInfo
+' Author    : Adam Waller
+' Date      : 7/24/2026
+' Purpose   : Single kernel-level stat of one file via FindFirstFileW. Returns True if the
+'           : file exists (and is not a directory), reporting its size in bytes and its
+'           : actual on-disk name (correct case) via ByRef. Replaces the multiple
+'           : filesystem-hitting COM calls of FSO.FileExists + FSO.GetFile(...).Size / .Name.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFileInfo(strPath As String, ByRef dblSize As Double, _
+    ByRef strActualName As String) As Boolean
+
+    Dim pFileHandle As LongPtr
+    Dim tFileData As WIN32_FIND_DATA
+
+    pFileHandle = FindFirstFileW(StrPtr(strPath), VarPtr(tFileData))
+    If pFileHandle = INVALID_HANDLE_VALUE Then Exit Function
+
+    If (tFileData.dwFileAttributes And FILE_ATTRIBUTE_DIRECTORY) = 0 Then
+        strActualName = Left$(tFileData.cFileName, InStr(tFileData.cFileName, vbNullChar) - 1)
+        dblSize = (tFileData.nFileSizeHigh * 4294967296#) + tFileData.nFileSizeLow
+        If tFileData.nFileSizeLow < 0 Then dblSize = dblSize + 4294967296#
+        GetFileInfo = True
+    End If
+    FindClose pFileHandle
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ScanFolderContents
 ' Author    : Adam Waller
 ' Date      : 4/28/2026
@@ -333,6 +393,42 @@ Public Function ScanFolderMetadata(strFolder As String, Optional blnRecursive As
     Perf.OperationEnd
 
     Set ScanFolderMetadata = dMeta
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindFileRecursive
+' Author    : bclothier
+' Date      : 8/24/2026
+' Purpose   : Search an entire folder tree (via ScanFolderMetadata's single Win32 pass)
+'           : for a file named strBaseName, trying each extension in aExtensions in order.
+'           : Returns the full path of the first match found anywhere under strFolder, or
+'           : a zero-length string if none exists. Used as the subfolder-search fallback
+'           : when a flat, base-folder-only check has already failed to find the file.
+'---------------------------------------------------------------------------------------
+'
+Public Function FindFileRecursive(strFolder As String, strBaseName As String, aExtensions As Variant) As String
+
+    Dim dMeta As Dictionary
+    Dim varExt As Variant
+    Dim varKey As Variant
+    Dim strFileName As String
+
+    Set dMeta = ScanFolderMetadata(strFolder, True)
+
+    ' Preserve the caller's extension priority: check every file in the tree
+    ' against the first extension before moving on to the next, matching the
+    ' same precedence a flat, single-folder check would use.
+    For Each varExt In aExtensions
+        strFileName = strBaseName & CStr(varExt)
+        For Each varKey In dMeta.Keys
+            If StrComp(FSO.GetFileName(CStr(varKey)), strFileName, vbTextCompare) = 0 Then
+                FindFileRecursive = CStr(varKey)
+                Exit Function
+            End If
+        Next varKey
+    Next varExt
 
 End Function
 

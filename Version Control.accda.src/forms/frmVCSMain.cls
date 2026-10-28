@@ -22,14 +22,21 @@ Public intContainerFilter As eContainerFilter
 Public objSingleObject As AccessObject
 
 ' Path to the last log file, in case the user wants to view the log after the operation.
-' (The Log object has already been reset at this point, so we can't use Log.LogFilePath.)
+' (The Log object has already been reset at this point, so we can't use Log.SavedLogFilePath.)
 Public strLastLogFilePath As String
 
 ' Path to copy to clipboard (may differ from log path, e.g. JSON results for tests)
 Public strCopyToClipboardPath As String
 
+' Path to test-results.html after a console test run (when HTML export is enabled)
+Public strLastTestResultsPath As String
+
 ' Use this property to set the path to the source files (such as a build triggered from the API)
 Public strSourcePath As String
+
+' Whether the last export started from cmdExport_Click finished without being stopped.
+' (Read by clsVersionControl.Export, so an API caller gets the outcome as a return value.)
+Public blnLastExportSucceeded As Boolean
 
 ' Design-time and test-console client dimensions (twips; match frmVCSMain.form Width).
 Private Const DESIGN_INSIDE_WIDTH As Long = 9360
@@ -44,6 +51,11 @@ Private m_dblInitialInsideHeight As Double
 ' Baseline client size at first open (used to reset anchors before test layout).
 Private m_dblDesignInsideWidth As Double
 Private m_dblDesignInsideHeight As Double
+
+' True when the user confirmed cancel on Close during a running export/build.
+' Observed by cmdExport_Click after the operation returns so we can finish the
+' root as canceled without inferring that from every critical error.
+Private m_blnCancelRequested As Boolean
 
 
 '---------------------------------------------------------------------------------------
@@ -101,6 +113,8 @@ Public Sub cmdBuild_Click()
 
     Dim intBuildType As eOperationType
     Dim strFolder As String
+    Dim cRoot As clsRootOperationLease
+    Dim strToken As String
 
     ' Make sure we use the add-in to build the add-in.
     If CodeProject.FullName = CurrentProject.FullName Then
@@ -131,9 +145,10 @@ Public Sub cmdBuild_Click()
     '  build process, just in case we need to import a form with the same name.)
     If strFolder <> vbNullString Then
         intBuildType = IIf(chkFullBuild, eotBuild, eotMerge)
-        If Operation.Begin(intBuildType) Then
-            Operation.Stage
-            SetTimer "Build", strFolder, chkFullBuild
+        Set cRoot = Operation.TryBeginRoot(intBuildType)
+        If Not cRoot Is Nothing Then
+            strToken = cRoot.DetachForContinuation()
+            SetTimer "Build", strFolder, chkFullBuild, strToken
         Else
             ' Not ready to begin a new operation. Probably still running something else.
             DoCmd.Hourglass False
@@ -263,10 +278,18 @@ Public Sub FinishBuild(blnFullBuild As Boolean _
     strMessage = T(IIf(blnFullBuild, "Build", "Merge")) & " " & T(IIf(blnSuccess, "Complete", "FAILED"))
     SetStatusText T("Finished"), strMessage _
         , T("Additional details can be found in the project log file.<br><br>You may now close this window.")
-    cmdOpenLogFile.Visible = (Log.LogFilePath <> vbNullString)
+    cmdOpenLogFile.Visible = (Log.SavedLogFilePath <> vbNullString)
     cmdCopyPath.Visible = cmdOpenLogFile.Visible
-    Me.strLastLogFilePath = Log.LogFilePath
-    Me.strCopyToClipboardPath = Log.LogFilePath
+    Me.strLastLogFilePath = Log.SavedLogFilePath
+    Me.strCopyToClipboardPath = Log.SavedLogFilePath
+
+    ' Auto-close in silent/unattended mode. Defer via the timer so the close runs after
+    ' RunBuildFromContinuation completes the root; closing synchronously here unloads
+    ' the form while Operation.Status is still eosRunning, tripping the Form_Unload
+    ' cancel prompt -- a deadlock in an unattended session.
+    If Operation.InteractionMode = eimSilent Then
+        AutoClose
+    End If
 
 End Sub
 
@@ -318,17 +341,15 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 7/8/2021
 ' Purpose   : Confirm that the user really wants to cancel the current operation.
+'           : When the prompt is suppressed, the operation resumes: nobody confirmed
+'           : the close, and it may have come from code, such as an AutoClose timer.
 '---------------------------------------------------------------------------------------
 '
 Private Function ConfirmCancel() As Boolean
-    Dim eimPrior As eInteractionMode
-    eimPrior = Operation.InteractionMode
-    Operation.InteractionMode = eimNormal
     ConfirmCancel = MsgBox2(T("Cancel Current Operation?"), _
         T("You are in the midst of a running process. Are you sure you want to cancel?"), _
         T("Click [Yes] to cancel the process, or [No] to resume."), _
-        vbYesNo + vbDefaultButton2 + vbExclamation, , vbYes) = vbYes
-    Operation.InteractionMode = eimPrior
+        vbYesNo + vbDefaultButton2 + vbExclamation, , vbNo, True) = vbYes
 End Function
 
 
@@ -340,6 +361,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub cmdExport_Click()
+
+    Me.blnLastExportSucceeded = False
 
     ' Make sure we are ready to begin an operation...
     If Not Operation.Begin(eotExport) Then Exit Sub
@@ -365,12 +388,32 @@ Public Sub cmdExport_Click()
 
     ' Don't attempt to access controls if we are in the process of closing the form.
     If FormLoaded(Me) Then
-        SetStatusText T("Finished"), T("Export Complete"), _
-            T("Additional details can be found in the project log file.<br><br>You may now close this window.")
+        If m_blnCancelRequested Or Operation.Result = eorCanceled Then
+            SetStatusText T("Canceled"), T("Export Canceled"), _
+                T("The export was canceled. Additional details can be found in the project log file.<br><br>You may now close this window.")
+        ElseIf Operation.ErrorLevel = eelCritical Then
+            SetStatusText T("Finished"), T("Export Failed"), _
+                T("The export did not complete. Additional details can be found in the project log file.<br><br>You may now close this window.")
+        Else
+            SetStatusText T("Finished"), T("Export Complete"), _
+                T("Additional details can be found in the project log file.<br><br>You may now close this window.")
+        End If
+        Me.strLastLogFilePath = Log.SavedLogFilePath
+        Me.strCopyToClipboardPath = Log.SavedLogFilePath
         cmdOpenLogFile.Visible = (Me.strLastLogFilePath <> vbNullString)
         cmdCopyPath.Visible = cmdOpenLogFile.Visible
-        Me.strCopyToClipboardPath = Me.strLastLogFilePath
-        Operation.Finish
+        ' A critical error stops the export, whether it was raised by an object or by a
+        ' check that ended it before it began, such as a newer add-in version in the
+        ' project's options. Without a result the MCP callback would report it as
+        ' complete.
+        If m_blnCancelRequested Or Operation.Result = eorCanceled Then
+            Operation.Finish eorCanceled
+        ElseIf Operation.ErrorLevel = eelCritical Then
+            Operation.Finish eorFailed
+        Else
+            Me.blnLastExportSucceeded = True
+            Operation.Finish
+        End If
         DoEvents
     Else
         Operation.Finish eorCanceled
@@ -392,11 +435,14 @@ Public Sub ResetForOperation()
 
     If Not FormLoaded(Me) Then Exit Sub
 
+    m_blnCancelRequested = False
     Me.TimerInterval = 0
     cmdOpenLogFile.Visible = False
     cmdCopyPath.Visible = False
+    cmdOpenTestResults.Visible = False
     strLastLogFilePath = vbNullString
     strCopyToClipboardPath = vbNullString
+    strLastTestResultsPath = vbNullString
 
     cmdClose.SetFocus
     HideActionButtons
@@ -556,7 +602,7 @@ Public Sub Form_Load()
     ' Show notification if a newer export format version is available
     On Error Resume Next
     cmdFormatUpdate.Visible = DatabaseFileOpen And _
-        (Options.ExportFormatVersion < LATEST_EXPORT_FORMAT)
+        (Options.ExportFormatVersion < LatestExportFormat)
     On Error GoTo 0
 
     ' Set caption on build button
@@ -655,29 +701,22 @@ End Function
 '
 Private Sub Form_Unload(Cancel As Integer)
 
-    Static intAttempt As Integer
-
-    ' Allow the form to close on the third attempt, just in case the log
-    ' is stuck in active status for some reason.
-    If intAttempt > 2 Then
-        Operation.Finish eorCanceled
-        Exit Sub
-    End If
-
-    ' Check to see if we have an active job running.
+    ' Check to see if we have an active job running. Staged (paused) roots are
+    ' left alone: pause scopes close forms without meaning the user canceled.
     If Operation.Status = eosRunning Then
-        If TestRunner.State = etrsRunning Then
+        ' Keep the form open either way so the owning procedure can finish
+        ' the root after the loop observes the cancel signal.
+        Cancel = True
+        If Not ConfirmCancel Then Exit Sub
+
+        If Operation.OperationType = eotTestRun Then
             ' Tests use DoEvents between iterations, so this event fires mid-run.
             ' Call Cancel (sets CancelRequested flag) and let RunTests handle
             ' Operation.Finish after the loop exits cleanly with results intact.
-            If ConfirmCancel Then TestRunner.Cancel
-            Cancel = True
+            TestRunner.Cancel
         Else
-            If ConfirmCancel Then Log.Error eelCritical, T("Canceled Operation"), Me.Name & ".Form_Unload"
-            ' Either way, we want the log to complete first.
-            Cancel = True
-            Operation.Finish eorCanceled
-            intAttempt = intAttempt + 1
+            m_blnCancelRequested = True
+            Log.Error eelCritical, T("Canceled Operation"), Me.Name & ".Form_Unload"
         End If
     End If
 
@@ -713,5 +752,20 @@ End Sub
 Private Sub cmdCopyPath_Click()
     If Len(strCopyToClipboardPath) > 0 Then
         SetClipboardText strCopyToClipboardPath
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : cmdOpenTestResults_Click
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Open the HTML test results report after a console test run.
+'---------------------------------------------------------------------------------------
+'
+Private Sub cmdOpenTestResults_Click()
+    cmdClose.SetFocus
+    If FSO.FileExists(strLastTestResultsPath) Then
+        CreateObject("Shell.Application").Open (strLastTestResultsPath)
     End If
 End Sub

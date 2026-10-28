@@ -58,7 +58,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 2/21/2023
 ' Purpose   : Return the database object from the UI button
-'           : Supported languages: English, German, French, Dutch
+'           : Supported languages: English, German, French, Dutch, Spanish
 '---------------------------------------------------------------------------------------
 '
 Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElement As IUIAutomationElement) As AccessObject
@@ -79,17 +79,17 @@ Private Function GetUnderlyingDbObjectFromButton(oClient As CUIAutomation, oElem
 
     ' Identify the item based on the image name
     ' This sadly depends on the Access language
-    If LikeAny(strImage, "Table*", "*Tabel*") Then
+    If LikeAny(strImage, "Table*", "*Tabel*", "Tabla*") Then
         Set objItem = CurrentData.AllTables(strName)
-    ElseIf LikeAny(strImage, "*Query", "*Abfrage", "Requête*") Then
+    ElseIf LikeAny(strImage, "*Query", "*Abfrage", "Requête*", "Consulta*") Then
         Set objItem = CurrentData.AllQueries(strName)
     ElseIf LikeAny(strImage, "Form*") Then
         Set objItem = CurrentProject.AllForms(strName)
-    ElseIf LikeAny(strImage, "Report", "Rapport", "Bericht", "État") Then
+    ElseIf LikeAny(strImage, "Report", "Rapport", "Bericht", "État", "Informe") Then
         Set objItem = CurrentProject.AllReports(strName)
     ElseIf LikeAny(strImage, "Macro", "Makro") Then
         Set objItem = CurrentProject.AllMacros(strName)
-    ElseIf LikeAny(strImage, "*Modul*") Then ' Module and Class Module
+    ElseIf LikeAny(strImage, "*Modul*", "*Módul*") Then ' Module and Class Module
         Set objItem = CurrentProject.AllModules(strName)
     ElseIf LikeAny(strImage, "Function", "Fonction") Then ' ADP specific project items
         Set objItem = CurrentData.AllFunctions(strName)

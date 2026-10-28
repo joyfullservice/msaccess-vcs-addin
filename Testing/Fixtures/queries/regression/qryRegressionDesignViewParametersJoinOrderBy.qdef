@@ -1,0 +1,58 @@
+﻿Operation =1
+Option =0
+Where ="(((tblOrders.Quantity>=[Min Qty] AND tblOrders.StatusID=StatusFilter))"
+    ")"
+Begin InputTables
+    Name ="tblCustomers"
+    Name ="tblOrders"
+End
+Begin OutputColumns
+    Expression ="tblOrders.OrderID"
+    Expression ="tblCustomers.CustomerName"
+    Expression ="tblOrders.Quantity"
+End
+Begin Parameters
+    Name ="[Min Qty]"
+    Flag =4
+    Name ="StatusFilter"
+    Flag =3
+End
+Begin Joins
+    LeftTable ="tblCustomers"
+    RightTable ="tblOrders"
+    Expression ="tblCustomers.ID = tblOrders.CustomerID"
+    Flag =1
+End
+Begin OrderBy
+    Expression ="tblOrders.Quantity"
+    Flag =0
+    Expression ="tblCustomers.CustomerName"
+    Flag =0
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblOrders.OrderID"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCustomers.CustomerName"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblOrders.Quantity"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblOrders.StatusID"
+        dbLong "AggregateType" ="-1"
+    End
+End

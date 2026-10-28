@@ -93,18 +93,25 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim tbl As AccessObject
     Dim cTable As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentData.AllTables.Count
+            sngStart = Timer
+        End If
         For Each tbl In CurrentData.AllTables
             Set cTable = New clsAdpTable
             Set cTable.DbObject = tbl
             If blnNeedAll Then m_Items(False).Add cTable.SourceFile, cTable
             If blnModifiedOnly Then
                 If cTable.IsModified Then m_Items(True).Add cTable.SourceFile, cTable
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "SQL Tables"
             End If
         Next tbl
     End If
@@ -246,7 +253,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "txt"
 End Property

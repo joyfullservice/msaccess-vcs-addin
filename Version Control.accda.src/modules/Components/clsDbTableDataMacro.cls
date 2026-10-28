@@ -52,7 +52,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' doesn't, we have some error handling built into the export function below.
 
     ' Save structure in XML format
-    strHash = SaveComponentAsText(acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
+    strHash = SaveComponentAsText(acTableDataMacro, m_Table.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
 
     ' Save index if we found an item to export
     If strHash <> vbNullString Then
@@ -144,6 +144,9 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cTable As IDbComponent
     Dim strSql As String
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
+    Dim dSysTables As Dictionary
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -151,19 +154,25 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         Set dbs = SharedDb
+        If blnModifiedOnly Then
+            lngScanCount = dbs.TableDefs.Count
+            sngStart = Timer
+        End If
+        Set dSysTables = GetSystemTableNames
         For Each tdf In dbs.TableDefs
             ' Skip system, temp, and linked tables
-            If Left$(tdf.Name, 4) <> "MSys" Then
+            If Not dSysTables.Exists(tdf.Name) Then
                 If Left$(tdf.Name, 1) <> "~" Then
                     If Len(tdf.Connect) = 0 Then
                         ' Check to see if the table has a data macro
-                        strSql = "(LvExtra is not null) and (Type = 1) and ([Name] = """ & tdf.Name & """)"
+                        strSql = "(LvExtra is not null) and (Type = 1) and ([Name] = """ & EscapeSqlQuote(tdf.Name) & """)"
                         If DCount("[Name]", "MSysObjects", strSql) > 0 Then
                             Set cTable = New clsDbTableDataMacro
                             Set cTable.DbObject = CurrentData.AllTables(tdf.Name)
                             If blnNeedAll Then m_Items(False).Add cTable.SourceFile, cTable
                             If blnModifiedOnly Then
                                 If cTable.IsModified Then m_Items(True).Add cTable.SourceFile, cTable
+                                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Table Data Macros"
                             End If
                         End If
                     End If
@@ -256,7 +265,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "xml"
 End Property

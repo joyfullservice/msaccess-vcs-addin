@@ -94,9 +94,10 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
     Dim colResults As Collection
     Dim strScratch As String
     Dim blnIndexWasDisabled As Boolean
-    Dim blnOperationOwned As Boolean
-    Dim eimPriorMode As eInteractionMode
+    Dim blnRootOwned As Boolean
+    Dim cRoot As clsRootOperationLease
     Dim sngStart As Single
+    Dim strLogFile As String
 
     LogUnhandledErrors
     On Error GoTo ErrHandler
@@ -117,21 +118,20 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
         Exit Function
     End If
 
-    ' Begin our own operation, then flip the singleton InteractionMode to
-    ' eimSilent for the duration of the run. Cache the prior mode so we can
-    ' restore it in CleanUp / ErrHandler. Without silent mode, any MsgBox2
-    ' call (including the modal prompts clsLog raises for eelCritical /
-    ' eelError on an import failure) would block the harness waiting for a
-    ' user click and stall an unattended test run.
-    If Not Operation.Begin(eotOther) Then
-        dResult.Add "success", False
-        dResult.Add "error", "Could not begin test operation (another operation may be running)."
-        RunObjectRoundtripTests = ConvertToJson(dResult)
-        Exit Function
+    ' Called both on its own and from inside a test run. Nested, it owns nothing: the
+    ' enclosing run holds the root, the console, and the log file, and is already silent.
+    If Not (Operation.Status = eosRunning And Operation.OperationType = eotTestRun) Then
+        If Operation.AutomationSource Then Operation.ForceUnattended = True
+        Set cRoot = Operation.TryBeginRoot(eotOther)
+        If cRoot Is Nothing Then
+            dResult.Add "success", False
+            dResult.Add "error", "Could not begin test operation (another operation may be running)."
+            RunObjectRoundtripTests = ConvertToJson(dResult)
+            Exit Function
+        End If
+        blnRootOwned = True
+        Operation.InteractionMode = eimSilent
     End If
-    blnOperationOwned = True
-    eimPriorMode = Operation.InteractionMode
-    Operation.InteractionMode = eimSilent
 
     ' Disable the index for the duration of the run so test imports/exports
     ' do not pollute vcs-index.idx. Restore the prior value at the end.
@@ -140,10 +140,15 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
 
     ' Configure logging: route output through the main console form (if open)
     ' and write a dedicated session log file alongside the fixture folder.
-    Log.Clear
-    Log.SourcePath = strFixtureFolder
-    Log.Active = True
-    Perf.StartTiming
+    ' A nested run shares the parent's console and log file. Clearing it would erase
+    ' the results the enclosing test run has written so far, so only a run that owns
+    ' the root starts a fresh log.
+    If blnRootOwned Then
+        Log.Clear
+        Log.SourcePath = strFixtureFolder
+        Log.Active = True
+        Perf.StartTiming
+    End If
     sngStart = Perf.MicroTimer
 
     With Log
@@ -178,9 +183,10 @@ Public Function RunObjectRoundtripTests(Optional ByVal strFixtureFolder As Strin
     ' Pre-load shared supporting objects (if any).
     LoadScaffold strFixtureFolder & "_scaffold" & PathSep
 
-    ' Currently only queries are supported; forms/reports/etc. would be added
-    ' here as additional Run<Type>Fixtures calls populating colResults.
+    ' Forms/reports/etc. would be added here as additional Run<Type>Fixtures calls
+    ' populating colResults.
     RunQueryFixtures strFixtureFolder & "queries" & PathSep, strScratch, blnRebaseline, colResults
+    RunTableDefFixtures strFixtureFolder & "tabledefs" & PathSep, strScratch, blnRebaseline, colResults
 
 CleanUp:
     ' Drop scaffold objects.
@@ -189,6 +195,9 @@ CleanUp:
     ' Compute summary statistics.
     BuildStatsDict colResults, dStats
     dStats.Add "elapsedSeconds", Round(Perf.MicroTimer - sngStart, 3)
+
+    strLogFile = FSO.BuildPath(strFixtureFolder & "logs", _
+        "ObjectRoundtrip_" & Log.OperationId & ".log")
 
     With Log
         .Spacer
@@ -201,42 +210,45 @@ CleanUp:
         .Add T("  Errors:            {0}", var0:=CStr(dStats("errors"))), , , _
             IIf(dStats("errors") > 0, "red", vbNullString), (dStats("errors") > 0)
         .Add T("  Elapsed (s):       {0}", var0:=CStr(dStats("elapsedSeconds")))
+        ' Echo the artifact paths as plain text. A failing run is almost always
+        ' followed by someone opening the log for the unified diffs, or the
+        ' scratch folder for the actual Pass 1 / Pass 2 output files.
+        .Add T("  Log file:          {0}", var0:=strLogFile)
+        .Add T("  Scratch folder:    {0}", var0:=strScratch)
         .Spacer
     End With
 
-    Perf.EndTiming
-
     ' Persist the per-session log file with our custom prefix so it is easy
-    ' to distinguish from Export/Build/Merge logs.
-    On Error Resume Next
-    Log.SaveFile FSO.BuildPath(strFixtureFolder & "logs", _
-        "ObjectRoundtrip_" & Log.OperationId & ".log")
-    Log.Active = False
-    Log.Flush
-    On Error GoTo 0
+    ' to distinguish from Export/Build/Merge logs. A nested run leaves the parent's
+    ' log open and its performance report running; the enclosing run owns both.
+    If blnRootOwned Then
+        Perf.EndTiming
+        On Error Resume Next
+        Log.SaveFile strLogFile
+        Log.Active = False
+        Log.Flush
+        On Error GoTo 0
+    Else
+        Log.Flush
+    End If
 
-    ' Restore VCSIndex disabled state and the prior InteractionMode. We
-    ' restore InteractionMode here (rather than relying on Operation.Finish)
-    ' because it is now a sticky property on the Operation singleton --
-    ' callers that override it own restoring it.
+    ' Restore VCSIndex disabled state.
     VCSIndex.Disabled = blnIndexWasDisabled
-    If blnOperationOwned Then Operation.InteractionMode = eimPriorMode
 
     ' Build final JSON.
     dResult.Add "success", (dStats("failed") = 0 And dStats("errors") = 0)
     dResult.Add "fixtureFolder", strFixtureFolder
     dResult.Add "scratchFolder", strScratch
     dResult.Add "rebaseline", blnRebaseline
-    dResult.Add "logPath", FSO.BuildPath(strFixtureFolder & "logs", _
-        "ObjectRoundtrip_" & Log.OperationId & ".log")
+    dResult.Add "logPath", strLogFile
     dResult.Add "stats", dStats
     dResult.Add "results", CollectionToJsonArray(colResults)
 
-    If blnOperationOwned Then
+    If blnRootOwned Then
         If dResult("success") Then
-            Operation.Finish eorSuccess
+            cRoot.Complete eorSuccess
         Else
-            Operation.Finish eorFailed
+            cRoot.Complete eorFailed
         End If
     End If
 
@@ -250,10 +262,7 @@ ErrHandler:
     On Error Resume Next
     UnloadScaffold
     VCSIndex.Disabled = blnIndexWasDisabled
-    If blnOperationOwned Then
-        Operation.InteractionMode = eimPriorMode
-        Operation.Finish eorFailed
-    End If
+    If blnRootOwned Then cRoot.Complete eorFailed
     Set dResult = New Dictionary
     dResult.Add "success", False
     dResult.Add "error", Err.Description
@@ -343,6 +352,7 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
     Dim cComponent As IDbComponent
     Dim colChecks As Collection
     Dim blnSandboxImported As Boolean
+    Dim blnExpectStoredLayout As Boolean
     Dim lngErrCountBefore As Long
     Dim eelPriorErrorLevel As eErrorLevel
 
@@ -446,7 +456,26 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
     '  2. Drift check: compare the generated .qdef against a stored
     '     baseline .qdef file if one exists (qdef_vs_fixture check).
     RunQdefValidation strFixtureSql, strFixtureJson, strOriginalName, _
-        blnRebaseline, colChecks
+        blnRebaseline, colChecks, blnExpectStoredLayout
+
+    ' --- Did the designer grid survive the import? ---
+    ' A fixture carrying a DesignLayout can lose it two ways, both of which leave the
+    ' import looking clean and surface several checks later as a layout diff: the
+    ' composer declines Design View for the shape, or LoadFromText rejects the generated
+    ' .qdef and clsDbQuery retries as SQL View with only a warning. Access records the
+    ' grid in MSysObjects.LvExtra, so its presence after import settles which happened.
+    ' Fixtures with no DesignLayout are not checked -- a RequiresDesignView shape is
+    ' stored structurally but has no grid to record, so LvExtra says nothing about it.
+    If blnExpectStoredLayout Then
+        If HasStoredDesignLayout(strSandboxName) Then
+            AddCheck colChecks, "import_path", "pass", vbNullString
+        Else
+            AddCheck colChecks, "import_path", "fail", _
+                "Fixture carries a DesignLayout, but the imported query has none. " & _
+                "Either the composer declined Design View for this shape, or " & _
+                "LoadFromText rejected the generated .qdef and it fell back to SQL View."
+        End If
+    End If
 
     ' --- Pass 1 export (re-export the sandbox query) ---
     cComponent.Export strPass1Sql
@@ -479,7 +508,7 @@ FixtureCleanUp:
     On Error Resume Next
     If blnSandboxImported Then
         DeleteSandboxObject acQuery, strSandboxName
-        DBEngine.Idle dbRefreshCache
+        RefreshDbCatalog
     End If
     Set cComponent = Nothing
     Set cQuery = Nothing
@@ -499,6 +528,298 @@ FixtureErrHandler:
     dResult("reason") = "Unhandled error: " & Err.Number & " " & Err.Description
     AddCheck colChecks, "exception", "error", Err.Description
     Resume FixtureCleanUp
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunTableDefFixtures
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Enumerate every .xml fixture under strTableDefsFolder (recursive) and run
+'           : the round-trip on each. Adds a result Dictionary per fixture.
+'           :
+'           : These fixtures exist to hold modTableDefBuilder honest: they exercise the
+'           : DAO creation path end to end against the real Access exporter, which is
+'           : the only way to prove a construct we claim to understand actually comes
+'           : back out identical. The eligibility gate is forced open for the duration
+'           : (see FastPathTestOverride) because no test database is large enough to
+'           : open it naturally.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RunTableDefFixtures(ByVal strTableDefsFolder As String, ByVal strScratch As String, _
+    ByVal blnRebaseline As Boolean, ByVal colResults As Collection)
+
+    Dim colFiles As Collection
+    Dim varFile As Variant
+    Dim dFixtureResult As Dictionary
+    Dim lngTotal As Long
+    Dim lngPriorFormat As Long
+
+    If Not FSO.FolderExists(strTableDefsFolder) Then
+        Log.Add T("No 'tabledefs' folder under fixture root; skipping table definitions."), False
+        Exit Sub
+    End If
+
+    Set colFiles = EnumerateFixturesByExtension(strTableDefsFolder, "xml")
+    lngTotal = colFiles.Count
+
+    If lngTotal = 0 Then
+        Log.Add T("No table definition fixtures found under {0}", var0:=strTableDefsFolder), False
+        Exit Sub
+    End If
+
+    Log.Add T("Running {0} table definition fixture(s)...", var0:=CStr(lngTotal))
+
+    ' The DAO path only matches source under the canonical property ordering added in
+    ' EFV_5_1_0, so the fixtures have to run in that format regardless of what the host
+    ' database is configured for. Restored below.
+    lngPriorFormat = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+
+    FastPathTestOverride = True
+    For Each varFile In colFiles
+        Set dFixtureResult = RunTableDefRoundtrip(CStr(varFile), strScratch, blnRebaseline)
+        colResults.Add dFixtureResult
+        LogFixtureResult dFixtureResult
+    Next varFile
+    FastPathTestOverride = False
+
+    Options.ExportFormatVersion = lngPriorFormat
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunTableDefRoundtrip
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Execute the two-pass round-trip for a single table definition fixture.
+'           :
+'           : Unlike a query, a table carries its own name inside the source file, so
+'           : sandboxing means rewriting the name in the XML rather than just renaming
+'           : the file -- and the comparison has to rewrite it back. StageTableDefFixture
+'           : and the substitution below are the whole of that difference; everything
+'           : else follows the query harness.
+'           :
+'           : A fixture under a "fallback" subfolder inverts the import_path check: it
+'           : asserts that modTableDefBuilder *declined* and Application.ImportXML did
+'           : the work. Those fixtures guard the constructs we deliberately refuse.
+'---------------------------------------------------------------------------------------
+'
+Private Function RunTableDefRoundtrip(ByVal strFixtureXml As String, ByVal strScratch As String, _
+    ByVal blnRebaseline As Boolean) As Dictionary
+
+    Dim dResult As Dictionary
+    Dim strOriginalName As String
+    Dim strSandboxName As String
+    Dim strPass1Folder As String
+    Dim strPass2Folder As String
+    Dim strSandboxXmlIn As String
+    Dim strPass1Xml As String
+    Dim strPass2Xml As String
+    Dim strPass1Text As String
+    Dim strFixtureText As String
+    Dim cTable As clsDbTableDef
+    Dim cComponent As IDbComponent
+    Dim colChecks As Collection
+    Dim blnSandboxImported As Boolean
+    Dim blnExpectFallback As Boolean
+    Dim blnUsedDaoPath As Boolean
+    Dim eelPriorErrorLevel As eErrorLevel
+
+    Set dResult = New Dictionary
+    Set colChecks = New Collection
+
+    strOriginalName = FSO.GetBaseName(strFixtureXml)
+    blnExpectFallback = (InStr(1, strFixtureXml, PathSep & "fallback" & PathSep, vbTextCompare) > 0)
+
+    dResult.Add "fixture", strFixtureXml
+    dResult.Add "name", strOriginalName
+    dResult.Add "type", "tabledef"
+    dResult.Add "checks", colChecks
+
+    LogUnhandledErrors
+    On Error GoTo FixtureErrHandler
+
+    ' Per-fixture isolation, for the same reason the query harness does it: a critical
+    ' error left on the singleton would poison every later fixture.
+    eelPriorErrorLevel = Operation.ErrorLevel
+    Operation.ErrorLevel = eelNoError
+
+    strSandboxName = TEST_PREFIX & strOriginalName & "_" & UniqueHashSuffix(strFixtureXml & Now)
+    dResult.Add "sandboxName", strSandboxName
+
+    If ObjectExists(acTable, strSandboxName) Then
+        dResult("status") = "skip"
+        dResult("reason") = "Sandbox table already exists: " & strSandboxName
+        Set RunTableDefRoundtrip = dResult
+        Exit Function
+    End If
+
+    strPass1Folder = strScratch & "pass1" & PathSep
+    strPass2Folder = strScratch & "pass2" & PathSep
+    VerifyPath strPass1Folder
+    VerifyPath strPass2Folder
+
+    strSandboxXmlIn = strPass1Folder & strSandboxName & ".xml"
+    strPass1Xml = strPass1Folder & strSandboxName & ".out.xml"
+    strPass2Xml = strPass2Folder & strSandboxName & ".out.xml"
+
+    StageTableDefFixture strFixtureXml, strOriginalName, strSandboxName, strSandboxXmlIn
+
+    ' --- Import (sandbox name) ---
+    Set cTable = New clsDbTableDef
+    Set cComponent = cTable
+    cComponent.Import strSandboxXmlIn
+    ' Import creates the table outside SharedDb (DAO on a fresh CurrentDb, or
+    ' Application.ImportXML). Invalidate so Pass 1 export sees the new catalog.
+    ' Required especially for fallback\ fixtures: the fast path may create a
+    ' table, re-acquire SharedDb during verification, delete, then ImportXML.
+    RefreshDbCatalog
+    blnSandboxImported = ObjectExists(acTable, strSandboxName)
+
+    If Not blnSandboxImported Then
+        dResult("status") = "fail"
+        dResult("reason") = "Import did not produce a table named '" & strSandboxName & "'"
+        GoTo FixtureCleanUp
+    End If
+
+    AddCheck colChecks, "import", "pass", vbNullString
+
+    ' --- Which path did the import take? ---
+    ' A successful DAO build leaves no decline reason behind. This check is what stops
+    ' a fixture from quietly passing on the ImportXML fallback and proving nothing
+    ' about the code it was written for.
+    blnUsedDaoPath = (Len(GetLastDeclineReason()) = 0)
+    If blnExpectFallback Then
+        If blnUsedDaoPath Then
+            AddCheck colChecks, "import_path", "fail", _
+                "Expected modTableDefBuilder to decline this construct, but it built the table."
+        Else
+            AddCheck colChecks, "import_path", "pass", "Declined: " & GetLastDeclineReason()
+        End If
+    Else
+        If blnUsedDaoPath Then
+            AddCheck colChecks, "import_path", "pass", vbNullString
+        Else
+            AddCheck colChecks, "import_path", "fail", _
+                "Fell back to Application.ImportXML: " & GetLastDeclineReason()
+        End If
+    End If
+
+    BindComponentAfterImport cComponent, acTable, strSandboxName
+
+    ' --- Pass 1 export ---
+    cComponent.Export strPass1Xml
+
+    If Not FSO.FileExists(strPass1Xml) Then
+        dResult("status") = "fail"
+        dResult("reason") = "Pass 1 export did not produce: " & strPass1Xml
+        GoTo FixtureCleanUp
+    End If
+
+    ' --- Pass 1 comparison (re-export vs canonical fixture) ---
+    ' Substitute the sandbox name back before comparing, so the only differences left
+    ' are real ones.
+    strPass1Text = RenameTableDefXml(ReadFile(strPass1Xml), strSandboxName, strOriginalName)
+    strFixtureText = ReadFile(strFixtureXml)
+
+    If GetStringHash(strPass1Text) = GetStringHash(strFixtureText) Then
+        AddCheck colChecks, "xml_vs_fixture", "pass", vbNullString
+    ElseIf blnRebaseline Then
+        WriteFile strPass1Text, strFixtureXml
+        AddCheck colChecks, "xml_vs_fixture", "pass", "Rebaselined."
+        Log.Add T("REBASELINE: overwrote {0}", var0:=strFixtureXml), False
+    Else
+        AddCheckWithDiff colChecks, "xml_vs_fixture", "fail", _
+            "Re-exported table definition differs from the fixture", _
+            MakeUnifiedDiff(strFixtureText, strPass1Text, _
+                "fixture/" & strOriginalName & ".xml", "pass1.xml (renamed back)")
+    End If
+
+    ' --- Pass 2 export (idempotency) ---
+    cComponent.Export strPass2Xml
+
+    If Not FSO.FileExists(strPass2Xml) Then
+        AddCheck colChecks, "pass2_export", "fail", _
+            "Pass 2 export did not produce: " & strPass2Xml
+    ElseIf GetFileHash(strPass1Xml) = GetFileHash(strPass2Xml) Then
+        AddCheck colChecks, "xml_pass2_idempotent", "pass", vbNullString
+    Else
+        AddCheckWithDiff colChecks, "xml_pass2_idempotent", "fail", _
+            "Pass 2 XML differs from Pass 1 (export is not idempotent)", _
+            MakeUnifiedDiff(ReadFile(strPass1Xml), ReadFile(strPass2Xml), "pass1.xml", "pass2.xml")
+    End If
+
+    dResult("status") = RollUpStatus(colChecks)
+    If dResult("status") = "fail" Then dResult("reason") = "One or more comparisons failed."
+
+FixtureCleanUp:
+    On Error Resume Next
+    Set cComponent = Nothing
+    Set cTable = Nothing
+    If blnSandboxImported Then
+        DeleteSandboxObject acTable, strSandboxName
+        RefreshDbCatalog
+    End If
+
+    If Operation.ErrorLevel < eelPriorErrorLevel Then
+        Operation.ErrorLevel = eelPriorErrorLevel
+    End If
+
+    Set RunTableDefRoundtrip = dResult
+    Exit Function
+
+FixtureErrHandler:
+    dResult("status") = "error"
+    dResult("reason") = "Unhandled error: " & Err.Number & " " & Err.Description
+    AddCheck colChecks, "exception", "error", Err.Description
+    Resume FixtureCleanUp
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StageTableDefFixture
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Copy a table definition fixture to the staging path under a sandbox name.
+'---------------------------------------------------------------------------------------
+'
+Private Sub StageTableDefFixture(ByVal strFixtureXml As String, ByVal strOriginalName As String, _
+    ByVal strSandboxName As String, ByVal strTargetFile As String)
+    WriteFile RenameTableDefXml(ReadFile(strFixtureXml), strOriginalName, strSandboxName), _
+        strTargetFile
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RenameTableDefXml
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Rewrite the table name inside exported table definition XML.
+'           :
+'           : The name appears twice: as the name of the table's own xsd:element, and as
+'           : the ref from the dataroot envelope. Both are matched with their surrounding
+'           : attribute syntax so a same-named field would not be caught by accident --
+'           : which also means a fixture must not name a field after its own table.
+'---------------------------------------------------------------------------------------
+'
+Private Function RenameTableDefXml(ByVal strXml As String, ByVal strFrom As String, _
+    ByVal strTo As String) As String
+
+    Dim strFromEsc As String
+    Dim strToEsc As String
+
+    strFromEsc = EscapeXmlName(strFrom)
+    strToEsc = EscapeXmlName(strTo)
+
+    strXml = Replace(strXml, "ref=""" & strFromEsc & """", "ref=""" & strToEsc & """")
+    strXml = Replace(strXml, "<xsd:element name=""" & strFromEsc & """", _
+        "<xsd:element name=""" & strToEsc & """")
+
+    RenameTableDefXml = strXml
 
 End Function
 
@@ -525,12 +846,12 @@ Private Sub BindComponentAfterImport(ByVal cComponent As IDbComponent, _
 
     Select Case intType
         Case acQuery:  Set cComponent.DbObject = CurrentData.AllQueries(strName)
+        Case acTable:  Set cComponent.DbObject = CurrentData.AllTables(strName)
         ' Future round-trip helpers (uncomment as each type is added):
         ' Case acForm:   Set cComponent.DbObject = CurrentProject.AllForms(strName)
         ' Case acReport: Set cComponent.DbObject = CurrentProject.AllReports(strName)
         ' Case acModule: Set cComponent.DbObject = CurrentProject.AllModules(strName)
         ' Case acMacro:  Set cComponent.DbObject = CurrentProject.AllMacros(strName)
-        ' Case acTable:  Set cComponent.DbObject = CurrentData.AllTables(strName)
         Case Else
             Log.Error eelError, _
                 "BindComponentAfterImport: unsupported AcObjectType " & intType, _
@@ -762,13 +1083,19 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Function EnumerateSqlFixtures(ByVal strRoot As String) As Collection
-    Dim col As Collection
-    Set col = New Collection
-    EnumerateSqlFixturesRecurse strRoot, col
-    Set EnumerateSqlFixtures = col
+    Set EnumerateSqlFixtures = EnumerateFixturesByExtension(strRoot, "sql")
 End Function
 
-Private Sub EnumerateSqlFixturesRecurse(ByVal strFolder As String, ByVal col As Collection)
+Private Function EnumerateFixturesByExtension(ByVal strRoot As String, _
+    ByVal strExtension As String) As Collection
+    Dim col As Collection
+    Set col = New Collection
+    EnumerateFixturesRecurse strRoot, LCase$(strExtension), col
+    Set EnumerateFixturesByExtension = col
+End Function
+
+Private Sub EnumerateFixturesRecurse(ByVal strFolder As String, ByVal strExtension As String, _
+    ByVal col As Collection)
     Dim oFolder As Object
     Dim oFile As Object
     Dim oSub As Object
@@ -777,7 +1104,7 @@ Private Sub EnumerateSqlFixturesRecurse(ByVal strFolder As String, ByVal col As 
     Set oFolder = FSO.GetFolder(strFolder)
 
     For Each oFile In oFolder.Files
-        If LCase$(FSO.GetExtensionName(oFile.Name)) = "sql" Then
+        If LCase$(FSO.GetExtensionName(oFile.Name)) = strExtension Then
             col.Add oFile.Path
         End If
     Next oFile
@@ -786,7 +1113,7 @@ Private Sub EnumerateSqlFixturesRecurse(ByVal strFolder As String, ByVal col As 
         ' Skip scaffold (handled separately) and dotfile / underscore-prefixed
         ' housekeeping folders.
         If LCase$(oSub.Name) <> "_scaffold" And Left$(oSub.Name, 1) <> "." Then
-            EnumerateSqlFixturesRecurse oSub.Path & PathSep, col
+            EnumerateFixturesRecurse oSub.Path & PathSep, strExtension, col
         End If
     Next oSub
 End Sub
@@ -839,7 +1166,10 @@ Private Sub LoadScaffold(ByVal strScaffoldFolder As String)
         End If
     Next oFile
 
-    If lngLoaded > 0 Then Log.Add T("Loaded {0} scaffold object(s).", var0:=CStr(lngLoaded)), False
+    If lngLoaded > 0 Then
+        RefreshDbCatalog
+        Log.Add T("Loaded {0} scaffold object(s).", var0:=CStr(lngLoaded)), False
+    End If
 
 End Sub
 
@@ -849,7 +1179,7 @@ Private Sub UnloadScaffold()
     For Each varName In m_colScaffoldQueries
         DeleteSandboxObject acQuery, CStr(varName)
     Next varName
-    DBEngine.Idle dbRefreshCache
+    RefreshDbCatalog
     Set m_colScaffoldQueries = New Collection
 End Sub
 
@@ -867,26 +1197,61 @@ End Sub
 '
 Private Sub CleanupStaleObjects()
     Dim qdf As DAO.QueryDef
-    Dim colVictims As Collection
+    Dim tdf As DAO.TableDef
+    Dim colQueries As Collection
+    Dim colTables As Collection
     Dim varName As Variant
 
-    Set colVictims = New Collection
+    Set colQueries = New Collection
+    Set colTables = New Collection
 
     For Each qdf In CurrentDb.QueryDefs
-        If Left$(qdf.Name, Len(TEST_PREFIX)) = TEST_PREFIX _
-            Or Left$(qdf.Name, Len(SCAFFOLD_PREFIX)) = SCAFFOLD_PREFIX Then
-            colVictims.Add qdf.Name
-        End If
+        If IsHarnessObjectName(qdf.Name) Then colQueries.Add qdf.Name
     Next qdf
 
-    If colVictims.Count = 0 Then Exit Sub
-    Log.Add T("Cleaning up {0} stale test object(s) from a prior run.", _
-        var0:=CStr(colVictims.Count)), False
+    For Each tdf In CurrentDb.TableDefs
+        If IsHarnessObjectName(tdf.Name) Then colTables.Add tdf.Name
+    Next tdf
 
-    For Each varName In colVictims
+    If colQueries.Count + colTables.Count = 0 Then Exit Sub
+    Log.Add T("Cleaning up {0} stale test object(s) from a prior run.", _
+        var0:=CStr(colQueries.Count + colTables.Count)), False
+
+    ' Queries first: a stale query could hold a reference to a stale table.
+    For Each varName In colQueries
         DeleteSandboxObject acQuery, CStr(varName)
     Next varName
+    For Each varName In colTables
+        DeleteSandboxObject acTable, CStr(varName)
+    Next varName
+    RefreshDbCatalog
+End Sub
+
+
+Private Function IsHarnessObjectName(ByVal strName As String) As Boolean
+    IsHarnessObjectName = (Left$(strName, Len(TEST_PREFIX)) = TEST_PREFIX) _
+        Or (Left$(strName, Len(SCAFFOLD_PREFIX)) = SCAFFOLD_PREFIX)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefreshDbCatalog
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : Pick up schema changes made outside the SharedDb handle, and release
+'           : that handle so the next SharedDb caller sees the current catalog.
+'           :
+'           : The harness creates and deletes tables/queries through CurrentDb and
+'           : Application.ImportXML. SharedDb caches a CurrentDb whose TableDefs /
+'           : QueryDefs collections are snapshots from when the handle was opened;
+'           : without invalidation, clsDbTableDef.Export raises Error 3265 for a
+'           : table created after that snapshot. Same pattern as
+'           : modTestTableDef.RefreshTableCollections.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RefreshDbCatalog()
     DBEngine.Idle dbRefreshCache
+    ReleaseDbReferences
 End Sub
 
 
@@ -921,8 +1286,9 @@ Private Function DeleteSandboxObject(ByVal intType As AcObjectType, _
     Select Case intType
         Case acQuery
             CurrentDb.QueryDefs.Delete strName
+        Case acTable
+            CurrentDb.TableDefs.Delete strName
         ' Future component types (uncomment as round-trip helpers are added):
-        ' Case acTable:  CurrentDb.TableDefs.Delete strName
         ' Case acModule: CurrentVBProject.VBComponents.Remove _
         '                  CurrentVBProject.VBComponents(strName)
         ' Case acForm, acReport, acMacro:
@@ -1263,7 +1629,8 @@ End Function
 '
 Private Sub RunQdefValidation(ByVal strFixtureSql As String, _
     ByVal strFixtureJson As String, ByVal strOriginalName As String, _
-    ByVal blnRebaseline As Boolean, ByVal colChecks As Collection)
+    ByVal blnRebaseline As Boolean, ByVal colChecks As Collection, _
+    Optional ByRef blnExpectLayoutOut As Boolean)
 
     Dim cComposer As clsQueryComposer
     Dim strSql As String
@@ -1320,6 +1687,20 @@ Private Sub RunQdefValidation(ByVal strFixtureSql As String, _
 
     blnDesignView = cComposer.IsDesignerCompatible And _
         (blnHasDesignLayout Or cComposer.RequiresDesignView)
+
+    ' Report whether the fixture carries a layout, not whether a Design View qdef was
+    ' emitted. A RequiresDesignView shape with no layout is emitted as Design View but
+    ' leaves LvExtra empty -- Access has no grid to store -- so LvExtra can only be
+    ' asserted on when the fixture supplied one.
+    blnExpectLayoutOut = blnHasDesignLayout
+
+    ' SQL modifiers and JSON OptionFlag must agree in both directions. A JSON
+    ' bit the SQL lacks is the original defect (it changed Design View
+    ' imports only); a SQL modifier the JSON drops is the same drift seen
+    ' from the other side, and would go unnoticed because import ignores it.
+    If Not blnIsPassThrough Then
+        CheckOptionFlagAgreement strSql, lngOptionFlag, cComposer, colChecks
+    End If
 
     ' Generate the qdef (Design View or SQL View, matching the import path).
     ' Layout is omitted — it doesn't affect the Joins, InputTables, or
@@ -1378,6 +1759,90 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CheckOptionFlagAgreement
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : Fail when a fixture's JSON OptionFlag does not say exactly what
+'           : its .sql says. The check is two-way -- a bit the JSON claims
+'           : and the SQL lacks is stale, and a modifier the SQL spells out
+'           : that the JSON omits is equally stale -- because import takes
+'           : the SQL either way, so a disagreeing companion is silent drift.
+'           : An implicit bare `SELECT *` is the one exception: it sets bit 1
+'           : while export omits it, so the expected flag drops that bit.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CheckOptionFlagAgreement(ByVal strSql As String, ByVal lngOptionFlag As Long, _
+    ByVal cComposer As clsQueryComposer, ByVal colChecks As Collection)
+
+    Dim lngRepresentable As Long
+    Dim lngExpected As Long
+    Dim lngActual As Long
+
+    lngRepresentable = cComposer.SqlRepresentableOptionBits
+    lngExpected = cComposer.ParsedOptionFlag And lngRepresentable
+
+    ' An absent OptionFlag is the spelling of zero representable bits.
+    If lngOptionFlag < 0 Then lngOptionFlag = 0
+    lngActual = lngOptionFlag And lngRepresentable
+
+    ' Both an omitted flag and Access's explicit Attribute 3 = 1 are valid
+    ' companions for a bare SELECT *, because the SQL already carries the
+    ' shape and canonical export omits the redundant flag.
+    If cComposer.ImplicitOutputAllFields Then
+        lngExpected = lngExpected And Not 1
+        lngActual = lngActual And Not 1
+    End If
+
+    If lngActual = lngExpected Then
+        AddCheck colChecks, "optionflag_vs_sql", "pass", vbNullString
+    Else
+        AddCheck colChecks, "optionflag_vs_sql", "fail", _
+            "JSON OptionFlag " & lngActual & " disagrees with the modifiers in the .sql" & _
+            " (expected " & lngExpected & ")"
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasStoredDesignLayout
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Report whether Access holds a designer grid for the given query. LvExtra
+'           : carries the grid itself, so it answers "was a layout stored", not "was the
+'           : Design View path taken" -- a Design View .qdef with no layout block (the
+'           : RequiresDesignView shapes) is stored structurally yet leaves LvExtra empty.
+'           : Only meaningful for a fixture that supplied a DesignLayout.
+'---------------------------------------------------------------------------------------
+'
+Private Function HasStoredDesignLayout(ByVal strQueryName As String) As Boolean
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Set dbs = CurrentDb
+    Set rst = dbs.OpenRecordset( _
+        "SELECT LvExtra FROM MSysObjects WHERE Name=""" & DblQ(strQueryName) & _
+        """ AND Type=5", dbOpenSnapshot)
+
+    If Not rst Is Nothing Then
+        If Not rst.EOF Then HasStoredDesignLayout = Not IsNull(rst!LvExtra)
+        rst.Close
+    End If
+
+    Set rst = Nothing
+    Set dbs = Nothing
+
+    CatchAny eelWarning, "Unable to read stored design layout for '" & strQueryName & "'", _
+        ModuleName & ".HasStoredDesignLayout"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ValidateQdefJoinTables
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
@@ -1422,6 +1887,9 @@ Private Function ValidateQdefJoinTables(ByVal strQdef As String) As String
     strJoinBlock = Mid$(strQdef, lngJoinStart, lngJoinEnd - lngJoinStart)
     asLines = Split(strJoinBlock, vbCrLf)
 
+    Dim dInputRefs As Dictionary
+    Set dInputRefs = ParseQdefInputTableRefs(strQdef)
+
     For i = 0 To UBound(asLines)
         strLine = Trim$(asLines(i))
 
@@ -1446,9 +1914,11 @@ Private Function ValidateQdefJoinTables(ByVal strQdef As String) As String
             blnCollectingExpr = False
 
             ' We've reached the Flag line — validate the complete join row.
-            If Len(strLeftTable) > 0 And Len(strRightTable) > 0 _
-                And Len(strExpression) > 0 Then
-                ValidateJoinRow strLeftTable, strRightTable, strExpression, colErrors
+            ' An empty LeftTable/RightTable is itself a defect, so it must be
+            ' reported rather than skipped.
+            If Len(strExpression) > 0 Then
+                ValidateJoinRow strLeftTable, strRightTable, strExpression, _
+                    dInputRefs, colErrors
             End If
 
             strLeftTable = vbNullString
@@ -1475,23 +1945,62 @@ End Function
 ' Procedure : ValidateJoinRow
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
-' Purpose   : Check that every table referenced in the Expression (via table.field
-'           : notation) is either LeftTable or RightTable. This catches the bug
-'           : where the emitter assigns the wrong table pair to a split condition.
+' Purpose   : Validate one Design View join row against four invariants:
 '           :
-'           : Single-table predicates (e.g. "tblB.ID > 0") are valid — they only
-'           : reference one table, so the other table (LeftTable or RightTable)
-'           : may not appear. The invariant is directional: tables in the
-'           : expression must be LeftTable or RightTable, not the reverse.
+'           :   1. LeftTable and RightTable are non-empty. An empty ref used to
+'           :      skip validation entirely, hiding emitter regressions.
+'           :   2. Both refs appear in the qdef's InputTables block (by Name or
+'           :      Alias). A ref Access cannot resolve fails at execution time.
+'           :   3. LeftTable <> RightTable. Access collapses such rows, which
+'           :      breaks BuildJoinChain on the next export (no graph root).
+'           :   4. Every table referenced in the Expression (via table.field
+'           :      notation) is either LeftTable or RightTable. This catches the
+'           :      emitter assigning the wrong table pair to a split condition.
+'           :
+'           : Invariant 4 is directional: single-table predicates (e.g.
+'           : "tblB.ID > 0") are valid, because only one side needs to appear.
 '---------------------------------------------------------------------------------------
 '
 Private Sub ValidateJoinRow(ByVal strLeftTable As String, _
     ByVal strRightTable As String, ByVal strExpression As String, _
-    ByVal colErrors As Collection)
+    ByVal dInputRefs As Dictionary, ByVal colErrors As Collection)
 
     Dim strExpr As String
     Dim colTableRefs As Collection
     Dim varRef As Variant
+
+    ' 1. Non-empty refs.
+    If Len(strLeftTable) = 0 Then
+        colErrors.Add "Empty LeftTable on join row with Expression """ & _
+            strExpression & """"
+    End If
+    If Len(strRightTable) = 0 Then
+        colErrors.Add "Empty RightTable on join row with Expression """ & _
+            strExpression & """"
+    End If
+
+    ' 2. Refs must be declared in InputTables.
+    If Not dInputRefs Is Nothing Then
+        If Len(strLeftTable) > 0 And Not dInputRefs.Exists(strLeftTable) Then
+            colErrors.Add "LeftTable """ & strLeftTable & _
+                """ is not in the InputTables block (Expression """ & _
+                strExpression & """)"
+        End If
+        If Len(strRightTable) > 0 And Not dInputRefs.Exists(strRightTable) Then
+            colErrors.Add "RightTable """ & strRightTable & _
+                """ is not in the InputTables block (Expression """ & _
+                strExpression & """)"
+        End If
+    End If
+
+    ' 3. A join row must connect two distinct refs. Aliased self-joins satisfy
+    '    this because the refs are the aliases, not the base table name.
+    If Len(strLeftTable) > 0 And Len(strRightTable) > 0 Then
+        If StrComp(strLeftTable, strRightTable, vbTextCompare) = 0 Then
+            colErrors.Add "LeftTable and RightTable are both """ & _
+                strLeftTable & """ (Expression """ & strExpression & """)"
+        End If
+    End If
 
     ' Unescape qdef backslash sequences for comparison.
     strExpr = Replace(Replace(strExpression, "\\", "\"), "\""", """")
@@ -1499,7 +2008,7 @@ Private Sub ValidateJoinRow(ByVal strLeftTable As String, _
     ' Extract all table references from "table.field" patterns.
     Set colTableRefs = ExtractTableRefsFromExpression(strExpr)
 
-    ' Each referenced table must be either LeftTable or RightTable.
+    ' 4. Each referenced table must be either LeftTable or RightTable.
     For Each varRef In colTableRefs
         If StrComp(CStr(varRef), strLeftTable, vbTextCompare) <> 0 _
             And StrComp(CStr(varRef), strRightTable, vbTextCompare) <> 0 Then
@@ -1510,6 +2019,51 @@ Private Sub ValidateJoinRow(ByVal strLeftTable As String, _
     Next varRef
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseQdefInputTableRefs
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : Collect every name a join row may legally reference from the qdef's
+'           : InputTables block: each Name and each Alias. Mirrors
+'           : clsQueryComposer.BuildInputTableRefLookup, which the emitter uses.
+'---------------------------------------------------------------------------------------
+'
+Private Function ParseQdefInputTableRefs(ByVal strQdef As String) As Dictionary
+
+    Dim dRefs As Dictionary
+    Dim asLines() As String
+    Dim i As Long
+    Dim strLine As String
+    Dim strName As String
+    Dim blnInBlock As Boolean
+
+    Set dRefs = New Dictionary
+    dRefs.CompareMode = vbTextCompare
+    Set ParseQdefInputTableRefs = dRefs
+
+    asLines = Split(strQdef, vbCrLf)
+    For i = 0 To UBound(asLines)
+        strLine = Trim$(asLines(i))
+        If strLine = "Begin InputTables" Then
+            blnInBlock = True
+        ElseIf blnInBlock And strLine = "End" Then
+            Exit For
+        ElseIf blnInBlock Then
+            strName = vbNullString
+            If Left$(strLine, 6) = "Name =" Then
+                strName = ExtractQdefQuotedValue(strLine)
+            ElseIf Left$(strLine, 7) = "Alias =" Then
+                strName = ExtractQdefQuotedValue(strLine)
+            End If
+            If Len(strName) > 0 Then
+                If Not dRefs.Exists(strName) Then dRefs.Add strName, True
+            End If
+        End If
+    Next i
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

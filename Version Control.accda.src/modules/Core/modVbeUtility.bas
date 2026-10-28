@@ -16,6 +16,13 @@ Option Explicit
 
 Private Const ModuleName = "modVbeUtility"
 
+' Snapshot of the export trees consulted by CleanupDuplicateSourceFiles, so a category
+' walks each tree once instead of once per component. Only live between a
+' BeginDuplicateScanCache/EndDuplicateScanCache pair; outside one, cleanup falls back to
+' scanning the tree directly. Keyed by base folder (no trailing separator).
+Private m_blnDupScanCache As Boolean
+Private m_dDupScanTrees As Dictionary
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : ExportVbComponent
@@ -530,16 +537,7 @@ Private Sub RemoveEmptyModuleSubfolders(strBaseFolder As String)
     ScanFolderContents strBaseFolder, colFiles, colSubFolders
     For Each varItem In colSubFolders
         RemoveEmptyModuleSubfolders CStr(varItem)
-        If FSO.FolderExists(CStr(varItem)) Then
-            If FSO.GetFolder(CStr(varItem)).Files.Count = 0 _
-                And FSO.GetFolder(CStr(varItem)).SubFolders.Count = 0 Then
-                LogUnhandledErrors
-                On Error Resume Next
-                FSO.DeleteFolder CStr(varItem), True
-                CatchAny eelWarning, "Unable to delete empty folder: " & CStr(varItem), _
-                    ModuleName & ".RemoveEmptyModuleSubfolders"
-            End If
-        End If
+        RemoveEmptyFolder CStr(varItem)
     Next varItem
 
 End Sub
@@ -579,17 +577,249 @@ Public Sub CleanupDuplicateSourceFiles(strBaseFolder As String, _
     strCorrectFolder As String, strSafeName As String, _
     ParamArray varExtensions() As Variant)
 
-    ' Copy ParamArray into a plain Variant so it can be forwarded to the recursive helper
+    ' Copy ParamArray into a plain Variant so it can be forwarded to the helpers
     Dim varExts As Variant
     varExts = varExtensions
 
     If StrComp(StripSlash(strBaseFolder), StripSlash(strCorrectFolder), vbTextCompare) = 0 Then Exit Sub
     If Not FSO.FolderExists(strBaseFolder) Then Exit Sub
 
-    ' Recursive scan of the base folder tree
-    ScanForDuplicates StripSlash(strBaseFolder), strCorrectFolder, strSafeName, varExts
+    Perf.OperationStart "Cleanup Duplicate Files"
+    If m_blnDupScanCache Then
+        CleanupFromScanCache GetDupScanTree(StripSlash(strBaseFolder)), _
+            strCorrectFolder, strSafeName, varExts
+    Else
+        ' Recursive scan of the base folder tree
+        ScanForDuplicates StripSlash(strBaseFolder), strCorrectFolder, strSafeName, varExts
+    End If
+    Perf.OperationEnd
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BeginDuplicateScanCache
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Start a session in which CleanupDuplicateSourceFiles answers from a single
+'           : snapshot of each export tree rather than rescanning the tree for every
+'           : component. Exporting 177 modules otherwise walked the modules folder 177
+'           : times. Safe because an export only ever writes into a component's correct
+'           : folder, and the correct folder is recomputed live per component, so a
+'           : snapshot can miss a duplicate but can never name one wrongly.
+'           : Must be paired with EndDuplicateScanCache, which prunes emptied folders.
+'---------------------------------------------------------------------------------------
+'
+Public Sub BeginDuplicateScanCache()
+    m_blnDupScanCache = True
+    Set m_dDupScanTrees = New Dictionary
+    m_dDupScanTrees.CompareMode = TextCompare
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EndDuplicateScanCache
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Close the snapshot session, removing folders left empty. Safe to call when
+'           : no session is open, so callers can use it defensively on an error path.
+'---------------------------------------------------------------------------------------
+'
+Public Sub EndDuplicateScanCache()
+
+    Dim varKey As Variant
+
+    m_blnDupScanCache = False
+    If m_dDupScanTrees Is Nothing Then Exit Sub
+
+    For Each varKey In m_dDupScanTrees.Keys
+        PruneEmptyScanCacheFolders m_dDupScanTrees(varKey)
+    Next varKey
+    Set m_dDupScanTrees = Nothing
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDupScanTree
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Return the snapshot for a base folder, indexing the tree on first use.
+'           : The snapshot holds file paths grouped by file name, plus a file and
+'           : subfolder count per folder so emptiness can be tracked without going back
+'           : to disk. "Order" lists folders parents-first, as the indexing queue.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDupScanTree(strBaseFolder As String) As Dictionary
+
+    Dim dTree As Dictionary
+
+    If m_dDupScanTrees.Exists(strBaseFolder) Then
+        Set GetDupScanTree = m_dDupScanTrees(strBaseFolder)
+        Exit Function
+    End If
+
+    Set dTree = New Dictionary
+    dTree.Add "Files", NewTextDictionary
+    dTree.Add "FileCount", NewTextDictionary
+    dTree.Add "SubCount", NewTextDictionary
+    dTree.Add "Order", New Collection
+    IndexScanCacheTree strBaseFolder, dTree
+
+    m_dDupScanTrees.Add strBaseFolder, dTree
+    Set GetDupScanTree = dTree
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IndexScanCacheTree
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Walk a base folder once, recording every file grouped by name and the file
+'           : and subfolder counts of every folder. Iterative so the folder list comes
+'           : out parents-first, which lets the teardown prune it in reverse.
+'---------------------------------------------------------------------------------------
+'
+Private Sub IndexScanCacheTree(strBaseFolder As String, dTree As Dictionary)
+
+    Dim colOrder As Collection
+    Dim colFiles As Collection
+    Dim colSubFolders As Collection
+    Dim dFiles As Dictionary
+    Dim dPaths As Dictionary
+    Dim varItem As Variant
+    Dim strFolder As String
+    Dim strPath As String
+    Dim strName As String
+    Dim lngPos As Long
+
+    Set dFiles = dTree("Files")
+    Set colOrder = dTree("Order")
+    colOrder.Add strBaseFolder
+
+    lngPos = 1
+    Do While lngPos <= colOrder.Count
+        strFolder = CStr(colOrder(lngPos))
+        Set colFiles = New Collection
+        Set colSubFolders = New Collection
+        ScanFolderContents strFolder, colFiles, colSubFolders
+
+        dTree("FileCount")(strFolder) = colFiles.Count
+        dTree("SubCount")(strFolder) = colSubFolders.Count
+
+        For Each varItem In colFiles
+            strPath = CStr(varItem)
+            strName = Mid$(strPath, InStrRev(strPath, PathSep) + 1)
+            If Not dFiles.Exists(strName) Then Set dFiles(strName) = NewTextDictionary
+            Set dPaths = dFiles(strName)
+            If Not dPaths.Exists(strPath) Then dPaths.Add strPath, strFolder
+        Next varItem
+
+        For Each varItem In colSubFolders
+            colOrder.Add CStr(varItem)
+        Next varItem
+
+        lngPos = lngPos + 1
+    Loop
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CleanupFromScanCache
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Delete the misplaced copies of one component using the tree snapshot,
+'           : which turns the per-component tree walk into a dictionary lookup.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CleanupFromScanCache(dTree As Dictionary, strCorrectFolder As String, _
+    strSafeName As String, varExtensions As Variant)
+
+    Dim dFiles As Dictionary
+    Dim dPaths As Dictionary
+    Dim dFileCount As Dictionary
+    Dim varPath As Variant
+    Dim strKey As String
+    Dim strPath As String
+    Dim strFolder As String
+    Dim i As Long
+
+    Set dFiles = dTree("Files")
+    Set dFileCount = dTree("FileCount")
+
+    For i = LBound(varExtensions) To UBound(varExtensions)
+        strKey = strSafeName & CStr(varExtensions(i))
+        If dFiles.Exists(strKey) Then
+            Set dPaths = dFiles(strKey)
+            For Each varPath In dPaths.Keys
+                strPath = CStr(varPath)
+                strFolder = CStr(dPaths(strPath))
+                If StrComp(AddSlash(strFolder), strCorrectFolder, vbTextCompare) <> 0 Then
+                    DeleteFile strPath
+                    ' Only count it out when it actually went away, so a locked file
+                    ' cannot make its folder look empty at teardown.
+                    If Not FSO.FileExists(strPath) Then
+                        dPaths.Remove strPath
+                        dFileCount(strFolder) = dFileCount(strFolder) - 1
+                    End If
+                End If
+            Next varPath
+            If dPaths.Count = 0 Then dFiles.Remove strKey
+        End If
+    Next i
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PruneEmptyScanCacheFolders
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Remove folders the snapshot shows as empty, walking children before parents
+'           : so a folder emptied by its own children going away is still caught. Index 1
+'           : is the base folder, which is never removed.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PruneEmptyScanCacheFolders(dTree As Dictionary)
+
+    Dim colOrder As Collection
+    Dim dFileCount As Dictionary
+    Dim dSubCount As Dictionary
+    Dim strFolder As String
+    Dim strParent As String
+    Dim lngPos As Long
+
+    Set colOrder = dTree("Order")
+    Set dFileCount = dTree("FileCount")
+    Set dSubCount = dTree("SubCount")
+
+    For lngPos = colOrder.Count To 2 Step -1
+        strFolder = CStr(colOrder(lngPos))
+        If dFileCount(strFolder) = 0 And dSubCount(strFolder) = 0 Then
+            If RemoveEmptyFolder(strFolder) Then
+                strParent = Left$(strFolder, InStrRev(strFolder, PathSep) - 1)
+                If dSubCount.Exists(strParent) Then dSubCount(strParent) = dSubCount(strParent) - 1
+            End If
+        End If
+    Next lngPos
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NewTextDictionary
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : A dictionary that matches keys case-insensitively, mirroring the way the
+'           : file system treats the paths and file names used as keys here.
+'---------------------------------------------------------------------------------------
+'
+Private Function NewTextDictionary() As Dictionary
+    Set NewTextDictionary = New Dictionary
+    NewTextDictionary.CompareMode = TextCompare
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -598,51 +828,92 @@ End Sub
 ' Date      : 5/8/2026
 ' Purpose   : Recursively scan a folder and subfolders, deleting any file matching
 '           : the target name + extensions that is not in the correct folder.
+'           : Returns True when this folder holds nothing once its own cleanup and its
+'           : children are done, which is what tells the caller to remove it. Emptiness
+'           : is counted from the directory listing this level already read, so a tree
+'           : with no duplicates costs nothing beyond the listing itself.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ScanForDuplicates(strFolder As String, strCorrectFolder As String, _
-    strSafeName As String, varExtensions As Variant)
+Private Function ScanForDuplicates(strFolder As String, strCorrectFolder As String, _
+    strSafeName As String, varExtensions As Variant) As Boolean
 
     Dim colFiles As New Collection
     Dim colSubFolders As New Collection
     Dim varItem As Variant
+    Dim strPath As String
     Dim strName As String
     Dim strParent As String
+    Dim lngFiles As Long
+    Dim lngSubFolders As Long
     Dim i As Long
 
     ScanFolderContents strFolder, colFiles, colSubFolders
+    lngFiles = colFiles.Count
+    lngSubFolders = colSubFolders.Count
 
     ' Only check files if this is NOT the correct folder
     strParent = AddSlash(strFolder)
     If StrComp(strParent, strCorrectFolder, vbTextCompare) <> 0 Then
         For Each varItem In colFiles
-            strName = FSO.GetFileName(CStr(varItem))
+            strPath = CStr(varItem)
+            strName = Mid$(strPath, InStrRev(strPath, PathSep) + 1)
             For i = LBound(varExtensions) To UBound(varExtensions)
                 If StrComp(strName, strSafeName & CStr(varExtensions(i)), vbTextCompare) = 0 Then
-                    DeleteFile CStr(varItem)
+                    DeleteFile strPath
+                    ' Only count it out when it actually went away, so a locked file
+                    ' cannot make this folder look empty to the caller.
+                    If Not FSO.FileExists(strPath) Then lngFiles = lngFiles - 1
                     Exit For
                 End If
             Next i
         Next varItem
     End If
 
-    ' Recurse into subfolders
+    ' Recurse into subfolders, removing any the recursion reports empty
     For Each varItem In colSubFolders
-        ScanForDuplicates CStr(varItem), strCorrectFolder, strSafeName, varExtensions
-        ' Remove subfolder if empty after cleanup
-        If FSO.FolderExists(CStr(varItem)) Then
-            If FSO.GetFolder(CStr(varItem)).Files.Count = 0 _
-                And FSO.GetFolder(CStr(varItem)).SubFolders.Count = 0 Then
-                LogUnhandledErrors
-                On Error Resume Next
-                FSO.DeleteFolder CStr(varItem), True
-                CatchAny eelWarning, "Unable to delete empty folder: " & CStr(varItem), _
-                    ModuleName & ".ScanForDuplicates"
-            End If
+        If ScanForDuplicates(CStr(varItem), strCorrectFolder, strSafeName, varExtensions) Then
+            If RemoveEmptyFolder(CStr(varItem)) Then lngSubFolders = lngSubFolders - 1
         End If
     Next varItem
 
-End Sub
+    ScanForDuplicates = (lngFiles = 0) And (lngSubFolders = 0)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RemoveEmptyFolder
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Delete a folder the caller believes is empty, returning True once it is
+'           : gone. Callers derive emptiness from a directory listing they already hold,
+'           : so this re-confirms it before the forced delete, which would otherwise
+'           : take any contents with it. The confirmation only runs for folders already
+'           : believed empty, which on a normal export is none of them.
+'---------------------------------------------------------------------------------------
+'
+Private Function RemoveEmptyFolder(strFolder As String) As Boolean
+
+    Dim objFolder As Scripting.Folder
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Set objFolder = FSO.GetFolder(strFolder)
+    If objFolder Is Nothing Then GoTo CleanUp
+    If objFolder.Files.Count > 0 Then GoTo CleanUp
+    If objFolder.SubFolders.Count > 0 Then GoTo CleanUp
+    Set objFolder = Nothing
+    Err.Clear
+
+    FSO.DeleteFolder strFolder, True
+    RemoveEmptyFolder = Not CatchAny(eelWarning, "Unable to delete empty folder: " & strFolder, _
+        ModuleName & ".RemoveEmptyFolder")
+
+CleanUp:
+    If Err Then Err.Clear
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -792,6 +1063,222 @@ Public Sub CompileAndSaveAllModules()
     DoEvents
     Perf.OperationEnd
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResetCurrentVBProjectState
+' Author    : Adam Waller
+' Date      : 7/6/2026
+' Purpose   : Reset the current database VBA project via the VBE Reset command,
+'           : clearing any lingering run-state (module-level/global/Static vars)
+'           : without closing the database. This prevents "This action will reset
+'           : your project" prompts (and intermittent module-import failures) that
+'           : occur when VBComponents are modified while the project holds run-state.
+'           : Acts on the active project only; it does NOT reset library/add-in
+'           : projects, so the add-in's own singletons remain intact.
+'           : A 2026-08-27 RunVBA probe confirmed control 228 followed ActiveVBProject
+'           : even while an add-in code pane was focused. This is specific to Reset;
+'           : the VBE Save control follows the active document instead.
+'           : Returns True if the Reset control was found and executed without error.
+'           :
+'           : Set blnTrace when a fault here would take the process down (see
+'           : LogCrashTrace). Callers that already run with a warm VBE and an idle target
+'           : project have no need for it.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResetCurrentVBProjectState(Optional blnTrace As Boolean) As Boolean
+
+    Const VBE_CMD_RESET_ID As Long = 228   ' VBE Standard toolbar Reset (language-independent)
+    Dim ctl As CommandBarControl
+
+    LogUnhandledErrors
+    On Error Resume Next
+    If blnTrace Then LogCrashTrace "reset: setting active project"
+    Set VBE.ActiveVBProject = CurrentVBProject
+    If blnTrace Then LogCrashTrace "reset: finding Reset control"
+    Set ctl = Application.VBE.CommandBars.FindControl(, VBE_CMD_RESET_ID)
+    If Not ctl Is Nothing Then
+        If blnTrace Then LogCrashTrace "reset: executing Reset control"
+        ctl.Execute
+        If Err.Number = 0 Then ResetCurrentVBProjectState = True
+    End If
+    If blnTrace Then LogCrashTrace "reset: returned " & CStr(ResetCurrentVBProjectState)
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveCurrentVBProject
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Save the current database's VBA project, and report whether the project ended
+'           : up clean. Delegates to the worker script, because the VBE Save command only
+'           : works when nothing sits below it on the VBA stack (see below).
+'           :
+'           : This does NOT reset the project first, which was tried and reverted -- see the
+'           : list of dropped mechanisms below.
+'           :
+'           : `DoCmd.Save acModule, <one module>` is not equivalent, despite the long-held
+'           : assumption that saving one module saves the whole project. When form and
+'           : report class modules are dirty — the usual state after startup code has run,
+'           : where dozens of form classes report unsaved — it leaves the project dirty.
+'           : modLetterCasing had been logging exactly that ("VBA project still has unsaved
+'           : changes after letter casing corrections") for a long time before the cause
+'           : was understood.
+'           :
+'           : It also matters for database locking: a partial save leaves the database
+'           : inaccessible to other clients, where a complete one does not, which is the
+'           : difference between an in-place merge and one that has to reopen.
+'           :
+'           : Three mechanisms were tried and dropped, and should not be reintroduced
+'           : without new evidence:
+'           :
+'           :  * Saving individual modules. Form and report class modules cannot be saved
+'           :    this way at all, so it reports success while leaving dirty precisely the
+'           :    components that matter. This was the original bug.
+'           :  * `DoCmd.RunCommand acCmdSaveAllModules`. Raises 2046 ("isn't available now")
+'           :    unless a module window is active, and is widely reported to do nothing even
+'           :    when it does run. An expected error also has to be captured and cleared
+'           :    before anything is logged, or LogUnhandledErrors reports it and a modal
+'           :    dialog stops an unattended merge.
+'           :  * Executing the VBE Save command (ID 3) in process. Reports success and saves
+'           :    nothing — no error, correct project active, caption confirming the right
+'           :    document, before and after a project reset alike. Running the identical
+'           :    command from the worker saves the project, so the caller's own VBA stack is
+'           :    what it objects to. Do not add this back as a "free" first attempt: it never
+'           :    succeeds, and targeting it correctly means showing a code pane, which pops
+'           :    the VBE window open mid-merge.
+'           :  * Resetting the project in the same worker job, immediately before the save,
+'           :    to avoid the VBE's "this action will reset your project" prompt on a project
+'           :    holding run-state. This broke export and cannot work from here. A VBE reset
+'           :    ends whatever code is *running*; setting ActiveVBProject does not scope it
+'           :    away from us. During an export the running code is this add-in, waiting in
+'           :    Worker.WaitForQueue's DoEvents loop for the very job issuing the reset — so
+'           :    it terminated its own caller, taking the job queue with it ("Returned worker
+'           :    not found in job queue", then 40040 from the ribbon command). The merge is
+'           :    immune only because its next stage arrives on a Windows timer, so nothing of
+'           :    ours has to survive; a save called mid-procedure has no such re-entry. Note
+'           :    also that the prompt this was meant to prevent has never been observed here.
+'           :
+'           : Compiling is deliberately avoided: `acCmdCompileAndSaveAllModules` is the
+'           : mechanism usually recommended, but a project that does not compile still has
+'           : to be mergeable.
+'           :
+'           : Returns the project's actual `Saved` state, so a caller never has to trust
+'           : that this worked.
+'---------------------------------------------------------------------------------------
+'
+Public Function SaveCurrentVBProject(Optional blnTrace As Boolean) As Boolean
+
+    Dim strDetail As String
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    If CurrentVBProject.Saved Then GoTo Verify
+
+    If blnTrace Then LogCrashTrace "save: saving VBA project out of process"
+    Worker.Run_SaveVbaProject
+    strDetail = ErrDetail
+    If Err Then Err.Clear
+    If blnTrace Then LogCrashTrace "save: worker returned" & strDetail & _
+        ", saved: " & CStr(CurrentVBProject.Saved)
+
+Verify:
+    ' Report what actually happened rather than what was attempted.
+    SaveCurrentVBProject = CurrentVBProject.Saved
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : VbaProjectUnchangedSinceExport
+' Author    : Adam Waller
+' Date      : 8/31/2026
+' Purpose   : True when the VBE project is saved and its monolithic module date still
+'           : matches the value stored at the last export. Used by module, form, and
+'           : report change detection to skip GetCodeModuleHash on no-change fast saves.
+'           : Saved alone is not enough: a user can save VBE edits without changing a
+'           : form's layout DateModified, which is why forms/reports need this guard too.
+'           : VBAProjectDate is only written by VCSIndex.CertifyVBAProjectDate, after an
+'           : operation has proven that every module, form, and report matches the index.
+'---------------------------------------------------------------------------------------
+'
+Public Function VbaProjectUnchangedSinceExport() As Boolean
+
+    If Not CurrentVBProject.Saved Then Exit Function
+    If VCSIndex.VBAProjectDate = 0 Then Exit Function
+
+    VbaProjectUnchangedSinceExport = (GetVbaProjectDate = VCSIndex.VBAProjectDate)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetVbaProjectDate
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/6/2026
+' Purpose   : The monolithic module date of the VBA project, truncated to seconds as
+'           : the index stores it. (Access saves all modules together, so every module
+'           : date moves in lockstep.) Returns 0 when the project has no modules.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetVbaProjectDate() As Date
+    If CurrentProject.AllModules.Count = 0 Then Exit Function
+    GetVbaProjectDate = DateTruncToSeconds(CurrentProject.AllModules(0).DateModified)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ErrDetail
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Render the current error for a trace line, or an empty string when there is
+'           : none, so that a step which fails silently can be told apart from one that
+'           : raises. Reads Err without clearing it, so callers must capture the text and
+'           : clear Err before logging -- see the note in SaveCurrentVBProject.
+'---------------------------------------------------------------------------------------
+'
+Private Function ErrDetail() As String
+    If Err.Number <> 0 Then ErrDetail = " [err " & Err.Number & ": " & Err.Description & "]"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResetWouldEndOurOwnCode
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Returns True when the project that ResetCurrentVBProjectState would reset
+'           : is also the project running this code — i.e. the add-in is open as the
+'           : current database rather than loaded as a library add-in.
+'           :
+'           : A VBE reset is equivalent to the End statement for the project it acts on.
+'           : Resetting a project that has frames on the call stack destroys the stack
+'           : underneath the running code, which crashes Access inside VBE7.DLL
+'           : (access violation, no trappable error, no chance to fall back). This is
+'           : why the reset is safe in RunVBA, where the reset target is the current
+'           : database and the caller lives in the add-in library project.
+'           :
+'           : Callers that reset as a side effect must check this first and choose a
+'           : different strategy when it returns True.
+'           :
+'           : False is NOT a guarantee that a reset is harmless. Setting ActiveVBProject
+'           : does not confine a reset to that project: it ends running code generally, so
+'           : an add-in-side caller can lose its own module-level state while resetting a
+'           : different project. Resetting during an export demonstrated this by wiping the
+'           : worker job queue mid-operation. What makes the merge safe is not this check
+'           : alone but that its next stage re-enters on a Windows timer, so no state has to
+'           : survive the reset. A caller that needs to keep running afterwards needs the
+'           : same choreography, not just a False here.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResetWouldEndOurOwnCode() As Boolean
+    ResetWouldEndOurOwnCode = (StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0)
+End Function
 
 
 '---------------------------------------------------------------------------------------

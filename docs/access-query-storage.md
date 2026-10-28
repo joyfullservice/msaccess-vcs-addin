@@ -23,9 +23,9 @@ Three sources contribute to this document:
   repo (Adam Waller) is an internally-maintained package built around
   Colin's example download — it organizes the queries by topic in a
   live test database and adds the April 2026 Lv/MSysObjects
-  binary-format addendum. Lives at `C:\Repos\MSysQueriesExamples\` (not
-  vendored into this repo); see `docs/how-access-stores-queries.md`
-  there for the exhaustive treatment.
+  binary-format addendum. It is not vendored into this repo; see
+  `docs/how-access-stores-queries.md` in that companion checkout for
+  the exhaustive treatment.
 - **Unique to this repo (sections 4–6):** empirical findings from
   running the round-trip fixture corpus and the `clsQueryComposer`
   test runs, including `Application.LoadFromText` /
@@ -78,11 +78,57 @@ The parser handles every value below:
 | 5    | DELETE                    | —                                                      |
 | 6    | TRANSFORM (Crosstab)      | —                                                      |
 | 7    | Data Definition (DDL)     | Expression = full DDL statement                        |
-| 8    | Pass-through              | Expression = SQL command; Name1 = ODBC connect string  |
+| 8    | Pass-through (returns records) | Expression = SQL command; Name1 = ODBC connect string  |
+| 10   | Pass-through (no records)        | Expression = SQL command; Name1 = ODBC connect string  |
 | 9    | UNION                     | —                                                      |
 
 Flag 2 (Make-Table / `SELECT INTO`) is in the upstream reference but has no
 fixture in this repo (see § 5).
+
+### Attribute 2 — declared parameters
+
+One row per parameter declared in the query's `PARAMETERS` clause. `Name1` is
+the parameter name and `Flag` is its DAO data type. `Expression`, when present,
+carries a complete declaration that overrides the name/type pair.
+
+Names are stored **exactly as authored**. A parameter declared `[Enter ID]`
+keeps its brackets; one declared `StatusFilter` stays unbracketed — even though
+Access rewrites the matching reference inside the `WHERE` clause to
+`[StatusFilter]`. Anything that re-brackets the name on the way out will not
+round-trip.
+
+The keywords accepted in a `PARAMETERS` clause are **not** the DAO type names,
+and the difference is not cosmetic: an unaccepted spelling raises error 3139
+("Syntax error in PARAMETERS clause") and, on the SQL View import path, fails
+the whole object with "Could not create or set the property SQL". The mapping
+below was obtained by round-tripping each keyword through `CreateQueryDef` and
+reading back both `Parameters(0).Type` and the SQL Access normalized it to.
+
+| DAO type | Keyword Access writes | Also accepted                          | Rejected spelling |
+|----------|-----------------------|----------------------------------------|-------------------|
+| 1        | `Bit`                 | `YesNo`, `Logical`                     | `Boolean`         |
+| 2        | `Byte`                | —                                      | —                 |
+| 3        | `Short`               | `SmallInt`                             | —                 |
+| 4        | `Long`                | `Integer`, `Int`                       | `LongInteger`, `Counter` |
+| 5        | `Currency`            | `Money`                                | —                 |
+| 6        | `IEEESingle`          | `Single`, `Real`                       | —                 |
+| 7        | `IEEEDouble`          | `Double`, `Float`, `Number`, `Numeric` | —                 |
+| 8        | `DateTime`            | `Date`, `Time`                         | —                 |
+| 9        | `Binary`              | `VarBinary`                            | —                 |
+| 10       | `Text ( 255 )`        | `Text`, `Char`, `VarChar`, `String`    | `ShortText`       |
+| 11       | `LongBinary`          | —                                      | `OLEObject`, `Image` |
+| 12       | `LongText`            | `Note`                                 | `Memo`            |
+| 15       | `Guid`                | `GUID`                                 | `ReplicationID`   |
+| 19       | `BigInt`              | —                                      | `LargeInt`        |
+
+Two entries surprise: `BigInt` reports as 19 (`dbNumeric`) rather than 16
+(`dbBigInt`), and `Value` is accepted but is simply a spelling of `dbText` (10)
+rather than an untyped parameter. There is no parseable keyword for a decimal
+parameter — `Decimal` is rejected and `Numeric` resolves to `IEEEDouble`.
+
+A size specifier such as `Text ( 255 )` exists only in the SQL clause. It has
+no representation in the Design View block, so a round trip through Design View
+normalizes every text parameter to the default width.
 
 ### Attribute 3 — query options (bitmask)
 
@@ -216,10 +262,16 @@ Both are `OLE Object` columns; only one (`LvProp`) is always present for
 queries:
 
 - **`LvProp`** — MR2 binary format (same as linked tables). Carries query
-  properties (`ReturnsRecords`, `ODBCTimeout`, `RecordsetType`,
-  `DefaultView`, `Orientation`, etc.) and per-column metadata (`Name`,
-  `AggregateType`, `ColumnWidth`, `ColumnHidden`). Parsed by
-  `clsLvExtraParser` and similar. Always present.
+  properties (`ODBCTimeout`, `RecordsetType`, `DefaultView`, `Orientation`,
+  `LogMessages`, etc.) and per-column metadata (`Name`, `AggregateType`,
+  `ColumnWidth`, `ColumnHidden`). Parsed by `clsLvPropParser`. Always
+  present. **`ReturnsRecords` is not stored in `LvProp`** for pass-through
+  queries; export derives it from MSysQueries Attribute 1 Flag (`10` = no
+  records) and writes it to the `.json` `QueryProperties` block when
+  non-default. Action queries saved from the designer also pick up
+  `UseTransaction` and `FailOnError`, so a hand-written fixture for an
+  UPDATE/DELETE/append query needs `FailOnError` in its `QueryProperties` block
+  or it diffs on the first run.
 - **`LvExtra`** — present only for queries last saved in Design View.
   Carries the design layout: window position, designer pane dimensions,
   table positions. Total size = 68 + (tableCount + 1) × 284 bytes. We
@@ -235,11 +287,36 @@ queries:
 
 ### OptionFlag (`.json` companion)
 
-`OptionFlag` is the JSON-serialized bitmask the new `.sql`/`.json`
-pipeline writes; values match Attribute 3 above (e.g. 48 = TOP n PERCENT,
-2 = DISTINCT, 1 = OutputAllFields). Stored in the `.json` companion so
-the SQL string in the `.sql` file can stay clean (the importer combines
-the SQL with `OptionFlag` when generating the `.qdef`).
+`OptionFlag` is the JSON-serialized copy of MSysQueries Attribute 3
+(e.g. 48 = TOP n PERCENT, 2 = DISTINCT, 1 = OutputAllFields). The `.sql`
+file is the sole source of truth for **every** bit in it — DISTINCT,
+DISTINCTROW, TOP, PERCENT, OWNERACCESS, UNION / UNION ALL, and Output
+All Fields, which SQL spells as a bare `*` in the field list. Import
+parses all of them from the `.sql` and never lets `OptionFlag` change
+the result; a companion that disagrees is ignored and logged as a
+warning. The comparison is symmetric, because a bit the `.json` claims
+and the `.sql` lacks and a modifier the `.sql` spells out that the
+`.json` dropped are the same stale companion seen from two sides.
+
+One shape is exempt: a bare `SELECT *` sets bit 1 while storing no
+output columns, and exports omit the flag because the `*` already
+carries it. Both spellings of that query agree.
+
+From export format 5.1.0, `ReconstructSQL` injects Attribute 3 modifiers
+that Access omitted from Attribute 0 raw SQL into the emitted `.sql`, and
+`OptionFlag` is written from that SQL alone. Injection is limited to what
+Jet can parse back: `TOP` only onto a SELECT-shaped statement (Jet rejects
+it on UPDATE / DELETE, which can still carry the bit in Attribute 3), and
+never a bare `*`, whose position in the field list is not recoverable.
+Earlier format versions keep the pre-5.1.0 split: raw Attribute 0 SQL and
+Attribute 3 as `OptionFlag`.
+
+Because these keywords are legal inside string literals and bracketed
+identifiers, the UNION and OWNERACCESS scans are quote-, bracket-, and
+depth-aware. A criterion of `= "UNION ALL"` used to classify a plain
+`SELECT DISTINCT` as a union query, which swapped the DISTINCT bit for
+the UNION ALL flag on export
+([regression/qryRegressionUnionWordInLiteral.sql](../Testing/Fixtures/queries/regression/qryRegressionUnionWordInLiteral.sql)).
 
 ## 3. Design View vs SQL View
 
@@ -275,6 +352,161 @@ necessity:
 - **UNION**, **Data Definition (DDL)**, **Pass-through** — Access itself
   refuses to display these in Design View.
 - Non-equi joins (e.g., `ON A.x > B.y`) — display will fail.
+
+### Design View `.qdef` block order
+
+`Application.LoadFromText` parses the structured `.qdef` positionally, not by
+name. Blocks appear in a fixed order, and a block in the wrong place is a parse
+error rather than something Access tolerates or reorders:
+
+```
+Operation =N                       header scalars: Operation, Option,
+Option =N                          RowCount (with Option =16), Where, Having
+Where ="..."
+Begin InputTables ... End
+Begin OutputColumns ... End
+Begin Parameters ... End           declared parameters (MSysQueries Attribute 2)
+Begin Joins ... End
+Begin OrderBy ... End
+Begin Groups ... End
+dbBoolean "ReturnsRecords" ...     query properties
+dbBinary "GUID" = Begin ... End
+Begin ... End                      column metadata, then the layout section
+```
+
+The parameters block is the one most easily misplaced, because in a simple
+single-table query it happens to be adjacent to the properties and appears to
+work anywhere after the output columns. It is not: moving it produces
+
+| Position of `Begin Parameters`     | `LoadFromText` result                        |
+|------------------------------------|----------------------------------------------|
+| After `Begin OutputColumns ... End` | Loads; Access re-emits it in place           |
+| After `Begin Joins ... End`         | `Expected: End of file.  Found: Parameters.` |
+| After `Begin OrderBy ... End`       | `Expected: End of file.  Found: Parameters.` |
+| After `Begin Groups ... End`        | `Expected: 'End'.  Found: Parameters.`       |
+| Before `Begin InputTables`          | `Expected: End of file.  Found: InputTables.` |
+
+Native `Application.SaveAsText` output agrees across every shape checked —
+single table, join with `ORDER BY`, `GROUP BY`, `TOP n`, parameterized `UPDATE`
+and crosstab — so the position is a property of the grammar, not of the query
+type.
+
+Two adjacent traps in the header worth recording, since both surface as
+misleading errors:
+
+- `Option =16` (`TOP n`) requires a matching `RowCount` line. Without it the
+  load fails with a bare `Resource failure` reported against whichever line
+  follows, not against the option.
+- A parameterized crosstab must name its column headings (`PIVOT ... In (...)`)
+  if it is to be saved from the designer unattended. Otherwise Access runs the
+  query to discover the headings and prompts for the parameter value.
+
+### Crosstab (`Operation =6`) block shape
+
+Roles are carried by `GroupLevel` markers that *follow* the expression they
+annotate, and `Begin Groups` repeats the same levels. Captured from Access
+16.0 across a two-row-heading crosstab with `ORDER BY` and a parameterized
+crosstab with a fixed `PIVOT` list:
+
+```
+Operation =6
+Option =0
+Begin InputTables
+    Name ="tblA"
+End
+Begin OutputColumns
+    Expression ="tblA.Manufacturer"                row heading
+    GroupLevel =2
+    Expression ="tblA.Yr"                          second row heading, same level
+    GroupLevel =2
+    Expression ="tblA.Model"                       column heading
+    GroupLevel =1
+    Alias ="CountOfColour"                         aggregate: Alias, no GroupLevel
+    Expression ="Count(tblA.Colour)"
+End
+Begin Parameters ... End                           only when parameters exist
+Begin Joins ... End
+Begin OrderBy ... End                              ordinary Flag =0 rows
+Begin Groups
+    Expression ="tblA.Manufacturer"
+    GroupLevel =2
+    Expression ="tblA.Yr"
+    GroupLevel =2
+    Expression ="tblA.Model"                       no In (...) list here
+    GroupLevel =1
+End
+```
+
+`GroupLevel` is a **role marker, not a nesting depth**: every row heading gets
+`2` no matter how many there are, the single column heading gets `1`, and the
+aggregate gets none. The values match the Attribute 6 flags in § 2. Ordinary
+non-crosstab `GROUP BY` rows use `GroupLevel =0`.
+
+Column order within `OutputColumns` is fixed: row headings in `SELECT` order,
+then the column heading, then the aggregate. `Begin OrderBy` and
+`Begin Parameters` keep the same positions they hold for any other query type.
+
+A fixed `PIVOT` heading list is part of the column-heading `Expression` in
+`OutputColumns` but is absent from the matching `Groups` row. It is written
+with the same spacing Access uses in the stored SQL — `In (1, 2, 3)`, spaces
+after the commas — so the expression passes through unchanged. (An earlier
+capture recorded here claimed the qdef used an unspaced `In (1,2,3)` while the
+SQL used the spaced form; re-capturing on Access 16.0 shows both spaced. Emit
+what the SQL holds.)
+
+`Application.LoadFromText` accepts this shape directly, including for a
+parameterized crosstab whose `PIVOT` has *no* heading list, and reconstructs
+the `PARAMETERS` clause and `PIVOT` list verbatim. A layout block loads with
+it, leaving `MSysObjects.LvExtra` populated — so a crosstab can be imported as
+Design View without losing its designer grid.
+
+The column metadata block that follows the properties does **not** match what we
+emit, and deliberately so. Native output for the crosstab above lists only the
+first row heading (`AggregateType =-1`) and the aggregate's alias (carrying an
+Access-assigned `GUID`, no `AggregateType`), skipping the second row heading and
+the pivot field entirely. `EmitColumnMetadata` instead synthesizes one
+`AggregateType =-1` entry per parsed output column, which for a crosstab means
+the row headings and not the aggregate. That heuristic is shared by every Design
+View query type — it also adds `WHERE`-referenced fields Access never lists — and
+the round trip shows Access normalizes the difference away: the re-exported
+`.json` carries no column metadata either way. Do not special-case crosstabs
+here without changing the heuristic for every query type.
+
+### Capturing native `.qdef` ground truth
+
+Every claim in the two sections above came from reading what Access itself
+writes, which is the only reliable arbiter for undocumented grammar. The
+captures are not committed — regenerate them when a question comes up:
+
+1. Create the query with `CurrentDb.CreateQueryDef`. This stores it as SQL View,
+   so it has no layout yet and `SaveAsText` would emit a `dbMemo "SQL"` qdef.
+2. Open it in Design View (`DoCmd.OpenQuery name, acViewDesign`) and force a save
+   with `DoCmd.RunCommand acCmdSave`, then close it. This is what makes Access
+   write the designer grid to `MSysObjects.LvExtra`.
+3. Confirm `LvExtra` is non-null before trusting the result — if it is null you
+   captured a SQL View qdef and step 2 did not take.
+4. `Application.SaveAsText acQuery, name, path`.
+5. Delete the scratch queries and tables afterwards.
+
+Four traps, each of which costs a debugging cycle:
+
+- `acCmdShowTableNames` is not a VBA constant and will not compile. Nothing
+  beyond `acCmdSave` is needed to dirty and persist the design.
+- `CurrentDb` returns a snapshot. Re-fetch it after `CreateQueryDef` or
+  `LoadFromText`, or reading `QueryDefs` raises 3265 "Item not found in this
+  collection" for the object you just created.
+- A parameter prompt blocks an unattended run, and `DoCmd.SetParameter` does not
+  reliably prevent it. It applies to the object opened by the next `DoCmd`
+  action, so it does not cover work `acCmdSave` does afterwards: saving a
+  parameterized crosstab whose `PIVOT` has no heading list still hangs on a
+  modal prompt, because Access runs the query to discover its column headings.
+  Shape the query so Access never has to evaluate it — for a crosstab, that
+  means naming the headings with `PIVOT ... In (...)`. This trap belongs to the
+  *designer*, not to the import path: `LoadFromText` never executes the query
+  and never prompts.
+- Do not assemble a long qdef as a VBA string literal; past ~25 continuations it
+  fails with 40192 "Too many line continuations". Write the file from the shell
+  and load it.
 
 ### Our arbitration rule
 
@@ -352,7 +584,7 @@ contract.
 | INNER JOIN with WHERE                       | [select/qryCurrencyExchangeINNERFiltered.sql](../Testing/Fixtures/queries/select/qryCurrencyExchangeINNERFiltered.sql)   |
 | LEFT JOIN                                   | [select/qryCurrencyExchangeLEFT.sql](../Testing/Fixtures/queries/select/qryCurrencyExchangeLEFT.sql)                     |
 | Mixed LEFT/RIGHT outer joins                | [regression/qryRegressionMixedOuterJoin.sql](../Testing/Fixtures/queries/regression/qryRegressionMixedOuterJoin.sql)     |
-| Self-join, fully aliased (`AS a`/`AS b`)    | [regression/qryCurrencyCrossRates.sql](../Testing/Fixtures/queries/regression/qryCurrencyCrossRates.sql)                 |
+| Self-join, fully aliased (`AS a`/`AS b`)    | [regression/qryRegressionSelfJoinAliased.sql](../Testing/Fixtures/queries/regression/qryRegressionSelfJoinAliased.sql)   |
 | Self-join, unaliased (`_1` synthetic alias) | [regression/qryRegressionSelfJoinUnaliased.sql](../Testing/Fixtures/queries/regression/qryRegressionSelfJoinUnaliased.sql) |
 | 3-table inner-join chain                    | [regression/qryRegressionStrandedAlias.sql](../Testing/Fixtures/queries/regression/qryRegressionStrandedAlias.sql)       |
 | Multi-condition `ON` (parenthesized AND/OR) | [regression/qryRegressionMultiCondJoin.sql](../Testing/Fixtures/queries/regression/qryRegressionMultiCondJoin.sql)       |
@@ -365,6 +597,8 @@ contract.
 | `IN (SELECT ...)` subquery                  | [regression/qryRegressionFindDuplicates.sql](../Testing/Fixtures/queries/regression/qryRegressionFindDuplicates.sql)     |
 | Derived table in `FROM` (`%$##@_Alias`)     | [regression/qryRegressionFromSubquery.sql](../Testing/Fixtures/queries/regression/qryRegressionFromSubquery.sql)         |
 | Quoted identifiers / brackets               | [regression/qryRegressionQuotes.sql](../Testing/Fixtures/queries/regression/qryRegressionQuotes.sql)                     |
+| Bracketed table name with parentheses (Design View) | [regression/qryRegressionBracketedParenName.sql](../Testing/Fixtures/queries/regression/qryRegressionBracketedParenName.sql) |
+| Single-quoted literal spacing (Design View)  | [regression/qryRegressionSingleQuotedLiteralSpacing.sql](../Testing/Fixtures/queries/regression/qryRegressionSingleQuotedLiteralSpacing.sql) |
 | Backslash literals in string concat         | [regression/qryRegressionBackslash.sql](../Testing/Fixtures/queries/regression/qryRegressionBackslash.sql)               |
 | `TOP N PERCENT`                             | [regression/qryRegressionTopPercent.sql](../Testing/Fixtures/queries/regression/qryRegressionTopPercent.sql)             |
 | Scalar no-table SELECT                      | [regression/qryRegressionScalarNoTable.sql](../Testing/Fixtures/queries/regression/qryRegressionScalarNoTable.sql)       |
@@ -372,13 +606,20 @@ contract.
 | Explicit `table.*` plus all-fields `*`      | [regression/qryRegressionExplicitAndAllFields.sql](../Testing/Fixtures/queries/regression/qryRegressionExplicitAndAllFields.sql) |
 | Make-Table (`SELECT ... INTO`)              | [regression/qryRegressionExternalMakeTable.sql](../Testing/Fixtures/queries/regression/qryRegressionExternalMakeTable.sql) |
 | Query parameters (Attribute 2)               | [regression/qryRegressionParameterizedCrosstab.sql](../Testing/Fixtures/queries/regression/qryRegressionParameterizedCrosstab.sql) |
+| Query parameters, Design View (`Begin Parameters` block) | [regression/qryRegressionDesignViewParameters.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParameters.sql) |
+| Query parameters, Design View — typed (Boolean/DateTime/Currency/Double) + unbracketed name | [regression/qryRegressionDesignViewParameterTypes.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParameterTypes.sql) |
+| Query parameters, Design View — with INNER JOIN + ORDER BY (`Begin Parameters` before `Begin Joins`) | [regression/qryRegressionDesignViewParametersJoinOrderBy.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersJoinOrderBy.sql) |
+| Query parameters, Design View — with GROUP BY (`Begin Parameters` before `Begin Groups`) | [regression/qryRegressionDesignViewParametersGroupBy.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersGroupBy.sql) |
+| Query parameters, Design View — with `TOP n` (`Option`/`RowCount` header scalars) | [regression/qryRegressionDesignViewParametersTopN.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersTopN.sql) |
+| Query parameters, Design View — UPDATE action query (`Operation =4`) | [regression/qryRegressionDesignViewParametersUpdate.sql](../Testing/Fixtures/queries/regression/qryRegressionDesignViewParametersUpdate.sql) |
+| Query parameters on a crosstab with fixed `PIVOT` headings (Design View) | [regression/qryRegressionParametersCrosstabFixedPivot.sql](../Testing/Fixtures/queries/regression/qryRegressionParametersCrosstabFixedPivot.sql) |
 | INSERT INTO ... SELECT (Append)             | [append/qryAppendCars.sql](../Testing/Fixtures/queries/append/qryAppendCars.sql)                                         |
 | Scalar append without source table          | [regression/qryRegressionScalarAppendNoTable.sql](../Testing/Fixtures/queries/regression/qryRegressionScalarAppendNoTable.sql) |
 | UPDATE                                      | [update/qryUpdateCarsPrice.sql](../Testing/Fixtures/queries/update/qryUpdateCarsPrice.sql)                               |
 | UPDATE DISTINCTROW                          | [regression/qryRegressionUpdateDistinctRow.sql](../Testing/Fixtures/queries/regression/qryRegressionUpdateDistinctRow.sql) |
 | DELETE                                      | [delete/qryDeleteUnusedCurrencies.sql](../Testing/Fixtures/queries/delete/qryDeleteUnusedCurrencies.sql)                 |
 | DELETE DISTINCTROW                          | [regression/qryRegressionDeleteDistinctRow.sql](../Testing/Fixtures/queries/regression/qryRegressionDeleteDistinctRow.sql) |
-| TRANSFORM (Crosstab)                        | [crosstab/qryCarsCrosstab.sql](../Testing/Fixtures/queries/crosstab/qryCarsCrosstab.sql)                                 |
+| TRANSFORM (Crosstab, Design View — two row headings + `ORDER BY`) | [crosstab/qryCarsCrosstab.sql](../Testing/Fixtures/queries/crosstab/qryCarsCrosstab.sql)                                 |
 | UNION                                       | [union/qryUnionMakers.sql](../Testing/Fixtures/queries/union/qryUnionMakers.sql)                                         |
 | UNION with global ORDER BY                  | [regression/qryRegressionUnionOrderBy.sql](../Testing/Fixtures/queries/regression/qryRegressionUnionOrderBy.sql)         |
 | Data Definition (DDL)                       | [ddl/qryCreateTempTable.sql](../Testing/Fixtures/queries/ddl/qryCreateTempTable.sql)                                     |
@@ -396,18 +637,22 @@ contribute a fixture (see the bug-as-fixture workflow in
 
 | Shape                                              | Status / what would be needed                                                                                                  |
 |----------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| Query parameters beyond Text (`Attribute 2`)       | Text parameters are pinned by `qryRegressionParameterizedCrosstab`. Riddington documents additional DAO data-type flags (Boolean, Byte, Integer, Long, Currency, Single, Double, Date/Time, OLE, Memo, GUID, BigInt); add fixtures if those are observed in the wild. |
-| `WITH OWNERACCESS OPTION` (Attribute 3 Flag = 4)   | No fixture. Verify the option flag round-trips (currently unknown whether it's preserved in `OptionFlag`).                     |
+| Query parameters beyond Long/Text (`Attribute 2`)  | `qryRegressionParameterizedCrosstab` pins Text via the SQL-memo path; `qryRegressionDesignViewParameters` pins Long + Text, `qryRegressionDesignViewParameterTypes` pins Boolean, DateTime, Currency + Double (plus an unbracketed parameter name), and `qryRegressionDesignViewParametersJoinOrderBy` pins Long + Short (unbracketed) alongside an INNER JOIN and ORDER BY \u2014 all through the Design View `Begin Parameters` block. `ParameterFlagFromType` maps the remaining DAO flags Riddington documents (Byte, Single, OLE, Memo, GUID, BigInt), but those are not yet exercised by a round-trip fixture; add fixtures for them if observed in the wild. |
+| `WITH OWNERACCESS OPTION` (Attribute 3 Flag = 4)   | **Covered** by [regression/qryRegressionOwnerAccess.sql](../Testing/Fixtures/queries/regression/qryRegressionOwnerAccess.sql) and [regression/qryRegressionOwnerAccessLiteral.sql](../Testing/Fixtures/queries/regression/qryRegressionOwnerAccessLiteral.sql), which repeats the phrase inside a criterion so the clause scan cannot be satisfied by a string literal. |
 | Multi-value field (MVF) references                 | No fixture. Riddington Part 1 § 21. Likely shows up in Attribute 12 Flag = 2.                                                  |
 | Attachment field references                        | No fixture. Same Attribute 12 Flag = 2 family as MVF.                                                                          |
 | Long-text version-history references               | No fixture. Attribute 12 Flag = 1. Likely out of scope (version history is an Access-managed feature).                         |
 | TEMP queries (`MSysObjects.Flags = 3`)             | Intentionally not exported. Access auto-creates these (`~sq_*` names) for form/report record sources; they're regenerated on demand. The `clsDbQuery.GetAllFromDB` enumerator filters them out. |
 | Deleted-query tombstones (`~TMPCLP*`)              | Intentionally not exported. Access marks recently-deleted queries this way; they're permanently removed on compact.            |
-| Pass-through queries                               | `passthrough/` folder reserved (`.gitkeep` only); no fixture. Connect string handling is the main unknown — `Connect` already supports `env:` references for sanitization, but no end-to-end verification of `LoadFromText` for pass-through `.qdef` text. |
+| Pass-through queries                               | Covered by `passthrough/qryPassThroughNoConnect`, `qryPassThroughReturnsRecords` (Attribute 1 Flag 8), and `qryPassThroughNoRecords` (Flag 10 / `ReturnsRecords=false`, issue #724). SQL is the verbatim Attribute 1 `Expression`; connect is Attribute 1 `Name1` (or Attribute 4 when present). |
 | Scalar `SELECT 1 ... AS X` subqueries in projection | No fixture. Riddington Part 1 § 27 example uses `Exists (SELECT 1 ...)` inside a DELETE; only the outer DELETE shape is currently exercised. |
 | `INSERT INTO ... VALUES (...)` (literal append)    | No fixture. Differs structurally from `INSERT INTO ... SELECT` (uses Attribute 6 Flag = -32768 for VALUES literals).           |
-| Non-equi joins (`A.x > B.y`)                       | No fixture. Cannot be displayed in Design View — would be SQL-View-only and may need to land alongside the multi-cond `ON` asymmetry in § 6. |
+| Non-equi joins (`A.x > B.y`)                       | **Covered** by [regression/qryRegressionNonEquiJoin.sql](../Testing/Fixtures/queries/regression/qryRegressionNonEquiJoin.sql) (inside a compound `ON`, with a `.qdef` baseline). Access cannot *display* these in Design View, but it does store them as Attribute 7 rows and `LoadFromText` accepts them. `ExtractTableFromOnSide` keys off `=`, so both sides come back empty and the pair is taken from the parent join. |
+| Top-level `OR` in a compound `ON`                  | No fixture. `HasTopLevelBoolean` returns True for `OR`, so `RequiresDesignView` is set and Design View is forced — but `EmitDesignViewQdef` splits on `" AND "` only, so the whole `OR` expression lands in a single join row with the pair taken from the first `=`. Whether Access accepts and round-trips that is unverified. |
+| Post-import validation of the stored query         | None. Import treats a `LoadFromText` success as success, and Access accepts structurally invalid `Joins` rows silently (see § 6). Reading `QueryDefs(name).SQL` after import would surface error 3080 / 3082 corruption at merge time instead of at first execution. |
+| Function calls in ON-clause operands (`Left(a.x,3)=b.y`) | **Covered.** `ExtractTableFromOnSide` returns empty for expression operands; `ResolveConditionJoinTables` validates against `InputTables` and falls back via qualifier scan / parent join. Pinned by [regression/qryRegressionFunctionInOnClause.sql](../Testing/Fixtures/queries/regression/qryRegressionFunctionInOnClause.sql). See § 6. |
 | External-database joins (`IN '...'` clause)        | No fixture. Attribute 4 carries the connect string; verify it round-trips.                                                     |
+| Crosstab in Design View (`Operation =6` + layout)  | **Covered.** `EmitCrosstabOutputColumns` supplies the Attribute 6 `GroupLevel` role markers and the matching `Groups` rows, so a crosstab carrying a `DesignLayout` keeps its designer grid. Pinned by [crosstab/qryCarsCrosstab.sql](../Testing/Fixtures/queries/crosstab/qryCarsCrosstab.sql) (two row headings plus `ORDER BY`) and [regression/qryRegressionParametersCrosstabFixedPivot.sql](../Testing/Fixtures/queries/regression/qryRegressionParametersCrosstabFixedPivot.sql) (parameterized, fixed heading list), with unit coverage in `clsTestQueryComposerCrosstab`. |
 
 When adding a fixture for any of the above, follow the contribution
 workflow in [Testing/Fixtures/README.md § Bug-as-fixture](../Testing/Fixtures/README.md).
@@ -421,6 +666,29 @@ Findings below were discovered through running the round-trip harness
 and are **not** in the upstream Riddington documentation. They are
 specific to this add-in's use of `Application.LoadFromText` and
 `Application.SaveAsText` for object I/O.
+
+### Literal tabs in SQL View qdefs must use the octal `\011` escape
+
+**Symptom.** A pass-through query whose SQL uses leading tabs loses those tabs
+after build, while leading spaces survive. The query still runs, but the next
+export reports every affected line as changed.
+
+**Cause.** Pass-through queries are imported through a SQL View qdef because
+Access cannot represent them in Design View. A literal tab inside the generated
+`dbMemo "SQL"` value is consumed by `Application.LoadFromText` as qdef
+whitespace rather than stored as part of the memo. SQL formatting is not
+involved: pass-through SQL deliberately bypasses `clsSqlFormatter`.
+
+**Implementation.** `EscapeQdefString` serializes a tab as the qdef octal escape
+`\011`, alongside `EmitDbMemoSql`'s existing `\015`/`\012` CR/LF escapes.
+`SafeBreak` recognizes all three four-character escapes so a wrapped quoted
+segment cannot split one. This is an import-only fix; the authoritative `.sql`
+file remains byte-for-byte unchanged.
+
+**Pinned by:**
+[`regression/qryRegressionPassThroughTabs.sql`](../Testing/Fixtures/queries/regression/qryRegressionPassThroughTabs.sql)
+with sibling `.json` / `.qdef` / `.notes.md`
+([issue #786](https://github.com/joyfullservice/msaccess-vcs-addin/issues/786)).
 
 ### LoadFromText / SaveAsText asymmetry for multi-condition `ON`
 
@@ -454,6 +722,53 @@ property (line 559), and consumed by the arbitration rule in
 
 **Pinned by:** [regression/qryRegressionMultiCondJoin.sql](../Testing/Fixtures/queries/regression/qryRegressionMultiCondJoin.sql)
 + sibling `.notes.md`.
+
+### Function-call operands in compound `ON` corrupt Design View join rows
+
+**Symptom.** A multi-condition `ON` with a function on one side of an
+equality — e.g. `prior.OrderDate = DateAdd('yyyy', -1, cur.OrderDate)` —
+imported without error, then failed at runtime with DAO error 3080
+("Joined table 'DateAdd('yyyy', -1, cur' not listed in FROM clause").
+
+**Cause.** Two compounding gaps:
+
+1. `ExtractTableFromOnSide` was not expression-aware. For the right side
+   of that condition it stripped the trailing `)`, found the first
+   qualifying dot, and returned the prefix `DateAdd('yyyy', -1, cur` as
+   the table name.
+2. The per-condition emit loop in `EmitDesignViewQdef` fell back to the
+   parent join's tables only when extraction returned *empty*. A
+   non-empty garbage token bypassed the fallback and was written as
+   `RightTable`. `LoadFromText` accepted it silently.
+
+Multi-condition `ON` forces Design View (`RequiresDesignView`), so the
+SQL View path — which would have stored the SQL verbatim — was never
+taken. `IsDesignerCompatible` does not gate function-call operands.
+
+**Fix.** `ExtractTableFromOnSide` returns empty unless the side is a
+single bare or qualified identifier. `ResolveConditionJoinTables` then
+ranks whole candidate pairs by whether they *cover* the condition — every
+`InputTables` ref named in the condition must equal the pair's left or
+right value, the same invariant the round-trip harness checks:
+
+1. Per-condition extraction, when both sides resolve to known refs. This
+   ordering preserves the cross-table `ON` fix below, where a condition's
+   own pair must win over the parent join's.
+2. The parent join's pair. This covers single-table predicates
+   (`tblB.ID > 0`) and non-equi conditions (`A.x > B.y`), neither of
+   which yields an extractable name, and keeps them on the parent's
+   orientation.
+3. Extraction plus a ref named in the condition, normalized to parent
+   orientation when it is merely a swap, because outer-join `Flag` values
+   (2 = LEFT, 3 = RIGHT) are orientation-sensitive.
+
+Resolving each side independently instead is not sufficient: it cannot
+distinguish "this side is unknown" from "this condition names only one
+table", and collapses single-table predicates to
+`LeftTable = RightTable`.
+
+**Pinned by:** [regression/qryRegressionFunctionInOnClause.sql](../Testing/Fixtures/queries/regression/qryRegressionFunctionInOnClause.sql)
++ sibling `.notes.md` / `.qdef`.
 
 ### `TOP N PERCENT` lives in SQL View in Access
 
@@ -520,9 +835,16 @@ already-parenthesized expressions (derived-table subqueries) through
 unchanged.
 
 **Why `IsDesignerCompatible` is still the right gate.** `HasSubqueries`
-(line 511 of the post-fix file) returns True whenever any input table
-name contains `(` or starts with `SELECT `, so the importer continues to
-emit SQL View qdef (`dbMemo "SQL"`) for these. Access's `LoadFromText`
+returns True when any FROM operand is a derived table, so the importer
+continues to emit SQL View qdef (`dbMemo "SQL"`) for these. Each operand
+is classified in `AddInputTable` while it still carries its brackets
+(`IsDerivedTableOperand`): a single bracketed identifier such as
+`[Funds (Clients)]` is a name, whatever it contains; any other operand
+is a derived table when its name contains `(` or `SELECT `. Checking the
+stored (unbracketed) names instead, as the first version did, sent every
+query on a table with parentheses in its name to SQL View and dropped its
+`DesignLayout` without a warning
+([regression/qryRegressionBracketedParenName](../Testing/Fixtures/queries/regression/qryRegressionBracketedParenName.sql)). Access's `LoadFromText`
 accepts SQL View qdefs containing FROM-clause subqueries (verified by
 the harness); the legacy 4.x `.bas` shape that triggered the original
 user report --
@@ -656,10 +978,12 @@ asymmetry (above), this bug was in the VCS emitter, not in Access.
 the error manifests only at query execution, making it hard to
 diagnose.
 
-**Implementation.** `clsQueryComposer.EmitDesignViewQdef` now uses
-`ExtractTableFromOnSide` to derive the correct `LeftTable`/`RightTable`
-for each individual condition in a split compound `ON`, falling back to
-the parent join's tables only if extraction fails.
+**Implementation.** `clsQueryComposer.EmitDesignViewQdef` resolves each
+split condition through `ResolveConditionJoinTables`, which prefers the
+condition's own extracted pair whenever both sides resolve to known
+`InputTables` refs — which is what this finding requires — and only then
+considers the parent pair. (The earlier empty-only fallback was
+insufficient for function-call operands; see the finding above.)
 
 **Pinned by:** [regression/qryRegressionCrossTableOn.sql](../Testing/Fixtures/queries/regression/qryRegressionCrossTableOn.sql)
 \+ sibling `.notes.md`.
@@ -670,9 +994,8 @@ the parent join's tables only if extraction fails.
 
 - [Colin Riddington — Explaining Queries Part 1](https://www.isladogs.co.uk/explaining-queries/index.html)
 - [Colin Riddington — Explaining Queries Part 2 (Design vs SQL view)](https://www.isladogs.co.uk/explaining-queries-2/index.html)
-- `MSysQueriesExamples` companion repo (`C:\Repos\MSysQueriesExamples\`) —
-  worked-example queries, live test database, April 2026 binary-format
-  addendum.
+- `MSysQueriesExamples` companion repo — worked-example queries, live
+  test database, April 2026 binary-format addendum.
 - [Access Database Engine — Recover Deleted Database Objects](https://www.isladogs.co.uk/recover-deleted-objects/) (referenced from Riddington Part 1 § 29).
 
 **In this repo:**

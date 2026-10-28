@@ -1,0 +1,33 @@
+{
+  "Info": {
+    "Class": "clsDbCommandBar",
+    "Description": "CommandBar"
+  },
+  "Items": {
+    "AdaptiveMenu": false,
+    "Context": "",
+    "Enabled": true,
+    "NameLocal": "custom_combo_list",
+    "Position": 1,
+    "Protection": 0,
+    "Type": 0,
+    "Controls": [
+      {
+        "BeginGroup": false,
+        "BuiltIn": false,
+        "Caption": "Custom Combo:",
+        "Enabled": true,
+        "Style": 0,
+        "Tag": "vcs_custom_combo",
+        "TooltipText": "Pick a value",
+        "Type": 4,
+        "Visible": true,
+        "List": [
+          "Alpha",
+          "Beta",
+          "Gamma"
+        ]
+      }
+    ]
+  }
+}

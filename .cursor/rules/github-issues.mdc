@@ -1,0 +1,17 @@
+---
+description: Do not post GitHub issue comments unless the user explicitly authorizes it
+alwaysApply: true
+---
+
+# GitHub issue comments
+
+Do not post, reply to, or otherwise publish a comment on a GitHub issue
+unless the user has explicitly authorized that post in this conversation
+(for example: "post this", "comment on the issue", "reply to #123").
+
+Reading issues, drafting comment text for the user to paste, and creating
+pull requests when asked are all allowed. Fixing an issue, summarizing it,
+or being given an issue URL is not authorization to comment.
+
+This includes `gh issue comment`, GitHub MCP comment tools, and any other
+API or UI that publishes an issue comment.

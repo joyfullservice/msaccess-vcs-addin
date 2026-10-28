@@ -13,6 +13,16 @@ Option Explicit
 
 Private Const ModuleName As String = "modDatabase"
 
+' Batched table Type cache (table name -> MSysObjects.Type for local/linked tables).
+Private m_dTableTypeCache As Dictionary
+
+' Reused temporary query for deterministic table-data XML export (one per operation).
+Private Const TABLE_DATA_SORT_QUERY_PREFIX As String = "vcs_tmp_sort_export"
+Private m_strTableDataSortQueryName As String
+
+' Temporary staging table used to reconcile table data on a merge (one table at a time).
+Private Const TABLE_DATA_STAGING_PREFIX As String = "vcs_tmp_merge_data"
+
 ' UDTs for reinterpreting a Long bit pattern as IEEE 754 Single (used by LongToSingle)
 Private Type typLong
     Value As Long
@@ -415,6 +425,200 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CloseOpenObjectsForType
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Close any open database objects of a single component type. The save
+'           : argument controls whether the user is prompted (acSavePrompt) or changes
+'           : are auto-saved (acSaveYes). Only UI-openable types are handled; command
+'           : bars, properties, references, etc. are no-ops. Module windows are not
+'           : closed here — callers should flush unsaved VBA via SaveUnsavedVbaProjectIfNeeded.
+'           : Returns False when a close is canceled or fails.
+'---------------------------------------------------------------------------------------
+'
+Public Function CloseOpenObjectsForType(intType As eDatabaseComponentType, intSave As AcCloseSave) As Boolean
+
+    Dim objItem As AccessObject
+    Dim intItem As Integer
+    Dim intAcType As AcObjectType
+
+    CloseOpenObjectsForType = True
+
+    If DebugMode(True) Then On Error GoTo ErrHandler Else On Error GoTo ErrHandler
+
+    Select Case intType
+        Case edbForm
+            For intItem = Forms.Count - 1 To 0 Step -1
+                If Forms(intItem).Caption <> PROJECT_NAME Then
+                    DoCmd.Close acForm, Forms(intItem).Name, intSave
+                    DoEvents
+                End If
+            Next intItem
+        Case edbReport
+            For intItem = Reports.Count - 1 To 0 Step -1
+                DoCmd.Close acReport, Reports(intItem).Name, intSave
+                DoEvents
+            Next intItem
+        Case edbMacro
+            intAcType = acMacro
+            For Each objItem In CurrentProject.AllMacros
+                If SysCmd(acSysCmdGetObjectState, intAcType, objItem.Name) <> adStateClosed Then
+                    DoCmd.Close intAcType, objItem.Name, intSave
+                End If
+            Next objItem
+        Case edbQuery
+            intAcType = acQuery
+            For Each objItem In CurrentData.AllQueries
+                If SysCmd(acSysCmdGetObjectState, intAcType, objItem.Name) <> adStateClosed Then
+                    DoCmd.Close intAcType, objItem.Name, intSave
+                End If
+            Next objItem
+        Case edbTableDef, edbTableData, edbTableDataMacro
+            intAcType = acTable
+            For Each objItem In CurrentData.AllTables
+                If SysCmd(acSysCmdGetObjectState, intAcType, objItem.Name) <> adStateClosed Then
+                    DoCmd.Close intAcType, objItem.Name, intSave
+                End If
+            Next objItem
+    End Select
+
+    Exit Function
+
+ErrHandler:
+    CloseOpenObjectsForType = False
+    CatchAny eelWarning, T("Error closing open objects"), ModuleName & ".CloseOpenObjectsForType", True, True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CloseOpenObjectsForContainers
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Close open objects for each container in the collection.
+'---------------------------------------------------------------------------------------
+'
+Public Function CloseOpenObjectsForContainers(colContainers As Collection, intSave As AcCloseSave) As Boolean
+
+    Dim cCategory As IDbComponent
+
+    CloseOpenObjectsForContainers = True
+
+    For Each cCategory In colContainers
+        If Not CloseOpenObjectsForType(cCategory.ComponentType, intSave) Then
+            CloseOpenObjectsForContainers = False
+            Exit Function
+        End If
+    Next cCategory
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveUnsavedVbaProjectIfNeeded
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Save unsaved VBA project changes when a targeted category can contain code.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SaveUnsavedVbaProjectIfNeeded(colContainers As Collection)
+
+    Dim cCategory As IDbComponent
+    Dim blnHasVba As Boolean
+
+    For Each cCategory In colContainers
+        Select Case cCategory.ComponentType
+            Case edbModule, edbForm, edbReport, edbVbeForm
+                blnHasVba = True
+                Exit For
+        End Select
+    Next cCategory
+
+    If blnHasVba Then SaveUnsavedVbaProject
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveUnsavedVbaProject
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Save any unsaved VBA project changes in the current database, so that module
+'           : windows do not need to be closed individually. Returns the project's real
+'           : Saved state, so False means code is still unsaved right now.
+'           :
+'           : Delegates to SaveCurrentVBProject. The single-module save this used to perform
+'           : does not save the whole project when form and report class modules are dirty,
+'           : and it locks the database against other clients — see that procedure.
+'           :
+'           : Warns when the save did not take, because the caller's next step is to read
+'           : code out of the project. Silence here is what made the original bug hard to
+'           : find: an export believed it had captured edits that were never written.
+'---------------------------------------------------------------------------------------
+'
+Public Function SaveUnsavedVbaProject() As Boolean
+    SaveUnsavedVbaProject = SaveCurrentVBProject
+    If Not SaveUnsavedVbaProject Then WarnUnsavedVbaProject
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WarnUnsavedVbaProject
+' Author    : Adam Waller
+' Date      : 8/7/2026
+' Purpose   : Tell the user that the VBA project could not be saved automatically, and
+'           : what to do about it. Exported source will not include unsaved changes to
+'           : form or report class modules, which is silent data loss from the user's
+'           : point of view, so this is worth interrupting for.
+'           :
+'           : Saving the project is the one thing the helper script does that has no
+'           : working in-process equivalent (see modVbeUtility.SaveCurrentVBProject for
+'           : the mechanisms that were tried and dropped), so a user who turned the
+'           : script off (#727) reaches this every time the project is dirty. The message
+'           : names that cause when it applies, since the remedy is the same either way
+'           : but the reason is not.
+'---------------------------------------------------------------------------------------
+'
+Private Sub WarnUnsavedVbaProject()
+
+    Dim strCause As String
+    Dim blnDirty As Boolean
+
+    ' Only claim that changes were missed when the project can be confirmed dirty.
+    ' SaveCurrentVBProject also returns False when it could not read the project state
+    ' at all, and a warning about unsaved code would be misleading in that case.
+    LogUnhandledErrors
+    On Error Resume Next
+    blnDirty = Not CurrentVBProject.Saved
+    If Err Then Err.Clear
+    On Error GoTo 0
+    If Not blnDirty Then Exit Sub
+
+    If modInstall.UseWorkerScript Then
+        strCause = T("The VBA project could not be saved automatically.")
+    Else
+        strCause = T("The VBA project could not be saved automatically because the " & _
+            "helper script is disabled.")
+    End If
+
+    Log.Error eelWarning, strCause & " " & _
+        T("Unsaved changes to form or report class modules will not be included."), _
+        ModuleName & ".SaveUnsavedVbaProject"
+
+    ' A prompt is only useful to somebody who can act on it before reading the results.
+    ' Agent and API callers get the log entry instead.
+    If Operation.InteractionMode = eimNormal _
+        And Operation.Source <> eosMCPTool _
+        And Operation.Source <> eosExternalAPI Then
+        MsgBox2 T("Unsaved VBA Changes"), strCause, _
+            T("Press Save in the Visual Basic Editor, then run this again so the " & _
+            "source files include your latest code."), vbExclamation
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CloseAllFormsReports
 ' Author    : Adam Waller
 ' Date      : 1/25/2019
@@ -615,9 +819,36 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub RunSubInCurrentProject(strSubName As String)
+    RunProcInCurrentProject strSubName, , False
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunProcInCurrentProject
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Run a procedure in the current project and return whatever it returns.
+'           : Identical to RunSubInCurrentProject except that the return value is
+'           : surfaced, which is what a validation hook needs. blnRan distinguishes
+'           : "ran and returned Empty" from "never ran" (missing, or rejected for
+'           : taking parameters) -- a caller that treats a hook failure as a build
+'           : failure must not read a refusal as a False return.
+'           :
+'           : blnWantResult exists so RunSubInCurrentProject keeps calling
+'           : Application.Run as a statement. Assigning its result to a Variant
+'           : raises "object variable not set" when the procedure returns an object,
+'           : which would newly break existing RunAfter* hooks that happen to do so.
+'---------------------------------------------------------------------------------------
+'
+Public Function RunProcInCurrentProject(strSubName As String, _
+    Optional ByRef blnRan As Boolean, _
+    Optional ByVal blnWantResult As Boolean = True) As Variant
 
     Dim strSub As String
     Dim strCmd As String
+    Dim cPause As clsOperationPause
+
+    blnRan = False
 
     ' Don't need the parentheses after the sub name
     strSub = Replace(strSubName, "()", vbNullString)
@@ -628,14 +859,14 @@ Public Sub RunSubInCurrentProject(strSubName As String)
             T("Parameters are not supported for this command."), _
             T("If you need to use parameters, please create a wrapper sub or function with" & vbCrLf & _
             "no parameters that you can call instead of {0}.", var0:=strSubName), vbExclamation
-        Exit Sub
+        Exit Function
     End If
 
     ' Make sure procedure exists in current database
     If Not GlobalProcExists(strSub) Then
         Log.Error eelError, T("The procedure ""{0}"" not found.", var0:=strSub), ModuleName & ".RunSubInCurrentProject"
         Log.Add T("The procedure must be declared as public in a standard module."), False
-        Exit Sub
+        Exit Function
     End If
 
     ' Build call syntax
@@ -654,21 +885,29 @@ Public Sub RunSubInCurrentProject(strSubName As String)
     ' Log any outstanding errors
     LogUnhandledErrors
 
-    ' Stage the current operation, and run the sub
-    Operation.Stage
+    ' Pause the current operation while user code runs. The user's procedure is foreign
+    ' code: it may raise, open forms, or take its own time, none of which should look
+    ' like our operation still running. ResumePause ends the pause on the success path;
+    ' Class_Terminate on cPause is the fallback if Application.Run raises.
+    Set cPause = Operation.TryPause()
     Perf.OperationStart T("Run {0}", , , , strSub)
 
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
 
-    Application.Run strCmd
+    If blnWantResult Then
+        RunProcInCurrentProject = Application.Run(strCmd)
+    Else
+        Application.Run strCmd
+    End If
+    blnRan = True
     Perf.OperationEnd
-    Operation.Restore
+    If Not cPause Is Nothing Then cPause.ResumePause
 
     ' Log any other errors
     CatchAny eelError, T("Error running {0}", , , , strSub), ModuleName & ".RunSubInCurrentProject"
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -714,7 +953,7 @@ Public Function TableExists(strName As String, Optional dbs As DAO.Database) As 
     Dim tdf As TableDef
 
     ' Read type of table from internal system table
-    lngType = Nz(DLookup("Type", "MSysObjects", "Name=""" & strName & """ AND Type in (1,4,6)"), 0)
+    lngType = Nz(DLookup("Type", "MSysObjects", "Name=""" & EscapeSqlQuote(strName) & """ AND Type in (1,4,6)"), 0)
 
     ' Watch for errors connecting to linked tables
     LogUnhandledErrors
@@ -743,6 +982,46 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetBigIntRepairFieldNamesFromTableDefXml
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return field names whose ExportXML schema cannot represent dbBigInt and
+'           : will be mis-created as dbDecimal(38,0) on Application.ImportXML.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetBigIntRepairFieldNamesFromTableDefXml(strXml As String) As Collection
+
+    Const XPATH_CORRUPTED_BIGINT As String = _
+        "//*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='element'" & _
+        " and *[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='simpleType']" & _
+        "/*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='restriction' and @base='xsd:decimal']" & _
+        "/*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='totalDigits' and @value='0']]"
+
+    Dim colNames As New Collection
+    Dim objXml As MSXML2.DOMDocument60
+    Dim objNodes As MSXML2.IXMLDOMNodeList
+    Dim objNode As MSXML2.IXMLDOMNode
+    Dim objNameAttr As MSXML2.IXMLDOMNode
+
+    Set GetBigIntRepairFieldNamesFromTableDefXml = colNames
+    If Len(strXml) = 0 Then Exit Function
+
+    Set objXml = New MSXML2.DOMDocument60
+    objXml.async = False
+    If Not objXml.LoadXML(strXml) Then Exit Function
+
+    Set objNodes = objXml.SelectNodes(XPATH_CORRUPTED_BIGINT)
+    For Each objNode In objNodes
+        Set objNameAttr = objNode.Attributes.getNamedItem("name")
+        If Not objNameAttr Is Nothing Then colNames.Add objNameAttr.Text
+    Next objNode
+
+    Set GetBigIntRepairFieldNamesFromTableDefXml = colNames
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsLocalTable
 ' Author    : Adam Waller
 ' Date      : 3/13/2023
@@ -751,8 +1030,737 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IsLocalTable(strName As String) As Boolean
-    IsLocalTable = Not (DCount("*", "MSysObjects", "Name=""" & strName & """ AND Type = 1") = 0)
+    IsLocalTable = Not (DCount("*", "MSysObjects", "Name=""" & EscapeSqlQuote(strName) & """ AND Type = 1") = 0)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSystemTableNames
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 8/21/2026
+' Purpose   : Return the names of the tables owned by the database engine or by Access,
+'           : which are left out of version control. A table qualifies only when its
+'           : name begins with MSys *and* it carries the system attribute. Neither test
+'           : is enough alone: the prefix is not reserved, so a user table may use it,
+'           : and setting dbSystemObject on a user table (an old way to hide it) stores
+'           : the same bits the engine uses on its own tables.
+'           : Test the attribute with <> 0: dbSystemObject is two bits (&H80000002), and
+'           : engine tables carry only &H80000000.
+'           : Built once per scan so callers can test names inside their loop.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSystemTableNames() As Dictionary
+
+    Dim dSysTables As Dictionary
+    Dim tdf As DAO.TableDef
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Set dSysTables = New Dictionary
+    dSysTables.CompareMode = TextCompare
+
+    For Each tdf In SharedDb.TableDefs
+        If tdf.Name Like "MSys*" Then
+            If (tdf.Attributes And dbSystemObject) <> 0 Then dSysTables.Add tdf.Name, True
+        End If
+    Next tdf
+
+    ' Left behind by a failed compact. Its attributes are unverified, so list it by name.
+    If Not dSysTables.Exists("MSysCompactError") Then dSysTables.Add "MSysCompactError", True
+
+    Set GetSystemTableNames = dSysTables
+
+    CatchAny eelError, T("Error reading the list of system tables"), ModuleName & ".GetSystemTableNames"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TableIndexesAvailable
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Return true if the index collection is available. Without the error handling
+'           : this may throw an error if a linked table is not accessible during export.
+'---------------------------------------------------------------------------------------
+'
+Public Function TableIndexesAvailable(tdf As DAO.TableDef) As Boolean
+
+    Dim lngTest As Long
+
+    LogUnhandledErrors
+    On Error Resume Next
+    lngTest = tdf.Indexes.Count
+    If Err Then
+        Err.Clear
+    Else
+        TableIndexesAvailable = True
+    End If
+    CatchAny eelNoError, vbNullString, , False
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetTableSortFields
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Return the field names and DAO types to use when sorting table data for
+'           : deterministic export. Prefers primary key, then unique+required index,
+'           : then all non-binary fields.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableSortFields(tdf As DAO.TableDef) As Dictionary
+
+    Dim dFields As Dictionary
+    Dim fld As DAO.Field
+
+    Set dFields = GetTableMergeKey(tdf)
+    If dFields.Count > 0 Then
+        Set GetTableSortFields = dFields
+        Exit Function
+    End If
+
+    For Each fld In tdf.Fields
+        If Not IsBinaryTableFieldType(fld.Type) Then dFields.Add fld.Name, fld.Type
+    Next fld
+
+    Set GetTableSortFields = dFields
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetTableMergeKey
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return the field names and DAO types of the primary key, or failing that a
+'           : unique and required index, for use as a row identity when merging table
+'           : data. Returns an empty dictionary when the table has no such index.
+'           :
+'           : Unlike GetTableSortFields, this never falls back to the full field list.
+'           : Sorting only needs a deterministic order, but merging needs each row in the
+'           : source file to match at most one row in the table, so a non-unique key
+'           : would silently update or delete the wrong rows.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableMergeKey(tdf As DAO.TableDef) As Dictionary
+
+    Dim dFields As Dictionary
+    Dim idx As DAO.Index
+    Dim idxFld As Object
+
+    Set dFields = New Dictionary
+    dFields.CompareMode = vbTextCompare
+    Set GetTableMergeKey = dFields
+
+    If Not TableIndexesAvailable(tdf) Then Exit Function
+
+    For Each idx In tdf.Indexes
+        If idx.Primary Then
+            For Each idxFld In idx.Fields
+                dFields.Add idxFld.Name, tdf.Fields(idxFld.Name).Type
+            Next idxFld
+            Exit Function
+        End If
+    Next idx
+
+    For Each idx In tdf.Indexes
+        If idx.Unique And idx.Required Then
+            For Each idxFld In idx.Fields
+                dFields.Add idxFld.Name, tdf.Fields(idxFld.Name).Type
+            Next idxFld
+            Exit Function
+        End If
+    Next idx
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetTableMergeStrategy
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Returns how a merge can bring this table's data in line with its source
+'           : file, setting strReason to a translated explanation when it cannot.
+'           :
+'           : Binary, complex, and calculated columns rule out any strategy. Binary and
+'           : complex values cannot be compared with a SQL operator, and calculated
+'           : columns are maintained by the engine and cannot be assigned. Those tables
+'           : still export and still import on a full build.
+'           :
+'           : With a merge key the rows are reconciled individually. Without one, a source
+'           : row cannot be matched to a table row, so the only option is to replace every
+'           : row -- acceptable precisely because there is no key, and therefore no
+'           : identity or AutoNumber value that anything could be holding a reference to.
+'           : It is still refused when a relationship points at the table, since the
+'           : delete would fail and the whole table would roll back.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTableMergeStrategy(tdf As DAO.TableDef, _
+    ByRef strReason As String) As eTableMergeStrategy
+
+    Dim fld As DAO.Field
+    Dim strDependent As String
+
+    strReason = vbNullString
+
+    For Each fld In tdf.Fields
+        If IsBinaryTableFieldType(fld.Type) Then
+            strReason = T("binary field '{0}'", var0:=fld.Name)
+            Exit Function
+        End If
+    Next fld
+
+    ' Covers complex (multi-value/attachment) and calculated fields, both of which
+    ' depend on the embedded XML schema to round-trip.
+    If TableRequiresXmlSchema(tdf) Then
+        strReason = T("complex or calculated fields")
+        Exit Function
+    End If
+
+    If GetTableMergeKey(tdf).Count > 0 Then
+        GetTableMergeStrategy = etmsReconcile
+        Exit Function
+    End If
+
+    strDependent = GetFirstDependentTable(tdf.Name)
+    If Len(strDependent) > 0 Then
+        strReason = T("no primary key or unique required index, and '{0}' references it", _
+            var0:=strDependent)
+        Exit Function
+    End If
+
+    GetTableMergeStrategy = etmsReload
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetFirstDependentTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return the name of a table that references this one through a relationship,
+'           : or an empty string when nothing does. Only the first is needed; it exists to
+'           : name a blocking table in a message.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFirstDependentTable(strTable As String) As String
+
+    Dim rel As DAO.Relation
+
+    For Each rel In SharedDb.Relations
+        ' Table is the referenced (one) side, ForeignTable the referencing (many) side.
+        If StrComp(rel.Table, strTable, vbTextCompare) = 0 Then
+            If StrComp(rel.ForeignTable, strTable, vbTextCompare) <> 0 Then
+                GetFirstDependentTable = rel.ForeignTable
+                Exit Function
+            End If
+        End If
+    Next rel
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : IsBinaryTableFieldType
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Returns true for DAO field types that cannot be represented in table data
+'           : export text/XML formats.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsBinaryTableFieldType(intType As Integer) As Boolean
+    Select Case intType
+        Case dbLongBinary, dbVarBinary, dbAttachment: IsBinaryTableFieldType = True
+        Case Else: IsBinaryTableFieldType = False
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : TableRequiresXmlSchema
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Returns true when the embedded XML schema has to survive sanitization for
+'           : the table to import correctly. Calculated fields carry od:expression, and
+'           : complex or OLE object fields carry an od:jetType that ImportXML needs.
+'           : Exporting through a query drops those annotations, so these tables must be
+'           : exported with acExportTable instead of a sorted query.
+'---------------------------------------------------------------------------------------
+'
+Public Function TableRequiresXmlSchema(tdf As DAO.TableDef) As Boolean
+
+    Dim fld As DAO.Field
+    Dim strExpression As String
+
+    For Each fld In tdf.Fields
+
+        Select Case fld.Type
+            Case dbLongBinary, dbAttachment, _
+                dbComplexByte, dbComplexInteger, dbComplexLong, dbComplexSingle, _
+                dbComplexDouble, dbComplexGUID, dbComplexDecimal, dbComplexText
+                TableRequiresXmlSchema = True
+                Exit Function
+        End Select
+
+        ' Only calculated fields expose an Expression property, so reading it from an
+        ' ordinary field raises an error that we use as the negative result.
+        strExpression = vbNullString
+        LogUnhandledErrors
+        On Error Resume Next
+        strExpression = Nz(fld.Properties("Expression"), vbNullString)
+        If Err Then Err.Clear
+        On Error GoTo 0
+        If Len(strExpression) > 0 Then
+            TableRequiresXmlSchema = True
+            Exit Function
+        End If
+
+    Next fld
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrepareTableDataSortExport
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Prepare for a table-data export operation by removing any temporary sort
+'           : query left behind by an interrupted run. Pairs with
+'           : ReleaseTableDataSortExport, which drops the query this operation creates.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PrepareTableDataSortExport()
+    SweepLeftoverTableDataSortQueries
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : AssignTableDataSortQuery
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Point the operation-scoped temporary sort query at strSql. Creates the
+'           : query on first use and reassigns .SQL on later tables, which avoids paying
+'           : a QueryDefs.Refresh over the whole collection once per table.
+'           :
+'           : Returns an empty string when strSql has no ORDER BY, or when the query
+'           : could not be created or repointed. Returning empty on failure is essential:
+'           : the query would otherwise still hold the previous table's SQL, and the
+'           : caller would export that table's rows into this table's source file.
+'           :
+'           : Note that the engine defers table-name resolution, so assigning SQL that
+'           : names a missing table succeeds here and fails later in ExportXML, where the
+'           : caller already falls back to the table export.
+'---------------------------------------------------------------------------------------
+'
+Public Function AssignTableDataSortQuery(strSql As String) As String
+
+    Dim dbs As DAO.Database
+    Dim qdf As DAO.QueryDef
+    Dim strName As String
+
+    If InStr(1, strSql, " ORDER BY ", vbTextCompare) = 0 Then Exit Function
+
+    Set dbs = SharedDb
+
+    Perf.OperationStart "Assign Temp Sort Query"
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Repoint the query we already own.
+    If Len(m_strTableDataSortQueryName) > 0 Then
+        Set qdf = dbs.QueryDefs(m_strTableDataSortQueryName)
+        If Err Then
+            ' Gone from under us (interrupted run, external cleanup). Recreate below.
+            Err.Clear
+            m_strTableDataSortQueryName = vbNullString
+        Else
+            qdf.SQL = strSql
+            If Err Then GoTo Failed
+        End If
+    End If
+
+    ' Create on first use, or to replace one that disappeared.
+    If Len(m_strTableDataSortQueryName) = 0 Then
+        strName = GetUnusedTableDataSortQueryName
+        dbs.CreateQueryDef strName, strSql
+        If Err Then GoTo Failed
+        ' Needed once per operation so ExportXML can resolve the new name.
+        dbs.QueryDefs.Refresh
+        If Err Then GoTo Failed
+        m_strTableDataSortQueryName = strName
+    End If
+
+    On Error GoTo 0
+    AssignTableDataSortQuery = m_strTableDataSortQueryName
+    Perf.OperationEnd
+    Exit Function
+
+Failed:
+    ' Drop the query rather than leave it pointed at a previous table's SQL.
+    Err.Clear
+    If Len(m_strTableDataSortQueryName) > 0 Then
+        dbs.QueryDefs.Delete m_strTableDataSortQueryName
+        If Err Then Err.Clear
+        m_strTableDataSortQueryName = vbNullString
+    End If
+    On Error GoTo 0
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReleaseTableDataSortExport
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Drop the operation-scoped temporary sort query. Safe to call when no query
+'           : is active, so it can sit unconditionally in export cleanup blocks.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReleaseTableDataSortExport()
+
+    Dim dbs As DAO.Database
+
+    If Len(m_strTableDataSortQueryName) = 0 Then Exit Sub
+
+    Perf.OperationStart "Drop Temp Sort Query"
+    Set dbs = SharedDb
+
+    LogUnhandledErrors
+    On Error Resume Next
+    dbs.QueryDefs.Delete m_strTableDataSortQueryName
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+    m_strTableDataSortQueryName = vbNullString
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SweepLeftoverTableDataSortQueries
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Remove any temporary sort queries left behind by an interrupted export.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SweepLeftoverTableDataSortQueries()
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim strName As String
+
+    Set dbs = SharedDb
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set rst = dbs.OpenRecordset( _
+        "SELECT Name FROM MSysObjects WHERE Name LIKE '" & TABLE_DATA_SORT_QUERY_PREFIX & "*' AND Type = 5", _
+        dbOpenSnapshot, dbReadOnly)
+    If Not rst Is Nothing Then
+        Do While Not rst.EOF
+            strName = Nz(rst!Name, vbNullString)
+            If Len(strName) > 0 Then
+                dbs.QueryDefs.Delete strName
+                If Err Then Err.Clear
+            End If
+            rst.MoveNext
+        Loop
+        rst.Close
+        Set rst = Nothing
+    End If
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetUnusedTableDataSortQueryName
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return a query name not already used by any object in the database.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetUnusedTableDataSortQueryName() As String
+
+    Dim strName As String
+    Dim lngSuffix As Long
+
+    strName = TABLE_DATA_SORT_QUERY_PREFIX
+    Do While DCount("*", "MSysObjects", "Name=""" & strName & """") > 0
+        lngSuffix = lngSuffix + 1
+        strName = TABLE_DATA_SORT_QUERY_PREFIX & CStr(lngSuffix)
+    Loop
+
+    GetUnusedTableDataSortQueryName = strName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : CreateTableDataStagingTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Create an empty local table with the same columns as strTable, to load a
+'           : source file into before reconciling it against the live table. Returns the
+'           : staging table name, or an empty string when it could not be created.
+'           :
+'           : SELECT INTO is used rather than DDL so every column keeps the source
+'           : table's exact type and size. It also demotes an AutoNumber key to a plain
+'           : Long, which is what we want: the staging copy has to hold the key values
+'           : read from the source file.
+'           :
+'           : A unique index on the merge key is added for two reasons. The engine
+'           : rejects an UPDATE across a join unless the joined side is provably unique,
+'           : and the index is what keeps the reconcile joins from scanning. A table with
+'           : no merge key gets no index, since it is reloaded wholesale rather than
+'           : joined, and a unique index could reject rows the live table accepts.
+'---------------------------------------------------------------------------------------
+'
+Public Function CreateTableDataStagingTable(strTable As String) As String
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim dKey As Dictionary
+    Dim varKey As Variant
+    Dim cFields As clsConcat
+    Dim cKeys As clsConcat
+    Dim strName As String
+
+    ' An interrupted merge can leave one behind, and table defs get exported.
+    Perf.OperationStart "Sweep Staging Tables"
+    SweepLeftoverTableDataStagingTables
+    Perf.OperationEnd
+
+    Set dbs = SharedDb
+    Set tdf = dbs.TableDefs(strTable)
+    Set dKey = GetTableMergeKey(tdf)
+
+    Set cFields = New clsConcat
+    For Each fld In tdf.Fields
+        cFields.Add "[", fld.Name, "], "
+    Next fld
+    cFields.Remove 2
+
+    Set cKeys = New clsConcat
+    For Each varKey In dKey.Keys
+        cKeys.Add "[", CStr(varKey), "], "
+    Next varKey
+    If cKeys.Length > 0 Then cKeys.Remove 2
+
+    strName = GetUnusedTableDataStagingName
+
+    Perf.OperationStart "Create Staging Table"
+    LogUnhandledErrors
+    On Error Resume Next
+    dbs.Execute "SELECT " & cFields.GetStr & " INTO [" & strName & "] FROM [" & strTable & _
+        "] WHERE (1 = 0)", dbFailOnError
+    If Err Then GoTo Failed
+    If cKeys.Length > 0 Then
+        dbs.Execute "CREATE UNIQUE INDEX [idx_" & strName & "] ON [" & strName & "] (" & _
+            cKeys.GetStr & ")", dbFailOnError
+        If Err Then GoTo Failed
+    End If
+    ' The collection was enumerated before this table existed.
+    dbs.TableDefs.Refresh
+    If Err Then GoTo Failed
+    On Error GoTo 0
+
+    CreateTableDataStagingTable = strName
+    Perf.OperationEnd
+    Exit Function
+
+Failed:
+    Err.Clear
+    On Error GoTo 0
+    Perf.OperationEnd
+    ' Never return a half-built staging table for the caller to load rows into.
+    DropTableDataStagingTable strName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DropTableDataStagingTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Remove a staging table. Safe to call with an empty name or for a table that
+'           : was never created, so it can sit unconditionally in a cleanup block.
+'---------------------------------------------------------------------------------------
+'
+Public Sub DropTableDataStagingTable(strName As String)
+
+    Dim dbs As DAO.Database
+
+    If Len(strName) = 0 Then Exit Sub
+    Set dbs = SharedDb
+
+    LogUnhandledErrors
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strName & "]", dbFailOnError
+    If Err Then Err.Clear
+    dbs.TableDefs.Refresh
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SweepLeftoverTableDataStagingTables
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Remove staging tables left behind by an interrupted merge. Only ever called
+'           : before a new staging table is created, so this can never drop one that is
+'           : currently in use.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SweepLeftoverTableDataStagingTables()
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim colNames As Collection
+    Dim varName As Variant
+
+    Set dbs = SharedDb
+    Set colNames = New Collection
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set rst = dbs.OpenRecordset( _
+        "SELECT Name FROM MSysObjects WHERE Name LIKE '" & TABLE_DATA_STAGING_PREFIX & "*' AND Type = 1", _
+        dbOpenSnapshot, dbReadOnly)
+    If Not rst Is Nothing Then
+        Do While Not rst.EOF
+            colNames.Add Nz(rst!Name, vbNullString)
+            rst.MoveNext
+        Loop
+        rst.Close
+        Set rst = Nothing
+    End If
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+    For Each varName In colNames
+        DropTableDataStagingTable CStr(varName)
+    Next varName
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetUnusedTableDataStagingName
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Return a table name not already used by any object in the database.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetUnusedTableDataStagingName() As String
+
+    Dim strName As String
+    Dim lngSuffix As Long
+
+    strName = TABLE_DATA_STAGING_PREFIX
+    Do While DCount("*", "MSysObjects", "Name=""" & strName & """") > 0
+        lngSuffix = lngSuffix + 1
+        strName = TABLE_DATA_STAGING_PREFIX & CStr(lngSuffix)
+    Loop
+
+    GetUnusedTableDataStagingName = strName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetCachedTableType
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Return the cached MSysObjects.Type for a table name when a batch cache is
+'           : active. Returns 0 when no cache is active or the name is not cached.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetCachedTableType(strName As String) As Long
+
+    If m_dTableTypeCache Is Nothing Then Exit Function
+    If Not m_dTableTypeCache.Exists(strName) Then Exit Function
+    GetCachedTableType = m_dTableTypeCache(strName)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildTableTypeCache
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Batch-load every local/linked table Type from MSysObjects into a module
+'           : cache in a single recordset pass, replacing hundreds of per-table Type
+'           : lookups during a table scan. Always rebuilds fresh so a cache from a
+'           : prior operation can never go stale. Every table is cached, system tables
+'           : included: an entry is only read when a scan asks for that name.
+'---------------------------------------------------------------------------------------
+'
+Public Sub BuildTableTypeCache()
+
+    Dim dbs As Database
+    Dim rst As DAO.Recordset
+    Dim strName As String
+
+    Perf.OperationStart "Build Table Type Cache"
+
+    Set m_dTableTypeCache = New Dictionary
+    m_dTableTypeCache.CompareMode = TextCompare
+
+    If DebugMode(True) Then On Error GoTo Err_Handler Else On Error Resume Next
+
+    Set dbs = SharedDb
+    Set rst = dbs.OpenRecordset( _
+        "SELECT Name, Type FROM MSysObjects WHERE Type IN (1,4,6)", _
+        dbOpenSnapshot, dbReadOnly)
+    If rst Is Nothing Then GoTo Err_Handler
+
+    Do While Not rst.EOF
+        strName = Nz(rst!Name, vbNullString)
+        If Len(strName) > 0 Then m_dTableTypeCache(strName) = Nz(rst!Type, 1)
+        rst.MoveNext
+    Loop
+    rst.Close
+
+    ' Clear any benign leftover error so the failure handler only fires on real faults.
+    Err.Clear
+    On Error GoTo 0
+    GoTo CleanUp
+
+Err_Handler:
+    On Error Resume Next
+    ' On any failure, drop the (possibly partial) cache so IsLinkedTable falls back to the
+    ' reliable per-table Type read rather than trusting incomplete data.
+    CatchAny eelWarning, "Error building table Type cache", _
+        ModuleName & ".BuildTableTypeCache", True, True
+    Set m_dTableTypeCache = Nothing
+
+CleanUp:
+    Set rst = Nothing
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearTableTypeCache
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Release the batched table Type cache after a scan completes. Safe to call
+'           : when no cache is active.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearTableTypeCache()
+    Set m_dTableTypeCache = Nothing
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -786,8 +1794,18 @@ Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String)
     On Error Resume Next
 
     If Not blnExistsInAddIn Then
-        ' Nice! We can use a simple call to delete the object
-        DoCmd.DeleteObject intType, strName
+        If intType = acTable Then
+            ' Delete tables through SharedDb, never around it. A TableDef created and
+            ' appended through a SharedDb whose TableDefs collection still lists the
+            ' deleted table is dead after the Refresh: empty Connect, no properties, and
+            ' error 3420 on first use. A merged linked table hits this whenever an
+            ' earlier step of the same category (the conflict check's export) had read
+            ' TableDefs.
+            SharedDb.TableDefs.Delete strName
+        Else
+            ' Nice! We can use a simple call to delete the object
+            DoCmd.DeleteObject intType, strName
+        End If
     Else
         ' This is where it gets fun... If you attempt to delete an object from the
         ' VBA code in the add-in, it will default to operating on the add-in object
@@ -826,6 +1844,8 @@ Public Function DeleteObjectIfExists(intType As AcObjectType, strName As String)
         If Not CatchAny(eelError, T("Error renaming object: {0}", var0:=strName), ModuleName & ".DeleteObjectIfExists") Then
             ' Delete object using the temp name
             DoCmd.DeleteObject intType, strTempName
+            ' This one went around SharedDb, so bring its collection up to date. (See above)
+            If intType = acTable Then SharedDb.TableDefs.Refresh
         End If
     End If
 

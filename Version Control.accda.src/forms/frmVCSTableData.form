@@ -101,7 +101,7 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Section
-            Height =1970
+            Height =1980
             Name ="Detail"
             AlternateBackThemeColorIndex =1
             AlternateBackShade =95.0
@@ -112,9 +112,9 @@ Begin Form
                     OverlapFlags =85
                     TextAlign =1
                     IMESentenceMode =3
-                    Left =1695
+                    Left =1680
                     Top =900
-                    Width =2625
+                    Width =2640
                     Height =360
                     ColumnWidth =8220
                     ColumnOrder =1
@@ -129,10 +129,6 @@ Begin Form
                     BottomPadding =150
                     HorizontalAnchor =2
 
-                    LayoutCachedLeft =1695
-                    LayoutCachedTop =900
-                    LayoutCachedWidth =4320
-                    LayoutCachedHeight =1260
                     RowStart =1
                     RowEnd =1
                     ColumnStart =1
@@ -145,7 +141,7 @@ Begin Form
                             TextAlign =1
                             Left =360
                             Top =900
-                            Width =1275
+                            Width =1260
                             Height =360
                             LeftMargin =44
                             TopMargin =22
@@ -155,10 +151,6 @@ Begin Form
                             Caption ="Table Name"
                             GroupTable =1
                             BottomPadding =150
-                            LayoutCachedLeft =360
-                            LayoutCachedTop =900
-                            LayoutCachedWidth =1635
-                            LayoutCachedHeight =1260
                             RowStart =1
                             RowEnd =1
                             LayoutGroup =1
@@ -173,9 +165,9 @@ Begin Form
                     IMESentenceMode =3
                     ColumnCount =2
                     ListWidth =2160
-                    Left =1695
+                    Left =1680
                     Top =1440
-                    Width =2625
+                    Width =2640
                     Height =360
                     ColumnWidth =1815
                     ColumnOrder =2
@@ -193,10 +185,6 @@ Begin Form
                     RightMargin =44
                     BottomMargin =22
 
-                    LayoutCachedLeft =1695
-                    LayoutCachedTop =1440
-                    LayoutCachedWidth =4320
-                    LayoutCachedHeight =1800
                     RowStart =2
                     RowEnd =2
                     ColumnStart =1
@@ -212,7 +200,7 @@ Begin Form
                             TextAlign =1
                             Left =360
                             Top =1440
-                            Width =1275
+                            Width =1260
                             Height =360
                             LeftMargin =44
                             TopMargin =22
@@ -222,10 +210,6 @@ Begin Form
                             Caption ="Export As"
                             GroupTable =1
                             BottomPadding =150
-                            LayoutCachedLeft =360
-                            LayoutCachedTop =1440
-                            LayoutCachedWidth =1635
-                            LayoutCachedHeight =1800
                             RowStart =2
                             RowEnd =2
                             LayoutGroup =1
@@ -238,9 +222,9 @@ Begin Form
                     OverlapFlags =85
                     TextAlign =1
                     IMESentenceMode =3
-                    Left =1695
+                    Left =1680
                     Top =360
-                    Width =2625
+                    Width =2640
                     Height =360
                     ColumnWidth =-2
                     ColumnOrder =0
@@ -254,10 +238,6 @@ Begin Form
                     BottomPadding =150
                     HorizontalAnchor =2
 
-                    LayoutCachedLeft =1695
-                    LayoutCachedTop =360
-                    LayoutCachedWidth =4320
-                    LayoutCachedHeight =720
                     ColumnStart =1
                     ColumnEnd =1
                     LayoutGroup =1
@@ -268,7 +248,7 @@ Begin Form
                             TextAlign =1
                             Left =360
                             Top =360
-                            Width =1275
+                            Width =1260
                             Height =360
                             LeftMargin =44
                             TopMargin =22
@@ -278,10 +258,6 @@ Begin Form
                             Caption =" "
                             GroupTable =1
                             BottomPadding =150
-                            LayoutCachedLeft =360
-                            LayoutCachedTop =360
-                            LayoutCachedWidth =1635
-                            LayoutCachedHeight =720
                             LayoutGroup =1
                             GroupTable =1
                         End

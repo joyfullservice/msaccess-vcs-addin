@@ -18,6 +18,9 @@ Option Explicit
 Private Sub cboResolution_AfterUpdate()
     Dim strKey As String
     strKey = Nz(Me!ItemKey)
+    ' Commit the edited row first so the DAO UPDATE below does not collide
+    ' with the form's dirty buffer (which triggers Access's write-conflict dialog).
+    If Me.Dirty Then Me.Dirty = False
     If Len(strKey) > 0 And Not IsNull(Me.cboResolution) Then
         CodeDb.Execute "UPDATE tblConflicts SET Resolution = " & Nz(Me.cboResolution, 0) & _
             " WHERE ItemKey = """ & Replace(strKey, """", """""") & """", dbFailOnError

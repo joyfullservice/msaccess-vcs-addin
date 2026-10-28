@@ -1,0 +1,79 @@
+{
+  "Info": {
+    "Class": "clsDbCommandBar",
+    "Description": "CommandBar"
+  },
+  "Items": {
+    "AdaptiveMenu": false,
+    "Context": "",
+    "Enabled": true,
+    "NameLocal": "office_links_zoom",
+    "Position": 1,
+    "Protection": 0,
+    "Type": 0,
+    "Controls": [
+      {
+        "ControlIdName": "Zoom",
+        "BeginGroup": false,
+        "BuiltIn": true,
+        "Caption": "&Zoom:",
+        "DescriptionText": "",
+        "Enabled": false,
+        "HelpContextId": 0,
+        "HelpFile": "",
+        "OLEUsage": 3,
+        "Parameter": "",
+        "Style": 0,
+        "Tag": "",
+        "TooltipText": "&Zoom:",
+        "Type": 4,
+        "Visible": true,
+        "Id": 1733
+      },
+      {
+        "ControlIdName": "Office Links",
+        "BeginGroup": false,
+        "BuiltIn": true,
+        "Caption": "Office &Links",
+        "DescriptionText": "",
+        "Enabled": true,
+        "HelpContextId": 0,
+        "HelpFile": "",
+        "OLEMenuGroup": -1,
+        "OLEUsage": 1,
+        "Parameter": "",
+        "Tag": "",
+        "TooltipText": "Office &Links",
+        "Type": 14,
+        "Visible": true,
+        "Id": 2598,
+        "Controls": [
+          {
+            "ControlIdName": "Word Merge",
+            "BeginGroup": false,
+            "BuiltIn": true,
+            "Type": 1,
+            "Visible": true,
+            "Id": 626
+          },
+          {
+            "ControlIdName": "Publish with Microsoft Word",
+            "BeginGroup": false,
+            "BuiltIn": true,
+            "Type": 1,
+            "Visible": true,
+            "Id": 567
+          },
+          {
+            "ControlIdName": "Analyze with Microsoft Excel",
+            "BeginGroup": false,
+            "BuiltIn": true,
+            "Type": 1,
+            "Visible": true,
+            "Id": 566
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -15,6 +15,7 @@ Private Const ModuleName = "modObjects"
 
 ' Manage outside "this" since we will use the operation class to release the other objects.
 Private m_Operation As clsOperation
+Private m_blnCreatingOperation As Boolean
 
 ' Session ID for MCP/API option overrides. Stored outside the UDT so it survives
 ' ReleaseObjects teardown. Set via RegisterSession API, used by SaveOptionOverride.
@@ -81,6 +82,12 @@ Public Sub ReleaseObjects()
     Set this.MCP = Nothing
     Set this.TestRunner = Nothing
     Set this.dbs = Nothing
+
+    ' Release the cached CNG hashing provider handle
+    ReleaseHashProvider
+
+    ' Release the cached UTF-8 conversion streams
+    ReleaseUtf8Streams
 
     Dim udtEmpty As udtObjects
     ' Reassign "this" to blank, clearing any saved data.
@@ -295,8 +302,27 @@ End Property
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Operation() As clsOperation
-    If m_Operation Is Nothing Then Set m_Operation = New clsOperation
+    If m_Operation Is Nothing Then
+        ' clsOperation cannot compare itself to this variable while it is still being
+        ' constructed, so flag the construction instead. Only the session instance may
+        ' adopt the crash-recovery state left in the registry by a previous run.
+        m_blnCreatingOperation = True
+        Set m_Operation = New clsOperation
+        m_blnCreatingOperation = False
+    End If
     Set Operation = m_Operation
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CreatingOperationSingleton
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : True only while the session operation instance is being constructed.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get CreatingOperationSingleton() As Boolean
+    CreatingOperationSingleton = m_blnCreatingOperation
 End Property
 
 

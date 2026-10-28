@@ -11,7 +11,17 @@
 # Ignore VCS log files (stored in logs/ subfolder of source folder)
 # Comment out the following lines if you wish to include log files in git.
 logs/
+test-results/
 *.log
+
+# Web test runner HTML extracted from tblResources at runtime. The tracked copy is
+# TestRunner/runner.html; this folder appears in the repo only because the dev add-in
+# extracts to CodeProject.Path.
+TestRunnerCache/
+
+# Per-run output from the object round-trip harness (VCS.RunRoundtripTests).
+# Every run writes a new timestamped folder of exported copies of each fixture.
+Testing/Fixtures/scratch/
 
 # The local VCS index file is paired with the database and should not
 # be committed to version control.

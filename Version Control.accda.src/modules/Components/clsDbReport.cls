@@ -22,12 +22,14 @@ Private m_Report As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
 Private m_strSourceFile As String
+Private m_colBatchItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -57,10 +59,11 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     strHash = SaveComponentAsText(acReport, m_Report.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
 
-    ' Export object metadata (doc properties + hidden attribute) into companion .json
-    If strAlternatePath = vbNullString Then
-        ExportObjectMetadata SwapExtension(IDbComponent_SourceFile, "json"), "Reports", m_Report.Name, acReport
-    End If
+    ' Export object metadata (doc properties + hidden attribute) into companion .json.
+    ' Produced for both normal and alternate-path (temp) exports so that conflict
+    ' detection and merge change-detection can compare all indexed files.
+    ExportObjectMetadata SwapExtension(Nz2(strAlternatePath, IDbComponent_SourceFile), "json"), _
+        "Reports", m_Report.Name, Me
 
     ' Generate layout SVG if enabled
     If strAlternatePath = vbNullString Then
@@ -77,8 +80,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         strHash, GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name), _
         strMetaHash:=GetMetadataHash("Reports", m_Report.Name, acReport))
 
-    ' Cache the @Folder annotation in the index
-    cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
+    ' Cache the @Folder annotation in the index.
+    ' Guard against a Nothing item under an abnormal/re-entrant index state.
+    If Not cIdx Is Nothing Then _
+        cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
 End Sub
 
@@ -93,20 +98,74 @@ End Sub
 Private Sub IDbComponent_Import(strFile As String)
 
     Dim strName As String
-    Dim blnImportCheck As Boolean
+
+    If Not ImportReportStructure(strFile, strName) Then Exit Sub
+    FinalizeOneReport strFile, strName
+
+End Sub
+
+
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+
+    Dim strName As String
+    Dim dBatch As Dictionary
+
+    If Not ImportReportStructure(strFile, strName) Then Exit Sub
+    If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
+
+    Set dBatch = New Dictionary
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    m_colBatchItems.Add dBatch
+
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+
+    If m_colBatchItems Is Nothing Then Exit Sub
+    If m_colBatchItems.Count = 0 Then
+        Set m_colBatchItems = Nothing
+        Exit Sub
+    End If
+
+    RefreshContainerDocuments "Reports"
+
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        FinalizeOneReport CStr(dBatch("File")), CStr(dBatch("Name")), True
+        If Operation.ErrorLevel = eelCritical Then Exit For
+    Next varItem
+
+    Set m_colBatchItems = Nothing
+
+End Sub
+
+
+Private Function ImportReportStructure(strFile As String, ByRef strName As String) As Boolean
 
     m_strSourceFile = vbNullString
-
-    ' Only import files with the correct extension.
-    If Not (strFile Like "*.report" Or strFile Like "*.bas") Then Exit Sub
+    If Not (strFile Like "*.report" Or strFile Like "*.bas") Then Exit Function
 
     strName = GetObjectNameFromFileName(strFile)
-    blnImportCheck = LoadComponentFromText(acReport, strName, strFile)
-    If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
-    Set m_Report = CurrentProject.AllReports(strName)
+    If Not LoadComponentFromText(acReport, strName, strFile) Then Exit Function
+    If Operation.ErrorLevel = eelCritical Then Exit Function
 
-    ' Apply object metadata (doc properties + hidden attribute) from companion .json
-    ImportObjectMetadata SwapExtension(strFile, "json"), "Reports", strName, acReport
+    ImportReportStructure = True
+
+End Function
+
+
+Private Sub FinalizeOneReport(strFile As String, strName As String, _
+    Optional blnSkipDocumentsRefresh As Boolean = False)
+
+    m_strSourceFile = strFile
+    Set m_Report = CurrentProject.AllReports(strName)
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Reports", strName, acReport, _
+        blnSkipDocumentsRefresh:=blnSkipDocumentsRefresh
 
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
         GetCodeModuleHash(IDbComponent_ComponentType, strName), _
@@ -141,10 +200,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
-    VerifyPath strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".cls", strToFolder
+    MoveComponentSource Me, strFromFolder, strToFolder
 End Sub
 
 
@@ -160,18 +216,25 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim rpt As AccessObject
     Dim cReport As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentProject.AllReports.Count
+            sngStart = Timer
+        End If
         For Each rpt In CurrentProject.AllReports
             Set cReport = New clsDbReport
             Set cReport.DbObject = rpt
             If blnNeedAll Then m_Items(False).Add cReport.SourceFile, cReport
             If blnModifiedOnly Then
                 If cReport.IsModified Then m_Items(True).Add cReport.SourceFile, cReport
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Reports"
             End If
         Next rpt
     End If
@@ -213,11 +276,13 @@ Public Function IDbComponent_IsModified() As Boolean
     ' Check the modified date first.
     If DateTruncToSeconds(m_Report.DateModified) = VCSIndex.Item(Me).ObjectDate Then
 
-        ' Layout unchanged. Only hash code if the VBE project is dirty.
-        If Not CurrentVBProject.Saved Then
-            IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
-        Else
+        ' Layout unchanged. Hash code-behind unless the whole VBA project is unchanged
+        ' since the last export (Saved + VBAProjectDate fast path).
+        If VbaProjectUnchangedSinceExport Then
             IDbComponent_IsModified = False
+        Else
+            IDbComponent_IsModified = VCSIndex.Item(Me).OtherHash <> _
+                GetCodeModuleHash(IDbComponent_ComponentType, m_Report.Name)
         End If
     End If
 
@@ -276,7 +341,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
         IDbComponent_FileExtensions.Add "report"
@@ -284,6 +349,12 @@ Private Property Get IDbComponent_FileExtensions() As Collection
         IDbComponent_FileExtensions.Add "bas"
     End If
     IDbComponent_FileExtensions.Add "cls"
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        IDbComponent_FileExtensions.Add "json"
+    End If
+    If Scope = efesAll Then
+        IDbComponent_FileExtensions.Add "svg"
+    End If
 End Property
 
 

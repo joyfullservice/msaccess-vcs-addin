@@ -26,8 +26,12 @@ Option Explicit
 Private m_Query As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
+Private m_strSourceFile As String
+Private m_colBatchItems As Collection
+Private m_colDeferredBatchItems As Collection
 
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -128,6 +132,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     Dim dHeader As Dictionary
     Dim dJsonProps As Dictionary
     Dim dJsonColumns As Dictionary
+    Dim dDescriptionProperty As Dictionary
     Dim varKey As Variant
     Dim dFieldProps As Dictionary
     Dim dPropEntry As Dictionary
@@ -135,6 +140,7 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     Dim strConnect As String
     Dim strEnvKey As String
     Dim lngQueryType As Long
+    Dim lngAttr1Flag As Long
     Dim blnIsPassThrough As Boolean
 
     strQueryName = m_Query.Name
@@ -188,17 +194,30 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     ' Step 3: Reconstruct SQL from MSysQueries rows
     Perf.OperationStart "Reconstruct SQL"
     Set cComposer = New clsQueryComposer
+    cComposer.ContextLabel = strQueryName
     strSql = cComposer.ReconstructSQL(colRows)
     Perf.OperationEnd
 
-    ' Step 4: Get the connection string for pass-through queries
+    ' Step 4: Pass-through connect and ReturnsRecords metadata from MSysQueries.
+    ' Attribute 1 Flag 8/10 store SQL in Expression and connect in Name1.
+    ' Attribute 4 may also carry connect for some pass-through layouts.
     strConnect = vbNullString
+    lngAttr1Flag = 0
     Dim dR As Dictionary
     For Each dR In colRows
-        If CLng(dR("Attribute")) = 4 Then
-            strConnect = CStr(dR("Expression"))
-            If Len(strConnect) > 0 Then blnIsPassThrough = True
-            Exit For
+        If CLng(dR("Attribute")) = 1 Then
+            lngAttr1Flag = CLng(dR("Flag"))
+            If lngAttr1Flag = 8 Or lngAttr1Flag = 10 Then
+                blnIsPassThrough = True
+                If Len(Nz(dR("Name1"), vbNullString)) > 0 Then
+                    strConnect = CStr(dR("Name1"))
+                End If
+            End If
+        ElseIf CLng(dR("Attribute")) = 4 Then
+            If Len(strConnect) = 0 Then
+                strConnect = CStr(dR("Expression"))
+                If Len(strConnect) > 0 Then blnIsPassThrough = True
+            End If
         End If
     Next dR
     If blnIsPassThrough And Len(strConnect) = 0 Then
@@ -285,18 +304,32 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     ' Query type
     dItems.Add "QueryType", lngQueryType
 
-    ' Option flag (Attribute 3 Flag bitmask: DISTINCT, TOP, etc.)
+    ' Option flag. Before 5.1.0 this is the raw Attribute 3 bitmask.
+    ' From 5.1.0 the emitted SQL is authoritative for every modifier it can
+    ' carry, so the companion just restates what the .sql already says.
+    Perf.OperationStart "Query JSON Option Flag"
     Dim lngOptionFlag As Long
-    lngOptionFlag = 0
+    Dim lngAttr3 As Long
+    lngAttr3 = 0
     For Each dR In colRows
         If CLng(dR("Attribute")) = 3 Then
-            lngOptionFlag = CLng(dR("Flag"))
+            lngAttr3 = CLng(dR("Flag"))
             Exit For
         End If
     Next dR
-    If lngOptionFlag <> 0 And Not IsImplicitSelectStarOption(colRows, lngOptionFlag) Then
+    If Options.ExportFormatVersion >= EFV_5_1_0 And Not blnIsPassThrough Then
+        lngOptionFlag = cComposer.ReconstructedOptionFlag
+        If lngOptionFlag < 0 Then lngOptionFlag = ExportOptionFlagFromSql(strSql)
+    Else
+        lngOptionFlag = lngAttr3
+        If lngOptionFlag <> 0 And IsImplicitSelectStarOption(colRows, lngOptionFlag) Then
+            lngOptionFlag = 0
+        End If
+    End If
+    If lngOptionFlag <> 0 Then
         dItems.Add "OptionFlag", lngOptionFlag
     End If
+    Perf.OperationEnd
 
     ' Connection string (with env: substitution)
     If Len(strConnect) > 0 Then
@@ -316,6 +349,15 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
         End If
     End If
 
+    ' ReturnsRecords is not stored in LvProp; derive from Attribute 1 Flag
+    ' (10 = pass-through with no records). Import defaults to Yes when absent.
+    If lngAttr1Flag = 10 Then
+        Set dPropEntry = New Dictionary
+        dPropEntry.Add "Type", 1
+        dPropEntry.Add "Value", False
+        dJsonProps.Add "ReturnsRecords", dPropEntry
+    End If
+
     ' Query properties from LvProp (ODBCTimeout, UseTransaction, etc.)
     If dJsonProps.Count > 0 Then
         dItems.Add "QueryProperties", dJsonProps
@@ -327,14 +369,21 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
     End If
 
     ' Design layout (only for Design View queries)
+    Perf.OperationStart "Query JSON Layout"
     If Not dLayout Is Nothing Then
         If dLayout.Count > 0 Then
             dItems.Add "DesignLayout", ConvertLayoutForJson(dLayout)
         End If
     End If
+    Perf.OperationEnd
 
     ' Collect document properties (Description, Hidden)
-    CollectObjectMetadata dItems, "Tables", strQueryName, acQuery
+    Perf.OperationStart "Query JSON Metadata"
+    If dJsonProps.Exists("Description") Then
+        Set dDescriptionProperty = dJsonProps("Description")
+    End If
+    CollectObjectMetadata dItems, "Tables", strQueryName, acQuery, True, dDescriptionProperty
+    Perf.OperationEnd
 
     ' Build the full JSON structure
     Set dHeader = New Dictionary
@@ -378,6 +427,34 @@ CleanUp:
         ModuleName(Me) & ".ExportNewFormat", True, True, True
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportOptionFlagFromSql
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : OptionFlag written at export format 5.1.0+: exactly the bits the
+'           : emitted SQL implies, so the companion can never contradict the
+'           : .sql that ships beside it. Bit 1 is included only when the `*`
+'           : is explicit -- a bare `SELECT *` is already self-describing, so
+'           : persisting the flag would just churn the file.
+'           : Nothing is carried over from Attribute 3: a bit the SQL cannot
+'           : express is a bit import would have to ignore.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExportOptionFlagFromSql(ByVal strSql As String) As Long
+
+    Dim cOpt As clsQueryComposer
+    Dim lngBits As Long
+
+    Set cOpt = New clsQueryComposer
+    cOpt.DecomposeSQL strSql
+    lngBits = cOpt.ParsedOptionFlag And cOpt.SqlRepresentableOptionBits
+    If cOpt.ImplicitOutputAllFields Then lngBits = lngBits And Not 1
+
+    ExportOptionFlagFromSql = lngBits
+
+End Function
 
 
 Private Function IsImplicitSelectStarOption(ByVal colRows As Collection, ByVal lngOptionFlag As Long) As Boolean
@@ -495,7 +572,7 @@ Private Sub ExportLegacy(strFile As String, Optional blnAlternate As Boolean = F
     ' those are guarded by IDbComponent_Export, the only public caller.
     If Not m_Query Is Nothing Then strQueryName = m_Query.Name
 
-    strHash = SaveComponentAsText(acQuery, m_Query.Name, strFile)
+    strHash = SaveComponentAsText(acQuery, m_Query.Name, strFile, Me)
 
     If blnAlternate Then
         VCSIndex.Update Me, eatAltExport, strHash, _
@@ -558,17 +635,185 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
+    Dim strName As String
+
+    If Not ImportQueryStructure(strFile, strName) Then Exit Sub
+    FinalizeOneQuery strFile, strName
+
+End Sub
+
+
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+
+    Dim strName As String
+
+    If Not ImportQueryStructure(strFile, strName, True, True) Then
+        QueueBatchItem m_colDeferredBatchItems, strFile, strName
+        Log.Error eelWarning, T("Deferring import of '{0}' until all queries have been processed.", _
+            var0:=strName), ModuleName(Me) & ".ImportFast"
+        Exit Sub
+    End If
+    QueueBatchItem m_colBatchItems, strFile, strName
+
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+
+    If Not m_colDeferredBatchItems Is Nothing Then
+        RetryDeferredBatchImports
+        If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
+    End If
+
+    If m_colBatchItems Is Nothing Then GoTo CleanUp
+    If m_colBatchItems.Count = 0 Then GoTo CleanUp
+
+    RefreshContainerDocuments "Tables"
+
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        FinalizeOneQuery CStr(dBatch("File")), CStr(dBatch("Name")), True
+        If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
+    Next varItem
+
+CleanUp:
+    Set m_colBatchItems = Nothing
+    Set m_colDeferredBatchItems = Nothing
+
+End Sub
+
+
+Private Sub RetryDeferredBatchImports()
+
+    Dim colPending As Collection
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+    Dim strFile As String
+    Dim strName As String
+    Dim lngImported As Long
+
+    ' Retry silently while a pass makes progress. Each successful pass can
+    ' unlock another level of a saved-query dependency chain.
+    Do While Not m_colDeferredBatchItems Is Nothing
+        Set colPending = m_colDeferredBatchItems
+        Set m_colDeferredBatchItems = Nothing
+        lngImported = 0
+
+        PublishBatchQueries m_colBatchItems
+        RefreshContainerDocuments "Tables"
+        Log.Add T("Retrying {0} deferred query imports...", var0:=colPending.Count)
+
+        For Each varItem In colPending
+            Set dBatch = varItem
+            strFile = CStr(dBatch("File"))
+            strName = CStr(dBatch("Name"))
+            DeleteObjectIfExists acQuery, strName
+            If ImportQueryStructure(strFile, strName, True, True) Then
+                Set m_Query = CurrentData.AllQueries(strName)
+                QueueBatchItem m_colBatchItems, strFile, strName
+                lngImported = lngImported + 1
+            Else
+                QueueBatchItem m_colDeferredBatchItems, strFile, strName
+            End If
+        Next varItem
+
+        If m_colDeferredBatchItems Is Nothing Then Exit Do
+        If lngImported = 0 Then Exit Do
+    Loop
+
+    ' A cycle or permanent import error made no progress. Preserve the existing
+    ' attended Abort/Retry/Ignore behavior for these final attempts.
+    If Not m_colDeferredBatchItems Is Nothing Then
+        Set colPending = m_colDeferredBatchItems
+        Set m_colDeferredBatchItems = Nothing
+        For Each varItem In colPending
+            Set dBatch = varItem
+            strFile = CStr(dBatch("File"))
+            strName = CStr(dBatch("Name"))
+            DeleteObjectIfExists acQuery, strName
+            If ImportQueryStructure(strFile, strName) Then
+                Set m_Query = CurrentData.AllQueries(strName)
+                QueueBatchItem m_colBatchItems, strFile, strName
+            End If
+            If Operation.ErrorLevel = eelCritical Then Exit For
+        Next varItem
+    End If
+
+End Sub
+
+
+Private Sub PublishBatchQueries(colItems As Collection)
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Route to appropriate import method based on file extension
+    If colItems Is Nothing Then Exit Sub
+
+    For Each varItem In colItems
+        Set dBatch = varItem
+        Set m_Query = CurrentData.AllQueries(CStr(dBatch("Name")))
+    Next varItem
+
+    CatchAny eelError, T("Error publishing imported queries"), _
+        ModuleName(Me) & ".PublishBatchQueries"
+
+End Sub
+
+
+Private Sub QueueBatchItem(ByRef colItems As Collection, strFile As String, strName As String)
+
+    Dim dBatch As New Dictionary
+
+    If colItems Is Nothing Then Set colItems = New Collection
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    colItems.Add dBatch
+
+End Sub
+
+
+Private Function ImportQueryStructure(strFile As String, ByRef strName As String, _
+    Optional blnSuppressImportError As Boolean = False, _
+    Optional blnSilentProbe As Boolean = False) As Boolean
+
+    If blnSuppressImportError Then
+        On Error Resume Next
+    ElseIf DebugMode(True) Then
+        On Error GoTo 0
+    Else
+        On Error Resume Next
+    End If
+
     If strFile Like "*.sql" Then
-        ImportNewFormat strFile
+        ImportQueryStructure = ImportNewFormat(strFile, strName, _
+            blnSuppressImportError, blnSilentProbe)
     ElseIf strFile Like "*.qdef" Or strFile Like "*.bas" Then
-        ImportLegacyFormat strFile
+        ImportQueryStructure = ImportLegacyFormat(strFile, strName, _
+            blnSuppressImportError, blnSilentProbe)
     End If
 
     CatchAny eelError, "Error importing query from '" & strFile & "'", _
-        ModuleName(Me) & ".IDbComponent_Import"
+        ModuleName(Me) & ".ImportQueryStructure", blnLogError:=Not blnSilentProbe
+
+End Function
+
+
+Private Sub FinalizeOneQuery(strFile As String, strName As String, _
+    Optional blnSkipDocumentsRefresh As Boolean = False)
+
+    Set m_Query = CurrentData.AllQueries(strName)
+    m_strSourceFile = strFile
+
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Tables", strName, acQuery, _
+        blnSkipDocumentsRefresh:=blnSkipDocumentsRefresh
+
+    VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
+        strMetaHash:=GetMetadataHash("Tables", strName, acQuery)
 
 End Sub
 
@@ -581,11 +826,12 @@ End Sub
 '           : and calling LoadFromText.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ImportNewFormat(strSqlFile As String)
+Private Function ImportNewFormat(strSqlFile As String, ByRef strQueryName As String, _
+    Optional blnSuppressImportError As Boolean = False, _
+    Optional blnSilentProbe As Boolean = False) As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    Dim strQueryName As String
     Dim strSql As String
     Dim strJsonFile As String
     Dim strQdefContent As String
@@ -601,6 +847,11 @@ Private Sub ImportNewFormat(strSqlFile As String)
     Dim strConnect As String
     Dim lngQueryType As Long
     Dim lngOptionFlag As Long
+
+    ' -1 distinguishes "companion carried no OptionFlag" from an explicit 0.
+    ' An absent flag makes no claim about the SQL, so it must not be read as
+    ' a companion asserting that no modifiers are present.
+    lngOptionFlag = -1
 
     strQueryName = GetObjectNameFromFileName(strSqlFile)
 
@@ -664,8 +915,12 @@ Private Sub ImportNewFormat(strSqlFile As String)
         End If
     End If
 
-    ' Decompose SQL to determine if Design View is possible
+    ' Decompose SQL to determine if Design View is possible. Label the composer first:
+    ' DecomposeSQL resets the raw SQL it would otherwise quote, so any warning raised
+    ' while parsing (an unrecognized parameter type, for instance) has no other way to
+    ' identify which query produced it.
     Set cComposer = New clsQueryComposer
+    cComposer.ContextLabel = strQueryName
     cComposer.DecomposeSQL strSql, blnIsPassThrough
     cComposer.RawSQL = strSql
     If blnIsPassThrough Then cComposer.ConnectString = strConnect
@@ -693,7 +948,8 @@ Private Sub ImportNewFormat(strSqlFile As String)
 
     ' Attempt to import (suppress errors on Design View so the fallback
     ' to SQL View can happen without showing a dialog for each query)
-    If LoadComponentFromText(acQuery, strQueryName, strTempFile, blnDesignView, strSqlFile) = False Then
+    If LoadComponentFromText(acQuery, strQueryName, strTempFile, _
+        blnDesignView Or blnSuppressImportError, strSqlFile, blnSilentProbe) = False Then
         ' Design View import failed -- fall back to SQL View
         If blnDesignView Then
             Log.Error eelWarning, "Design View import failed for '" & strQueryName & _
@@ -701,7 +957,8 @@ Private Sub ImportNewFormat(strSqlFile As String)
                 "clsDbQuery.ImportNewFormat"
             strQdefContent = cComposer.GenerateQdef(False, dProperties, dColumns, , lngOptionFlag)
             WriteFile strQdefContent, strTempFile
-            If LoadComponentFromText(acQuery, strQueryName, strTempFile, False, strSqlFile) = False Then
+            If LoadComponentFromText(acQuery, strQueryName, strTempFile, _
+                blnSuppressImportError, strSqlFile, blnSilentProbe) = False Then
                 GoTo CleanUp
             End If
         Else
@@ -709,14 +966,7 @@ Private Sub ImportNewFormat(strSqlFile As String)
         End If
     End If
 
-    Set m_Query = CurrentData.AllQueries(strQueryName)
-
-    ' Apply document metadata from the .json file
-    ImportObjectMetadata strJsonFile, "Tables", strQueryName, acQuery
-
-    ' Update index
-    VCSIndex.Update Me, eatImport, GetFileHash(strSqlFile), _
-        strMetaHash:=GetMetadataHash("Tables", strQueryName, acQuery)
+    ImportNewFormat = True
 
 CleanUp:
     ' Log any unexpected error first (before file ops below can clobber Err)
@@ -730,7 +980,7 @@ CleanUp:
     ' Don't leak cleanup-induced errors to the caller
     Err.Clear
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -791,59 +1041,68 @@ End Function
 ' Purpose   : Import from legacy .qdef or .bas files (backward compatibility).
 '---------------------------------------------------------------------------------------
 '
-Private Sub ImportLegacyFormat(strFile As String)
+Private Function ImportLegacyFormat(strFile As String, ByRef strQueryName As String, _
+    Optional blnSuppressImportError As Boolean = False, _
+    Optional blnSilentProbe As Boolean = False) As Boolean
 
     Dim dbs As DAO.Database
-    Dim strQueryName As String
     Dim strFileSql As String
     Dim strSql As String
     Dim blnRecreated As Boolean
+    Dim blnLoaded As Boolean
 
     strQueryName = GetObjectNameFromFileName(strFile)
+    strFileSql = SwapExtension(strFile, "sql")
 
     If Options.ForceImportOriginalQuerySQL Then
-        If LoadComponentFromText(acQuery, strQueryName, strFile, True) = False Then
-            strFileSql = SwapExtension(strFile, "sql")
+        ' A successful LoadFromText still continues so the paired .sql can
+        ' overwrite QueryDefs.SQL. Exiting on success left that overlay
+        ' unreachable (issue #769).
+        blnLoaded = LoadComponentFromText(acQuery, strQueryName, strFile, _
+            blnSuppressError:=True, blnSilentProbe:=blnSilentProbe)
+        If Not blnLoaded Then
             strSql = ReadFile(strFileSql)
             If strSql <> vbNullString Then
                 Set dbs = SharedDb
                 dbs.CreateQueryDef strQueryName, strSql
                 blnRecreated = True
-                Log.Error eelWarning, "  Restored query " & strQueryName & _
-                    " using SQL. Some visual design properties may be lost.", _
-                    "clsDbQuery.ImportLegacyFormat"
+                Log.Error eelWarning, T("Restored query {0} using SQL from {1}. Some visual design properties may be lost.", _
+                    var0:=strQueryName, var1:=FSO.GetFileName(strFileSql)), _
+                    ModuleName(Me) & ".ImportLegacyFormat"
             Else
-                Log.Error eelError, "  Couldn't get original SQL query for " & strQueryName
-                Exit Sub
+                Log.Error eelError, T("Couldn't get original SQL for {0} from {1}.", _
+                    var0:=strQueryName, var1:=strFileSql), _
+                    ModuleName(Me) & ".ImportLegacyFormat"
+                Exit Function
             End If
-        Else
-            Exit Sub
         End If
     Else
-        If LoadComponentFromText(acQuery, strQueryName, strFile) = False Then
-            Exit Sub
+        If LoadComponentFromText(acQuery, strQueryName, strFile, _
+            blnSuppressError:=blnSuppressImportError, _
+            blnSilentProbe:=blnSilentProbe) = False Then
+            Exit Function
         End If
     End If
 
-    Set m_Query = CurrentData.AllQueries(strQueryName)
-    ImportObjectMetadata SwapExtension(strFile, "json"), "Tables", strQueryName, acQuery
-
     If Options.ForceImportOriginalQuerySQL And (blnRecreated = False) Then
-        strFileSql = SwapExtension(strFile, "sql")
         strSql = ReadFile(strFileSql)
         If strSql <> vbNullString Then
             Set dbs = SharedDb
+            ' LoadFromText created the query outside this cached handle.
+            dbs.QueryDefs.Refresh
             dbs.QueryDefs(strQueryName).SQL = strSql
-            Log.Add "  Restored original SQL for " & strQueryName, Options.ShowDebug
+            Log.Add T("Restored original SQL for {0} from {1}", _
+                var0:=strQueryName, var1:=FSO.GetFileName(strFileSql))
         Else
-            Log.Add "  Couldn't get original SQL query for " & strQueryName
+            Log.Error eelError, T("Couldn't get original SQL for {0} from {1}.", _
+                var0:=strQueryName, var1:=strFileSql), _
+                ModuleName(Me) & ".ImportLegacyFormat"
         End If
     End If
 
-    VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
-        strMetaHash:=GetMetadataHash("Tables", strQueryName, acQuery)
+    ImportLegacyFormat = True
 
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -872,11 +1131,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
-    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
-    ' Also move legacy files if present
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".qdef", strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".bas", strToFolder
+    MoveComponentSource Me, strFromFolder, strToFolder
 End Sub
 
 
@@ -892,20 +1147,31 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim qry As AccessObject
     Dim cQuery As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentData.AllQueries.Count
+            sngStart = Timer
+            ' Batch-load query Descriptions from MSysObjects.LvProp once, so per-query
+            ' IsModified checks avoid thousands of slow DAO Description reads.
+            BuildQueryDescriptionCache
+        End If
         For Each qry In CurrentData.AllQueries
             Set cQuery = New clsDbQuery
             Set cQuery.DbObject = qry
             If blnNeedAll Then m_Items(False).Add cQuery.SourceFile, cQuery
             If blnModifiedOnly Then
                 If cQuery.IsModified Then m_Items(True).Add cQuery.SourceFile, cQuery
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Queries"
             End If
         Next qry
+        If blnModifiedOnly Then ClearQueryDescriptionCache
     End If
 
     ' Return cached collection
@@ -919,7 +1185,9 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return a list of file names to import for this component type.
-'           : New format (.sql) takes priority; falls back to legacy .qdef/.bas
+'           : Legacy .qdef/.bas files take priority when present (frozen
+'           : compatibility). New-format .sql+.json pairs are imported only
+'           : when no same-basename legacy file exists.
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
@@ -986,12 +1254,16 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function IDbComponent_IsModified() As Boolean
+    Perf.OperationStart "IsModified: Date Check"
     IDbComponent_IsModified = (DateTruncToSeconds(m_Query.DateModified) <> VCSIndex.Item(Me).ObjectDate)
+    Perf.OperationEnd
 
     ' Check metadata (Description/Hidden) which don't update DateModified
     If Not IDbComponent_IsModified Then
+        Perf.OperationStart "IsModified: Meta Hash"
         IDbComponent_IsModified = VCSIndex.Item(Me).MetaHash <> _
-            GetMetadataHash("Tables", m_Query.Name, acQuery)
+            GetQueryMetadataHash(m_Query.Name)
+        Perf.OperationEnd
     End If
 End Function
 
@@ -1040,7 +1312,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "sql"
     IDbComponent_FileExtensions.Add "json"
@@ -1068,16 +1340,30 @@ End Property
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return the full path of the source file for the current object.
-'           : v5.0+: Uses .sql as the primary source file.
+'           : Format 5.0+ with deterministic export uses .sql; format 5.0+
+'           : without it uses .qdef; earlier formats use .bas.
 '---------------------------------------------------------------------------------------
 '
 Private Property Get IDbComponent_SourceFile() As String
-    If m_Query Is Nothing Then Exit Property
-    If Options.ExportFormatVersion >= EFV_5_0_0 And Options.UseDeterministicQueryExport Then
-        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
-    Else
-        IDbComponent_SourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
+    ' Memoized: a change scan reads this repeatedly per component (via GetSourceBasePath
+    ' for the property and content hashes, and again during orphan detection), and each
+    ' rebuild costs an un-memoized Options.GetExportFolder plus the ten Replace calls in
+    ' GetSafeFileName. Cleared whenever m_Query is rebound. Matches clsDbForm.
+    If Len(m_strSourceFile) > 0 Then
+        IDbComponent_SourceFile = m_strSourceFile
+        Exit Property
     End If
+    If m_Query Is Nothing Then Exit Property
+    If Options.ExportFormatVersion >= EFV_5_0_0 Then
+        If Options.UseDeterministicQueryExport Then
+            m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".sql"
+        Else
+            m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".qdef"
+        End If
+    Else
+        m_strSourceFile = IDbComponent_BaseFolder & GetSafeFileName(m_Query.Name) & ".bas"
+    End If
+    IDbComponent_SourceFile = m_strSourceFile
 End Property
 
 
@@ -1100,6 +1386,7 @@ Private Property Get IDbComponent_DbObject() As Object
 End Property
 Private Property Set IDbComponent_DbObject(ByVal RHS As Object)
     Set m_Query = RHS
+    m_strSourceFile = vbNullString
 End Property
 
 Private Property Get IDbComponent_SingleFile() As Boolean
@@ -1109,18 +1396,6 @@ End Property
 Public Property Get Parent() As IDbComponent
     Set Parent = Me
 End Property
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : EscapeSqlQuote
-' Author    : Adam Waller
-' Date      : 4/10/2026
-' Purpose   : Escape double quotes in a string for use in an Access SQL query.
-'---------------------------------------------------------------------------------------
-'
-Private Function EscapeSqlQuote(strValue As String) As String
-    EscapeSqlQuote = Replace(strValue, """", """""")
-End Function
 
 
 '---------------------------------------------------------------------------------------

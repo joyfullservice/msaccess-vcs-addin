@@ -1145,7 +1145,20 @@ Private Function TryAddBuiltInControl(lngType As Long, lngId As Long, strTempBar
     Err.Clear
     Set ctl = cb.Controls.Add(lngType, lngId)
     TryAddBuiltInControl = (Err.Number = 0) And Not ctl Is Nothing
-    If Not CatchAny(eelNoError, vbNullString) Then Err.Clear
+    ' A failed .Add is the probe's expected negative answer: many built-in controls
+    ' cannot be recreated by (Type, Id) on a given Access version and raise 438/440 or
+    ' -2147467259 ("Method 'Add' of object 'CommandBarControls' failed"). That is the
+    ' result we are measuring, not a fault, so those must not reach the export log.
+    ' Anything else is genuinely unexpected - log it (file-only) with the Type/Id so it
+    ' can be diagnosed. Either branch clears Err so a leftover error cannot surface as
+    ' phantom noise in a caller's error handler.
+    If Err.Number <> 0 Then
+        If Not Catch(438, 440, -2147467259) Then
+            CatchAny eelWarning, "Unexpected error probing addability of built-in control " & _
+                "(Type " & lngType & ", Id " & lngId & ")", _
+                ModuleName & ".TryAddBuiltInControl", blnIncludeErrorWithDescription:=True
+        End If
+    End If
 
 End Function
 

@@ -6,6 +6,7 @@
 ' Purpose   : General error handling functions.
 ' Layer     : Infrastructure
 ' Depends on: modObjects (Log singleton, Options.BreakOnError via OptionsLoaded guard)
+'           : modTestAssert (TestRunActive, to suppress breaks during a test run)
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Private Module
@@ -16,8 +17,87 @@ Private Const ModuleName As String = "modErrorHandling"
 
 Private Type udtThis
     blnInError As Boolean       ' Monitor error state
+    lngSuppressBreaks As Long   ' Nesting depth for MCP/API non-interactive scopes
 End Type
 Private this As udtThis
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SuppressErrorBreaks
+' Author    : Adam Waller
+' Date      : 8/6/2026
+' Purpose   : Begin a scope where LogUnhandledErrors must not Stop and DebugMode
+'           : must not select On Error GoTo 0. Used by MCP/API entry points so
+'           : automation never blocks waiting for a human at a debugger break.
+'           : Nesting counter (not a Boolean) because APIAsync -> API -> RunVBA
+'           : can push multiple scopes on one thread.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SuppressErrorBreaks()
+    this.lngSuppressBreaks = this.lngSuppressBreaks + 1
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreErrorBreaks
+' Author    : Adam Waller
+' Date      : 8/6/2026
+' Purpose   : End one SuppressErrorBreaks scope. Floors at zero.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RestoreErrorBreaks()
+    If this.lngSuppressBreaks > 0 Then this.lngSuppressBreaks = this.lngSuppressBreaks - 1
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ErrorBreaksSuppressed
+' Author    : Adam Waller
+' Date      : 8/6/2026
+' Purpose   : True while at least one SuppressErrorBreaks scope is active.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get ErrorBreaksSuppressed() As Boolean
+    ErrorBreaksSuppressed = (this.lngSuppressBreaks > 0)
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BreakOnUnhandledError
+' Author    : Adam Waller
+' Date      : 9/16/2026
+' Purpose   : Whether an unhandled error should Stop in the debugger. Only the break
+'           : decision: DebugMode still reports the raw BreakOnError option, because
+'           : callers use it to choose between On Error GoTo 0 and Resume Next, and
+'           : changing that would reroute error handling throughout the product.
+'           : A test run never breaks. The runner calls SuppressErrorBreaks, but it
+'           : runs in the add-in, so that scope only covers the add-in's copy of this
+'           : module; test procedures execute in the project under test, whose copy has
+'           : its own counter sitting at zero. A test that tripped BreakOnError hit the
+'           : Stop and parked the run on a modal break with nobody to dismiss it.
+'           : TestRunActive is the signal the runner does propagate across that
+'           : boundary, so honor it here.
+'---------------------------------------------------------------------------------------
+'
+Public Function BreakOnUnhandledError() As Boolean
+    If Not OptionsLoaded Then Exit Function
+    If Not Options.BreakOnError Then Exit Function
+    If ErrorBreaksSuppressed Then Exit Function
+    If modTestAssert.TestRunActive Then Exit Function
+    BreakOnUnhandledError = True
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ErrorBreakSuppressionDepth
+' Author    : Adam Waller
+' Date      : 9/11/2026
+' Purpose   : Return the nesting depth for diagnostics and balance tests.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get ErrorBreakSuppressionDepth() As Long
+    ErrorBreakSuppressionDepth = this.lngSuppressBreaks
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -35,6 +115,7 @@ Public Function DebugMode(blnTrapUnhandledErrors As Boolean) As Boolean
     ' Read directly from Options. Guard with OptionsLoaded to prevent
     ' circular initialization (Options getter -> load -> DebugMode -> Options).
     If OptionsLoaded Then DebugMode = Options.BreakOnError
+    If ErrorBreaksSuppressed Then DebugMode = False
 
 End Function
 
@@ -61,7 +142,7 @@ Public Sub LogUnhandledErrors(Optional ByRef CallingFunction As String = vbNullS
         this.blnInError = True ' Set flag so we don't create a loop while logging the error
 
         ' Check live BreakOnError setting
-        If OptionsLoaded Then blnBreak = Options.BreakOnError
+        blnBreak = BreakOnUnhandledError
         If blnBreak Then
             ' Stop the code here so we can investigate the source of the error.
             Debug.Print "Error " & Err.Number & ": " & Err.Description
@@ -120,6 +201,39 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : LogCrashTrace
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Record a step in the log and persist the log to disk immediately, so that
+'           : a hard fault leaves evidence of how far execution got.
+'           :
+'           : Ordinary logging is not sufficient for code that can take the process down:
+'           : an access violation inside VBE7.DLL (which is what manipulating a VBA
+'           : project can produce) terminates Access without unwinding, so nothing
+'           : buffered in memory is ever written. The last line in the log file is then
+'           : the last step that completed. Reserve this for operations that can fault
+'           : rather than raise a trappable error — the disk write is not free.
+'           :
+'           : Two non-obvious costs. The ShowDebug argument below only suppresses the
+'           : console echo; Log.Add always appends to the file, so a trace is never
+'           : silenced by debug settings. And Log.SaveFile rewrites the whole log from
+'           : scratch and then runs CleanupOldLogs, which enumerates the logs folder --
+'           : so this is a folder scan per call, not an append. Traces on trappable
+'           : operations were removed for that reason (2026-07-30); do not reintroduce
+'           : them inside per-category loops.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LogCrashTrace(strStep As String)
+    LogUnhandledErrors
+    On Error Resume Next
+    Log.Add "  [trace] " & strStep, Options.ShowDebug
+    Log.SaveFile
+    If Err Then Err.Clear
+    On Error GoTo 0
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CatchAny
 ' Author    : Adam Waller
 ' Date      : 12/3/2020
@@ -138,4 +252,122 @@ Public Function CatchAny(eLevel As eErrorLevel, strDescription As String, Option
         If blnClearError Then Err.Clear
         CatchAny = True
     End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveUserErrorTrapping
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Return the current VBE error trapping setting for later restore.
+'---------------------------------------------------------------------------------------
+'
+Public Function SaveUserErrorTrapping() As eVbeErrorTrapping
+    SaveUserErrorTrapping = Application.GetOption("Error Trapping")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveUserErrorTrappingOnApp
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Return the current VBE error trapping setting on another Access instance.
+'---------------------------------------------------------------------------------------
+'
+Public Function SaveUserErrorTrappingOnApp(objAccess As Access.Application) As eVbeErrorTrapping
+    SaveUserErrorTrappingOnApp = objAccess.GetOption("Error Trapping")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyUserErrorTrapping
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Set the VBE error trapping mode on the current Access instance.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ApplyUserErrorTrapping(intMode As eVbeErrorTrapping)
+    If Application.GetOption("Error Trapping") <> intMode Then
+        Application.SetOption "Error Trapping", intMode
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyUserErrorTrappingOnApp
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Set the VBE error trapping mode on another Access instance.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ApplyUserErrorTrappingOnApp(objAccess As Access.Application, intMode As eVbeErrorTrapping)
+    If objAccess.GetOption("Error Trapping") <> intMode Then
+        objAccess.SetOption "Error Trapping", intMode
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreUserErrorTrapping
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Restore a previously saved VBE error trapping setting.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RestoreUserErrorTrapping(intSaved As eVbeErrorTrapping)
+    If intSaved <> Application.GetOption("Error Trapping") Then
+        Application.SetOption "Error Trapping", intSaved
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreUserErrorTrappingOnApp
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Restore a previously saved VBE error trapping setting on another instance.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RestoreUserErrorTrappingOnApp(objAccess As Access.Application, intSaved As eVbeErrorTrapping)
+    If intSaved <> objAccess.GetOption("Error Trapping") Then
+        objAccess.SetOption "Error Trapping", intSaved
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EffectiveVbeErrorTrapping
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Pure policy for a restorable Error Trapping override. Enum values are
+'           : ordered by permissiveness (0 Break on All Errors < 1 Break in Class
+'           : Module < 2 Break on Unhandled Errors), so the effective mode is the
+'           : higher of the current setting and the required floor. Never lowers a
+'           : caller already at a more permissive mode.
+'---------------------------------------------------------------------------------------
+'
+Public Function EffectiveVbeErrorTrapping(intCurrent As eVbeErrorTrapping, _
+    intRequired As eVbeErrorTrapping) As eVbeErrorTrapping
+    If intCurrent < intRequired Then
+        EffectiveVbeErrorTrapping = intRequired
+    Else
+        EffectiveVbeErrorTrapping = intCurrent
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BeginVbeErrorTrappingScope
+' Author    : Adam Waller
+' Date      : 9/7/2026
+' Purpose   : Start a restorable scope that raises Error Trapping to intRequired (or
+'           : leaves a more permissive current value). Hold the returned object until
+'           : the call is finished; Class_Terminate restores the saved mode.
+'---------------------------------------------------------------------------------------
+'
+Public Function BeginVbeErrorTrappingScope(intRequired As eVbeErrorTrapping) As clsVbeErrorTrappingScope
+    Dim cScope As clsVbeErrorTrappingScope
+    Set cScope = New clsVbeErrorTrappingScope
+    cScope.Init intRequired
+    Set BeginVbeErrorTrappingScope = cScope
 End Function

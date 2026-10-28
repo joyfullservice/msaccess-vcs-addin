@@ -131,7 +131,7 @@ Private Sub cboConnect_Click()
                 If MsgBox2("Use .env File for Connection String?", _
                     "Using a .env file to store sensitive credentials is highly recommended " & _
                     "when your connection string contains a password.", _
-                    "This .env file should be excluded from version control.", vbQuestion + vbYesNo) = vbYes Then
+                    "This .env file should be excluded from version control.", vbQuestion + vbYesNo, , vbNo) = vbYes Then
                     Me.chkSaveDotEnv = True
                 End If
             End If
@@ -173,7 +173,7 @@ End Sub
 '
 Private Sub cmdSaveAndClose_Click()
     If SaveConnection Then
-        Form_frmVCSOptionsDatabases.RefreshSchemaList
+        If IsLoaded(acForm, "frmVCSOptions") Then Form_frmVCSOptions.RefreshDatabaseSchemaList
         DoCmd.Close acForm, Me.Name
     End If
 End Sub

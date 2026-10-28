@@ -26,20 +26,148 @@ Filter examples:
 
 Tags use `'@Tag("name")` in module or procedure headers. Prefix `-` to exclude.
 
+### Headless (CI / automation)
+
+`VCS.RunTestsHeadless` accepts the same filter arguments but runs with no forms and no prompts: the web runner is bypassed, a missing `modTestAssert` module is installed silently, and JUnit XML is always exported. Any run whose `Operation.Source` is API or MCP is forced onto this path as well, so `vcs_run_tests` and `Application.Run` callers never open the web runner. The returned JSON includes `allPassed`, `cancelled`, `junitPath`, `statePath`, `logPath`, and `resultsPath` for machine consumption.
+
+```powershell
+$addin = "$env:AppData\MSAccessVCS\Version Control.API"
+$access = New-Object -ComObject Access.Application
+$access.OpenCurrentDatabase("C:\path\to\Database.accdb")
+$json = $access.Run($addin, "RunTestsHeadless", "-slow")
+$access.Quit()
+if (-not ($json | ConvertFrom-Json).allPassed) { exit 1 }
+```
+
+CI can assert on the returned JSON or collect `test-results\test-results.xml` (JUnit) from the export folder.
+
 ### Ribbon
 
 Set **Default Test Filter** under **Options** → **Advanced**, then click **Run Tests** on the ribbon. Leave blank to run all tests.
 
 ![Run Tests Button](img/ribbon-run-tests.png)
 
+### Test runner
+
+On Microsoft 365 builds that include the Edge browser control (Version 2304 or later), **Run Tests** and `VCS.RunTests` open the test runner window. It lists the tests it finds and waits for you to choose what to run; nothing runs until you click **Run**.
+
+![Test runner during a run](img/test-runner.png)
+
+- **Sidebar:** *All tests*, *Failed tests*, and *New tests* (never run), a tree of your `@Folder` paths, your `@Tag` names (click to include, again to exclude), and *Recent* combinations you have run.
+- **Filter box:** accepts the same tokens as `VCS.RunTests`, such as `SQL -slow`. The **Run** button runs whatever is visible; play buttons on a folder, module, or single test run just that.
+- **Results:** pass, fail, and error status stream in as tests run, with duration and assertion counts. Click a location to open the VBE at that procedure. Results from the previous run are shown when the window reopens.
+- **Toolbar:** **Refresh** rescans the project after you edit tests, **Open report** opens the HTML results dashboard, and **Copy path** copies the path of the results file for pasting into an AI chat. A theme picker chooses light, dark, or your system setting.
+
+Closing the window hides it, so it reopens instantly. Turn off **Use HTML test runner** under **Options** → **Advanced** to use the console instead.
+
 ### Output
 
-- Progress in `frmVCSMain` console
-- JSON summary and `TestRun_*.log` under the add-in `logs/` folder
+Each run writes its results under `test-results/` in the export folder: `test-state.json` (the durable results the runner reloads), `test-results.xml` (JUnit, for CI), and `test-results.html` (a self-contained report). A `TestRun_*.log` is saved under `logs/`. The JUnit and HTML files can be turned off in **Options** → **Advanced**.
 
-When the run finishes, the console shows a summary of passed, failed, and skipped tests along with timing:
+With the console (older Access builds, or the runner turned off), progress appears in `frmVCSMain`, and the run ends with a summary of passed, failed, and skipped tests along with timing:
 
 ![Completed test run summary](img/tests-complete.png)
+
+### How tests are discovered
+
+`VCS.RunTests` does **not** use a `@Test` attribute. Discovery is a static scan of the current VBA project (`clsTestRunner.Scan`): it walks modules via the VBE `CodeModule` API and registers matching procedures.
+
+```mermaid
+flowchart TD
+  A[VCS.RunTests / ExecuteTests] --> B[TestRunner.Scan]
+  B --> C{Project has any<br/>'@Folder annotation?}
+  C -->|Yes| D[Module qualifies if @Folder<br/>path contains a Tests segment]
+  C -->|No| E[Module qualifies if name<br/>contains Test]
+  D --> F[ScanModuleForTests]
+  E --> F
+  F --> G{Module contains at least<br/>one TestAssert call?}
+  G -->|No| H[Register zero tests<br/>from this module]
+  G -->|Yes| I{Standard module<br/>or class module?}
+  I -->|Standard| J[Parameterless Public Sub]
+  I -->|Class| K[Parameterless Public Sub<br/>or Public Function]
+  J --> L[Skip Private / Class_* / params]
+  K --> L
+  L --> M[Register Module.Proc<br/>in Tests dictionary]
+```
+
+#### Stage 1 — Test modules
+
+Only **standard modules** and **standalone class modules** are considered (not form/report code-behind).
+
+| Project style | A module is a test module when… |
+|---------------|----------------------------------|
+| Uses `'@Folder(...)` anywhere | Its `@Folder` path has a `Tests` segment (e.g. `"Tests"`, `"Tests.SQL"`) |
+| No `@Folder` annotations | Its name contains `Test` (case-insensitive), e.g. `modTestEncoding` |
+
+#### Stage 2 — Test procedures
+
+Within a qualifying module:
+
+1. The module must contain at least one `TestAssert` call, otherwise nothing is registered from it.
+2. **Standard modules:** parameterless `Public Sub` (or bare `Sub`, which is implicitly public).
+3. **Class modules:** parameterless `Public Sub` or `Public Function`.
+4. Excluded: `Private` procedures, anything with parameters (including an unused `Optional`), and `Class_Initialize` / `Class_Terminate`.
+
+There is no name prefix requirement on the procedure itself — `Test…` is conventional, not required.
+
+```mermaid
+flowchart LR
+  subgraph include [Discovered as tests]
+    A1["Public Sub TestFoo()"]
+    A2["Public Function TestBar()<br/>(class modules only)"]
+  end
+  subgraph exclude [Not discovered]
+    B1["Private Sub Helper()"]
+    B2["Public Sub Setup(x As Long)"]
+    B3["Public Function Helper()<br/>(standard modules)"]
+    B4["Class_Initialize / Class_Terminate"]
+  end
+```
+
+#### Tags affect filtering, not discovery
+
+`'@Tag("name")` annotations do **not** control whether a procedure is discovered — they only affect filters passed to `VCS.RunTests`:
+
+- **Module-level** — first ~30 lines, before any procedure → all tests in the module inherit the tag
+- **Procedure-level** — comment lines at the top of the body, before the first executable line
+
+#### Writing a discoverable test
+
+```vba
+Attribute VB_Name = "modTestMyFeature"
+Option Compare Database
+Option Explicit
+Option Private Module
+'@Folder("Tests")
+'@Tag("unit")
+
+Public Sub TestSomeBehavior()
+    TestAssert MyFunction(42) = 84, "should double input"
+End Sub
+
+' Not discovered — has a parameter
+Private Sub SetupTempData(strName As String)
+End Sub
+```
+
+**Class modules** (preferred for new tests that need setup/teardown): each test method gets a fresh instance, so `Class_Initialize` runs before and `Class_Terminate` after every method. Use parameterless `Public Sub` or `Public Function`.
+
+To keep a helper out of the suite, make it `Private` or give it one or more parameters.
+
+#### After discovery — how a test runs
+
+```mermaid
+flowchart TD
+  A[Discovered test key<br/>Module.Proc] --> B{sourceType?}
+  B -->|module| C[Application.Run proc]
+  B -->|class| D[TestClassFactory className]
+  D --> E[CallByName method]
+  E --> F[Release instance<br/>Class_Terminate]
+  C --> G[Collect TestAssert results]
+  F --> G
+```
+
+Class-based discovery also keeps a `TestClassFactory` in `modTestAssert` in sync (an auto-generated `Select Case` between BEGIN/END markers — don't edit it by hand).
 
 ---
 

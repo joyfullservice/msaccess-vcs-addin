@@ -22,8 +22,10 @@ architecture.
 
 ### Entry format
 
-Insert new entries directly below this header, newest first. Do not modify
-or reorder existing entries except to add supersession notes (see below).
+Insert new entries immediately below the `<!-- END HEADER -->` marker and the
+`---` that follows it, newest first — not below the introduction at the top of
+this header, which splits the header in two. Do not modify or reorder existing
+entries except to add supersession notes (see below).
 If a session produced multiple independent decisions, create a separate
 entry for each.
 
@@ -78,6 +80,5367 @@ decision — agents reading the log linearly will otherwise encounter
 contradictory guidance.
 
 <!-- END HEADER -->
+
+---
+
+## 2026-10-27 — An interactive command gives a live root back its Source; a suppressed cancel resumes
+
+**Trigger**: Review after merging #818. `ResetForInteractiveCommand` set `Source` to
+`eosUserInterface` even while another caller's root was live, and nothing put it back.
+Code later in that root branches on `Source`: `clsConflicts` auto-resolves conflicts
+for an automation caller and otherwise opens the conflict form, which no
+`MsgBox2` rule suppresses. A staged MCP build leaves Access idle between its stages, so
+one ribbon click was enough. Separately, *Cancel Current Operation?* answered Yes when
+suppressed, so closing the progress form of an MCP or API root cancelled it without
+asking. On `dev` before #818 that dialog was shown in normal mode.
+
+**Options explored**:
+- *Leave `Source` alone while a root is live.* Rejected: `ReportRefusal` decides from
+  the caller acting now, so a refused ribbon click would only log.
+- *Save and restore `Source` in `HandleRibbonCommand` itself.* Works for the ribbon
+  only, and `clsOperation` already holds the token needed to tell the same root from
+  a new one. Chosen in `clsOperation` instead: `EndInteractiveCommand` restores the
+  saved `Source` only when the root it was saved for is still live.
+- *Show the cancel confirmation to whoever closes the form.* Rejected: the form can
+  also be closed by code (an `AutoClose` timer), and an unattended root would then
+  hang on the dialog.
+- *Answer No when suppressed* — chosen. `Form_Unload` keeps the form open either way,
+  so the operation goes on.
+
+**Decision**: The ribbon and the Add-Ins menu items pair `ResetForInteractiveCommand`
+with `EndInteractiveCommand`. `ConfirmCancel` passes `vbNo` as its unattended answer.
+`StandardizeLetterCasing` also returns `True` when a person creates the starter
+template, so that path no longer finishes as `eorFailed`.
+
+**What this rules out**: A person cannot cancel an unattended root by closing its
+progress form; the MCP client cancels it (`vcs_cancel_operation`), or the root times
+out. A new interactive entry point has to call both procedures, not only the reset.
+
+**Relevant files**: `clsOperation.cls`, `modAPI.bas`, `modAddInMenu.bas`,
+`frmVCSMain.cls`, `clsVersionControl.cls`, `modTestOperationLifecycle.bas`,
+`docs/automation-contract.md`.
+
+---
+
+## 2026-10-20 — An unattended caller is never prompted
+
+> **⚠ Partially superseded** (2026-10-27): `ResetForInteractiveCommand` no longer
+> leaves a live root with the interactive `Source`: `EndInteractiveCommand` restores it.
+> The cancel confirmation on the progress form now answers No when suppressed, so the
+> operation goes on, and `StandardizeLetterCasing` returns `True` after creating the
+> starter template. See "An interactive command gives a live root back its Source; a
+> suppressed cancel resumes" above.
+
+**Trigger**: An API or MCP call runs in normal interaction mode unless the caller asks
+for silence, and `PromptWouldDisplay` read `Attended` only for gesture prompts. So any
+`MsgBox2` such a call reached opened a modal that a COM client cannot dismiss, and the
+call waited until the process was killed: an error routed through `Log.Error`, the
+*Could not import* question of `ImportObject`, *Newer VCS Version Detected* on `Export`.
+`clsLog.Error` already took its automation branch on `Not Attended`, expecting the gate
+to suppress. Issue #810 asked which behavior is intended; the answer was (b) below.
+
+**Options explored**:
+- *(a) Keep the contract*, and give unattended callers headless variants of the
+  single-object and by-type calls, or a session-level opt-in. Every new entry point
+  would have to remember the guard, and `SetInteractionMode` resets at each `Finish`,
+  so a client repeats it before every call. Rejected.
+- *Force `eimSilent` from the API layer* stays rejected (2026-04-15). Its main reason,
+  the build confirmation defaulting to Cancel, is gone: API callers skip it. But silent
+  mode does more than suppress prompts (no progress form, the quiet connection path),
+  and the API layer would still have to manage it across timer continuations.
+- *Suppress in the gate when the root is unattended*. Fixes prompts inside an API root,
+  not outside one: `Attended` was whatever the previous root captured, `True` in a fresh
+  instance. An API call that prompts without a root (`MigrateDebugAssert`) still
+  opened a modal, and the first ribbon prompt after an API call was suppressed. Not
+  enough on its own.
+- *(b) An unattended caller suppresses every `MsgBox2`, and outside a root the incoming
+  caller decides* — chosen, with the rule `ReportRefusal` already used.
+
+**Decision**:
+- The policy is `Operation.AllowsPrompt`, which `PromptWouldDisplay` asks after
+  `TestRunActive`. An ordinary prompt shows when `Attended` and the mode is normal. A
+  gesture prompt shows, in silent mode too, when the root or the caller acting now is
+  attended; `ReportRefusal` uses that, since its dialog answers the refused caller and
+  not the root that is running (it still only logs while that root is silent).
+- `Attended` returns what a live root captured; outside a root,
+  `Not (AutomationSource Or ForceUnattended)`.
+- `ResetForInteractiveCommand`, called by the ribbon and the Add-Ins menu items, resets
+  `Source` and, when no root is live, clears `ForceUnattended`, so a person is not left
+  with an automation caller's state. A live headless root keeps its flag.
+- Every `MsgBox2` question passes `intDefaultResult`, set to the answer its call site
+  already took for `vbOK`, so a caller that was suppressed before (silent mode, a test
+  run, `INSTALL SILENT`) sees no change. Two are the exception and answer Cancel: *Save
+  User Settings* on uninstall and *Multiple Batches Required* in `frmVCSSplitFiles`.
+  Both acted on `vbOK`, and a form opened through the API holds an unattended root, so
+  a person working in it now gets the default. `modTestPromptDefaults` fails on a
+  question without one.
+- A suppressed question that ends an operation fails visibly. `ExportSource` saves the
+  log on the stops that come after its log has started, without saving options or
+  index; `cmdExport_Click` finishes a critical export as `eorFailed` (a cancelled
+  conflict dialog stays `eorCanceled`); and `Export`, `FullExport`, `ExportVBA`,
+  `MigrateDebugAssert` and `StandardizeLetterCasing` return a Boolean.
+  `StandardizeLetterCasing` also finishes its root as `eorFailed` when it returns
+  `False`, which includes invalid entries and a missing module, for a person too.
+- `modConnect.CacheConnection` also reads `PromptWouldDisplay`. An unattended build in
+  normal mode therefore takes the path silent builds take: no `OpenDatabase` probe, so
+  no driver-completed string to save to `.env` (see 2026-10-09).
+
+**What this rules out**: An API or MCP caller can no longer get a dialog by leaving the
+mode normal. `HandleRibbonCommand` is interactive by definition, so a script that
+drives it, as `ExampleBuildFromSource` suggests, is still treated as attended and can
+still meet a modal; it should call `SetInteractionMode` first. A new question must name its unattended answer.
+Revisit if a caller needs per-question answers rather than defaults. Left open:
+- *An expired headless root* still leaves `eimSilent` sticky, and `ForceUnattended`
+  until an interactive command. Finishing it where it is found expired is the agreed
+  direction; it changes the lifecycle of three call sites and does not depend on this
+  policy, so it is a change of its own.
+- A form opened through the API (`ShowOptions`, `SplitFiles`) holds a root that
+  captured an unattended caller, so the person working in it gets every question's
+  default answer, not the dialog.
+- `Source` stays sticky on other paths: the Immediate Window, and a form that was
+  already open when an API call ran. A person who then clicks Export on `frmVCSMain`,
+  or closes its progress form, gets the unattended answers. Only the ribbon and the
+  Add-Ins menu reset it.
+- An `APIAsync` method that never begins a root (`MergeBuild` with no full build, a
+  refused root) posts no MCP callback, so the client waits for its timeout. This was
+  true before, behind a modal; it is now silent. Posting an `error` from
+  `HandleAPIAsyncOperation` when no root of the call is live would close it.
+- A root-less API call made while another caller's attended root is live reads that
+  root's `Attended`.
+- Dialogs that do not go through `MsgBox2`: VBA runtime errors, Access's own prompts.
+
+**Relevant files**: `clsOperation.cls`, `modUIUtil.bas`, `modAPI.bas`,
+`modAddInMenu.bas`, `clsVersionControl.cls`, `modExport.bas`, `frmVCSMain.cls`, the
+fifteen questions that passed no default, `modTestOperationLifecycle.bas`,
+`modTestPromptDefaults.bas`, `docs/automation-contract.md`.
+
+---
+
+## 2026-10-09 — Capture driver-completed ODBC connections via Database.Connect
+
+**Trigger**: A project linked to SQL Server through ODBC Driver 18 prompted for the
+connection on every build. The user completed the driver dialog, including "Trust
+server certificate", but the build never saved the result to `.env`. Two causes:
+`CacheConnection` reported `QueryDef.Connect` as the completed string, and
+`RecordAuthenticatedConnection` skipped saving whenever the stored value already
+carried authentication. Probing a complete connection string showed that
+`QueryDef.Connect` echoes the assigned string, while `Database.Connect` returns what
+the driver completed (adding `APP=`, and `UID=` set to the Windows user, and keeping
+`TrustServerCertificate`). A separate export bug, where the sanitized outer key of
+`db-connection.json` overwrote the full `.env` value, made the prompt recur even when
+a value had been saved; that was fixed in `clsDbConnection.GetExportItems`.
+
+**Options explored**:
+- *Open with `dbDriverNoPrompt` first, then `dbDriverComplete`* — rejected after
+  testing: in an Access workspace the `OpenDatabase` Options argument does not
+  suppress the driver dialog, and a "no-prompt" probe of an incomplete string opened
+  the login dialog in a headless session.
+- *Keep `QueryDef.Connect`* — rejected; it never reflects dialog choices.
+- *Call `SQLDriverConnect` directly through the ODBC API* — stronger guarantees about
+  the output string, but disproportionate complexity for a DAO-based add-in.
+- *Open the connection as a `Database` only when `PromptWouldDisplay(False)`, read
+  `Database.Connect`, then prime `CurrentDb` with the existing QueryDef probe* — chosen.
+
+**Decision**: When prompts are allowed, `CacheConnection` opens the connection through
+`Workspaces(0).OpenDatabase`, uses `Database.Connect` as the completed string, and runs
+the existing QueryDef probe with it (keeping Oracle handling and the CurrentDb cache).
+It reports `blnSettingsCompleted` when the completed string differs from the input in
+more than driver-added keys (`ConnectionSettingsMatch` ignores `APP`, `WSID`, the
+trusted-connection `UID`, braces, order, and key case). `ShouldSaveCompletedConnect`
+then saves any meaningful difference even if the stored value already authenticates.
+`PrepareCompletedConnectForSave` carries a stored password into a completed string that
+omits it for the same user, and refuses to save (with a warning) for a different user.
+The first caller to schedule a save for a key fixes the saved value, so later linked
+tables cannot replace it with a Connect that Access has stripped.
+
+**What this rules out**: Silent and test-run builds keep the old QueryDef-only path, so
+they cannot capture dialog choices (and an incomplete string can still raise the native
+dialog there, as before). Saved values may include driver-added keys such as `APP=` and
+`UID=`; they are harmless in a per-developer `.env`. Revisit if a driver omits settings
+from `Database.Connect`, or if Access starts honoring the `OpenDatabase` prompt options.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/modConnect.bas`
+- `Version Control.accda.src/modules/Components/clsDbConnection.cls`
+- `Version Control.accda.src/modules/Tests/Connect/modTestConnect.bas`
+
+---
+
+## 2026-10-06 — VBAProjectDate is a whole-project certificate
+
+**Trigger**: A merge with several modules edited in the database and changed in
+source reported a conflict only for the first one; the rest were imported over
+the database edits without a conflict. `CheckMergeConflicts` checks one file at a
+time: the temp export of the first modified module went through
+`clsVCSIndex.Update`, which set `VBAProjectDate` to the current project date, so
+`VbaProjectUnchangedSinceExport` passed for every module, form, and report checked
+after it. The same refresh hides changes in other paths: an export conflict scan
+temp-exports during the scan (modules are scanned before forms and reports); a
+merge that imports module A hides an unexported edit in module C; a single-object
+or category-scoped export vouches for objects it never looked at.
+
+**Options explored**:
+- **Skip the refresh for `eatAltExport` only** — smallest change; fixes the merge
+  and export conflict scans, but not the merge import, single-object, or scoped
+  export paths. Rejected as incomplete.
+- **Latch the fast-path verdict at the start of each operation** — fixes
+  interleaving inside one operation, but a partial operation still saves a date
+  that the next operation trusts. Rejected.
+- **Write the date only when the whole project is proven in sync (chosen)**.
+
+**Decision**: `Update` no longer touches `VBAProjectDate`. `CertifyVBAProjectDate`
+records a date captured by an operation that checked every module, form, and
+report: an `ExportSource` over `ecfAllObjects` or `ecfVBAItems` (date captured after
+saving and casing corrections, before the scan) that completed without errors or
+skipped conflicts; a full build; and a merge that started with the project already
+in sync. It refuses if the project was saved again after the captured date or has
+unsaved changes. Every other path leaves the date stale, which only costs one
+hashing pass on the next scan.
+
+**What this rules out**: Refreshing `VBAProjectDate` from per-object index updates
+(the 2026-05-05 and 2026-08-31 entries). Revisit if the hashing pass after partial
+operations proves too slow; the answer then is a cheaper proof, not a per-object
+refresh.
+
+**Relevant files**:
+- `clsVCSIndex.cls` — `Update` no longer refreshes; new `CertifyVBAProjectDate`
+- `modVbeUtility.bas` — `GetVbaProjectDate`
+- `modExport.bas`, `modBuild.bas` — certification points
+- `clsConflicts.cls` — `SkippedAny`
+- `modTestVbaProjectDate.bas` — tests
+
+---
+
+## 2026-09-16 — Defer a dual-runtime native export worker pending a focused speed probe
+
+**Trigger**: A historical full export took 451.29 s; its query profile attributed
+roughly 184 s to formatting, reconstruction, property parsing, and JSON work that did
+not inherently require Access. That is an upper bound, not a current opportunity:
+`4706a63c` subsequently accelerated JSON and reused query state without a new full
+profile. A separate historical full build took 443.03 s, including 253.20 s in
+`modLoadFromText.LoadFromText`, 28.82 s in `App.ImportXML() Data`, and 30.80 s in
+`Refresh Documents`; `ee7a8881` subsequently batched the refreshes. Import therefore
+has portable preparation work, but its measured long pole remains Access-bound.
+
+The same behavior must remain available in VBA because native binaries, helper
+processes, and COM add-ins can be blocked, disabled, or unavailable.
+
+**Options explored**:
+- **Build a general worker framework now** — potentially useful for large exports, but
+  the current profile no longer establishes its benefit and the fallback, parity,
+  threading, build, protocol, and lifecycle costs are substantial.
+- **Maintain separate VBA and twinBASIC implementations** — rejected. They would drift;
+  the ribbon's existing JSON-converter copy already demonstrates this risk.
+- **Use canonical Access-compatible `.bas`/`.cls` sources in both runtimes** — preferred
+  if revisited. A manifest-driven tool would copy an allowlist into generated twinBASIC
+  sources and fail in check mode on drift. Host adapters would own Access, I/O, logging,
+  queues, and errors. The current portable-looking code is not reentrant; see
+  [Parallelism and reentrancy constraints](docs/perf-techniques.md#parallelism-and-reentrancy-constraints).
+- **Prove one narrow synchronous native transform first** — chosen gate. `FormatSQL` is
+  a useful candidate only after its `Perf`/`Log`, static RegExp, and format-version
+  dependencies are made explicit. Its eventual string-in/string-out contract can be
+  checked byte-for-byte over the query fixture corpus before adding threading or IPC.
+
+**Decision**: Do not implement the worker now. VBA remains the authoritative
+implementation and universal runtime. Revisit only after a current `ExportPerfJson`
+profile still shows a large portable share and a byte-identical synchronous twinBASIC
+probe saves at least 15% end to end in an interleaved comparison with matched call
+counts. If that gate passes, ship maintainer-built binaries as optional acceleration;
+contributors must be able to update generated source and run VBA/parity checks without
+a twinBASIC licence.
+
+The existing `Worker.vbs` maintenance channel and export acceleration are independent
+capabilities. An in-process DLL cannot perform jobs whose requirement is another
+process, while a future native helper EXE could replace some VBScript actions through
+the existing `CallWorker` seam. Installer settings must not collapse maintenance
+backend, native export acceleration, and VBA-only processing into one choice.
+
+Two existing two-phase patterns are precedents, not concurrency mechanisms:
+`IDbBatchImport.ImportFast` / `FinalizeImports` defers full-build metadata and index
+finalization to a category boundary, while `MoveSource` / `UpdateFromAltExport` promotes
+temporary export files before measuring their canonical on-disk state.
+
+**What this rules out**: Do not duplicate hot-path algorithms by hand, build a Redis-like
+cache, submit one queue job per small hash, assume an old profile implies a 50% gain, or
+make successful native startup a correctness requirement. Do not infer an equivalent
+build improvement from an export result: `LoadFromText` and `ImportXML` set a separate
+Access-bound floor. Re-profile both paths before making any forecast.
+
+**Relevant files if revisited**: `modExport.bas`, `modLoadSaveText.bas`,
+`clsSourceParser.cls`, `clsSqlFormatter.cls`, `modJsonConverter.bas`, `modHash.bas`,
+`clsVCSIndex.cls`, `clsWorker.cls`, and a future twinBASIC worker project.
+
+---
+
+## 2026-09-16 — Defer order-sensitive query imports within full builds
+
+**Trigger**: Issue #783 reported that Access rejected a SQL View query before a
+referenced saved query had been imported, even though simpler forward references
+were accepted. The existing Abort/Retry/Ignore path retried immediately, before
+the missing dependency could exist.
+
+**Options explored**:
+- **Topologically sort query files from SQL or design metadata** — can avoid forward
+  references, but requires a second dependency parser, cycle handling, and complete
+  support for legacy query formats and unusual Access SQL.
+- **Change the shared Retry button to mean retry at category end** — changes prompt
+  semantics for every component and still needs query-specific queue state.
+- **Create failed queries directly from source SQL** — can bypass a text-import
+  failure, but loses positional geometry and other qdef-only state from the JSON
+  sidecar.
+- **Retry deferred imports while each pass makes progress (chosen)** — resolves
+  dependency chains without parsing Access SQL and preserves the complete qdef.
+
+**Decision**: During a full-build query batch, the first structural import attempt
+suppresses the import prompt and queues failures. `FinalizeImports` retries each
+queued query after every source query has had its first attempt. It first resolves
+successful imports through `CurrentData.AllQueries`, then refreshes the `Tables`
+container so Access can resolve them as dependencies. Silent deferred passes repeat
+only while at least one query imports successfully. Probe-generated `errors*.txt`
+files are consumed and deleted, and repeated probe failures do not add warning
+noise. When a pass makes no progress, the remaining cycle or permanent failures
+run once through the existing Abort/Retry/Ignore interaction. Deferred successes
+are resolved before the category's ordinary metadata/index refresh. This is
+import-only behavior, so it does not require an export-format gate.
+
+**What this rules out**: Do not add query dependency sorting merely to fix import
+order, do not globally defer `LoadComponentFromText` failures, and do not replace
+qdef import with direct SQL creation because that discards sidecar-backed state.
+Ordinary merge and single-object imports retain their current interaction.
+
+**Relevant files**: `clsDbQuery.cls`, `modLoadSaveText.bas`,
+`modLoadFromText.bas`, `modTestBatchImport.bas`, `Testing/Fixtures/README.md`.
+
+---
+
+## 2026-09-16 — Preserve legacy-only conditional formatting inline
+
+**Trigger**: hrschupp reported in issue #779 and contributed the fix in PR #780:
+Access 2000-format MDB controls export only the legacy `ConditionalFormat` block,
+without `ConditionalFormat14`. The JSON export path marked the legacy block for
+removal, then skipped the control when CF14 was absent. The result contained neither
+inline hex nor a JSON rule model, so importing the source lost the formatting.
+
+**Options explored**:
+- **Disable `DecodeConditionalFormatting` for an entire Access 2000 database** —
+  preserves the blocks, but requires database-format detection at a higher layer and
+  prevents modern controls from being decoded if another CF14-less case appears.
+- **Decode the legacy block into JSON** — gives a uniform source format, but the legacy
+  block is incomplete for mixed rule types and data bars. Import also currently emits
+  CF14, which an Access 2000-format source never contained.
+- **Treat missing CF14 like a decode failure (chosen)** — restore the captured block's
+  skipped lines and omit the JSON entry for only that control.
+
+**Decision**: A captured conditional-format block is stripped only after its CF14 copy
+decodes successfully. If CF14 is absent, the original legacy block remains inline,
+without a warning because this is valid Access 2000 behavior. A present but malformed
+CF14 block follows the same preservation path and retains its existing warning.
+Forms and Reports exporter revisions are bumped so fast-save users get a one-time
+re-export that restores source files already affected by the bug, provided the database
+still contains the rules. This fix was contributed by hrschupp in PR #780.
+
+**What this rules out**: Do not infer that enabling `DecodeConditionalFormatting`
+guarantees every control gets a JSON entry. CF14 remains the authoritative decode source;
+legacy-only controls deliberately retain opaque inline hex. Do not add an export-format
+gate for this preservation fix.
+
+**Relevant files**: `clsSourceParser.cls`, `modConstants.bas`,
+`modTestConditionalFormat.bas`, `docs/access-conditional-format.md`
+
+---
+
+## 2026-09-15 — Optional interface batches full-build metadata finalization
+
+> **⚠ Partially superseded** (2026-09-16): The query implementation now also queues
+> failed structural imports for one retry at category end. See
+> "Defer order-sensitive query imports within full builds" above.
+
+**Trigger**: A full build of a large project called DAO
+`Container.Documents.Refresh` 603 times, consuming 30.80 seconds of a 443.03-second
+build. `ImportObjectMetadata` refreshed immediately before applying each object's
+Description or custom document properties. The refresh is required because the
+long-lived `SharedDb` collection does not see newly created objects, but repeating
+the whole collection refresh for every metadata-bearing object is unnecessary when
+a full build already processes complete categories.
+
+**Options explored**:
+- **Keep immediate metadata finalization for every import** — simple and correct,
+  but refresh cost grows with the number of described objects.
+- **Skip refreshes under a global batch flag** — rejected because metadata would
+  still be applied against a stale collection; the application and index update
+  must both be deferred.
+- **Add batch methods to `IDbComponent`** — rejected because component types that
+  cannot batch would need empty interface stubs.
+- **Branch on every concrete class in `modBuild`** — workable, but duplicates
+  capability knowledge in the orchestrator.
+- **Add optional `IDbBatchImport` (chosen)** — six metadata-bearing component
+  classes opt in, while the universal component contract stays unchanged.
+
+**Decision**: Full builds call `IDbBatchImport.ImportFast` for every source file,
+then `FinalizeImports` once per category. Each implementation queues only successful
+structural imports, refreshes its DAO container once, rebinds each object, applies
+metadata with `blnSkipDocumentsRefresh:=True`, and records the final metadata hash
+and source-file index entry. Modules retain their existing two-pass save behavior.
+Tables and queries deliberately refresh the shared `Tables` container once per
+category rather than deferring table finalization across category boundaries.
+Merge, bootstrap, and single-object imports continue through immediate
+`IDbComponent.Import` / `Merge`. A self-rebuild with the batch-aware add-in
+recorded five `Refresh Documents` calls (the five participating categories that
+had source files) and 0.01 seconds in that operation; the large-project baseline
+must be rerun separately to measure end-to-end savings under the original load.
+
+**What this rules out**: Do not suppress `Documents.Refresh` without a real second
+pass. Do not use the batch interface for merge/export-after-merge unless its
+immediate finalization contract is redesigned. A whole-build metadata queue is not
+worth delaying category-local index and error handling for one fewer `Tables`
+refresh.
+
+**Relevant files**: `IDbBatchImport.cls`, `modBuild.bas`,
+`modLoadSaveText.bas`, `clsDbModule.cls`, `clsDbTableDef.cls`, `clsDbQuery.cls`,
+`clsDbForm.cls`, `clsDbMacro.cls`, `clsDbReport.cls`,
+`modTestBatchImport.bas`.
+
+---
+
+## 2026-09-14 — Reuse reconstructed query state when writing companion JSON
+
+**Trigger**: After generic JSON serialization was optimized, a user-run full export
+still spent 58.99 s in the exclusive `Write JSON` path for 3,752 queries. Phase
+instrumentation on the same production corpus attributed 15.71 s to reparsing
+formatted SQL solely to recover `OptionFlag`, and 10.68 s to rereading document
+metadata already present in the query's parsed `LvProp`.
+
+**Options explored**:
+- **Optimize generic whitespace normalization** — rejected for this path after an A/B
+  corpus run showed no material change in option parsing.
+- **Add a second lightweight SQL parser** — rejected because it would duplicate
+  modifier grammar and create another correctness surface.
+- **Reuse reconstruction and `LvProp` state** (chosen) — generated SQL's emitted
+  modifier bits are known by `clsQueryComposer`; raw SQL retains the reference parse
+  fallback. The already-parsed Description property supplies normal metadata export,
+  while `SaveAllDocumentProperties` retains the complete DAO scan.
+
+**Decision**: `ReconstructSQL` records the SQL-representable option bits it emitted.
+Deterministic query export consumes those bits directly and reparses only raw SQL.
+`CollectObjectMetadata` accepts an explicitly preloaded Description without changing
+its default behavior for other callers.
+
+**What this rules out**: Reparsing every generated query during export, maintaining
+a long-lived global Description cache for file writing, or changing companion JSON
+content to gain speed.
+
+**Verification**: On 3,752 queries, option work measured 15.71 s -> 0.11 s and
+metadata 10.68 s -> 0.29 s. The non-serializer `Write JSON` phases measured 27.22 s
+-> 1.16 s (95.7% raw, about 95.9% after matched-control normalization). A reference
+export and optimized export produced an identical aggregate fingerprint over all
+3,752 JSON files. The finalized SQL suite passed 434/434 assertions, and the
+metadata/JSON regression selection passed 27/27.
+
+**Relevant files**: `Version Control.accda.src/modules/Components/clsDbQuery.cls`,
+`Version Control.accda.src/modules/Utility/clsQueryComposer.cls`,
+`Version Control.accda.src/modules/Core/modLoadSaveText.bas`,
+`Version Control.accda.src/modules/Tests/SQL/clsTestQueryComposer.cls`,
+`Version Control.accda.src/modules/Tests/modTestSuite.bas`,
+`docs/perf-techniques.md`.
+
+---
+
+## 2026-09-14 — Fast-path generic JSON serialization before deeper buffering
+
+**Trigger**: A representative full export spent 116.09 s across 6,165
+`ConvertToJson` calls, 20.5% of its 565.35 s runtime and its largest measured
+operation. The generic converter identified every object node with `TypeName()` and
+ran every character of every string through `Mid$`, `AscW`, a `Select Case`, and a
+buffer append. Existing live-Access measurements put `TypeName()` on a
+`Scripting.Dictionary` at about 410 µs.
+
+**Options explored**:
+- **Schema-specific emitters** — retained for fixed test-runner payloads, but rejected
+  as the general answer because exported metadata has many independent shapes.
+- **One shared buffer threaded through recursion** — plausible, but deferred. It is a
+  substantially larger rewrite and the low-risk changes already exceeded the 50%
+  elapsed-time reduction gate.
+- **Compact exported JSON** — rejected. It would churn user source and require an
+  export-format gate; output size was not necessary to obtain the speedup.
+- **Fast object dispatch plus a clean-string escape scan** (chosen) — use `TypeOf` for
+  Dictionary/Collection nodes and scan UTF-16 code units without allocating
+  one-character strings. Fall back to the original encoder whenever current
+  `JsonOptions` require an escape.
+
+**Decision**: Keep the public `ConvertToJson` contract and byte output unchanged.
+Route it through the optimized path, while an Option Private reference entry point
+selects the original dispatch and encoding behavior for interleaved benchmarks.
+Do not refactor recursive buffering unless a future corpus no longer clears the 50%
+gate.
+
+**What this rules out**: Using `TypeName()` for known object types in this hot path,
+minifying exported JSON as a performance shortcut, or proceeding to an invasive
+single-buffer rewrite without new measurements showing the fast paths are
+insufficient.
+
+**Verification**: A 75 KB compact synthetic tree measured 386 ms -> 17 ms and its
+144 KB pretty form 389 ms -> 19 ms. A 4,960-file, 6.23-million-character exported
+JSON corpus measured 22.97 s -> 1.54 s (93.3%), with zero byte differences.
+Two user-run full exports had the same 6,165 callback-free serializer calls and
+measured 116.09 s -> 52.40 s (54.9% raw). Unchanged operations showed an 11-17%
+general speed difference, putting the normalized serializer gain at 46-49% (about
+48%), or approximately 44-51 s / 7.8-9.0% of baseline total runtime.
+`modTestJsonConverter` covers exact output and option behavior;
+`modTestPerf.BenchmarkJsonSerialization` and `BenchmarkJsonCorpus` hold the A/B
+measurement.
+
+**Relevant files**: `Version Control.accda.src/modules/Lib/modJsonConverter.bas`,
+`Version Control.accda.src/modules/Tests/JSON/modTestJsonConverter.bas`,
+`Version Control.accda.src/modules/Tests/modTestPerf.bas`,
+`docs/perf-techniques.md`.
+
+---
+
+## 2026-09-11 — Budget root agent guidance by cost and role
+
+**Trigger**: The root `AGENTS.md` repeatedly reached its enforced 150-line
+ceiling as new reference documents needed routing rows. The baseline file was
+150 lines and 8,650 visible characters, including 29 blank lines and a
+282-character resources line. Reflowing that line from four lines to one bought
+three nominal lines without reducing context cost. In another sequence, test
+examples were removed to fund guidance that was itself removed later. The
+routing table had also grown to 1,751 characters and 15 data rows as progressive
+disclosure added references.
+
+**Options explored**:
+- **Raise the line ceiling to 175**: Provides temporary room, but the file had
+  already pinned itself to each available ceiling (148–152 lines). It preserves
+  the incentive to join lines and makes routing compete with invariants.
+  Rejected.
+- **Count only non-blank lines**: Stops blank spacing from consuming budget and
+  retains an easy visual measure, but reflow still changes the result without
+  changing context cost. Rejected.
+- **Use one character ceiling for the whole file**: Better approximates context
+  cost, but every necessary routing row would still evict always-loaded
+  guidance. Rejected.
+- **Separate character budgets for content and routing**: Measures visible cost
+  independently for the two roles, while a row ceiling preserves router
+  scanability. Chosen.
+
+**Decision**: `modTestRepoDocs` enforces 6,000 visible characters for root
+content (everything outside `Where to read next`, including `Resources`) and
+2,400 characters plus 20 data rows for the routing section. CR/LF characters do
+not count. Non-table prose outside fenced code is capped at 120 characters per
+line for readable diffs; this guard is not the cost measure. Cursor rules retain
+their 120-line budget, and the stable shipped agent documents retain their
+existing line budgets.
+
+Still-valid guidance removed solely to meet the content budget must move into a
+linked `docs/` reference in the same change. Before restoring root guidance,
+contributors inspect the current docs and root-file history so relocated content
+is linked rather than copied back. Routing consumes only its own budget and does
+not require content eviction.
+
+**What this rules out**: Do not buy root-file space by joining lines, deleting
+still-valid instructions, or omitting a needed routing link. Revisit the numeric
+ceilings only if measured agent behavior or sustained routing growth shows that
+the separated budgets no longer preserve discoverability at reasonable context
+cost.
+
+**Relevant files**: `AGENTS.md`, `docs/agent-docs-maintenance.md`,
+`docs/architecture.md`, `docs/agent-test-runs.md`, `docs/README.md`,
+`.cursor/rules/repo-docs.mdc`, `.cursor/rules/testing.mdc`,
+`Version Control.accda.src/modules/Tests/Infrastructure/modTestRepoDocs.bas`.
+
+---
+
+## 2026-09-11 — The T() path must not use the DebugMode(True) branch
+
+**Trigger**: A compile error anywhere in the add-in makes `qryTranslatedStrings`
+fail with error 3085 (`Undefined function 'Len' in expression`). `T()` is
+called from everywhere, so `LoadLanguage` is on the path of the first
+translated string after that failure. With Break On Error enabled it opted
+into `On Error GoTo 0`, the 3085 escaped past `CatchAny`, and execution
+stopped in blocking break mode — hiding the compile error that needed
+fixing.
+
+**Options explored**:
+- Add a handler in `T()` / `CheckInit` so a 3085 from `LoadLanguage` cannot
+  unwind into calling code. Rejected as treating the symptom: the failure
+  is never actionable in the translation loader, so it should not raise at
+  all.
+- Keep the project-wide `If DebugMode(True) Then On Error GoTo 0 Else On
+  Error Resume Next` pattern and rely on `CatchAny` below it. Rejected:
+  that is what already shipped (2026-08-18) and still breaks, because
+  `On Error GoTo 0` means `CatchAny` is never reached.
+- Call `SuppressErrorBreaks`, then `LogUnhandledErrors` + `On Error Resume
+  Next`, and restore the counter on every exit (chosen for `LoadLanguage`).
+  Reports an error that arrived from the caller without allowing that report
+  to enter break mode, then makes the procedure incapable of breaking on its
+  own work.
+- Same incoming-error trap in `SaveString`. Rejected after it `Stop`ped
+  in practice: `T()` is called from inside other procedures that may
+  already have a pending `Err`, and that leftover is not an unhandled
+  error in `SaveString`. `SaveString` suppresses first and does not call
+  `LogUnhandledErrors`.
+
+**Decision**: `LoadLanguage` and `SaveString` are an exception to the
+project-wide `DebugMode(True)` pattern. They always resume, log at
+`eelNoError`, and continue untranslated (or return 0 from `SaveString`).
+`T()` only caches a new string when `SaveString` returns a real ID, so a
+failed write is retried rather than recorded as known. The suppression
+counter is balanced on every exit so Break On Error is not silently
+disabled for the rest of the session. `LoadLanguage` still reports incoming
+errors after suppression; `SaveString` does not, because it sits under `T()`.
+
+**What this rules out**: Restoring `If DebugMode(True) Then On Error GoTo 0`
+in the `T()` path as a "consistency" fix. Breaking on a translation-table
+open that failed because something else does not compile.
+
+**Relevant files**: `clsTranslation.cls`, `modErrorHandling.bas`,
+`modTestErrorHandling.bas`.
+
+---
+
+## 2026-09-11 — Unsubdivided spans and position-free axes are solvable, not underdetermined
+
+**Trigger**: A private production export logged `Form geometry: skipped 4/4
+(horizontal) on frmExample` 53 times per run. The message reads like "4 of
+4" but is the `GroupTable`/`LayoutGroup` bucket key, and it named neither the
+cause nor the consequence. Investigating one instance showed the fail-closed
+path was firing on two shapes it could have solved.
+
+**Options explored**:
+- Leave it; document the shape only. The warning is by design. Rejected once
+  measurement showed 48 of the 54 skips were solvable — each one costing its
+  whole group, so a 4-cell totals row kept four DPI-derived origins because of
+  one attached label.
+- For an unwitnessed span, snap the span's own size directly. Agrees with the
+  structural answer on 34 of 36 corpus cases, but the two disagreements are the
+  reason to reject it: a corpus form has a span of 6510 twips, exactly a
+  30-twip midpoint, where banker's rounding is a coin flip across DPI. The
+  documented "naive independent snap" dead end in a new place.
+- Recover the far edge as `positions[end+1] - inset`, with a per-group inset
+  estimated from tracks where size and pitch are both known. Rejected on
+  measurement: the inset is consistent within a group in only 324 of 372
+  group/axis units (87%), spreading up to 180 twips, so it is a per-track
+  property and cannot be extrapolated to an unwitnessed track. It is also
+  unavailable for the 45 of 81 spans that run to the last observed track.
+- Size a range that nothing subdivides from the snapped median of the cells that
+  span it (chosen). When every cell touching `[start, end]` spans exactly that
+  range, nothing can move the internal boundaries, so the range is one merged
+  track and its total size is a free variable — the same rule already applied to
+  a single track, and stable for the same reason. A range another cell overlaps
+  with different bounds stays underdetermined.
+- Treat an axis with no observed position as a failure (previous behavior).
+  Rejected. Continuous-form and datasheet detail cells omit `Top` *and*
+  `LayoutCachedTop` on every cell, so there is no boundary to accumulate — but
+  also no `Top` line to rewrite, and the heights are still canonical. This was
+  40 of the 54 skips.
+
+**Decision**: Added `SpanExtents` (merged-range sizing) and made an empty
+position map a no-op rather than a failure. `PlanAxis` now reports the track
+range it failed on so the warning can name it. Folded into `EFV_5_1_0` rather
+than a new gate, because `EFV_5_1_0` is unreleased — v5.0.1 predates it, so no
+user has exported with the old algorithm. Corpus skips fall from 54 to 6 across
+416 forms; 43 forms move once (max 180 twips, p95 120); idempotence stays
+byte-identical on all 416; cross-DPI unification on the `access-proof` fixtures
+is unchanged. Cost fell from the documented 3.2 ms/form to 2.8 ms/form.
+
+Rewrote the warning to name the group in prose ("layout table 4, group 4"), give
+the failing track range, state in plain language that the sizes needed for
+scaling-independent coordinates are absent and what that means for the file, and
+link to a wiki page. It is deliberately self-contained and repeated per group
+rather than logged once per export, because these lines are read one at a time
+out of context — which is exactly how this investigation started.
+
+**What this rules out**: Reading an omitted `ColumnStart` as anything but zero
+(an attached label with `ColumnEnd = 2` and no `ColumnStart` spans columns 0-2;
+both readings occur in real forms and only the span reading resolves). Deriving
+an unwitnessed track's size from neighbouring pitch via a per-group inset.
+Falling back to snapping a value the structural pass could not derive. Claiming
+the remaining 6 skips are tractable from the file alone — they are overlapping
+spans with different bounds and no witness between them.
+
+**Measured on a live project afterwards**: the merged-range group round-trips
+through Access unchanged, so the new rule is stable. But the form as a whole was
+not a fixed point on the first cycle — `N(P_d(C₁)) = C₂ ≠ C₁`, with `C₂` then
+byte-identical on the next cycle. `C₂` differed by one 60-twip step on one
+layout table's right-most column. A control form that canonicalization does not
+alter at all moved the same way, so this is a pre-existing property of the
+canonicalizer's interaction with Access's layout engine, not a consequence of
+this change. It is now recorded as a known limit in `docs/access-form-geometry.md`
+§9. The §7 round-trip proof missed it because its fixtures were harvested
+through Access and were therefore already fixed points.
+
+**Relevant files**: `clsFormGeometryCanonicalizer.cls`,
+`tools/dpi-layout-probe/form_geometry.py`, `clsTestSourceParser.cls`,
+`docs/access-form-geometry.md`.
+
+---
+
+## 2026-09-08 — SQL is authoritative for query option modifiers
+
+**Trigger**: A private production database export showed `OptionFlag: 2`
+disappearing from 16 queries while five others gained `SELECT DISTINCT`.
+The same SQL/JSON disagreement produced opposite results depending on
+whether import used SQL View or Design View.
+
+**Options explored**:
+- Keep ORing JSON `OptionFlag` into the SQL-derived mask. Cheap, but
+  Design View imports silently restore a modifier a developer deleted
+  from `.sql`, while SQL View imports discard the same bit. Rejected.
+- Drop `OptionFlag` from export and ignore it on import. Removes the
+  contradiction, but also removes the only signal that a hand-edited
+  `.sql` and its companion have drifted apart.
+- Keep JSON bit 1 (Output All Fields) as a JSON-only input, since SQL
+  spells it only as a bare `*`. Rejected on review: it left one bit
+  whose value import took from the companion, so the same file was
+  authoritative for five modifiers and advisory for a sixth. `*` in a
+  field list is a real spelling, so bit 1 is derivable like the rest.
+- SQL-derived modifiers win in both qdef emitters for every bit; warn
+  on any disagreement (chosen).
+- Always rewrite Attribute 0 SQL from Attribute 3 on export, ungated.
+  Would churn every 5.0.0 project that still has a contradictory pair.
+  Folded into unreleased `EFV_5_1_0` instead of inventing a later format.
+
+**Decision**: `DecomposeSQL` is the source of DISTINCT, DISTINCTROW,
+TOP, PERCENT, OWNERACCESS, UNION / UNION ALL, and Output All Fields.
+`GenerateQdef` never ORs JSON bits into that mask — `OptionFlag` is
+read only to detect drift, symmetrically, and an absent flag makes no
+claim. Stale JSON produces a warning, not `Log.Error`. From 5.1.0,
+`ReconstructSQL` injects Attribute 3 modifiers that Access omitted from
+Attribute 0, and export writes `OptionFlag` from the emitted SQL alone.
+Injection is limited to what Jet parses back: no DISTINCT or TOP on
+UPDATE / DELETE, and never a bare `*`. Import stays ungated.
+
+**What this rules out**: Treating `.json` `OptionFlag` as a source of
+query logic for any bit, or changing exported SQL below 5.1.0. A
+modifier Access can store but SQL cannot spell would now be lost on
+export, so adding one means adding its SQL spelling too.
+
+**Relevant files**: `clsQueryComposer.cls`, `clsDbQuery.cls`,
+`modConstants.bas`, `docs/access-query-storage.md`,
+`clsTestQueryComposer.cls`, `modTestRoundtrip.bas`.
+
+---
+
+## 2026-09-08 — Canonical 60-twip form layout geometry
+
+> **⚠ Partially superseded** (2026-09-11): "53 groups lacked witnesses and are
+> left unchanged" is now 6. Two of the three shapes counted there were solvable:
+> a span no other cell subdivides, and an axis with no observed position at all.
+> See "Unsubdivided spans and position-free axes are solvable, not
+> underdetermined" above.
+
+**Trigger**: Untouched forms churned between developers, and a one-control edit
+exported hundreds of unrelated geometry values re-solved to the editor's DPI.
+
+**Options explored**:
+- Remove `InitializeForms` (the design-view open/save that stamps local DPI).
+  Fixes untouched exports only. A real edit still re-solves the group.
+- Anchor unedited exports to the prior source file. Same half-fix.
+- Treat plain `LoadFromText`/`SaveAsText` as identity. Overgeneralized: chained
+  previously-solved inputs were preserved, but base fixtures changed on
+  cross-DPI runs. Design-view save is the true projection.
+- Drop `Left` from non-anchor cells or omit any layout geometry property.
+  Triggers a full re-solve that deletes `EmptyCell` spacers.
+- Naive independent snap to 15/30/60 twips. Two DPI variants can straddle a
+  midpoint, and positions accumulate. The fifth probe column moved 75 twips.
+- Structure-aware snap of origins and row/column pitches, then derive spans
+  (chosen). A Python oracle unified layout geometry across captured 96/120/144/
+  192 DPI outputs. Measured external-corpus movement: max 300 twips, p95 165.
+  53 groups lacked witnesses and are left unchanged.
+- Treat `Prove-CanonicalRoundtrip.py` exit 1 at 144 DPI as a failed invariant.
+  Rejected. The script compared `C` to `P_d(C)`. At 96 DPI those signatures
+  already matched, so the two claims were indistinguishable. At 144 DPI Access
+  rewrote present values on every harvested fixture (7–53 properties; worst
+  shift 90 twips on `SpacerGrid`) and `N` recovered `C` on both `plain` and
+  `design-save`.
+- Require a Windows sign-out on every scale change. Too strong. Laptop-panel
+  runs tracked 96/120/144/192 without sign-out. Lid-closed 34" through a KVM
+  was inconsistent: `dpi-sanity-125` stayed at 96, while the later 120-DPI
+  proof reached Access without a sign-out. A 133% custom scale required a
+  sign-out. The probe's `accessEffectiveDpi` is the sensor.
+
+**Decision**: Gate a form-only sanitizer on `EFV_5_1_0` that rewrites present
+layout geometry in place onto a 60-twip lattice (whole pixels at standard
+25-point Windows scaling). Preserve free-positioned
+controls, distinct gap classes, and every `EmptyCell`. Use `LayoutCached*` as
+edge data, then strip it. Page chrome stays DPI-local. Fail closed on
+underdetermined groups. Snap the current form `Width` and section `Height`
+to the nearest lattice point, then round child extents upward so controls
+cannot clip. Bump Forms exporter revision so existing 5.1.0 beta projects
+re-export once. Import stays ungated. The invariant is `N(P_d(C)) = C`; it
+holds at 96, 120, 128, 144, 168, and 192 DPI for the six `access-proof`
+fixtures. At 96 and 168, `P_d(C)` already matched `C`. At 120, 128, 144,
+and 192 it did not (worst shifts 108, 60, 90, and 68 twips on
+`SpacerGrid`).
+`Prove-CanonicalRoundtrip.py` compares `C` to `N(P_d(C))` and keeps `C`
+versus `P_d(C)` as a diagnostic. Equality means a geometry signature of
+named blocks plus form `Width` and section `Height`, with Page blocks
+excluded—not byte identity. The proof overlays canonical group-plan values
+for geometry lines Access omitted, requires `Left` / `Top` presence, and
+tolerates only a remaining one-sided control `Width` / `Height` because
+Access adds and removes redundant default-size lines.
+
+**What this rules out**: Promising a literal one-control geometry diff for a
+layout-track edit (siblings in that track change). Promising Access stores
+canonical numbers internally, or that `P_d(C) = C`. Treating suppression or
+prior-source anchoring as sufficient. Forcing every gap to 60. Canonicalizing
+reports. Treating Settings or `AppliedDPI` as what Access saw. Treating a
+KVM slider change as a DPI change without reading `metadata.json`.
+
+**Relevant files**: `clsFormGeometryCanonicalizer.cls`, `clsSourceParser.cls`,
+`modConstants.bas`, `tools/dpi-layout-probe/form_geometry.py`,
+`tools/dpi-layout-probe/Prove-CanonicalRoundtrip.py`,
+`tools/dpi-layout-probe/README.md`, `vcs-agent-docs/forms-reports.md`,
+`docs/access-form-geometry.md`.
+
+---
+
+## 2026-09-08 — DPI probe fixtures sanitized by property list
+
+**Trigger**: Harvested layout-probe forms still carried source-specific
+tooltips, status-bar labels, hyperlink macros, control names, and branding
+colors. `sanitize()` only rewrote `Caption`.
+
+**Options explored**:
+- Hand-review each fixture. Rejected. The same properties would slip
+  through the next harvest.
+- Delete the identifying properties. Rejected. Removing a `BackColor` or
+  `ControlTipText` line changes file shape and would turn existing
+  `exactMatch` SHA-256 verdicts into geometry-only matches.
+- Rewrite baselines through `write_form`. Rejected. Forty-eight Access-saved
+  files still contain `\r\r\n`; normalizing them would also break
+  `exactMatch`.
+- Property-list sanitizer plus a byte-level UTF-16-LE substitution of the
+  known values across `fixtures/`, `canonical-fixtures/`, and `results/`
+  (chosen). The transform is deterministic, so files that hashed equal
+  still hash equal.
+
+**Decision**: Genericize `Caption`/`ControlTipText`/`StatusBarText`, `Tag`,
+and hyperlink addresses on every harvest. Neutralize branding colors and
+rename business controls. Keep private source paths and source-specific
+substitutions in gitignored `fixture-sources.json`. Migrate existing
+baselines with the same maps as raw byte replacements, then remove the
+one-time map so the source values do not remain in the repository.
+
+**What this rules out**: Treating a caption-only rewrite as enough.
+Rewriting probe baselines through a text round-trip. Checking in private
+source filenames or migration maps containing their values.
+
+**Relevant files**: `tools/dpi-layout-probe/prepare_fixtures.py`,
+`tools/dpi-layout-probe/README.md`.
+
+---
+
+## 2026-09-07 — Resource refresh uses a stable audit file, not a dialog
+
+**Trigger**: MCP `vcs_rebuild_addin` blocked on a modal "Updated Resource /
+AGENTS.md has been updated from source" box. `VerifyResource` compared the
+on-disk source to `tblResources` and called `MsgBox2` on every hash change.
+
+**Options explored**:
+- **Keep the dialog and rely on silent `MsgBox2`.** Rejected. AfterBuild and
+  AutoRun run in the current project's VBA, a different `Operation` /
+  `Log` singleton from the installed add-in that MCP put in silent mode.
+  `PromptWouldDisplay` stays true there.
+- **`Log.Add` into the builder's `Build_*.log`.** Rejected. Same project
+  split: the hosted `Log` is never `SaveFile`d. AutoRun has no operation
+  log at all.
+- **`Application.Run` a new `LogAdd` on the installed add-in.** Rejected.
+  The first rebuild after introducing that entry point is driven by the
+  previously installed version, which does not contain it yet.
+- **Stable `logs\ResourceUpdates.log` (chosen).** Appended only when the
+  stored and source hashes differ. Works on the first rebuild, survives
+  after Access exits, and does not depend on which add-in copy owns `Log`.
+
+**Decision**: Drop the `MsgBox2`. After a real hash change, append one
+timestamped line to `Version Control.accda.src\logs\ResourceUpdates.log`.
+COM-opened AutoRun also sets `eosExternalAPI` and `eimSilent`, matching
+`INSTALL SILENT`.
+
+**What this rules out**: Forwarding resource-update lines into the
+transient `Build_*.log` or the MCP callback stream. Revisit if a later
+change gives AfterBuild a supported way to write on the builder's `Log`
+without a first-rebuild bootstrap gap.
+
+**Relevant files**: `modResource.bas`, `modInstall.bas`.
+
+---
+
+## 2026-09-07 — Accessibility probe returns through a per-job result file
+
+**Trigger**: `CheckDatabaseAccessible` is the one worker action whose only
+return path was the COM callback, and that path is unavailable in the
+situation the probe exists to measure. Attaching via `GetObject` fails for
+an `.accda` host (error 432) and can take twenty seconds even when it
+works. A worker that launched and died left `WaitForQueue` to time out and
+the caller reading Empty as if it were a measured "not accessible".
+
+**Options explored**:
+- **Keep the COM callback and attach anyway.** Rejected. The attach is taken
+  out only to speak, and it is the one that cannot succeed for an add-in
+  path.
+- **Registry value (`SaveSetting` / `WshShell.RegWrite`).** Rejected. HKCU
+  `Software` is shared across WOW64 views, but the value is a global name,
+  awkward to enumerate or age-clean, and turns application settings into
+  IPC. Same-user ACL is no stronger than a file in `%AppData%`.
+- **Stdout / `WshShell.Exec`.** Deferred. `Exec` shows a console window;
+  worker exit codes are 0 even after an uncaught 424. Not worth a new
+  launch path for a one-token answer.
+- **Nonce-named result file, polled in `WaitForQueue` (chosen).** Same
+  primitive as `rebuild-status.json`, but a short-lived synchronous
+  channel: the parent already waits on a 100 ms in-process loop and
+  returns as soon as the token appears. The delayed-completion problems
+  of rebuild status came from *agent-side* timers and stale identity, not
+  from writing a file.
+
+**Decision**: Reserve a per-launch path with process id plus exclusive
+`CreateTextFile`, pass it as the worker argument, and write `1` / `0` /
+`U`. Result metadata lives on `clsJob` so a reentrant call cannot overwrite
+another job's file. `IsDatabaseAccessible` returns `Empty` for unknown;
+`DatabaseAccessibleToOtherClients` logs (only while the worker is enabled)
+and collapses to `False`. All three build callers stay conservative.
+Timeout, disable, and uninstall expire the job and delete its file so a
+late write cannot complete a later operation. Reads use a Perf-safe
+stream; only file observation is retried.
+
+**What this rules out**: Treating this file as another durable status
+workflow or asking agents to poll it. Switching the probe to a registry
+key. Letting `clsWorker` collapse unknown to `False`. Proceeding with an
+in-place merge when the answer is unknown.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Integration/clsWorker.cls`
+- `Version Control.accda.src/modules/Infrastructure/clsJob.cls`
+- `Version Control.accda.src/modules/Core/modBuild.bas`
+- `Version Control.accda.src/modules/Tests/Infrastructure/modTestWorkerResult.bas`
+- `Version Control.accda.src/modules/Tests/Infrastructure/clsTestWorkerLifecycle.cls`
+- `docs/architecture.md`
+
+---
+
+## 2026-09-07 — Legacy query import stays a frozen compatibility bridge
+
+**Trigger**: Issue #769. A 4.1.2 project with paired `.bas` + `.sql` files
+expected v5.0.1 to import `.sql`. Two real regressions existed (Load Selected
+resolved `.qdef` instead of `.bas`; Force original SQL exited after a
+successful `.bas` load), but making `.sql` automatically win whenever both
+files exist would have rewritten every legacy project's import semantics.
+
+**Options explored**:
+- **Flip `GetFileList` so `.sql` beats leftover `.bas`** — matches v5 docs for
+  the new format, but treats a 4.x sidecar as authoritative and can drop
+  designer metadata. Rejected: extra arbitration to maintain on a format that
+  is going away.
+- **Narrow repair only (chosen)** — restore the 4.1.2 `.bas` source path, make
+  the existing Force-SQL overlay reachable again, and log a missing Load
+  Selected path. Users who want `.sql` as the source of truth migrate to
+  export format 5.0+ and full-export.
+
+**Decision**: Keep `.bas`/`.qdef` as a frozen import bridge. Do not add
+filesystem arbitration, divergence detection, or automatic `.sql` precedence
+for legacy projects.
+
+**What this rules out**: Teaching the v5 importer to merge or prefer a 4.x
+`.sql` sidecar. Revisit only when removing the legacy query path entirely.
+
+**Relevant files**: `clsDbQuery.cls` (`SourceFile`, `ImportLegacyFormat`),
+`modBuild.bas` (`LoadSingleObject`).
+
+---
+
+## 2026-09-07 — Headless calls raise VBE Error Trapping to Break on Unhandled Errors
+
+**Trigger**: Issue #763. Automated `*Headless` builds hang in the VBE when Error
+Trapping is Break on All Errors (0): a handled `On Error Resume Next` still
+stops the debugger. v5 already floors an active root at Break in Class Module
+(1), but that does not cover headless preflight (which runs before
+`Operation.Begin`), it downgrades a caller already at Break on Unhandled Errors
+(2), and mode 1 still breaks on class-module errors whose handler is only in
+the caller.
+
+**Options explored**:
+- **Force mode 2 on every API/MCP operation** — would stop more unattended
+  hangs, but reverses the 2026-08-06 choice to keep raising-line diagnostics
+  for non-headless automation. Rejected.
+- **Change only `clsOperation.SetErrorTrapping`** — Josef's no-downgrade
+  (`apply 1 only when saved < 1`) is necessary, but headless preflight still
+  runs under the caller's mode 0. Incomplete.
+- **Restorable scope on explicit headless entry points, plus no-downgrade in
+  `SetErrorTrapping` (chosen)** — `BuildHeadless` / `MergeHeadless` /
+  `RunTestsHeadless` (and tests forced headless for API/MCP) raise to 2 for
+  the whole call, including preflight. `Operation.Begin` still floors attended
+  work at 1 and will not lower a more permissive current value. The original
+  setting is always restored; `Application.SetOption "Error Trapping"` is
+  persistent and must not leak.
+
+**Decision**: Add `EffectiveVbeErrorTrapping` and `clsVbeErrorTrappingScope`.
+Headless entry points acquire the scope first. Nested restore works because
+the outer scope saves 0 and applies 2, the operation then saves/restores 2,
+and the outer scope finally restores 0. The throwaway Access instance in
+`RebuildAddIn` is set to 2; attended installer scopes stay at 1.
+
+**What this rules out**: Leaving a CI session permanently at mode 2 after a
+headless call. Changing every MCP/API export or `RunVBA` to mode 2. Revisit
+only if a non-headless automation path still hangs on a handled class-module
+error and there is no human to continue the break.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/clsVbeErrorTrappingScope.cls`
+- `Version Control.accda.src/modules/Infrastructure/modErrorHandling.bas`
+- `Version Control.accda.src/modules/Infrastructure/clsOperation.cls`
+- `Version Control.accda.src/modules/API/clsVersionControl.cls`
+- `Version Control.accda.src/modules/Integration/clsWorker.cls`
+- `docs/automation-contract.md`, `Wiki/Continuous-Integration.md`
+
+---
+
+## 2026-09-07 — Database property change detection counts deletions
+
+**Trigger**: Issue #773. Unsetting `StartUpForm` or `AppTitle` in Access deletes
+the DAO property (assigning `""` raises 3385). Incremental export walks live
+`Database.Properties` and never sees the missing key, so `dbs-properties.json`
+stays stale until some other property changes.
+
+**Options explored**:
+- **Always full-export this category** — reliable, but rewrites the file and
+  logs the total property count on every fast save. Rejected.
+- **Switch to `IsModified` file-hash like `clsDbProjProperty`** — would catch
+  deletions, but any single change would add every live property to the
+  modified set and log `[22]` instead of `[1]`. Rejected; incremental export
+  already reports the changed count and that should stay.
+- **Keep the per-property diff, and also add saved keys missing from the live
+  dictionary** (chosen). A lone unset becomes one modified item, the
+  single-file export runs, and the rewritten JSON drops the deleted key.
+
+**Decision**: `clsDbProperty.GetAllFromDB(True)` appends a placeholder for each
+key that exists in `dbs-properties.json` but not in `GetDictionary`. Export
+still writes the current dictionary once (`SingleFile`). No export-format
+change.
+
+**What this rules out**: Using the all-or-nothing `IsModified` pattern in this
+class just to detect deletions. A future change that wants the log to show
+total properties on fast save would be a display change, not a reason to drop
+the per-property diff.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Components/clsDbProperty.cls`
+- `Version Control.accda.src/modules/Tests/Components/modTestDbProperty.bas`
+
+---
+
+## 2026-09-02 — Heartbeat pulses per component; paused roots never expire
+
+**Trigger**: Reviewing the cancel-during-export path raised how the 10-minute
+heartbeat timeout behaves on large databases. Two gaps: change-detection scans
+pulsed once per category (`modExport`/`modBuild`), so the timeout had to cover a
+whole category rather than one component; and a user hook such as `AfterExport`
+runs foreign code that can legitimately exceed the timeout with nothing able to
+pulse. A root that expires is silently downgraded to `eosReady`, which turns
+every "is something running?" check false — including the cancel prompt.
+
+**Options explored**:
+- **Raise `HEARTBEAT_TIMEOUT_SECONDS`** — rejected; any fixed number is wrong for
+  a hook of unknown length, and a longer timeout slows recognition of a genuinely
+  crashed operation.
+- **Pulse from each of the 17 scan loops** — same effect as the chosen option but
+  17 call sites to keep in sync. Rejected because every scan loop already calls
+  `Log.IncrementObjectScanProgress` once per component.
+- **Pulse the registry per component** — rejected outright; `SaveSetting` per
+  object on a large scan is a real cost for a value only crash recovery reads.
+- **Exempt paused roots from the timeout (chosen for hooks)** — a pause already
+  means "foreign code owns the stack." Expiring there also strands the root:
+  `EndPauseScope` only restores a root it still finds `eosStaged`, so a timeout
+  during a hook would leave the operation unrecoverable after the hook returned.
+
+**Decision**: `Operation.Pulse` stays an in-memory assignment and is now called
+per component from `Log.IncrementObjectScanProgress`, reaching every scan loop
+through a call they already make. `Pulse` refreshes the registry copy at most
+once every 60 seconds (`REGISTRY_PULSE_SECONDS`), so `RestoreFromRegistry` sees a
+fresh value during a long operation without paying a write per object. The
+`Status` getter skips the timeout check entirely while `PauseDepth > 0`; a
+detached root (asynchronous continuation) still expires, because there the
+timeout is the only thing that recovers an operation that never resumed.
+
+**What this rules out**: Treating a stale heartbeat as proof that no operation is
+running — that inference is now invalid while a root is paused. Reading the
+registry `Heartbeat` as accurate to the second; it lags by up to a minute.
+Revisit if pauses ever become long-lived or survive a stack, since a paused root
+would then have no expiry at all.
+
+**Relevant files**:
+- `clsOperation.cls` — throttled registry pulse, pause-aware `Status`
+- `clsLog.cls` — `IncrementObjectScanProgress` pulses per component
+- `modTestOperationLifecycle.bas` — timeout, pause, and scan-pulse tests
+
+---
+
+## 2026-08-31 — Form/report code-behind uses full VBAProjectDate fast path
+
+**Trigger**: Fast Save skipped forms and reports when only the code module changed
+and the VBE project was saved before export (Compile → Save → Export). Layout
+`DateModified` was unchanged, `CurrentVBProject.Saved` was True, and
+`IsModified` returned False without calling `GetCodeModuleHash`. Standard modules
+exported correctly because they already compared `AllModules(0).DateModified` to
+`VCSIndex.VBAProjectDate`. Reported in production with Find & Replace across
+form code-behind.
+
+**Options explored**:
+- **Always hash code-behind when layout date matches** — correct but reintroduces
+  per-form/report `GetCodeModuleHash` on every no-change scan; rejected for the
+  performance cost the 2026-05-05 fast path removed.
+- **Trust `Saved` alone for forms/reports** — rejected; this was the bug.
+- **Reuse the module two-tier guard via shared helper (chosen)** —
+  `VbaProjectUnchangedSinceExport` requires `Saved` and matching `VBAProjectDate`.
+  When layout date matches but the project date is stale, hash code-behind.
+
+**Decision**: Extract `VbaProjectUnchangedSinceExport` in `modVbeUtility` and use
+it from `clsDbModule`, `clsDbForm`, and `clsDbReport`. Refresh `VBAProjectDate`
+in `clsVCSIndex.Update` when exporting or importing forms and reports (not only
+modules), so a form-only export heals the date for subsequent scans.
+
+> **⚠ Superseded** (2026-10-06): `Update` no longer refreshes `VBAProjectDate` for
+> any component; healing a single export hid the unchecked rest of the project. The
+> shared `VbaProjectUnchangedSinceExport` guard stays. See "VBAProjectDate is a
+> whole-project certificate" above.
+
+**What this rules out**: Using `Not CurrentVBProject.Saved` as the sole signal for
+form/report code changes. Skipping `VBAProjectDate` refresh on form/report index
+updates.
+
+**Relevant files**:
+- `modVbeUtility.bas` — `VbaProjectUnchangedSinceExport`
+- `clsDbForm.cls`, `clsDbReport.cls`, `clsDbModule.cls` — shared fast path
+- `clsVCSIndex.cls` — heal `VBAProjectDate` on form/report update
+- `modTestFormReportModified.bas` — regression tests
+
+---
+
+## 2026-08-28 — MCP test stream is pytest-style dots and slow names
+
+**Trigger**: The first CLI full-suite run streamed ~8000 MCP log POSTs. Access
+console layout writes the same line in fragments (name, then `PASS`, then each
+`#n PASS: context`). `Log.Add` posted each fragment. Wall clock was 3.3 minutes;
+the tests themselves were ~15s.
+
+**Options explored**:
+- *Keep posting every console fragment.* Rejected. Floods HTTP and the CLI.
+- *Dots only, names only on FAIL.* Rejected. Hides which tests are slow.
+- *Name a pass after ≥ 200ms.* Rejected. Named too many tests in Cursor.
+- *CLI infers a dot from each start-of-test `Log.Progress`.* Rejected. That is
+  468 HTTP posts, and Cursor's captured output is not a TTY so `\\r` overwrite
+  is unreadable.
+- *Flush coalesced dots every 10.* Rejected. Posts in the middle of a burst of
+  1ms tests, which is the case batching exists to avoid.
+- *VBA coalesces dots; flush on a 200ms timer, when a named line needs the
+  line, or at end of run; name ≥ 1s PASS and FAIL/ERROR/EMPTY* (chosen).
+  Assertion detail stays in the TestRun log and the MCP tool's `tests` map.
+  `Log.Add` buffers until newline. The runner sets `Log.SuppressMCPEcho` around
+  the Access-console layout. Progress stays throttled hang detection, not the
+  dot stream.
+
+**Decision**: File and Access console keep the existing per-test layout.
+MCP/CLI get pytest-style output. Import is unchanged.
+
+**What this rules out**: Per-assertion MCP lines. Printing slow tests before
+they finish. Treating the CLI JSON as the `tests` map. Inferring dots from
+progress. Flushing every N dots. A 200ms name threshold.
+
+**Relevant files**: `clsLog.cls` (`SuppressMCPEcho`, line-buffered MCP),
+`clsTestRunner.cls` (`McpNoteTest`, `FlushMcpDots`, `MCP_SLOW_MS`).
+
+---
+
+## 2026-08-28 — Headless test logs skip Immediate Window and HTML
+
+**Trigger**: CLI attach on the same instance as a 14s web-runner run took ~25s.
+Perf: 7856 `Debug.Print`s, HTML concat with no form, DoEvents on every module
+heading, and 468 forced progress POSTs.
+
+**Options explored**:
+- *One HTTP POST per test as the CLI console.* Rejected. That is the streaming
+  cost; the compact stream is a separate decision above.
+- *Mute Immediate Window, skip unused HTML, throttle progress* (chosen). Web
+  runner already muted `Debug.Print`. HTTP submit time was never the expensive
+  part; per-line Immediate Window and HTML work was.
+
+**Decision**: Headless `ExecuteTests` sets `SuppressDebugOutput`. `Log.Add`
+builds HTML only when a console RichText exists. Test-start progress is
+throttled, not forced. Module headings do not `Log.Flush` when MCP is active.
+
+**What this rules out**: `Debug.Print` as the headless console. Building form
+HTML when no form is loaded. Forcing a progress POST on every test.
+
+**Relevant files**: `clsLog.cls`, `clsVersionControl.cls` (`ExecuteTests`),
+`clsTestRunner.cls`.
+
+---
+
+## 2026-08-28 — RunFilteredTests is an APIAsync operation so MCP can stream results
+
+**Trigger**: MCP `vcs_run_tests` blocked in `API("RunFilteredTests")` with no
+callback registration. Per-test `Log.Add` / `Log.Progress` already knew how to
+POST when `MCP.IsActive`, so the suite produced a log file and a final JSON
+blob but nothing the CLI could print live. Builds already streamed because
+`Export` / `Build` were on the `APIAsync` timer list.
+
+**Options explored**:
+- *Register the callback in the `APIAsync` Case Else sync fallback.* Would
+  fire `Log.Add` POSTs during a blocking `Application.Run`, but the MCP handler
+  could not emit progress until that call returned.
+- *Add `RunFilteredTests` to the async timer list* (chosen). Same contract as
+  export/build: `APIAsync` returns `{async: true, timeout_ms: 600000}`, the
+  timer registers the callback, then `API` runs the suite.
+
+Failed tests complete as `eorFailed`, which posts MCP type `error`. Without
+the results file on that payload, the client would see only "Operation failed".
+`SaveResults` already writes `TestResults_*.json`; `LastResultsPath` rides on
+complete, error, and cancelled extras. MCP decides tool `success` from the
+summary. `Scan` clears the path so a skipped run cannot hand over a previous
+file. What those callbacks contain is the compact stream above, not every
+Access-console fragment.
+
+**Decision**: `RunFilteredTests` is an async API method. Terminal callbacks
+for `eotTestRun` include `results_path` whenever a results file exists.
+
+**What this rules out**: Treating failed tests as a lost MCP result. Putting
+the full results JSON in the HTTP body (the file is already on disk). Changing
+`Operation.Result` so failed tests count as `eorSuccess`.
+
+**Relevant files**: `modAPI.bas` (`APIAsync`), `clsOperation.cls`
+(`FinishRootInternal`), `clsTestRunner.cls` (`LastResultsPath`).
+
+---
+
+## 2026-08-28 — clsVersionControl.Options is a property so the cache can be discarded
+
+**Trigger**: `vcs_end_session` returned `Could not end session: Object doesn't support this property or method`. The override file was already deleted, so the failure was the reload: `Set Options = Nothing` inside `clsVersionControl`. That class also wraps the singleton as a member named `Options`, which was a `Function`. Assignment bound to the function, which has no setter (error 438).
+
+Two other sites use the same discard under `On Error Resume Next` (single-object export setup, `BeginScopedSyncLog`). Those never reported the 438, so a session override that was not in `vcs-options.json` stayed on the cached instance instead of reverting.
+
+**Options explored**:
+- *Qualify the three sites as `Set modObjects.Options = Nothing`.* Fixes today's callers. The next `Set Options = Nothing` in this class repeats the bug — that is the established discard pattern everywhere else.
+- *Property Get/Set forwarding to `modObjects`* (chosen). `Set Options = Nothing` inside the class becomes a real discard. External `VCS.Options` reads still work. The setter must assign `modObjects.Options` or it recurses.
+
+**Decision**: Replace the `Options` function with `Property Get` / `Property Set`. `EndSession` and the two silent reloads keep their existing `Set Options = Nothing` lines.
+
+**What this rules out**: Keeping a Function wrapper around a settable singleton when the class also assigns to that name. A new wrapper for `Log` / `Perf` / `VCSIndex` should be a property from the start if anything in the class discards it.
+
+**Relevant files**: `clsVersionControl.cls`, `clsTestOptions.cls` (`TestEndSession_DiscardsCachedOptions`).
+
+---
+
+## 2026-08-28 — MCP progress interval default is 500ms, chosen for feedback not throughput
+
+**Trigger**: The 1000ms default was set while the agentic/ribbon build gap was still
+unexplained and callback streaming was one of the suspects, so the longest interval
+that preserved usable feedback won. EcoQoS core scheduling turned out to be the cause
+(see "MCP-launched Access runs at full-power QoS, not pinned cores"), which removes the
+reason to trade feedback granularity for stream hygiene.
+
+**Options explored**:
+- *Keep 1000ms.* Cheapest stream, but a long quiet component loop reports only once a
+  second, which reads as a stalled operation to whoever is watching it.
+- *Return to 250ms.* Rejected. The earlier benchmark measured direct callback work at
+  0.204s against 0.169s at 1000ms, and the extra granularity did not help.
+- *500ms* (chosen). The same benchmark put it at 0.172s, within noise of 1000ms, and it
+  halves the worst-case silent gap.
+
+**Decision**: `McpProgressIntervalMs` defaults to 500. The 250/500/1000ms elapsed-time
+figures (13.85s / 13.96s / 13.83s) stand and were always noise. The interval is now
+chosen for feedback quality, because throughput is not what it controls.
+
+**What this rules out**: Treating the progress interval as a performance lever, or
+re-tuning it in response to a slow build. If stream overhead ever does need reducing,
+batch the unthrottled `Log.Add` callbacks — they dominate past 500ms.
+
+**Relevant files**: `clsOptions.cls`, `clsLog.cls`, `docs/perf-diagnostics.md`.
+
+---
+
+## 2026-08-28 — MCP-launched Access runs at full-power QoS, not pinned cores
+
+**Trigger**: Agentic builds of this add-in ran ~2–3s slower than ribbon builds of
+the same source on a hybrid CPU. Call counts matched. The builder's hot thread
+sat on an LP-E core (EcoQoS system-managed). Turning EcoQoS off and raising
+the process to Above Normal moved it onto a P-core and recovered most of the gap.
+Access is single-threaded, so that one core is the whole build.
+
+**Options explored**:
+- *CPU affinity mask to P-cores.* Rejected. It fights the scheduler, is wrong on
+  machines without hybrid cores, and still needs a topology query that changes
+  across SKUs.
+- *Always-on high QoS for every Access process.* Rejected. MCP often attaches to
+  a database the user already has open; changing that process's priority would
+  surprise an interactive session.
+- *EcoQoS off + Above Normal, MCP-launched only* (chosen). Matches the measured
+  fix. Applied in-process from VBA for the Worker-created builder and silent
+  installer, and from Python for COM-owned instances plus new `MSACCESS.EXE`
+  that appear after an MCP rebuild snapshot. User-owned Access that existed
+  before the call is left alone. Double-apply is a no-op. Failures are swallowed
+  so older Windows still builds.
+
+**Decision**: `PreferFullPowerCurrentProcess` disables
+`PROCESS_POWER_THROTTLING_EXECUTION_SPEED` and sets Above Normal on the current
+process. MCP `RegisterCallback` calls it when `OpenedByAutomation` is true.
+`INSTALL SILENT` calls it because a command-line launch is not COM-owned.
+`Worker.vbs` calls `PreferFullPowerCore` when an MCP callback URL is present.
+Ribbon builds are unchanged.
+
+**What this rules out**: Pinning Access to specific cores. Promoting a user's
+already-running Access because MCP attached to it. Treating EcoQoS as the
+remaining whole gap versus ribbon — cold process start and MCP JSON still
+exist.
+
+**Relevant files**: `modProcessQoS.bas`, `modAPI.bas` (`PreferFullPowerCore`),
+`clsMCP.cls`, `modInstall.bas`, `clsWorker.cls`.
+
+---
+
+## 2026-08-28 — MCP progress streams update at most once per second
+
+> **⚠ Partially superseded** (2026-08-28): the default is now 500ms. The measurements
+> below stand and the interval is still not a performance lever; what changed is that
+> the build gap they were weighed against turned out to be EcoQoS core scheduling, so
+> there is no longer a reason to spend feedback granularity on stream hygiene. See
+> "MCP progress interval default is 500ms, chosen for feedback not throughput" above.
+
+**Trigger**: Async callbacks removed blocking localhost round trips, but their true
+cost still included JSON conversion and possibly deferred COM work. The existing
+250ms progress throttle had been inherited from interactive UI tuning rather than
+measured against the HTTP stream.
+
+**Options explored**:
+- *Keep 250ms.* It produced 23–24 progress posts from 236 candidates in a 14-second
+  add-in build. Chosen only if the additional visual granularity materially helped;
+  it did not.
+- *Use 500ms.* It reduced progress posts to 14–15 and preserved frequent feedback.
+- *Use 1000ms* (chosen). It reduced progress posts to 7–8. The 43 `Log.Add` posts in
+  the same build still provided activity between progress samples, and a long quiet
+  component loop still reports once per second.
+
+**Decision**: `McpProgressIntervalMs` is a project option and defaults to 1000.
+Nine controlled builds (three at each interval) averaged 13.85s at 250ms, 13.96s at
+500ms, and 13.83s at 1000ms, so elapsed-time differences were noise. Measured direct
+callback work fell from about 0.204s at 250ms to 0.172s at 500ms and 0.169s at
+1000ms. The fixed log callbacks dominate after 500ms; throttling progress is stream
+hygiene, not the explanation for the multi-second manual/agent build gap.
+
+The optional perf JSON now records progress candidates/sent/suppressed, callback
+attempts by type, failed attempts, requests pruned and pending, and peak in-flight
+requests. Callback submission and pruning have distinct timers. Console rendering
+and the headless `DoEvents` message pump are also separate, which showed that this
+rebuild path was using GUI rendering and had no deferred message-pump cost to assign.
+
+**What this rules out**: Returning to sub-second progress by intuition alone, or
+attributing the agent/manual build gap to progress callback frequency. Revisit the
+interval only with a workload that has long quiet phases where one-second feedback
+is insufficient. If stream overhead needs further reduction, investigate batching
+the unthrottled log callbacks instead.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/clsLog.cls`,
+`Version Control.accda.src/modules/Integration/clsMCP.cls`,
+`Version Control.accda.src/modules/Infrastructure/clsOptions.cls`,
+`Version Control.accda.src/modules/Infrastructure/clsPerformance.cls`,
+`docs/perf-diagnostics.md`.
+
+---
+
+## 2026-08-27 — Performance data gets a machine-readable form, gated by an option
+
+**Trigger**: The previous entry decided a call-path rollup was the right answer to
+"what does this feature cost including everything beneath it" but left it unbuilt. The
+open question was where the rollup should go. The text report is a fixed-width table
+sized for a person skimming a build log; the path data for one build of this repo is 76
+rows, which would bury the log it was added to.
+
+**Options explored**:
+- *More sections in the text report.* No new file, no new option, and the data appears
+  wherever logs already go. Rejected: hundreds of rows of tree output in the file a
+  user opens to see why a build failed makes the log worse for its primary reader, and
+  a fixed-width tree cannot carry the fields worth having.
+- *Always write the JSON.* Simple, nothing to discover or enable. Rejected because path
+  collection is not free — it builds a path string on every `OperationStart` and
+  `OperationEnd` — and the default build should not pay for a diagnostic nobody is
+  reading.
+- *A separate opt-in JSON file* (chosen). `Options.ExportPerfJson` turns on both path
+  collection and the file, so the cost and the output arrive together and neither
+  exists by default. Written from `clsLog.SaveFile` rather than at each of the ten
+  `Perf.GetReports` call sites, so export, build, merge, and test runs are covered
+  once. Named after the log it accompanies, `<log base>.perf.json`, so a tool holding
+  a `log_path` can derive it.
+
+**Decision**: Three views ship, because the useful question changes: `operations`
+(exclusive, aggregated by name — many small calls adding up), `callPaths` (exclusive
+plus inclusive per distinct path — what a feature costs including its children), and
+`callers` (per operation, which parent drove which share of the calls). Exclusive
+figures still sum to the accounted total in every view; inclusive figures overlap by
+construction and must not be added. `path` is emitted as an array of segments, which
+JSON allows and the text format did not, so no separator can be mistaken for part of
+an operation name.
+
+`OperationEnd` had to change to make paths correct: it restarted the parent operation
+*before* popping it off the call stack, which was invisible to the flat table but made
+every resumed parent record itself as its own child. The pop now happens first.
+
+**What this rules out**: Adding these views to the text report. Making path tracking
+unconditional. It also settles how a future view is added — as another key in this
+structure, not another section in the log.
+
+**Findings this immediately produced**, all of which contradicted a standing
+hypothesis about why agentic builds of this repo run ~8.5s slower than ribbon builds:
+- MCP streaming callbacks cost **0.27s** of that gap (0.13s transport plus, from
+  `callers`, the 73 of 105 `Convert to JSON` calls that arrive from `MCP Callback`).
+  The suspicion that drove the async-callback work is now closed with a number.
+- Nearly every operation is slower with an **identical call count** — `Compute SHA256`
+  1413 calls in both, 0.62s versus 0.90s. Same work, slower execution, so the cause is
+  environmental rather than in the code.
+- The machine is not the cause in the obvious way: the builder Access process gets
+  ~0.93 of a core with five cores idle, priority Normal, EcoQoS system-managed. But
+  this is a 4 P-core + 4 LP-E-core part with no SMT, the LP-E cores measure ~40% slower
+  on the same benchmark, and per-core sampling shows the build spread across both
+  types. A windowless COM-driven Access process has nothing biasing it toward a P-core,
+  where a foreground ribbon build does. Untested proposal: have the MCP server mark the
+  builder process high-QoS at launch.
+- `Console Updates` is the largest single delta (+1.73s at an unchanged 25/26 calls)
+  and swings 0.73s–2.29s between runs. Not explained yet.
+
+> **⚠ Partially superseded** (2026-08-28): the EcoQoS proposal is now implemented
+> for MCP-launched Access (EcoQoS off, Above Normal, no affinity pin). See
+> "MCP-launched Access runs at full-power QoS, not pinned cores" above.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/clsPerformance.cls`
+(path tracking, `GetDiagnosticData`, `OperationEnd` pop order),
+`Version Control.accda.src/modules/Infrastructure/clsLog.cls` (`SavePerfJson`),
+`Version Control.accda.src/modules/Infrastructure/clsOptions.cls` (`ExportPerfJson`),
+`docs/perf-diagnostics.md`.
+
+---
+
+## 2026-08-27 — Perf operations stay flat and exclusive; close instrumentation gaps instead
+
+**Trigger**: Investigating why agentic builds of this repo looked ~9s slower than
+ribbon builds, `MCP Callback` reported 81 posts / 0.21s — small enough to clear
+the callbacks of suspicion. That number is exclusive, not total. `clsPerformance`
+records nested operations exclusive of their parent, and `PostCallback` calls
+`modJsonConverter.ConvertToJson`, which starts its own `Convert to JSON`
+operation. So a single callback is split across two rows: `Convert to JSON` went
+32 -> 113 calls (+81, exactly the post count) and +0.42s, while the row named
+after the feature showed transport only. Real cost ~0.65s.
+
+**Options explored**:
+- *Suppress the nested report by toggling `Perf.Enabled` around the call*
+  (implemented, then reverted). Makes `MCP Callback` a single inclusive number
+  with no new API and no change to the vendored JSON module. Rejected because it
+  buys one readable row by corrupting a more valuable figure: the aggregate
+  count of how often the add-in serializes JSON, from every call site. Knowing
+  many small calls sum to something significant is as useful as knowing which
+  single operation is biggest, and suppression destroys the former.
+- *Make `OperationStart` support an inclusive mode.* Nested operations would keep
+  reporting while the parent timer ran. Rejected: operations are exclusive
+  precisely so they sum to `TOTAL RUNTIME` with the remainder shown as "Other
+  Operations". Double-counting inside one table breaks that arithmetic.
+- *Keep the flat table exclusive and add a separate call-path rollup* (chosen
+  direction, not yet built). The two questions are different views of the same
+  data — "what costs the most in aggregate, wherever it is called from" and
+  "what does this feature cost including everything beneath it" — and each
+  deserves its own section rather than one table trying to answer both.
+  `this.CallStackItems` and the `CallStack` breadcrumb property already carry the
+  path, so exclusive time can be keyed by path and rolled up at report time.
+
+**Decision**: The operations table stays flat, exclusive, and aggregated by
+operation name. Inclusive per-feature cost is a reporting concern, to be answered
+by a rollup view rather than by distorting collection. Meanwhile the two genuine
+gaps are closed: `CheckCancelled` had no timer at all despite being the one MCP
+round-trip that still blocks, and is now `MCP Cancel Check`, timed after its
+throttle so early returns cost nothing; and the headless `Debug.Print` branch in
+`clsLog.Add` is now timed as `Debug Print`, since it is reached only when there is
+no GUI console and therefore runs in unattended builds but not interactive ones,
+inflating "Other Operations" in exactly the comparison it distorted.
+
+> **⚠ Partially superseded** (2026-08-27): the reasoning about `Debug Print` was
+> wrong, and the timer is what proved it. Across every subsequent agentic build the
+> operation is absent from the report entirely — the branch never executes, because
+> unattended runs suppress debug output rather than lacking a console. It cost
+> nothing and inflated nothing. The timer is kept for the negative result. See
+> "Performance data gets a machine-readable form" above.
+
+**What this rules out**: Consolidating a nested operation into its parent by
+disabling instrumentation mid-call. Adding an inclusive mode to `OperationStart`
+without first deciding what "Other Operations" should mean.
+
+**Relevant files**: `Version Control.accda.src/modules/Integration/clsMCP.cls`,
+`Version Control.accda.src/modules/Infrastructure/clsLog.cls`,
+`Version Control.accda.src/modules/Infrastructure/clsPerformance.cls` (read only).
+
+---
+
+## 2026-08-27 — Async fire-and-forget MCP log/progress callbacks
+
+> **⚠ Partially superseded** (2026-08-28): Progress callbacks are still async, but
+> their default throttle is now 1000ms after a 250/500/1000ms benchmark. See
+> "MCP progress streams update at most once per second" above.
+>
+> **⚠ Partially superseded** (2026-08-28, same day): the throttle default is 500ms,
+> not 1000ms. See "MCP progress interval default is 500ms, chosen for feedback not
+> throughput" above.
+
+**Trigger**: Agentic builds spent ~4s more than a ribbon build on this repo
+(15.83s vs 11.44s). The performance report showed `Append File` 213/1.34s
+(MCP debug log) and extra time in Modules/Forms. `PostCallback` used
+synchronous `MSXML2.XMLHTTP` (`Open ..., False`) despite comments calling it
+fire-and-forget. On a 5K-object project that blocking cost scales with wall
+clock (~4 POSTs/sec at the 250ms progress throttle, plus every `Log.Add`).
+
+**Options explored**:
+- *Keep synchronous POSTs.* Simple, but the build waits on localhost for every
+  sample. Rejected for large projects.
+- *WinHttp async.* More reliable in some STA cases; larger change. Deferred
+  unless XMLHTTP async proves flaky.
+- *XMLHTTP `Open(..., True)` for `log`/`progress`, keep `complete`/`error`/
+  `cancelled` synchronous* (chosen). VBA aborts async requests if the object
+  is released, so in-flight requests are retained in a Collection and pruned
+  at `readyState >= 4`. Terminal callbacks stay blocking so the CLI sees
+  finish before Access continues/quits.
+- *Stop `MCPDebugLog` on the per-callback hot path.* Chosen alongside async;
+  register/error debug lines remain.
+
+**Decision**: Streaming callbacks are async fire-and-forget. Terminal
+callbacks stay synchronous. `PostCallback` is Perf-timed as `MCP Callback`.
+
+**What this rules out**: Making `complete` async. Switching to WinHttp unless
+XMLHTTP drops samples in practice. Calling `MCPDebugLog` from the streaming
+hot path.
+
+**Relevant files**: `Version Control.accda.src/modules/Integration/clsMCP.cls`,
+`Version Control.accda.src/modules/API/modAPI.bas`.
+
+---
+
+## 2026-08-27 — Builder Access reuses APIAsync callbacks during self-rebuild
+
+**Trigger**: The MCP-side status watcher removed agent polling but exposed only
+coarse worker phases. A real rebuild already emitted detailed per-object
+messages through `Log.Add` and `Log.Progress`; the disconnected self-rebuild
+lost them because Worker.vbs invoked `HandleRibbonCommand("btnBuild")` without
+registering an MCP callback. The first smoke test also exposed that Worker.vbs
+replaced the launcher's `phaseStarted`, making every later record look stale.
+
+**Options explored**:
+- *Tail the build log in the MCP server.* Rejected as the primary path because
+  it duplicates existing callbacks and loses native progress counts.
+- *Teach Worker.vbs to POST HTTP itself.* Rejected because it would duplicate
+  `clsMCP`, JSON formatting, and callback error handling.
+- *Carry callback identity to builder Access* (chosen). The MCP callback server
+  remains alive after launch Access exits, and builder Access already loads the
+  installed library that owns `APIAsync`.
+
+**Decision**: `RebuildAddIn` accepts optional callback JSON, extracts its URL
+and operation ID with `clsMCP`, and passes them plus the original
+`phaseStarted` through `Run_BuildAndInstall`. Worker.vbs reconstructs the JSON
+and calls `APIAsync(callback, "Build", source)` instead of the ribbon entry
+point. This reuses all existing build log/progress callbacks. Worker status
+continues to own compile, install, terminal failure, and durable recovery.
+Calls without callback info retain the ribbon path for compatibility.
+
+**What this rules out**: A second VBScript HTTP client, log tailing as the
+normal live channel, or removing `rebuild-status.json`. The build callback's
+`complete` state cannot mean that installation is complete.
+
+**Relevant files**:
+`Version Control.accda.src/modules/API/clsVersionControl.cls`,
+`Version Control.accda.src/modules/Integration/clsWorker.cls`,
+`docs/agentic-rebuild.md`, `docs/architecture.md`.
+
+---
+
+## 2026-08-27 — MCP watches rebuild-status.json; agent polling is recovery
+
+> **⚠ Partially superseded** (2026-08-27): the status file still owns
+> compile/install and durable recovery, but detailed build output now uses the
+> existing HTTP callback channel across Worker.vbs. See "Builder Access reuses
+> APIAsync callbacks during self-rebuild" above.
+
+**Trigger**: Agents rebuilding the add-in launched `RebuildAddIn` via `vcs_call_vba`, then polled `logs/rebuild-status.json` with the Read tool on a timer. The work often finished while the agent was still waiting. Cursor also failed to show MCP progress for long operations.
+
+**Options explored**:
+- *Keep agent-side Read polling as the primary workflow.* Rejected. The status file is durable, but a person or agent sitting on a poll loop is the wrong default once the MCP server can wait.
+- *New MCP tool that blocks on COM until install finishes.* Rejected. The host Access instance must quit so the files it held can be replaced; a COM wait would hang.
+- *Worker HTTP callbacks after Access exits.* Deferred. Would add a second live channel beside the status file the worker already writes.
+
+**Decision**: The add-in contract is unchanged: `RebuildAddIn` still returns `launched` / `refused` / `launch-failed` and the worker still writes UTF-8-with-BOM `rebuild-status.json` keyed by `phaseStarted`. The MCP server now owns the wait (`vcs_rebuild_addin`). Agents should not poll the status file unless that tool timed out or stalled. `vcs_call_vba` stays launch-only. The server must not kill `MSACCESS.EXE` or `wscript` when a client stops waiting.
+
+**What this rules out**: Documenting Read-tool polling as the normal rebuild workflow. Treating a cancelled MCP wait as permission to terminate the worker. Changing the status-file schema or making the worker POST HTTP as a prerequisite for live feedback.
+
+**Relevant files**: `docs/agentic-rebuild.md`, `AGENTS.md`, `docs/architecture.md`. Companion implementation is in `msaccess-vcs-mcp` (`vcs_rebuild_addin`, `rebuild_watcher.py`).
+
+---
+
+## 2026-08-27 — Reset RunVBA on a separate COM phase; sweep orphan wrappers
+
+**Trigger**: Repeated `vcs_run_vba` calls intermittently returned error 2517
+("cannot find the procedure `MCP_TempFunction`") and then failed permanently until
+the user removed an unsaved `MCP_Temp_<n>` module in the VBE. The Python worker
+completed its COM round trips normally, the host compiled, and other MCP tools
+continued to work. The failure was concentrated in `clsVersionControl.RunVBA`,
+which executed VBE Reset control 228 immediately before `Application.Run`.
+
+**Probe results**:
+- Control 228 is enabled while the generated payload runs. Its `Execute` returns
+  synchronously with no error, but the teardown is deferred: `Execute` followed
+  by ordinary statements succeeds, while `Execute` followed by `DoEvents`
+  deterministically ends the host payload and returns 2517. `Application.Run` was
+  the equivalent message pump in production.
+- The failed cleanup leaves one complete wrapper module. A separately planted
+  module declaring `MCP_TempFunction`, with no reset or damaged project state,
+  reproduced the sticky 2517. Removing that module alone restored operation;
+  manual Run → Reset was unnecessary. The persistent failure was therefore name
+  ambiguity from two public declarations, not project corruption.
+- Adding a VBComponent while the host holds run-state does display "this action
+  will reset your project", so the pre-modification reset is necessary.
+- Unqualified `Application.Run` continued resolving a host procedure while the
+  add-in was `VBE.ActiveVBProject`. Conversely, Reset control 228 followed
+  `ActiveVBProject` even with an add-in code pane focused. This differs from VBE
+  Save control 3, which the 2026-07-29 probes found follows the active document.
+
+**Options explored**:
+- **Keep an in-process reset immediately before `Application.Run`**: rejected.
+  The reset teardown lands in the next message pump, so this order creates the
+  failure deterministically rather than preventing it.
+- **Delete the reset entirely**: rejected. Live in-process component creation
+  produced the modal reset-project prompt when the host retained run-state.
+- **Reset in a separate add-in API call, then call `RunVBA` immediately**:
+  insufficient. `Execute` confirms only that the reset was queued; two consecutive
+  API calls do not prove that teardown completed between them.
+- **Separate reset call, benign COM barrier, fresh references, then `RunVBA`
+  (chosen)**: after the reset API returns, the Python worker reads a built-in
+  Access property to provide a message pump with no host VBA payload running,
+  reacquires the matching Access instance and add-in references, and only then
+  dispatches `RunVBA`. Reset refusal, malformed response, or barrier failure is
+  fail-closed.
+
+**Decision**: `ResetVbaProjectState` is a distinct JSON-returning API method,
+gated by `McpAllowRunVBA` and `ResetWouldEndOurOwnCode`. The MCP worker requires
+`success=true` and `resetQueued=true`, performs and verifies the barrier, and
+reacquires COM references before payload execution. `RunVBA` no longer resets on
+its own stack. Before adding a wrapper it removes stale `MCP_Temp_*` standard
+modules and aborts if any remain; after execution it retries and verifies removal.
+A post-compile accessor canary prevents payload side effects when the wrapper is
+unresolvable. Cleanup failures override success and preserve an already-computed
+return as `payloadResult`.
+
+**What this rules out**: Do not place `ResetCurrentVBProjectState` back inside
+`RunVBA`, add `DoEvents` after control 228, or proceed after an unconfirmed reset.
+Do not infer reset targeting from another VBE command: Reset 228 followed
+`ActiveVBProject` in these probes, while Save 3 followed the active document.
+Preserve the broader warnings around reset effects from the 2026-07-29 merge work;
+this probe does not reinterpret the earlier export crash. Revisit the COM barrier
+only if a supported Access version demonstrates that a successful post-reset
+property read can precede unfinished teardown.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/API/clsVersionControl.cls`
+- `Version Control.accda.src/modules/Core/modVbeUtility.bas`
+- `Version Control.accda.src/modules/Tests/Infrastructure/modTestRunVBA.bas`
+- `docs/mcp-runvba.md`
+- `msaccess-vcs-mcp/src/msaccess_vcs_mcp/vba_worker_manager.py`
+- `msaccess-vcs-mcp/tests/test_vba_worker_manager.py`
+## 2026-08-24 — FindSourceFile's new recursive fallback measured at ~8-17ms on a 140-file tree; no mitigation needed
+
+**Trigger**: The recursive-scan fallback added to `FindSourceFile` (see the paired
+"ScanFolderMetadata" decision below) only runs when the existing flat-root check misses. Before
+accepting it, measured its actual cost against a real, representative tree rather than assuming
+it was fine.
+
+**Options explored**:
+- **Skip benchmarking, reason from the design alone**: rejected. The design intent (only the
+  fallback path pays any new cost; the common case is unchanged) is a reasonable argument but not
+  a substitute for a real measurement on a real tree.
+- **Add caching/memoization of scan results across calls**: not needed — see decision below.
+
+**Decision**: Timed `FindFileRecursive` against `Version Control.accda.src\modules\` (140 files
+across ~10 subfolders, this add-in's own real module tree) for a guaranteed-miss lookup, 5 runs:
+7.8-16.6ms (avg ~13ms). The flat, single-extension `FSO.FileExists` baseline it's compared
+against: 0.0-2.9ms (avg ~0.6ms). The new fallback only executes when the flat check has already
+failed — i.e., only for a brand-new object placed directly in its real, nested `'@Folder` path
+rather than the flat root, a one-time-per-object event during development, not a hot loop
+executed on every import/export. At ~13ms worst case, no mitigation (caching, bounding the scan,
+etc.) is warranted.
+
+**What this rules out**: Revisiting this specific performance question unless a much larger tree
+(order of magnitude more files) is reported as slow in practice — this measurement is the
+baseline to compare against if that ever comes up.
+
+**Addendum**: `FindSourceFile` has exactly one caller (`ImportObject`) and no cross-call caching,
+so the ~13ms cost is paid **once per file that misses the flat check**, not once per import
+operation — importing N new nested-folder objects via N separate `ImportObject`/`vcs_import_object`
+calls re-scans the same tree N times (e.g. ~260ms total for 20 files on this tree size). Still
+small enough in absolute terms not to need a fix, but this is a per-file, not a one-time, cost —
+worth knowing if a future bulk-import scenario on a much larger tree makes the linear scaling
+matter. If that happens, an operation-scoped cache of the `ScanFolderMetadata` result (keyed by
+`BaseFolder`, invalidated at the start of each new top-level operation) would be the natural fix.
+
+**Relevant files**: `modFileWinAPI.bas` (`FindFileRecursive`), `clsVersionControl.cls`
+(`FindSourceFile`).
+
+---
+
+## 2026-08-24 — FindSourceFile subfolder lookup reuses ScanFolderMetadata rather than a new recursive walk
+
+**Trigger**: `clsVersionControl.ImportObject`'s fallback for a brand-new object (one that doesn't
+yet exist live, so `CurrentProject.AllModules`/`AllForms`/etc. can't resolve it) is
+`FindSourceFile`, which only checks `cComponent.BaseFolder & strObjectName & <ext>` — the
+component type's flat base folder, with no subfolder search. Any new object placed directly at
+its correct `'@Folder`-nested path (rather than the flat root as a manual workaround) is reported
+"Source file not found," even though the file genuinely exists on disk.
+
+**Options explored**:
+- **A new hand-written recursive FSO walk inside `FindSourceFile`**: rejected. Would duplicate an
+  already-solved problem in this codebase and risks being slower than necessary — `Scripting.
+  FileSystemObject` recursion issues many separate COM calls per folder/file, one of the exact
+  costs `modFileWinAPI`'s Win32-based scanners were written to avoid (see `AGENTS.md`'s File
+  System Operations section).
+- **`VCSIndex.GetCachedAnnotation`**: rejected. Requires an existing index entry keyed by
+  filename — a genuinely brand-new object has never been indexed, so there is nothing to look
+  up. Confirmed by reading `GetCachedAnnotation`'s own implementation before ruling it out, not
+  assumed.
+- **`modFileWinAPI.ScanFolderMetadata(folder, blnRecursive:=True)`**: chosen. Already implements
+  a single efficient `FindFirstFileW`/`FindNextFileW` recursive walk of an entire folder tree,
+  returning a `Dictionary` keyed by full file path with `(date, size)` per entry. Already used
+  for exactly this "scan a whole category folder once, cheaply" need in
+  `clsVCSIndex.GetModifiedSourceFiles`. Reusing it keeps the fix idiomatic (one scanning
+  convention across the codebase, not two) and gives predictable performance: the existing flat
+  check stays the fast, zero-cost common-case path; only a genuine miss pays for one recursive
+  scan, not a per-candidate-extension multiplied cost.
+
+**Decision**: `FindSourceFile` keeps its existing flat-root check unchanged (so the common case —
+an object already at the flat root, or already resolved by the live-object lookup one level up —
+has zero behavior or performance change). Only when that flat check finds nothing does it fall
+back to one `ScanFolderMetadata(cComponent.BaseFolder, blnRecursive:=True)` call, then checks each
+returned key's file name (via `FSO.GetFileName`) against the same candidate-extension list already
+used for the flat check, returning the first match.
+
+**What this rules out**: Any future FindSourceFile-adjacent code introducing its own ad hoc
+recursive-scan logic — `ScanFolderMetadata` is now the established pattern for "search this whole
+category folder once" and should be reused, not reinvented, the same way `GetModifiedSourceFiles`
+already does.
+
+**Relevant files**: `clsVersionControl.cls` (`FindSourceFile`), `modFileWinAPI.bas`
+(`ScanFolderMetadata`, read-only reference), `modTestFolderPlacement.bas` (new test).
+## 2026-08-24 — clsDbProperty detects unsettable database properties via a live write-back probe, not a hardcoded name list
+
+**Trigger**: `clsDbProperty.IDbComponent_Import` excluded only `Connection`, `Name`, `Version`,
+`CollatingOrder` by name from its settable-property loop. Every other read-only/computed
+`DAO.Database` member (`RecordsAffected`, `Transactions`, `Updatable`, `ReplicaID`,
+`DesignMasterID`, and any future one) was still offered as overridable, and a type-mismatched
+value for one of them could crash import with a raw `Run-time error '3001'` when
+`dbs.Properties(varKey).Value = varValue` was attempted.
+
+**Options explored**:
+- **Extend the hardcoded `Case` list** with the remaining known read-only members: rejected as
+  the primary fix. A name list only ever covers what someone happened to observe; it silently
+  goes stale against any DAO member not yet hit in practice (this investigation itself found
+  `DesignMasterID`, not previously on anyone's list) and duplicates knowledge DAO itself already
+  enforces at runtime.
+- **Generic, live detection via a same-value write-back probe**: chosen. Tested directly against
+  a real `CurrentDb.Properties` collection (not assumed): for every property, read its current
+  value and immediately write that same value back, under `On Error Resume Next`. Every one of
+  the known-unsettable properties failed this trivial no-op write with a real, catchable error —
+  `Name`, `Transactions`, `Updatable`, `CollatingOrder`, `Version`, `RecordsAffected`, `ReplicaID`
+  all raised error 3001 ("Invalid argument"); `DesignMasterID` raised 3032 ("Cannot perform this
+  operation"). Every genuinely settable property raised nothing. This matches the underlying DAO
+  reality directly: a `DAO.Database`'s `.Properties` collection always contains an entry for
+  every one of its own built-in interface members (some read-only, no setter) alongside any
+  custom, `Properties.Append`'d property (always writable by definition) — whether a given entry
+  is actually settable is a real, checkable runtime fact, not something that needs a maintained
+  list to approximate.
+
+**Decision**: `IDbComponent_Import` now determines settability per-property via this probe
+(read current value, attempt writing it back unchanged, catch any error) immediately before
+attempting the real, caller-supplied value assignment — skipping the property (not erroring)
+when the probe itself fails. `Connection` keeps its own explicit exclusion (an object-typed
+property, structurally different from the scalar values this probe handles) rather than being
+folded into the generic check. The prior name-based exclusions for `Name`/`Version`/
+`CollatingOrder` are superseded by the generic probe, which catches them (and everything else)
+without needing their names hardcoded at all.
+
+**What this rules out**: Adding new database-property names to a hardcoded exclusion list going
+forward — the generic probe already covers any current or future read-only/computed member
+without maintenance. Attempting to derive settability from a property's `.Type` or any other
+static attribute — the live write-back probe is the only mechanism confirmed (by direct testing,
+not documentation alone) to distinguish settable from unsettable reliably.
+
+**Addendum**: skipping an unsettable property silently would hide a real, potentially meaningful
+case — the source file's recorded value for a read-only property (e.g. `CollatingOrder`) genuinely
+differing from the live database's actual value, which could indicate the database was created
+under different regional/locale settings than its own history implies. (This gap already existed
+for the three previously hardcoded exclusions, `Name`/`Version`/`CollatingOrder`, which were
+skipped with zero comparison or logging — this fix does not make that worse, and actually
+improves it.) `PropertyIsSettable`'s caller now compares the source value against the live value
+before skipping, and logs (`Log.Add`, matching this codebase's existing `T()`-translated logging
+convention used elsewhere for import-time fallbacks) when they genuinely differ, rather than
+silently discarding the mismatch either way.
+
+**Addendum 2**: the crash's own original trigger is a type-mismatch comparison, not just a
+missing settability check — a JSON value serialized as the String `"0"` for a property whose
+declared Type is `dbLong` makes `varValue <> dExisting(varKey)(0)` evaluate `True` even though
+the values are equal, because `varValue` never gets coerced to the declared type before the
+comparison. That spurious "difference" is what triggers a write attempt against a read-only
+property in the first place (the `PropertyIsSettable` guard above stops the crash once a write is
+attempted, but doesn't stop the unwanted attempt from being triggered at all). Added
+`CoercePropertyValueType`, converting the raw imported value to its declared Type's native
+Variant subtype (mirroring the same DAO `DataTypeEnum` groupings a sibling project's own
+`ResponseFileHandler.ConvertPropertyValue` fix already established as correct, just applied here
+defensively on the *import* side so the add-in doesn't depend on any particular caller's exporter
+having already normalized types) immediately after the existing date-conversion step, before any
+comparison happens.
+
+**Relevant files**: `clsDbProperty.cls` (`IDbComponent_Import`, `PropertyIsSettable`,
+`CoercePropertyValueType`).
+
+---
+
+## 2026-08-21 — DAO Field.Scale for Decimal export; ADO ALTER for DAO import (issue #756)
+
+**Trigger**: Issue #756. v5 `SaveTableSqlDef` read `fld.NumericScale` (an ADO name) on `DAO.Field3`, raising runtime 438 on any table with a Decimal column and aborting export. The same typo in `modTableDefBuilder.AppendField` tripped the fast-path circuit breaker. Live probe on Access 16.0 confirmed `Precision`/`Scale` read correctly, `NumericScale` always 438s (Field3 is IDispatch-extensible so it compiles), `CreateField(dbDecimal)` materializes as `dbBigInt`, and only `CurrentProject.Connection.Execute ALTER COLUMN ... DECIMAL(p,s)` creates a real Decimal.
+
+**Options explored**:
+- **Assign `fld.Scale` before append**: rejected. Setter appears to succeed but values stay 0; appended type is `dbBigInt`, not `dbDecimal`.
+- **Decline Decimal at parse time**: rejected. Would force every Decimal table through ImportXML even when the DAO path is otherwise correct.
+- **DAO `Database.Execute` for DECIMAL DDL**: rejected. Syntax errors 3292/3293; ACE requires ADO for DECIMAL DDL.
+- **Read `Scale`, ADO ALTER after append**: chosen for import; read-only fix for export.
+
+**Decision**: `SaveTableSqlDef` emits `fld.Scale`. `modTableDefBuilder` keeps `CreateField(..., dbDecimal)` for index binding, drops the broken Precision/NumericScale assignments, and runs `CurrentProject.Connection.Execute` `ALTER COLUMN ... DECIMAL(p,s)` per decimal field after `TableDefs.Append`, re-fetching through a fresh `CurrentDb` before applying properties. Bump `GetExporterRevisions` `Tables` so stale `.sql` sidecars re-export.
+
+**What this rules out**: Using `NumericScale` on DAO Field objects anywhere. Expecting DAO to create or ALTER Decimal types. ADOX catalog reads for precision/scale.
+
+**Relevant files**: `clsDbTableDef.cls`, `modTableDefBuilder.bas`, `modConstants.bas`, `modTestTableDef.bas`, `Testing/Fixtures/tabledefs/tblDecimal.xml`.
+
+---
+
+## 2026-08-21 — A test run is refused when the installed add-in is the current database
+
+**Trigger**: Agents kept opening the installed add-in as a database to run the
+add-in's tests, and the documentation had drifted far enough to encourage it —
+one revision even called a run hosted there acceptable. A run in that
+configuration produced sixteen failures that said nothing about the code under
+test, and `ExecuteTests` would have gone on to install `modTestAssert` into the
+VBA project it was executing in.
+
+A test run needs two projects. The installed add-in, loaded as a library, owns
+the runner singleton and the `TestAssert` every assertion routes through; the
+code under test is whatever `CurrentVBProject` holds, which is the development
+copy in the repository. Those roles are what make the suite work, and they are
+different files. Opening the install as the current database collapses both onto
+one file: scanning finds the library's own components, the export folder beside
+it has no source tree for the tests that read one, and any module the runner
+installs lands in a project that is mid-execution.
+
+**Options explored**:
+- *Documentation only* — already tried and already failed. Prose had been
+  contradicting itself on this point for a while, and each agent that read the
+  wrong sentence repeated the same mistake.
+- *Make the failing tests tolerate the configuration* — a skip guard in
+  `modTestContainers` was written first and then withdrawn. It treats the
+  symptom, and worse, converts a genuinely missing source tree into a silent
+  pass in the configuration where the files are supposed to exist.
+- *Refuse in `TestRunner.Scan`* — too deep. By then `modTestAssert` may already
+  have been installed into the wrong project, which is the damage worth
+  preventing.
+- *Refuse in `ExecuteTests`, before anything writes* — chosen. It is the single
+  choke point behind `RunTests`, `RunFilteredTests`, and `RunTestsHeadless`, and
+  it sits above the `TestAssertModuleExists` branch, so no entry point can reach
+  the project-modifying path.
+
+**Decision**: `ExecuteTests` refuses when `modInstall.CurrentDbIsInstalledAddIn`,
+naming the development copy as the host. The comparison ignores the extension, so
+an install configured for the compiled `.accde` still matches the `.accda` it was
+built from; `PathsMatchIgnoringExtension` carries that rule and is tested
+directly. `modTestContainers` fails rather than skips when a component's source
+file is absent, since in the only sanctioned configuration it is present.
+
+`clsTestInstall.TestTestsAreNotHostedOnTheInstalledAddIn` asserts the guard let
+the run through, which is only reachable when it did — a passing suite therefore
+proves its own host was right.
+
+**What this rules out**: the installed add-in can no longer host a test run at
+all, so nothing may be added that depends on doing so, and a run hosted there is
+now a refusal rather than a pile of misleading failures. Documentation that
+describes running tests or rebuilding must name the development copy; the same
+mistake reached the MCP server's tool instructions, where the rebuild host had
+been described as "a user database Access already has open."
+
+**Relevant files**: `modInstall.bas` (`CurrentDbIsInstalledAddIn`,
+`PathsMatchIgnoringExtension`), `clsVersionControl.cls` (`ExecuteTests`),
+`clsTestInstall.cls`, `modTestContainers.bas`, `docs/agent-test-runs.md`,
+`docs/agentic-rebuild.md`, `AGENTS.md`, `Testing/AGENTS.md`, and in
+`msaccess-vcs-mcp`: `src/msaccess_vcs_mcp/tools.py`.
+
+---
+
+## 2026-08-21 — The API dispatches to the installed add-in only when it is a different file
+
+**Trigger**: Agents repeatedly did two things they are told not to: importing
+source files into the installed add-in, and opening `Testing\Testing.accdb`
+believing that is how the add-in's tests are run. The documentation said
+otherwise, so the question was what was overriding it.
+
+The cause was a defect, not a docs gap. `modAPI.API` redirected to the installed
+add-in whenever `RunningOnLocal()` — current database and running code are the
+same file. That is true of a development copy open as the current database, where
+redirecting is the point, and equally true of the *installed* add-in open as the
+current database, where `GetRunCmdAddInFullLibName` resolves to that same file.
+`Application.Run` re-entered `API` while the outer call still held its
+`Static IsRunning`, so every such call returned `VCS_API_REFUSED`.
+`RefuseReentrantCall` then blamed `vcs_run_vba` nesting and advised invoking API
+methods directly, so the agent concluded it needed a different host database and
+found the sample one.
+Separately, every refusal in `RebuildAddIn` returned without touching
+`rebuild-status.json`, leaving a prior run's `complete` for the caller to poll —
+so a refused rebuild read as a successful one, and an agent whose edit then had
+no effect reached for a direct import.
+
+**Options explored**:
+- *Documentation only* — clarify the routing and add an agent-facing test-run
+  reference. Necessary but not sufficient: agents were already following the
+  documented path into a hard failure, and better prose does not make a false
+  error message true.
+- *Drop the `RunningOnLocal` redirect entirely* — simplest, and wrong. It exists
+  so a call made from a development copy runs against the installed add-in rather
+  than the half-edited local project (#593). Removing it would break the case it
+  was added for.
+- *Compare full paths including extension* — would misread an installed `.accde`
+  as a different file from the `.accda` it was built from, restoring the loop for
+  compiled installs.
+- *Compare the extension-less path against the redirect target* — chosen.
+  `RedirectTargetIsSelf` builds exactly the string `Application.Run` is handed
+  and compares it to the running code project, so the question asked is precisely
+  "would this dispatch land back here."
+- *For the status file: write a refusal record at each refusal site* — rejected
+  in favor of claiming the file with a `starting` record before any check that can
+  refuse, plus one write at `Finish`. A path added later cannot forget to.
+- *Add a `runId` to the status schema* for correlation, as the MCP-side handoff
+  suggested — unnecessary. The writer already preserves `phaseStarted` across
+  phase updates, so stamping it once per attempt makes it the attempt's identity
+  with no schema change and no churn in the hand-rolled writer twin in
+  `clsWorker.cls`.
+
+**Decision**: Redirect only when the installed add-in is a different file than
+the one running. Give `RefuseReentrantCall` a reason so a self-dispatched refusal
+says it is a defect here and that no choice of host will help, rather than
+sending the caller looking for one. Have every rebuild attempt that reaches a
+valid source folder claim the status file first and record its own verdict, with
+`phaseStarted` fixed for the run and returned to the caller. On the MCP side,
+narrow the self-host refusal from every add-in API method to the ones that
+replace the installed file — with the dispatch loop fixed, the blanket refusal
+was itself the thing pushing callers into hunting for a host database.
+
+The trade-off is that self-hosting is now legal for most methods, so the add-in
+must tolerate being its own current database. It already did; nothing depended on
+the redirect firing in that case, because in that case the redirect never
+completed.
+
+**What this rules out**: `RunningOnLocal()` on its own can no longer be read as
+"redirect needed" — anything added to those entry points has to ask
+`RedirectTargetIsSelf` as well. A status file at `<source>\logs\` may now be
+written by an attempt that never launched anything, so a reader must correlate on
+`phaseStarted` rather than assume any record it finds describes a real build.
+Revisit if a file-replacing API method other than `RebuildAddIn` appears, which
+would need adding to `_ADDIN_FILE_REPLACING_METHODS` on the server rather than
+reinstating a blanket refusal.
+
+**Relevant files**: `modAPI.bas` (`RedirectTargetIsSelf`, `RefuseReentrantCall`,
+`API`, `APIAsync`), `clsVersionControl.cls` (`RebuildAddIn`), `clsTestInstall.cls`,
+`docs/agent-test-runs.md` (new), `docs/agentic-rebuild.md`, `AGENTS.md`,
+`Testing/AGENTS.md`, and in `msaccess-vcs-mcp`: `src/msaccess_vcs_mcp/tools.py`,
+`tests/test_call_vba_guards.py`, `docs/ADDIN_FIXES_HANDOFF.md`.
+
+---
+
+## 2026-08-21 — Git conflict-marker scan must use vbBinaryCompare
+
+**Trigger**: Full builds of the add-in regressed from ~12s to ~25s after
+`c3c37c23` added a per-file conflict-marker scan at import chokepoints. The
+Modules category jumped from ~3.6s to ~16s while every named operation inside it
+stayed flat; ~15s landed in "Other Operations" because the scan had no Perf probe.
+Instrumented `LoadComponentFromText` rose from 0.20s to 2.69s over the same 24
+calls — its only new work was three `FileHasGitConflictMarkers` calls.
+
+**Root cause**: `modFileAccess` uses `Option Compare Database`, so bare `InStr`
+and `Replace` calls in the scan inherited database/text collation. Scanning ~5 MB
+of source at ~370 KB/s through that path added ~13s per build. A second cost was
+`CountCompleteLines` running over every clean single-chunk file even though the
+running line count is never read on the last chunk.
+
+**Decision**: Pass `vbBinaryCompare` explicitly on every `InStr`/`Replace` in the
+conflict-marker scan and in `NormalizeLineEndings` (ASCII markers and line-ending
+bytes only). Skip line counting on the final read chunk. Wrap
+`GitConflictMarkerLineInFile` in a `"Scan Conflict Markers"` Perf operation so
+future regressions surface in build logs. Hold back deduplicating the scan with
+the subsequent `ReadFile` in module import — that changes rejection order.
+
+**Relevant files**: `modFileAccess.bas`, `modTestGitConflictMarkers.bas`.
+
+---
+
+## 2026-08-21 — Root operation ownership: two lease forms, inert non-singleton instances, no child scopes
+
+> **⚠ Partially superseded** (2026-10-20): A root still captures `Attended`, but
+> outside a live root `Attended` now describes the incoming caller, and the prompt rule
+> moved from `PromptWouldDisplay` to `Operation.AllowsPrompt`. An unattended caller is
+> never prompted, and a gesture prompt also shows to an attended caller who acts while
+> another caller's unattended root runs. See "An unattended caller is never prompted"
+> above.
+
+**Trigger**: Operation state was a global mutable with split teardown ownership —
+nested work could restore `InteractionMode` while `Operation.Finish` released `Log`
+and recreated it with `Active = False`. The visible symptom was a modal `Log.Error`
+dialog during a test suite. Writing lifecycle tests then exposed a second structural
+problem: every test already runs inside the runner's root, so a test that touched
+`Operation` either hit a refusal dialog or completed the *runner's* root, running
+`ReleaseObjects` and destroying `Log` and `TestRunner` mid-run.
+
+**Options explored**:
+
+- **Guard `MsgBox2` / `Log.Error` only during tests** — hides the symptom; does not fix
+  split ownership or nested `Finish` tearing down parent singletons.
+- **Opaque key on `Finish`** — rejected; keys must be threaded through every exit path
+  including `ErrHandler`, and duplicate `eotOther` frames need instance tokens anyway.
+- **A test-only reset method on `clsOperation`** — the singleton is exactly the thing
+  the enclosing run depends on; a bug in the reset corrupts the run rather than
+  failing a test.
+- **Test only through the public flows** (`BuildHeadless`, `RunTests`) — leaves lease
+  validation, token mismatch, orphan unwinding, and pause nesting unreachable, which
+  is most of what the refactor is for.
+- **Migrate every entry point to leases** — uniform, but 34 synchronous API entry
+  points in `clsVersionControl` would each carry a lease variable and `Complete` on
+  every exit path, for no gain when the work never crosses a boundary.
+- **Drop leases for `Begin`/`Finish` everywhere** — loses token-validated timer
+  continuations, exactly-once completion, and the `Class_Terminate` abandonment safety
+  net. `ExecuteTests` has no error handler around its run body, so an unhandled error
+  would leave the root in `eosRunning` until heartbeat timeout.
+- **Child scopes as a nested frame stack** — built, then removed before it had a caller
+  that needed one; see rule 3.
+
+**Decision**: Three rules define a root.
+
+1. *Ownership has two documented forms, not a legacy one and a modern one.*
+   `clsRootOperationLease` for async, cross-module, and conditional ownership;
+   `Operation.Begin`/`Finish` for single-procedure synchronous work, whose one
+   constraint is that `Finish` performs no ownership check. Effective interaction mode
+   is the strictest active request; `Attended` is a root capability derived from
+   `AutomationSource` and `ForceUnattended`. `Operation.Stage` and `Operation.Restore`
+   are deleted — both had zero callers, and `Restore` resumed the root into a local
+   lease that abandoned it on scope exit.
+
+2. *An instance is inert unless it is the session singleton.* Registry writes, the MCP
+   completion callback, VBE error trapping, and `ReleaseObjects` are gated on
+   `IsSessionSingleton`, and only that instance adopts crash-recovery state from the
+   registry — which `modObjects` signals with `CreatingOperationSingleton`, since the
+   instance cannot compare itself to a variable it is still being assigned to. Leases
+   and pauses hold the instance that issued them rather than reaching for the global
+   `Operation`. A `New clsOperation` is therefore a complete, inert lifecycle a test
+   can drive without touching the session.
+
+3. *There are no child scopes.* All three `TryBeginScope` call sites were test
+   infrastructure requesting the same `eotOther` + `eimSilent`, never nesting deeper
+   than one, and the policy table guarding database mutation under an in-flight build
+   had no live enforcement surface. `RootOperationType` and `OperationType` collapse
+   into `OperationType`, which fixes a latent bug: the bridge's own `eotOther` scope
+   made `BridgeCancel`'s `OperationType = eotTestRun` comparison false for an entire
+   run, surviving only because that check is `Or`-ed with `TestRunner.State`. A routine
+   that may run nested tests sets `OperationType = eotTestRun` and owns nothing when it
+   is; `AcceptBridgeRun` forces silence on the root right after `TryBeginRoot` rather
+   than through a scope. `clsOperationPause` is unaffected and remains the way to
+   suspend a root around foreign code — it absorbed `EnterSyncSuspend` /
+   `ExitSyncSuspend`, so it now suspends the root rather than only swapping error
+   trapping, and pauses nest.
+
+Supporting changes: `PromptWouldDisplay` extracts the prompt-versus-log rule out of
+`MsgBox2` so tests can assert the policy without risking a dialog; `MsgBox2` gains
+`blnUserGesturePrompt` for attended cancel confirmations without relaxing silent mode;
+`InteractionMode` ignores a relaxing assignment only while a root is active, so
+completing a root resets it and headless callers no longer restore it by hand; a
+refused root logs rather than prompts for automated or explicitly unattended callers;
+portable utility classes (`clsConcat`, `clsLblProg`) raise programmer errors with
+`Err.Raise` instead of `MsgBox`; and `clsTestRunner.Class_Terminate` clears
+`TestRunActive` when `ReleaseObjects` drops the runner singleton — the same teardown
+chain that completes an abandoned root lease. Four test-module `eimSilent` guards stay:
+they exist for standalone F5 runs where there is no root and `TestRunActive` is false.
+
+**What this rules out**: Concurrent nested operations of different types, and any
+policy enforced at a nesting boundary — should a real need appear, such as a merge
+inside an export, reintroduce it for that case rather than restoring the general stack.
+Also rules out treating `Begin`/`Finish` as debt to be migrated wholesale; moving the
+two cross-form pairs (`ShowOptions`, `SplitFiles`) to leases stored on the form is the
+next ownership improvement, not a blanket lockdown.
+
+**Relevant files**: `clsOperation.cls`, `clsRootOperationLease.cls`,
+`clsOperationPause.cls`, `modObjects.bas`, `modBuild.bas`, `modTimer.bas`,
+`modAPI.bas`, `modUIUtil.bas`, `modStaging.bas`, `modDatabase.bas`, `clsLog.cls`,
+`clsConflicts.cls`, `clsTestRunner.cls`, `clsVersionControl.cls`,
+`modTestRunnerUI.bas`, `modTestRoundtrip.bas`, `modTestQuerySqlBuilder.bas`,
+`modTestOperationLifecycle.bas`, `docs/automation-contract.md`,
+`docs/testing-strategy.md`, `.cursor/rules/testing.mdc`. Deleted:
+`clsOperationScope.cls`, `modTestOperationNesting.bas`.
+
+---
+
+## 2026-08-21 — A test run spans two VBA projects, so suppression is pushed, not inherited
+
+**Trigger**: A test run displayed a message box even though the run held a silent,
+unattended root operation. Investigation found the cause is structural: the
+installed add-in drives the run, but `clsTestRunner` invokes test procedures in
+`CurrentVBProject`. Testing this repository loads two copies of the same project,
+each with its own `modObjects.Operation`. The driver's root, interaction mode, and
+`Attended` capability are invisible to the copy the tests execute in, and a test
+calling `MsgBox2` resolves to that copy, which sees an idle operation in normal
+mode. A user database has the same split and no operation API at all.
+
+**Options explored**:
+- **Persist mode and `Attended` to the registry alongside the existing
+  crash-recovery keys, and have `PromptWouldDisplay` fall back to them** — reuses a
+  mechanism already in `clsOperation` and needs no cooperation from the hosted
+  project, but puts a registry read on every prompt and still does nothing for a
+  user project whose own code raises the prompt.
+- **Have the hosted project pull the state** (`Application.Run` back into the
+  add-in from `PromptWouldDisplay`) — no new state, but a cross-project round trip
+  per prompt, and it fails closed to "prompt" exactly when the add-in is unreachable.
+- **Push a flag into `modTestAssert` (chosen)** — the one module the add-in installs
+  and maintains in every project that runs tests, already the channel for
+  `TestAssert`, `TestClassFactory`, and the global hooks.
+- **Leave the product alone and delete the cross-project assertions** — rejected;
+  the dialog that started this is a real stall, not a test artifact.
+
+**Decision**: `clsTestRunner.SetHostedTestRunFlag` calls
+`modTestAssert.SetTestRunActive` at run start and in the runner's `CleanUp`, which
+is on every exit path. It goes through `GlobalProcExists` and `BuildRunCmd` — path
+qualification matters more here than anywhere else, since both projects are named
+`MSAccessVCS` and both contain a `modTestAssert`. The module exposes a plain
+`Public TestRunActive As Boolean`; a setter exists only because `Application.Run`
+reaches procedures, not variables. `modUIUtil.PromptWouldDisplay` returns `False`
+whenever the flag is set, gesture prompts included: during a run the runner is the
+caller, so there is no gesture behind the prompt and a dialog stalls the suite.
+User projects get the same flag to guard their own prompts.
+
+A self-expiring variant (a heartbeat refreshed by every `TestAssert`, expiring
+after ten minutes) was implemented and then removed as unjustified complexity in a
+file that ships to users. The exposure is a run whose driver dies while the hosted
+project's VBA state survives — mostly rebuilding the add-in mid-run in this repo —
+and the next run's start clears it.
+
+**What this rules out**: Tests asserting the driver's operation state from inside a
+test; `modTestOperationLifecycle` drives private
+`clsOperation` instances instead, and `modTestPromptSuppression` asserts the flag
+and `PromptWouldDisplay` rather than `Operation.Status`. Also rules out suppression
+for projects whose `modTestAssert` predates this, since installed copies are never
+auto-upgraded. Revisit if prompts need to distinguish kinds during a run, or if
+`modTestAssert` gains a version stamp that would let the runner detect a stale copy.
+
+**Relevant files**: `modTestAssert.bas` (`TestRunActive`, `SetTestRunActive`),
+`clsTestRunner.cls` (`SetHostedTestRunFlag`, `BuildRunCmd`), `modUIUtil.bas`
+(`PromptWouldDisplay`), `clsVersionControl.cls` (`InstallTestAssertModule`
+template), `modTestPromptSuppression.bas`, `docs/testing-strategy.md`.
+
+---
+
+## 2026-08-20 — Reject source files with unresolved Git conflict markers on import
+
+**Trigger**: An unresolved Git merge left `<<<<<<<` / `>>>>>>>` markers in a
+form source file. Merge reported Access's opaque `Expected: 'End'. Found: <`
+instead of naming the real problem.
+
+**Options explored**:
+- **Preflight scan of every file in the merge list before backup** — rejected:
+  duplicates work already done at import time and adds a full-tree read on every
+  merge even when nothing is wrong.
+- **Check only inside `LoadFromText` error handlers** — rejected: VBA modules import
+  without syntax validation, so marker-corrupted `.bas` files compile-fail much
+  later with no link back to the source file.
+- **Path-based scan immediately before each load (chosen)** — one function,
+  `FileHasGitConflictMarkers`, called at existing import chokepoints. Uses chunked
+  stream reads (not `ReadFile`, which allocates normalized strings) with a
+  25 MB size gate; table-data XML over the limit still gets explained on the
+  failure path.
+
+**Decision**: scan for `<<<<<<<` and `>>>>>>>` only when they appear at the start
+of a line (Git always writes markers at column 0). Do not scan for `=======`,
+which appears legitimately in comment separators. Skip binary extensions (`.frx`,
+`.thmx`, image files). Log `eelError`, skip the file, and let the rest of the
+merge continue. No export-format version gate — import-side validation only.
+
+**What this rules out**: treating indented or quoted marker text as a conflict;
+using `ReadFile`/`NormalizeLineEndings` for the scan; reusing the name
+"conflict" without the `Git` qualifier (that term already means database-vs-source
+divergence in `clsConflicts`).
+
+**Relevant files**:
+- `modFileAccess.bas` — `GitConflictMarkerLine`, `FileHasGitConflictMarkers`,
+  `GitConflictMarkerLineInFile`, `LogGitConflictMarkerIfPresent`
+- `modLoadSaveText.bas` — pre-load guard on primary + companion files
+- `ReadJsonFile` — covers all JSON-based component types
+- `clsDbModule.cls`, `clsDbTableDef.cls`, `clsDbTableData.cls`, `clsDbVbeForm.cls`
+- `modTestGitConflictMarkers.bas`
+
+---
+
+## 2026-08-18 — Share assertion records instead of deep-copying them
+
+**Trigger**: With the JSON emitters in place, a traced cold open still spent
+962 ms overlaying prior results and the teardown 1.32 s
+(`TestRunnerDiag_20260818_121153.log`). Per-test spans localized both to loops
+that rebuilt every assertion as a fresh `Scripting.Dictionary`: 411 calls of
+`state.ser.record` totalling 920 ms in the teardown
+(`TestRunnerDiag_20260818_123053.log`), and `merge.clone_assert` 915 ms over
+2,127 assertions on the open path (`TestRunnerDiag_20260818_123634.log`).
+
+**Measurement**: creating a `Scripting.Dictionary` costs **~0.4 ms in a live
+Access session** — 2,127 of them is ~0.9 s — against ~6 µs for the same
+statement in a headless instance, which is why a standalone replica of the loop
+ran ten times faster and hid the cost. Three independent confirmations: (1) in
+the same trace `merge.counts` walks those same 411 tests and 2,127 assertions
+read-only in 14.8 ms, so only the allocation is expensive; (2) `ser.assert`
+independently measured ~370 µs per assertion; (3) `DiagBeginQuiet` allocates one
+Dictionary per span, and adding 411 spans between two runs moved
+`state.ser.record` from 920 ms to 1134 ms — 520 µs per span. Separately,
+`TypeName()` on a `Scripting.Dictionary` costs ~410 µs per call versus 0.2 µs on
+a VBA `Collection`; `TypeOf x Is Collection` is free.
+
+**Options explored**:
+- **A cheaper record type for assertions** (UDT array, packed string, or
+  3-element Variant array) — rejected: every consumer (state emitter, JUnit
+  export, HTML report, merge-scan, UI batch) would have to learn a new shape for
+  a problem that is purely allocation.
+- **Emit `test-state.json` directly from the runner with no dictionary tree** —
+  rejected for now. `MergeAndSave`'s root is consumed downstream as data (cache
+  seed, `ExportFromState`, HTML report), not merely serialized, so the tree has
+  to exist in some form.
+- **Share the write-once assertion collections (chosen)** — nothing mutates an
+  assertion record in place; every producer replaces the whole collection.
+
+**Decision**: three sites now alias the existing collection instead of
+deep-copying it — `clsTestRunner.StateAssertions` (replacing
+`CloneAssertionsFromState`) on the open path, `MergePriorTestResult` (replacing
+`CloneAssertionResults`), which carried the same cost unmeasured on the warm
+**Refresh** path, and `SerializeTestRecord` in the teardown. The invariant is
+documented at `StateAssertions`. Also replaced the per-test linear scan of
+`TestRunner.LastRunKeys` in `WasExecutedThisRun` with a case-insensitive
+Dictionary set built once per save (`BuildLastRunKeySet`); it was quadratic in
+suite size, ~92 ms at 411 tests and growing with the square.
+
+**What this rules out**: mutating an assertion record in place, anywhere. A
+producer must replace the whole collection (`Set dTest("assertionResults") = New
+Collection`), which every current site already does; an in-place edit would now
+corrupt both the durable-state cache and the merge-scan snapshot, since all
+three trees can share the same records. It also rules out `DiagBegin` /
+`DiagBeginQuiet` spans inside loops over thousands of items — at ~0.5 ms per
+span the instrumentation distorts what it measures — and argues against
+`TypeName()` on Dictionary-valued expressions in any hot path.
+
+**Relevant files**:
+- `clsTestRunner.cls` — `StateAssertions`, `MergePriorTestResult`,
+  `MergeStateResults` (`merge.counts` span retained)
+- `modTestState.bas` — `SerializeTestRecord` aliases assertions,
+  `BuildLastRunKeySet`, `WasExecutedThisRun`
+
+**Verification**: `TestRunnerDiag_20260818_124530.log` — `hydrate.inline` 962 ms
+→ **75.9 ms**, `state.serialize` 1058.8 → **156.2 ms**, `teardown` 1322 →
+**392.7 ms**, `hide` 11.8 ms. Content is unchanged: that run's
+`test-state.json` still carries 411 test records with all 2,127 assertion
+records (`seq`, `context`, and message intact), summary 411 subs / 2,127
+assertions / 0 failed.
+
+---
+
+## 2026-08-18 — Overlap the durable-state parse with the WebView2 cold start
+
+**Trigger**: a cold open still took 10.3 s to show prior results after the JSON
+emitters landed (`TestRunnerDiag_20260818_112934.log`).
+`WaitForWebRunnerReady` spins on `DoEvents` for the entire WebView2 first-init
+(~3.4 s) doing nothing, while every piece of browser-independent VBA work — the
+`test-state.json` parse (1.06 s) and the test scan — ran *after*
+`DocumentComplete`, because the overlay is triggered from `NotifyDocumentReady`.
+
+**Options explored**:
+- **A Windows API timer to decouple the work** — unnecessary. The readiness wait
+  is already a message pump, so a step placed between its `DoEvents` calls runs
+  without new machinery and in deterministic order.
+- **Drive it from `Form_Timer`** — rejected: that loop's own `DoEvents` is what
+  dispatches timer ticks, so it would need a re-entrancy guard for no benefit.
+- **Prefetch everything** (scan, tree JSON, and results batch as well) —
+  deferred. The parse alone now fills the available window; see below.
+- **Prefetch the state parse only, into the existing session cache (chosen)**.
+
+**Decision**: `PrefetchDurableState` runs from the wait loop, once per open,
+calling `modTestState.PrefetchState` — which is just `LoadState`, so the existing
+path + mtime + size cache absorbs it with no new state to keep coherent. When
+`modTestState.StateCached` is then True, `RefreshWebTestTreeDeferred` merges
+inline and pushes only `onHydrateEnd`, skipping the deferred hydrate: raising the
+indicator costs a `window.__hydratePainted` round trip plus a 600 ms
+minimum-visible hold to announce work that is already finished. The prefetch is
+wrapped in the standard `DebugMode` / `CatchAny` guard and sets its flag before
+the work, so a missing or corrupt state file can never break the open.
+
+Measured: the parse (1.48–1.53 s) runs entirely inside the wait and
+`DocumentComplete` slips ~0.4 s, so ~1.1 s is genuinely hidden. The parse itself
+runs ~40% slower than it did on the critical path (1.06 s → ~1.5 s), almost
+certainly CPU contention with the browser processes starting up.
+
+**What this rules out**: treating VBA work in the wait loop as free. WebView2
+initializes out of process and keeps progressing while VBA holds the thread, but
+its COM callbacks (`BeforeNavigate`, `DocumentComplete`) queue until we pump —
+observably so: the `about:blank` `beforenavigate` sat at +1116 ms before the
+prefetch (`TestRunnerDiag_20260818_112934.log`) and now arrives at +1680 ms,
+39 ms after the parse releases the thread. Anything further added here therefore
+delays page readiness by its own duration now that the window is saturated,
+which is why the scan was left where it is. The deferred
+hydrate path must also stay: it still covers the cases where no state file
+exists or it changed after the prefetch.
+
+**Relevant files**:
+- `modTestRunnerUI.bas` — `PrefetchDurableState`, wait-loop call,
+  `RefreshWebTestTreeDeferred` inline-merge branch, `m_blnStatePrefetched`
+- `modTestState.bas` — `PrefetchState`, `StateCached`
+- `docs/web-test-runner.md` — "Tree refresh and hydration"
+
+**Verification**: prior results painted at +10.32 s before the prefetch, +6.38 s
+with it (`TestRunnerDiag_20260818_121153.log`), and +5.33 s once the assertion
+aliasing above landed (`TestRunnerDiag_20260818_124530.log`: `state.prefetch`
+1482.9 ms sitting between `navigate.call` and `documentcomplete`, `wait.ready
+afterMs=5253`). Subtract the 1.01 s first `js.retrieve`, which only exists in
+traced sessions, for the ~4.4 s a user sees.
+
+---
+
+## 2026-08-18 — Fast JSON emitters for test-runner teardown artifacts
+
+> **⚠ Partially superseded** (2026-08-18): the closing claim that the remaining
+> floor is the ~1.3 s dictionary build no longer holds — that build was
+> allocation-bound and is now 156 ms. See "Share assertion records instead of
+> deep-copying them" above.
+
+**Trigger**: With ~2K assertions the web test runner's post-run pause measured
+13.6 s (`TestRunnerDiag_20260818_094814.log`). 94% was VBA JSON work: the same
+payload was serialized or parsed four times (`results.json`, `state.json`, two
+`state.parse` passes for merge load and JUnit export). Pretty-print whitespace
+accounted for 33% of the 435 KB `test-state.json` file.
+
+**Options explored**:
+- **Drop `logs/TestResults_<timestamp>.json` on interactive runs** — rejected.
+  Agents are directed to that file when a user runs tests manually and reports
+  back; `CleanupOldLogs` leaves older headless snapshots on disk, so omitting the
+  write would silently serve stale results.
+- **Trim assertion records to per-test counts** — rejected for now; all detail
+  is preserved.
+- **Binary durable state (vcs-index.idx precedent)** — deferred pending
+  re-measure; the pause is write-side and `test-results/` is gitignored.
+- **Schema-specific `clsConcat` emitters + JUnit dictionary reuse + session
+  cache (chosen)** — `modJsonEmit` emits `test-state.json` (one line per test
+  record, no indentation) and the per-run results file straight from
+  `this.Tests` without building a parallel dictionary tree. `MergeAndSave`
+  returns the merged root for `ExportFromState`; `LoadState` caches by path +
+  mtime + size.
+
+**Decision**: Replace `ConvertToJson` on the two large test artifacts with
+`modJsonEmit.EmitTestStateJson` and `modJsonEmit.EmitTestResultsJson`. JUnit
+export accepts the in-memory merged dictionary from the same teardown pass.
+Expected interactive teardown: ~2.2 s on subsequent runs in a session (~2.9 s
+first run while `state.serialize` still builds ~2,400 Dictionary objects).
+Remaining floor is that dictionary build (~1.3 s), not serialization.
+
+**What this rules out**: Using `ConvertToJson` for `test-state.json` or the
+per-run results file on the hot path. JUnit re-reading the file immediately
+after merge. Relying on pretty-printed durable state for agent readability —
+records remain one per line; use `ParseJson` or the HTML dashboard for structure.
+
+**Relevant files**:
+- `modJsonEmit.bas` — `EscapeJsonString`, `EmitTestStateJson`, `EmitTestResultsJson`
+- `modTestState.bas` — `MergeAndSave` returns root, session cache, emitter call
+- `clsTestRunner.cls` — `GetResultsAsJson` delegates to emitter
+- `modTestJUnit.bas` — `ExportFromState(Optional dRoot)`
+- `modTestJsonEmit.bas` — round-trip tests
+
+**Verification**: Rebuild from source, `VCS.TestRunnerDiag True`, full
+401-test run, confirm phase summary targets (`teardown` ~2 s, `state.json` and
+`results.json` each <150 ms, `junit.export` <200 ms, no `state.load` on second
+run in session).
+
+---
+
+## 2026-08-17 — Oracle DSN and File DSN connectivity probe
+
+**Trigger**: Issue #723 was only half-fixed on 2026-07-13. `GetConnectivityProbeSql` used `SELECT 1 FROM DUAL;` when `DRIVER=` contained `"Oracle"`, but both reporters use `ODBC;DSN=...` with no `DRIVER=`. They still got `SELECT 1;`, ODBC 3146, and a false Retry/Ignore/Abort dialog. One reporter offered to write a registry-enumeration module (Windows APIs or WMI) because `WshShell` cannot enumerate keys.
+
+**Options explored**:
+- **Registry key enumeration** (WMI or Win32 APIs) — rejected. The DSN-to-driver mapping is a single value at `HKCU|HKLM\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\<DSN>`. `RegRead` already in `modFileAccess.bas` is enough; no new registry module.
+- **Reactive retry on any 3146** — still rejected. 3146 wraps auth and server failures as well as SQL syntax errors.
+- **Reactive retry on ORA-00923 only (kept as backstop)** — `ORA-00923` is "FROM keyword not found where expected", which is the probe dialect error and not `ORA-01017` (credentials). DAO puts that text in `DBEngine.Errors`, not `Err.Description`.
+- **Proactive DSN + File DSN resolution (chosen)** — resolve `DSN=` from the registry and `FILEDSN=` from the `.dsn` `[ODBC]` `DRIVER=` line (chain to the registry when the file only has `DSN=`). Same `"Oracle"` substring test as before, plus a short DLL-basename list (`sqora32.dll`, `sqora64.dll`, `msorcl32.dll`) for oddly-named drivers.
+
+**Decision**: `GetOdbcDriverName` is the single discovery point. Lookups are cached and cleared from `ClearConnState`. `CacheConnection` and `TestBackEndConnection` share `RunConnectivityProbe`, which retries once on `ORA-00923` and returns the native `DBEngine.Errors` text so `HandleConnectionFailure` shows the real driver message. Nothing here changes exported output.
+
+**What this rules out**: A general-purpose registry enumeration module. Blind 3146 retries. Adding untested dialects (DB2 `FROM SYSIBM.SYSDUMMY1`) until someone reports them. End-to-end Oracle confirmation still needs a reporter with a live DSN.
+
+**Relevant files**:
+- `modConnect.bas` — `GetOdbcDriverName`, `GetDsnDriverName`, `GetFileDsnDriverName`, `IsOracleDriverName`, `GetConnectErrorDetail`, `IsOracleSyntaxError`, `RunConnectivityProbe`
+- `modTestConnect.bas` — driver-name, File DSN fixture, and `ORA-00923` tests
+
+---
+
+## 2026-08-12 — Alt-export promotion measures the source files instead of copying blanks
+
+**Trigger**: A merge of this repo into itself failed with `Merging not supported
+for add-in forms. Use full build instead.` on `frmVCSMain.form`, with no form
+changed and nothing in the working tree to merge. The scan genuinely believed the
+form was modified, and the state was sticky: the post-merge export left it in
+place, so the next merge failed the same way.
+
+The chain ran backwards through two defects. `modTestMergeDetection` uses the
+live `frmVCSMain` as a fixture: it creates a temporary companion `.json`, seeds
+the index baseline while that file exists, then deletes it — leaving the real
+index holding hashes for a three-file component when only two files remain. The
+next full export saw the mismatched property hash, temp-exported the form for
+conflict comparison, found no actual conflict, and promoted the temp copy with
+`UpdateFromAltExport`. That call copied `FilePropertiesHash`, `AllFilesHash`, and
+`SourceModified` from the alternate entry, which `Update` deliberately leaves
+blank for `eatAltExport` because the canonical files do not exist yet. A
+multi-file component with no recorded content hash cannot be proven unchanged, so
+`GetModifiedSourceFiles` took the issue #748 conservative branch forever after.
+
+**Options explored**:
+- **Populate the three fields in `Update` for `eatAltExport` too** — rejected.
+  They would describe the temp folder, which is exactly what the existing skip
+  exists to avoid, and the entry would be wrong in a subtler way.
+- **Have `GetModifiedSourceFiles` treat a blank `AllFilesHash` as clean** —
+  rejected outright. That is the #748 silent-data-loss branch; a companion-only
+  edit would be dropped with no conflict prompt.
+- **Recompute the source file state inside `UpdateFromAltExport` (chosen)** —
+  every caller moves the temp files into the export folder before calling it, so
+  this is the first point where the files can be measured where they will live.
+  The comment in `Update` already promised this behavior.
+- **Move the merge-detection tests onto a throwaway sandbox component** —
+  deferred. Restoring the baseline after deleting the companion is a two-line
+  helper and keeps the tests exercising a real multi-file component.
+
+**Decision**: `UpdateFromAltExport` carries over only the values that describe
+the database object and its exported content (`FileHash`, `OtherHash`,
+`MetaHash`, `FolderAnnotation`, and the dates), and measures `SourceModified`,
+`FilePropertiesHash`, and `AllFilesHash` against the promoted files. The cost is
+one property scan and one content hash per promoted component during an export
+that already read those files to compare them. `modTestMergeDetection` gains
+`RestoreMergeIndexBaseline`, which deletes a test-created companion *before*
+re-seeding, and a test that pins the promotion contract.
+
+**What this rules out**: Index entries may no longer be assembled by copying an
+alternate-export entry wholesale — anything describing the source files on disk
+has to be measured after the move. If a future component type promotes files
+without going through `MoveSource` first, this ordering assumption breaks and the
+recompute must move to the call site. Tests that stage companion files against a
+live component must restore the index baseline after removing them; seeding
+before cleanup poisons the developer's own working copy, and nothing in an export
+heals it because a fast save only looks at database-side modifications.
+
+**Relevant files**:
+`Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls`
+(`UpdateFromAltExport`),
+`Version Control.accda.src/modules/Tests/Core/modTestMergeDetection.bas`
+(`RestoreMergeIndexBaseline`, `TestAltExportPromotionRecordsSourceFileState`).
+
+---
+
+## 2026-08-12 — Rebuild handoff: confirm the worker, and let Access close itself
+
+**Trigger**: An agent asked to rebuild the add-in burned a long session on it and
+never succeeded. `RebuildAddIn` reported `"success": true, "status": "launched"`
+every time, and the status file then never changed. Two of the three attempts
+used `Version Control.accda` as the host database — the natural choice when no
+other database is open, and the one the user asked for.
+
+Measured directly, from a script that reproduced the worker's first act against
+an MCP-created Access instance:
+
+| Host database | `GetObject(<host path>)` |
+|---|---|
+| `Testing.accdb` | succeeds; VBE reachable; no extra process spawned |
+| `Version Control.accda` | **error 432**, "File name or class name not found during Automation operation" |
+
+A file moniker only binds to a database extension, so Access refuses to hand back
+an `Application` for an add-in. `Worker.vbs` made that call unguarded as its
+second statement, so the script died there — before its first status write, and
+before it could quit anything. Nothing observed this: `Shell()` returns a process
+id for a script that is about to die, `RebuildAddIn` declared success on that
+alone, and the `"launched"` it had just written stayed in the file forever. A
+stalled rebuild and a running one were byte-identical to the agent polling it.
+
+**Options explored**:
+
+- **Register the launching instance in the ROT so the moniker resolves**:
+  `Application.UserControl = True` puts an instance in the Running Object Table,
+  but binding is by file moniker and Access will not produce one for a `.accda`
+  regardless. Does not address the actual refusal.
+- **Have the worker enumerate Access processes and pick its caller**: works
+  without a moniker, but identifying "the one that launched me" from a process
+  list is guesswork the moment two instances have the same file open, and it
+  still leaves the worker needing COM to quit it.
+- **Forbid the add-in as a host and document the restriction**: cheapest, but
+  pushes an implementation detail of a COM moniker onto every caller, and leaves
+  the silent-death failure mode intact for every other reason a worker can die.
+- **Remove the dependency: pass what the worker needs, and invert who closes
+  Access**: the worker's only uses of the reference were reading the MSACCESS.EXE
+  path and quitting the instance. Both can come from the caller. Chosen.
+
+**Decision**: `BuildAndInstall` no longer attaches at all. It takes the
+executable path and the launching process id as command-line arguments; every
+other worker action still attaches, and now reports the error number when it
+cannot. Instead of being quit over COM, the launching instance closes itself via
+`SetTimer "QuitForRebuild"`, and the worker waits on the process id to know the
+files are free.
+
+The timer is armed only *after* `WaitForRebuildHandoff` sees the worker move the
+status off `"launched"` — its first act, before anything that can fail. That
+ordering is the point: a launch that failed must not close the caller's Access,
+and a `"launched"` result must mean a worker is really running. Failure to
+confirm within 15 seconds returns the new terminal status `launch-failed`.
+
+Skipping the attach outright, rather than tolerating its failure, was forced by
+what the confirmation wait exposed. With the wait in place the worker took 16
+seconds to write its first status *even from an `.accdb` host*, where the attach
+had measured as fast. The two features were deadlocking: `WaitForRebuildHandoff`
+blocks in `Sleep`, which stops Access pumping messages, so the worker's
+`GetObject` could not be serviced until the wait it was supposed to satisfy had
+already expired. Every rebuild failed, deterministically, in both hosts. The wait
+loop now calls `DoEvents` between sleeps as well, so this instance stays
+answerable to out-of-process callers.
+
+**What this rules out**: nothing the worker does before its `"building"` write
+may call back into the launching instance. That call cannot be serviced — the
+caller is inside the wait that the write releases — so it does not fail, it
+hangs, and it takes the whole rebuild with it.
+
+Beyond that: `BuildAndInstall` is the only worker action exempt from the attach,
+and a new one that needs COM must be added to the attaching branch in `Main`.
+Nothing may be added ahead of the `"building"` write, which is load-bearing as
+the handshake. The launching instance must reach its message loop for the quit
+timer to fire; if it ever does not, the worker reports `build-failed` on the
+process wait rather than hanging. The 15-second confirmation window is
+deliberately generous — a false "did not start" is worse than a slow answer, and
+the only cost is how quickly a genuine failure surfaces.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Integration/clsWorker.cls` — guarded attach in `Main`, `BuildAndInstall` arguments, `WaitForProcessExit`
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `RebuildAddIn` handshake and `launch-failed`
+- `Version Control.accda.src/modules/Install/modInstall.bas` — `WaitForRebuildHandoff`, `GetThisProcessId`, timing constants
+- `Version Control.accda.src/modules/Utility/modTimer.bas` — `QuitForRebuild` callback
+- `Version Control.accda.src/modules/Tests/Install/clsTestInstall.cls` — handoff and `launch-failed` coverage
+- `docs/agentic-rebuild.md`, `AGENTS.md` — host rule, status table, no-hot-patching invariant
+
+---
+
+## 2026-08-12 — IMEX specs: identify by SpecName, assign SpecID explicitly
+
+**Trigger**: Merging an unnamed IMEX spec raised DAO 3022. `SpecName` is the
+primary key of `MSysIMEXSpecs` (verified via DAO; `SpecID` is AutoNumber with
+no index of its own). Export synthesizes a file name `"Spec " & SpecID` for a
+blank name, but merge looked up `SpecName = "Spec 3"` and deleted nothing, then
+inserted a second blank name.
+
+**Options explored**:
+- *Match the derived file name back to SpecID on merge.* Rejected as the
+  identity. The autonumber changes on every full build (observed as Spec 13 →
+  14 → 3), so the file name is not stable.
+- *Treat blank SpecName as a singleton and persist SpecID under EFV_5_1_0.*
+  Chosen. The primary key guarantees at most one unnamed spec, so a source file
+  with a blank `SpecName` refers to that row regardless of its current ID. The
+  synthesized `"Spec N"` string remains a file name only, plus the orphan-removal
+  fallback when the file is gone and cannot be read. SpecID is written into the
+  JSON under the unreleased 5.1.0 format so rebuilds stop renaming the file.
+- *Add EFV_5_2_0 for the SpecID key.* Rejected; 5.1.0 is unreleased.
+- *Let AutoNumber assign SpecID, falling back to `.AddNew` when a stored ID is
+  taken.* Rejected after a probe: the seed advances to last-inserted+1, not
+  max+1, and a duplicate SpecID raises nothing. Restoring IDs 5 then 3 made the
+  next `.AddNew` return 4, silently pooling two specs' columns.
+
+**Decision**: Merge resolves an existing spec by SpecName (blank = the unnamed
+singleton). Import computes SpecID itself — the stored value if unused, else
+`Max(SpecID)+1` — and inserts it with `INSERT INTO`. `.AddNew` is only a
+fallback if that statement is rejected, and the resulting ID is verified unique
+before any `MSysIMEXColumns` rows are written. A failed header insert must not
+continue into the column loop: adding local error handling would otherwise
+remove the accidental protection of the caller's `On Error Resume Next`.
+
+**What this rules out**: Using `"Spec N"` as a record identity. Relying on the
+AutoNumber seed, or on the engine, to keep SpecID unique. A collision-proof
+file name for unnamed specs (possible via a `%` namespace `GetSafeFileName`
+escapes) — it would rename every existing `Spec N.json`. Duplicate derived
+names are logged instead.
+
+**Relevant files**: `clsDbImexSpec.cls`, `modConstants.bas` (EFV_5_1_0 comment),
+`modTestImexSpec.bas`.
+
+---
+
+## 2026-08-12 — Headless build entry points return JSON instead of scheduling work
+
+**Trigger**: Building an automated deployment pipeline (issue #51) requires knowing
+whether a build succeeded. `VCS.Build` and `VCS.MergeBuild` are `Sub`s that open
+`frmVCSMain` and hand the work to `SetTimer "Build"`, so they return before the
+build starts and report nothing. Every external builder written against them —
+`msaccess-vcs-build` among them — ends up polling log files or counting objects to
+guess at an outcome, which is why they are all fragile in the same way.
+
+**Options explored**:
+- *Add `BuildHeadless` / `MergeHeadless` calling `modBuild.Build` directly, with an
+  out-param for the outcome.* Chosen. The timer exists to release the form
+  reference before a same-named form is imported, which cannot matter when no form
+  is opened, so the indirection has no purpose on this path.
+- *Change `Build` to return JSON.* Rejected. It is called from the ribbon and from
+  `APIAsync`, and its asynchrony is load-bearing for the interactive path.
+- *Have the caller read `Log.SavedLogFilePath` after the call.* Rejected because it
+  does not work: `Operation.Finish` calls `ReleaseObjects`, which drops the `Log`,
+  `Perf`, and `Options` singletons. The caller reads a fresh empty object.
+  `LoadSingleObject` had already hit this and solved it with a `strSavedLogPath`
+  out-param; `dOutcome As Dictionary` is the same solution for more fields.
+- *Poll a status file, as `RebuildAddIn` does.* Rejected here. That protocol exists
+  because Access must quit before the answer is known. Nothing quits during a
+  normal build, so a synchronous return is available and simpler.
+
+**Decision**: `modBuild.Build` gained an optional `dOutcome As Dictionary`,
+populated in `CleanUp` before `Operation.Finish`. Passing it also means "a
+synchronous caller is waiting," which settles two behaviours: the in-place merge
+path (`Options.SkipReopenBeforeMerge`) is skipped, because it finishes on a timer
+and cannot report back, and `frmVCSMain` is not opened. `Operation.Result` is now
+set to `eorFailed` on failure paths — it was left at `eorUnknown`, which
+`Operation.Finish` maps to a "complete" MCP callback, so failed builds were
+reporting success to MCP callers.
+
+**What this rules out**: Headless merges benefiting from the in-place optimization;
+they always reopen. Adding a result field computed after the call returns — every
+field must be captured inside `CleanUp` while the singletons are alive. Revisit if
+the in-place merge is ever restructured to complete on one call stack.
+
+**Relevant files**: `clsVersionControl.cls` (`BuildHeadless`, `MergeHeadless`,
+`RunHeadlessBuild`), `modBuild.bas`, `docs/automation-contract.md`,
+`Wiki/Continuous-Integration.md`, `modTestHeadlessBuild.bas`
+
+---
+
+## 2026-08-12 — ValidateAfterBuild fails the build; the RunAfter hooks do not
+
+**Trigger**: A build can produce every object and still be unshippable — a missing
+lookup table, configuration that did not come across, a linked table pointing at
+the wrong server. Compilation does not catch these, and a pipeline needs the
+verdict before the file reaches users. The existing `RunAfterBuild` /
+`RunAfterMerge` hooks cannot serve: they run through `RunSubInCurrentProject`,
+which discards any return value, and an error inside one is logged without
+affecting the result.
+
+**Options explored**:
+- *A separate `ValidateAfterBuild` option running a `Function` that returns
+  `True`.* Chosen. Keeps the existing hooks' contract intact for users relying on
+  them, and makes the gating explicit at the point the option is named.
+- *Make `RunAfterBuild` fail the build when it returns `False`.* Rejected. It is
+  documented as a `Sub`, and existing hooks that happen to be `Function`s returning
+  nothing would start failing builds on upgrade.
+- *Infer failure from `Log.ErrorCount` after the hook.* Rejected as the primary
+  signal — it cannot express "everything ran cleanly but the result is wrong."
+  It is used internally, though, to detect that the hook itself errored:
+  `RunProcInCurrentProject` logs and clears the error before returning.
+- *Treat a non-Boolean or missing return as success.* Rejected. A validation step
+  that stays quiet when misconfigured is worse than none, because it reads as a
+  passing gate. `False`, an error, a missing procedure, a `Sub`, and an
+  uncoercible return all fail.
+
+**Decision**: New `Options.ValidateAfterBuild` naming a `Public Function` in the
+built database, run last (after `RunAfterBuild` / `RunAfterMerge`). Anything other
+than an explicit `True` sets `eelCritical` and fails the build.
+`RunSubInCurrentProject` was refactored into `RunProcInCurrentProject`, which
+returns the value and reports through `blnRan` whether the procedure ran at all —
+a refusal must not be readable as a `False` verdict.
+
+**What this rules out**: Validation hooks taking parameters, matching the existing
+hooks. It is settable three ways — **Validate Build With** under **Build Hooks** on
+the options form, `vcs-options.json`, or `VCS.Options` — so a pipeline and an
+interactive user configure the same option.
+
+**Relevant files**: `clsOptions.cls`, `modBuild.bas` (`RunBuildValidation`),
+`modDatabase.bas`, `frmVCSOptionsBuild.form`, `frmVCSOptionsBuild.cls`,
+`docs/automation-contract.md`
+
+---
+
+## 2026-08-12 — Silent install takes its status file path from the command line
+
+**Trigger**: `/cmd "INSTALL SILENT"` reported its outcome to a path derived from
+the `Install\Source Path` registry value, which an add-in rebuilding itself writes
+during `AfterBuild`. A CI runner installing a downloaded release has written no
+such value, so `RecordSilentInstallResult` silently no-opped and the pipeline got
+no answer at all.
+
+**Options explored**:
+- *Accept the path after the keyword: `/cmd "INSTALL SILENT <path>"`.* Chosen.
+  Stateless and self-describing. Everything after `SILENT` is taken as the path
+  rather than split on spaces, so install paths need no inner quoting; surrounding
+  quotes are stripped if present.
+- *Have the pipeline write the registry value before launching.* Rejected. A hidden
+  coupling that also requires the install to run under the same user profile.
+- *A separate `/cmd INSTALL_CI` verb.* Rejected. Same behaviour, one more token to
+  document, and it would still need somewhere to put the path.
+
+**Decision**: `ParseInstallCommand` gained a `strStatusFile` out-param, and
+`AutoRun` writes `installing` to it as soon as the silent path is recognized —
+before doing any work. That early write is what makes the untrusted-location case
+detectable: if the `.accda` is not in a trusted location, no VBA runs and no file
+appears, which the add-in cannot report because its own code is what did not run.
+An absent status file is therefore the pipeline's signal that macros were blocked,
+distinct from a file reading `install-failed`.
+
+**What this rules out**: Reporting the untrusted-location condition from inside the
+add-in — trusting the folder stays a documented precondition of unattended install.
+
+**Relevant files**: `modInstall.bas` (`ParseInstallCommand`, `PopToken`, `AutoRun`,
+`RecordSilentInstallResult`), `clsTestInstall.cls`
+
+---
+
+## 2026-08-12 — Rebuild blocks on instances holding its files, not on their existence
+
+**Trigger**: The refusal was scoped to the wrong question. It asked whether another
+`MSACCESS.EXE` exists, when what stops a rebuild is whether one holds a file the
+rebuild overwrites. A colleague with an unrelated database open blocked every
+rebuild for no reason, and the earlier attempt to relax this went after the
+instance (close it) rather than the question (does it hold the file).
+
+**Options explored**:
+- *Enumerate `VBE.VBProjects` in the other instance and match `FileName`.* Chosen.
+  Measured first: the same instance reported one project before the add-in was
+  invoked and two after, the second being the installed add-in path. A rebuild then
+  ran to completion with an unrelated instance open throughout.
+- *Infer from the command line.* Rejected, already known wrong in both directions.
+  COM `OpenCurrentDatabase` leaves no argument, and an instance pointed at a
+  database it never opened reports that path as open.
+- *Count records in the `.laccda` lock file.* Rejected. Undocumented format, and
+  our own process holds the file too, so the signal cannot be read cleanly.
+- *Skip the check and let the install fail on a locked file.* Rejected as the
+  primary mechanism. By then Access has quit and the build has run, so the failure
+  is late and confusing. It remains the backstop for the race below.
+
+**Decision**: `InspectLoadedProjects` reads `VBE.VBProjects` in each other instance
+and compares each project's `FileName`, case-insensitively, against the installed
+add-in and the build target — the VBE reports paths in upper case. An instance
+blocks only if it holds one of those files or could not be asked;
+`InstanceBlocksFileReplace` treats the unknown case as blocking, since a
+never-answering instance looks exactly like an idle one. Nothing is closed, which
+keeps the 2026-08-12 decision below intact — only the refusal scope narrows.
+
+**What this rules out**: Reading a bare instance count as a rebuild precondition;
+the count and the blocking count are now separate returns from
+`GetOtherAccessInstances`. Guaranteeing the file is free at replace time — an
+instance can load the add-in between check and install, so the install failure path
+stays. Relying on this in locked-down environments: reading `VBE` can be refused by
+the target instance's "Trust access to the VBA project object model" setting, which
+reports as unknown and therefore blocks. Only a positive answer that the setting is
+off in a real instance would justify a different fallback.
+
+**Relevant files**: `modInstall.bas` (`InspectLoadedProjects`, `IsTargetFilePath`,
+`GetBuildTargetFileName`, `InstanceBlocksFileReplace`, `GetOtherAccessInstances`),
+`clsVersionControl.cls` (`RebuildAddIn`), `clsTestInstall.cls`,
+`docs/agentic-rebuild.md`.
+
+---
+
+## 2026-08-12 — AutoRun stands down when a COM client opened the add-in
+
+**Trigger**: An agent could not run the add-in's own test suite. Those tests only
+run when the add-in is the current database, and opening `Version Control.accda`
+through COM fails both ways: from the installed location `AutoRun` shows
+"Installation Complete!" and calls `DoCmd.Quit`, killing the instance the client
+is holding (`Cannot find Access instance ... may have been closed`); from any
+other location it shows `frmVCSInstall` and strands the session. An MCP test run
+that did work only worked because a human Access window already had the file
+open and the server attached to it.
+
+**Options explored**:
+- *Run the add-in's tests through a user database.* Rejected. `TestRunner.Scan`
+  walks `CurrentVBProject`, so `vcs_call_vba(Testing.accdb, "VCS.API",
+  ["RunTestsHeadless"])` discovers that database's tests, not the add-in's.
+- *Keep a human window open for test runs.* Rejected as a steady state. Testing
+  needs that window open and the rebuild guard needs it closed, so every
+  iteration costs two manual steps and they conflict.
+- *Suppress both dialogs when `Application.UserControl` is False.* Chosen.
+
+**Decision**: `AutoRun` consults `OpenedByAutomation` after the `/cmd` branch
+and, when a COM client started the instance, extracts resources and returns
+without showing anything. `OpenedByAutomation` returns False when
+`Application.UserControl` cannot be read, because suppressing the install UI for
+a real user is worse than leaving automation stranded. `/cmd INSTALL` is
+unaffected — it is a command-line launch handled before this check.
+
+**What this rules out**: Treating the "Installation Complete" message box as
+proof the file was trusted in any automated context. Measured on Access 16.0:
+`UserControl` is False for a COM-created instance and stays False after
+`Visible = True`, so the worker's build instance now skips `frmVCSInstall` too and
+its defensive close of that form becomes a no-op rather than a requirement.
+
+**Relevant files**: `modInstall.bas` (`AutoRun`, `OpenedByAutomation`),
+`clsWorker.cls` (defensive `frmVCSInstall` close), `docs/agentic-rebuild.md`.
+
+---
+
+## 2026-08-12 — Rebuild guard reports other Access instances instead of closing them
+
+> **⚠ Partially superseded** (2026-08-12): closing nothing still stands, but the
+> refusal no longer fires on the mere existence of another instance — only on one
+> that holds a file the rebuild replaces. `AccessibleObjectFromWindow` for Access
+> was subsequently verified rather than left unverified. See "Rebuild blocks on
+> instances holding its files, not on their existence" above.
+
+**Trigger**: MCP automation leaves hidden `MSACCESS.EXE` processes behind. Those
+still load the installed add-in, so `UpdateAddInFile` fails and the rebuild
+refuses. Closing the ones with no database open looked safe, and an
+implementation that did so was written and then withdrawn before it shipped.
+
+**Options explored**:
+- *Close any hidden instance with no database open.* Withdrawn. Deciding
+  "no database open" requires reaching the other process's object model,
+  because `OpenCurrentDatabase` leaves no trace on the command line. A **busy**
+  instance rejects those automation calls, so it is indistinguishable from an
+  empty one — and a busy instance is the worst thing to terminate. The
+  implementation also treated an unreachable object model as permission to
+  close, which inverted the intended fail-safe.
+- *Trust `AccessibleObjectFromWindow(OBJID_NATIVEOM)` on the `OMain` window.*
+  Not relied on. The technique is established for Excel and Word; that it works
+  for Access is unverified. Making an unverified probe the safety-critical
+  discriminator, with a destructive failure mode, is backwards.
+- *Report and refuse, gather evidence first.* Chosen.
+
+**Decision**: `GetOtherAccessInstances` counts other `MSACCESS.EXE` processes in
+this Windows session and never quits or terminates anything. It classifies each
+one read-only and reports what it saw — open database, visible window, and
+whether the object model answered at all — so a person or agent can close them
+deliberately. `ClassifyAccessInstance` separates "told us it has nothing open"
+from "never answered" via a probe that succeeds on any responsive instance
+(`Application.Version`) before asking about the database. The unreached case is
+reported as `open database unknown`, never as idle.
+
+**What this rules out**: Fully unattended rebuild while any other Access process
+exists in the session, including a second MCP-owned one. Revisit closing idle
+instances only after the logged evidence shows the native object model is
+reachable for Access — `clsTestInstall` records what real instances report.
+Killing `MSACCESS.EXE` as a cleanup strategy stays out.
+
+**Relevant files**: `modInstall.bas` (`GetOtherAccessInstances`,
+`ClassifyAccessInstance`, `DescribeAccessInstance`,
+`ExtractOpenDatabaseFromCommandLine`), `clsVersionControl.cls` (`RebuildAddIn`),
+`clsTestInstall.cls`, `docs/agentic-rebuild.md`.
+
+---
+
+## 2026-08-12 — Force headless test runs for API and MCP callers
+
+> **⚠ Partially superseded** (2026-08-28): Headless still means no add-in UI.
+> It does not mean a hidden Access window. MCP leaves the host instance visible.
+
+**Trigger**: `vcs_run_tests` calls `RunFilteredTests`, an interactive entry
+point. With the web runner enabled, `ExecuteTests` opened `frmVCSTestRunner`,
+waited for it, ran nothing, and returned an empty string. The MCP tool reported
+"Test runner returned no results." `RunTestsHeadless` already did the right
+thing, but every other API entry point did not.
+
+**Options explored**:
+- *Change only `vcs_run_tests` in the MCP repo to call `RunTestsHeadless`.*
+  Rejected. Every other `Application.Run` / `vcs_call_vba` caller of `RunTests`
+  or `RunFilteredTests` would still open the form.
+- *Add a new `Headless` flag on the operation.* Rejected. The 2026-04-15
+  decision already chose `Operation.Source` as the signal for suppressing UI
+  for API/MCP callers.
+- *Force headless whenever `Operation.Source` is API or MCP, and reset `Source`
+  in `HandleRibbonCommand`.* Chosen. Covers all three test entry points with no
+  MCP-server change. `Source` is sticky, so the ribbon must clear it or a later
+  interactive Run Tests click in the same Access instance would also go
+  headless.
+
+**Decision**: `clsOperation.AutomationSource` is true for `eosExternalAPI` and
+`eosMCPTool`. `ExecuteTests` sets `blnHeadless` from that property before any
+prompt or form. Headless JSON now includes `logPath` and `resultsPath` so
+callers can read the `TestRun_*.log` after the run. The ribbon resets
+`Operation.Source` to `eosUserInterface`.
+
+**What this rules out**: An API/MCP caller cannot open the web runner to watch
+a live run. Immediate Window `?VCS.RunTests` after an API call in the same
+instance still sees the sticky `Source` until a ribbon command resets it.
+Migrating the other inline `Source = eosMCPTool Or ... = eosExternalAPI`
+checks to `AutomationSource` is left as a later cleanup.
+
+**Relevant files**: `clsOperation.cls` (`AutomationSource`),
+`clsVersionControl.cls` (`ExecuteTests`), `modAPI.bas` (`HandleRibbonCommand`),
+`clsTestRunner.cls` (`GetResultsAsJson`).
+
+---
+
+## 2026-08-12 — Agentic add-in rebuild via status file, not a new MCP tool
+
+> **⚠ Partially superseded** (2026-08-27): a dedicated MCP tool now exists, but
+> it waits on `rebuild-status.json` after launch rather than on COM. The
+> three-process pipeline, refusal-instead-of-kill, and status-file contract
+> still stand. Agent-side polling is a recovery fallback. See "MCP watches
+> rebuild-status.json; agent polling is recovery" above.
+
+**Trigger**: Agents iterating on add-in source had to wait for a person to rebuild
+`Version Control.accda`. The existing `RebuildAddIn` / `Worker.vbs` path already
+did the work, but it showed dialogs in three processes, had no completion signal
+after Access quit, and would have closed every Access window if we had treated
+"close Access" as "kill `MSACCESS.EXE`".
+
+**Options explored**:
+- *New MCP tool that drives the rebuild and waits.* Rejected. The Access instance
+  the MCP is talking to is deliberately quit; a tool that blocked on COM would
+  hang. `vcs_call_vba` already dispatches `RebuildAddIn` through `CallByName`.
+- *Enumerate and close other Access processes.* Rejected. Closing someone else's
+  database is data-loss. The guard counts other `MSACCESS.EXE` processes in this
+  Windows session and refuses; a failed WMI query is also a refusal.
+- *Rely on `Operation.InteractionMode` alone.* Rejected. The worker script and
+  the `/cmd INSTALL` process are separate and do not inherit that flag.
+
+**Decision**: Keep the existing three-process pipeline. Unattended callers set
+silent mode, pass `/cmd INSTALL SILENT`, and poll gitignored
+`logs/rebuild-status.json`. The repo folder must already be a trusted location
+or the install process hangs on autoexec's native `MsgBox`.
+
+**What this rules out**: Rebuilding while any other Access instance is open in
+the same session. Adding a dedicated MCP rebuild-add-in tool unless
+`vcs_call_vba` grows a timeout (it currently has none; the worker sleeps before
+quit so the JSON can return). Killing `MSACCESS.EXE` as a cleanup strategy.
+
+**Relevant files**: `clsVersionControl.cls` (`RebuildAddIn`), `modInstall.bas`
+(`GetOtherAccessInstances`, `ParseInstallCommand`, status-file helpers),
+`clsWorker.cls` (`BuildAndInstall`), `docs/agentic-rebuild.md`.
+
+---
+
+## 2026-08-12 — Emit crosstabs in Design View, and stop treating a designer prompt as an import constraint
+
+**Trigger**: `clsQueryComposer.DecomposeSQL` marked every `TRANSFORM`/`PIVOT` query as
+not designer-compatible, so a crosstab carrying a `DesignLayout` imported as SQL View
+and silently lost its designer grid. The blocker was that `EmitDesignViewQdef` did not
+emit the Attribute 6 `GroupLevel` role markers Access requires for `Operation =6`.
+
+**Options explored**:
+- *Gate the change behind an export format version.* Rejected. Nothing about the
+  exported `.sql` or `.json` changes; the add-in starts preserving a `DesignLayout` it
+  previously discarded on import, and import is never gated.
+- *Decline Design View for a parameterized crosstab whose `PIVOT` names no headings.*
+  Rejected after measuring. That shape does hang the Access **designer** — saving one
+  prompts for a parameter value, because Access runs the query to discover its column
+  headings, and `DoCmd.SetParameter` does not suppress it. But the add-in never opens
+  the designer: it writes a `.qdef` and calls `LoadFromText`, which never executes the
+  query. A load of exactly that shape was measured and it imported cleanly, `PARAMETERS`
+  clause and all. The prompt is an authoring constraint on fixtures, not an import one.
+- *Infer `GroupLevel` as a nesting depth.* Wrong, and only a two-row-heading capture
+  shows it: both row headings are `2`, not `2` and `3`.
+
+**Decision**: Emit `Operation =6` output columns with role markers — row headings `2`,
+column heading `1`, aggregate none — followed by a `Groups` block repeating the same
+levels, with any fixed heading list (`In (1, 2, 3)`) stripped from the `Groups` row but
+kept in `OutputColumns`. The whole shape, and the fact that `LoadFromText` accepts it
+with the layout block attached, was verified against Access before writing the emitter.
+
+**What this rules out**: Crosstabs are no longer a blanket SQL View shape, so a future
+crosstab bug cannot be dismissed as "the composer declines these". A crosstab still
+falls back to SQL View through the existing `LoadFromText` retry if the emitted qdef is
+rejected. Fixtures for this family must still be *authored* with a fixed `PIVOT` list if
+they are parameterized, because capturing a real `DesignLayout` requires a designer save.
+
+**Relevant files**: `clsQueryComposer.cls` (`EmitCrosstabOutputColumns`,
+`EmitCrosstabGroups`, `PivotFieldWithoutHeadings`, `DecomposeSQL`),
+`clsTestQueryComposerCrosstab.cls`, `qryCarsCrosstab.*`,
+`qryRegressionParametersCrosstabFixedPivot.*`, `docs/access-query-storage.md`.
+
+---
+
+## 2026-08-12 — Decline the DAO table build when a text or memo field omits AllowZeroLength
+
+**Trigger**: With the verification guard fixed (entry below), the round-trip harness
+finally ran the DAO-versus-source comparison and four table fixtures failed it.
+`ImageFile` and `USysApplicationLog` differed by exactly one line per text field: the
+rebuilt table carried `<od:fieldProperty name="AllowZeroLength" type="1" value="0"/>`
+and the fixture carried nothing at all.
+
+**Empirical findings** (probed with `vcs_run_vba` against a scratch table):
+
+- `CreateField` on `dbText` or `dbMemo` materializes both `AllowZeroLength` and
+  `Required` whether or not either is assigned, and `ExportXML` with
+  `acExportAllTableAndFieldProperties` then writes both. Other types materialize
+  only `Required`.
+- The property cannot be removed afterwards: `Field.Properties.Delete
+  "AllowZeroLength"` raises error 3384, "Cannot delete a built-in property".
+- `Application.ImportXML` does *not* materialize it. Importing `ImageFile.xml` and
+  re-exporting reproduces the fixture, `AllowZeroLength` still absent.
+
+So a source file that omits `AllowZeroLength` on a text or memo field describes a
+table `modTableDefBuilder` can never reproduce byte for byte. Files exported from a
+table Access itself built through `ImportXML` are exactly that shape; tables built in
+the Access UI carry the property (value 1) and are unaffected.
+
+**Options explored**:
+
+- **Strip a default `AllowZeroLength="0"` in the sanitizer** — rejected. It changes
+  exported output, so it needs an export format version gate and churns every user's
+  `tbldefs/`, and it discards a real distinction: a text field explicitly set to
+  disallow zero-length strings is not the same as one that never had the property.
+- **Let the existing verification catch it** — rejected. It is correct but wasteful,
+  and worse, each occurrence calls `RecordFastPathFailure`. Three such tables in one
+  build trip the circuit breaker and disable the fast path for every table after
+  them, including tables that would have succeeded.
+- **Decline during parsing** (chosen): `ParseFieldElement` refuses the table as soon
+  as it sees a text or memo field with no `AllowZeroLength` property.
+
+**Decision**: The builder declines these tables up front. The final import path is
+unchanged — `Application.ImportXML` handled them before and still does — but the
+build/export/compare/delete cycle is skipped and the fast-path failure counter is
+left for genuine failures. Fixtures `ImageFile`, `USysApplicationLog` and
+`tblFixSubdatasheet` moved to `tabledefs/fallback/` accordingly.
+`tblFixLookupCombo` has no text fields and stays on the DAO path.
+
+**What this rules out**: Reproducing an `ImportXML`-shaped text field through DAO at
+all; treating `AllowZeroLength` as an optional property the builder may default.
+Also rules out reading a missing `AllowZeroLength` as `False` — DAO's default value
+happens to be `False`, but writing it is what breaks the comparison, not the value.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/modTableDefBuilder.bas` —
+  `ParseFieldElement`
+- `Version Control.accda.src/modules/Tests/Components/modTestTableDefBuilder.bas` —
+  `TestTextFieldWithoutAllowZeroLengthDeclines`
+- `Testing/Fixtures/tabledefs/fallback/` — `ImageFile.xml`,
+  `USysApplicationLog.xml`, `tblFixSubdatasheet.xml`
+
+---
+
+## 2026-08-12 — Verify DAO table builds even when the source file is outside the export folder
+
+**Trigger**: `VCS.RunRoundtripTests` reported 8 table-definition failures. Seven of
+them failed `import_path` with "Fell back to Application.ImportXML: the rebuilt
+table did not match the source file", even though the harness log showed only the
+Pass 1 / Pass 2 sanitizer lines — never a verification export. The eighth
+(`tblInternal`) failed with the legitimate complex-field decline but lived under
+`tabledefs/` rather than `tabledefs/fallback/`.
+
+**Options explored**:
+
+- **Stage fixtures under `Options.GetExportFolder` in the harness** — rejected as
+  the sole fix. The same guard also affects single-object imports from arbitrary
+  paths, and a harness-only workaround would leave that production case broken.
+- **Treat out-of-folder sources as unverifiable and keep falling through** —
+  rejected. That was the prior behaviour; it made every out-of-folder DAO build
+  look like a verification failure, so the round-trip harness could not prove the
+  builder at all.
+- **Fall back to a flat temp-folder name when the prefix rewrite is a no-op**
+  (chosen): keep the never-overwrite-source invariant, and still run the hash
+  comparison for files that are not under the export folder.
+
+**Decision**: `StoredDefinitionMatchesSource` still prefers a mirrored path under
+`VCSIndex.GetTempExportFolder` when the source sits under the export folder. When
+the rewrite does not change the path, it uses
+`GetTempExportFolder & FSO.GetFileName(strFile)` instead, and only abandons the
+check if that temp path still collides with the source. The round-trip harness
+continues to decide the expected import path purely by folder
+(`tabledefs/` vs `tabledefs/fallback/`); fixtures that deliberately exercise the
+ImportXML fallback belong under `fallback/`. `tblInternal` was moved there
+because it carries an attachment field, matching `tblAttachment`.
+
+**What this rules out**: Treating "source outside export folder" as an automatic
+false negative in table-definition verification. Per-fixture `import_path`
+declarations — folder placement remains the contract. Closing the gap does not
+require an export format version gate; the change is import-side only.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` —
+  `StoredDefinitionMatchesSource`
+- `Version Control.accda.src/modules/Tests/Components/modTestTableDef.bas` —
+  `TestDaoImportFromOutsideExportFolder`
+- `Testing/Fixtures/tabledefs/fallback/tblInternal.xml` — moved from
+  `tabledefs/`
+
+---
+
+## 2026-08-11 — Emit the parameter type keywords ACE accepts, not the ones that read best
+
+**Trigger**: While pinning the type map for the `Begin Parameters` work below,
+each `PARAMETERS` keyword was round-tripped through `CreateQueryDef` to learn
+the DAO type it actually produces. Four of the keywords the exporter emitted
+turned out not to parse at all: `Boolean`, `Memo`, `OLEObject` and `Decimal`
+each raise error 3139, "Syntax error in PARAMETERS clause". Two others were
+simply mis-mapped — `BigInt` reports as `dbNumeric` (19) rather than `dbBigInt`
+(16), and `Value` is a spelling of `dbText` (10) rather than an untyped
+parameter. The map had been written from the DAO type names, which look
+authoritative but are not the keywords the SQL parser accepts.
+
+This was not cosmetic. On the SQL View import path the whole statement is
+handed to Access as one memo, so a query declaring a Yes/No parameter did not
+merely lose its type — the object failed to import outright with "Could not
+create or set the property SQL". Any query with a Yes/No, Memo or OLE Object
+parameter was therefore unbuildable from source, and had been since the map was
+written.
+
+**Options explored**:
+- **Keep the readable spellings and special-case the SQL View path** — rejected:
+  it leaves exported `.sql` that Access itself cannot parse, which defeats the
+  point of a text format users are expected to read, diff and hand-edit.
+- **Emit only what ACE accepts, and accept the rest on import** (chosen) — the
+  exporter emits the canonical keyword; the readable spellings stay in the
+  reverse map so source written by earlier versions of the add-in still
+  rebuilds. Import compatibility is a standing requirement, so nothing is lost
+  by keeping them.
+
+**Decision**: `ParameterTypeSql` and `ParameterFlagFromType` are now generated
+from one list (`EnsureParameterTypeTables`) rather than being two hand-kept
+`Select Case` blocks that had already drifted. Each entry names the canonical
+keyword followed by its import-only aliases, so the two directions cannot
+disagree; where two DAO types claim the same keyword the first registration
+wins the reverse lookup. Only the keywords verified against the parser are
+emitted: `Bit`, `LongText`, `LongBinary`, `BigInt` for the four that were
+wrong, and the unchanged spellings elsewhere. `Single`/`Double`/`GUID` are kept
+as-is even though Access normalizes them to `IEEESingle`/`IEEEDouble`/`Guid`,
+because all three parse correctly and changing them would churn every existing
+export for no functional gain.
+
+**What this rules out**: Adding a type to the map from the DAO constant name
+alone. A new entry needs the keyword confirmed against the parser first —
+`CreateQueryDef` with `PARAMETERS [P] <keyword>;` either succeeds and reports a
+type or raises 3139. `Decimal` in particular has no parseable spelling, so
+there is no way to declare a decimal parameter in Access SQL at all.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` —
+  `EnsureParameterTypeTables`, `AddParameterType`, `ParameterTypeKey`
+- `Version Control.accda.src/modules/Tests/SQL/clsTestQueryComposerParameters.cls`
+  — `TestExportedTypeKeywordsAreParseable` closes the loop against a list of
+  parser-accepted keywords
+- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParameterTypes.*`
+  — fixture updated from `Boolean` to `Bit`
+
+---
+
+## 2026-08-11 — Design View queries carry parameters in a `Begin Parameters` block after `OutputColumns`
+
+**Trigger**: A parameterized query rebuilt from source lost its `PARAMETERS`
+declaration whenever it took the Design View import path (joyfullservice#744).
+`clsQueryComposer.EmitDesignViewQdef` assembled the structured `.qdef` that
+`Application.LoadFromText` consumes but never emitted the declared parameters,
+so the rebuilt query came back with an empty parameter collection. The SQL View
+path was unaffected — there the whole statement is handed to Access as one SQL
+memo — so the loss only showed up for designer-built queries whose stored grid
+layout forces `blnDesignView = True`. Every existing parameter fixture was
+SQL-View shaped, so nothing exercised the gap.
+
+**Options explored**:
+- **Prepend a SQL `PARAMETERS ...;` line to the structured `.qdef`** — the
+  obvious guess, mirroring the SQL memo grammar. Rejected empirically:
+  `LoadFromText` fails with `Expected: 'Operation'. Found: PARAMETERS.` The
+  structured format has no grammar for an inline parameters declaration.
+- **Force every parameterized query onto the SQL View path** — sidesteps the
+  emitter gap by never taking Design View for a query that declares parameters.
+  Rejected: it discards the designer layout that Design View exists to
+  preserve, regressing the queries this add-in tries hardest to round-trip.
+- **Emit the native `Begin Parameters` block** (chosen) — parameters live in a
+  single `Begin Parameters ... End` block of repeated `Name =` / `Flag =` pairs,
+  where `Flag` is the DAO type. All parameters share one block; there is not
+  one block per parameter.
+
+**Decision**: `EmitDesignViewQdef` emits the block immediately after
+`Begin OutputColumns ... End` and before `Begin Joins`. That position is not a
+style choice — it is the only one Access accepts. Feeding `LoadFromText` the
+same qdef with the block moved elsewhere fails every time: after `Joins` or
+`OrderBy` with `Expected: End of file. Found: Parameters.`, after `Groups` with
+`Expected: 'End'. Found: Parameters.`, and before `InputTables` with
+`Expected: End of file. Found: InputTables.` The position was then confirmed
+against native `Application.SaveAsText` output for six designer-built shapes —
+single table, join with `ORDER BY`, `GROUP BY`, `TOP n`, parameterized `UPDATE`
+and crosstab — which agree regardless of query type or how elaborate the output
+columns block is.
+
+Parameter names are emitted **verbatim**: Access records a parameter exactly as
+declared, so `[Enter ID]` keeps its brackets while an unbracketed
+`StatusFilter` stays bare, even though Access brackets the matching reference
+inside the `WHERE` clause. Re-bracketing on the way out would not round-trip.
+The clause is parsed once, in `ParseParametersClause`, into a structured
+`m_colParameters`; `EmitParameters` is then a loop. Splitting reuses the
+existing bracket- and paren-aware `SplitTopLevel` rather than a private
+splitter, so a comma inside `[Last, First]` or `Text ( 255 )` does not break
+the list apart.
+
+**No export-format-version gate and no `GetExporterRevisions` bump.** Both
+mechanisms govern *export* output; the `.qdef` is an import-only intermediate
+generated to a temp file at import time (`clsDbQuery` exports `.sql` + `.json`
+only). This change alters import behavior exclusively, and import stays
+backward compatible: older sources that never carried parameters simply produce
+no block.
+
+**What this rules out**: The earlier working hypothesis — that native Access
+always serializes a parameterized query as a SQL memo and the structured format
+has no place for parameters — is disproven and should not be revisited.
+Emitting parameters as a leading SQL line is a dead end. Any future change that
+reorders the structured blocks must keep parameters immediately after
+`OutputColumns`; "somewhere ahead of the properties" is not sufficient.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` —
+  `ParseParametersClause`, `EmitParameters`, `SplitParameterToken`
+- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — labels the
+  composer before `DecomposeSQL` so parse-time warnings name their query
+- `Version Control.accda.src/modules/Tests/modTestRoundtrip.bas` — `import_path`
+  check, so a silent Design View → SQL View fallback fails by assertion
+- `Testing/Fixtures/queries/regression/qryRegressionDesignViewParameters*.*` —
+  round-trip fixtures for the single-table, join/`ORDER BY`, `GROUP BY`,
+  `TOP n`, `UPDATE` and crosstab shapes
+- `docs/access-query-storage.md` — `.qdef` block order and Attribute 2 reference
+
+---
+
+## 2026-08-11 — Legacy index entries without AllFilesHash treat multi-file components as modified
+
+**Trigger**: Issue #748 — Merge reported "No changes found" after editing only a form's
+companion `.cls` file. The reporter's diagnosis pointed at the primary-file-only
+content-hash fallback in `GetModifiedSourceFiles`. A local repro against Database5
+confirmed it, but only for an index whose entries were written before `AllFilesHash`
+existed (5.0.1 and earlier). Fresh exports under current code already record the
+combined hash and detect `.cls`-only edits correctly.
+
+The failure mode is worse than a single missed merge. The legacy branch compared
+only the primary `.form` content hash; when that matched, it *refreshed*
+`FilePropertiesHash` to the edited tree's dates and sizes. The edited `.cls` was
+then recorded as synced, every later merge took the clean fast path, and the next
+export could overwrite the user's VBA with no conflict prompt. A fast-save export
+only re-indexes changed database objects, so a form whose Access side never
+changes never heals.
+
+A secondary gotcha made this look like an export-format problem during diagnosis:
+after the add-in self-updated on disk (`Updated VCS (5.0.1 -> 5.1.0)`), Access kept
+running the stale in-memory 5.0.1 project until the instance was restarted. Full
+exports under that session wrote no `AllFilesHash` and logged no
+`Get File Content Hash` operations, even though the source tree already contained
+the function. Always restart Access after an add-in self-update before trusting a
+repro against new detection logic.
+
+**Options explored**:
+- **Document that upgrading users need one full export**: Rejected. Fast-save
+  exports skip unchanged objects, so the advice would not heal a form whose
+  database side never changes, and users already have a silent data-loss window
+  between upgrade and that export.
+- **Backfill only**: Silently populate `AllFilesHash` when the property hash still
+  matches. Rejected as sole fix — an edit made before the first post-upgrade merge
+  would still be missed and then recorded as synced by the legacy refresh.
+- **Conservative only**: When a legacy entry lacks `AllFilesHash` and more than one
+  indexed file exists, always report modified. Correct, but every multi-file
+  component would re-import on every merge until something else populated the
+  combined hash (a full export, or an actual content change).
+- **Conservative plus backfill on the clean fast path (chosen)**: Report multi-file
+  legacy entries as modified when the property hash differs (cannot prove clean),
+  and when the property hash matches, record `AllFilesHash` now so later scans
+  arbitrate companion edits precisely. Gate both on `GetSourceFileCount > 1`
+  (files that *exist*, not `FileExtensions.Count`) so bare modules keep the
+  precise primary-hash comparison.
+
+**Decision**: The 2026-07-29/07-30 property-hash short-circuit is deliberately *not*
+trusted as a content audit for legacy entries lacking `AllFilesHash`. Matching
+dates and sizes prove the tree is in its last-synced state, which is enough to
+*record* the combined hash, but a mismatch cannot be resolved by the primary file
+alone. Correctness wins over the one-time scan cost: a no-change merge still saves
+the index (`blnSuccess = True` before `VCSIndex.Save`), so both the backfill and
+any one-time imports persist. Steady state after the first post-upgrade merge adds
+only a `Len(AllFilesHash)` test per file on the fast path.
+
+**What this rules out**: Refreshing `FilePropertiesHash` from the legacy
+primary-hash branch when the component has companion files on disk. Treating
+`FileExtensions.Count` as a multi-file signal — `clsDbModule` reports `bas`,
+`cls`, and `json` but only one of `bas`/`cls` is ever present. Relying on "until
+the next export re-syncs this entry" as a healing path for unchanged database
+objects.
+
+**Relevant files**: `Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls`,
+`Version Control.accda.src/modules/Core/modContainers.bas`
+(`GetSourceFileCount`, `GetSourceFilesContentHash`),
+`Version Control.accda.src/modules/Tests/Core/modTestMergeDetection.bas`.
+See also 2026-07-29 — Merge scan reads no file content when dates and sizes are
+unchanged; issue #748.
+
+---
+
+## 2026-08-10 — SharedDb invalidation after single-object table create
+
+**Trigger**: Table-definition round-trip fixtures raised Error 3265
+(`Item not found in this collection`) on
+`SharedDb.TableDefs(m_Table.Name).Connect` inside `clsDbTableDef.IDbComponent_Export`.
+The harness creates sandbox tables through `modTableDefBuilder` (DAO on a fresh
+`CurrentDb`) or `Application.ImportXML`, then exports through `SharedDb`, whose
+`TableDefs` collection is a snapshot from when the cached handle was opened.
+Fixture 1 usually survived (handle created after its table existed); later
+fixtures failed. The DAO fast path's verification export hit the same 3265 under
+`On Error Resume Next` and appeared to succeed with an empty `Connect`.
+
+**Options explored**:
+- **Per-collection `TableDefs.Refresh` on the cached handle**: Already rejected in
+  2026-06-25 ("SharedDb invalidation during build/merge and database close") —
+  other collections (`QueryDefs`, `Containers.Documents`) have the same staleness.
+- **Harness-only `ReleaseDbReferences`**: Would mask the production gap for
+  `LoadSingleObject` (no per-category release) and for
+  `FixCorruptedBigIntFields` / metadata apply after `ImportXML`. Rejected as sole
+  fix.
+- **Invalidate at create boundaries plus harness catalog refresh** (chosen):
+  `ReleaseDbReferences` after `CreateTableFromSchema` appends a table, and after a
+  successful `Application.ImportXML` fallback in `IDbComponent_Import`. The
+  round-trip harness also calls a `RefreshDbCatalog` helper (idle + release) after
+  import, cleanup, and scaffold load — same pattern as
+  `modTestTableDef.RefreshTableCollections`.
+
+**Decision**: Single-object table create and the round-trip harness are their own
+invalidation boundaries, in addition to the per-category release during
+build/merge. The DAO fast path must invalidate between create and verify so
+verification does not rely on swallowed 3265.
+
+**What this rules out**: Relying on `On Error Resume Next` around export to paper
+over a stale `SharedDb` after DAO create. Treating per-category release in
+`modBuild` as sufficient for `LoadSingleObject` or fixture harnesses.
+
+**Relevant files**: `Version Control.accda.src/modules/Components/modTableDefBuilder.bas`,
+`Version Control.accda.src/modules/Components/clsDbTableDef.cls`,
+`Version Control.accda.src/modules/Tests/modTestRoundtrip.bas`,
+`Version Control.accda.src/modules/Infrastructure/modObjects.bas`.
+See also 2026-06-25 — SharedDb invalidation during build/merge and database close.
+
+---
+
+## 2026-08-10 — Function-call operands in ON clauses must resolve against InputTables
+
+**Trigger**: A production merge of a multi-condition join query logged `Join
+reference 'DateAdd('yyyy', -1, cur' not found in InputTables block` and then
+reported success. The stored query failed at runtime with DAO error 3080. The ON
+clause's third equality put `DateAdd(...)` on one side.
+
+**Root cause**: `ExtractTableFromOnSide` treated any text before the first
+qualifying dot as a table name, so a function-call operand produced a garbage
+token. The 2026-05-07 per-condition emit path fell back to the parent join's
+tables only when extraction returned empty, so the garbage token was emitted as
+`RightTable`. `LoadFromText` accepted it; the failure was deferred to execution.
+
+**Options explored**:
+
+- **Gate the shape out of Design View** (`IsDesignerCompatible = False` when an
+  ON operand is an expression) — rejected: multi-condition ON *requires* Design
+  View because SQL View `dbMemo "SQL"` is rejected by `LoadFromText` for that
+  shape. Leaving Design View means we must emit valid join rows.
+- **Always reuse the parent join's LeftTable/RightTable for every split
+  condition** — rejected: that is exactly the 2026-05-07 cross-table ON bug;
+  individual conditions can reference different table pairs.
+- **Resolve each side independently, preferring a qualifier scan over the parent
+  join** — implemented first, then rejected. It fixed the reported case but
+  changed single-table predicates: for `tblCarsColour.ID > 0` the scan claims
+  that table for the left side and the right side then falls to the parent's
+  identical value, emitting `LeftTable = RightTable`. That drifted the
+  `qryRegressionMultiCondJoin` baseline and reintroduces the pair collapse that
+  breaks `BuildJoinChain` on the next export. Per-side resolution has no way to
+  tell "this side is unknown" from "this condition only names one table".
+- **Rank whole pairs by coverage of the condition's refs (chosen)** — a
+  candidate pair is acceptable when every `InputTables` ref named in the
+  condition equals its left or right value, which is the same invariant the
+  round-trip harness enforces. `ResolveConditionJoinTables` tries per-condition
+  extraction first (so a cross-table condition still wins over the parent pair,
+  preserving the 2026-05-07 fix), then the parent pair (which covers
+  single-table predicates and non-equi conditions), then extraction plus a ref
+  named in the condition, normalized to parent orientation when it is merely a
+  swap because outer-join `Flag` values are orientation-sensitive.
+
+**Decision**: Per-condition join refs are resolved through
+`ResolveConditionJoinTables`, which ranks whole candidate pairs by ref coverage,
+rather than raw `ExtractTableFromOnSide` plus an empty-only fallback. This
+supersedes the fallback rule in the 2026-05-07 cross-table ON entry.
+
+`ValidateJoinRow` in the round-trip harness gained the three invariants that
+would have caught both this bug and the per-side misstep above: refs must be
+non-empty (an empty ref previously skipped validation entirely), refs must exist
+in the `InputTables` block, and `LeftTable` must differ from `RightTable`. All 56
+committed `.qdef` baselines already satisfy them.
+
+**What this rules out**: Emitting any `LeftTable`/`RightTable` that is not in
+`InputTables` when a better known ref can be recovered from the condition. Also
+rules out treating "extraction returned something" as proof that the something is
+a table name, and rules out per-side resolution as the shape of this fix.
+
+**Relevant files**:
+- `clsSqlSyntax.cls` — `ExtractTableFromOnSide` / `IsSimpleOnSideIdentifier`
+- `clsQueryComposer.cls` — `ResolveConditionJoinTables`, `CollectConditionInputRefs`, `PairCoversRefs`, emit loop, parse-time join branches
+- `modTestRoundtrip.bas` — `ValidateJoinRow`, `ParseQdefInputTableRefs`
+- `Testing/Fixtures/queries/regression/qryRegressionFunctionInOnClause.*`
+- `docs/access-query-storage.md` § 5 / § 6
+
+---
+
+## 2026-08-07 — Per-user toggle to disable the helper script (`Worker.vbs`)
+
+**Trigger**: Issue #727. A user's endpoint protection (Sophos "Lockdown") blocks Access from launching `Worker.vbs`, the script `clsWorker` extracts into the install folder for the jobs that cannot run in-process. The visible failure was an uninstall that reported "Success!" and then left the add-in and its lock file behind, but the same block affects every worker consumer, and the user cannot whitelist anything to work around it. Without an escape hatch, v5 is unusable in that environment.
+
+**Options explored**:
+
+- **Storage: per-user registry under `PROJECT_NAME\Install` (chosen)** vs. per-project `vcs-options.json`. Uninstall and add-in rebuild are not scoped to a project, and the reason to disable is environmental rather than a property of any source tree, so a project option would be both wrong-scoped and unreachable at the moments it matters most. The install form already writes registry settings and does not itself use the worker, so the toggle is always reachable.
+- **Gating location: `CallWorker` (chosen)** vs. a check at each of the five call sites. Gating the single launch choke point means a consumer added later that forgets to branch degrades to a no-op instead of launching `wscript` — fail-safe rather than fail-open. It is also the seam where a different out-of-process backend would attach without touching any call site.
+- **Uninstall cleanup via `MoveFileEx` + `MOVEFILE_DELAY_UNTIL_REBOOT`** — this was the original plan's recommendation and was **rejected on review**: the flag writes `PendingFileRenameOperations` under HKLM and requires administrator rights. The add-in installs to `%AppData%` specifically so it never needs elevation, and a user locked down enough to have scripts blocked is the least likely to be an administrator. **Leave-and-notify** was chosen instead: name the files, open the folder, and quit Access so the user can delete them.
+- **VBA project save: block the export** vs. **warn and continue (chosen)** vs. **stay silent (rejected outright)**. Per the 2026-07-29 entry, the worker is the only mechanism that reliably saves the project, and three of the four alternatives tried fail *silently*. Staying silent would mean an export omitting unsaved form and report class-module edits while reporting success — strictly worse than the antivirus alerts being fixed. Blocking was rejected as too aggressive when the user may not have unsaved work that matters to them. `SaveCurrentVBProject` already returns the project's real `Saved` state, so the failure is detectable; the export path was simply discarding it because `SaveUnsavedVbaProject` was a `Sub`.
+- **Access-database worker as the fallback backend** — documented as a future alternative, not built. The worker logic is already VBA-compatible and the add-in self-routes `/cmd` actions via `AutoRun`, so copying the add-in to a temp file and launching `MSACCESS.EXE <copy> /cmd <ACTION>` would reuse all existing code and could restore the VBA project save. Deferred because it costs seconds of Access startup per call, adds a temp database to manage, and — decisively — it is **unverified** whether launching `MSACCESS.EXE` avoids the same heuristic, which cannot be tested without a reporter who can whitelist. If a dedicated worker database is ever wanted, ship it prebuilt like `Template/`: injecting code via `VBComponents.Import` requires "Trust access to the VBA project object model", commonly disabled by GPO in exactly these environments.
+
+**Decision**: Add `blnUseWorkerScript` to `udtInstallSettings` (registry `Install\Use Worker Script`, default **on**), surfaced as **Use helper script (Worker.vbs)** in the installer's Advanced Options and read through `modInstall.UseWorkerScript`. `CallWorker` early-outs when it is off. Each consumer gets a script-free fallback: the accessibility probe reports "not accessible" through a new `modBuild.DatabaseAccessibleToOtherClients` so all three of its call sites take their existing reopen paths deliberately rather than by way of an implicit `CBool(Empty)`; uninstall lists the leftover files and quits; self-rebuild declines with a pointer to Build From Source; and the VBA project save warns. Turning the setting off also deletes `Worker.vbs`, because for these users the file's presence is part of the complaint, not just its execution.
+
+**What this rules out**: Any future worker consumer must either tolerate a no-op or check the setting itself — `CallWorker` will not fail loudly. Locked-down users permanently forgo the in-place merge optimization and `RebuildAddIn`, and accept a manual VBE save before exporting a dirty project. The registry scope means the setting cannot vary per project, which is deliberate. Revisit the Access-database worker if the warn-and-continue save proves annoying in practice, or if anyone can confirm that `MSACCESS.EXE` escapes the heuristic.
+
+**Relevant files**: `modInstall.bas` (setting, accessor, `NotifyManualAddInCleanup`), `clsWorker.cls` (`CallWorker` gate, `RemoveWorkerScript`), `modDatabase.bas` (`SaveUnsavedVbaProject` now a `Function`, `WarnUnsavedVbaProject`), `modBuild.bas` (`DatabaseAccessibleToOtherClients`), `clsVersionControl.cls` (`RebuildAddIn`), `frmVCSInstall` (`chkUseWorkerScript`), `docs/architecture.md`, `Wiki/Installation.md`, `Wiki/FAQs.md`.
+
+---
+
+## 2026-08-06 — In-memory error-break suppression for MCP/API calls
+
+> **⚠ Partially superseded** (2026-09-07): Explicit headless entry points now
+> raise VBE Error Trapping to Break on Unhandled Errors for the duration of the
+> call. `Operation.Begin` still floors attended work at Break in Class Module
+> and does not change every MCP/API call. See "Headless calls raise VBE Error
+> Trapping to Break on Unhandled Errors" above.
+
+**Trigger**: MCP tools (`vcs_run_vba`, `vcs_export_database`, etc.) route through `modAPI.API` / `APIAsync`. When **Break on Error** is enabled, `LogUnhandledErrors` executes `Stop` on leftover `Err` before most `On Error` directives. That halts Access until a human continues — the MCP server sees a hung call with no JSON response.
+
+**Options explored**:
+- **Temporarily set `Options.BreakOnError = False`** (same pattern as `clsTestRunner`) — rejected: export calls `Options.SaveOptionsForProject`, which would persist `"BreakOnError": false` into `vcs-options.json`. The `Options` singleton can also be replaced mid-call via `LoadOptionOverrides`, dropping the suppression.
+- **Switch VBE error trapping to Break on Unhandled Errors during MCP calls** — rejected: when a break does occur, Break in Class Modules stops at the line that raised the error; Break on Unhandled Errors surfaces it in the parent handler, which is less useful for diagnosis. The scope cannot prevent VBA-native unhandled breaks anyway.
+- **In-memory nesting counter in `modErrorHandling`, honored by `LogUnhandledErrors` and `DebugMode` (chosen)** — `SuppressErrorBreaks` / `RestoreErrorBreaks` at MCP/API entry points. Cannot be serialized, survives options reload, nests correctly for `APIAsync` → `API` → `RunVBA`.
+
+**Decision**: Add `SuppressErrorBreaks`, `RestoreErrorBreaks`, and `ErrorBreaksSuppressed` to `modErrorHandling`. Push at the first statement of `API`, `APIAsync`, `HandleAPIAsyncOperation`, and `RunVBA`; pop on every exit path including `ErrHandler`. When suppressed, log unhandled errors instead of `Stop`, and have `DebugMode` return `False`. Replace `clsTestRunner`'s `Options.BreakOnError` toggle with the same scope (avoids disk write-through during round-trip exports). Leave `Operation.Begin`'s Break in Class Modules trapping unchanged.
+
+**What this rules out**: Mutating `Options.BreakOnError` for automation scopes. Changing VBE trapping mode during MCP calls to reduce breaks at the cost of break location. If a pop is skipped by a hard crash, breaks stay suppressed until Access restarts — acceptable degraded state.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/modErrorHandling.bas` — suppression primitive
+- `Version Control.accda.src/modules/API/modAPI.bas` — `API`, `APIAsync` scopes
+- `Version Control.accda.src/modules/Utility/modTimer.bas` — async timer scope
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `RunVBA` scope
+- `Version Control.accda.src/modules/Tests/clsTestRunner.cls` — uses suppression instead of option mutation
+
+---
+
+## 2026-07-31 — One declarative list of export formats, guarded by a test that parses the enum
+
+**Trigger**: Adding an export format version took three coordinated edits, and one of them failed silently. `frmVCSOptionsExport.Form_Load` populated its combo by looping `For lngFormat = EFV_4_1_2 To eExportFormatVersion.[_Last]` — 10,000 iterations across the sparse packed-integer space — and filtering through a hand-written `Case EFV_4_1_2, EFV_5_0_0, EFV_5_1_0`. Forget that `Case` and the new format still gates correctly everywhere in code; it just never appears in the UI, so no user can select it. `[_Last] = 50100` was a second hand-copied duplicate of the newest value.
+
+**Options explored**:
+- **Runtime reflection over the add-in's own source** — parse the enum from `GetCodeVBProject.VBComponents("modConstants").CodeModule` when the form loads. Truly one edit per version, and the precedent exists (`clsWorker.GetWorkerScriptContent` already reads its own code module at runtime). Rejected: the installer offers a compiled `.accde` install (`Install\Compile accde`), where `VBComponents` is unavailable, and "Trust access to the VBA project object model" is a Trust Center setting the add-in never manages. Both failure modes are silent and would need a fallback list anyway — the very thing being eliminated.
+- **Deploy-time codegen** — regenerate the list between `BEGIN`/`END` markers, as `clsTestRunner.SyncFactoryEntries` does for `modTestAssert`. One edit per version and drift is impossible. Rejected as disproportionate: export formats appear roughly twice per major version, and the machinery would have to be understood by anyone touching `modConstants`.
+- **Dictionary of version to description**, surfacing the enum's trailing comments in the combo. Rejected with the UI change: nothing consumes the descriptions, and a value slot nobody reads becomes a second thing to keep current.
+
+**Decision**: `GetExportFormatVersions()` in `modConstants.bas` returns a `Collection` of packed values in ascending order, mirroring the `GetExporterRevisions()` shape already in that module. `LatestExportFormat()` returns its last entry, replacing the `LATEST_EXPORT_FORMAT` const, and `[_Last]` is deleted. The combo iterates the collection. Adding a version is now the enum member plus one `col.Add` line, adjacent in the same block.
+
+VBA cannot enumerate enum members at runtime, so the list still repeats the enum. `modTestExportFormat` closes that gap where the cost is acceptable: it parses the `eExportFormatVersion` block out of the add-in's own source and asserts the enum and the list agree in both directions, that the list is strictly ascending (so `LatestExportFormat` is meaningful), and that each `EFV_a_b_c` name matches its packed value. Reflection in a test is safe in a way it is not at runtime — the test module only exists in the add-in's own project, so it only ever runs in a development session where the source is present and the VBA object model is reachable. When the code module cannot be read it fails with an actionable message rather than passing without checking anything.
+
+Converting `LATEST_EXPORT_FORMAT` from a `Const` to a function was safe because all eight call sites are runtime expressions — no `Case` labels, no array bounds.
+
+**What this rules out**: The enum-to-list duplication is now guarded rather than removed, so the guarantee is only as good as the test being run. If export formats ever become frequent enough that this friction bites, deploy-time codegen is the next step and the guard test becomes its verification. The parser assumes the current declaration shape (`EFV_x_y_z = nnnnn`, one per line, optional trailing comment); a reformatted enum silently parses fewer members, which the count assertion catches in one direction but not if the whole block stops matching — the "parsed at least one member" assertion covers that case.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/modConstants.bas` — `GetExportFormatVersions`, `LatestExportFormat`; `[_Last]` and `LATEST_EXPORT_FORMAT` removed
+- `Version Control.accda.src/forms/frmVCSOptionsExport.cls` — combo populated from the list
+- `Version Control.accda.src/modules/Tests/Infrastructure/modTestExportFormat.bas` — guard test
+
+---
+
+## 2026-07-31 — Compile gate in the rebuild worker, not in Build or in the installer
+
+**Trigger**: `Rebuild Add-In` decides the rebuild succeeded by reading the build log for `Done. (` and the absence of `CRITICAL:`. That only proves source files imported. Nothing anywhere in the pipeline compiles the VBA, so an agent-introduced syntax error installs cleanly and only surfaces the next time someone opens the add-in.
+
+**Options explored**:
+- **Compile at the end of `modBuild.Build`** — reaches every build, but the 2026-07-29 entry already settled that a project which does not compile still has to be buildable and mergeable. Rejected: it would turn a broken project into an unrecoverable one.
+- **Compile in `AfterBuild`** (`Options.RunAfterBuild`, add-in project only) — runs inside the newly built database, so it is naturally scoped to the add-in's own build. Rejected: `AfterBuild` executes *in* the project it would be compiling, and compiling a project with running code is exactly what raises the modal reset prompt.
+- **Gate the `/cmd INSTALL` branch of `modInstall.AutoRun`** — would cover manual installs too. Rejected: an end user installing a downloaded `.accda` can fail to compile for environmental reasons (a missing reference on their machine), and blocking a legitimate install is worse than the problem being solved.
+- **Open a clean Access instance to compile the built file** — a faithful simulation of what the user gets, with no leftover run-state. Rejected: `OpenCurrentDatabase` runs the target's AutoExec (the existing code already closes `frmVCSInstall` for that reason), and AutoExec on non-compiling code can raise a modal dialog with nothing present to dismiss it, hanging the disconnected worker.
+
+**Decision**: Gate in `clsWorker.BuildAndInstall`, between the log-success check and the `/cmd INSTALL` launch, reusing the instance that performed the build. `CompileBuiltAddIn` activates the rebuilt project (the build closed and recreated the database, so the project `Main` activated no longer exists), clears run-state with the VBE Reset control, then issues `acCmdCompileAndSaveAllModules` (126) with a fall back to `acCmdCompileAllModules` (125) so a refused save is not read as a compile failure, and returns `Application.IsCompiled`. Compiling *and saving* means the installed copy ships compiled rather than compiling on the user's first load. On failure the instance is left open with the VBE showing, so the developer lands on the error instead of reopening the file to find it.
+
+Both commands are issued from out of process, which is where VBE and project-save operations have proven reliable here (see `SaveVbaProject` in the same file and `modVbeUtility.SaveCurrentVBProject`). The reset is safe from this position for the same reason the 2026-07-29 crashes were not: no VBA is running in the target instance, so the reset cannot end its own caller.
+
+**What this rules out**: The gate does not protect anything but the developer rebuild loop — a hand-built `.accda`, a downloaded release, or a `/cmd INSTALL` run by any other route still installs unchecked. Revisit if uncompilable add-ins start reaching users through those paths. Note also that `VerifyWorker` regenerates `Worker.vbs` from the *running* add-in's `clsWorker` code while `strInstalledLib` points at the *installed* add-in, so the gate only becomes live on the second rebuild after this change is installed; a first rebuild that installs a broken build is the bootstrap, not a failure of the gate.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Integration/clsWorker.cls` — `CompileBuiltAddIn` and `QuitAccessInstance` added; `BuildAndInstall` reordered so the build instance outlives the log checks
+- `Wiki/Editing-and-Contributing.md` — development workflow no longer asks for a manual `Debug > Compile`
+
+---
+
+## 2026-07-31 — Property application order is not load-bearing; keep the sort alphabetical
+
+**Trigger**: The canonical sort in the entry below orders property nodes alphabetically. That is the same ordering issue #691 blames for losing combo-box lookup properties on rebuild: alphabetically `BoundColumn`, `ColumnCount`, `ColumnHeads` and `ColumnWidths` all precede `DisplayControl`, `RowSourceType` and `RowSource`, and the theory was that Access re-derives lookup metadata when those three are set, resetting `ColumnCount` to 1 and discarding `ColumnWidths`. Since the sort sits behind an export format gate, it was worth proving before shipping.
+
+**The corpus says the order looks load-bearing.** Across 444 tbldefs files from four databases — SecTbl (324 local tables), sec, Testing, and Northwind_dev, the last being Microsoft-authored and so the one sample with a creation history independent of this toolchain — Access's emission order is unstable in general (96 distinct field sequences, most property pairs appearing in both orders) but the lookup chain never inverts once: `DisplayControl` before `RowSourceType` (461 to 0), before `RowSource` (445 to 0), before `BoundColumn` (445 to 0), before `ColumnCount` (461 to 0), before `ColumnHeads` (461 to 0), before `ColumnWidths` (410 to 0). `SubdatasheetName` likewise always precedes `LinkChildFields` and `LinkMasterFields`, and `OrderByOn` always precedes `OrderBy`.
+
+**Measurement says it is not.** Each scenario built the same combo lookup twice, once with properties in alphabetical order and once in Access's order, then read all ten lookup properties back:
+
+| Path | Alphabetical result |
+|---|---|
+| `Application.ImportXML` | all ten correct |
+| DAO local table, sequential `SetDAOProperty`-style apply | all ten correct |
+| DAO linked table (Access backend) | all ten correct |
+| Local and linked with a real `Table/Query` row source rather than a value list | all ten correct |
+
+`ColumnCount` stayed 2 and `ColumnWidths` stayed `0;1440` everywhere. The invariance in the corpus reflects how Access serializes, not a constraint it enforces on read.
+
+**Decision**: Keep the sort plain alphabetical. Do not add a dependency-ordered rank table, and do not reorder properties at apply time in `modTableDefBuilder` or in the linked-table restore. A rank table would mean a new helper, three call sites, and a procedure header asserting a dependency that does not exist.
+
+**What this rules out**: Reading the corpus invariance as evidence of a dependency. It is real and reproducible, and it is still the wrong conclusion — the measurement above is the one that counts. `TestPropertyNodesSortedUnderNewFormat` now asserts the inversion explicitly (`BoundColumn` ahead of `DisplayControl`) so that a future reader who rediscovers the corpus pattern cannot quietly "fix" it.
+
+**Issue #691 is therefore still unexplained.** The ordering hypothesis in that thread was never verified and now looks wrong, so nothing here fixes it. The reported loss of `ColumnCount` and `ColumnWidths` on rebuild has some other cause; candidates not ruled out are `SetDAOProperty`'s delete-and-recreate on type mismatch, behaviour specific to an ODBC/SQL Server link (only an Access backend was reachable for testing), or something in how the link is recreated during a rebuild.
+
+**Also in this change.** The sort is now gated to `this.intObjectType = edbTableDef` and does a single `xsd:appinfo` scan handling both property kinds, rather than two full-document scans. `SanitizeXML` is shared with `clsDbTableData`, so the previous form charged every table-data export — which can run to many megabytes — two descendant scans for nodes that are almost never present. `TestPropertyNodesNotSortedForTableData` covers the gate. Two fixtures were added to `Testing/Fixtures/tabledefs/`, since the corpus had no lookup or subdatasheet coverage at all: `tblFixLookupCombo` (the full lookup chain) and `tblFixSubdatasheet`. The latter is also the only place `SubdatasheetHeight` and `SubdatasheetExpanded` appear anywhere in the corpus.
+
+---
+
+## 2026-07-30 — Canonicalize tbldefs property order so the DAO builder can match source
+
+**Trigger**: The DAO table-def builder (entry below) worked, but a real merge
+in a large external benchmark database still fell back to `ImportXML` and paid
+451.50 seconds. Verification was rejecting the table the builder produced.
+
+**What the diff showed.** `LogDefinitionMismatch` was added to log the differing lines rather than just the verdict, and the cause was visible on the first run. Every difference is a rotation of the same property names, repeated once per field:
+
+| Source (Access) | Rebuilt (DAO) |
+|---|---|
+| ColumnWidth, ColumnOrder, ColumnHidden, Required, AllowZeroLength | AllowZeroLength, Required, ColumnWidth, ColumnOrder, ColumnHidden |
+
+Same names, same values, same count — the lines realign after each field, so nothing is added or dropped. Only sequence differs, and verification is a byte comparison.
+
+**Why the order cannot be fixed in the builder.** Three probe tables in `Testing.accdb`, one field with the same five properties, exported with `acExportAllTableAndFieldProperties`:
+
+| Creation path | Emitted order |
+|---|---|
+| `Application.ImportXML` | ColumnWidth, ColumnOrder, ColumnHidden, Required, AllowZeroLength |
+| DAO, natives assigned before the save | AllowZeroLength, Required, ColumnWidth, ColumnOrder, ColumnHidden |
+| DAO, natives assigned last, after the save | AllowZeroLength, Required, ColumnWidth, ColumnOrder, ColumnHidden |
+
+`ImportXML` reproduces the document order of the file it read. For a DAO-created field, `Required` and `AllowZeroLength` are intrinsic members of the Properties collection and always lead. Assignment order is irrelevant — the second and third rows are identical. A fourth probe never assigned them at all and Access still emitted both, at default values, in the leading position. Appending them as ordinary properties to move them fails with error 3367, "an object with that name already exists in the collection", and intrinsic properties cannot be deleted. There is no lever on the DAO side.
+
+**Decision**: Sort `od:tableProperty` and `od:fieldProperty` siblings by name in the export sanitizer (`clsSourceParser.SortXmlPropertyNodes`), gated behind `EFV_5_1_0`. Both creation paths then produce identical bytes. `od:index` nodes share the `appinfo` block and are left alone; the sorted properties are re-inserted at the position the first one occupied, so index order is untouched.
+
+**The fast path now requires the new format.** `FastTableDefImportApplies` returns False below `EFV_5_1_0`. On an older format the DAO build would import correctly but re-export in a different order from the file it came from, rewriting `tbldefs/` on the user's next export. Trading source churn for speed is not a trade we want to make silently, so the path waits for the format the ordering fix lives in.
+
+`EFV_5_1_0` was initially left dormant, which turned out to make the whole fast path unreachable: `[_Last]` was still 50000 and the options combo whitelisted only 4.1.2 and 5.0.0, so no project could be on 5.1.0 and `FastTableDefImportApplies` always returned False. A `tblProbe` import into the benchmark database on 2026-07-31 still took the full `ImportXML` cost for exactly that reason. It is now activated: `[_Last] = 50100` and the combo offers 5.1.0. The format also carries the sidecar `Info.Class` change, which goes live with it.
+
+Note for anyone migrating a project: switching a project to 5.1.0 is not enough on its own. The DAO builder verifies by re-exporting the table it built and comparing bytes against the source file, so a project whose `tbldefs/` are still in unsorted 5.0.0 order will fail verification on every table and fall back. A full export has to run first to migrate the source, after which the fast path engages.
+
+**Measured end to end.** Once the benchmark database was on 5.1.0 with its source migrated, importing `tblProbe` with a changed definition logged `Built tblProbe directly, without importing the XML` and completed in **1.14 seconds**, against **462.48 seconds** for the same import an hour earlier on the `ImportXML` fallback. The DAO build itself is 0.10s (`Create Table (DAO)`), with 0.01s each for parsing the XML and verifying the result. The sanitizer's sort costs nothing measurable: single-object exports of the same table run 1.43–1.45s on 5.1.0 against 1.29–1.52s historically, with `Sanitize XML` reporting 0.00s.
+
+The one-time migration export is visible and worth expecting: the add-in's own export jumped from ~2.5s over 40 objects to 10.05s over 266, because changing the format invalidates the global option hash and marks every category stale. All six of its `tbldefs/` diffs verified as pure reordering — identical line multisets, resequenced.
+
+**What this rules out**: Making verification order-insensitive instead. It is a smaller change and would work on every format, but it leaves the database and its source file genuinely disagreeing on order, so every subsequent export rewrites those files. The byte comparison is also the guard the builder's own header leans on ("even a construct we recognize but reproduce imperfectly is caught before it can be committed"), and weakening it to accommodate a difference we know is meaningless makes it weaker against differences that are not.
+
+**Harness bug found along the way.** `RunTableDefRoundtrip` inferred "the DAO path was used" from `GetLastDeclineReason()` being empty, but that reason is set by the parser, not by the caller's verification step. A build that parsed cleanly and was then rejected and discarded left no reason behind, so the fixture passed on the `ImportXML` fallback — the exact failure the check was written to prevent, and why `tblProbe` appeared to round-trip cleanly while the same file failed in a real merge. `clsDbTableDef` now reports rejection through `modTableDefBuilder.RecordVerificationFailure`, so the reason describes the outcome of the import rather than only the parse. The fixtures also force `ExportFormatVersion = EFV_5_1_0` for the duration of the run, since the DAO path only matches source under the canonical ordering.
+
+---
+
+## 2026-07-30 — Build local table definitions through DAO instead of Application.ImportXML
+
+**Trigger**: The follow-on from the entry below. Skipping the rebuild when the definition already matches source removed the cost for unchanged tables, but a table whose definition genuinely changed still paid the full 276–281 seconds of `Application.ImportXML ... acStructureOnly`. That entry closed by naming DDL generation as the next option; this is it.
+
+**Scope correction from the build log.** The obvious worry — that a full build of 372 tables pays this 372 times — turns out to be wrong, and it changes what the fix should target. `Build_20260727_105856_191.log` (963 seconds total) attributes only **21.80 seconds to Tables**, about 0.06 per table. The reason is ordering: `GetContainers` in `modContainers.bas` creates every table (#14) before the first query (#15), so a full build creates tables into an empty query catalog, which is precisely the condition under which `ImportXML` is cheap. The real full-build cost is `modLoadFromText.LoadFromText` at 493 seconds over 4,480 calls, plus 163 in `Other Operations` — unrelated, and still open.
+
+What *is* pathological is any import into an already-populated catalog: a merge build (which pays per table, so several tables is the worst case, not a lesser one), `ImportByType("tables")`, and single-object import.
+
+**Decision**: A new `modTableDefBuilder.bas` parses the exported table definition XML into a schema model and creates the table with `CreateTableDef` / `CreateField` / `CreateIndex`, applying properties through the existing `SetDAOProperty`. `clsDbTableDef.IDbComponent_Import` tries it before `Application.ImportXML` and falls back on any doubt. Import-side only — no export format change, no new option, and every prior export still imports.
+
+Three mechanisms carry the risk, because the failure mode we are guarding against is not an error but a table that is quietly missing something (exactly how `TransferDatabase` dropped `ColumnOrder`, see below):
+
+1. **Strict parsing.** The parser walks the whole document and returns `Nothing` on any element or `od:` attribute it does not explicitly recognize, rather than building a partial table. Attachments, multi-value fields (`od:jetType="complex"`, `od:jetComplexType`) and calculated columns (`od:expression`) are refused by name.
+2. **Verification.** The finished table is exported through `IDbComponent_Export` into the conflict-detection temp folder and hash-compared against the source file, reusing `StoredDefinitionMatchesSource`. `Application.ExportXML` costs 0.00 seconds even in the large database, so this is nearly free. On mismatch the table is dropped and `ImportXML` runs as before. The worst case is therefore the old timing plus a few milliseconds.
+3. **Circuit breaker.** Source predating the current export format could fail verification on every table, and a merge touching many of them should not pay build-plus-export-plus-delete on top of each `ImportXML`. Three consecutive expensive failures stand the path down for the rest of the operation. A parse decline does not count — it costs about a millisecond and says nothing about the next table.
+
+**Property names are deliberately not whitelisted**, unlike elements and attributes. Everything except five native DAO `Field` members (`Required`, `AllowZeroLength`, `DefaultValue`, `ValidationRule`, `ValidationText`) goes through `SetDAOProperty`, which is generic and works for names we have never seen. A native member we failed to route would either raise (caught) or fail verification (caught). Whitelisting them would trade that for a fallback every time Access adds a property.
+
+**Big Integer comes out right the first time.** `ExportXML` has no schema representation for `dbBigInt` and writes a bare `xsd:decimal` restricted to `totalDigits="0"`, which is why `ImportXML` mis-creates those fields as `dbDecimal(38,0)` and `FixCorruptedBigIntFields` has to repair them afterwards. The parser recognizes the sentinel and creates `dbBigInt` directly. The repair stays for the fallback path.
+
+**When it runs.** Two cheap gates, resolved once per operation and cached on the component instance (one instance serves one operation — `GetContainers` builds a fresh set per build, and `LoadSingleObject` is handed a fresh one per call):
+
+- `Operation.OperationType = eotBuild` skips it. A full build is already fast, and the proven call is preferable where there is nothing to gain.
+- Within `eotMerge`, saved query count must reach `MIN_QUERIES_FOR_FAST_TABLEDEF` (500). Query count is the cheapest available proxy for what actually drives the cost — total table references across the catalog. The measurements in the entry below set the scale: 4 queries costs 0.02 seconds, ~2,000 costs 2 to 19 depending on table references, ~4,000 costs 4.5 to 43, and 3,692 real ones cost 276–281. Below the line `ImportXML` is cheap; above it, every table avoided is seconds to minutes.
+
+**Options reconsidered**: `DoCmd.TransferDatabase` out of a scratch database remains rejected for the fidelity reasons recorded below. This approach reaches the same speed without leaving the current database, and unlike `TransferDatabase` its output is checked rather than trusted.
+
+**Testing.** Two layers, because neither covers the other:
+
+- `Testing/Fixtures/tabledefs/` — round-trip fixtures seeded from real Access exports, proving that create-then-re-export is byte-identical. Each asserts an `import_path` check, so a fixture cannot quietly pass on the fallback and prove nothing. Fixtures under `tabledefs/fallback/` invert it and assert the builder *refuses* the construct. The eligibility gate is forced open for the run (`FastPathTestOverride`) because no test database is large enough to open it naturally.
+- `modTestTableDefBuilder.bas` — parser tests from hand-written schema fragments, covering the data types no sample database happens to contain and every rejection path. Hand-written XML is unsuitable for round-trip fixtures (the drift check compares against what Access actually emits) but is exactly right for testing the type map.
+
+**What this rules out**: Trusting a DAO-built table without re-exporting and comparing it. Attributing full-build time to table imports. Whitelisting property names, which would make the path brittle against future Access versions for no safety gain.
+
+**First end-to-end proof.** The representative table that started this —
+renamed here as `tblProbe`, with three fields, seventeen table properties, and
+no indexes — was run through the round-trip harness against `Testing.accdb`
+from a fixture root outside the repo. All four checks passed in 0.298 seconds:
+`import_path` (the DAO builder handled it, no fallback), `xml_vs_fixture` (the
+table it created re-exported byte-identical to the external source file), and
+`xml_pass2_idempotent`. So for this shape the builder reproduces what
+`ImportXML` produces, and the verification step confirms it rather than taking
+it on trust.
+
+Note the gate had to be forced open: `Testing.accdb` has 4 saved queries against a threshold of 500, which is exactly why `FastPathTestOverride` exists.
+
+**Known open failure.** In the benchmark database, a single-object import of
+`tblProbe` with a genuinely changed definition (one `BackTint` value, 100 →
+200) took the fallback: `Merge_20260730_163854_113.log` shows `Parse Table Def
+XML` 0.01 s and `Create Table (DAO)` 0.11 s, then `Verify Table Def (DAO)`
+rejecting the result and `App.ImportXML() Structure` spending 451.50 s. So the
+builder is installed and runs; verification refuses its output. The same source
+file, byte for byte, round-trips cleanly through the harness in
+`Testing.accdb`. The difference between the two runs is that the external
+database's table already existed and was being replaced through
+`IDbComponent_Merge` (stage relations, delete, rebuild), where the harness only
+ever creates a fresh sandbox table — that path is currently untested.
+
+`LogDefinitionMismatch` was added for this: a rejected rebuild now lists the differing lines in the log. Previously the only record was "the rebuilt table did not match the source file", and the temp export is swept at the end of the operation, so the evidence was gone before anyone could read it — leaving reproduction as the only option on exactly the databases where reproducing costs minutes per attempt.
+
+**Still to verify** against the benchmark database, next to the numbers in the
+entry below: the `tblProbe` single-object import (baseline 455 s end to end,
+276–281 of it in `ImportXML`); a merge build touching several tables, where the
+per-table cost compounds and the gate has to earn its keep; and the Tables
+category of a full build (baseline 21.80 s across 372 tables), confirming the
+`eotBuild` gate leaves it untouched.
+
+**Drive the harness from MCP with `vcs_call_vba`, not `vcs_run_vba`.** `vcs_call_vba` is a single `Application.Run` against the add-in's API and works:
+
+```
+vcs_call_vba(<target.accdb>,
+             "<AppData>\MSAccessVCS\Version Control.API",
+             ["RunRoundtripTests", "C:\path\to\fixtures\"])
+```
+
+Qualify with the **full path**, which also loads the add-in on demand. The bare file name `"Version Control.API"` — the tool's own documented example — never resolves, because `Application.Run` matches on the VBA project name (`MSAccessVCS`, per `PROJECT_NAME`) rather than the file name (`Version Control`, per `ADDIN_BASENAME`). `"MSAccessVCS.API"` does work, but only after something else has loaded the add-in, which is why `RunInAddIn` calls `LoadVCSAddIn` before using that form. The full path is the only one that is correct from a cold start.
+
+`vcs_run_vba` cannot be used for this. MCP-executed VBA is itself delivered through `modAPI.API`, so the submitted code runs *inside* an `API` call and any nested `Application.Run(... ".API", ...)` hits the `Static IsRunning` re-entrancy guard. The guard used to return `Empty` without executing, which is indistinguishable from a method that legitimately returned nothing — it read as a broken add-in rather than a refused call, and cost hours. Routing around it through `HandleRibbonCommand` is worse: it reliably kills the temp module with error 2517 and leaves the host VBA project needing a close and reopen.
+
+`API` and `APIAsync` now return an explanatory message instead, prefixed with `API_REFUSED_PREFIX` so callers can tell a refusal from data. Note that this deliberately is *not* an `Err.Raise`: an error raised inside a library database does not propagate across `Application.Run` into the calling project's handler, so even a caller with `On Error GoTo` active gets a modal dialog that blocks Access until someone dismisses it. That was tried first and reverted.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/modTableDefBuilder.bas` — new
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — `TryFastTableDefImport`, `UseFastTableDefImport`, `FastTableDefImportApplies`, `RecordFastPathFailure`, `StoredDefinitionMatchesSource` timer label
+- `Version Control.accda.src/modules/Utility/modEncoding.bas` — `UnescapeXmlName`
+- `Version Control.accda.src/modules/Tests/modTestRoundtrip.bas` — `RunTableDefFixtures`
+- `Version Control.accda.src/modules/Tests/Components/modTestTableDefBuilder.bas` — new
+
+---
+
+## 2026-07-30 — Skip the table rebuild when the stored definition already matches source
+
+> **⚠ Partially superseded** (2026-08-12): The claim that a source file outside
+> the export folder is an automatic false negative no longer holds.
+> `StoredDefinitionMatchesSource` now falls back to a flat temp-folder name for
+> that case. See "Verify DAO table builds even when the source file is outside
+> the export folder" above.
+
+**Trigger**: Reloading the representative `tblProbe` — three fields, two rows,
+no relationships — from source took 455 seconds in a database holding roughly
+5,000 objects. The `Merge_*.log` performance report accounted for 0.76 seconds
+and left 454.85 in `Other Operations`, because nothing on the merge path carried
+a `Perf` timer. Exporting the same object was instant.
+
+Timed each candidate call directly against the live database:
+
+| Call | Seconds |
+|---|---|
+| `Application.ImportXML ... acStructureOnly` | 276.07, 281.16 on repeat |
+| `Application.ExportXML` | 0.00 |
+| `DoCmd.DeleteObject acTable` | 0.00 |
+| `SELECT ... INTO` (same table via DDL) | 0.00 |
+| `Application.ImportXML ... acAppendData` (2 rows) | 0.01 |
+
+So it is not object creation that is slow — DDL creates the same table instantly. It is `ImportXML` with `acStructureOnly` specifically, and the cost belongs to the target database rather than to the file.
+
+**What drives the cost.** Importing the *same file* into `Testing.accdb` (44 objects) took 0.02 seconds — roughly four orders of magnitude faster. Building up `Testing.accdb` with synthetic objects isolated which part of the catalog is responsible:
+
+| Target database contents | `acStructureOnly` seconds |
+|---|---|
+| 44 objects (baseline) | 0.02 |
+| + 2,000 queries reading `SELECT 1 AS X` (no table reference) | 2.00 |
+| + 4,000 such queries | 4.54 |
+| + 400 linked tables, 4 queries | 0.03 |
+| + 400 linked tables, 2,000 queries each selecting from one of them | 19.19 |
+| + 400 linked tables, 4,000 such queries | 43.13 |
+| Large external benchmark (roughly 3,700 real queries and 500 tables) | 276–281 |
+
+Object count alone is not the driver, and linked tables are not either — 400
+of them cost nothing on their own, and scanning all connection strings in the
+benchmark database takes 0.02 seconds. What costs is **saved queries that
+reference tables**: at a fixed query count, giving each query a table reference
+multiplied the time by roughly ten. The remaining gap to the benchmark is
+consistent with its queries carrying joins and multiple references rather than
+a single `SELECT *`. The working model is that adding a table invalidates the
+query-to-table name resolution, and `ImportXML` pays to rebuild it, at a cost
+proportional to the total number of table references across all saved queries.
+`DoCmd.DeleteObject` and `SELECT ... INTO` change the catalog too and stay free,
+so whatever the mechanism is, it is reached from `ImportXML` specifically.
+
+**Options explored**:
+
+- **Generate DDL from the table-definition XML instead of calling `ImportXML`**: rejected. The XML carries field properties, indexes, lookup metadata and `od:` annotations that the existing importer reproduces faithfully. Reimplementing that is a large change with a wide blast radius, to work around an engine cost we do not fully understand.
+- **Suppress catalog churn around the call** (hide the Navigation Pane, `Application.Echo False`): not pursued. `DoCmd.DeleteObject` and DDL creation both complete in under 0.01 seconds in the same database, so the cost is inside `ImportXML`, not in Access reacting to the object list changing.
+- **Import into a scratch database and copy the table across with `DoCmd.TransferDatabase`**: rejected on fidelity, despite being dramatically faster. Since the cost lives in the target catalog, importing into an empty database sidesteps it entirely: spawning a second Access instance, creating a database and importing the XML there took 2.89 seconds, and transferring the finished table into the benchmark database took 0.05 — about 2.9 seconds against 281, and it would work even when the definition genuinely changed. But the transferred table is not the same table. A/B-importing `Testing/Testing.accdb.src/tbldefs/tblInternal.xml` both ways and comparing every field, index and datasheet property found `TransferDatabase` silently dropping `ColumnOrder` (source says `1` for `ID`, transfer produced `0`) and, worse, setting `Required = True` on `ObjectType`, which the schema declares `minOccurs="0"`. A field that source says is optional arriving as mandatory would reject valid inserts. Worth revisiting only if the divergences turn out to be a short, enumerable list that can be replayed onto the table afterward.
+- **Compare the source file against the current table and skip the rebuild when they match** (chosen): `Application.ExportXML` costs nothing even here, so the check is close to free relative to what it avoids.
+
+**Decision**: `clsDbTableDef.IDbComponent_Merge` calls `StoredDefinitionMatchesSource` before staging relations or deleting anything. That exports the current table to the conflict-detection temp folder through the normal `IDbComponent_Export` path — so the comparison is against a file produced the same way the source file was — and compares content hashes. On a match it applies metadata and updates the index (the same tail `Import` runs, factored into `ApplyMetadataAndUpdateIndex`) and returns without touching the table.
+
+Limited to local tables (`.xml` source). Linked tables import from `.json` without `ImportXML`, and exporting one can reach across to the back end, so the check could cost more than the import it would skip. False negatives are harmless — the caller rebuilds exactly as before — so a missing table, a source file outside the export folder, or an export that produces no file all fall through to the old path.
+
+Dependent table data still merges afterward, because `LoadSingleObject` calls `MergeDependentObjects` separately from `Merge`. Reloading two rows into an existing table costs 0.01 seconds.
+
+**Measured**: the `tblProbe` single-object import that started this, re-run
+against the benchmark database with the check in place, went from **455.61
+seconds to 0.98** (`Merge_20260730_163347_309.log`). The log reports `Compare
+Table Definition` at 0.04 seconds and `Merge Table Data` at 0.04; the two
+largest remaining entries are `Save Index` at 0.71 and `Load Index` at 0.60,
+so the index round trip is now the floor for a single-object import into a
+database this size, not the table work. That run exercised this skip, not the
+DAO builder below — the definition was unchanged, so `IDbComponent_Merge`
+returned before reaching the import path at all.
+
+**Consequence for table data — `MergeDependentObjects` had to switch from `Import` to `Merge`.** It called `cItem.Parent.Import`, which was correct only because the definition merge above it *always* deleted and recreated the table first: data was being loaded into a guaranteed-empty table. Skipping the rebuild breaks that assumption, and the table now arrives at the data step with its rows intact. `Import` in that state is wrong both ways it can run — the XML path uses `acAppendData`, so rows are appended alongside the ones already there (duplicate keys, or silently duplicated rows on an unkeyed table), and the tab-delimited path issues `delete from [table]` first, which fails outright against any table on the child side of a relationship. `clsDbTableData.IDbComponent_Merge` already handles exactly this — its own header says "Import cannot be reused here" — by loading a staging table and reconciling against the key, and it degrades to inserting everything when the table is empty because the definition genuinely was rebuilt. The call now goes there.
+
+**Also fixed**, since both were what made this hard to diagnose:
+
+- The merge path now carries `Perf` timers (`App.ImportXML() Structure`, `App.ImportXML() Data`, `Import Table Data (TDF)`, `Stage Relations`, `Delete Table Object`, `Restore Relations`, `Compare Table Definition`), so a slow merge names its own bottleneck instead of reporting `Other Operations`.
+- `LoadSingleObject` saved the index *after* `Perf.EndTiming`, so the existing `Save Index` timer never reached the report. The save now happens before timing stops. `ClearTempExportFolder` also runs unconditionally, because the new comparison writes there even when the index is disabled on the MCP/API path.
+
+**What this rules out**: Treating a table merge as unconditionally destructive. Attributing the cost to object count, to linked tables, or to anything about the table being imported. Swapping `ImportXML` for `TransferDatabase` out of a scratch database without first proving property-level fidelity. Any future change that makes `IDbComponent_Export` expensive for local tables would undermine this check and should revisit it.
+
+Does not address the underlying `ImportXML` cost — a table whose definition genuinely changed still pays it, and a full build of many tables into a large database still pays it per table. That is the case to watch: a full build is exactly where the definition always differs, so the skip never fires. If it becomes the complaint, generating DDL from the XML is the next option, and the measurements above are the baseline to beat.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — `IDbComponent_Merge`, new `StoredDefinitionMatchesSource`, new `ApplyMetadataAndUpdateIndex`
+- `Version Control.accda.src/modules/Components/clsDbTableData.cls` — `IDbComponent_Import` timers
+- `Version Control.accda.src/modules/Core/modBuild.bas` — `LoadSingleObject` cleanup ordering, `MergeDependentObjects` now merges table data instead of importing it
+
+---
+
+## 2026-07-30 — Split the table data reconcile update when the engine refuses it
+
+**Trigger**: A merge build reported `Error 3360: Query is too complex` for a
+67-field production table and rolled the whole table back, leaving it unmerged.
+The reconcile builds one `UPDATE` carrying an assignment per non-key field plus
+a two-term comparison per non-key field, which for that table is 66 assignments
+and 132 `OR`-ed comparisons. Reproduced read-only against the live database: the
+comparison chain alone fails on its own in a `SELECT`, and the same shape
+truncated to 20 fields runs. The table holds no rows, so this is the engine
+declining to compile the statement, not anything to do with data volume. The
+merge log's `Perf` table showed the same thing — `Reconcile: Insert` ran 17
+times against `Reconcile: Update` 16.
+
+**Options explored**:
+
+- **Gate on a field count**: rejected. There is no published ceiling, and there cannot be a reliable one: the limit is on the size of the parsed expression tree, so joins, calculated columns, and function arguments all spend from the same budget. Reported thresholds in the wild sit anywhere from the high 20s to past 100 depending on what else the query carries. Any constant we picked would be wrong for some table in both directions.
+- **Drop the comparison and update every matched row**: rejected. It halves the expression count but not reliably enough to matter, rewrites rows that never changed, and turns the "N changed" count into "N matched".
+- **Row-by-row DAO compare and edit**: rejected for the same reason the 2026-07-28 entry rejected it for the whole reconcile — the per-row cost is what the set-based design exists to avoid, and wide tables are not necessarily small ones.
+- **Try the one statement, split into field groups only when the engine refuses** (chosen): keeps today's single statement, and its timing, for every table that compiles.
+
+**Decision**: `ReconcileTableData` delegates the update to `UpdateChangedRows`, which attempts the all-fields statement and inspects the error. Only 3360 is recoverable; anything else is re-raised so the caller's handler rolls the transaction back. Retrying is safe because the refusal happens while compiling, before any row is touched, so the surrounding transaction is intact.
+
+The fallback assigns and compares `UPDATE_FIELD_GROUP_SIZE` (12) fields per statement, keeping the two-table shape that already works rather than introducing a join the engine might refuse to update through. Because no group size is *known* to be safe, a further 3360 halves the size and repeats the pass; repeating is harmless, since groups already applied no longer differ from the staging table and match nothing on the way through again.
+
+**Changed rows are counted by collecting keys, not by summing statements.** Per-statement `RecordsAffected` would count a row differing in two groups twice. Each group reads the keys it is about to change into a `Dictionary` immediately before running its update — before, because the rows stop differing once it runs — and the count is the number of distinct keys. A temporary keys table was the obvious alternative and was rejected: it would have to be created inside the open transaction, and Jet does not treat DDL as transactable, so the cleanup story is worse than holding the keys in memory. Memory is bounded by the number of *changed* rows, not table size.
+
+`Reconcile: Update (Grouped)` appears in the `Perf` table only when the split path ran, so a log tells you which path a table took. The caller stops holding a timer across the update, since the helper now owns and closes its own.
+
+**What this rules out**: Treating a field count as a proxy for what the engine will compile, anywhere in this path. Reporting the changed-row count from `RecordsAffected` once more than one statement is involved. Creating temporary tables inside the reconcile transaction. If a table ever proves too wide even at one field per statement, the failure surfaces as the original error rather than silently doing nothing — that would be the point to revisit, most likely with a DAO row walk reserved for that case.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/clsDbTableData.cls` — `ReconcileTableData`, new `UpdateChangedRows`, `UpdateChangedRowsInGroups`, `UpdateFieldGroups`, `BuildFieldAssignments`, `BuildFieldComparisons`, `BuildKeyColumns`, `GetRowKey`
+- `Version Control.accda.src/modules/Tests/Components/modTestTableData.bas` — `TestTableDataMerge_WideTableUpdatesInGroups` and its 80-field table builders
+
+---
+
+## 2026-07-30 — Repair dbBigInt fields after Application.ImportXML
+
+**Trigger**: Issue #734 / PR #735. `Application.ExportXML`/`ImportXML` has no schema representation for `dbBigInt` (Large Number) fields. On Full Build or Merge, `ImportXML` re-creates them as `dbDecimal(38,0)`; once corrupted, writes succeed but always store `NULL`. A separate cosmetic bug mislabeled `dbBigInt` as `COUNTER` in optional `.sql` companion files because `Case dbAutoIncrField` (value 16) collided with `dbBigInt` (also 16) in `GetTypeString()`.
+
+**Options explored**:
+- **Detect via `od:jetType` / `od:sqlSType`**: rejected after live probe. Access exports `dbBigInt` with no `od:jetType` on the element and an `xsd:decimal` restriction carrying `totalDigits value="0"`. There is no `bigint` jetType to key on. `longinteger`, `text`, and other common types all carry explicit jetType values.
+- **Post-import DAO `Field.Type` reassignment**: rejected. DAO raises "Illegal operation" when changing `Type` on an appended field.
+- **Delete and recreate the field**: rejected. Loses field ordinal position and complicates indexes/relationships.
+- **Scan source XML for `totalDigits value="0"` on `xsd:decimal`, then `ALTER TABLE ... ALTER COLUMN ... BIGINT` after `ImportXML`**: chosen. Verified live: repair succeeds, field order is preserved, primary keys on bigint columns survive, and `od:fieldProperty` values such as Caption survive the ALTER.
+- **Full DOM parse on every table `.xml` during build**: rejected for the common case. An `InStr` pre-check for `totalDigits value="0"` skips DOM construction when the signature is absent; DOM/XPath runs only on the rare matching files.
+
+**Decision**: Before `Application.ImportXML`, scan the table-definition XML (from disk, before any temp copy is deleted) with `GetBigIntRepairFieldNamesFromTableDefXml` in `modDatabase.bas` using namespace-agnostic XPath (same pattern as `clsSourceParser.cls`). After a successful import, run `FixCorruptedBigIntFields` in `clsDbTableDef.cls`, which issues `ALTER COLUMN ... BIGINT` per affected field and verifies the result through a fresh `CurrentDb` handle (a `SharedDb` handle held since before the table rebuild can report the pre-ALTER type even after `TableDefs.Refresh`). Also fix `GetTypeString()` / `SaveTableSqlDef` to emit `BIGINT` and `DECIMAL(p,s)` correctly.
+
+**Residual risk accepted**: Legacy `dbNumeric` fields export with the same `totalDigits value="0"` signature as `dbBigInt` (no `od:jetType` on either). A table using `dbNumeric` could be mis-identified and altered to `BIGINT`. `dbNumeric` is uncommon relative to Large Number fields, and genuine `dbDecimal` fields export with their real precision (e.g. `totalDigits="38"`), so they do not match.
+
+**What this rules out**: Fixing this at export time only (ImportXML would still corrupt on the next build). Relying on Access to add `od:jetType="bigint"` in a future release without revisiting the XPath. Using `SharedDb` for the post-ALTER type verification.
+
+**Relevant files**: `Version Control.accda.src/modules/Components/clsDbTableDef.cls`, `Version Control.accda.src/modules/Utility/modDatabase.bas`, `Version Control.accda.src/modules/Tests/Components/modTestTableDef.bas`, `Testing/Testing.accdb.src/tbldefs/tblBigInt.xml`.
+
+---
+
+## 2026-07-30 — UTF-8 conversion streams are cached, not rebuilt per hash
+
+**Trigger**: After the 2026-07-29 scan work took a zero-change merge from 50.9s to 7.35s, the remaining per-file cost was uneven across categories: the benchmark showed Queries at ~1.09 ms per file against 0.38–0.39 ms for Forms and Modules. The initial hypothesis — that un-memoized `clsDbQuery.SourceFile` was driving it through repeated `m_Query.Name` COM reads — turned out to be wrong, and measuring the alternatives against a live 3,681-query database redirected the work.
+
+**Options explored**:
+- **Read query names from `MSysObjects` instead of `CurrentData.AllQueries`**: rejected on measurement. Enumerating all 3,681 queries and reading `.Name` costs 10 ms via the COM collection and 10 ms via a `MSysObjects` snapshot — no difference. DAO `CurrentDb.QueryDefs` is worse on both counts: 44 ms, and it returns 4,918 objects because it includes the 1,237 `~sq_`-prefixed hidden system queries that `AllQueries` correctly omits. The COM collection was never the bottleneck; a repeated `AccessObject.Name` read is 0.12 µs.
+- **Replace `Application.GetHiddenAttribute` with a pre-built `MSysObjects.Flags` map** (the remaining per-object call in `GetQueryMetadataHash`, since Descriptions were already batch-loaded from `LvProp` on 2026-07-13): rejected as a measured regression. `GetHiddenAttribute` costs 1.06 µs per call, 4 ms for the whole set — *faster* than a `Scripting.Dictionary` lookup at 2.12 µs. The two sources were verified to agree (zero mismatches across 3,681 queries), but only the non-hidden case was exercised, so the equivalence is unproven for hidden objects and there is now no reason to rely on it.
+- **Replace `ADODB.Stream` UTF-8 conversion with `WideCharToMultiByte`**: deferred. Almost certainly faster still (sub-microsecond), but it is a different encoder, and every hash stored in `vcs-index.idx` depends on byte-identical output. The surrogate and lone-surrogate edge cases would need to match exactly; the stream-reuse option gets most of the win with the same encoder and therefore zero encoding risk.
+- **Cache the two `ADODB.Stream` objects and rewind them between calls**: chosen. See below.
+
+**Decision**: `GetUTF8Bytes` constructed **two fresh `ADODB.Stream` COM objects on every call** — opening each, setting `Charset` and `Type`, then `WriteText`/`CopyTo`/`Read`. Since `GetStringHash` routes through it, every property hash, content hash, and metadata hash in the product paid that construction cost. Measured at 39.1 µs per call; reusing a module-level pair, rewound with `Position = 0` followed by `SetEOS`, costs 3.9 µs. The pair is opened on first use by `EnsureUtf8Streams` and torn down by `ReleaseUtf8Streams`, called from `modObjects.ReleaseObjects` and from the `GetUTF8Bytes` error handler so a transient stream failure cannot poison every later call.
+
+The `SetEOS` truncation is the load-bearing detail: without it a short input inherits the tail of a longer preceding one. Byte-for-byte equality with the fresh-stream form was verified across both BOM modes for ASCII, accented, CJK, surrogate pairs, lone high and low surrogates, empty strings, a 5,000-character string, and — the dangerous direction — short inputs immediately following long ones.
+
+Separately and much smaller, `clsDbQuery.SourceFile` is now memoized to match `clsDbForm`, cleared whenever `m_Query` is rebound (the `DbObject` setter plus the two import paths that assign `m_Query` directly). An uncached read costs 5.9 µs because it rebuilds the path through an un-memoized `Options.GetExportFolder` — including a `CurrentProject.FullName` COM read — plus the ten `Replace` calls in `GetSafeFileName`; a memoized read is 0.04 µs. Worth ~22 ms per pass over 3,681 queries: real, but not the seconds the category benchmark shows.
+
+**Residual risk accepted**: the cached streams are process-wide module state, so any future reentrant use of `GetUTF8Bytes` (a hash computed from inside a hash) would corrupt both results. Nothing in the current call graph does this, and VBA is single-threaded. `Options.GetExportFolder` remains un-memoized and is still called once per component per category via `BaseFolder`; memoizing it needs care because it depends on `CurrentProject`, which changes when the database being operated on changes.
+
+**Measured**: zero-change merge of the same project, against the 2026-07-29 result. Two consecutive runs are shown because the first had an outlier folder walk; the folder scan is the noisiest line in this report and must be checked before reading a total.
+
+| Operation | 2026-07-29 | Run 1 | Run 2 |
+|---|---|---|---|
+| **Total runtime** | **7.35s** | **7.23s** | **6.68s** |
+| `Get File Property Hash` (exclusive) | 0.75s / 5,094 | 0.44s / 5,094 | 0.44s / 5,094 |
+| `Compute SHA256` | 0.95s / 5,111 | 0.87s / 5,111 | 0.85s / 5,111 |
+| `Scan Source Files` (loop, exclusive) | 2.08s | 2.02s | 1.94s |
+| `Scan Folder Metadata (API)` | 0.30s / 1 | 0.54s / 1 | 0.27s / 1 |
+| `Other Operations` | — | 1.49s | 1.38s |
+
+Reading run 2, where the folder walk is back in line with the baseline, the net is **~0.67s (9%)**. The largest single component is exactly the intended one and is reproducible across both runs: `Get File Property Hash` — the operation wrapping `GetStringHash`, since the `Compute SHA256` timer covers only `HashBytes` and never included UTF-8 conversion — fell 41%, from 0.75s to 0.44s, about 61 µs per call. `Scan Source Files` fell 0.14s, consistent with the `clsDbQuery.SourceFile` memoization being worth ~22 ms per pass plus incidental gains.
+
+The 0.31s hash-path saving is precisely the ceiling that a call count predicted in advance: ~5,100 string hashes at ~60 µs each. That ceiling is low because the 2026-07-29 work had already cut hashing from 20,095 calls to 5,111, so this follow-up could never have been a large win no matter how fast the primitive became. The lesson worth carrying forward is to multiply per-call cost by call count *before* choosing the work, and to take two runs before quoting a total — the first run here understated the result by a factor of five purely through folder-walk variance.
+
+Note also that `GetFileHash` goes through `GetFileBytes`, not `GetUTF8Bytes`, so file content hashing does not benefit at all — only string hashes do (property hashes, combined content hashes, metadata hashes, dictionary hashes), and those run roughly once or twice per component regardless of operation. This is not a change that scales up on full exports.
+
+**Where the remaining 6.68s sits**: `Scan Source Files` loop overhead 1.94s and unattributed `Other Operations` 1.38s now dominate, together half the runtime — the loop cost is `GetFileList` enumeration plus `GetAllFromDB`, which must enumerate every database object for orphan detection. Beyond that there is ~2.1s of fixed overhead that is not scanning at all (`CheckDatabaseAccessible` 0.77s, `Wait for Job Queue` 0.71s, `Load Index` 0.64s). Hashing is no longer a meaningful target: the two hash lines together are 1.29s, and the property-hash half of that is now near its floor. The deferred per-category aggregate fingerprint remains the only option identified that attacks the loop itself, and the 1.38s of untimed work has never been instrumented.
+
+**What this rules out**: reaching for `MSysObjects` as a general substitute for Access COM object collections on performance grounds. For queries it is measurably no better, and it costs the correct hidden-object filtering that `AllQueries` gives for free. It also rules out treating the query category's per-file cost as query-specific — the dominant term is shared by every category, so component-class tuning is not where the remaining time is. And it largely rules out further hash-path work: with hashing down to 1.29s across both timers on a 6.68s run, `WideCharToMultiByte` could recover at most a couple of tenths and would require a byte-equality corpus at least as broad as the one used here to be safe. It is only worth revisiting if a future change pushes string-hash call counts back up by an order of magnitude.
+
+**Relevant files**: `Version Control.accda.src/modules/Utility/modHash.bas`, `Version Control.accda.src/modules/Infrastructure/modObjects.bas`, `Version Control.accda.src/modules/Components/clsDbQuery.cls`, `Version Control.accda.src/modules/Tests/FileIO/modTestHash.bas`, `Version Control.accda.src/modules/Tests/Core/modTestContainers.bas`
+
+---
+
+## 2026-07-29 — Merge scan reads no file content when dates and sizes are unchanged
+
+**Trigger**: A merge build on a ~5,000-component project with zero changes took 50.9 seconds, 45.3 of it in scanning. The perf report showed 20,095 SHA-256 computations, 9,893 whole-file reads, and 24 recursive folder walks — every indexed source file on disk was read and hashed even though nothing had changed. Root cause: `GetModifiedSourceFiles` computed the date+size property hash but used it only to *refresh* stale index metadata, never to skip the content read. The 2026-07-20 `AllFilesHash` work (which fixed companion-`.json` edits being dismissed) removed the property-hash-match short-circuit along with the broken primary-file-only fallback; only the broken fallback needed replacing.
+
+**Options explored**:
+- **Keep content hashing unconditional, optimize only the mechanics** (raw Win32 reads instead of ADODB.Stream, cached hash provider): rejected as the primary fix. It reduces the constant factor but still reads every byte of every source file on every merge, so the cost stays proportional to project size rather than to change count.
+- **Per-category aggregate fingerprint in the index** (one hash over all files in a category, skipping the per-file loop entirely): deferred. Strictly faster still, but requires an index format addition and complicates orphan reconciliation, which needs the per-file list regardless.
+- **Property-hash match short-circuits, content hash arbitrates on mismatch**: chosen. Restores the pre-2026-07-20 fast path while keeping the combined `AllFilesHash` (not the primary file alone) as the arbiter, so the bug that motivated `AllFilesHash` stays fixed. A file is clean when the date and size of every indexed file match the index; only when one moved is content read, and then the content hash decides — catching companion-only edits and dismissing timestamp-only drift such as a checkout that rewrote mtimes.
+
+**Decision**: Three-tier precedence in `GetModifiedSourceFiles` (property hash, then combined content hash, then the legacy primary-file fallback for entries predating `AllFilesHash`), plus supporting work that stands on its own:
+
+- **One shared folder scan.** Nine component types report the export root as their `BaseFolder`, and `ScanFolderMetadata` is recursive, so each re-walked the entire source tree. `modBuild.GetSharedScanMetadata` builds one map for the whole scan phase; when the container list contains no root-folder category (a narrowly scoped sync), only the distinct folders needed are walked, so a small operation does not pay for a full-tree walk. `GetModifiedSourceFiles` accepts it as an optional argument and falls back to its own per-category scan for other callers.
+- **`GetSourceBasePath`** replaces `FSO.BuildPath(FSO.GetParentFolderName(p), FSO.GetBaseName(p))` in the four places that built a per-extension base path, and `GetSourceFilesContentHash` takes the scan map so per-extension existence is a dictionary lookup rather than `FSO.FileExists`.
+- **Cached CNG provider.** `NGHash` opened an algorithm provider, queried two size properties, and closed the provider on *every* hash. At ~0.84 ms per hash for inputs that are mostly short strings, setup and teardown dominated. The handle, its size properties, and the hash object buffer are now cached per algorithm and released via `modObjects.ReleaseObjects`. The digest is formatted through a 256-entry hex lookup table instead of `Hex`/`Right`/`LCase` per byte.
+- **Index item resolved once.** The loop called `Me.Item(cCategory, strFile)` up to five times per file; it now resolves one `clsVCSIndexItem` through `GetExistingIndexItem`. This also fixes a latent bug: `Exists` honors the legacy table-def `.xml`/`.json` key alias but `Me.Item` does not, so aliased entries silently got a blank item and were reported modified on every merge.
+
+**Residual risk accepted**: a content edit that preserves both the exact byte size *and* the recorded modification timestamp is missed until the next full export. File dates are second-precision, so the window is an edit landing in the same second as the recorded date at identical length. This is the behavior the add-in had before 2026-07-20 and the same assumption git and rsync make. `VCS.FullExport` remains the escape hatch.
+
+**Measured**: Zero-change merge of the same ~5,000-component project (10,047 indexed files), before and after. Perf timers are exclusive, so nested time is attributed to the innermost operation.
+
+| Operation | Before | After |
+|---|---|---|
+| **Total runtime** | **50.92s** | **7.35s** |
+| `Scan Source Files` (loop, exclusive) | 6.29s | 2.08s |
+| `Compute SHA256` | 16.92s / 20,095 calls | 0.95s / 5,111 calls |
+| `Get File Content Hash` | 7.60s / 5,094 calls | *absent — 0 calls* |
+| `Read File Bytes` | 8.01s / 9,893 calls | 0.00s / 3 calls |
+| `Scan Folder Metadata (API)` | 3.99s / 24 calls | 0.30s / 1 call |
+| `Get File Property Hash` | 2.47s / 5,094 calls | 0.75s / 5,094 calls |
+
+The hash count drops to exactly one property hash per component (5,094) plus 17 incidental — no source file content is read or hashed at all on a clean merge. Per-hash cost fell from ~0.84 ms to 0.186 ms, which an isolated `modTestPerf` measurement of `GetStringHash` reproduces at 0.185 ms, confirming the provider open/close was the dominant cost rather than the digest itself. The same property hash computed from the scan map instead of `FSO.GetFile` is 0.25 ms vs 0.70 ms. Threading the map into `GetSourceFilesContentHash` is worth little on its own (0.87 → 0.73 ms) because the cost there is reading bytes, not the existence check — it matters only on the mismatch path, which is now rare.
+
+Remaining scan cost is ~4.1s, of which 2.08s is loop overhead (`GetFileList` enumeration plus `GetAllFromDB`, which must enumerate every database object for orphan detection) and 0.95s is the 5,094 property hashes. Both are what the deferred per-category aggregate fingerprint would target.
+
+**What this rules out**: `AllFilesHash` is no longer consulted on every merge, so it cannot be relied on as a content audit of the source tree — it is a tiebreaker for files whose metadata moved. Any future change to how `FilePropertiesHash` is computed must keep the FSO branch and the Win32 scan branch byte-identical; they are written on the export path through FSO and compared on the merge path through the scan map, and a divergence would silently disable the fast path rather than fail. `modTestContainers.TestPropertyHashIdenticalWithAndWithoutMetaScan` exists to make that a visible failure. Revisit with the per-category aggregate fingerprint if scan time again becomes the dominant cost on very large projects.
+
+**Relevant files**: `clsVCSIndex.cls`, `modBuild.bas`, `modContainers.bas`, `modHash.bas`, `modObjects.bas`, `modTestPerf.bas` (new benchmark harness), `modTestMergeDetection.bas`, `modTestContainers.bas`, `modTestHash.bas`.
+
+---
+
+## 2026-07-29 — Opt-in in-place merge preparation instead of the pre-merge reopen
+
+**Trigger**: A merge build unconditionally closes and shift-reopens the database before scanning source files, costing roughly 23 seconds on a ~7,300-file project. Merges are run frequently while working with AI tools, so that fixed cost dominates the loop. Two earlier attempts to remove it were reverted: an in-place VBE reset (2026-07-06, crashed) and a deferred reopen (2026-06-09, reverted in `0e4b93b0` for stale component references).
+
+**Probe results** (control 228 executed against a scratch database through out-of-process COM):
+- The VBE `Reset` control is **id 228**, present on the Run menu, Standard, Debug, Watch, Immediate, and Locals bars. **Id 645 does not exist** in the VBE command bars, so it is not an alternative.
+- The reset does clear the target project's run-state: a module-level `Long` and a global object reference went from `counter=42 obj=alive:1` to `counter=0 obj=nothing`.
+- `VBE.ActiveVBProject` points at the **add-in** project whenever the add-in is loaded, not the database being merged. Anything issuing a reset must set the active project first (`ResetCurrentVBProjectState` already does). Modifying the add-in's own components by mistake hung Access on a modal.
+- Importing a component while the project holds run-state raises the modal "this will reset your project" prompt, confirming that a merge into an unprepared project gets an *implicit, mid-merge* reset — the mechanism that invalidated cached references in the 2026-07-06 crash.
+- The prompt still appeared after an explicit reset when the import was driven from **out-of-process COM**. Out-of-process automation is therefore not a faithful harness for the prompt behavior of the add-in's in-process import path, and the prompt question cannot be settled this way.
+
+**Options explored**:
+- **Issue the reset from the `Worker.vbs` VBScript** (it already attaches to the running instance with `GetObject` and sets `ActiveVBProject`): rejected. The probe showed out-of-process component modification behaves differently from the in-process path, so a worker-issued reset cannot be validated by the same evidence it would rely on, and it adds a round-trip plus a second failure mode for no demonstrated benefit. (This applies to the *reset* only. The VBA project *save* does go through the worker, for the opposite reason: in process it cannot be made to work at all — see the save findings below.)
+- **In-place reset with no other changes** (the 2026-07-06 shape): still rejected — that is the reverted crash.
+- **In-place reset, plus releasing everything the reset invalidates, plus resuming the merge on a fresh call stack**: chosen. The 2026-07-06 entry named exactly these two shapes as the prerequisites for revisiting.
+- **Make it the default**: rejected. The reopen is the conservative path, and the differences (startup code no longer bypassed, run-state cleared in place) are behavioral, not just faster.
+
+**Decision**: Add `Options.SkipReopenBeforeMerge` (default **False**). When on, the merge runs as three timer stages (see below) so that the target project's run-state is cleared deliberately, in isolation, rather than implicitly part way through the merge. Any failed step falls back to `ReopenBeforeMerge`, so a merge never proceeds in an unknown state. The resumed stage skips `Log.Clear` and `Perf.StartTiming` so all three stages share one log and one performance report.
+
+**The reset needs isolation, not just a different stack** — learned by crashing Access on the first real merge (silent disappearance; Windows logged `MSACCESS.EXE` faulting in `VBE7.DLL`, `0xc0000005`). A VBE reset is equivalent to the `End` statement for the project it acts on, and there is no trappable error, so this has to be prevented rather than handled.
+
+Because the crash leaves no log — Access dies without unwinding, so buffered log output is never written — diagnosing it needed `LogCrashTrace` (in `modErrorHandling`), which persists a breadcrumb to the log file at each step. That trace disproved two successive hypotheses and is worth keeping for anything that manipulates a VBA project:
+
+1. **Self-merge was not the cause.** The first suspicion was that the reset target was the executing project. The crash happened with the add-in loaded as a library and the merge started from the ribbon, so the target project was idle — the same arrangement that has always been safe in `RunVBA`.
+2. **The reset call itself was not the cause.** The trace showed it completing and returning `True`. The fault came *after* it.
+3. **The reset's teardown is asynchronous.** `CommandBarControl.Execute` returns immediately; the teardown lands later, when the thread next reaches a message pump. Both crashes were in the first substantial work done after the Execute *on the same call stack* — continuing the merge in the first design, then `RestoreMainForm` in the second. Opening a form pumps messages, so it collided with the teardown. Cheap statements (recording a result, appending to the log file) proved survivable across both runs; anything that pumps did not.
+
+So the rule is not just "reset on a stack the target project does not own" but "**do nothing on that stack after the Execute**". The reset stage therefore arms the next stage's timer *before* executing the reset, then returns to the message loop, letting the teardown land with no VBA of ours in progress.
+
+The result is a three-stage pipeline, each stage on its own call stack: `PrepareMergeInPlace` closes objects, saves VBA, releases cached references, and stages the main form (releasing the form instance and `Log`'s console binding, exactly as a database reopen does), then arms a timer and unwinds completely; the `MergeReset` stage arms the next timer and resets the project as its final statement; `MergeResume` runs the merge with nothing surviving from either earlier stage. It does not restore the main form — the merge stage reopens it, and `frmVCSMain.ResetForOperation` rebinds the log console and clears the console text regardless, so there is nothing worth restoring first. Two further constraints:
+
+- **The reset must run on a stack the target project does not own**, which the middle stage also satisfies.
+- **There is no in-place path at all when the add-in is open as the current database**, because the project being reset is then the project running the merge, on any stack. `ResetWouldEndOurOwnCode` (in `modVbeUtility`) detects this and forces the fallback. This is the add-in's *own* development workflow, so the option cannot be exercised by self-merging this repo — it needs a separate target database.
+
+`ReleaseScanState` is the helper `0e4b93b0` referred to: it drops component classes from a category dictionary (they cache database objects and cannot cross the boundary), releases `SharedDb`, closes cached and back-end connections, clears the `.env`/connection caches, and resets `modLoadFromText`. It takes the dictionary optionally so it also serves the deferred-reopen shape if that is revisited.
+
+**What this rules out**: Do not collapse the three stages back into one, do not move the reset back inside `Build`, do not add work after the reset Execute on its own stack (including anything that opens a form or otherwise pumps messages), and do not remove the `ResetWouldEndOurOwnCode` guard — each crashes Access outright rather than failing safely. When debugging anything in this path, reach for `LogCrashTrace` first: a fault here produces no log at all, so reasoning without it is guesswork. Do not make this the default without validating the behavioral differences. Do not route the reset through the worker on the strength of the probe above. The option only removes the *pre*-merge reopen; the post-merge shared-mode reopen (16s measured here, worker-probed) is untouched, and skipping the pre-merge reopen makes it *more* likely to fire rather than less — see the lock-state finding under validation below.
+
+**Validation status**: On a ~7,300-file project, once the three constraints above were in place, three consecutive merges completed without incident **in a single Access instance, with no restart between them** — which matters as much as any one run passing, since a reset that left the project subtly damaged would be expected to accumulate across repeated use in one session:
+
+1. No changed source files (ribbon) — confirmed the stage choreography and that the log and performance report stay continuous across the two timer hops. `Prepare Merge In Place` = 0.02 s in place of the reopen.
+2. Imported a standard module, a query, and two forms, then ran `InitializeForms` (ribbon) — the VBA-bearing import that crashed in 2026-07-06 and drove the 2026-06-09 revert survived a reset standing in for a reopen. 28 s total.
+3. Open forms and live run-state present, invoked through the External API rather than the ribbon — `Close Open Objects` = 0.37 s and `Prepare Merge In Place` = 1.04 s (against 0.02 s when there was nothing to close), so the preparation demonstrably did real work rather than short-circuiting.
+
+**Debug → Compile succeeded in every project afterwards.** This was the failure mode most worth ruling out: a reset leaves the project loaded rather than rebuilt, so a merge that imported modules could plausibly have left a project that no longer compiles even though the import reported success. It compiles.
+
+Worth noting for anyone optimizing further: with the reopen gone, these runs are dominated by change detection, not by merging. Of run 2's 28 s, roughly 18 s was hashing and scanning 7,300 source files (20,136 SHA-256 computations at 6.6 s, plus file reads, folder metadata, and content hashes) against 3.9 s of actual merging.
+
+**The post-merge shared-mode reopen is triggered by lock state, not by importing.** Run 3 imported nothing yet still reopened in shared mode (16.04 s of its 61 s), while run 2 imported four objects and did not. This corrects the model recorded in the 2026-06-09 entry, which read the reopen as a consequence of schema-modifying imports. The check is `Worker.IsDatabaseAccessible`, an out-of-process probe of the engine lock state, and it makes no reference to what the merge did.
+
+**Consequence: the preparation falls back to a reopen when the database is not accessible.** The option's benefit and the lock are mutually exclusive — a database other clients cannot open is going to be reopened whether the preparation does it now or the post-merge check does it later, so there is no saving left to protect. Reopening up front is strictly better than reopening after:
+
+- The pre-merge `ShiftOpenDatabase` leaves the database accessible, so the post-merge check then finds nothing to do. Run 3's shape would be roughly 33 s (reopen, fast scan, no second reopen) rather than 61 s (fast scan, then reopen).
+- The merge takes its backup **mid-flight** (`FSO.CopyFile` in `Build`, `eelCritical` on failure), and an exclusive lock is documented in `IsFileOpenExclusive` as preventing exactly that copy. Run 3 had no changes and never reached that line. A locked session merging *with* changes could therefore abort the merge at the backup — a far worse outcome than a slow reopen, and the reason this fall back is a correctness measure and not only an optimization.
+
+The check is placed at the *end* of the preparation, after objects are closed and the VBA project saved, since those steps affect the lock state themselves — as the finding below shows, one of them was creating it.
+
+The probe costs a worker round trip (~0.95 s measured), and the in-place path would otherwise pay it twice. When the preparation confirmed accessibility and the merge then found no changed files, nothing has happened in between that could have escalated the lock, so the post-merge check is skipped (`m_blnVerifiedAccessible` + `blnNoChanges`). The no-change merge is the case the fast path exists for, so the saving lands where it matters.
+
+An option to skip the post-merge check outright was considered and deferred rather than rejected. With the fall back in place a locked session takes the old path anyway, so the check rarely leads to a reopen; what remains is the ~1 s probe, and the baseline timing should say whether that is worth an option. The argument against is attribution: skipping it leaves a locked database behind, and the resulting failure surfaces much later in an MCP call, a worker job, or the *next* merge's backup, where nothing points back to the setting.
+
+**The lock is escalated by the preparation itself, not inherited from the session.** The initial reading was that a used session arrives already locked and the in-place path merely inherits it. Probing on entry to the preparation as well as at the end disproved that. Two consecutive runs, minutes apart on the same database:
+
+| Session | On entry | After preparation | Outcome |
+|---|---|---|---|
+| Startup code had run, forms opened | accessible | **not accessible** | fell back, `Reopen DB before Merge` 36.91 s, 101.64 s total |
+| Immediately after that reopen | accessible | accessible | in place, no reopen anywhere, 56.41 s total |
+
+Both sessions were accessible when the merge began. The first became inaccessible during preparation. Probing between the individual steps then identified the culprit exactly:
+
+```
+[trace] lock state after closing objects: accessible
+[trace] prep: saving VBA project (dirty: True)
+[trace] lock state after saving VBA project: NOT accessible to other clients
+```
+
+**A *partial* save of the VBA project locks the database against other clients.** `SaveUnsavedVbaProject` issued `DoCmd.Save acModule, <first standard module>` on the long-held assumption that saving one module saves the whole project. It does not, when form and report class modules are dirty — which is the usual state after startup code has run, where dozens of form classes report unsaved. Closing open objects, by contrast, is harmless.
+
+Saving is not the problem; saving *incompletely* is. Manual verification: after `AutoExec` ran, `CurrentVBProject.Saved` was False; pressing **Save** on the VBE toolbar returned it to True, and a merge then ran fully in place with no reopen. The same sequence through `DoCmd.Save acModule` left the project dirty and the database locked.
+
+**The same bug was already on record in two other places, mislabelled in one and invisible in the other.** `modLetterCasing.StandardizeLetterCasing` had been logging "VBA project still has unsaved changes after letter casing corrections" for a long time, directly under a comment asserting that "saving one module saves the whole project" — the warning was reporting the bug and the comment was denying it. Correcting casing in `clsStandardLetterCasing` propagates project-wide and dirties form and report classes, which the single-module save cannot reach. That also resolves an open puzzle: the same correction (`fldConvertId` → `fldConvertID`) recurred across six runs spanning three days without converging, which looked like something restoring the non-canonical casing between runs and was simply the correction never being persisted.
+
+`modExport.ExportSource` made the same call with no warning at all, to ensure "exported source reflects the current state of the code" — which did not hold for form and report class code, so an export could silently omit unsaved class-module edits it believed it had captured. That is a correctness bug independent of merging. Both now call `SaveCurrentVBProject`; fixing them alongside the merge path was preferable to leaving two known-wrong copies of a mechanism this hard to get right for the next reader to copy.
+
+**Decision: `SaveCurrentVBProject` owns saving the project, executes the VBE Save command (ID 3) *from the worker script*, and returns the project's actual `Saved` state rather than assuming the save worked.** `SaveUnsavedVbaProject` delegates to it, so the merge preparation, export, letter casing, and category-scoped sync share one implementation. Evidence that the worker is not incidental complexity:
+
+```
+[trace] save: VBE Save control executed (&Save sec, window visible: True), saved: False
+[trace] save: retrying out of process
+Worker job SaveVbaProject (1fce8f0) completed in 1.46 seconds.
+[trace] save: worker returned, saved: True
+```
+
+Identical command, same instance, same project — refused in process, succeeds out of process. A hand-pressed button has no VBA frame beneath it, and that turns out to be the thing that matters. The merge that produced those lines ran fully in place after `AutoExec` had dirtied the project: 58.94 s against the 101.64 s reopen baseline, accessibility recheck passing. That is the case that motivated the whole investigation.
+
+`clsWorker` needed very little, because two things it already does are exactly what this requires: it attaches to the *specific* instance via `GetObject(<database path>)` rather than an ambiguous `GetObject(, "Access.Application")`, and `Main` already sets `ActiveVBProject` to the current database's project for every job. (The VBA wrapper and the script function live in the same class module, hence the `Run_` prefix convention `Run_SaveVbaProject` shares with `Run_BuildAndInstall`.)
+
+**Four mechanisms were tried and dropped. Do not reintroduce any of them without new evidence** — each looked correct, and three of the four fail *silently*, which is why this took a full day to pin down:
+
+| Mechanism | Why it was dropped |
+|---|---|
+| `DoCmd.Save acModule, <one module>` | Cannot save form or report class modules at all. Reports success while leaving dirty precisely the components that matter, and locks the database. The original bug. |
+| `DoCmd.RunCommand acCmdSaveAllModules` (280) | Raises 2046 ("isn't available now") unless a module window is active, and is widely reported to do nothing even when it runs. |
+| VBE Save command in process | Reports success and saves nothing. No error, correct project active, caption naming the right document, before *and* after a project reset alike. |
+| `acCmdCompileAndSaveAllModules` | Compiles, and a project that does not compile still has to be mergeable. |
+
+Two theories were disproved along the way and are recorded because both are plausible enough to be re-derived:
+
+- **Run-state is not what defeated the save.** The reading was that saving a project holding run-state requires resetting it, and that the VBE was silently declining rather than raising its "this action will reset your project" prompt to a programmatic caller. Moving the save into `FlushVbaProjectAfterReset`, after the reset has cleared run-state, produced the same silent failure — so run-state was not the cause. Run-state does still matter, just for a different reason: it makes that prompt possible where no reset has happened, which is why the worker resets first outside the merge path (below). The merge's save stays after the reset regardless, since the reset clears run-state rather than editor buffers and nothing is lost by waiting.
+- **Wrong-document targeting does not explain it either.** `Execute` *is* bound to the VBE's active document rather than `ActiveVBProject`, so an add-in code pane in focus would have meant saving the already-clean add-in — a no-op indistinguishable from a refusal. Tracing `ctl.Caption` settled it: `&Save sec`, right project, right document, still nothing saved. The in-process attempt was then removed entirely rather than kept as a free fast path, because targeting it correctly requires showing a code pane, which pops the VBE window open mid-merge for a step that cannot succeed.
+
+**Trap worth remembering: never log before clearing `Err`.** Tracing the 2046 before clearing it meant `LogCrashTrace` → `LogUnhandledErrors` reported it, putting a modal dialog in front of what is meant to be an unattended merge. It also corrupted a measurement: `Prepare Merge In Place` read 13.68 s, which looked like a slow save and was the time taken to read and dismiss that dialog. Capture the error text, clear `Err`, *then* log.
+
+A working save also removes the reason for the pessimistic guard that briefly lived here (fall back immediately whenever `CurrentVBProject.Saved` was False). The accessibility probe at the end of the preparation remains the authority: save properly, then ask. If a save ever does leave the project dirty, a breadcrumb records it and the probe decides.
+
+**Rejected: resetting the project before saving it outside the merge path.** Export, letter casing, and category-scoped sync call the save with no preceding reset, so the project can still hold run-state, and saving such a project should raise the VBE's modal "this action will reset your project" prompt — which nobody is present to dismiss during an unattended export. (That prompt *was* observed on importing into a project with run-state, earlier in this entry.) Resetting first, in the same worker job so that no caller VBA sits between the two steps, looked like the safe way to prevent it.
+
+It broke export immediately, and the failure is instructive: **a VBE reset ends whatever code is running, and setting `ActiveVBProject` does not scope that away from the caller.** During an export the running code is the add-in itself, waiting in `Worker.WaitForQueue`'s `DoEvents` loop for the very job that issues the reset. So the reset terminated its own caller and took the add-in's module-level state with it:
+
+```
+ERROR: Returned worker not found in job queue: 1fce8f0   (clsWorker.ReturnWorker)
+Failed to run ribbon command for btnExport
+40040: The expression you entered refers to an object that is closed or doesn't exist.
+```
+
+The job queue was gone by the time the worker called back. The same run of the merge was unaffected, which isolates the cause precisely — the merge passed through the identical code with the reset suppressed, having already reset in its own stage.
+
+This is also why the merge's three-stage choreography is not over-engineering. The merge survives a reset because its next stage arrives on a Windows timer, so nothing of ours has to live through it. A save called from the middle of `ExportSource` has no such re-entry, and giving it one would mean restructuring export around the reset — a large change to prevent a prompt that has never actually been observed on this path. Left as: save without resetting, and treat the prompt as a hypothesis awaiting a run where a dirty project is exported.
+
+**Knock-on: this explains the most expensive reopen observed anywhere in this investigation.** `StandardizeLetterCasing` runs at the end of every export and every build/merge, and when it applies corrections it deliberately saves the project (`DoCmd.Save acModule`) so the user is not prompted at shutdown. By the measurement above, that save locks the database. The accessibility check runs a few lines later in the same procedure, so the reopen follows directly. Observed on the same project, in one merge:
+
+```
+1 letter casing correction(s) applied:
+  fldConvertId -> fldConvertID
+WARNING: VBA project still has unsaved changes after letter casing corrections
+Reopening database in shared mode...
+Reopen DB (shared mode)       1         82.96
+```
+
+The merge that produced those lines **imported nothing** — `No changes found` — so 141 seconds were spent because one identifier's capitalization was corrected in a database that was not otherwise modified.
+
+**Decision: the casing pass runs on full builds only, not on merges.** Source consistency never depended on the merge doing it. Export standardizes casing *before* it writes source files, so the source tree is authoritative and self-healing regardless of what the database holds; a merge's incoming code comes from those already-standardized files. The worst case from skipping it is that the database carries non-canonical casing until the next export corrects it — against a reopen that has been measured at 16, 48, and 83 seconds on the same project. Export and full build are unchanged: export must run it to keep source consistent, and a full build is producing a database from scratch where the cost is proportionate and no user session is disrupted.
+
+The cost also compounded: because the save left the project dirty, the *next* merge found a dirty project, saved it during preparation, and locked the database again. Both that and the non-convergence trace back to the partial save, so `SaveCurrentVBProject` addresses the cause; skipping the casing pass on merges makes the two paths independent regardless.
+
+**What dirties the project in practice: `AutoExec`.** Running any VBA compiles it on demand, and the compiled state is part of the saved project, so a database whose startup macro runs code has a dirty project from the moment it finishes opening — before the user does anything. On such a database the first merge after a normal open always declines.
+
+Even before the save worked this self-healed, because the fall back uses `ShiftOpenDatabase`, which bypasses the startup code: the reopened session has a clean project, and subsequent merges take the in-place path. Observed twice — a merge that fell back at 13:21 was followed by an in-place merge at 13:23 with no reopen at all. So even the worst case was one reopen per *run of the application*, not one per merge.
+
+With the worker save in place that reopen is gone as well: a merge immediately after `AutoExec` saved the project and completed in place in 58.94 s. So the option pays off both in a session opened for merging and in one where startup code has run.
+
+**Measured saving**: the two runs above are close to a matched pair — same database, no changed files, two minutes apart — and differ by 45 s (101.64 s against 56.41 s), of which 36.91 s is the reopen and the remainder is the first run's slower I/O (`Scan Folder Metadata` 8.02 s against 4.80 s). So the option removes roughly a 37 s reopen from a 100 s no-change merge on a 7,300-file project. The same pair also confirms the fall back end to end and the skipped post-merge probe: the second run made two worker calls, both during preparation, and none after the merge.
+
+Still outstanding: the equivalence check (merge the same source into two copies of a database, one path each, export both, diff the trees), the rest of the matrix (open objects of the remaining types, VBE open with unsaved edits, themes, table data, startup form), and one run of the *export* path with run-state present, to confirm the worker's reset-then-save neither prompts nor faults. Keep the option default-off and experimental until those are done.
+
+**Relevant files**: `Version Control.accda.src/modules/Core/modBuild.bas` (`Build`, new `ReopenBeforeMerge`, `PrepareMergeInPlace`, `ResetProjectForInPlaceMerge`, `FlushVbaProjectAfterReset`, `ReleaseScanState`, `TraceInPlaceMerge`), `modules/Core/modVbeUtility.bas` (new `ResetWouldEndOurOwnCode` and `SaveCurrentVBProject`, tracing in `ResetCurrentVBProjectState`), `modules/Integration/clsWorker.cls` (new `Run_SaveVbaProject` and the `SaveVbaProject` script action), `modules/Infrastructure/modErrorHandling.bas` (new `LogCrashTrace`), `modules/Utility/modTimer.bas` (`MergeReset`, `MergeResume`), `modules/Utility/modDatabase.bas` (new `SaveUnsavedVbaProject`), `modules/Core/modExport.bas` and `modules/Core/modLetterCasing.bas` (partial saves replaced), `modules/Infrastructure/clsOptions.cls`, `modules/Tests/Infrastructure/clsTestOptions.cls`, `forms/frmVCSOptionsBuild.form` + `.cls`, `Wiki/Options.md`.
+
+---
+
+## 2026-07-28 — Merge table data through a staging table and set-based reconcile
+
+**Trigger**: Table data was skipped on merge builds, so a developer who added a record to a versioned internal table (release/version info was the motivating case) could only get it into another database with a full build. Merges are used precisely on the large databases where a full build is expensive, so "just do a full build" was not a real answer.
+
+**Options explored**:
+
+- **Reuse `IDbComponent_Import`**: It already loads a source file into the table. Rejected on both formats. The tab-delimited path runs `DELETE FROM [table]` first, which fails outright once any other table references this one — the normal case for a versioned lookup table — and even when it succeeds it discards AutoNumber values that child rows point at. The XML path uses `acAppendData`, which duplicates every existing row on a populated table.
+- **Delete and reload inside a transaction**: Fixes the "half done" problem but not the referential-integrity failure or the AutoNumber loss, and it rewrites every row of a large table to apply a one-record change.
+- **Row-by-row DAO reconcile**: Read the source file, seek each key in the table, and compare fields in VBA. Correct, but the per-row cost is exactly what makes this unusable on the large databases that motivated the feature.
+- **Staging table plus set-based reconcile** (chosen): Load the source file into a temporary local table, then apply one `INSERT`, one `UPDATE`, and one `DELETE` keyed on the table's primary key. Only differing rows are written, key values and AutoNumber values survive, and referential integrity is never exercised for rows that did not change.
+
+**Decision**: Merge reconciles table data against a temporary staging table (`vcs_tmp_merge_data*`), created with `SELECT ... INTO ... WHERE (1 = 0)` so every column keeps its exact type and an AutoNumber key is demoted to Long. A unique index on the merge key is added because the engine refuses an `UPDATE` across a join unless the joined side is provably unique. The three statements run in one `BeginTrans`/`CommitTrans`, so the expected failure — a delete blocked by a child record — rolls the table back to its prior state, logs an error, and lets the rest of the merge continue.
+
+Behavior established by this decision:
+
+- **Source is authoritative, including deletions.** A row absent from the source file is removed. The user opted this table into version control, so the file is the record of what the table should contain. This also matches `clsVCSIndex.IsMergeConflict`, which has always returned `ercNone` for table data rather than raising a conflict.
+- **Default on** (`Options.MergeTableData`, Build options). Getting the data a developer committed is the expected outcome of a merge; the option exists for projects that treat records as environment-specific. It is in the non-export skip list in `GetCategoryHashes` — folding a build-side option into export category hashes would trigger spurious re-exports.
+- **Tables without a merge key are reloaded wholesale.** `GetTableMergeKey` returns primary key or unique+required index fields and nothing else — `GetTableSortFields` falls back to "all non-binary fields" when there is no key, which is fine for ordering but would let one source row match several table rows. Keyless tables are common in practice (a production database contributed 16 of 32 exported tables with no key), and skipping them left merge unable to do the one thing it was built for. Since there is no key, there is also no identity or AutoNumber value anything could hold a reference to, so `DELETE` followed by `INSERT ... SELECT` inside the same transaction is equivalent to what a full build already does — and it preserves duplicate rows, which a key-based reconcile could not. It is refused when a relationship points at the table (`GetFirstDependentTable`), because the delete would fail and roll the whole table back; that reads `Relation.Table` as the referenced side and `Relation.ForeignTable` as the referencing one. The count line says `N row(s) reloaded (no key to compare on)` rather than added/changed/removed, because without a key those numbers cannot be established.
+- **A source file with no rows skips `ImportXML` entirely.** Not an optimization. `Application.ImportXML` spends about 95 seconds on a document containing no row elements, regardless of how small the file is, while a 2,164-row 715 KB file loads in 0.32 seconds — measured across six real tables in a production database. Two empty exported tables were enough to turn a merge into a three-and-a-half minute operation and made the feature look unusable per-table; per-phase `Perf` timers isolated it to the single call. The staging table is already empty, which is exactly what "the source has no records" means, so the reconcile can proceed straight to deleting the table's rows.
+- **Binary, complex, and calculated columns are skipped with a warning.** They cannot take part in a SQL comparison, and calculated columns cannot be assigned. Those tables still export, and still import on a full build.
+- **A missing source file never deletes rows.** It means the table was dropped from `TablesToExportData` or the file was deleted, so only the index entry is removed.
+- **XML rows are relabeled through the DOM, not by replacing tag text.** `ImportXML` takes the target table from the row element names, so the rows have to be renamed to reach the staging table — but a table is allowed to have a field with the same name as the table, and a textual replacement would rename that field element too. Verified empirically before building on it: `SELECT INTO` preserves column types, `ImportXML ... acAppendData` loads renamed rows into a pre-created staging table with nulls and long memo values intact, and Jet's `<>` detects a memo difference past 255 characters.
+
+**What this rules out**: Table data no longer needs a full build to move records between databases. `ComponentTypeSupportsScopedImport` still rejects `edbTableData`, so `VCS.ImportByType("table_data")` continues to error — scoped sync takes no database backup, which deserves its own decision rather than being inherited from this one. Revisit if a project needs per-table control (the option is deliberately global) or an "insert and update but never delete" mode; both were considered unnecessary until someone has the use case.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Components/clsDbTableData.cls` — `IDbComponent_Merge`, `GetMergeStrategy`, `LoadStagingTable`, `WriteStagingXml`, `ReconcileTableData`
+- `Version Control.accda.src/modules/Utility/modDatabase.bas` — `GetTableMergeKey`, `GetTableMergeStrategy`, `GetFirstDependentTable`, staging table lifecycle
+- `Version Control.accda.src/modules/Core/modBuild.bas` — merge skip now gated on the option
+- `Version Control.accda.src/modules/Infrastructure/clsOptions.cls`, `forms/frmVCSOptionsBuild.*` — the new option
+- `Version Control.accda.src/modules/Tests/Components/modTestTableData.bas` — reconcile, composite key, null/memo, non-mergeable, missing file, and rollback tests
+
+---
+
+## 2026-07-28 — Deterministic table data export row order
+
+**Trigger**: Exported table data (especially XML format) could appear in different row orders between exports even when no records changed, producing noisy git diffs. Tab-delimited export already used `ORDER BY` but sorted on every non-binary column (expensive and fragile on linked tables with unsortable memo/text columns).
+
+*(Consolidated 2026-07-28: this entry absorbs the original sanitization-sort decision and the three same-day revisions that followed it — engine-side sorting, the sort-key rewrite, and the `EscapeXmlName` fix. The parser-side DOM sort described here is now a fallback, not the primary path.)*
+
+**Options explored**:
+- **Sort in post-export XML sanitization** — reorders the parsed DOM after `Application.ExportXML`, which has no ordering parameter. Retained only as the fallback for schema-bearing tables; see the known limitation below.
+- **Export via temporary `ORDER BY` query with `acExportQuery` (chosen for XML)** — initially rejected on the belief that losing embedded-schema annotations would break `ImportXML`. Re-probed and adopted; see below.
+- **Sort on all non-binary columns (status quo for TDF)** — rejected for performance: replaced with primary-key sort when available (index-backed scan).
+- **Use the table's saved datasheet `OrderBy`** — rejected on technical grounds: `ExportXML` ignores the property entirely (see probe table).
+- **Gate behind `eExportFormatVersion`** — rejected: treated as a bug fix; `clsDbTableData.IsModified` already forces re-export of all table data on every run, so users get a one-time reorder diff regardless.
+
+**Decision**: Shared `GetTableSortFields` in `modDatabase.bas` picks sort fields (primary key → unique+required index → all non-binary fields). Tab-delimited export uses it for `ORDER BY`, with a warning and unsorted fallback when the sort query fails (e.g. linked SQL Server memo columns). XML export routes through a temporary `ORDER BY` query so the database engine does the ordering; schema-bearing tables fall back to `acExportTable` plus the parser-side DOM sort. `IndexAvailable` moved to `TableIndexesAvailable` in `modDatabase` for reuse.
+
+**Probe findings — why `acExportQuery`**: tested against a live Access instance on a table whose rows were inserted deliberately out of key order.
+
+| Export mode | Row order |
+|---|---|
+| `acExportTable` | insertion order |
+| `acExportTable` with `OrderBy` + `OrderByOn` set | insertion order (**property ignored**) |
+| `acExportQuery` with `ORDER BY` | correctly sorted |
+
+The schema objection turned out to be mostly moot: a query export does lose `<od:index primary="yes">` and downgrades the key field from `minOccurs="1"` / `od:nonNullable="yes"` to `minOccurs="0"`, but `SanitizeXML` already discards the entire schema unless it contains `od:expression`, `od:jetType="complex"`, or `od:jetType="oleobject"`. For every other table the schema never reaches disk either way. A round-trip probe confirmed the renamed query output re-imports through `ImportXML` to the correct table name with identical row content, and that its `<dataroot>` element and row markup match the table export byte for byte.
+
+Row elements take the query name and are renamed back to the table name with a string replace, which is safe because XML escapes `<` in character data, so `<queryname>` can only occur as markup. `TableRequiresXmlSchema` routes calculated, complex, and OLE object tables to `acExportTable`, and a post-sanitization check for a surviving `xsd:schema` acts as a correctness net in case that detection is ever wrong. Any failure — including a read-only database that cannot host the temp query — falls back to the table export.
+
+**Temp query lifecycle — one per operation, not one per table**: the first implementation created and dropped a temp `QueryDef` for every table, calling `QueryDefs.Refresh` on each side. On a database with 3681 saved queries that was catastrophic: 64 full-collection refreshes pushed the Table Data category from 5.95s to 19.97s, with 15.46s of it (77%) invisible because none of the new code was instrumented.
+
+The query is now created once per export operation and repointed by assigning `.SQL` per table — empirically confirmed that `ExportXML acExportQuery` observes a reassigned `.SQL` without any collection refresh, so `QueryDefs.Refresh` runs once at creation instead of twice per table. `PrepareTableDataSortExport` sweeps leftovers from an interrupted run; `ReleaseTableDataSortExport` drops the query and is called from every export cleanup block.
+
+`AssignTableDataSortQuery` must return an empty string on any failure, because the query would otherwise still hold the *previous* table's SQL and the caller would export that table's rows into this table's source file. Note that the engine defers table-name resolution, so SQL naming a missing table is accepted at assignment and only fails later inside `ExportXML`, where the existing fallback handles it. A lookup failure (query deleted mid-operation) is distinguished from an assignment failure and recreates the query in the same call.
+
+**Sort key construction**: the initial XML sort-key builder prefixed each normalized field value with its *length* (`Format$(Len(strPart), "0000")`), making string length the primary sort dimension — tables with variable-length text primary keys exported rows grouped by `Len(value)` rather than by value. Fixed with `ComposeXmlSortKey` / `XmlSortKeyOrdinal` in `modEncoding.bas`: each normalized part is terminated with `vbNullChar` (unambiguous without length-prefixing) and a fixed-width ordinal suffix supports stable sort. Comparison uses `QuickSortStringsBinary` with `vbBinaryCompare` so `Chr$(1)`–`Chr$(5)` sentinels are not ignored under `Option Compare Database` collation. XML text ordering is therefore ordinal while tab-delimited uses Access `ORDER BY` collation; each table uses one format only, so per-table determinism holds.
+
+**`EscapeXmlName` underscore rule**: Access escapes `_` to `_x005F_` when, and only when, it is immediately followed by a **lowercase** `x` (probed: `a_x1` → `a_x005F_x1`, `b_X2` → `b_X2`, and `a_xZZZZ_b` → `a_x005F_xZZZZ_b` even though the hex digits are invalid). Treating `_` as a plain name character meant field names containing `_x` never matched when building sort keys, so every row collapsed to the null sentinel and sorted arbitrarily — a silent wrong answer rather than a visible failure.
+
+**Performance** (same database, 3681 queries, table-data-only fast-save export):
+
+| Implementation | Table Data | Per table | Uninstrumented |
+|---|---|---|---|
+| No sorting (baseline) | 5.95s / 30 | 0.198s | 0.38s (6%) |
+| Parser-side DOM sort | 7.45s / 30 | 0.248s | 0.34s (5%) |
+| Temp query per table | 19.97s / 32 | 0.624s | 15.46s (77%) |
+| Temp query per operation | **4.90s / 32** | **0.153s** | ~0.3s (6%) |
+
+The final result beats the unsorted baseline because `acExportQuery` is itself cheaper than `acExportTable` (0.113s vs 0.163–0.190s per call); engine-side `ORDER BY` costs less than the DOM sort it replaced. `Application.ExportXML` is now 72% of the remaining category time, so further gains would require emitting the XML directly from a sorted recordset — not attempted, given the `ImportXML` compatibility risk.
+
+**Instrumentation**: `Assign Temp Sort Query`, `Drop Temp Sort Query`, `Check Calculated Fields`, and `Build Table Sort Fields` were added so this path can never again hide its cost in `Other Operations`. A `Drop Temp Sort Query` count above 1 for a whole export means the per-operation lifecycle has regressed.
+
+**Known limitation**: the parser-side DOM sort retained for schema-bearing tables indexes rows with `objRows.Item(i)` on a live `ChildNodes` list, which is a sibling-chain walk. Measured per-access cost scales linearly with row count (16.7 µs at 5K rows rising to 104.1 µs at 40K), making that loop O(N²); caching nodes during a single `For Each` pass measured flat at ~2.3 µs/node. This path is now reached only by calculated, complex, and OLE object tables, which is why it was left alone.
+
+**What this rules out**: Relying on engine iteration order for XML table data. Using saved datasheet `OrderBy` for export ordering (Access ignores it). Creating or dropping the temp query per table, or calling `QueryDefs.Refresh` anywhere in the per-table path. Sorting on every column when a primary key exists. Length-prefixing normalized sort-key parts. Treating `_` as always safe in exported XML element names. Memoizing `TableRequiresXmlSchema` or `IsLocalTable` per operation — both are called once per table, so the caches measured 0% hit rate and were removed; `Check Calculated Fields` is only 0.06s across 31 tables.
+
+**Relevant files**:
+- `modDatabase.bas` — `GetTableSortFields`, `TableIndexesAvailable`, `IsBinaryTableFieldType`, `TableRequiresXmlSchema`, temp query lifecycle (`PrepareTableDataSortExport`, `AssignTableDataSortQuery`, `ReleaseTableDataSortExport`)
+- `clsDbTableData.cls` — shared sort SQL, `ExportTableDataAsXml` query/table routing, TDF fallback
+- `modExport.bas` / `clsVersionControl.cls` — `Prepare`/`Release` calls in each export entry point and cleanup block
+- `clsSourceParser.cls` — `RowSortFields`, `SortXmlDataRows`
+- `modEncoding.bas` — `EscapeXmlName`, `NormalizeXmlSortValue`, `NormalizeNumericXmlSortValue`, `ComposeXmlSortKey`, `XmlSortKeyOrdinal`
+- `modFunctions.bas` — `QuickSortStringsBinary`
+- `modTestTableData.bas` — unit/integration tests, including temp query SQL reuse and recovery
+
+---
+
+## 2026-07-28 — Conditional formatting: crash-proof decode, and which Boolean encoding to emit
+
+**Trigger**: Issue #730 — data bar conditional formatting was silently lost on export.
+Investigating it against a purpose-built corpus of 42 controls captured from Access
+(`SaveAsText` output for every rule shape the add-in handles) turned up three separate
+crashes in the decode path plus a systematically wrong legacy emitter, and then a genuine
+ambiguity in how Access encodes Booleans.
+
+Any unhandled error in the decode path is the *same bug as #730*, because a failed decode
+means the control's formatting does not reach the companion JSON. Three were found:
+
+1. The data bar record layout assumed a per-rule prefix on rule 0, which has none.
+2. `ReadLong` computed the high byte as `byte3 * &H1000000`, which overflows a signed
+   `Long` once `byte3 >= &H80`. A rule with `FontUnderline` set from VBA stores `&HFF`
+   there, so every such form raised error 6.
+3. `HexToBytes` drove its loop from the hex string length rather than the byte count, so an
+   odd-length block (a truncated or hand-edited `.form`) raised "subscript out of range".
+
+**The ambiguity**: Access writes `1` for a flag byte it computes itself, and `&HFF` for a
+Boolean it copied from VBA (VBA `True` is `-1`, truncated to a byte). Both appear in real
+databases, Access preserves whichever it finds, and it never rewrites the blocks on a plain
+save — confirmed by round-tripping a form through design view. The same split applies to the
+legacy expression slots: dialog-authored rules allocate one null unit less per expression
+rule (1 rule / 13 chars → 126 bytes from the dialog vs 128 from VBA; 3 rules / 29 chars →
+282 vs 288). Field-value rules match, since both populate two slots. So a rebuilt block
+cannot be byte-identical to both encodings.
+
+**Options explored**:
+- **Preserve the original encoding in the companion JSON** as optional fidelity fields
+  (the existing `TrailerColor` precedent) — byte-exact for both families, at the cost of two
+  new JSON fields carrying an Access implementation detail. Rejected as not worth the schema
+  surface: the choice has no functional or source-churn consequence (see below).
+- **Always emit the design-view encoding** (`1`, slots `len + 2`) — byte-exact for typical
+  user forms and for the pre-existing fixtures and docs. Rejected.
+- **Always emit the VBA encoding** (`&HFF`, slots `max(len + 1, 2)` per slot) — chosen. It is
+  what the 42-control corpus verifies byte-for-byte, and the corpus is the artifact future
+  changes will be tested against.
+- **Treat the legacy block as optional and stop emitting it** — not pursued now, though
+  Access demonstrably tolerates its absence. Worth revisiting separately.
+
+Why the choice is low-stakes either way: the exported source stores decoded rules as JSON
+booleans, not hex, so neither encoding causes git churn on re-export; Access reads any
+non-zero byte as true; and CF14 is the authoritative block, with the legacy block existing
+only for Access 2007 compatibility.
+
+**Decision**:
+- Read the format flags **byte-wise**, never as a dword. They are four independent Boolean
+  bytes, not a bitfield.
+- `ReadLong` folds the sign bit in separately, and `WriteLong` masks each byte before
+  dividing, so the two are exact inverses over all 2³² patterns (integer division truncates
+  toward zero and produced wrong high bytes for negative values).
+- Screen hex input with `IsHexBytes` before converting; malformed input sets `DecodeFailed`
+  so the caller keeps the inline binary block rather than raising.
+- `FlagsToLong` replaced by `WriteFlags`, emitting bytes directly: `Enabled` as `1`, each set
+  font flag as `&HFF`. Same convention for the data bar `showBarOnly` byte.
+- `BuildLegacyHex` uses a unified slot model — every rule owns two slots sized
+  `max(len + 1, 2)` — with descriptor dwords naming the next rule's slot window, and emits
+  no block at all for data-bar-only controls.
+- Byte-exact assertions live in the new `modTestConditionalFormatCorpus` (42 captures,
+  generated from capture files rather than transcribed). `modTestConditionalFormat` keeps the
+  design-view fixtures to assert the *other* encoding decodes and survives a rebuild with its
+  model unchanged, and pins the slot-size arithmetic so a change to the convention is visible.
+
+**What this rules out**: Do not read the format flags, or any CF dword, as a single `Long`
+without accounting for the sign bit. Do not "fix" the design-view fixtures to be byte-exact —
+they document a second valid encoding on purpose. Do not add an export format version gate
+for these changes: the emitted artifact is the companion JSON, which is unaffected. Do not
+transcribe hex fixtures by hand; generate them from captures.
+
+**Relevant files**: `clsConditionalFormat.cls`, `modTestConditionalFormat.bas`,
+`modTestConditionalFormatCorpus.bas`, `docs/access-conditional-format.md`
+
+---
+
+## 2026-07-27 — Pre-operation hook timing and letter-casing save reliability
+
+**Trigger**: Review of when `RunBeforeExport` and `RunBeforeMerge` execute relative to
+`CloseDatabaseObjects` / the merge shift-reopen. `RunBeforeExport` ran before objects
+were closed, so a hook that modified an open object could have its change overwritten
+when `DoCmd.Close` saved the stale in-memory design, and hook side effects persisted even
+when the subsequent close failure aborted the export. `RunBeforeMerge` never fired: the
+build read `dNZ(Options.GitSettings, "RunBeforeMerge")`, but `GitSettings` was a vestigial
+dictionary (default-populated only, never serialized to `vcs-options.json`, never written
+by any form). The options UI reads/writes `Options.RunBeforeMerge`, which nothing
+consumed. Separately, intermittent save prompts during builds pointed at
+`StandardizeLetterCasing`: its post-correction `DoCmd.Save` did not set
+`VBE.ActiveVBProject` and swallowed failures with `On Error Resume Next`.
+
+**Options explored**:
+- **Leave `RunBeforeExport` before close** — rejected: clobber risk on open objects and
+  wasted hook side effects when close aborts the export.
+- **Re-close only when a hook is configured** — chosen for export: avoids extra close
+  work on the common path (no hook), but sweeps up anything the hook opened.
+- **Run `RunBeforeMerge` before shift-reopen** — rejected: session-scoped hook state is
+  destroyed by `CloseCurrentDatabase2` / `ShiftOpenDatabase` before merge work starts.
+- **Run `RunBeforeMerge` after shift-reopen** — chosen: matches `RunBeforeBuild`, which
+  runs after the target database exists in the state the operation will use.
+- **Keep `GitSettings` with a comment** — rejected: nothing serializes or reads it;
+  delete the dead surface.
+- **Letter-casing save: silent `Err.Clear`** — rejected: failures left the VBA project
+  dirty with no log entry; set active project before save, log via `CatchAny`, warn if
+  `CurrentVBProject.Saved` is still False.
+
+**Decision**:
+- `modExport.ExportSource`: close objects first; run `RunBeforeExport`; re-close only
+  when a hook ran; then save unsaved VBA. Extracted `CloseObjectsOrAbort` helper.
+- `modBuild.Build` (merge): remove dead `GitSettings` read; run `Options.RunBeforeMerge`
+  after the close/shift-reopen, with `Log.Flush` and trailing `CatchAny`.
+- `modLetterCasing.StandardizeLetterCasing`: `Set VBE.ActiveVBProject = CurrentVBProject`
+  before `DoCmd.Save`; log save failures; warn when project remains dirty.
+- Remove `Options.GitSettings` from `clsOptions`.
+
+> **⚠ Partially superseded** (2026-07-29): The letter-casing and export saves no longer use
+> `DoCmd.Save acModule`. Saving one module does not save the project when form or report
+> class modules are dirty, so those saves silently failed — which is what the "project
+> remains dirty" warning added here had been reporting all along. Both now call
+> `SaveCurrentVBProject`, which saves via the worker and returns the resulting `Saved`
+> state. The casing pass also no longer runs on merges. See "Opt-in in-place merge
+> preparation instead of the pre-merge reopen" above.
+
+**What this rules out**: Do not read merge hook names from `GitSettings` again. Do not
+move `RunBeforeMerge` before the shift-reopen without re-evaluating session lifetime.
+Do not restore silent error swallowing on the letter-casing save.
+
+**Relevant files**: `modExport.bas`, `modBuild.bas`, `modLetterCasing.bas`,
+`clsOptions.cls`
+
+---
+
+## 2026-07-27 — Schema export cache-bust via per-schema fingerprint in the index
+
+**Trigger**: Installing or removing `sp_GetDDL` on a SQL Server switches every exported
+object between rich SP-generated DDL and the built-in `object_definition()` fallback, but
+nothing re-exported. Schema exports bypass `VCSIndex` and `CategoryHashes` entirely;
+their only change signal is timestamp equality (`ExportObject` stamps each `.sql` with the
+server's `last_modified`, and the next scan compares the two). A capability change leaves
+both sides of that comparison identical, so `IDbSchema_Export` short-circuits before
+opening a connection. Investigation also found `blnFullExport` was declared in
+`IDbSchema.Export` and both implementations but **never referenced** — so no supported
+way to force a schema re-export existed at all.
+
+**Options explored**:
+- **Reuse `GetExporterRevisions` / `CategoryHashes`** — rejected on two counts:
+  `modExport` replaces `VCSIndex.CategoryHashes` wholesale after each export
+  (`Set .CategoryHashes = dCurrentHashes`), so extra `"Schema:<name>"` keys are clobbered;
+  and probing for the SP needs a live connection, while `GetCategoryHashes` runs offline
+  for `frmVCSMain` UI state.
+- **Sidecar state file** in `databases/<name>/` — viable (verified safe from the orphan
+  and empty-folder cleanup passes, which only consider `*.sql` inside known base
+  subfolders), but adds another gitignore rule to ship to user projects.
+- **Marker comment in each exported `.sql`** naming the DDL source — rejected: changes
+  exported content, which is `eExportFormatVersion` territory, and adds per-file I/O.
+- **New `SchemaState` section in `vcs-index.idx` (chosen)** — the index is already the
+  gitignored home for local derived sync state, and a per-key accessor avoids the
+  wholesale-replacement problem that rules out `CategoryHashes`.
+
+**Decision**:
+- Index format bumped 3 → 4, appending `SchemaState` (`{schema name → fingerprint}`).
+  The reader accepts versions 3 and 4 via `cintIdxMinReadVersion`, so upgrading does not
+  discard an existing index — the previous `<> cintIdxFormatVersion` check would have
+  deleted it and forced a full project re-export.
+- Fingerprint covers both an exporter revision (`SCHEMA_EXPORTER_REVISION_MSSQL` /
+  `_MYSQL` in `modConstants.bas`) and any runtime capability affecting output. Only MSSQL
+  has the latter today (`sp_GetDDL`); MySQL always uses `show create ...`.
+- `VCSIndex.SchemaState` is a **parameterized property**, not a whole-dictionary
+  Get/Set like `CategoryHashes`, precisely because this section is not rebuilt from
+  options on each export. `TextCompare` matches `Options.SchemaExports` name handling.
+- Both exporters now honor `blnFullExport`, and an unrecorded fingerprint forces one
+  baseline re-export. Content is normally byte-identical and files are re-stamped with
+  the same server dates, so git shows nothing.
+- The fingerprint is recorded only when `Operation.ErrorLevel < eelError`, so a canceled
+  or failed export does not claim credit for files it never wrote. An undeterminable SP
+  status (failed connection) returns an empty fingerprint and forces nothing, rather than
+  guessing "builtin" and re-exporting everything.
+- When `VCSIndex.Disabled` there is nowhere to record the result, so the check is skipped
+  — otherwise every run would re-export the whole schema.
+- `CanUseGetDDL`'s cached status moved from a procedure `Static` to instance-level
+  `m_intSpStatus` so `GetFingerprint` can distinguish *unavailable* from *unknown*.
+  Behaviorally identical (VBA `Static` in a class procedure is already per-instance, and
+  a fresh exporter instance is created per schema per export).
+
+**What this rules out**: Treating timestamp equality as a complete change signal for
+external schema exports. Any future change to how DDL is generated — in our code or in
+the server environment we probe — must be reflected in `GetFingerprint`, or it will not
+reach existing projects. Also rules out storing per-schema derived state in
+`CategoryHashes`, which is rebuilt from options and cannot hold it.
+
+**Relevant files**: `clsVCSIndex.cls`, `clsSchemaMsSql.cls`, `clsSchemaMySql.cls`,
+`modConstants.bas`, `modTestIndex.bas`, `AGENTS.md`.
+
+---
+
+## 2026-07-27 — Per-category exporter revisions for cache-bust bug fixes
+
+**Trigger**: Bug fixes to command-bar `_Images` sidecar export changed output without
+changing primary `GetSource` bytes or `DateModified`. The change index reported no
+modification, so fast save skipped re-export and the fix never reached existing
+projects. Bumping `eExportFormatVersion` for each such fix would force a full
+project export and proliferate permanent `If >= EFV_...` branches.
+
+**Options explored**:
+- **Patch-level `eExportFormatVersion`** — rejected: `_Global` hash forces full export;
+  every gate is a permanent opt-in branch users must carry forever.
+- **Per-object predicate in exporter code** (`If IsUnionQuery Then ...`) — rejected:
+  permanent per-fix branches; no better git outcome than category-level re-export
+  because unaffected objects serialize to byte-identical output.
+- **Explicit per-category revision in index + opt-in UI** — rejected for v1: honors
+  deferral but adds index format field and UI affordance; category re-export cost is
+  bounded (~minutes worst case) and git diffs stay surgical.
+- **Fold revision into `CategoryHashes` (chosen)** — `GetExporterRevisions()` in
+  `modConstants.bas` returns `{categoryName → revision}`; `GetCategoryHashes` seeds
+  `ExporterRevision` into each listed category (creating the dict on demand so
+  categories with no classified export options, e.g. `CommandBars`, still get a hash).
+  Existing `dStaleCategories` path in `modExport` re-exports that category once;
+  new hash is persisted self-clearingly.
+
+**Decision**:
+- `GetExporterRevisions()` is the single registry; bump on blind-spot fixes only
+  (sidecars, date-fast-path). Do not bump for content-hashed primary output
+  (`IsModified` self-heals) or opt-in format changes (`eExportFormatVersion`).
+- Initial entry: `CommandBars = 1` for `_Images` sidecar export fix.
+- Pattern mirrors `LAYOUT_SVG_GENERATOR_VERSION` intent but uses category hash
+  invalidation instead of a dedicated comparison in each component.
+
+---
+
+## 2026-07-27 — Hydrate prior test metadata in the web runner after tree publish
+
+**Trigger**: `test-state.json` already stores per-test `durationMs`, assertion
+counts, and `lastRunAt`, but the web runner showed test names only until Run on
+the `VCS.RunTests` path. `LoadInto` was gated behind `m_blnStandalone`
+(`VCS.OpenTestRunner` only).
+
+**Options explored**:
+- **Embed metadata in the tree JSON** — rejected: duplicates the batch replay
+  path and enlarges every `onReady` payload with full assertion arrays.
+- **Replace `LoadStateTests` before scan** — rejected: `LoadStateTests` wipes
+  `this.Tests`; scan must run first so discovered tests match the live VBA project.
+- **Publish tree, then overlay + one `onResultsBatch` (chosen)** — scan and
+  `onReady` paint names immediately; `modTestState.MergeInto` overlays durable
+  state onto discovered keys; one batch streams prior results. Cost is one
+  `ParseJson` (~240 KB in this repo) — negligible vs VBIDE scan.
+
+**Decision**:
+- `clsTestRunner.MergeStateResults` overlays disk state by `Module.Proc` key;
+  `ApplyStateResultsToTest` is shared with `LoadStateTests`.
+- In-memory `fromPriorRun` (distinct from persisted `stale`) marks hydrated rows
+  for the UI; cleared when a test actually starts running.
+- JS keeps a `priorResults` map that survives `onRunStart` reset so not-yet-run
+  rows still show last session's duration during a long run.
+- `m_blnPriorStateLoaded` prevents re-reading disk on toolbar Refresh (merge-scan
+  preserves in-memory results) **and across `DocumentComplete` re-fires**. It is
+  deliberately not reset there: the page is wiped but the singleton is not, so
+  `RefreshWebTestTreeDeferred` replays from memory instead of parsing again. Resetting
+  it meant any spurious reload paid for a second parse and blinked the indicator a
+  second time. Only a real form unload (`ResetWebRunnerHostState`) clears it.
+- The parse is visible on open, and the tree is already painted when it starts, so
+  it gets an in-page indicator rather than relying on the Access hourglass (easy to
+  miss over a WebView2 pop-up): `onHydrateStart` / `onHydrateEnd` drive the header
+  status badge (pulsing **Loading previous results…**, sharing the run-status slot)
+  plus a stats-bar chip. A chip alone tested as too easy to miss.
+- JS enforces `HYDRATE_MIN_VISIBLE_MS` (600 ms) before hiding. The parse often
+  finishes fast enough that a truthful indicator is unreadable, so the hold buys
+  legibility; `onRunStart` passes `force` to drop it immediately, since the run's own
+  status must own the badge.
+- **The overlay itself is deferred to `Form_Timer`**, not run inline. An inline parse
+  with a `DoEvents` before it was tried first and the chip never appeared: WebView2
+  composites no frames while VBA holds the thread, so the chip was created and removed
+  without ever being painted. `ScheduleHydratePriorResults` only sets a flag and pushes
+  `onHydrateStart`; `PumpDeferredHydrate` runs after `DrainOutbox` on the next tick, so
+  user commands keep priority. A run supersedes a pending hydrate (`AcceptBridgeRun`
+  clears the flag).
+- **Reaching the timer is still not sufficient** — `PumpDeferredHydrate` waits for the
+  page to *confirm the paint*. The diagnostic trace (7/27) showed only 49 ms between the
+  `onHydrateStart` push and the first tick, followed by a **1.76 s** parse with the
+  thread held, so the indicator was pushed, never composited, then removed. JS sets
+  `window.__hydratePainted` from a **double `requestAnimationFrame`** (the first
+  callback still precedes the frame carrying the change; the second follows it), and VBA
+  polls that flag, capped by `HYDRATE_PAINT_TIMEOUT_MS` so a bridge failure cannot stall
+  the data. Wall-clock delays were rejected: they guess at compositor timing, and this
+  is the one signal that actually means "on screen."
+- The warm-reuse path now clears the hourglass *after* refresh, not before.
+
+**What this rules out**: Showing prior pass/fail as authoritative without the
+dimmed/stale styling — hydrated rows are explicitly "previous run" until re-run.
+
+**Relevant files**: `clsTestRunner.cls`, `modTestState.bas`, `modTestRunnerUI.bas`,
+`TestRunner/runner.html`.
+
+---
+
+## 2026-07-27 — Grid origin is stored Top-first in LvExtra, Left-first in the qdef
+
+**Trigger**: Query `.json` files flipped `GridLeft` and `GridTop` on every round trip
+(243 of ~1800 queries in one production database; the rest have `0, 0`, which is why
+no fixture caught it).
+
+**Decision**: The `LvExtra` blob stores the grid origin as `(Top, Left)` — reversed
+relative to every other RECT in that format. `clsLvExtraParser` now assigns the first
+Long to `gridTop`. The qdef layout block keeps the opposite order: `EmitDesignLayout`
+writes `Left` before `Top`, because that is what `LoadFromText` demands.
+
+**Alternatives considered**: Reversing the qdef emitter instead. Rejected empirically —
+Access rejects the whole Design View import with `Expected: 'Left'. Found: Top.`, and
+the importer silently falls back to SQL View, dropping the layout for every Design View
+query. The round-trip harness caught this across 21 fixtures.
+
+**What this rules out**: Assuming the blob and the qdef agree on coordinate order. They
+do not, for this one field. Do not "tidy" either side into matching the other.
+
+**Fixture**: `qryRegressionGridOrigin` pins an asymmetric nonzero origin; every other
+fixture in the corpus has `0, 0` and cannot detect a swap.
+
+---
+
+## 2026-07-27 — Layout pipeline gets DB-free unit tests, not a nested round-trip subset
+
+**Trigger**: The grid origin swap survived every normal test run and only surfaced under
+`VCS.RunRoundtripTests`. Layer 1 covered SQL text and `MSysQueries` rows; nothing below
+the round-trip harness touched the binary `LvExtra` blob or the qdef layout block, so the
+one field where the reader and the writer disagree had no unit-level coverage at all.
+
+**Decision**: Add `clsTestQueryLayout` — a database-free class that synthesizes an
+`LvExtra` blob, parses it with `clsLvExtraParser`, and feeds the result through the public
+`clsQueryComposer.GenerateQdef`. Three tests pin the asymmetry: the blob reads Top-then-Left,
+the qdef emits Left-then-Top, and the composition of the two preserves the original values.
+The probe values are asymmetric and distinct from every other coordinate, so a swap cannot
+hide behind a coincidentally matching number.
+
+**Alternatives considered**: Running a curated subset of the round-trip corpus inside the
+normal suite. Rejected for now — `RunObjectRoundtripTests` calls `Operation.Begin` and
+`Log.Clear`, so nesting it inside a test run (itself an `eotTestRun` operation) would fail
+to start and would wipe the console output. Making the harness re-entrant is a real option,
+but it is a change to singleton ownership and not one to make immediately before a release.
+
+**What this rules out**: Treating "it round-trips through Access" as the only available
+check for binary-blob fields. Where a reader and a writer must disagree about ordering,
+pin each end separately against ground truth — a composed test alone passes when both
+ends flip together.
+
+---
+
+## 2026-07-27 — Bracket-aware table-ref parsing in clsSqlSyntax
+
+**Trigger**: Production database build failures when join operands used bracketed
+multi-word table names (`[Car Models]`). `TryExtractSimpleTable` un-bracketed
+then split on the first space, truncating names and corrupting `MSysQueries`.
+
+**Decision**: Extract a pure `clsSqlSyntax` functional core with shared `SplitTableRef`
+(bracket-aware `AS` detection, no space split). Both `AddInputTable` and
+`TryExtractSimpleTable` derive the same reference key from identical operand text.
+`clsQueryComposer` delegates parsing helpers to a per-instance `m_syntax` member.
+
+**Alternatives considered**:
+- Surgical fix (only guard the space split for bracketed names) — rejected; left
+  embedded-`AS`, embedded-`JOIN`, and implicit-alias inconsistencies in place.
+- Standard module (`modSqlSyntax`) — rejected; would add ~15 public names to an
+  already crowded global namespace; class scoping keeps IntelliSense clean.
+
+**What this rules out**: Naive `InStr`/`Split` on un-bracketed table operands in
+join parsing. Any new table-ref extraction must go through `SplitTableRef` or share
+its bracket-aware keyword scanning.
+
+**Fixtures**: `qryRegressionSpacedTableNameJoin` (Layer 2), `clsTestSqlSyntax` and
+`clsTestQueryComposerJoins` (Layer 1 matrix + closed loop).
+
+---
+
+## 2026-07-27 — Web runner: copy test-state path and save TestRun log
+
+**Trigger**: Users want to paste a test-results file path into an agent chat after a
+web-runner run. Investigation also found web runs never called `Log.SaveFile`, so
+`TestRun_*.log` was not written despite `Log.Active = True` during bridge runs.
+
+**Options explored**:
+- **`test-results.html`** — rejected for agent handoff: same data as state JSON but
+  inlined in a large HTML/CSS/JS shell; poor token efficiency for agents.
+- **`logs/TestResults_<timestamp>.json`** — rejected as the copy target: ephemeral
+  per-run filename changes every run; `test-state.json` has a stable path and merges
+  partial runs.
+- **`logs/TestRun_*.log`** — useful for human debugging but not the primary agent
+  artifact; log save is fixed separately so both tiers exist after web runs.
+- **`test-results/test-state.json` (chosen)** — stable path, always written by
+  `MergeAndSave`, rich per-test fields (`moduleName`, `procName`, `line`, assertions,
+  `loggedErrors`, tags).
+
+**Decision**: Add **Copy path** toolbar button and `CopyResultsPath` bridge callback
+that copies the bare `GetStateFilePath()` string via `SetClipboardText`. Fix web-runner
+teardown to call `SaveWebRunnerRunLog` (`Perf.EndTiming`, perf report, `Log.SaveFile`)
+in `EndInteractiveBridgeRun` and on execute-phase errors before `Operation.Finish`.
+Add a self-describing run heading when `blnInvokeSetup` is true.
+
+**What this rules out**: Using `navigator.clipboard` in WebView2 for this action (VBA
+clipboard helper is already tested). Copying HTML report or timestamped JSON paths as
+the default agent handoff. Leaving web runs without a persisted `TestRun_*.log`.
+
+**Relevant files**: `TestRunner/runner.html`, `modTestRunnerUI.bas`, `AGENTS.md`,
+`.cursor/rules/testing.mdc`.
+
+---
+
+## 2026-07-24 — Defer dedicated decision-document (ADR) infrastructure
+
+**Trigger**: Some decisions involve far more reasoning and trade-off analysis than a `DECISIONS.md` entry seems able to hold (a long deliberative session on per-component "exporter revision" invalidation was the prompting example). Question raised: should heavyweight decisions get comprehensive standalone ADRs under a new folder, with the lightweight log linking out to them? Concern was that an agent lacking full context might reopen a settled decision.
+
+**Options explored**:
+- **Curated ADR folder** (`docs/decisions/`, dated files, template, log links out via a `Full rationale` field): explored in detail and initially planned. Rejected after auditing the log: only ~3–5 of ~102 entries would clear a sensible promotion bar, and the strongest candidates (e.g. the round-trip harness entry with 9 options) already carry their reasoning fully in the log. Standing up a folder + template + README + cross-references in four files to serve ~3% of cases is disproportionate, and adds permanent cost of carry (a second place to keep in sync, drift risk, per-doc sanitization, and exactly the "more data to sift through" problem we were trying to avoid).
+- **Reconstruct ADRs retroactively from agent transcripts**: rejected. Backfilling settled history yields low-value archive; second-hand distillations look authoritative but can quietly encode a wrong rationale (fidelity risk); each transcript needs the same sanitization pass fixtures get (production names). Transcripts already preserve the full raw record and can be mined on demand.
+- **Link the originating transcript from a log entry**: rejected as a committed convention. Transcripts are local, per-user, and uncommitted, so a link in the committed log is a dangling reference on any clean clone and may point at unsanitized content.
+- **Do nothing / rely on the existing log**: chosen. The premise (the log format can't hold big decisions) did not survive scrutiny — the "aim for 10–50 lines" guideline is a soft default the log already breaks when a decision earns it. The real worry ("an agent reverses a decision without context") is what the `What this rules out` section already exists to prevent; a thin entry is fixed by writing a better paragraph, not by new infrastructure.
+
+**Decision**: Do not build ADR infrastructure now. This is a YAGNI situation — no concrete case has yet shown a log entry failing in a way an ADR would have prevented. Keep `DECISIONS.md` as the single home for architectural rationale, and invest in richer `What this rules out` / `Options explored` sections when a decision warrants depth. If a log entry ever genuinely proves insufficient for a specific contested decision, create one standalone doc at that moment and let the real need define its format.
+
+**What this rules out**: Creating `docs/decisions/`, an ADR template, or a bulk transcript-reconstruction effort without a demonstrated, concrete failure of the log first. Revisit only if a real case arises where the log measurably fell short (an agent reopened a well-documented decision, or a clean-clone contributor lacked reasoning that only a transcript held). `docs/` remains for sustained internal *reference* material about how systems work — not one-shot decision rationale, which stays in this log (see 2026-04-27 entry).
+
+**Relevant files**: None (documentation/process decision). Supersedes the shelved plan "ADR convention for heavyweight decisions."
+
+---
+
+## 2026-07-20 — Index companion `.json` for merge detection and `AllFilesHash`
+
+> **⚠ Partially superseded** (2026-07-29): `AllFilesHash` is no longer consulted on
+> every merge. It is now reached only when the date+size property hash does not match
+> the index, which is what made a no-change merge read every source file. The fix this
+> entry describes is intact — when content *is* hashed, all indexed files are hashed,
+> not the primary file alone. See "Merge scan reads no file content when dates and
+> sizes are unchanged" above.
+
+**Trigger**: Metadata-only edits to a form/report companion `.json` (Description, Hidden) were not picked up by `MergeBuild`. Root causes: (1) form/report `.json` was excluded from indexed `FileExtensions`; (2) even where `.json` was indexed (modules, queries, table defs, macros), `GetModifiedSourceFiles` confirmed timestamp drift via primary-file content hash only, masking companion-only changes. Macros also gated `.json` emission to the real export path while indexing it — a latent `GetDifferingFiles` false-conflict risk.
+
+**Options explored**:
+- **Rely on `MetaHash` only**: rejected. `MetaHash` reads live DB state and does not detect hand-edited source `.json`; the `.json` can also hold `ConditionalFormatting` and other sections beyond Description/Hidden.
+- **Add `.json` to indexed set without fixing fallback**: rejected. Property-hash drift would still be dismissed when the primary file was unchanged.
+- **Index `.json` + combined `AllFilesHash` content fallback**: chosen. Forms/reports add `json` to `efesIndexed` (`efesAll` adds `svg` only). All three components that gated metadata writes (form, report, macro) now emit `.json` on alternate/temp exports (matching modules/table defs/queries). `GetSourceFilesContentHash` hashes all indexed files; stored as `AllFilesHash` on index entries (flag bit 32, no index format-version bump). `GetModifiedSourceFiles` uses `AllFilesHash` when present; legacy entries fall back to primary-only until re-synced.
+
+**Decision**: Comprehensive fix — the fallback benefits every multi-file component. Component-specific edits limited to form/report (index + alt emit) and macro (alt emit only).
+
+**What this rules out**: Treating form/report `.json` as derived-only (`efesAll` sidecar). Derived `.svg` previews remain unindexed. Index format version was not bumped — `AllFilesHash` populates on next export/import per object.
+
+**Relevant files**: `clsVCSIndex.cls`, `clsVCSIndexItem.cls`, `modContainers.bas`, `clsDbForm.cls`, `clsDbReport.cls`, `clsDbMacro.cls`, `modTestMergeDetection.bas`, `modTestOrphaned.bas`.
+
+---
+
+## 2026-07-20 — Scoped `FileExtensions` for artifact cleanup and moves
+
+> **⚠ Partially superseded** (2026-07-20): Form/report companion `.json` is now in `efesIndexed` (authoritative metadata), not `efesAll` only. `.svg` remains `efesAll`-only. See "Index companion `.json` for merge detection and `AllFilesHash`" above.
+
+**Trigger**: Orphan cleanup and `MoveSource` duplicated hardcoded extension lists (form/report `.json`/`.svg`, query legacy files, etc.) separate from `FileExtensions`, which intentionally excludes derived sidecars from the index because `GetDifferingFiles` uses a strict file-count match (see 2026-05-05 entry). A single declaration site was needed for “all files this component writes” without polluting change detection.
+
+**Options explored**:
+- **Add sidecars to `FileExtensions`**: rejected at the time for derived `.svg` and conflict noise; form/report `.json` was later indexed separately once alternate-path emission was aligned (see superseding entry).
+- **Separate `ArtifactExtensions` property**: rejected. Third parallel list to maintain; same drift risk as hardcoded cleanup arrays.
+- **Optional `Scope` on `FileExtensions`** (`efesIndexed` default, `efesAll` adds sidecars): chosen. Indexed consumers unchanged; `ClearOrphanedComponentArtifacts`, `MoveComponentSource`, and tests read `efesAll`. Folder artifacts (`_Images`, theme folders) are not object-named flat files and stay on the folder cleanup path.
+
+**Decision**: `eFileExtensionScope` in `modConstants`; `clsDbForm` / `clsDbReport` branch on scope (`efesAll` adds `svg` only; `json` in `efesIndexed` since 2026-07-20). Shared helpers: `ClearOrphanedComponentArtifacts` and `MoveComponentSource`.
+
+**Orphan-cleanup dispatch — no interface method**: An initial pass added an `IDbComponent.ClearOrphanedArtifacts` hook with 29 implementations. Once file cleanup became fully data-driven from `FileExtensions(efesAll)`, 27 of those implementations were identical no-ops and the hook had a single call site — pure boilerplate that VBA's lack of default interface methods forces onto every class. It was removed. `modOrphaned.ClearOrphanedSourceFiles` now calls `ClearOrphanedComponentArtifacts cType, dBaseNames` directly (data-driven files, covers form/report and any future sidecar automatically), plus `ClearOrphanedComponentFolders cType, dBaseNames` — a small `TypeOf` switch handling the only two folder-producing types (`clsDbCommandBar` → `_Images`, `clsDbTheme` → extracted folder). Rejected keeping the interface hook for uniformity: 25+ no-op overrides is worse maintenance than one localized 2-branch switch. This introduces a minor Core→Components reference in `modOrphaned`, accepted as the pragmatic home for the one bit of per-type folder knowledge (the suffix).
+
+**What this rules out**: Using `FileExtensions` without a scope for cleanup/move — callers must pass `efesAll` explicitly when they need the full file set. Adding a new derived sidecar requires updating the component's `FileExtensions(efesAll)` branch only; it must not be added to `efesIndexed` unless it becomes authoritative tracked state. A new folder-producing component adds one branch to `ClearOrphanedComponentFolders` (and its own MoveSource folder handling) rather than an interface override.
+
+**Relevant files**: `modConstants.bas`, `IDbComponent.cls`, `modOrphaned.bas` (`ClearOrphanedComponentArtifacts`, `ClearOrphanedComponentFolders`), `modContainers.bas` (`MoveComponentSource`), `clsDbForm.cls`, `clsDbReport.cls`, `modTestOrphaned.bas`, `modTestComponentInvariants.bas`.
+
+---
+
+## 2026-07-14 — Conditional formatting field-value operator decode (issue #725)
+
+**Trigger**: Issue #725 — exporting a form with conditional formatting decoded every
+field-value rule to `"Operator": "Between"` in the companion JSON, regardless of the real
+operator (Equal, GreaterThan, etc.). `clsConditionalFormat.ParseStandardRule` hardcoded
+`dRule.Add "Operator", "Between"`, and `LegacyOperator` always returned `0`. The original
+#725 analysis correctly identified the hardcode but did not know where the operator lived
+in the binary blocks, because the only field-value fixture (Text25) used operator `Between`
+(value 0) and a white BackColor (zero trailer echo), so nothing exercised the difference.
+
+**Empirical method**: Against a sample DB (`frmExample.txtFormatted`), drove
+`FormatConditions.Add` through all eight `AcFormatConditionOperator` values plus a mixed
+three-rule case, ran `Application.SaveAsText`, and diffed the exported `ConditionalFormat14`
+/ `ConditionalFormat` hex with an authoritative byte dump. Findings:
+- CF14 operator for rule 0 is a 2-byte LE value at header **offset 10** (previously labeled
+  "reserved"); for later rules it is the **second dword of the 8-byte per-rule prefix**
+  (previously labeled "reserved").
+- Legacy operator is the dword at **offset 16** (location was already documented; the value
+  was just never read/written as anything but 0).
+- Bonus bug: the field-value CF14 trailer BackColor echo sits at **+5**, not +9. The echo is
+  always `trailingLen - 12` into the trailer (+9 for the 21-byte expression/focus trailer,
+  +5 for the 17-byte field-value trailer). Never caught because Text25 is white.
+
+**Options explored**:
+- **Gate behind a new `eExportFormatVersion`** (per the export-format-change rule): rejected.
+  The JSON *structure* is unchanged — the `Operator` key already exists; only its value is
+  corrected. Gating would leave existing 5.0.0 users exporting and building wrong operators
+  until they opt into a new format. This is a correctness fix inside the already-5.0.0-gated
+  `DecodeConditionalFormatting` feature, not a new formatting behavior.
+- **Fix decode only** (populate JSON correctly, leave rebuild hardcoded): rejected — import
+  round-trip would still rebuild Between, so a build from source would lose the operator.
+
+**Decision**: Read the operator on decode (header offset 10 for rule 0, prefix+4 for later
+rules) and map it to a name via new `OperatorToName`/`NameToOperator`; write it back on
+rebuild in the CF14 header, the CF14 per-rule prefix, and the legacy header (offset 16).
+Also corrected the field-value trailer echo offset in both decode and emit. Not gated behind
+a new export format version (correctness fix to existing 5.0.0 output). Re-exporting a
+project with non-Between conditional formatting will produce a one-time JSON diff (correct
+operator, plus `TrailerColor` for colored field-value rules).
+
+**What this rules out**: The CF14 header/prefix "reserved" bytes at offsets 10 and prefix+4
+are no longer free — future format probing must not reuse them. Multi-rule *legacy*
+field-value blocks embed per-rule operators in their descriptors and remain best-effort;
+CF14 stays the authoritative decode source. Since the add-in cannot be rebuilt via MCP, the
+byte-exact fixtures added to `modTestConditionalFormat` (all eight operators + a mixed
+three-rule block, captured from real SaveAsText output) must be verified by running the test
+suite after a manual add-in rebuild.
+
+> **⚠ Partially superseded** (2026-08-12): The add-in can now be rebuilt unattended via
+> `VCS.RebuildAddIn` when it is the only Access instance. See "Agentic add-in rebuild via
+> status file, not a new MCP tool" above. The fixtures themselves are unchanged.
+
+**Relevant files**: `modules/Core/clsConditionalFormat.cls` (decode/rebuild + operator
+maps), `modules/Tests/Core/modTestConditionalFormat.bas` (operator + trailer-echo fixtures
+and tests), `docs/access-conditional-format.md` (§4.1, §4.2, §4.3, §5.1, §10).
+
+---
+
+## 2026-07-13 — Fast-save query metadata scan via MSysObjects.LvProp
+
+**Trigger**: On a production database with ~3,675 queries, a fast-save export sat at 1% for nearly a minute during "Scanning for changes...". Profiling (`Perf` ops added to `clsDbQuery.IDbComponent_IsModified` and `GetMetadataHash`) showed `Meta: Read Description` consuming ~38s — ~82% of the ~46s export. Each query's metadata hash read its `Description` via `dbs.Containers("Tables").Documents(name).Properties("Description")`, and that DAO/COM access forced Access to lazily materialize each query definition. Two symptoms: no progress feedback during the scan, and the scan itself being dominated by per-object Description reads.
+
+**Options explored**:
+- **Leave as-is, add progress only** — surfaces the stall but leaves the 38s cost. Rejected: treats the symptom, not the cause.
+- **Cache Descriptions per `clsDbQuery` instance** — useless: each query is a fresh instance, so no sharing across the scan.
+- **Batched `MSysObjects.LvProp` read (chosen)** — one snapshot recordset of `Name, LvProp` for all `Type=5` rows, parse the table-level `Description` from each `LvProp` blob (`clsLvPropParser`), cache by name for the duration of one scan. `GetHiddenAttribute` stays a per-object call (negligibly fast). Verified byte-for-byte equal to the DAO Description across all query rows (0 mismatches) with a throwaway `modScanDiagnostics.VerifyQueryMetadataSource` diagnostic. Batched read cost ~0.8s vs ~38s; total export ~46s → ~10s.
+
+**Decision**: Added `BuildQueryDescriptionCache`/`ClearQueryDescriptionCache`/`GetQueryMetadataHash` to `modLoadSaveText.bas`; `clsDbQuery` builds the cache before the modified-scan loop and clears it after. The scan-time metadata hash uses the shared `HashMetadataValues` formula so the cached fast path and the generic `GetMetadataHash` produce identical hashes (unmodified queries are never falsely re-exported); when no cache is active, `GetQueryMetadataHash` falls back to the per-object DAO read. The cache always rebuilds fresh and drops itself on any build error, so it can never serve stale/partial data. Auto-generated `~sq_*` queries (present in `MSysObjects` but not `CurrentData.AllQueries`) are skipped. Separately, progress feedback was added: `Log.IncrementObjectScanProgress` increments once per object in every component's `GetAllFromDB`, the scan bar is sized to `GetQuickObjectCount` only, and `ClearOrphanedSourceFiles` no longer advances the bar (its near-instant per-file increments made the bar leap in bulk bursts). The one-time `modScanDiagnostics.VerifyQueryMetadataSource` verifier is dropped rather than carried forward — it was never committed, so its finding (LvProp == DAO, 0 mismatches) is recorded here; the verifier is simple enough to reconstruct from this entry if ever needed.
+
+**What this rules out**: The fast path trusts that `LvProp`'s table-level `Description` equals the DAO document `Description`. If a future Access version diverges, only the metadata hash (Description/Hidden) is affected — a query's SQL change is still caught by `DateModified`, so the worst case is a missed description/hidden-only change or a harmless extra export, not data loss. That low severity is why no permanent CI guard was added; re-run the git-history diagnostic (or add a targeted `modTest*` check) if the invariant is ever suspected. The per-object scan increment only fires on the fast-save path, so a full export's scan phase shows a static bar briefly before the export loop reports progress.
+
+**Relevant files**:
+- `modLoadSaveText.bas` — `BuildQueryDescriptionCache`, `ClearQueryDescriptionCache`, `GetQueryMetadataHash`, `HashMetadataValues`, `ParseLvPropDescription`
+- `clsDbQuery.cls` — batch cache around the modified-scan loop; `IsModified` uses `GetQueryMetadataHash` + `Perf` split
+- `clsLog.cls` — `IncrementObjectScanProgress`
+- `modExport.bas` — scan bar sized to `GetQuickObjectCount` only
+- `modOrphaned.bas` — orphan-file scan no longer increments the bar
+- `clsDbForm/Report/Module/Macro/TableDef/…` and `clsAdp*` — per-object scan progress increments
+
+---
+
+## 2026-07-13 — Oracle ODBC connectivity probe SQL
+
+> **⚠ Partially superseded** (2026-08-17): DSN-only and FILEDSN Oracle connections are now resolved to a driver name, and an `ORA-00923`-only retry was added as a backstop. The blind-3146 retry remains rejected. See "Oracle DSN and File DSN connectivity probe" above.
+
+**Trigger**: Issue #723 — `CacheConnection` used `SELECT 1;` for all ODBC probes. Oracle rejects that syntax (requires `SELECT 1 FROM DUAL;`), causing ODBC error 3146 and a false Retry/Ignore/Abort dialog during build. A second bug: `clsDbConnection.Import` read `Err.Description` after `CacheConnection` had cleared `Err`, so the failure dialog showed no detail.
+
+**Options explored**:
+- **Reactive 3146 fallback** — retry with `FROM DUAL` when `OpenRecordset` fails. Rejected: 3146 is a generic ODBC wrapper that also covers auth and server failures, so retry conflates SQL syntax errors with real connection problems.
+- **Registry DSN→driver lookup** for DSN-only strings without `DRIVER=`. Rejected for now: bitness-sensitive, heavier, and DSN-only Oracle links are rare with Access.
+- **Proactive DRIVER-based detection (chosen)** — if `GetConnectPart(strConnect, "DRIVER")` contains `"Oracle"` (case-insensitive), use `SELECT 1 FROM DUAL;`; otherwise `SELECT 1;`. Covers DSN-less strings Access stores after linking.
+
+**Decision**: Added `IsOracleOdbcConnect` and `GetConnectivityProbeSql` to `modConnect.bas`. `CacheConnection` and `TestBackEndConnection` call `GetConnectivityProbeSql` before `OpenRecordset`. `CacheConnection` now returns `strErrDesc` via ByRef (required parameter) so `HandleConnectionFailure` shows the real ODBC message.
+
+**What this rules out**: DSN-only Oracle connections (`ODBC;DSN=...` without `DRIVER=`) still use `SELECT 1;` — same as before, not a regression. Registry lookup or reactive fallback can be added later if reported.
+
+**Relevant files**:
+- `modConnect.bas` — `IsOracleOdbcConnect`, `GetConnectivityProbeSql`, `CacheConnection`, `TestBackEndConnection`
+- `clsDbConnection.cls` — pass `strErrDesc` from `CacheConnection` to `HandleConnectionFailure`
+- `modTestConnect.bas` — unit tests for detection and probe SQL
+
+---
+
+## 2026-07-09 — Ship test-results/ gitignore to user projects
+
+**Trigger**: Review of test-results persistence found the add-in repo's `.gitignore`
+includes `test-results/`, but the shipped `.gitignore.default` template and
+`CheckGitFiles` upgrade path did not. Existing user projects could commit durable
+test artifacts (`test-state.json`, `test-results.xml`, `test-results.html`) after
+running tests with default export options.
+
+**Options explored**:
+- **Document-only** — rejected: docs already claimed test-results were gitignored;
+  users would still commit artifacts until they edited `.gitignore` manually.
+- **Template + CheckGitFiles upgrade (chosen)** — mirror the existing `logs/` pattern:
+  add `test-results/` to `.gitignore.default` and ensure it on export via
+  `EnsureGitignoreLineRespectComment` (respects deliberately commented-out lines).
+
+**Decision**: New projects get `test-results/` from the default template. Existing
+projects with Git Integration pick it up on the next export when `CheckGitFiles` runs.
+Already-committed files are not auto-untracked.
+
+**What this rules out**: Auto-removing tracked `test-results/` from Git history; users
+who committed those files still need `git rm -r --cached test-results/` once.
+
+**Relevant files**: `.gitignore.default`, `modVCSUtility.bas` (`CheckGitFiles`).
+
+---
+
+## 2026-07-09 — TestResults JSON retention uses MaxLogFiles
+
+**Trigger**: `clsTestRunner.SaveResults` pruned ephemeral `TestResults_*.json` dumps
+with a hard-coded keep-10 constant and a private `PruneResultDumps` helper, while
+`TestRun_*.log` files in the same `logs/` folder already honor `Options.MaxLogFiles`
+via `clsLog.CleanupOldLogs`.
+
+**Options explored**:
+- **Separate `MaxTestResultFiles` option** — rejected: duplicates Advanced options UI
+  and splits retention policy for artifacts that live in the same folder.
+- **Parallel prune helper with MaxLogFiles** — rejected: duplicates `CleanupOldLogs`.
+- **Reuse `Log.CleanupOldLogs` + `MaxLogFiles` (chosen)** — generalize the existing
+  helper to accept a `Like` pattern; one code path and one knob for both
+  `TestRun_*.log` and `TestResults_*.json`; `0` keeps all.
+
+**Decision**: `SaveResults` calls `Log.CleanupOldLogs` with `"TestResults_*.json"`.
+`CleanupOldLogs` is public, pattern-based, and sorts by name so oldest timestamped
+files are deleted first. Enumeration uses `ScanFolderContents` (Win32) with VBA
+`Like` filtering — same pattern as `GetMatchingFilePaths`. Durable `test-results/`
+artifacts are unchanged.
+
+**What this rules out**: Per-artifact retention counts or a second prune
+implementation for test run history in `logs/`. Revisit only if JSON dumps and
+console logs need different lifetimes.
+
+**Relevant files**: `clsLog.cls` (`CleanupOldLogs`), `clsTestRunner.cls` (`SaveResults`)
+
+---
+
+## 2026-07-09 — Bridge run commands resolve at acceptance, not completion
+
+**Trigger**: Any web-runner test run longer than 30 seconds toasted "Run failed: VBA call timed out: RunSelected" even while the run kept streaming results. The JS promise for `RunSelected`/`RunAll`/`RunFailed` was only resolved after the entire synchronous VBA run finished, but every `VBA.call` arms a 30 s timeout. A compile-error abort was worse: it skipped all stream events, leaving the page silent until the timeout fired.
+
+**Options explored**:
+- **Raise the JS timeout for run commands** — rejected: any fixed value just moves the false-failure threshold; a full suite with slow-tagged tests has no meaningful upper bound.
+- **Suppress the timeout entirely for run commands** — rejected: a genuinely lost dispatch (stalled `RetrieveJavascriptValue`) would leave the UI waiting forever with no feedback.
+- **Resolve at acceptance (chosen)** — VBA validates the request (`AcceptBridgeRun`: not already running, keys present, `Operation.Begin` succeeds), resolves the promise with `{"ok":true,"accepted":true}`, then executes the blocking run (`ExecutePendingBridgeRun`). Completion arrives via the streamed `onRunComplete` / `onRunCancelled` / new `onRunError` events the page already consumes. A JS watchdog (`RUN_START_WATCHDOG_MS`, 60 s) covers the pathological accepted-but-never-started case.
+
+**Decision**: Run commands are ack-then-stream; request/response calls (`Cancel`, `RefreshTests`, `OpenTestSource`, `OpenResultsReport`, `CopyResultsPath`, `ReportJsError`) keep resolve-with-result under the 30 s `VBA_CALL_TIMEOUT_MS`. `TestRunner.InvokeGlobalTestSetup` (unbounded user hook) moved from the accept phase to the execute phase so the ack itself cannot stall. The compile-error abort in `RunSelected` now streams `onRunError` before bailing. Post-ack failures never reject the promise (it is already consumed) — they stream `onRunError` and guarantee `Operation.Finish` so the next run is not blocked.
+
+**What this rules out**: The `.then()` of a run-command `VBA.call` no longer means "run finished" — UI state transitions must key off streamed events only. Any new long-running bridge command should follow the same accept/execute split rather than raising the shared timeout. Live per-assertion streaming (`onAssertionResult`) was also evaluated and removed: one `ExecuteJavascript` round-trip per assertion (suites run thousands) for no visible gain, since `onTestComplete` already carries the full assertion list; the per-assertion contract is `seq`/`passed`/`context` — VBA cannot capture call-site source text or line numbers through `Application.Run`.
+
+**Relevant files**:
+- `modTestRunnerUI.bas` — `IsRunCommand`, `AcceptBridgeRun`, `ExecutePendingBridgeRun`, `StreamRunError`; `BridgeRun*`/`ExecuteBridgeRun`/`BeginInteractiveBridgeRun` removed
+- `frmVCSTestRunner.cls` — `DispatchRequest` branches run commands to ack-then-execute
+- `clsTestRunner.cls` — compile-error branch streams `onRunError`; `HasFailedTests`
+- `TestRunner/runner.html` — `dispatchRun` wrapper, `onRunError` handler, pending-button state, named timeout constants
+
+---
+
+## 2026-07-08 — Test runner HTML: repo-root `TestRunner/` packaging folder
+
+**Trigger**: `runner.html` lived under `Version Control.accda.src/TestRunner/`, which
+reads like an exported Access object folder but is actually an embedded packaging
+asset (like `Ribbon.xml`). A dedicated repo-root folder also leaves room for future
+test HTML (e.g. `test-results.html`).
+
+**Options explored**:
+- **Keep under `.accda.src/`** — works but misleads contributors; couples HTML to the
+  export tree.
+- **Install-folder extraction like `Ribbon.xml`** — rejected: no external consumer
+  reads the file from `App.Path`; the Edge control needs a space-free temp path for
+  `https://msaccess/` navigation anyway.
+- **Repo-root `TestRunner/` + build-time embed + temp-cache runtime (chosen)** —
+  same build-time `modResource.VerifyResources` path as `Ribbon.xml`; runtime
+  extraction stays in `GetTempFolder` via `ResolveRunnerHtmlPath`.
+
+**Decision**: Author `TestRunner/runner.html` at the repository root (parallel to
+`Ribbon/` and `Hook/`). Embed with `VerifyResource "Test Runner HTML",
+"\TestRunner\runner.html"`. Dev live-edit copies from `CodeProject.Path\TestRunner\`.
+Reserve the folder for additional embedded test HTML assets.
+
+**What this rules out**: Treating `TestRunner/` as part of the Access export tree;
+install-folder deployment of runner HTML.
+
+**Relevant files**: `TestRunner/runner.html`, `modResource.bas`, `modTestRunnerUI.bas`,
+`AGENTS.md`, `.cursor/rules/testing.mdc`.
+
+---
+
+## 2026-07-08 — Standalone HTML test-results report (embedded snapshot)
+
+**Trigger**: Users need a shareable, double-clickable test results view outside
+Access (after closing the database, on builds without the Edge web runner, or for
+emailing/archiving). Dynamic `fetch()` of sibling `test-state.json` fails under
+`file://` due to browser CORS restrictions.
+
+**Options explored**:
+- **JS sidecar loaded via `<script src>`** — works on `file://` but still two
+  files; awkward when emailing a single artifact.
+- **Dynamic fetch of `test-state.json` / `test-results.xml`** — rejected for
+  double-click use: blocked on `file://` in modern browsers.
+- **Self-contained HTML with inlined JSON snapshot (chosen)** — add-in reads
+  `test-state.json`, escapes `<` as `\u003c`, injects into embedded
+  `TestRunner/results.html` template, writes `test-results/test-results.html`.
+
+**Decision**:
+- Report scope mirrors durable merged state (fresh + stale + pending), not just
+  the last run — consistent with `test-state.json` and `test-results.xml`.
+- Template at repo-root `TestRunner/results.html`, embedded via
+  `VerifyResource "Test Results HTML", "\TestRunner\results.html"`.
+- `modTestReport.ExportResultsHtml` called from `modTestState.PersistAfterRun`
+  when `Options.ExportTestResultsHtml` is on (default); on-demand via
+  `VCS.ExportTestResultsHtml`.
+- Surfaced via plain console log path after generation, **Open Test Results...**
+  on `frmVCSMain` after console test runs, and **Open report** toolbar button in
+  the web runner (`OpenResultsReport` bridge → `FollowHyperlink`).
+
+**Relevant files**: `TestRunner/results.html`, `modTestReport.bas`, `modTestState.bas`,
+`modResource.bas`, `modTestRunnerUI.bas`, `clsOptions.cls`, `clsVersionControl.cls`,
+`frmVCSMain`, `frmVCSOptionsAdvanced`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Test results persistence: three-tier artifacts, durable state, JUnit export
+
+**Trigger**: Need to reload the last test run when reopening the web runner after an
+Access restart or VBA state reset; need a single file reflecting current status
+across full and partial runs; need JUnit XML for CI without committing noisy
+per-run artifacts.
+
+**Options explored**:
+- **JUnit XML as the persistence format** — rejected: JUnit lacks per-assertion
+  detail, tags, logged errors, and source location fields the web runner needs.
+- **Keep everything in `logs/`** — rejected: `logs/` is wholesale gitignored and
+  semantically ephemeral/timestamped; durable state and CI export are different
+  lifecycle tiers.
+- **Dedicated `test-results/` folder with custom JSON + JUnit projection (chosen)** —
+  three tiers: ephemeral per-run history in `logs/`, durable merged state in
+  `test-results/test-state.json`, JUnit XML as an optional projection of state.
+
+**Decision**:
+- `modTestState.MergeAndSave` merges each run into `test-state.json`: executed
+  tests get a fresh `lastRunAt`; non-executed tests keep prior status and are
+  flagged `stale`.
+- `modTestJUnit.ExportFromState` projects state to `test-results.xml` (on by default
+  via `Options.ExportTestResultsJUnit`; regeneratable via `VCS.ExportTestResultsJUnit`).
+- `RehydrateWebRunner` loads from disk when the singleton is empty.
+- Both `test-results/` artifacts are gitignored (local working state / CI input).
+
+**Relevant files**: `modTestState.bas`, `modTestJUnit.bas`, `clsTestRunner.cls`,
+`modTestRunnerUI.bas`, `clsVersionControl.cls`, `clsOptions.cls`,
+`frmVCSOptionsAdvanced`, `.gitignore`, `AGENTS.md`.
+
+---
+
+## 2026-07-09 — Web test runner: folder run scope and VCS.RunTests-style filters
+
+**Trigger**: UX feedback — folder headers only expand/collapse with no way to run all
+tests under a folder; exclusions like `-slow` work in `VCS.RunTests` but not in the
+web UI; the primary Run button should respect composed navigation + filter scope.
+
+**Decision**:
+
+- **Folder select + run**: chevron toggles collapse; clicking the folder name selects
+  that `@Folder` path (toggle off to clear). Descendant suites are included (e.g.
+  `Tests` includes `Tests.SQL`). A ▶ on the folder header runs that folder immediately
+  without changing selection. Primary Run label becomes **Run folder (N)**.
+- **Tag include/exclude**: sidebar Tags cycle off → include → exclude (`-tag`) → off.
+  Multiple tags compose like `ResolveFilters` (includes OR, exclusions AND-subtract).
+- **Filter text box**: single sidebar input (no separate suite search) accepts the same
+  token syntax as `VCS.RunTests` (module, folder/suite, procedure, tag; `-` prefix
+  excludes). Composes with folder/suite/failed navigation base; drives the main list,
+  Run scope, and tag chips. Sidebar tree is navigation-only (click folder/suite/tag).
+- **Run scope**: `getVisibleTestKeys()` resolves navigation base then filter tokens;
+  primary Run always calls `RunSelected` with that key set.
+- **DefaultTestFilter seed**: when opening via `VCS.RunTests(...)` or ribbon
+  `RunFilteredTests`, non-empty filters are passed through `setContext.defaultFilter`
+  and prefill the filter box (editable, not auto-run).
+- **Recent snapshots**: Recent entries store `{folder, suite, filterText}` (not a single
+  kind/key) so combinations like `Tests.SQL` + `-slow` restore together. Legacy
+  `{kind,key}` entries are migrated on load. Filter-box typing persists on blur/Enter
+  (not every keystroke).
+- **No Operation on web open**: `ExecuteTests` no longer calls `Operation.Begin` before
+  opening the web runner (bridge runs own the lifecycle). `ClearOrphanedTestOperation`
+  finishes a leftover `eotTestRun` when reopening/hiding if no test is actually running,
+  fixing "Another Operation Already Running" after hide-and-reopen.
+- **Access build probe**: `GetAccessFileBuild` uses `FSO.GetFileVersion` on
+  `MSACCESS.EXE` instead of WMI `CIM_DataFile` (WMI often raised a one-shot Automation
+  error dialog on first ribbon open despite fail-open support detection).
+
+**Relevant files**: `TestRunner/runner.html`, `modTestRunnerUI.bas`,
+`clsVersionControl.cls`, `frmVCSTestRunner.cls`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Web test runner: status filters, clear filter, nested folders, cancel poll, focus restore
+
+**Trigger**: UX feedback — stats-bar status counts should filter the list; a single
+control should clear any active filter; `@Folder` paths should nest in the sidebar
+(not flat dotted headers); **Stop** had no effect mid-run; pre-run compile stole
+focus to the VBE when it was already open.
+
+**Decision**:
+
+- **Status filters**: passed / failed / errored / skipped counts in the stats bar
+  are clickable (toggle off to All). Reuses `#test-list[data-filter]` CSS; failed
+  includes assertion failures and runtime errors; errored is errors only.
+- **Clear filter**: a **Clear filter** chip (and Esc when a filter is active)
+  resets suite/tag/failed focus and status filter via `clearAllFilters()`.
+- **Nested folders**: sidebar splits `suite.folder` on `.` into nested
+  `.folder-group` nodes; full path strings in headers/tooltips use `/`.
+- **Cancel poll**: `Form_Timer` cannot re-enter while a run started from
+  `DrainOutbox` is still on the stack, so Cancel sat in `__vbaOutbox` until the
+  suite finished. `RunSelected` now calls `PollBridgeCancel` after each `DoEvents`;
+  the form exposes `DrainCancelOutbox` to splice Cancel commands without disturbing
+  other queued bridge calls. `BridgeCancel` sets `CancelRequested` only (no eager
+  `StreamRunCancelled`); the run loop streams cancelled when it actually exits.
+  Cooperative cancel: the in-flight test still finishes.
+- **Stop button window (2026-07-09)**: `#btn-cancel` is shown and enabled for the
+  full in-flight window (`pendingRun` through `running`), not only after
+  `onRunStart`. `onRunComplete` resets `disabled` so a prior cancel cannot leave
+  Stop greyed out on the next run. `BridgeCancel` honors cancel whenever a test
+  `Operation` is active (covers `GlobalTestSetup` / compile before
+  `etrsRunning`); the form timer sets `CancelRequested`, and `RunSelected`
+  aborts before `StreamRunStart` when that flag is already set.
+- **Focus restore**: after `acCmdCompileAllModules`, and again at the end of
+  `EndInteractiveBridgeRun` (after teardown / `ActiveVBProject` switches that can
+  re-steal focus), `RefocusWebRunner` calls `BringAccessToForeground` and
+  `ShowRunner` when the web runner is active so the run finishes on the form.
+- **Default window size**: form design size raised from ~1320×768 to ~1600×900
+  (24000×13500 twips) so the main column is usable on 1080p with sidebar + detail
+  panes open; users can still resize.
+
+**Relevant files**: `TestRunner/runner.html`, `frmVCSTestRunner.cls`,
+`frmVCSTestRunner.form`, `modTestRunnerUI.bas`, `clsTestRunner.cls`,
+`modVCSUtility.bas`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Web test runner: run scope matches visible selection
+
+**Trigger**: UX feedback — the primary **Run all** button did not match what the
+list showed when a suite or tag was selected (suite focus ran the whole project;
+only tag focus was scoped). Progress bar, header, and completion toast used
+project-wide totals after partial runs (e.g. re-running one test toasts "All 10
+tests passed" after a prior suite run).
+
+**Decision**: **What you see is what the primary Run button runs.**
+
+- Primary Run resolves `getVisibleTestKeys()` (tag/failed focus → those keys;
+  suite selected → that suite; otherwise all tests) and always calls
+  `RunSelected` — never `RunAll` with a cleared selection.
+- Button label is dynamic: **Run all (N)**, **Run suite (N)**, **Run tag (N)**,
+  **Run failed (N)**.
+- Header always shows project total; appends `showing N (scope)` when filtered;
+  last-run summary uses outcomes from the most recent run only (`lastRunOutcome`).
+- Progress bar during a run sizes to `runKeys.length`; idle bar remains
+  project-wide health. Duration shows `completed / total · elapsed` while running.
+- Completion toast counts only tests in the current run.
+
+**Relevant files**: `TestRunner/runner.html`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Web test runner: hide-on-close, no auto-run, Escape key
+
+> **⚠ Partially superseded** (2026-07-09): The `BridgeRunAll`/`BridgeRunSelected`/
+> `BridgeRunFailed` callbacks were replaced by the `AcceptBridgeRun` /
+> `ExecutePendingBridgeRun` split so the JS promise resolves at acceptance rather
+> than after the blocking run. The operation lifecycle is still owned by the
+> bridge run path (not by `ExecuteTests`), as decided here. See "Bridge run
+> commands resolve at acceptance, not completion" above.
+
+**Trigger**: UX feedback — closing the test runner form with the X button destroys
+the WebView2 control (expensive cold-start on reopen), and the web runner was
+auto-running tests immediately on open rather than letting the user click Run.
+
+**Options explored**:
+- **Hide vs unload** — considered keeping the old unload-on-X behavior. The
+  WebView2 control's cold start takes 5–15+ seconds on first init; hiding the
+  form keeps it warm and instant on reopen. The trade-off is a hidden form using
+  some memory, but the WebView2 process is small and the warm control is worth it.
+- **QueryClose vs Unload** — Access forms do not expose `Form_QueryClose` with
+  `CloseMode` the way Excel/UserForms do. Used `Form_Unload` with an
+  `m_blnAllowClose` flag instead: user X-click and Escape always cancel the unload
+  and call `HideRunner`; programmatic `CloseWebTestRunner` sets `AllowClose = True`
+  before `DoCmd.Close`, allowing the real unload to proceed for Access shutdown.
+- **Auto-run** — the previous `ExecuteTests` scanned, opened the web runner, and
+  immediately ran all tests in the same call. This made the UI feel like it was
+  doing something behind the scenes before the user could see what was happening.
+  Now `ExecuteTests` (web runner path) finishes the operation early after publishing
+  the test tree; bridge callbacks (`BridgeRunAll`, `BridgeRunSelected`,
+  `BridgeRunFailed`) handle the full operation lifecycle when the user clicks Run.
+
+**What this rules out**: The web runner form cannot be programmatically unloaded
+without setting `AllowClose` first — any new code paths that need to close it
+must go through `CloseWebTestRunner` or set the flag manually. If Access shutdown
+hangs because the flag isn't set, that's a bug (would need an emergency fallback
+in `Form_Unload` based on `Application.Quit` detection).
+
+**Relevant files**: `frmVCSTestRunner.cls`, `frmVCSTestRunner.form`,
+`modTestRunnerUI.bas`, `clsVersionControl.cls`, `AGENTS.md`.
+
+---
+
+## 2026-07-08 — Web test runner: option toggle, pop-up host, quiet mode, state rehydration
+
+**Trigger**: Follow-up polish on the web test runner. Requests: don't echo results
+to the Immediate window when the HTML runner is showing them; make the runner
+opt-out-able (legacy console fallback); make the Edge control fill the window and
+open as a stand-alone window rather than a docked tab; preserve results so the
+runner can be reopened to see/re-run the failed set; add an "All tests" / "Failed
+tests (N)" focus affordance and surface assertion totals.
+
+**Options explored**:
+- **Suppress console noise** — considered skipping the per-test `Log.Add` calls in
+  `clsTestRunner` (would also drop them from the TestRun log file). Chose instead a
+  `Log.SuppressDebugOutput` flag that only gates the `Debug.Print` echo in
+  `clsLog.Add` (fires when no GUI console is bound, i.e. the web-runner case). The
+  log file and console buffer are unaffected. Set/cleared around the run in
+  `ExecuteTests`.
+- **Fill the form** — the Edge control has no design-time anchoring, so a
+  `Form_Resize` handler sizes it to `InsideWidth/InsideHeight` (called once from
+  `Form_Load` too). `OnResize` is a standard form event token (unlike the Edge
+  control's `OnBeforeNavigation`/`OnDocumentComplete`, which had to be wired via
+  the Property Sheet), so hand-authoring it in the `.form` imported cleanly.
+- **Stand-alone window** — set the form `PopUp=1` so it opens as an overlapping
+  window instead of a tabbed document. Cheapest reliable way to "pop out".
+- **State persistence** — rejected keeping the form alive across close (reverted
+  earlier: it blocks Access shutdown). Chose to rehydrate on open from the
+  `clsTestRunner` singleton's `this.Tests` (tree + per-test `StreamTestComplete`),
+  driven by a new standalone open path (`VCS.OpenTestRunner` → `m_blnStandalone`
+  → rehydrate in `NotifyDocumentReady`). In-memory only; a VBA state reset clears
+  it. A file-based rehydrate (from the saved `TestResults_*.json`) is the escalation
+  if cross-restart persistence is needed.
+- **Assertion numbering** — followed the PHPUnit "Tests: N, Assertions: N" convention
+  (added `tests` and `assertions` totals to the stats bar) rather than inventing a
+  coverage metric.
+
+**Decision**: Gate the whole web-runner routing behind `Options.UseWebTestRunner`
+(default True, Advanced options → Automated Testing). Keep the runner a pop-up whose
+Edge control fills the window; suppress Immediate-window echo during web runs; and
+rehydrate last results on a view-only reopen.
+
+**What this rules out**: Results do not survive a VBA state reset or Access restart
+(would need the file-based rehydrate). The runner is a single shared pop-up, not
+multiple concurrent windows.
+
+**Relevant files**: `clsOptions.cls` (option), `clsVersionControl.cls`
+(`ExecuteTests` routing, `OpenTestRunner`), `clsLog.cls` (`SuppressDebugOutput`),
+`modTestRunnerUI.bas` (`OpenTestRunnerForResults`, `RehydrateWebRunner`),
+`frmVCSTestRunner.form`/`.cls` (`PopUp`, `Form_Resize`), `frmVCSOptionsAdvanced.*`
+(checkbox), `TestRunner/runner.html` (Failed-tests focus entry, assertion totals,
+focus-preserving filter).
+
+---
+
+## 2026-07-08 — Web test runner: warm reuse without page reload + merge-scan refresh
+
+**Trigger**: Reopening the hidden test runner briefly showed prior run data, then
+wiped it a few seconds later. Root cause: every reuse path called `ReloadRunnerHtml`
+(full WebView2 navigate), and `RunTests` called destructive `Scan` before open.
+
+**Options explored**:
+- **Always reload on reuse** — rejected. Defeats hide-to-keep-warm; the multi-second
+  navigate is what users perceived as a mysterious refresh.
+- **Never rescan on reuse** — rejected. New/renamed/retagged tests would be stale in
+  the sidebar until Access restart.
+- **Destructive `Scan` on every open** — rejected for warm reuse. Wipes in-memory
+  pass/fail even when the page is still loaded.
+- **Show warm page + deferred `ScanMergingPriorResults`** — chosen. `ShowRunner`
+  paints cached UI immediately; `DoEvents` then merge-scan republishes the tree
+  only (`onReady` leaves `state.results` intact). `ReloadRunnerHtml` is fallback
+  when `window.TestUI` is missing. Forced reloads replay completed results via
+  `StreamCompletedTestResults` (not standalone-only).
+- **Manual Refresh** — toolbar button + `RefreshTests` bridge callback runs the same
+  merge-scan path for agents/users who added tests while the runner stayed open.
+
+**Decision**: Warm reuse skips navigate when the document is healthy. Tree refresh
+uses merge-scan; result rehydrate streams after any page wipe. `VCS.RunTests` no
+longer calls blocking `Scan` before open — discovery is owned by the deferred refresh.
+
+**Relevant files**: `modTestRunnerUI.bas` (`ReuseOrReloadRunner`,
+`RefreshWebTestTreeDeferred`, `BridgeRefreshTests`), `clsTestRunner.cls`
+(`ScanMergingPriorResults`), `clsVersionControl.cls` (`ExecuteTests` web path),
+`frmVCSTestRunner.cls` (`RetrieveRunnerJsValue`), `TestRunner/runner.html`
+(Refresh button).
+
+---
+
+## 2026-07-07 — Web test runner: EdgeBrowserControl + BeforeNavigate bridge
+
+**Trigger**: Add a modern HTML/JS test-runner UI on Microsoft 365 while keeping
+the existing `frmVCSMain` log console as the fallback on older Access builds.
+
+**Options explored**:
+- **Classic WebBrowser (IE) control**: rejected. Cannot run Promise-based bridge
+  code; CSS/JS would require emulation downgrades.
+- **Rebuild handoff VCSTest framework**: rejected. `clsTestRunner`, `TestAssert`,
+  and `VCS.RunTests` already exist and are mature; only the UI shell was missing.
+- **JS→VBA via `BeforeNavigate` + `vba://` iframe (primary)**: chosen. JS
+  `VBA.call()` navigates a hidden iframe; VBA cancels navigation, pulls JSON
+  payload via `RetrieveJavascriptValue`, replies with `ExecuteJavascript`.
+- **Timer polling `__vbaOutbox` via `RetrieveJavascriptValue` (fallback)**: kept
+  as opt-in via `EnableBridgePollingFallback` if `BeforeNavigate` interception
+  fails on a given build.
+
+**Decision**: Ship `frmVCSTestRunner` with a late-bound `webTestRunner` Edge
+control (`As Object` everywhere), host `TestRunner/runner.html` via
+`https://msaccess/` (space-free path, copy-to-cache when needed), stream run
+events from `clsTestRunner` through `modTestRunnerUI`, and route
+`ExecuteTests` to the web UI when `EdgeTestRunnerSupported()` (Access file
+build ≥ 16327 / M365 2304+). Allowlisted inbound callbacks only:
+`RunAll`, `RunSelected`, `RunFailed`, `Cancel`, `OpenTestSource`.
+
+**What this rules out**: Early-bound `As Access.Edge` references (breaks compile
+on older Access); `Application.Run` with page-supplied procedure names;
+`RetrieveJavascriptValue` on the streaming hot path; static HTML report files
+as a third UI mode.
+
+**Relevant files**: `frmVCSTestRunner.*`, `modTestRunnerUI.bas`,
+`clsTestRunner.cls`, `clsVersionControl.cls`, `TestRunner/runner.html`.
+
+> **⚠ Implementation note** (2026-07-07): The Edge control's event property
+> tokens are **`OnBeforeNavigation`** and **`OnDocumentComplete`** — note the
+> first is `OnBeforeNavigation`, *not* `OnBeforeNavigate`. Using the wrong name
+> is what makes `LoadFromText` fail ("This property does not apply to this
+> control"); with the correct tokens the events round-trip through the `.form`
+> normally. Wire them in the Access designer (Property Sheet → Event; Code
+> Builder on this control crashes Access) and export. The event-handler subs are
+> `webTestRunner_BeforeNavigate(Cancel As Integer, URL As String)` and
+> `webTestRunner_DocumentComplete(URL As Variant)` — Access normalizes `Cancel`
+> to `Integer` (not `Boolean`). `DocumentComplete` drives readiness and
+> `BeforeNavigate` is the primary inbound bridge. `RetrieveJavascriptValue` is
+> latency-prone and must NOT be polled continuously (an early
+> `document.readyState` poll timed out and raised a modal warning), so there is
+> no automatic readyState/outbox polling — the timer is off unless
+> `EnableBridgePollingFallback` is called (last-resort `__vbaOutbox` drain). A
+> request-id dedup guard ensures a call delivered via both channels runs only
+> once. The exported `.form` must retain the `CodeBehindForm` marker so
+> `MergeVBA` can splice the `.cls` on import.
+
+> **⚠ Superseded** (2026-07-08): Authoring path moved to repo-root `TestRunner/`
+> (see "Test runner HTML: repo-root `TestRunner/` packaging folder" above).
+> Build-time embed and temp-cache runtime are unchanged.
+>
+> **⚠ HTML delivery** (2026-07-07): `runner.html` lives in the source tree
+> (`Version Control.accda.src\TestRunner\`) but is NOT co-located with the
+> compiled/installed add-in, so `CodeProject.Path\TestRunner\...` does not exist
+> at runtime (grey/blank control). It is delivered like `Ribbon.xml`: embedded
+> in `tblResources` via `modResource.VerifyResources` at build time and extracted
+> at runtime with `ExtractResource` into a per-session temp folder
+> (`GetTempFolder`). A dev fallback copies from the source tree, and re-copies
+> when the source is newer (live HTML edits without a rebuild). The extraction
+> folder must be space-free — the Edge control silently fails to load
+> `https://msaccess/` URLs containing spaces — so `ResolveRunnerNavigateUrl`
+> converts any path with a space to its 8.3 short form via `GetShortPath`
+> (`GetShortPathNameW`, added to `modFileWinAPI`).
+
+> **⚠ Final inbound decision: outbox polling** (2026-07-08): After exhaustively
+> testing every navigation-based inbound signal (captured in the diagnostic
+> trace), the JS->VBA bridge uses **lightweight polling**, not events:
+> - JS `VBA.call()` enqueues `{id, fn, params}` in `window.__vbaOutbox` and does
+>   NOT navigate.
+> - The form timer (`POLL_INTERVAL_MS = 500`) drains the outbox via one
+>   `RetrieveJavascriptValue` and dispatches each command; a `Cancel` is
+>   dispatched even mid-run (the timer re-enters during the run's `DoEvents`),
+>   other commands only when idle; request-id dedup prevents double-runs.
+> - VBA->JS (streaming + `__vbaResolve`/`__vbaReject`) stays on `ExecuteJavascript`.
+>
+> Why not event-driven (the ruling-out, all confirmed by `beforenavigate.raw`
+> logging): (a) `vba://` custom scheme — WebView2 swallows it, no `BeforeNavigate`;
+> (b) hidden **iframe** to any URL — sub-frame navigations never reach the Access
+> control's `BeforeNavigate`; (c) **top-level** navigation to `https://msaccess/` —
+> `BeforeNavigate` fires, but `Cancel=True` does not cleanly abort a scripted
+> main-frame navigation, so the control tries to load the URL, times out (~5-7s),
+> and reloads the whole page. Polling is the only inbound path that never reloads
+> the page. Also note: `RetrieveJavascriptValue` must be called only from the form
+> timer / VBA flow, never from inside a control navigation event (it times out
+> there). `DocumentComplete` is still used for readiness + cold-start re-navigate.
+> The historical event-driven analysis below is retained for context.
+
+> **⚠ Superseded by diagnostics** (2026-07-07, same day): The diagnostic trace
+> (`beforenavigate.raw` logging + JS breadcrumbs) resolved the bridge questions
+> empirically, replacing the deferred-dispatch/polling machinery below:
+> 1. **`BeforeNavigate` DOES fire** for main-frame navigations (logged for both
+>    `about:blank` and the runner URL), so the inbound bridge is event-driven —
+>    no timer, no polling. Dispatch happens inline in `BeforeNavigate`; the whole
+>    timer/`m_strPendingFn`/`DrainOutbox`/`EnableBridgePollingFallback` layer was
+>    removed.
+> 2. The JS signal must be a **top-level navigation to an `https://msaccess/`
+>    URL** (`window.location.href = 'https://msaccess/__vba__/<fn>/<id>'`), which
+>    VBA cancels in `BeforeNavigate`. Two things that do NOT work, both confirmed
+>    by the trace (no `beforenavigate.raw` line appears for them): (a) a hidden
+>    **iframe** — WebView2 raises the navigation event for the main frame only,
+>    not sub-frames; (b) a **custom `vba://` scheme** — WebView2 swallows/bounces
+>    unknown-scheme navigations without raising `BeforeNavigate` (and the page
+>    reloads). The `https://msaccess/` host is the same one the runner HTML is
+>    served from, so `BeforeNavigate` fires for it reliably; the `/__vba__/` path
+>    marker distinguishes a bridge signal from the page load.
+> 3. **Cold-start grey screen**: the control's `ControlSource ="about:blank"`
+>    loads `about:blank` when the (cold) WebView2 finishes initializing, AFTER
+>    Form_Load's `Navigate` was lost — so about:blank won. Fix: `DocumentComplete`
+>    only treats the `https://msaccess/...` runner URL as ready; any other landing
+>    (about:blank or stray) triggers a re-`Navigate` to the runner. This doubles
+>    as the reliable "control is now initialized" trigger. Event-driven, no timer.
+>
+> The original deferred-dispatch reasoning (kept below for history):
+
+> **⚠ Deferred bridge dispatch** (2026-07-07): Page-initiated bridge commands
+> (Run all / Rerun failed) must NOT run the test suite synchronously inside the
+> `BeforeNavigate` handler. `ExecuteJavascript` calls issued while a navigation
+> callback is executing (both the per-test streaming pushes and the final
+> promise-resolve) do not run until the handler returns, so a full run started
+> inline leaves the JS promise unresolved until it times out (~30s). Fix:
+> `BeforeNavigate` handles only `Cancel` inline (fast, must interrupt a running
+> suite) and defers every other command to the form timer via `m_strPendingFn`/
+> `m_strPendingId`; the timer executes it OUTSIDE the callback (guarded by
+> `m_blnDispatchBusy` against re-entrancy from the run's own `DoEvents`), where
+> streaming and resolve work. The ribbon path is unaffected because it drives the
+> run directly from VBA, not from a navigation event. GENERAL RULE (confirmed by
+> the diagnostic trace: a `RetrieveJavascriptValue` call inside `DocumentComplete`
+> logged `js.drain.timeout` and delayed readiness ~1s): never call the Edge
+> control's JS methods (`ExecuteJavascript` OR `RetrieveJavascriptValue`) from
+> inside its own `BeforeNavigate`/`DocumentComplete` event handlers — WebView2
+> needs the message pump that the blocked callback is holding, so the call hits
+> its internal timeout. Do such calls from the timer, run flow, or other
+> VBA-driven context. Also: the readiness wait
+> (`WaitForWebRunnerReady`) default was raised to 30s because a cold WebView2
+> first-init can exceed 15s, which otherwise starts the run against a blank page.
+
+> **⚠ Warm-singleton lifecycle** (2026-07-07): The WebView2 cold-start (first
+> control init per Access session) is the dominant startup cost. The form is a warm
+> singleton **only while open** — `OpenWebTestRunner` reuses it if already open (no
+> cold-start), so back-to-back runs are instant as long as the window stays open.
+>
+> > **⚠ Superseded** (2026-07-07, same day): An earlier version HID the form on
+> > close (`Form_Unload` set `Me.Visible = False` + `Cancel = True`) to keep the
+> > control warm across closes. This **blocked Access from shutting down** — the
+> > host's quit unloads forms, and the cancelled unload aborts the quit — and left
+> > `msedgewebview2.exe` processes alive. There is no reliable way to distinguish a
+> > user form-close from an app quit in `Form_Unload`, so hide-on-close was removed.
+> > `Form_Unload` now always tears down cleanly (navigates the control to
+> > `about:blank`, releases refs) so WebView2 exits with the form. Cost: closing the
+> > window means the next run re-initializes (cold). Do NOT reintroduce
+> > `Cancel = True` in this form's unload.
+
+> **⚠ Diagnostic trace log** (2026-07-07): Debugging the bridge by round-tripping
+> rebuilds is slow because the actual VBA↔JS flow is invisible. `modTestRunnerDiag`
+> closes the loop: it writes a single agent-readable trace
+> (`<ExportFolder>\logs\TestRunnerDiag.log`, truncated per session by `DiagStart`)
+> interleaving VBA lifecycle/bridge events with JS breadcrumbs drained from
+> `window.__diag` via a single `RetrieveJavascriptValue` at checkpoints
+> (DocumentComplete, after each deferred dispatch). The `navigate.call` →
+> `documentcomplete` gap reveals WebView2 load/cold-start time; `beforenavigate`
+> presence proves the JS→VBA event bridge fired; `wait.ready`/`wait.timeout`,
+> `resolve`/`reject`, and `push.dropped` pinpoint where a run stalls. Diagnostics
+> must never perturb the observed flow: `Diag` no-ops when disabled and never
+> raises.
+
+---
+
+## 2026-07-06 — Surgical VBE reset in RunVBA; rejected for merge (crashes)
+
+> **⚠ Partially superseded** (2026-07-29): The reset is now used in the merge
+> path behind the opt-in `Options.SkipReopenBeforeMerge`, in one of the two
+> shapes this entry named as prerequisites — references released before the
+> reset, and the merge resumed on a fresh stack via the timer. The rejection of
+> a *bare* in-place reset in merge still stands. See "Opt-in in-place merge
+> preparation instead of the pre-merge reopen" above.
+
+**Trigger**: Agents driving `vcs_run_vba` (and repeated add/remove of modules
+via MCP) intermittently hit the modal "This action will reset your project,
+proceed anyway?" prompt, which blocks the automation thread until a human
+clicks it. Root cause: modifying a VBA project's `VBComponents` (add/remove a
+module) while that project holds in-memory run-state raises the prompt. It is
+raised by the VBA/VBE engine, not the Access action layer, so
+`DoCmd.SetWarnings`, `Application.Echo`, and `Application.SetOption` do not
+suppress it, and there is no documented flag to turn it off — you can only
+avoid triggering it or dismiss the modal after the fact.
+
+**Options explored**:
+- **`DoCmd.SetWarnings False`**: rejected. Only gates Access action-query/UI
+  confirmations, not the VBE engine's project-reset prompt.
+- **Auto-dismiss the modal (SendKeys / UI Automation watcher)**: not pursued.
+  The dialog is modal and blocks the thread that raised it, so it needs a
+  pre-queued keystroke or an external watcher; agent VBA is user-monitored, so
+  forcing the dialog closed was deemed unnecessary.
+- **`End` before running / before build**: rejected as primary. `End` is
+  global — it resets every loaded project (including the add-in's singletons)
+  and cannot "End then continue" in one call. Usable only as an external,
+  between-calls action.
+- **`DoCmd.RunCommand acCmdReset` (AcCommand 124)**: viable but its scope
+  (global/abortive vs. active-project) was uncertain. Kept only as a
+  documented fallback.
+- **VBE Standard toolbar Reset control, resolved by language-independent ID
+  228 (`Application.VBE.CommandBars.FindControl(, 228).Execute`)**: chosen for
+  `RunVBA`. Confirmed (IDE and programmatically via MCP) to reset only the
+  *active* project — never the library add-in. `RunVBA` sets
+  `VBE.ActiveVBProject = CurrentVBProject` first, resets before running agent
+  code and again after removing the temp module. Validated with an
+  `OptionsLoaded` sentinel (add-in `Options` singleton stayed loaded) across
+  basic, DB-access, and runtime-error probes, plus repeated add/remove cycles.
+- **Surfaced `McpResetProjectForRunVBA` option to toggle the reset**: added,
+  then removed (YAGNI) — the reset is now unconditional in `RunVBA`.
+- **Reuse the same reset for merge, replacing `CloseCurrentDatabase2` +
+  `ShiftOpenDatabase` with `CloseDatabaseObjects()` + reset (shift-reopen kept
+  as fallback)**: **rejected — crashes Access.** Plain version and a variant
+  with `DoEvents` between close and reset both crashed on merge in the Testing
+  database (full build was unaffected). Cause: unlike `RunVBA` (reset → run one
+  function → return), merge continues heavy, sustained work against the same
+  project after the reset (deleting/re-importing many `VBComponents`,
+  `DoCmd.Close/Save`, DAO refreshes) while holding cached references
+  (`CurrentVBProject`/`VBComponents`, `SharedDb`, DAO handles) that the reset
+  invalidates. Merge reverted to the stable shift-reopen.
+
+**Decision**: Use the VBE Reset control (id 228) via
+`modVbeUtility.ResetCurrentVBProjectState()` in `clsVersionControl.RunVBA`
+only. Merge and full build remain on the close/shift-reopen path unchanged.
+
+**What this rules out**: Do not drop an in-place VBE reset into the merge (or
+build) sequence — it corrupts the long-lived cached references those flows
+depend on and hard-crashes Access. Revisiting the merge performance win
+(avoiding the physical close/reopen) requires a different shape: either
+re-acquire all target-DB/VBE handles after the reset, or stage → reset/`End` →
+resume on a fresh stack via the existing `SetTimer`/`APIAsyncOperation`
+pattern. `acCmdReset` and the surfaced toggle remain deliberately unused.
+
+**Relevant files**: `Version Control.accda.src/modules/Core/modVbeUtility.bas`
+(new `ResetCurrentVBProjectState`), `Version
+Control.accda.src/modules/API/clsVersionControl.cls` (`RunVBA` calls it before
+run and after temp-module removal). Reverted: `Version
+Control.accda.src/modules/Core/modBuild.bas` (merge stays on shift-reopen).
+`Version Control.accda.src/modules/Infrastructure/clsOptions.cls` unchanged
+(surfaced option added then removed).
 
 ---
 
@@ -250,6 +5613,10 @@ add-in is rebuilt. Gated at `EFV_5_0_0` (v5 unreleased).
 ---
 
 ## 2026-06-23 — Full-build module import: two-pass ImportFast + FinalizeImports
+
+> **⚠ Partially superseded** (2026-09-15): `IDbBatchImport` became worthwhile
+> once the same two-pass finalization applied to six component classes. See
+> "Optional interface batches full-build metadata finalization" above.
 
 **Trigger**: Full builds on module-heavy projects spend ~85% of the `Modules`
 category time in the per-file tail (save, `DoEvents`, `AllModules` retry,
@@ -436,6 +5803,8 @@ part of the v5 baseline. The `EFV_5_1_0 = 50100` slot is free again for the firs
 `modules/Components/clsDbConnection.cls`, `forms/frmVCSOptionsExport.cls`,
 `modules/Tests/Connect/modTestConnect.bas`, `docs/access-conditional-format.md`.
 
+---
+
 ## 2026-06-18 — Build-time cleanup for duplicate `@Folder` source files
 
 **Trigger**: AI agents repeatedly created a second copy of a VBA module in the wrong
@@ -523,7 +5892,19 @@ falling back to the hybrid raw-hex approach. Byte-exactness is enforced by
 `modules/Infrastructure/clsOptions.cls` + `forms/frmVCSOptionsExport`
 (`DecodeConditionalFormatting`), `modules/Tests/Core/modTestConditionalFormat.bas`,
 `docs/access-conditional-format.md`.
+
+---
+
 ## 2026-06-09 — Batch file metadata (date+size) for source property hashing
+
+> **⚠ Partially superseded** (2026-07-29): The map is no longer built "once per
+> category." A merge build now builds one map for the whole scan phase and shares it
+> across every category, because several component types report the export root as
+> their `BaseFolder` and each recursive walk therefore covered the entire tree. The
+> "capture during enumeration" design was not needed to fix that. The DST caveat and
+> its reliance on the content-hash fallback still hold — that fallback is now the
+> second tier of a three-tier precedence. See "Merge scan reads no file content when
+> dates and sizes are unchanged" above.
 
 **Trigger**: Merge-build change detection on a large project (~7,300-file `queries`
 folder) spent ~7.4s in "Get File Property Hash". `GetModifiedSourceFiles` already only
@@ -623,6 +6004,13 @@ full tree is enumerated regardless of whether anything changed).
 
 ## 2026-06-09 — Defer pre-merge database reopen until changes are confirmed
 
+> **⚠ Partially superseded** (2026-07-29): This decision was reverted in
+> `0e4b93b0` (the reopen is unconditional again). The `ReleaseScanState` helper
+> it depended on now exists, and the pre-merge reopen can instead be skipped
+> entirely via the opt-in `Options.SkipReopenBeforeMerge`. Deferring the reopen
+> based on change count remains unimplemented. See "Opt-in in-place merge
+> preparation instead of the pre-merge reopen" above.
+
 **Trigger**: Every merge build unconditionally closed and shift-reopened the current
 database before scanning source files (to unload objects ahead of the destructive merge),
 costing ~23s even when no source files had changed — the common "pull / switch-branch"
@@ -656,6 +6044,12 @@ when `dCategories.Count = 0`). Combined with the enumeration and metadata change
 total no-change merge time fell from 96.3s to 11.8s. The separate ~32s post-merge
 shared-mode reopen did not occur on this run because nothing was imported — it still fires
 on merges that import objects, confirming it as the next (Phase 4) target.
+
+*(Correction, 2026-07-29: the link to importing was coincidental. The post-merge reopen is
+triggered purely by the engine lock state that `Worker.IsDatabaseAccessible` probes, which
+makes no reference to what the merge did. A later run imported four objects without
+triggering it, and another triggered it having imported nothing. See the 2026-07-29 in-place
+merge entry.)*
 
 **Relevant files**: `modBuild.bas` (`Build`, `RefreshContainerClasses`).
 
@@ -950,6 +6344,34 @@ single-object import.)*
 
 ---
 
+## 2026-05-07 — Cross-table ON condition LeftTable/RightTable in Design View qdef
+
+> **⚠ Partially superseded** (2026-08-10): The "fall back to the parent join's
+> tables only if extraction returns empty" rule is incomplete — a non-empty
+> garbage token from a function-call operand bypassed it. See
+> "Function-call operands in ON clauses must resolve against InputTables" above.
+> Per-condition extraction itself remains correct for simple column equalities.
+
+**Trigger**: A production database had four queries that passed SQL builder validation but failed with DAO error 3082 ("JOIN operation refers to a field that is not in one of the joined tables") after a full build from source. The queries used compound `ON` clauses where individual conditions referenced different table pairs, and one table was also used inside a saved subquery referenced in another condition.
+
+**Root cause**: `clsQueryComposer.EmitDesignViewQdef` reused the parent join's `leftTable`/`rightTable` for all split conditions in a compound `ON` clause. Access stores each compound `ON` condition as a separate Attribute 7 row in `MSysQueries` with its own `Name1`/`Name2` (the specific table pair for that condition). The emitter's reuse of the parent join's tables produced a `.qdef` where the `RightTable` for a condition referencing table `C` was set to table `B` (the parent join's right table). `LoadFromText` accepted this silently, but the resulting internal storage confused Access's scope resolution at execution time.
+
+**Options explored**:
+- **Fall back to `QueryDefs(name).SQL` (legacy path)** — rejected: the new pipeline was designed to generate its own `.qdef` rather than receive a pre-baked one, and falling back to the legacy path would lose design layout. The bug was in the emitter, not in `LoadFromText`.
+- **Store per-condition table pairs in the `.json` companion** — rejected: the table pair for each condition is derivable from the condition expression itself (e.g., `tblCars.ID = tblCarsModel.CarID` clearly references `tblCars` and `tblCarsModel`). Adding explicit storage would be redundant.
+- **Extract per-condition table pairs from the expression at emit time (chosen)** — the emitter already has `ExtractTableFromOnSide` available. Using it for each split condition, with a fallback to the parent join's tables if extraction fails, is correct, minimal, and preserves backward compatibility.
+
+**Decision**: `EmitDesignViewQdef` now calls `ExtractTableFromOnSide(condition, True)` and `ExtractTableFromOnSide(condition, False)` for each individual condition in a split compound `ON` clause. Falls back to the parent join's `leftTable`/`rightTable` only if extraction returns empty.
+
+**Why this was hard to diagnose**: The SQL builder validation compares `ReconstructSQL` output against `QueryDefs.SQL` — a text-level check. The bug was not in SQL reconstruction but in `.qdef` emission, and `LoadFromText` accepted the wrong structure silently. The error only surfaced at query execution time, where the misleading error message ("field not in one of the joined tables") pointed away from the actual root cause (wrong `LeftTable`/`RightTable` metadata).
+
+**Relevant files**:
+- `clsQueryComposer.cls` — `EmitDesignViewQdef`: per-condition `LeftTable`/`RightTable` extraction
+- `docs/access-query-storage.md` § 6 — documents the finding
+- `Testing/Fixtures/queries/regression/qryRegressionCrossTableOn.notes.md` — regression context
+
+---
+
 ## 2026-05-05 — Multi-file conflict detection: per-file diff with per-component resolution
 
 **Trigger**: On first export (empty index) all table definitions showed as export conflicts even though the XML files were byte-identical. Root cause: `SourceMatches` compared all `FileExtensions` across source and temp directories, but companion files (`.json` metadata, `.sql` DDL) were never produced during temp/alternate-path exports — they were gated behind `If strAlternatePath = vbNullString`. The file-count mismatch caused every multi-file component to report a false conflict.
@@ -963,6 +6385,54 @@ single-object import.)*
 **What this rules out**: Per-file resolution (skip one file but overwrite another within the same component) — export/import operates atomically on whole components, so partial resolution would require fundamentally different import/export logic. If per-file resolution is ever needed, it would require splitting components into independently importable sub-units. Adding new file extensions to a component's `FileExtensions` now requires ensuring those files are also produced during alternate-path exports, or the strict count comparison in `GetDifferingFiles` will flag false conflicts.
 
 **Relevant files**: `clsDbTableDef.cls` (companion file export), `clsDbModule.cls` (metadata export), `clsVCSIndex.cls` (`GetDifferingFiles`, `GetExportConflictFiles`, `IsMergeConflict`), `clsConflictItem.cls` (`DifferingFiles` property), `clsConflicts.cls` (multi-row `SaveToTable`), `frmVCSConflictList.cls` (resolution propagation), `frmVCSConflictList.form` (`AfterUpdate` event wiring).
+
+---
+
+## 2026-05-05 — VBProject.Saved + DateModified fast path for VBA code hashing
+
+**Trigger**: Fast-save exports were spending significant time hashing every VBA module's code (via `GetCodeModuleHash` → `CodeModule.Lines(1, 999999)` → SHA256) even when no VBA code had changed since the last export. For a project with 110+ modules, the "Get VBA Hash" operation dominated the scan phase.
+
+**Key empirical findings** (tested against `Version Control.accda` with 110 modules, 17 forms):
+
+1. `VBProject.Saved` (Boolean) reliably detects all unsaved VBE changes, including VBA's automatic case-sync propagation across modules. Goes `False` on any in-memory edit, `True` after any save.
+2. `CurrentProject.AllModules(name).DateModified` is a VBE-level property (NOT from `MSysObjects`). Always identical across all modules. Updates in real-time from VBE memory, even without saving.
+3. `MSysObjects.DateUpdate` is a separate DAO-level per-row write timestamp with millisecond precision. Only updates on actual disk writes. Does NOT reflect VBE code edits. DOES reflect DAO property changes (e.g., Description). These are two completely different dates from different subsystems.
+4. Saving any single module triggers a full VBA project write that updates `DateModified` on all 110 modules simultaneously. Saving a form's code-behind also updates all 110 module dates, but only that form's `DateModified` changes.
+5. `CurrentProject.AllModules` does NOT include form/report code-behind — those are `vbext_ct_Document` components in the VBE.
+
+**Options explored for the fast-path guard**:
+- **DateModified only** — rejected: VBA case-sync changes `CodeModule.Lines()` without updating `DateModified`, so the date alone could miss changes.
+- **Force compile-and-save before export** — rejected: would fail on uncompilable code, which the add-in must support exporting.
+- **VBProject.Saved + DateModified (chosen)** — `Saved = True` means no dirty VBE memory (covers case-sync); `DateModified` match confirms nothing was saved since last export. Both must pass to skip hashing.
+
+**Options explored for index storage of module dates**:
+- **Per-module ObjectDate (existing)** — rejected: all 110 values are always identical, and partial exports only update N entries, leaving the other 110-N stale until a full export "heals" them.
+- **Per-module ObjectDate with post-export healing pass** — rejected: unnecessary iteration when a single value suffices.
+- **Top-level VBAProjectDate (chosen)** — one value in the index, updated whenever any module is exported. Eliminates redundant storage, eliminates the healing problem, eliminates 110 per-module COM property reads during change detection.
+
+> **⚠ Superseded** (2026-10-06): "Updated whenever any module is exported" let one
+> export vouch for modules nobody checked. The date is now written only by
+> `CertifyVBAProjectDate`. See "VBAProjectDate is a whole-project certificate" above.
+
+**Decision**: Two-tier guard in `clsDbModule.IsModified`: (1) `CurrentVBProject.Saved = True`, (2) `AllModules(0).DateModified = VCSIndex.VBAProjectDate`. When both pass, skip `GetCodeModuleHash` entirely. `MetaHash` check always runs (metadata changes don't affect `Saved` or `DateModified`). For forms/reports, the same `VBProject.Saved` guard skips the code-behind hash when the layout `DateModified` also matches.
+
+> **⚠ Partially superseded** (2026-08-31): Forms and reports now use the full two-tier guard via `VbaProjectUnchangedSinceExport`, not `Saved` alone. See the 2026-08-31 entry.
+
+Additionally, unsaved VBA project changes are now persisted at the start of the export flow (alongside `CloseDatabaseObjects`), ensuring exported source always reflects the current VBE state and preventing the scenario where a user exports code then discards changes on close.
+
+**Performance results** (no-change fast-save export):
+- Before: 0.88s total, 127 `Get VBA Hash` calls (0.09s), 286 `Compute SHA256` calls (0.15s)
+- After: 0.44s total, 0 `Get VBA Hash` calls, 159 `Compute SHA256` calls (0.05s)
+- 50% faster overall; `Get VBA Hash` completely eliminated
+
+**What this rules out**: Per-module `ObjectDate` is no longer written for module components (other types still use it). The binary index format version was bumped from 2 to 3, so existing index files are rebuilt on first use. `MSysObjects.DateUpdate` was investigated but provides no advantage over `AllModules.DateModified` for VBA change detection. `CompileAndSaveAllModules` is intentionally NOT added to the export flow — it would break on uncompilable code.
+
+**Relevant files**:
+- `clsVCSIndex.cls` — new `VBAProjectDate` top-level property, format version 3, `Update` sets `VBAProjectDate` instead of per-module `ObjectDate` for modules
+- `clsDbModule.cls` — `IsModified` uses `VBProject.Saved` + `VBAProjectDate` fast path
+- `clsDbForm.cls` — `IsModified` skips code-behind hash when `VBProject.Saved = True` and layout date matches
+- `clsDbReport.cls` — same as `clsDbForm.cls`
+- `modExport.bas` — saves VBA project before export scan, wraps `CloseDatabaseObjects` in `Perf.PauseTiming`/`ResumeTiming`, fixes `Exit Sub` → `GoTo CleanUp` with `eelCritical`
 
 ---
 
@@ -984,20 +6454,20 @@ single-object import.)*
 
 ---
 
-## 2026-05-01 — Pass-through queries bypass SQL formatter and composer entirely
+## 2026-05-01 — Pass-through queries bypass SQL formatter; SQL sourced from MSysQueries
 
 **Trigger**: Exporting a database containing `dbQSQLPassThrough` queries crashed `clsSqlFormatter` with "Unable to parse SQL after position N" — the formatter's tokenizer is designed for Access SQL syntax and cannot handle T-SQL, PL/SQL, or other server-side dialects that pass-through queries may contain.
 
 **Options explored**:
 - **Teach the formatter about T-SQL/PL-SQL**: rejected. Scope explosion — every server dialect has its own syntax, reserved words, quoting rules, and comment styles. The formatter would become a multi-dialect parser with no clear boundary.
 - **Format only the SELECT-like subset** (heuristic detection of "looks like Access SQL"): rejected. Fragile — any heuristic would produce false positives on server SQL that happens to resemble Access SQL, silently corrupting the stored query text.
-- **Detect and bypass entirely** (chosen): Check `QueryDef.Type` for `dbQSQLPassThrough` (112) and `dbQSPTBulk` (144) early in `clsDbQuery.ExportNewFormat`. Store the SQL verbatim — no formatting, no decomposition through `clsQueryComposer`, no MSysQueries reconstruction. The `Connect` string is captured via `QueryDef.Connect` with an `ODBC;` placeholder fallback.
+- **Detect and bypass formatter; reconstruct SQL from MSysQueries** (chosen): Check `MSysObjects.Flags` for `dbQSQLPassThrough` (112) and `dbQSPTBulk` (144), or MSysQueries Attribute 1 Flag 8/10. `clsQueryComposer.ReconstructSQL` returns the verbatim Attribute 1 `Expression` for Flag 7 (DDL), 8 (pass-through, returns records), and 10 (pass-through, no records). Connect comes from Attribute 1 `Name1` (or Attribute 4 `Expression` when present). `clsSqlFormatter` is skipped for pass-through types.
 
-**Decision**: Pass-through query types are detected at the top of the export path and routed to a verbatim-storage branch. SQL is written as-is to the `.sql` file. The `.json` metadata includes `QueryType` so the import path knows to skip `LoadFromText` qdef generation and use `CreateQueryDef` directly. `clsSqlFormatter` and `clsQueryComposer` are never invoked for these query types.
+**Decision**: Pass-through export reads SQL and connect from the system tables only (no `QueryDef.SQL` / `QueryDef.Connect` round-trip on the hot path). `ReturnsRecords` is not in `LvProp`; when Attribute 1 Flag = 10, export writes `QueryProperties.ReturnsRecords = false` to the `.json` companion (issue #724). Import generates a `.qdef` via `clsQueryComposer` and `LoadFromText`, which honors `dbBoolean "ReturnsRecords" ="0"`.
 
-**What this rules out**: Future attempts to "fix" the formatter or composer for non-Access SQL dialects — pass-through SQL must always be stored verbatim. If a future need arises to pretty-print server SQL (e.g. for diff readability), it must be a separate, opt-in formatter that does not share code paths with the Access SQL formatter.
+**What this rules out**: Future attempts to "fix" the formatter or composer for non-Access SQL dialects — pass-through SQL must always be stored verbatim from MSysQueries. If a future need arises to pretty-print server SQL (e.g. for diff readability), it must be a separate, opt-in formatter that does not share code paths with the Access SQL formatter.
 
-**Relevant files**: `Version Control.accda.src/modules/Components/clsDbQuery.cls` (type detection and verbatim export/import), `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` (`ConnectString` property for SQL View qdef emission), `Testing/Fixtures/queries/passthrough/qryPassThroughNoConnect.*` (regression fixture).
+**Relevant files**: `Version Control.accda.src/modules/Components/clsDbQuery.cls` (export/import), `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` (`ReconstructSQL`, `ConnectString`, `EmitAllProperties`), `Testing/Fixtures/queries/passthrough/` (round-trip fixtures including `qryPassThroughNoRecords` for Flag 10).
 
 ---
 
@@ -1012,7 +6482,7 @@ single-object import.)*
 > multi-pattern folder enumeration" and "Batch file metadata (date+size) for source property
 > hashing" above.
 
-**Trigger**: Export profiling on a large database (`db-sec`, ~3,500 components) showed orphan scanning and file-extension migration checks dominated the "no changes" export time. Two separate problems: (1) `Dir()` does not support Unicode filenames — it silently skips or fails on paths containing non-ASCII characters, which Access databases frequently contain (accented characters, CJK object names). (2) `Scripting.FileSystemObject` (FSO) folder enumeration is correct but slow — each `oFolder.Files` / `oFolder.SubFolders` iteration creates COM proxy objects with per-item round-trip overhead.
+**Trigger**: Export profiling on a large production database (~3,500 components) showed orphan scanning and file-extension migration checks dominated the "no changes" export time. Two separate problems: (1) `Dir()` does not support Unicode filenames — it silently skips or fails on paths containing non-ASCII characters, which Access databases frequently contain (accented characters, CJK object names). (2) `Scripting.FileSystemObject` (FSO) folder enumeration is correct but slow — each `oFolder.Files` / `oFolder.SubFolders` iteration creates COM proxy objects with per-item round-trip overhead.
 
 **Options explored**:
 - **FSO-only** (drop `Dir()`, keep FSO for all scanning): rejected. Correct for Unicode but too slow — FSO `GetFolder().Files` on a 500-file export folder added measurable latency per component type during orphan cleanup.
@@ -1069,7 +6539,7 @@ stored query attributes.
 
 ## 2026-04-28 — Replace JSON index with binary `.idx` format and promote `clsVCSIndexItem` to persistent storage
 
-**Trigger**: On a large database (db-sec: ~3,500 component entries), the `vcs-index.json` file grew to 1.5MB / 40K lines. Parsing it via `modJsonConverter.ParseJson` consumed 1.5-2.2s per export — nearly half the total runtime for a no-changes export. The bottleneck was threefold: three `Replace()` calls stripping whitespace from a 1.5MB string, character-by-character recursive descent creating ~10,000 `Scripting.Dictionary` COM objects, and ~3,500 ISO 8601 date string parses.
+**Trigger**: On a large production database (~3,500 component entries), the `vcs-index.json` file grew to 1.5MB / 40K lines. Parsing it via `modJsonConverter.ParseJson` consumed 1.5-2.2s per export — nearly half the total runtime for a no-changes export. The bottleneck was threefold: three `Replace()` calls stripping whitespace from a 1.5MB string, character-by-character recursive descent creating ~10,000 `Scripting.Dictionary` COM objects, and ~3,500 ISO 8601 date string parses.
 
 **Options explored**:
 - **SQLite sidecar database**: Maximum query flexibility and proven binary format. Rejected: requires distributing and maintaining an external DLL dependency (`sqlite3.dll`), version management across 32/64-bit Access, and introduces a non-VBA dependency for a core infrastructure component.
@@ -1131,7 +6601,15 @@ A `DumpToJson` method is available for troubleshooting — it reconstructs a tem
 
 ## 2026-04-24 — Object round-trip regression harness lives inside the add-in, fixtures are versioned text files, queries pilot the IDbComponent abstraction, and the public surface routes through `clsVersionControl`
 
-**Trigger**: Post-`clsQueryComposer` work on the SQL/JSON query format surfaced ~723 affected queries in `db-sec` from a single self-join alias bug (`qryCurrencyCrossRates` archetype). Manual repro-and-fix is unsustainable as more edge cases land. Traditional VBA unit testing (Rubberduck-style or hand-rolled) would require hundreds of fixture queries hard-coded into the add-in — thousands of lines of VBA permanently loaded into memory in every running instance, for code paths that are only exercised during development. A different shape was needed.
+**Trigger**: Post-`clsQueryComposer` work on the SQL/JSON query format surfaced
+hundreds of affected queries in a production validation run from a self-join
+alias bug (now represented by the generic
+`qryRegressionSelfJoinAliased` fixture). Manual repro-and-fix is unsustainable
+as more edge cases land. Traditional VBA unit testing (Rubberduck-style or
+hand-rolled) would require hundreds of fixture queries hard-coded into the
+add-in — thousands of lines of VBA permanently loaded into memory in every
+running instance, for code paths that are only exercised during development. A
+different shape was needed.
 
 **Options explored**:
 - **Per-query VBA unit tests with hard-coded SQL strings**: rejected. Bloats the add-in's `.accda` permanently for a dev-only feature; every new edge case requires editing VBA and redeploying; no easy way to inspect the input/output of a specific failing case.
@@ -1145,7 +6623,7 @@ A `DumpToJson` method is available for troubleshooting — it reconstructs a tem
 - **Expose `RunObjectRoundtripTests` directly via `vcs_call_vba`** (which uses `Application.Run` and doesn't require `McpAllowRunVBA`): rejected as the *primary* path. The agent-friendliness gain isn't worth either keeping the module publicly exposed or carving out a private-module exception for `Application.Run` lookup. The harness *is* arbitrary code execution from the user's perspective (it imports/exports/deletes objects), so gating it behind the same `McpAllowRunVBA` opt-in that already governs `vcs_run_vba` is the correct security model — not a friction worth designing around.
 - **Single delegate method on `clsVersionControl` (`VCS.RunRoundtripTests`) with `Option Private Module` on `modTestRoundtrip.bas`**: chosen. Matches the established add-in pattern exactly (everything user-visible lives on `clsVersionControl`; implementation modules are private). One curated public symbol instead of N. Future helpers added to the test module are automatically blocked from external callers — no future-leak hazard. Immediate-Window dev access from inside the add-in's own VBE still works (`?modTestRoundtrip.RunObjectRoundtripTests()`) because `Option Private Module` only blocks cross-project lookups, not in-project ones. `RunOurFixtures` is dropped as redundant — `RunRoundtripTests()` with no args produces the identical zero-arg-shipped-corpus behavior.
 
-**Decision**: Implement `modTestRoundtrip.bas` inside the add-in with `Option Private Module` and `RunObjectRoundtripTests(Optional strFixtureFolder, Optional blnRebaseline)` as its single in-project entry point. Expose this externally through one public delegate, `clsVersionControl.RunRoundtripTests`, alongside the other dev/agent tools (`RunVBA`, `ExecuteSQL`, `CompileVBA`). External invocation: Immediate Window uses `?VCS.RunRoundtripTests`; MCP/CI uses `vcs_run_vba` with `MCP_TempFunction = VCS.RunRoundtripTests()` (gated by `McpAllowRunVBA`). Fixtures live in `Testing/Fixtures/<component>/<category>/` as plain text (`.sql` + `.json` for queries today; the slot is reserved for `forms/`, `reports/`, etc.) with a `_scaffold/` sibling folder for shared supporting objects loaded once per session. Each fixture runs through a two-pass round trip (import to `vcs_test_<name>_<hash>` sandbox, export, re-import, re-export) with three independent SHA-256 comparisons: Pass 1 vs. fixture, Pass 1 vs. Pass 2 (idempotency), JSON-with-`Info`-stripped both directions. Bloat is addressed structurally: random-suffix sandbox names allow parallel runs and unambiguous leftover detection, every fixture cleans up via `DoCmd.DeleteObject` + `DBEngine.Idle dbRefreshCache`, the run starts with a `CleanupStaleObjects` sweep over any `vcs_test_*` survivors from a crashed prior run, and `VCSIndex.Disabled = True` for the entire run prevents test operations from polluting `vcs-index.json`. Output flows through the existing `Log` singleton (live console in `frmVCSMain` + per-session `ObjectRoundtrip_<opId>.log` with full inline diffs) and a structured JSON return for programmatic parsing. Bug-as-fixture is the canonical contribution path: real-world failures from `db-sec` or user reports are distilled into a fixture under `regression/` with a `.notes.md` companion documenting the failure mode and resolution status — `qryCurrencyCrossRates` is the seed entry, currently failing as expected.
+**Decision**: Implement `modTestRoundtrip.bas` inside the add-in with `Option Private Module` and `RunObjectRoundtripTests(Optional strFixtureFolder, Optional blnRebaseline)` as its single in-project entry point. Expose this externally through one public delegate, `clsVersionControl.RunRoundtripTests`, alongside the other dev/agent tools (`RunVBA`, `ExecuteSQL`, `CompileVBA`). External invocation: Immediate Window uses `?VCS.RunRoundtripTests`; MCP/CI uses `vcs_run_vba` with `MCP_TempFunction = VCS.RunRoundtripTests()` (gated by `McpAllowRunVBA`). Fixtures live in `Testing/Fixtures/<component>/<category>/` as plain text (`.sql` + `.json` for queries today; the slot is reserved for `forms/`, `reports/`, etc.) with a `_scaffold/` sibling folder for shared supporting objects loaded once per session. Each fixture runs through a two-pass round trip (import to `vcs_test_<name>_<hash>` sandbox, export, re-import, re-export) with three independent SHA-256 comparisons: Pass 1 vs. fixture, Pass 1 vs. Pass 2 (idempotency), JSON-with-`Info`-stripped both directions. Bloat is addressed structurally: random-suffix sandbox names allow parallel runs and unambiguous leftover detection, every fixture cleans up via `DoCmd.DeleteObject` + `DBEngine.Idle dbRefreshCache`, the run starts with a `CleanupStaleObjects` sweep over any `vcs_test_*` survivors from a crashed prior run, and `VCSIndex.Disabled = True` for the entire run prevents test operations from polluting `vcs-index.json`. Output flows through the existing `Log` singleton (live console in `frmVCSMain` + per-session `ObjectRoundtrip_<opId>.log` with full inline diffs) and a structured JSON return for programmatic parsing. Bug-as-fixture is the canonical contribution path: real-world failures from production validation or user reports are distilled into a fixture under `regression/` with a `.notes.md` companion documenting the failure mode and resolution status — `qryRegressionSelfJoinAliased` is the seed entry, currently failing as expected.
 
 **What this rules out**: Storing test fixtures inside any `.accdb` (must remain text files in the repo). Per-component bespoke comparison logic — new component types must conform to the import-export-compare shape and use the shared `Run<Type>Fixtures` dispatch. Loading fixture corpora that exceed sandbox-name uniqueness guarantees (the 7-hex-char suffix gives ~268M combinations per fixture name; collision-handling beyond that is not designed for). Adding *additional* test entry points to the add-in's external API surface without an explicit follow-up decision — `VCS.RunRoundtripTests` is the single sanctioned public method; future test categories (perf, validation, etc.) should add new module(s) under the `modTest*` convention with their own delegate methods on `clsVersionControl` rather than expanding the test modules' own public surface. Reaching the harness via `vcs_call_vba` (the lower-friction MCP path that doesn't require `McpAllowRunVBA`) — agents must use `vcs_run_vba` with the security gate enabled, by design. JSON comparison schemes that depend on specific field names (the `Info`-stripping strategy assumes the import path will continue to ignore `Info`; if a future format change makes `Info` semantically load-bearing, the comparator must change in lockstep). Combining the harness with operations that want to own the global `Operation` state — `RunObjectRoundtripTests` calls `Operation.Begin(eotOther)` and refuses to run if another operation is in flight, so it cannot be invoked from inside an active export/build/merge.
 
@@ -1210,7 +6688,7 @@ A `DumpToJson` method is available for troubleshooting — it reconstructs a tem
 
 **What this rules out**: Switching to first-error-wins capture without a deliberate follow-up decision (the wrapper now exposes `errorLine` for the last error; flipping to first-error would change which `errorLine` value a given test reports). Removing line-number injection without breaking the documented `errorLine` contract. Agents writing tests that assume line numbers are *not* present in the executed code (e.g., parsing the `code` string back from `generatedSource` in compile-error responses) — `generatedSource` now contains numbered lines.
 
-**Relevant files**: `Version Control.accda.src/modules/API/clsVersionControl.cls` (added `AddVbaLineNumbers`, modified `RunVBA` wrapper template and JSON result construction); `C:\Repos\msaccess-vcs-mcp\src\msaccess_vcs_mcp\tools.py` (extended `vcs_run_vba` docstring with line-number behavior and multi-error pattern); cached MCP descriptor `mcps/user-msaccess-vcs-mcp/tools/vcs_run_vba.json` (mirrored docstring update); `AGENTS.md` (new "Debugging RunVBA Failures" section).
+**Relevant files**: `Version Control.accda.src/modules/API/clsVersionControl.cls` (added `AddVbaLineNumbers`, modified `RunVBA` wrapper template and JSON result construction); `msaccess-vcs-mcp/src/msaccess_vcs_mcp/tools.py` (extended `vcs_run_vba` docstring with line-number behavior and multi-error pattern); cached MCP descriptor `mcps/user-msaccess-vcs-mcp/tools/vcs_run_vba.json` (mirrored docstring update); `AGENTS.md` (new "Debugging RunVBA Failures" section).
 
 ---
 
@@ -1299,6 +6777,18 @@ What would trigger revisiting: if a future composer rewrite collapses multiple s
 
 ## 2026-04-15 — Skip/auto-close UI for API and MCP-initiated operations
 
+> **⚠ Partially superseded** (2026-08-12): The test runner now also uses
+> `Operation.Source` to force headless runs for API/MCP callers, and the ribbon
+> resets `Source` so it does not leak into a later interactive click. See
+> "Force headless test runs for API and MCP callers" above.
+
+> **⚠ Partially superseded** (2026-10-20): Dialogs for API and MCP callers no longer
+> depend on `InteractionMode`. An unattended caller is never prompted, and every
+> `MsgBox2` question passes the answer it gets instead, so the Cancel default this
+> entry worried about cannot reach one. Forcing `eimSilent` from the API layer stays
+> rejected, and the four `Operation.Source` checks below are unchanged. See "An
+> unattended caller is never prompted" above.
+
 **Trigger**: When the MCP server calls `ImportObject` to merge a single component from source, `frmVCSMain` opens, becomes visible, and stays open — adding unnecessary overhead and requiring manual dismissal. Full builds and exports initiated by an agent also leave the form open after completion. The build confirmation dialog (`vbDefaultButton3` = Cancel) could block API callers entirely.
 
 **Options explored**:
@@ -1332,6 +6822,34 @@ What would trigger revisiting: if a future composer rewrite collapses multiple s
 **What this rules out**: Methods on `clsVersionControl` that need to modify caller variables via `ByRef` would not work through the `CallByName` path. This is not a practical constraint — the API methods are input-only by design. If a future method genuinely needed `ByRef` semantics, it would need a different dispatch mechanism.
 
 **Relevant files**: `Version Control.accda.src/modules/API/clsVersionControl.cls` — 9 methods updated, 12 parameters changed to `ByVal`.
+
+---
+
+## 2026-04-15 — Session-scoped option overrides for MCP/API callers
+
+**Trigger**: When the MCP agent sets an option (e.g., `BreakOnError = True`) via `SetOption`, the change was silently discarded because every operation entry point resets `Options` and reloads from `vcs-options.json`. The agent's overrides never survived past the first subsequent operation.
+
+**Options explored**:
+- **Edit `vcs-options.json` directly** — corrupts user config on failure, race conditions, violates thin-wrapper principle.
+- **In-memory overrides dictionary** — lost on Access restart; invisible; complex `ReleaseObjects` coordination.
+- **Pass options as operation parameters** — changes VBA API signatures, awkward across COM. Deferred as a possible future enhancement.
+- **Skip reload when called via API** — agent operates with stale options for everything, not just its overrides.
+- **Single shared override file** — no session isolation; stale overrides bleed into interactive use.
+- **Session-scoped override files in `mcp/` subfolder (chosen)** — each MCP/API session gets its own override file. Files are `.gitignored`. The user's `vcs-options.json` is never touched.
+
+**Decision**: `SetOption` now persists overrides to `mcp/options-{session_id}.json` alongside `vcs-options.json`. After every `LoadProjectOptions` call, if `Operation.Source` is `eosMCPTool` or `eosExternalAPI`, `LoadOptionOverrides` scans the `mcp/` subfolder and merges matching override files on top. Interactive ribbon operations never see them. Stale files are auto-cleaned after 30 days. The MCP server generates a random session ID at startup, registers it via `RegisterSession`, and calls `EndSession` on shutdown to delete the override file.
+
+> **⚠ Partially superseded** (2026-08-28): `EndSession` did delete the override file, but `Set Options = Nothing` inside `clsVersionControl` raised 438 because `Options` was a Function, so the cached instance was never discarded. Scoped export/import reloads had the same assignment under `On Error Resume Next`. See "clsVersionControl.Options is a property so the cache can be discarded" above.
+
+**What this rules out**: Overrides do not persist across MCP server restarts (the server generates a new session ID each time). If two agents concurrently interact with the same database, their override files may both be loaded — this is an accepted tradeoff. If the MCP spec adds persistent session IDs (SEP-1364), we can adopt them as the session component without changing the file-based mechanism.
+
+**Relevant files**:
+- `clsOptions.cls` — `LoadOptionOverrides`, `MergeOverrideFile`, `CleanupStaleOverrides`
+- `clsVersionControl.cls` — `SetOption` (updated), `SaveOptionOverride`, `RegisterSession`, `EndSession`
+- `modObjects.bas` — `SessionId` property (survives `ReleaseObjects`)
+- `modExport.bas`, `modBuild.bas` — `LoadOptionOverrides` calls gated on `Operation.Source`
+- `main.py` — session ID generation, `atexit` cleanup
+- `tools.py` — `vcs_set_option` registers session, `vcs_end_session` tool added
 
 ---
 
@@ -1529,6 +7047,60 @@ Rather than building cleanup infrastructure for a feature that had outlived its 
 **What this rules out**: The assumption that merge requires a prior full build is no longer valid. Future code should not re-introduce a `FullBuildDate`-only check. If a new component type is added that requires special handling on first import (like table data), it should be handled in the merge path's category filtering, not by gating on build history. Revisit if a scenario is found where export-generated index entries are insufficient for accurate merge detection.
 
 **Relevant files**: `Version Control.accda.src/forms/frmVCSMain.cls` (gate condition and comment), `Version Control.accda.src/modules/API/clsVersionControl.cls` (user-facing message, added `T()` wrapping).
+
+---
+
+## 2026-04-10 — Deterministic query export with performance optimization
+
+**Trigger**: Query exports using `Application.SaveAsText` were non-deterministic (WHERE clause ordering, column metadata ordering varied between exports) causing VCS noise, and slow (~30 minutes for 2,800 queries due to per-query COM calls).
+
+**Options explored**:
+
+- **Keep `SaveAsText` and post-process for determinism**: Sanitize the output to normalize ordering. Rejected because it doesn't solve the performance problem (SaveAsText is the bottleneck) and the sanitization is fragile given the undocumented format.
+- **Read `QueryDefs(name).SQL` directly**: Avoids SaveAsText but is still a slow per-query COM call. Doesn't capture design layout, column metadata, or properties without additional COM calls. Rejected.
+- **Read MSysQueries + MSysObjects system tables directly** (chosen): Single SQL queries can bulk-read all query data. `MSysQueries` contains the decomposed query structure (one row per clause). `MSysObjects.LvProp` stores properties and column metadata in the same MR2 binary format already parsed for linked tables. `MSysObjects.LvExtra` stores Design View layout. Both blobs are sub-millisecond to read per query. SQL is reconstructed deterministically from the decomposed structure.
+
+**Decision**: Replace `SaveAsText` + `QueryDefs.SQL` with direct reads from `MSysQueries` and `MSysObjects` system tables. Export produces `.sql` (source of truth for SQL text) + `.json` (metadata: properties, columns, design layout, description, hidden). The `.qdef` file is no longer exported.
+
+**Architecture**:
+
+- `clsQueryComposer`: Bidirectional SQL/structure translation class. `ReconstructSQL()` builds SQL from MSysQueries rows on export. `DecomposeSQL()` parses SQL back into structure on import. `GenerateQdef()` emits Design View or SQL View `.qdef` text for `LoadFromText`.
+- `clsLvExtraParser`: Parses the LvExtra binary blob (magic `0x99 0x99 0xCE 0xAC`, window/pane RECTs, table positions as null-terminated UTF-16LE strings). Format reverse-engineered from live data.
+- `clsLvPropParser`: Existing class, verified to work on query LvProp blobs (same MR2 format as linked tables).
+- Import flow: `.sql` → `DecomposeSQL()` → check `IsDesignerCompatible()` → generate Design View `.qdef` (with layout from `.json`) or SQL View `.qdef` → `LoadFromText` → apply metadata from `.json`. Falls back to SQL View if Design View import fails.
+- Backward compatibility: Legacy `.qdef`/`.bas` files are still accepted for import. `GetFileList` searches for `.sql` first, then `.qdef`/`.bas`. Legacy files are cleaned up on next export.
+
+**LvExtra binary format** (reverse-engineered):
+
+| Offset | Size | Content |
+|--------|------|---------|
+| 0-3 | 4 | Magic: `99 99 CE AC` |
+| 4-15 | 12 | Padding: `0xAA` × 12 |
+| 16-31 | 16 | Window RECT (Left, Top, Right, Bottom as Longs) |
+| 32-35 | 4 | State (Long) |
+| 36-51 | 16 | Designer pane RECT |
+| 52-59 | 8 | Grid origin (Left, Top) |
+| 60-63 | 4 | ColumnsShown (Long) |
+| 64-67 | 4 | Table count (Long) |
+| 68+ | var | Per table: 5 Longs (L,T,R,B,scrollTop) + 2 null-term UTF-16LE names |
+
+**MSysQueries findings** (vs isladogs documentation):
+
+- Attribute 6 (field references): Expression column, not Name1
+- Attribute 11 (ORDER BY): Expression column, not Name2
+- Undocumented columns: `Order` (Binary, 510 bytes), `LvExtra` (Long, always NULL)
+- `MSysObjects.LvExtra IS NOT NULL` reliably indicates Design View save
+
+**What this rules out**: `SaveAsText` is no longer used for query export (still used for forms, reports, macros). The `SaveQuerySQL` option and `ForceImportOriginalQuerySQL` option are superseded by the new format. The decomposed query structure is never stored in files — it exists only transiently during composition/decomposition. Future changes to Access SQL dialect (new keywords, syntax) may require updates to `clsQueryComposer`.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` — new: bidirectional SQL/structure/qdef translation
+- `Version Control.accda.src/modules/Utility/clsLvExtraParser.cls` — new: LvExtra binary parser
+- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — rewritten: Export reads system tables, Import generates .qdef on-the-fly
+- `Version Control.accda.src/modules/Utility/clsLvPropParser.cls` — verified: works for query LvProp blobs as-is
+- `Version Control.accda.src/AGENTS.md` — updated: Query Files section for .sql + .json format
+- `docs/how-access-stores-queries.md` — corrections to MSysQueries attribute documentation
 
 ---
 
@@ -1822,7 +7394,31 @@ pump dispatch.
 
 ---
 
+## 2026-04-03 — Remove BOM/CRLF workaround instructions from agent documentation
+
+**Trigger**: Cursor fixed the underlying bug where `StrReplace` and `Write` tools stripped UTF-8 BOM bytes and converted CRLF line endings to LF. The extensive workaround instructions (mandatory post-edit PowerShell scripts, tool-distrust warnings, edit-size guidance to minimize corruption) added in earlier sessions were consuming significant token budget on every VBA source file edit with no remaining benefit.
+
+**Decision**: Removed the workaround-specific content from agent documentation and Cursor rules while keeping the format requirements documented concisely as reference information. The `.editorconfig` and `.gitattributes` files (added as part of the 2026-03-10 belt-and-suspenders approach) remain in place as the primary enforcement mechanism.
+
+Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", "REQUIRED: Preserve CRLF Line Endings", and "Editing Safely" sections from `.cursor/rules/vba-source-files.mdc`. (2) Condensed Rules 1 and 2 in `Version Control.accda.src/AGENTS.md` from ~80 lines of MUST/MUST NOT lists, verification scripts, and warnings down to two brief sentences each, pointing to `.editorconfig` for enforcement. Removed repeated "Save with UTF-8 BOM encoding" steps from Common Tasks. (3) Removed the UTF-8 BOM reminder line from `.cursor/rules/project-guide.mdc`. (4) Added explanatory comments to `.editorconfig` since it is now the primary documentation point for these format constraints.
+
+**What this rules out**: If Cursor regresses and reintroduces BOM stripping or CRLF conversion, the workaround instructions would need to be re-added. The `.editorconfig` and `.gitattributes` enforcement remains regardless.
+
+**Relevant files**:
+
+- `.cursor/rules/vba-source-files.mdc` — removed four workaround sections
+- `Version Control.accda.src/AGENTS.md` — condensed Rules 1-2, removed Common Tasks encoding steps
+- `.cursor/rules/project-guide.mdc` — removed BOM reminder line
+- `.editorconfig` — added explanatory comments
+
+---
+
 ## 2026-04-02 — Out-of-process worker probe for post-build database lock
+
+> **⚠ Partially superseded** (2026-09-07): the probe still exists and still
+> uses an out-of-process DAO engine, but the result no longer returns through
+> the COM callback / `m_varLastResult`. See "Accessibility probe returns
+> through a per-job result file" above.
 
 **Trigger**: After a build or merge, external clients (MCP tools, ODBC connections) receive JET/ACE error 3734: "The database has been placed in a state by user 'Admin' on machine '...' that prevents it from being opened or locked." The database is unusable to other clients until manually closed and reopened in Access. This blocks automated workflows that query the database immediately after a build.
 
@@ -2042,7 +7638,7 @@ The ribbon button (`btnStandardizeLetterCasing`) is placed in the Advanced Tools
 
 ## 2026-03-13 — @Folder annotation caching: Static per-instance vs modObjects-level cache
 
-**Trigger**: After implementing `@Folder` annotation support (EFV 5.0.0), export logs from `C:\Repos\db-sec` showed "Clear Orphaned Files" consistently at 5-6 seconds on fast saves, even with zero modified objects. Root cause: `GetFolderAnnotation` reads the entire VBE code module via `cmpItem.CodeModule.Lines(1, 999999)` on every call, and `SourceFile` (which calls `GetFolderAnnotation`) was accessed multiple times per object per export — up to ~1,558 VBE COM calls for db-sec's 779 VBA-backed objects.
+**Trigger**: After implementing `@Folder` annotation support (EFV 5.0.0), export logs from a large production database showed "Clear Orphaned Files" consistently at 5-6 seconds on fast saves, even with zero modified objects. Root cause: `GetFolderAnnotation` reads the entire VBE code module via `cmpItem.CodeModule.Lines(1, 999999)` on every call, and `SourceFile` (which calls `GetFolderAnnotation`) was accessed multiple times per object per export — up to ~1,558 VBE COM calls for that database's 779 VBA-backed objects.
 
 **Options explored**:
 
@@ -2066,13 +7662,13 @@ The ribbon button (`btnStandardizeLetterCasing`) is placed in the Advanced Tools
 
 ## 2026-03-12 — Single-loop dual-populate for component cache slots
 
-**Trigger**: During fast-save export, each `IDbComponent` class's `GetAllFromDB` was called twice per category: first with `blnModifiedOnly=True` (scan for changes), then with `blnModifiedOnly=False` (orphan detection via `ClearOrphanedSourceFiles`). Each call independently iterated the full Access collection and instantiated new `clsDb*` objects. Performance logs from `C:\Repos\db-sec` (~412 forms, ~3694 queries, ~392 tables) showed "Clear Orphaned Files" consistently taking 5.2-6.0 seconds — pure waste from re-enumerating objects already visited during the scan phase. Combined with "Scan DB Objects" (6.2-28.3s), these two passes consumed 34-54% of total fast-save runtime.
+**Trigger**: During fast-save export, each `IDbComponent` class's `GetAllFromDB` was called twice per category: first with `blnModifiedOnly=True` (scan for changes), then with `blnModifiedOnly=False` (orphan detection via `ClearOrphanedSourceFiles`). Each call independently iterated the full Access collection and instantiated new `clsDb*` objects. Performance logs from a large production database (~412 forms, ~3694 queries, ~392 tables) showed "Clear Orphaned Files" consistently taking 5.2-6.0 seconds — pure waste from re-enumerating objects already visited during the scan phase. Combined with "Scan DB Objects" (6.2-28.3s), these two passes consumed 34-54% of total fast-save runtime.
 
 **Options explored**:
 
 - **Approach A — Single-loop dual-populate**: When `GetAllFromDB(True)` iterates the collection, always populate `m_Items(False)` (all items) alongside `m_Items(True)` (modified items). The subsequent `GetAllFromDB(False)` call from `ClearOrphanedSourceFiles` hits the warm cache. A `blnNeedAll` flag prevents resetting `m_Items(False)` if it was already populated. Chosen.
 - **Approach B — Lazy IsModified flag on instances**: Replace two-slot cache with a single dictionary of all items; cache `IsModified` results per instance and filter on demand. Conceptually clean, but filtering creates a new dictionary each time unless cached — reintroducing two-slot complexity. More invasive with no benefit over Approach A. Rejected.
-- **Approach C — Lightweight orphan detection (no full instantiation)**: `ClearOrphanedSourceFiles` only needs base names, not full component instances. A new interface method could return just names. Initially dismissed as over-engineered, but db-sec logs proved orphan detection IS a bottleneck (5-6s consistently). However, Approach A eliminates the cost entirely without requiring interface changes, making Approach C unnecessary. Rejected.
+- **Approach C — Lightweight orphan detection (no full instantiation)**: `ClearOrphanedSourceFiles` only needs base names, not full component instances. A new interface method could return just names. Initially dismissed as over-engineered, but production logs proved orphan detection IS a bottleneck (5-6s consistently). However, Approach A eliminates the cost entirely without requiring interface changes, making Approach C unnecessary. Rejected.
 
 **Decision**: Applied the single-loop dual-populate pattern to all 29 component classes implementing `IDbComponent`. Three implementation variants based on how each class determines modification:
 
@@ -2096,7 +7692,7 @@ Single-object classes (`clsDbProject`, `clsDbVbeProject`) also received the tran
 
 ## 2026-03-12 — SharedDb: shared CurrentDb reference across component classes
 
-**Trigger**: Export of `sec.accdb` (~6,870 objects, ~567 with descriptions) took ~47s on fast save. Benchmarking revealed the bottleneck was **cold DAO property value reads** in `clsDbDocument.GetDictionary`: iterating Container/Document objects and reading `Description` values took ~18s due to physical disk I/O in the JET engine loading scattered property-value pages. Multiple component classes each called `Set dbs = CurrentDb` independently, and each new `CurrentDb` reference starts with a cold JET page cache (per-reference caching). This meant duplicate cold I/O penalties when multiple components accessed the same data.
+**Trigger**: Export of a large production database (~6,870 objects, ~567 with descriptions) took ~47s on fast save. Benchmarking revealed the bottleneck was **cold DAO property value reads** in `clsDbDocument.GetDictionary`: iterating Container/Document objects and reading `Description` values took ~18s due to physical disk I/O in the JET engine loading scattered property-value pages. Multiple component classes each called `Set dbs = CurrentDb` independently, and each new `CurrentDb` reference starts with a cold JET page cache (per-reference caching). This meant duplicate cold I/O penalties when multiple components accessed the same data.
 
 **Options explored**:
 
@@ -2152,6 +7748,47 @@ The separate `WarmDAOCache` warm-up pass was reverted because the first componen
 **Relevant files**:
 
 - `Version Control.accda.src/modules/Infrastructure/clsPerformance.cls` — `AddCategoryNote`, `FootnoteMarks`, `CategoryFootnotes` in `udtPerformance`, `GetReports` rendering, `TOTAL RUNTIME` line
+
+---
+
+## 2026-03-12 — Per-object companion .json for consolidated metadata
+
+**Trigger**: `clsDbDocument` scans ~6,870 DAO documents to read the `Description` property on every export, costing ~18-20s of cold JET I/O. `clsDbHiddenAttribute` performs a similar full scan. Both produce monolithic singleton files (`documents.json`, `hidden-attributes.json`) because that mirrors how DAO exposes them via `Container.Documents`. However, document properties and hidden attributes are logically part of the objects they describe. During fast saves (the common case), only a handful of objects are modified, yet the full scan runs every time.
+
+**Options explored**:
+
+- **Skip the full scan during fast saves**: Only run the monolithic `clsDbDocument`/`clsDbHiddenAttribute` scan during full exports. Rejected because full exports are rare (days/weeks apart) while fast saves happen multiple times per day — descriptions would go stale for extended periods.
+- **Targeted delta scan of modified objects against the monolithic file**: Scan only objects flagged as modified and merge into `documents.json`. Complex, and still suffers from the SingleFile limitation where every description change rewrites the entire file.
+- **Per-object companion `.json` files** (chosen): Consolidate all per-object metadata (document properties, hidden attributes, print settings, linked table info) into companion `.json` files co-located with each object's primary source file. Each component's `Export` method performs O(1) lookups for its own metadata. The performance problem disappears by design.
+
+**Decision**: Companion `.json` files use reserved keys under `"Items"`: `"Properties"` for document properties, `"Hidden"` for hidden attribute (only present when `True`). Existing keys (`"Printer"`, `"Margins"`, `"Connect"`, etc.) are unchanged. For forms/reports, metadata merges into the existing print settings `.json`. For linked tables, it merges into the existing linked table `.json`. For queries, macros, modules, and local tables, a new companion `.json` is created only when metadata exists.
+
+`clsDbDocument` is reduced to only scan the "Databases" container (SummaryInfo, UserDefined) when `EFV >= 5.0.0`. `clsDbHiddenAttribute` returns an empty dictionary when `EFV >= 5.0.0`.
+
+DAO container mapping: Forms→`"Forms"`, Reports→`"Reports"`, Queries→`"Tables"` (DAO quirk), Tables→`"Tables"`, Macros→`"Scripts"`, Modules→`"Modules"`.
+
+**Change detection via MetaHash**: Access does not update an object's `DateModified` when its Description or Hidden attribute changes. Since companion `.json` files are only written during `Export`, and `Export` is only called for objects that `IsModified` returns `True` for, metadata-only changes would be silently missed. To address this, a lightweight `MetaHash` is stored in the VCS index during export. `GetMetadataHash()` reads just the Description property and Hidden attribute (two O(1) DAO calls) and returns a hash. Each component's `IsModified` compares the current `MetaHash` against the stored value as a final check after the existing DateModified/code-hash checks pass. This adds no file I/O — the comparison is entirely in-memory (VCS index) vs live DAO, and runs only for objects that appear unchanged by other checks.
+
+When `SaveAllDocumentProperties = True`, all non-standard DAO properties are exported (not just Description). However, the `MetaHash` only covers Description + Hidden for fast-save detection. Custom property changes are captured on full export — an acceptable trade-off since custom properties are rare and typically accompany other object changes.
+
+**Backward compatibility**: Import reads companion `.json` first; `clsDbDocument.Import` and `clsDbHiddenAttribute.Import` still process their singleton files for legacy source. A one-time migration in `modSourceUpgrade.UpgradeSourceFiles` distributes entries from `documents.json` and `hidden-attributes.json` into companion files.
+
+**What this rules out**: The monolithic `documents.json` no longer contains per-object descriptions for `EFV >= 5.0.0` — only database-level properties (SummaryInfo, UserDefined). `hidden-attributes.json` is no longer written. Future per-object metadata should be added to the companion `.json` structure. Making the `.json` the primary source file for queries is deferred as a future direction.
+
+**Relevant files**:
+
+- `Version Control.accda.src/modules/Core/modLoadSaveText.bas` — `ExportObjectMetadata`, `ImportObjectMetadata`, `GetMetadataHash`, `HasNonMetadataKeys`
+- `Version Control.accda.src/modules/Components/clsDbForm.cls` — Export/Import/IsModified with metadata helpers and MetaHash
+- `Version Control.accda.src/modules/Components/clsDbReport.cls` — same pattern as forms
+- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — same pattern, add json to FileExtensions/MoveSource
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — same pattern, update MoveSource
+- `Version Control.accda.src/modules/Components/clsDbMacro.cls` — same pattern, add json to FileExtensions/MoveSource
+- `Version Control.accda.src/modules/Components/clsDbModule.cls` — same pattern, add json to FileExtensions/MoveSource
+- `Version Control.accda.src/modules/Components/clsDbDocument.cls` — reduced to Databases container only (EFV >= 5.0.0)
+- `Version Control.accda.src/modules/Components/clsDbHiddenAttribute.cls` — returns empty dictionary (EFV >= 5.0.0)
+- `Version Control.accda.src/modules/Core/modSourceUpgrade.bas` — `MigrateMetadataToCompanionFiles` migration logic
+- `Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls` — `MetaHash` in `Update`, `LoadItem`
+- `Version Control.accda.src/modules/Infrastructure/clsVCSIndexItem.cls` — `MetaHash` field
 
 ---
 
@@ -2621,6 +8258,8 @@ In `ExportSource()`, global hash changes set `blnFullExport = True` (same as use
 
 > **⚠ Partially superseded** (2026-03-10): The file extension migration was folded into `EFV_5_0_0` rather than adding a new `EFV_5_1_0`, since 5.0.0 has not shipped yet. The general pattern (add enum member, update `[_Last]`, gate with `>=`) remains correct for future post-release changes. See "Source file extension migration from .bas to descriptive extensions" above.
 
+> **⚠ Partially superseded** (2026-07-31): `[_Last]` and the `LATEST_EXPORT_FORMAT` constant no longer exist. The maintenance pattern is now: add the enum member, add a matching `col.Add` line to `GetExportFormatVersions()`, and gate with `>=`. `LatestExportFormat()` and the options combo derive from that list. See "One declarative list of export formats, guarded by a test that parses the enum" above.
+
 **Trigger**: When users updated the add-in, export format changes (sanitization adjustments, structural tweaks to forms/reports/command bars) would produce hundreds of source file diffs unrelated to the user's actual work. Users couldn't distinguish their five real changes from hundreds of format-upgrade changes, especially mid-feature when the working tree was dirty.
 
 **Options explored**:
@@ -2652,7 +8291,7 @@ For the UI notification, the main form (`frmVCSMain`) shows a clickable `lblForm
 
 > **⚠ Partially superseded** (2026-03-10): References to `modImportExport.bas` below should now read `modExport.bas` (skip-count logging). See "Split modImportExport into modExport, modBuild, modSourceUpgrade" above.
 
-**Trigger**: After building a database from source, a subsequent "fast save" export re-exported every single object (e.g., all 3,673 queries in `sec.accdb`, taking ~1,600s). The existing `IsModified` logic compared `DateModified > ExportDate`, but every object received a fresh `DateModified` from Access during import, making all objects appear modified.
+**Trigger**: After building a database from source, a subsequent "fast save" export re-exported every single object (e.g., all 3,673 queries in a large production database, taking ~1,600s). The existing `IsModified` logic compared `DateModified > ExportDate`, but every object received a fresh `DateModified` from Access during import, making all objects appear modified.
 
 **Options explored**:
 
@@ -2675,209 +8314,5 @@ For the UI notification, the main form (`frmVCSMain`) shows a clickable `lblForm
 - `Version Control.accda.src/modules/clsDbForm.cls` — IsModified updated (keeps OtherHash)
 - `Version Control.accda.src/modules/clsDbReport.cls` — IsModified updated (keeps OtherHash)
 - `Version Control.accda.src/modules/modImportExport.bas` — skip-count logging during fast save
-
----
-
-## 2026-03-12 — Per-object companion .json for consolidated metadata
-
-**Trigger**: `clsDbDocument` scans ~6,870 DAO documents to read the `Description` property on every export, costing ~18-20s of cold JET I/O. `clsDbHiddenAttribute` performs a similar full scan. Both produce monolithic singleton files (`documents.json`, `hidden-attributes.json`) because that mirrors how DAO exposes them via `Container.Documents`. However, document properties and hidden attributes are logically part of the objects they describe. During fast saves (the common case), only a handful of objects are modified, yet the full scan runs every time.
-
-**Options explored**:
-
-- **Skip the full scan during fast saves**: Only run the monolithic `clsDbDocument`/`clsDbHiddenAttribute` scan during full exports. Rejected because full exports are rare (days/weeks apart) while fast saves happen multiple times per day — descriptions would go stale for extended periods.
-- **Targeted delta scan of modified objects against the monolithic file**: Scan only objects flagged as modified and merge into `documents.json`. Complex, and still suffers from the SingleFile limitation where every description change rewrites the entire file.
-- **Per-object companion `.json` files** (chosen): Consolidate all per-object metadata (document properties, hidden attributes, print settings, linked table info) into companion `.json` files co-located with each object's primary source file. Each component's `Export` method performs O(1) lookups for its own metadata. The performance problem disappears by design.
-
-**Decision**: Companion `.json` files use reserved keys under `"Items"`: `"Properties"` for document properties, `"Hidden"` for hidden attribute (only present when `True`). Existing keys (`"Printer"`, `"Margins"`, `"Connect"`, etc.) are unchanged. For forms/reports, metadata merges into the existing print settings `.json`. For linked tables, it merges into the existing linked table `.json`. For queries, macros, modules, and local tables, a new companion `.json` is created only when metadata exists.
-
-`clsDbDocument` is reduced to only scan the "Databases" container (SummaryInfo, UserDefined) when `EFV >= 5.0.0`. `clsDbHiddenAttribute` returns an empty dictionary when `EFV >= 5.0.0`.
-
-DAO container mapping: Forms→`"Forms"`, Reports→`"Reports"`, Queries→`"Tables"` (DAO quirk), Tables→`"Tables"`, Macros→`"Scripts"`, Modules→`"Modules"`.
-
-**Change detection via MetaHash**: Access does not update an object's `DateModified` when its Description or Hidden attribute changes. Since companion `.json` files are only written during `Export`, and `Export` is only called for objects that `IsModified` returns `True` for, metadata-only changes would be silently missed. To address this, a lightweight `MetaHash` is stored in the VCS index during export. `GetMetadataHash()` reads just the Description property and Hidden attribute (two O(1) DAO calls) and returns a hash. Each component's `IsModified` compares the current `MetaHash` against the stored value as a final check after the existing DateModified/code-hash checks pass. This adds no file I/O — the comparison is entirely in-memory (VCS index) vs live DAO, and runs only for objects that appear unchanged by other checks.
-
-When `SaveAllDocumentProperties = True`, all non-standard DAO properties are exported (not just Description). However, the `MetaHash` only covers Description + Hidden for fast-save detection. Custom property changes are captured on full export — an acceptable trade-off since custom properties are rare and typically accompany other object changes.
-
-**Backward compatibility**: Import reads companion `.json` first; `clsDbDocument.Import` and `clsDbHiddenAttribute.Import` still process their singleton files for legacy source. A one-time migration in `modSourceUpgrade.UpgradeSourceFiles` distributes entries from `documents.json` and `hidden-attributes.json` into companion files.
-
-**What this rules out**: The monolithic `documents.json` no longer contains per-object descriptions for `EFV >= 5.0.0` — only database-level properties (SummaryInfo, UserDefined). `hidden-attributes.json` is no longer written. Future per-object metadata should be added to the companion `.json` structure. Making the `.json` the primary source file for queries is deferred as a future direction.
-
-**Relevant files**:
-
-- `Version Control.accda.src/modules/Core/modLoadSaveText.bas` — `ExportObjectMetadata`, `ImportObjectMetadata`, `GetMetadataHash`, `HasNonMetadataKeys`
-- `Version Control.accda.src/modules/Components/clsDbForm.cls` — Export/Import/IsModified with metadata helpers and MetaHash
-- `Version Control.accda.src/modules/Components/clsDbReport.cls` — same pattern as forms
-- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — same pattern, add json to FileExtensions/MoveSource
-- `Version Control.accda.src/modules/Components/clsDbTableDef.cls` — same pattern, update MoveSource
-- `Version Control.accda.src/modules/Components/clsDbMacro.cls` — same pattern, add json to FileExtensions/MoveSource
-- `Version Control.accda.src/modules/Components/clsDbModule.cls` — same pattern, add json to FileExtensions/MoveSource
-- `Version Control.accda.src/modules/Components/clsDbDocument.cls` — reduced to Databases container only (EFV >= 5.0.0)
-- `Version Control.accda.src/modules/Components/clsDbHiddenAttribute.cls` — returns empty dictionary (EFV >= 5.0.0)
-- `Version Control.accda.src/modules/Core/modSourceUpgrade.bas` — `MigrateMetadataToCompanionFiles` migration logic
-- `Version Control.accda.src/modules/Infrastructure/clsVCSIndex.cls` — `MetaHash` in `Update`, `LoadItem`
-- `Version Control.accda.src/modules/Infrastructure/clsVCSIndexItem.cls` — `MetaHash` field
-
----
-
-## 2026-04-03 — Remove BOM/CRLF workaround instructions from agent documentation
-
-**Trigger**: Cursor fixed the underlying bug where `StrReplace` and `Write` tools stripped UTF-8 BOM bytes and converted CRLF line endings to LF. The extensive workaround instructions (mandatory post-edit PowerShell scripts, tool-distrust warnings, edit-size guidance to minimize corruption) added in earlier sessions were consuming significant token budget on every VBA source file edit with no remaining benefit.
-
-**Decision**: Removed the workaround-specific content from agent documentation and Cursor rules while keeping the format requirements documented concisely as reference information. The `.editorconfig` and `.gitattributes` files (added as part of the 2026-03-10 belt-and-suspenders approach) remain in place as the primary enforcement mechanism.
-
-Changes made: (1) Removed "Encoding", "REQUIRED: Restore BOM After Every Edit", "REQUIRED: Preserve CRLF Line Endings", and "Editing Safely" sections from `.cursor/rules/vba-source-files.mdc`. (2) Condensed Rules 1 and 2 in `Version Control.accda.src/AGENTS.md` from ~80 lines of MUST/MUST NOT lists, verification scripts, and warnings down to two brief sentences each, pointing to `.editorconfig` for enforcement. Removed repeated "Save with UTF-8 BOM encoding" steps from Common Tasks. (3) Removed the UTF-8 BOM reminder line from `.cursor/rules/project-guide.mdc`. (4) Added explanatory comments to `.editorconfig` since it is now the primary documentation point for these format constraints.
-
-**What this rules out**: If Cursor regresses and reintroduces BOM stripping or CRLF conversion, the workaround instructions would need to be re-added. The `.editorconfig` and `.gitattributes` enforcement remains regardless.
-
-**Relevant files**:
-
-- `.cursor/rules/vba-source-files.mdc` — removed four workaround sections
-- `Version Control.accda.src/AGENTS.md` — condensed Rules 1-2, removed Common Tasks encoding steps
-- `.cursor/rules/project-guide.mdc` — removed BOM reminder line
-- `.editorconfig` — added explanatory comments
-
----
-
-## 2026-04-10 — Deterministic query export with performance optimization
-
-**Trigger**: Query exports using `Application.SaveAsText` were non-deterministic (WHERE clause ordering, column metadata ordering varied between exports) causing VCS noise, and slow (~30 minutes for 2,800 queries due to per-query COM calls).
-
-**Options explored**:
-
-- **Keep `SaveAsText` and post-process for determinism**: Sanitize the output to normalize ordering. Rejected because it doesn't solve the performance problem (SaveAsText is the bottleneck) and the sanitization is fragile given the undocumented format.
-- **Read `QueryDefs(name).SQL` directly**: Avoids SaveAsText but is still a slow per-query COM call. Doesn't capture design layout, column metadata, or properties without additional COM calls. Rejected.
-- **Read MSysQueries + MSysObjects system tables directly** (chosen): Single SQL queries can bulk-read all query data. `MSysQueries` contains the decomposed query structure (one row per clause). `MSysObjects.LvProp` stores properties and column metadata in the same MR2 binary format already parsed for linked tables. `MSysObjects.LvExtra` stores Design View layout. Both blobs are sub-millisecond to read per query. SQL is reconstructed deterministically from the decomposed structure.
-
-**Decision**: Replace `SaveAsText` + `QueryDefs.SQL` with direct reads from `MSysQueries` and `MSysObjects` system tables. Export produces `.sql` (source of truth for SQL text) + `.json` (metadata: properties, columns, design layout, description, hidden). The `.qdef` file is no longer exported.
-
-**Architecture**:
-
-- `clsQueryComposer`: Bidirectional SQL/structure translation class. `ReconstructSQL()` builds SQL from MSysQueries rows on export. `DecomposeSQL()` parses SQL back into structure on import. `GenerateQdef()` emits Design View or SQL View `.qdef` text for `LoadFromText`.
-- `clsLvExtraParser`: Parses the LvExtra binary blob (magic `0x99 0x99 0xCE 0xAC`, window/pane RECTs, table positions as null-terminated UTF-16LE strings). Format reverse-engineered from live data.
-- `clsLvPropParser`: Existing class, verified to work on query LvProp blobs (same MR2 format as linked tables).
-- Import flow: `.sql` → `DecomposeSQL()` → check `IsDesignerCompatible()` → generate Design View `.qdef` (with layout from `.json`) or SQL View `.qdef` → `LoadFromText` → apply metadata from `.json`. Falls back to SQL View if Design View import fails.
-- Backward compatibility: Legacy `.qdef`/`.bas` files are still accepted for import. `GetFileList` searches for `.sql` first, then `.qdef`/`.bas`. Legacy files are cleaned up on next export.
-
-**LvExtra binary format** (reverse-engineered):
-
-| Offset | Size | Content |
-|--------|------|---------|
-| 0-3 | 4 | Magic: `99 99 CE AC` |
-| 4-15 | 12 | Padding: `0xAA` × 12 |
-| 16-31 | 16 | Window RECT (Left, Top, Right, Bottom as Longs) |
-| 32-35 | 4 | State (Long) |
-| 36-51 | 16 | Designer pane RECT |
-| 52-59 | 8 | Grid origin (Left, Top) |
-| 60-63 | 4 | ColumnsShown (Long) |
-| 64-67 | 4 | Table count (Long) |
-| 68+ | var | Per table: 5 Longs (L,T,R,B,scrollTop) + 2 null-term UTF-16LE names |
-
-**MSysQueries findings** (vs isladogs documentation):
-
-- Attribute 6 (field references): Expression column, not Name1
-- Attribute 11 (ORDER BY): Expression column, not Name2
-- Undocumented columns: `Order` (Binary, 510 bytes), `LvExtra` (Long, always NULL)
-- `MSysObjects.LvExtra IS NOT NULL` reliably indicates Design View save
-
-**What this rules out**: `SaveAsText` is no longer used for query export (still used for forms, reports, macros). The `SaveQuerySQL` option and `ForceImportOriginalQuerySQL` option are superseded by the new format. The decomposed query structure is never stored in files — it exists only transiently during composition/decomposition. Future changes to Access SQL dialect (new keywords, syntax) may require updates to `clsQueryComposer`.
-
-**Relevant files**:
-
-- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` — new: bidirectional SQL/structure/qdef translation
-- `Version Control.accda.src/modules/Utility/clsLvExtraParser.cls` — new: LvExtra binary parser
-- `Version Control.accda.src/modules/Components/clsDbQuery.cls` — rewritten: Export reads system tables, Import generates .qdef on-the-fly
-- `Version Control.accda.src/modules/Utility/clsLvPropParser.cls` — verified: works for query LvProp blobs as-is
-- `Version Control.accda.src/AGENTS.md` — updated: Query Files section for .sql + .json format
-- `docs/how-access-stores-queries.md` — corrections to MSysQueries attribute documentation
-
----
-
-## 2026-04-15 — Session-scoped option overrides for MCP/API callers
-
-**Trigger**: When the MCP agent sets an option (e.g., `BreakOnError = True`) via `SetOption`, the change was silently discarded because every operation entry point resets `Options` and reloads from `vcs-options.json`. The agent's overrides never survived past the first subsequent operation.
-
-**Options explored**:
-- **Edit `vcs-options.json` directly** — corrupts user config on failure, race conditions, violates thin-wrapper principle.
-- **In-memory overrides dictionary** — lost on Access restart; invisible; complex `ReleaseObjects` coordination.
-- **Pass options as operation parameters** — changes VBA API signatures, awkward across COM. Deferred as a possible future enhancement.
-- **Skip reload when called via API** — agent operates with stale options for everything, not just its overrides.
-- **Single shared override file** — no session isolation; stale overrides bleed into interactive use.
-- **Session-scoped override files in `mcp/` subfolder (chosen)** — each MCP/API session gets its own override file. Files are `.gitignored`. The user's `vcs-options.json` is never touched.
-
-**Decision**: `SetOption` now persists overrides to `mcp/options-{session_id}.json` alongside `vcs-options.json`. After every `LoadProjectOptions` call, if `Operation.Source` is `eosMCPTool` or `eosExternalAPI`, `LoadOptionOverrides` scans the `mcp/` subfolder and merges matching override files on top. Interactive ribbon operations never see them. Stale files are auto-cleaned after 30 days. The MCP server generates a random session ID at startup, registers it via `RegisterSession`, and calls `EndSession` on shutdown to delete the override file.
-
-**What this rules out**: Overrides do not persist across MCP server restarts (the server generates a new session ID each time). If two agents concurrently interact with the same database, their override files may both be loaded — this is an accepted tradeoff. If the MCP spec adds persistent session IDs (SEP-1364), we can adopt them as the session component without changing the file-based mechanism.
-
-**Relevant files**:
-- `clsOptions.cls` — `LoadOptionOverrides`, `MergeOverrideFile`, `CleanupStaleOverrides`
-- `clsVersionControl.cls` — `SetOption` (updated), `SaveOptionOverride`, `RegisterSession`, `EndSession`
-- `modObjects.bas` — `SessionId` property (survives `ReleaseObjects`)
-- `modExport.bas`, `modBuild.bas` — `LoadOptionOverrides` calls gated on `Operation.Source`
-- `main.py` — session ID generation, `atexit` cleanup
-- `tools.py` — `vcs_set_option` registers session, `vcs_end_session` tool added
-
----
-
-## 2026-05-07 — Cross-table ON condition LeftTable/RightTable in Design View qdef
-
-**Trigger**: A production database had four queries that passed SQL builder validation but failed with DAO error 3082 ("JOIN operation refers to a field that is not in one of the joined tables") after a full build from source. The queries used compound `ON` clauses where individual conditions referenced different table pairs, and one table was also used inside a saved subquery referenced in another condition.
-
-**Root cause**: `clsQueryComposer.EmitDesignViewQdef` reused the parent join's `leftTable`/`rightTable` for all split conditions in a compound `ON` clause. Access stores each compound `ON` condition as a separate Attribute 7 row in `MSysQueries` with its own `Name1`/`Name2` (the specific table pair for that condition). The emitter's reuse of the parent join's tables produced a `.qdef` where the `RightTable` for a condition referencing table `C` was set to table `B` (the parent join's right table). `LoadFromText` accepted this silently, but the resulting internal storage confused Access's scope resolution at execution time.
-
-**Options explored**:
-- **Fall back to `QueryDefs(name).SQL` (legacy path)** — rejected: the new pipeline was designed to generate its own `.qdef` rather than receive a pre-baked one, and falling back to the legacy path would lose design layout. The bug was in the emitter, not in `LoadFromText`.
-- **Store per-condition table pairs in the `.json` companion** — rejected: the table pair for each condition is derivable from the condition expression itself (e.g., `tblFunds.FundID = tblAssociates.fldFundID` clearly references `tblFunds` and `tblAssociates`). Adding explicit storage would be redundant.
-- **Extract per-condition table pairs from the expression at emit time (chosen)** — the emitter already has `ExtractTableFromOnSide` available. Using it for each split condition, with a fallback to the parent join's tables if extraction fails, is correct, minimal, and preserves backward compatibility.
-
-**Decision**: `EmitDesignViewQdef` now calls `ExtractTableFromOnSide(condition, True)` and `ExtractTableFromOnSide(condition, False)` for each individual condition in a split compound `ON` clause. Falls back to the parent join's `leftTable`/`rightTable` only if extraction returns empty.
-
-**Why this was hard to diagnose**: The SQL builder validation compares `ReconstructSQL` output against `QueryDefs.SQL` — a text-level check. The bug was not in SQL reconstruction but in `.qdef` emission, and `LoadFromText` accepted the wrong structure silently. The error only surfaced at query execution time, where the misleading error message ("field not in one of the joined tables") pointed away from the actual root cause (wrong `LeftTable`/`RightTable` metadata).
-
-**Relevant files**:
-- `clsQueryComposer.cls` — `EmitDesignViewQdef`: per-condition `LeftTable`/`RightTable` extraction
-- `docs/access-query-storage.md` § 6 — documents the finding
-- `Testing/Fixtures/queries/regression/qryRegressionCrossTableOn.notes.md` — regression context
-
----
-
-## 2026-05-05 — VBProject.Saved + DateModified fast path for VBA code hashing
-
-**Trigger**: Fast-save exports were spending significant time hashing every VBA module's code (via `GetCodeModuleHash` → `CodeModule.Lines(1, 999999)` → SHA256) even when no VBA code had changed since the last export. For a project with 110+ modules, the "Get VBA Hash" operation dominated the scan phase.
-
-**Key empirical findings** (tested against `Version Control.accda` with 110 modules, 17 forms):
-
-1. `VBProject.Saved` (Boolean) reliably detects all unsaved VBE changes, including VBA's automatic case-sync propagation across modules. Goes `False` on any in-memory edit, `True` after any save.
-2. `CurrentProject.AllModules(name).DateModified` is a VBE-level property (NOT from `MSysObjects`). Always identical across all modules. Updates in real-time from VBE memory, even without saving.
-3. `MSysObjects.DateUpdate` is a separate DAO-level per-row write timestamp with millisecond precision. Only updates on actual disk writes. Does NOT reflect VBE code edits. DOES reflect DAO property changes (e.g., Description). These are two completely different dates from different subsystems.
-4. Saving any single module triggers a full VBA project write that updates `DateModified` on all 110 modules simultaneously. Saving a form's code-behind also updates all 110 module dates, but only that form's `DateModified` changes.
-5. `CurrentProject.AllModules` does NOT include form/report code-behind — those are `vbext_ct_Document` components in the VBE.
-
-**Options explored for the fast-path guard**:
-- **DateModified only** — rejected: VBA case-sync changes `CodeModule.Lines()` without updating `DateModified`, so the date alone could miss changes.
-- **Force compile-and-save before export** — rejected: would fail on uncompilable code, which the add-in must support exporting.
-- **VBProject.Saved + DateModified (chosen)** — `Saved = True` means no dirty VBE memory (covers case-sync); `DateModified` match confirms nothing was saved since last export. Both must pass to skip hashing.
-
-**Options explored for index storage of module dates**:
-- **Per-module ObjectDate (existing)** — rejected: all 110 values are always identical, and partial exports only update N entries, leaving the other 110-N stale until a full export "heals" them.
-- **Per-module ObjectDate with post-export healing pass** — rejected: unnecessary iteration when a single value suffices.
-- **Top-level VBAProjectDate (chosen)** — one value in the index, updated whenever any module is exported. Eliminates redundant storage, eliminates the healing problem, eliminates 110 per-module COM property reads during change detection.
-
-**Decision**: Two-tier guard in `clsDbModule.IsModified`: (1) `CurrentVBProject.Saved = True`, (2) `AllModules(0).DateModified = VCSIndex.VBAProjectDate`. When both pass, skip `GetCodeModuleHash` entirely. `MetaHash` check always runs (metadata changes don't affect `Saved` or `DateModified`). For forms/reports, the same `VBProject.Saved` guard skips the code-behind hash when the layout `DateModified` also matches.
-
-Additionally, unsaved VBA project changes are now persisted at the start of the export flow (alongside `CloseDatabaseObjects`), ensuring exported source always reflects the current VBE state and preventing the scenario where a user exports code then discards changes on close.
-
-**Performance results** (no-change fast-save export):
-- Before: 0.88s total, 127 `Get VBA Hash` calls (0.09s), 286 `Compute SHA256` calls (0.15s)
-- After: 0.44s total, 0 `Get VBA Hash` calls, 159 `Compute SHA256` calls (0.05s)
-- 50% faster overall; `Get VBA Hash` completely eliminated
-
-**What this rules out**: Per-module `ObjectDate` is no longer written for module components (other types still use it). The binary index format version was bumped from 2 to 3, so existing index files are rebuilt on first use. `MSysObjects.DateUpdate` was investigated but provides no advantage over `AllModules.DateModified` for VBA change detection. `CompileAndSaveAllModules` is intentionally NOT added to the export flow — it would break on uncompilable code.
-
-**Relevant files**:
-- `clsVCSIndex.cls` — new `VBAProjectDate` top-level property, format version 3, `Update` sets `VBAProjectDate` instead of per-module `ObjectDate` for modules
-- `clsDbModule.cls` — `IsModified` uses `VBProject.Saved` + `VBAProjectDate` fast path
-- `clsDbForm.cls` — `IsModified` skips code-behind hash when `VBProject.Saved = True` and layout date matches
-- `clsDbReport.cls` — same as `clsDbForm.cls`
-- `modExport.bas` — saves VBA project before export scan, wraps `CloseDatabaseObjects` in `Perf.PauseTiming`/`ResumeTiming`, fixes `Exit Sub` → `GoTo CleanUp` with `eelCritical`
 
 ---

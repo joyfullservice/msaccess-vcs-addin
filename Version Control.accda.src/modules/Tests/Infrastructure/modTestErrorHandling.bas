@@ -3,8 +3,9 @@
 ' Module    : modTestErrorHandling
 ' Author    : Adam Waller
 ' Date      : 5/12/2026
-' Purpose   : Tests for modErrorHandling: Catch, CatchAny, LogUnhandledErrors.
-'           : Migrated from TestCatch in modTestSuite.
+' Purpose   : Tests for modErrorHandling: Catch, CatchAny, LogUnhandledErrors,
+'           : and the VBE Error Trapping floor policy. Migrated from TestCatch
+'           : in modTestSuite.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -13,6 +14,33 @@ Option Private Module
 '@Tag("unit")
 
 Private Const ModuleName As String = "modTestErrorHandling"
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestErrorBreaksSuppressedDuringTestRun
+' Author    : Adam Waller
+' Date      : 9/16/2026
+' Purpose   : A test run must never stop in the debugger. The runner calls
+'           : SuppressErrorBreaks, but it runs in the add-in, so that scope only covers
+'           : the add-in's copy of modErrorHandling. This project's copy learns about
+'           : the run from TestRunActive alone. Without that link, a test that trips
+'           : BreakOnError parks the whole run on a modal Stop with nobody there to
+'           : dismiss it. DebugMode is deliberately left reporting the raw option.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestErrorBreaksSuppressedDuringTestRun()
+
+    Dim blnOrigBreak As Boolean
+
+    blnOrigBreak = Options.BreakOnError
+    Options.BreakOnError = True
+    TestAssert Not BreakOnUnhandledError, _
+        "a test run does not stop on an unhandled error even with BreakOnError set"
+    TestAssert DebugMode(False), _
+        "DebugMode still reports the BreakOnError option so callers pick the same path"
+    Options.BreakOnError = blnOrigBreak
+
+End Sub
 
 
 Public Sub TestCatch()
@@ -27,14 +55,16 @@ Public Sub TestCatch()
         "Any logged errors from this test are expected and safe to ignore."
 
     On Error Resume Next
-    Err.Raise 24601, "Pre Log Test"
+    Err.Number = 24601
+    Err.Source = "Pre Log Test"
 
     ' LogUnhandledErrors should capture the error without crashing
     LogUnhandledErrors ModuleName & ".TestCatch (expected test error)"
     On Error Resume Next
 
     ' Raise another error and verify CatchAny handles it
-    Err.Raise 24602, "Post Log Test"
+    Err.Number = 24602
+    Err.Source = "Post Log Test"
     CatchAny eelError, "Expected test error - verifying CatchAny handles eelError", _
         ModuleName & ".TestCatch"
 
@@ -47,8 +77,11 @@ End Sub
 
 
 Public Sub TestCatch_SpecificError()
+
+    Dim lngValue As Long
+
     On Error Resume Next
-    Err.Raise 13
+    lngValue = CLng("not-a-number")
 
     TestAssert Catch(13), "catches type mismatch (13)"
     TestAssert Not Catch(13), "error cleared after first Catch"
@@ -59,4 +92,34 @@ Public Sub TestCatch_NoError()
     On Error Resume Next
     ' No error raised
     TestAssert Not Catch(13), "returns False when no error"
+End Sub
+
+
+Public Sub TestTranslationLoadLanguageBalancesErrorBreaks()
+    Dim lngBefore As Long
+
+    lngBefore = ErrorBreakSuppressionDepth
+    Translation.SetLanguage Translation.GetCurrentLanguage
+    TestAssert ErrorBreakSuppressionDepth = lngBefore, _
+        "LoadLanguage restores the exact break-suppression depth"
+End Sub
+
+
+Public Sub TestEffectiveVbeErrorTrappingFloor1()
+    TestAssert EffectiveVbeErrorTrapping(eetBreakOnAllErrors, eetBreakInClassModule) = eetBreakInClassModule, _
+        "floor 1 raises 0 to 1"
+    TestAssert EffectiveVbeErrorTrapping(eetBreakInClassModule, eetBreakInClassModule) = eetBreakInClassModule, _
+        "floor 1 leaves 1"
+    TestAssert EffectiveVbeErrorTrapping(eetBreakOnUnhandledErrors, eetBreakInClassModule) = eetBreakOnUnhandledErrors, _
+        "floor 1 never downgrades 2"
+End Sub
+
+
+Public Sub TestEffectiveVbeErrorTrappingFloor2()
+    TestAssert EffectiveVbeErrorTrapping(eetBreakOnAllErrors, eetBreakOnUnhandledErrors) = eetBreakOnUnhandledErrors, _
+        "floor 2 raises 0 to 2"
+    TestAssert EffectiveVbeErrorTrapping(eetBreakInClassModule, eetBreakOnUnhandledErrors) = eetBreakOnUnhandledErrors, _
+        "floor 2 raises 1 to 2"
+    TestAssert EffectiveVbeErrorTrapping(eetBreakOnUnhandledErrors, eetBreakOnUnhandledErrors) = eetBreakOnUnhandledErrors, _
+        "floor 2 leaves 2"
 End Sub

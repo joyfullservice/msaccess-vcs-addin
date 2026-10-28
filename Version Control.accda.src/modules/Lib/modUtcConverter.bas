@@ -930,29 +930,29 @@ End Function
 
 
 ' If given a time double, will return the millisecond portion of the time.
-Private Function GetMilliseconds(ByRef TimeIn As Date) As Variant
+Private Function GetMilliseconds(ByRef dteTimeIn As Date) As Variant
 
-    Dim IntDatePart As Long
-    Dim DblTimePart As Double
-    Dim LngSeconds As Long ' Used to remove whole seconds.
-    Dim DblSecondsPart As Double
+    Dim intDatePart As Long
+    Dim dblTimePart As Double
+    Dim lngSeconds As Long ' Used to remove whole seconds.
+    Dim dblSecondsPart As Double
 
-    Dim DblMS As Double
-    Dim MSCount As Double
+    Dim dblMs As Double
+    Dim dblMsCount As Double
 
     ' Get rid of the date portion
     ' There is an annoying bug where VBA rounds up in certain cases when
     ' using the \ operator and dividing by 1. So, divide by 2 and double it.
     ' this side steps the bug and ensures it always rounds down.
-    IntDatePart = RoundDown(TimeIn)
-    DblTimePart = TimeIn - IntDatePart
+    intDatePart = RoundDown(dteTimeIn)
+    dblTimePart = dteTimeIn - intDatePart
 
-    LngSeconds = RoundDown(TotalSecondsInDay * DblTimePart)
-    DblSecondsPart = LngSeconds / TotalSecondsInDay
-    DblMS = DblTimePart - DblSecondsPart
-    MSCount = ((DblMS * (TotalMillisecondsInDay))) \ 1
-    If MSCount >= 1000 Then MSCount = 0
-    GetMilliseconds = MSCount
+    lngSeconds = RoundDown(TotalSecondsInDay * dblTimePart)
+    dblSecondsPart = lngSeconds / TotalSecondsInDay
+    dblMs = dblTimePart - dblSecondsPart
+    dblMsCount = ((dblMs * (TotalMillisecondsInDay))) \ 1
+    If dblMsCount >= 1000 Then dblMsCount = 0
+    GetMilliseconds = dblMsCount
 
 End Function
 

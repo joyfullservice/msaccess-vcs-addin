@@ -95,6 +95,13 @@ Public Enum eDatabaseComponentType
     [_Last]
 End Enum
 
+' How a merge can bring a table's data in line with its source file.
+Public Enum eTableMergeStrategy
+    etmsNone = 0        ' Cannot be merged; the table is left untouched
+    etmsReconcile = 1   ' Row by row against the merge key: insert, update, delete
+    etmsReload = 2      ' No merge key: replace every row (only when nothing references it)
+End Enum
+
 ' Database server types for external databases
 Public Enum eDatabaseServerType
     estUnknown
@@ -129,6 +136,13 @@ Public Enum eCompareMethod2
     ecmDatabaseCompare = 2
     ' Added this to use original compare method
     ecmSourceMethod = 3
+End Enum
+
+' VBE Tools > Options > General > Error Trapping
+Public Enum eVbeErrorTrapping
+    eetBreakOnAllErrors = 0
+    eetBreakInClassModule = 1
+    eetBreakOnUnhandledErrors = 2
 End Enum
 
 ' Type of operation in progress
@@ -208,22 +222,38 @@ Public Enum eContainerFilter
     ecfSchemas
 End Enum
 
+' Scope for IDbComponent.FileExtensions: indexed (hash/conflict) vs all (move/orphan cleanup)
+Public Enum eFileExtensionScope
+    efesIndexed = 0   ' Tracked/indexed files (hash, change detection, conflict). Default.
+    efesAll = 1       ' All files the component writes (adds derived sidecars, e.g. svg)
+End Enum
+
 ' Used for handling custom built-in command bar controls. See clsDbCommandBar for details.
 Public Const strTemplateCommandBarName As String = "MSAccessVCSCustomBuiltinCommandBarTemplate"
 
 ' Export format versions using packed integers (Major * 10000 + Minor * 100 + Patch)
 ' Used to gate export behavior changes so users can upgrade on their own schedule.
+' When adding a member here, add a matching line to GetExportFormatVersions below.
+' (modTestExportFormat fails if the enum and that list disagree.)
 Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
     EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, command bar replica export, etc.
-    [_Last] = 50000
+    EFV_5_1_0 = 50100      ' Sidecar Info.Class names; canonical tbldefs property order; IMEX spec SpecID; form layout geometry; query OptionFlag derived from SQL.
 End Enum
-
-Public Const LATEST_EXPORT_FORMAT As Long = eExportFormatVersion.[_Last]
 
 ' Bump this whenever the SVG layout generator output changes
 ' to force regeneration of cached SVG files.
 Public Const LAYOUT_SVG_GENERATOR_VERSION As Long = 1
+
+' Revisions for the external database schema exporters (clsSchemaMsSql, clsSchemaMySql).
+' Bump when a DDL-shape fix changes exported output. Folded into the per-schema state
+' fingerprint stored in the index, which forces a one-time re-export of that schema.
+' Schema exports do not participate in CategoryHashes, so GetExporterRevisions does
+' not apply to them. History (one line per bump):
+'   MsSql = 1  7/27/2026  Initial fingerprint (also tracks sp_GetDDL availability)
+'   MySql = 1  7/27/2026  Initial fingerprint
+Public Const SCHEMA_EXPORTER_REVISION_MSSQL As Long = 1
+Public Const SCHEMA_EXPORTER_REVISION_MYSQL As Long = 1
 
 ' Used for ImportCommandBars function; negative/zero result should be treated as an error.
 Public Enum eImportCommandBarsResult
@@ -232,3 +262,74 @@ Public Enum eImportCommandBarsResult
     eicImportedVerified = 1
     eicImportedUnableToVerify = 2
 End Enum
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetExportFormatVersions
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : Selectable export format versions, in ascending order. Add one line here
+'           : for each new eExportFormatVersion member. The options form combo box and
+'           : LatestExportFormat both read this list, so nothing else needs updating.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetExportFormatVersions() As Collection
+
+    Dim col As Collection
+    Set col = New Collection
+    col.Add EFV_4_1_2
+    col.Add EFV_5_0_0
+    col.Add EFV_5_1_0
+    Set GetExportFormatVersions = col
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : LatestExportFormat
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : The newest export format version (last entry in GetExportFormatVersions).
+'---------------------------------------------------------------------------------------
+'
+Public Function LatestExportFormat() As Long
+
+    Dim col As Collection
+
+    Set col = GetExportFormatVersions
+    LatestExportFormat = col.Item(col.Count)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Function  : GetExporterRevisions
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Per-category exporter revisions. Bump when a bug fix changes a category's
+'           : exported output in a way the change index cannot otherwise detect (sidecar
+'           : files, or components whose IsModified relies on DateModified). This forces
+'           : a one-time full re-export of that category via CategoryHashes invalidation.
+'           : NOT for opt-in output changes (use eExportFormatVersion) and NOT needed for
+'           : content-hashed primary output (IsModified self-heals).
+'           : History (one line per bump):
+'           :   CommandBars = 1  7/27/2026  Fixed _Images sidecar export
+'           :   Forms = 1        7/28/2026  Fixed CF14 data bar decode (issue #730)
+'           :   Forms = 2        9/7/2026   Canonical 60-twip form layout geometry; drop LayoutCached*
+'           :   Forms = 3        9/16/2026  Preserve legacy-only conditional formatting (issue #779)
+'           :   Reports = 1      7/28/2026  Fixed CF14 data bar decode (issue #730)
+'           :   Reports = 2      9/16/2026  Preserve legacy-only conditional formatting (issue #779)
+'           :   Tables = 1       8/21/2026  Fixed DECIMAL(p,s) in optional .sql sidecar (issue #756)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetExporterRevisions() As Dictionary
+
+    Dim d As Dictionary
+    Set d = New Dictionary
+    d.Add "CommandBars", 1
+    d.Add "Forms", 3
+    d.Add "Reports", 2
+    d.Add "Tables", 1
+    Set GetExporterRevisions = d
+
+End Function

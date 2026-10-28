@@ -1,6 +1,7 @@
 # Frequently Asked Questions
 
 - [Is there a ribbon toolbar?](#is-there-a-ribbon-toolbar)
+- [My antivirus blocks the add-in's worker script](#my-antivirus-blocks-the-add-ins-worker-script)
 - [Why are issues sometimes out of scope?](#why-are-some-issuesideas-considered-out-of-scope-for-this-project)
 - [Why do many files show as changed after a build?](#why-am-i-seeing-a-large-number-of-changed-files-after-building-my-project-from-source)
 - [How do I export data from all tables?](#how-do-i-also-export-data-from-all-the-tables-in-my-database)
@@ -18,6 +19,14 @@
 Yes. Version 4 and later ship a **twinBASIC COM ribbon add-in** (32- and 64-bit) installed with the add-in. It provides Export, Build, Merge, Options, Run Tests, and related commands.
 
 If you do not see it, see [Installation](Installation) (COM add-ins, trust, **Use Ribbon Addin**). You can still run the add-in from **Database Tools** → **Add-Ins**.
+
+---
+
+## My antivirus blocks the add-in's worker script
+
+Some endpoint protection products block Access from running `Worker.vbs`, the small script the add-in writes into its install folder for the few jobs it cannot do from inside its own process. Typical symptoms are repeated security alerts, an uninstall that reports success but leaves files behind, or **Rebuild Add-In** doing nothing.
+
+Re-run the installer, open **Advanced Options**, and uncheck **Use helper script (Worker.vbs)**. The script is deleted and the add-in switches to script-free fallbacks for those jobs. See [Installation](Installation#worker-script) for exactly what changes — the one to know about is that you save the VBA project yourself before exporting.
 
 ---
 
@@ -47,7 +56,9 @@ Try **Sanitize Colors** on the Export options. See [Options](Options).
 <details>
 <summary><b>Changes in form dimension values</b></summary>
 
-Common with different screen DPI or monitor layouts. Often safe to ignore. Sanitization removes some report dimension noise; forms may still drift slightly.
+Caused by different screen DPI or display scaling. From export format **5.1**, form layout geometry is normalized to a fixed grid so this no longer happens — see [Form Layout Geometry](Form-Layout-Geometry). Check that every developer is on 5.1 in **Options → Export**.
+
+A small number of layouts cannot be normalized, and the export log says so explicitly; that page explains the warning and how to resolve it. Reports are not normalized.
 </details>
 
 <details>
@@ -61,12 +72,41 @@ If drift continues, check **Use Deterministic Query Export** or temporarily use 
 <details>
 <summary><b>Case changes in VBA code</b></summary>
 
-The VBA editor may normalize identifier casing. Tips: Pascal case for procedures; Hungarian-style prefixes for variables (`lngTotal`, `strCaption`).
+The VBA editor may normalize identifier casing when you compile or edit code. Tips: Pascal case for procedures; Hungarian-style prefixes for variables (`lngTotal`, `strCaption`).
 
 ```diff
 -    cancel = True
 +    Cancel = True
 ```
+
+### Standardize Letter Casing
+
+The add-in can enforce consistent casing automatically during **export**, **build/merge**, or from the ribbon command **Standardize Letter Casing**. Add a `clsStandardLetterCasing` class module to your project with `Dim` lines that define the canonical casing for each identifier:
+
+```vba
+Dim strSQL 'strSQL
+Dim lngID 'lngID
+```
+
+The trailing comment is the authority; the identifier before it is updated to match when casing drifts.
+
+Each `Dim` line must include the trailing comment (for example, `Dim myTestValue 'myTestValue`). Lines that are missing the comment or have mismatched identifier/comment names are skipped and logged as warnings during export/build. When run from the ribbon, invalid entries are also shown in a message box.
+
+When corrections are applied, the add-in shows each change (for example, `strSql -> strSQL`) and logs them during export/build. After corrections, the VBA project is saved automatically so normalized casing persists across modules.
+
+### Persistent casing drift (form and report controls)
+
+If the same correction keeps appearing on every export, a **form or report control Name** with different casing is often the cause. VBA treats control names as implicit class members. On compile, the control's Name property can override project-wide identifier casing and revert the `clsStandardLetterCasing` Dim lines.
+
+**How to fix it:**
+
+1. **Rename the control** in the form or report designer to match your desired casing (preferred fix).
+2. **Find and replace** stale references in the VBA editor (Edit > Find) or in exported `.bas`/`.cls` source files, then rebuild.
+3. Run a full **export** after fixing so source files reflect the stable state.
+
+**Example:** A text box named `txtUserid` on a form causes `Dim txtUserID` to revert to `Dim txtUserid` on every compile, and Standardize Letter Casing reports the same correction repeatedly. Rename the control to `txtUserID` in the designer, save the form, compile, and export.
+
+Bracketed references such as `Me![txtUserid]` are normalized along with unbracketed references when a casing correction is applied; the underlying issue is usually the control Name or stale saved code, not the brackets themselves.
 </details>
 
 <details>

@@ -3,7 +3,7 @@
 **Pins:** self-join where one side keeps the original table name and
 the other side uses Access's auto-generated `_1` alias suffix.
 
-The existing `qryCurrencyCrossRates` fixture covers self-joins in
+The existing `qryRegressionSelfJoinAliased` fixture covers self-joins in
 which both sides are explicitly aliased (`AS a` / `AS b`). This
 fixture covers the more common shape Access generates when the user
 drags the same table twice into the designer: one input keeps the

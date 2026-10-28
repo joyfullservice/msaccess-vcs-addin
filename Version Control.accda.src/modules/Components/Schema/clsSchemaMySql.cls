@@ -37,6 +37,11 @@ Private m_Files As Dictionary
 Private m_AllItems As Dictionary
 Private m_ModifiedItems As Dictionary
 
+' Treat every object as modified, bypassing the date/hash comparison. Set when the
+' caller requested a full export, or when the recorded export fingerprint no longer
+' matches.
+Private m_blnForceAll As Boolean
+
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the server classes consistent in how they are used in the export
 ' process. The implemented functions should be kept private as they are called
@@ -64,6 +69,14 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
 
     ' Make sure we initialize before running the export
     If Not this.blnInitialized Then Exit Sub
+
+    ' Decide whether to bypass the change comparison and re-export everything. This must
+    ' be settled before the scan, since the scan builds the modified-item list.
+    m_blnForceAll = blnFullExport Or FingerprintChanged
+
+    ' Any earlier scan (an object count, for example) used the normal comparison, so
+    ' discard it when everything now needs to be treated as modified.
+    If m_blnForceAll Then Set m_AllItems = Nothing
 
     ' Make sure we have already performed a scan of the database objects
     If m_Files Is Nothing Then ScanFiles
@@ -142,6 +155,65 @@ Private Sub IDbSchema_Export(blnFullExport As Boolean, Optional strAlternatePath
     ' Save updated index
     SaveUpdatedIndex
 
+    ' Record which exporter revision generated these files, so a later DDL-shape fix can
+    ' force them to be rebuilt. Only recorded on a clean run, so a canceled export does
+    ' not claim credit for files it never wrote.
+    If Operation.ErrorLevel < eelError Then SaveFingerprint
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFingerprint
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Return a fingerprint of everything that affects the content of the exported
+'           : DDL files but is invisible to the date/hash change detection. MySQL always
+'           : generates DDL with `show create ...`, so there is no runtime capability to
+'           : track here (unlike sp_GetDDL on SQL Server) and only the exporter revision
+'           : contributes.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetFingerprint() As String
+    GetFingerprint = "rev=" & SCHEMA_EXPORTER_REVISION_MYSQL
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FingerprintChanged
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Returns true if the exported files for this schema were generated under a
+'           : different exporter revision than we would use now. A schema with no
+'           : recorded fingerprint (a new schema, or one exported before this was
+'           : tracked) re-exports once to establish a known baseline.
+'---------------------------------------------------------------------------------------
+'
+Private Function FingerprintChanged() As Boolean
+
+    ' Without an index we have nowhere to record the result, so forcing here would
+    ' re-export the whole schema on every run.
+    If VCSIndex.Disabled Then Exit Function
+
+    If VCSIndex.SchemaState(this.strName) <> GetFingerprint Then
+        FingerprintChanged = True
+        Log.Add T("   The DDL exporter has changed for this connection. Re-exporting all objects."), False
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveFingerprint
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Record the current fingerprint in the index. The index is saved later in
+'           : the export process, so we only set the value here.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveFingerprint()
+    If VCSIndex.Disabled Then Exit Sub
+    VCSIndex.SchemaState(this.strName) = GetFingerprint
 End Sub
 
 
@@ -285,7 +357,10 @@ Private Sub ScanDatabaseObjects()
                 End If
 
                 ' Check for modification/new item
-                If m_Files.Exists(strItem) Then
+                If m_blnForceAll Then
+                    ' Full export, or the way we generate DDL has changed
+                    blnModified = True
+                ElseIf m_Files.Exists(strItem) Then
                     ' Flag as modified if the dates or hash don't match
                     blnModified = (Nz2(strHash, Nz(!last_modified)) <> CStr(m_Files(strItem)))
                 Else

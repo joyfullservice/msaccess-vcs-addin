@@ -36,7 +36,7 @@ A *Pull Request* is how you can propose that your code changes be included in th
   * _*When creating the commit, please select only the files that reflect the actual changes you are proposing. It is usually not necessary to include auto-generated files that don't include substantive or intended changes._
 * **Push** your branch up to your cloned repository.
 * Make a **pull request** to the upstream project! Be sure to clearly describe what you did and why in the pull request. This will allow reviewers to better understand why your PR should be merged.
-* Pull requests should target the `dev` branch, where most active development takes place. `Master` branch PRs should be mainly limited to Wiki changes. Critical bug fixes can be cherry-picked over to the `master` branch if needed.
+* Pull requests should target the `dev` branch, where most active development takes place. `main` branch PRs should be mainly limited to Wiki changes. Critical bug fixes can be cherry-picked over to the `main` branch if needed.
 * *Tip: If you have many different types of changes to propose, please use different pull requests for each of them. That will be easier to review and implement them individually.*
 
 Thank you again for your support for the Microsoft Access development community!!

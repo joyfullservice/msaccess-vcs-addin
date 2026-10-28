@@ -13,7 +13,7 @@ Attribute VB_Exposed = False
 ' Date      : 5/7/2026
 ' Purpose   : Test runner engine for the TestAssert framework. Discovers test subs in
 '           : CurrentVBProject, drives execution, records assertion results, and streams
-'           : progress to the frmVCSMain log console via the Log singleton.
+'           : progress to frmVCSMain (console fallback) and/or frmVCSTestRunner (web UI).
 '           :
 '           : This class is a singleton managed through modObjects.TestRunner.
 '---------------------------------------------------------------------------------------
@@ -24,6 +24,8 @@ Option Explicit
 Private Const ModuleName As String = "clsTestRunner"
 Private Const GlobalTestSetupProc As String = "GlobalTestSetup"
 Private Const GlobalTestTeardownProc As String = "GlobalTestTeardown"
+Private Const MCP_SLOW_MS As Long = 1000
+Private Const MCP_DOT_FLUSH_SEC As Currency = 0.2
 
 ' Runner state machine
 Public Enum eTestRunnerState
@@ -62,6 +64,11 @@ Private Type udtTestRunner
     PassedAssertions As Long
     FailedAssertions As Long
     ScannedAssertionCount As Long
+    LastRunDurationMs As Long
+    LastRunKeys As Collection
+    LastResultsPath As String
+    McpDots As String
+    LastMcpDotFlush As Currency
 End Type
 Private this As udtTestRunner
 
@@ -127,6 +134,44 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : LastRunDurationMs
+' Author    : Adam Waller
+' Date      : 7/7/2026
+' Purpose   : Duration of the most recent RunSelected/RunAll execution in milliseconds.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get LastRunDurationMs() As Long
+    LastRunDurationMs = this.LastRunDurationMs
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LastRunKeys
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Test keys executed in the most recent RunSelected/RunAll invocation.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get LastRunKeys() As Collection
+    Set LastRunKeys = this.LastRunKeys
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LastResultsPath
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Path of the TestResults_*.json written by the most recent SaveResults.
+'           : Empty until a run saves, and cleared at the start of Scan so a skipped
+'           : run cannot hand MCP a previous suite's file.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get LastResultsPath() As String
+    LastResultsPath = this.LastResultsPath
+End Property
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Scan
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
@@ -136,40 +181,38 @@ End Property
 '
 Public Sub Scan()
 
-    Dim cmp As VBIDE.VBComponent
-    Dim proj As VBIDE.VBProject
-    Dim blnHasFolderTags As Boolean
-    Dim dModules As Dictionary
+    this.LastResultsPath = vbNullString
+    this.State = etrsScanning
+    ScanDiscover
+    this.State = etrsReady
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScanMergingPriorResults
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Rediscover tests without wiping pass/fail state for unchanged Module.Proc
+'           : keys. Used when reopening the warm web runner or refreshing the tree.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ScanMergingPriorResults()
+
+    Dim dPrior As Dictionary
 
     this.State = etrsScanning
-    Set this.Tests = New Dictionary
-    Set this.SuiteMap = New Dictionary
-    this.ScannedAssertionCount = 0
-    ResetCounts
-
-    Set proj = CurrentVBProject
-
-    ' First pass: check if any module in the project uses @Folder annotations
-    blnHasFolderTags = ProjectHasFolderAnnotations(proj)
-
-    ' Second pass: identify test modules
-    Set dModules = New Dictionary
-    For Each cmp In proj.VBComponents
-        If IsTestModule(cmp, blnHasFolderTags) Then
-            dModules.Add cmp.Name, cmp
-        End If
-    Next cmp
-
-    ' Third pass: scan each test module for tests
-    Dim varKey As Variant
-    For Each varKey In dModules.Keys
-        ScanModuleForTests dModules(varKey), blnHasFolderTags
-    Next varKey
-
-    ' Reconcile TestClassFactory entries in modTestAssert for any class-based tests
-    SyncFactoryEntries proj
-
+    modTestRunnerDiag.DiagBegin "scan.merge"
+    modTestRunnerDiag.DiagBegin "scan.snapshot"
+    Set dPrior = SnapshotTestsByModuleProc()
+    modTestRunnerDiag.DiagEnd "scan.snapshot"
+    ScanDiscover
+    modTestRunnerDiag.DiagBegin "scan.merge_prior"
+    MergePriorResultsIntoDiscovered dPrior
+    RebuildCountsFromTests
+    modTestRunnerDiag.DiagEnd "scan.merge_prior"
     this.State = etrsReady
+    modTestRunnerDiag.DiagEnd "scan.merge", "tests=" & this.Tests.Count
 
 End Sub
 
@@ -183,7 +226,11 @@ End Sub
 '
 Public Sub RunAll()
 
+    ' Scan when there are no discovered tests. Covers a page-initiated (bridge) RunAll
+    ' after the singleton was reset (empty Tests) -- previously this exited silently.
     If this.Tests Is Nothing Then Scan
+    If this.Tests.Count = 0 Then Scan
+    modTestRunnerDiag.Diag "runall", "tests=" & this.Tests.Count
     If this.Tests.Count = 0 Then
         this.State = etrsComplete
         Exit Sub
@@ -218,7 +265,6 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim strCurrentModule As String
     Dim curStart As Currency
     Dim intErrorTrapping As Integer
-    Dim blnBreakOnError As Boolean
     Dim obj As Object
     Dim lngCurrent As Long
     Dim lngTotal As Long
@@ -226,8 +272,34 @@ Public Sub RunSelected(colTestKeys As Collection)
     Dim lngErrJournalAtStart As Long
     Dim eelAtStart As eErrorLevel
 
+    ' Re-entrancy guard: a run must never nest. The web runner streams progress with
+    ' DoEvents between tests, which can dispatch a queued bridge call (RunAll/etc.).
+    ' A nested run would call Scan/ResetCounts and repoint this.Tests, corrupting the
+    ' outer loop (stale keys -> Scripting.Dictionary auto-vivifies Empty entries ->
+    ' "Object required" in the summary). Ignore any invocation while already running.
+    If this.State = etrsRunning Then
+        modTestRunnerDiag.Diag "run.skip", "re-entrant (already running)"
+        Exit Sub
+    End If
+
+    ' Ensure tests are discovered. A targeted rerun (per-test/suite button or "Rerun
+    ' failed") can arrive long after the initial scan, by which point a VBA state reset
+    ' may have cleared the singleton's Tests. Unlike RunAll, RunSelected does not scan,
+    ' so every supplied key would miss this.Tests and the run would stream nothing
+    ' (onRunStart -> onRunComplete with no tests, leaving the rows blank). Self-heal by
+    ' scanning first; the deterministic keys (Module.Proc) still match the UI's keys.
+    If this.Tests Is Nothing Then Scan
+    If this.Tests.Count = 0 Then Scan
+
+    modTestRunnerDiag.Diag "run.begin", "tests=" & colTestKeys.Count & " known=" & this.Tests.Count
     this.State = etrsRunning
+    SetHostedTestRunFlag True
     this.CancelRequested = False
+    Set this.LastRunKeys = New Collection
+    Dim lngKeyIdx As Long
+    For lngKeyIdx = 1 To colTestKeys.Count
+        this.LastRunKeys.Add CStr(colTestKeys(lngKeyIdx))
+    Next lngKeyIdx
     ResetCounts
     Perf.OperationStart "Run Tests"
     this.RunStartTime = Perf.MicroTimer
@@ -235,8 +307,7 @@ Public Sub RunSelected(colTestKeys As Collection)
     ' Disable break-on-error so test errors don't stop in the debugger
     intErrorTrapping = Application.GetOption("Error Trapping")
     Application.SetOption "Error Trapping", 2  ' Break on Unhandled Errors
-    blnBreakOnError = Options.BreakOnError
-    Options.BreakOnError = False
+    SuppressErrorBreaks
 
     ' Set active VB project to Current DB (not Add-in)
     Set VBE.ActiveVBProject = CurrentVBProject
@@ -246,17 +317,36 @@ Public Sub RunSelected(colTestKeys As Collection)
     DoCmd.RunCommand acCmdCompileAllModules
     DoEvents
     On Error GoTo 0
+    If modTestRunnerUI.WebRunnerActive() Then modTestRunnerUI.RefocusWebRunner
     If Not Application.IsCompiled Then
+        modTestRunnerDiag.Diag "run.skip", "not compiled"
         Log.Add T("Project has compile errors. Please resolve before running tests."), , , "red"
+        ' Notify the web runner (no-op in console mode); this path exits before the
+        ' normal StreamRunCancelled/StreamRunComplete events, so without it the page
+        ' gets no feedback at all.
+        modTestRunnerUI.StreamRunError T("Project has compile errors. Please resolve before running tests.")
         this.State = etrsCancelled
         GoTo CleanUp
     End If
 
-    ' Set up progress bar
+    ' Form timer may have set CancelRequested during DoEvents above (or earlier).
+    If this.CancelRequested Or (Operation.Status <> eosRunning) Then
+        this.State = etrsCancelled
+        GoTo AfterTestLoop
+    End If
+
+    ' Set up progress bar (absent when hosted in the web runner, where frmVCSMain
+    ' and its progress control are never opened).
     lngTotal = colTestKeys.Count
+    this.McpDots = vbNullString
+    this.LastMcpDotFlush = Perf.MicroTimer
     Log.KeepProgressVisible = True
-    Log.ProgressBar.Reset
-    Log.ProgressBar.Max = lngTotal
+    If Not Log.ProgressBar Is Nothing Then
+        Log.ProgressBar.Reset
+        Log.ProgressBar.Max = lngTotal
+    End If
+
+    modTestRunnerUI.StreamRunStart colTestKeys
 
     ' Reset status on all selected tests
     For Each varKey In colTestKeys
@@ -267,10 +357,18 @@ Public Sub RunSelected(colTestKeys As Collection)
         End If
     Next varKey
 
+    DoEvents
+    modTestRunnerUI.PollBridgeCancel
+    If this.CancelRequested Or (Operation.Status <> eosRunning) Then
+        this.State = etrsCancelled
+        GoTo AfterTestLoop
+    End If
+
     For Each varKey In colTestKeys
 
         ' Allow pending UI events (e.g. form close) to fire
         DoEvents
+        modTestRunnerUI.PollBridgeCancel
 
         ' Check both internal flag and operation-level cancellation
         If this.CancelRequested Or (Operation.Status <> eosRunning) Then
@@ -290,11 +388,21 @@ Public Sub RunSelected(colTestKeys As Collection)
         lngErrJournalAtStart = Log.ErrorJournalCount
         eelAtStart = Operation.ErrorLevel
 
+        If dTest.Exists("fromPriorRun") Then dTest("fromPriorRun") = False
+
+        ' Throttled progress names the current test for a hang; do not force a
+        ' POST on every sub (that was ~468 HTTP calls on a full suite).
+        Log.Progress lngCurrent + 1, lngTotal, strTestKey
+
+        Log.SuppressMCPEcho = True
+        modTestRunnerUI.StreamTestStart strTestKey, dTest
+
         ' Emit module heading when the module changes
         If StrComp(CStr(dTest("moduleName")), strCurrentModule, vbTextCompare) <> 0 Then
             strCurrentModule = CStr(dTest("moduleName"))
             Log.Add strCurrentModule, True, True, vbNullString, True
-            Log.Flush   ' Update the console
+            ' Console form only; headless MCP has nothing to paint.
+            If Not MCP.IsActive Then Log.Flush
         End If
 
         If dTest("sourceType") = "class" Then
@@ -382,25 +490,78 @@ Public Sub RunSelected(colTestKeys As Collection)
             LogAssertionDetails this.AssertionResults
         End If
 
-        lngCurrent = lngCurrent + 1
-        Log.Progress lngCurrent, lngTotal, strProcName
-        Operation.Pulse
-
 NextTest:
+        ' Compact MCP stream (dots / named slow / FAIL) is separate from the
+        ' Access console layout, which stayed file-only via SuppressMCPEcho.
+        Log.SuppressMCPEcho = False
+        If Len(this.CurrentTestKey) > 0 Then
+            If this.Tests.Exists(this.CurrentTestKey) Then
+                Set dTest = this.Tests(this.CurrentTestKey)
+                If CLng(dTest("status")) <> etsPending Then
+                    McpNoteTest this.CurrentTestKey, dTest
+                    modTestRunnerUI.StreamTestComplete this.CurrentTestKey, dTest
+                    lngCurrent = lngCurrent + 1
+                    Operation.Pulse
+                End If
+            End If
+            this.CurrentTestKey = vbNullString
+        End If
     Next varKey
 
+AfterTestLoop:
+    FlushMcpDots
+    Log.SuppressMCPEcho = False
     Log.KeepProgressVisible = False
-    Log.ProgressBar.Hide
+    If Not Log.ProgressBar Is Nothing Then Log.ProgressBar.Hide
     Perf.OperationEnd
     this.CurrentTestKey = vbNullString
     If this.State <> etrsCancelled Then this.State = etrsComplete
 
+    this.LastRunDurationMs = CLng((Perf.MicroTimer - this.RunStartTime) * 1000)
+    If this.State = etrsCancelled Then
+        modTestRunnerUI.StreamRunCancelled
+    Else
+        modTestRunnerUI.StreamRunComplete this.LastRunDurationMs
+    End If
+
+    modTestRunnerDiag.DiagBegin "run.summary"
     LogRunSummary
+    modTestRunnerDiag.DiagEnd "run.summary"
 
 CleanUp:
     ' Restore original error trapping settings
-    Options.BreakOnError = blnBreakOnError
+    RestoreErrorBreaks
     Application.SetOption "Error Trapping", intErrorTrapping
+    SetHostedTestRunFlag False
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetHostedTestRunFlag
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Tell the project under test that a run is driving it. The operation that
+'           : owns the run lives here, in the add-in, but test procedures execute in the
+'           : project being tested, where nothing about that operation is visible - and a
+'           : user project has no operation API at all. modTestAssert is the one module
+'           : present in every project that runs tests, so it carries the signal.
+'           : A project whose copy of modTestAssert predates SetTestRunActive simply does
+'           : not get the notification.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SetHostedTestRunFlag(blnActive As Boolean)
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' BuildRunCmd qualifies by file path, which matters here more than anywhere else:
+    ' when the add-in tests its own source both projects are named MSAccessVCS and both
+    ' contain a modTestAssert, so an unqualified call would set the flag on the wrong one.
+    If GlobalProcExists("SetTestRunActive") Then
+        Application.Run BuildRunCmd("SetTestRunActive"), blnActive
+    End If
+    Err.Clear
 
 End Sub
 
@@ -429,6 +590,31 @@ Public Sub RunFailed()
     If colKeys.Count > 0 Then RunSelected colKeys
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasFailedTests
+' Author    : Adam Waller
+' Date      : 7/9/2026
+' Purpose   : True when any discovered test is currently failed or errored (including
+'           : statuses reloaded from durable state).
+'---------------------------------------------------------------------------------------
+'
+Public Function HasFailedTests() As Boolean
+
+    Dim varKey As Variant
+    Dim dTest As Dictionary
+
+    If this.Tests Is Nothing Then Exit Function
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        If dTest("status") = etsFailed Or dTest("status") = etsErrored Then
+            HasFailedTests = True
+            Exit Function
+        End If
+    Next varKey
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -702,101 +888,72 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Serialize the current test results to a JSON string for persistence.
+'           : Optional artifact paths are included for automation callers (CI parses
+'           : the returned JSON to locate the JUnit XML, durable state, log, and
+'           : ephemeral per-run results files).
 '---------------------------------------------------------------------------------------
 '
-Public Function GetResultsAsJson() As String
+Public Function GetResultsAsJson(Optional ByVal strJUnitPath As String = vbNullString, _
+    Optional ByVal strStatePath As String = vbNullString, _
+    Optional ByVal strLogPath As String = vbNullString, _
+    Optional ByVal strResultsPath As String = vbNullString) As String
 
-    Dim dRoot As Dictionary
-    Dim dSummary As Dictionary
-    Dim dTests As Dictionary
-    Dim varKey As Variant
-    Dim dTest As Dictionary
-    Dim dTestOut As Dictionary
-    Dim colAssertions As Collection
-    Dim colAssertOut As Collection
-    Dim dA As Dictionary
-    Dim dAOut As Dictionary
-    Dim i As Long
+    modTestRunnerDiag.DiagBegin "results.json"
+    GetResultsAsJson = modJsonEmit.EmitTestResultsJson(this.Tests, RunDurationMs, _
+        (this.State = etrsCancelled), _
+        (this.State <> etrsCancelled) And _
+            (this.FailedCount = 0 And this.ErroredCount = 0 And this.PassedCount > 0), _
+        this.PassedCount, this.FailedCount, this.ErroredCount, this.EmptyCount, _
+        this.TotalAssertions, this.PassedAssertions, this.FailedAssertions, _
+        strJUnitPath, strStatePath, strLogPath, strResultsPath)
+    modTestRunnerDiag.DiagEnd "results.json", "chars=" & Len(GetResultsAsJson)
+    modTestRunnerDiag.DiagSize "results.json", Len(GetResultsAsJson)
 
-    Set dRoot = New Dictionary
-    Set dSummary = New Dictionary
-    Set dTests = New Dictionary
+End Function
 
-    dRoot.Add "runAt", Format$(Now, "yyyy-mm-dd hh:nn:ss")
-    dRoot.Add "databasePath", CurrentProject.FullName
-    dRoot.Add "addinVersion", GetVCSVersion
-    dRoot.Add "durationMs", CLng((Perf.MicroTimer - this.RunStartTime) * 1000)
 
-    dSummary.Add "subs", this.PassedCount + this.FailedCount + this.ErroredCount + this.EmptyCount
-    dSummary.Add "assertions", this.TotalAssertions
-    dSummary.Add "passed", this.PassedAssertions
-    dSummary.Add "failed", this.FailedAssertions
-    dSummary.Add "errored", this.ErroredCount
-    dSummary.Add "empty", this.EmptyCount
-    Set dRoot("summary") = dSummary
+'---------------------------------------------------------------------------------------
+' Procedure : RunDurationMs
+' Author    : Adam Waller
+' Date      : 7/7/2026
+' Purpose   : Overflow-safe total run duration in ms. Perf.MicroTimer is seconds since
+'           : boot; if RunStartTime is 0 (no run on this instance, or state was reset)
+'           : then (MicroTimer - 0) * 1000 overflows Long on a machine with meaningful
+'           : uptime. Fall back to the last computed duration in that case.
+'---------------------------------------------------------------------------------------
+'
+Private Function RunDurationMs() As Long
 
-    If Not this.Tests Is Nothing Then
-        Dim colTags As Collection
-        Dim colTagsOut As Collection
-        For Each varKey In this.Tests.Keys
-            Set dTest = this.Tests(CStr(varKey))
-            If CLng(dTest("status")) = etsPending Then GoTo NextJsonTest
-            Set dTestOut = New Dictionary
-            dTestOut.Add "status", StatusToString(CLng(dTest("status")))
-            dTestOut.Add "durationMs", dTest("durationMs")
-            If dTest.Exists("errorMessage") Then
-                dTestOut.Add "errorMessage", dTest("errorMessage")
-            End If
-            If dTest.Exists("loggedErrors") Then
-                Dim colLoggedErrors As Collection
-                Dim colLoggedOut As Collection
-                Dim dErr As Dictionary
-                Dim dErrOut As Dictionary
-                Set colLoggedOut = New Collection
-                Set colLoggedErrors = dTest("loggedErrors")
-                For i = 1 To colLoggedErrors.Count
-                    Set dErr = colLoggedErrors(i)
-                    Set dErrOut = New Dictionary
-                    dErrOut.Add "level", dErr("level")
-                    dErrOut.Add "message", dErr("message")
-                    If Len(CStr(dErr("source"))) > 0 Then dErrOut.Add "source", dErr("source")
-                    If CLng(dErr("errNumber")) <> 0 Then dErrOut.Add "errNumber", dErr("errNumber")
-                    If Len(CStr(dErr("errDescription"))) > 0 Then
-                        dErrOut.Add "errDescription", dErr("errDescription")
-                    End If
-                    colLoggedOut.Add dErrOut
-                Next i
-                Set dTestOut("loggedErrors") = colLoggedOut
-            End If
+    Dim dblMs As Double
 
-            ' Include tags array
-            Set colTagsOut = New Collection
-            If dTest.Exists("tags") Then
-                Set colTags = dTest("tags")
-                For i = 1 To colTags.Count
-                    colTagsOut.Add CStr(colTags(i))
-                Next i
-            End If
-            Set dTestOut("tags") = colTagsOut
-
-            Set colAssertOut = New Collection
-            Set colAssertions = dTest("assertionResults")
-            For i = 1 To colAssertions.Count
-                Set dA = colAssertions(i)
-                Set dAOut = New Dictionary
-                dAOut.Add "seq", dA("seq")
-                dAOut.Add "passed", dA("passed")
-                If Len(dA("context")) > 0 Then dAOut.Add "context", dA("context")
-                colAssertOut.Add dAOut
-            Next i
-            Set dTestOut("assertions") = colAssertOut
-            Set dTests(CStr(varKey)) = dTestOut
-NextJsonTest:
-        Next varKey
+    If this.RunStartTime <= 0 Then
+        RunDurationMs = this.LastRunDurationMs
+        Exit Function
     End If
 
-    Set dRoot("tests") = dTests
-    GetResultsAsJson = ConvertToJson(dRoot, JSON_WHITESPACE)
+    dblMs = (Perf.MicroTimer - this.RunStartTime) * 1000
+    If dblMs < 0 Or dblMs > 2147483647# Then
+        RunDurationMs = this.LastRunDurationMs
+    Else
+        RunDurationMs = CLng(dblMs)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetTestTreeAsJson
+' Author    : Adam Waller
+' Date      : 7/7/2026
+' Purpose   : Serialize the scanned test tree for the web runner sidebar (module suites).
+'---------------------------------------------------------------------------------------
+'
+Public Function GetTestTreeAsJson() As String
+
+    modTestRunnerDiag.DiagBegin "tree.json"
+    GetTestTreeAsJson = modJsonEmit.EmitTestTreeJson(this.Tests)
+    modTestRunnerDiag.DiagEnd "tree.json", "chars=" & Len(GetTestTreeAsJson)
+    modTestRunnerDiag.DiagSize "tree.json", Len(GetTestTreeAsJson)
 
 End Function
 
@@ -806,6 +963,7 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
 ' Purpose   : Write test results to a timestamped JSON file in the logs folder.
+'           : Retention follows Options.MaxLogFiles via Log.CleanupOldLogs.
 '---------------------------------------------------------------------------------------
 '
 Public Function SaveResults() As String
@@ -819,10 +977,88 @@ Public Function SaveResults() As String
         Format$(Now, "yyyymmdd\_hhnnss") & "_" & _
         Format$(Timer * 1000 Mod 1000, "000") & ".json"
 
+    modTestRunnerDiag.DiagBegin "save.results"
     WriteFile GetResultsAsJson, strFile
+    this.LastResultsPath = strFile
     SaveResults = strFile
 
+    Log.CleanupOldLogs strFolder, "TestResults_*.json", Options.MaxLogFiles
+    modTestRunnerDiag.DiagEnd "save.results"
+
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadStateTests
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Reconstruct the Tests dictionary and summary counts from durable state.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LoadStateTests(dStateTests As Dictionary)
+
+    Dim varKey As Variant
+    Dim dSrc As Dictionary
+    Dim dTest As Dictionary
+    Dim strFolder As String
+    Dim colSuite As Collection
+
+    Set this.Tests = New Dictionary
+    Set this.SuiteMap = New Dictionary
+    ResetCounts
+
+    For Each varKey In dStateTests.Keys
+        Set dSrc = dStateTests(CStr(varKey))
+        Set dTest = DictionaryFromStateEntry(CStr(varKey), dSrc)
+        this.Tests.Add CStr(varKey), dTest
+
+        strFolder = CStr(dTest("folder"))
+        If Not this.SuiteMap.Exists(strFolder) Then
+            Set colSuite = New Collection
+            this.SuiteMap.Add strFolder, colSuite
+        End If
+        this.SuiteMap(strFolder).Add CStr(varKey)
+
+        AccumulateCountsFromTest dTest
+    Next varKey
+
+    this.State = etrsComplete
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergeStateResults
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Overlay durable test-state.json results onto already-discovered tests
+'           : (keyed by Module.Proc) without replacing the scanned tree.
+'---------------------------------------------------------------------------------------
+'
+Public Sub MergeStateResults(dStateTests As Dictionary)
+
+    Dim varKey As Variant
+    Dim dSrc As Dictionary
+    Dim dTest As Dictionary
+
+    If this.Tests Is Nothing Then Exit Sub
+    If dStateTests Is Nothing Then Exit Sub
+    If this.Tests.Count = 0 Then Exit Sub
+
+    For Each varKey In dStateTests.Keys
+        If this.Tests.Exists(CStr(varKey)) Then
+            Set dSrc = dStateTests(CStr(varKey))
+            Set dTest = this.Tests(CStr(varKey))
+            ApplyStateResultsToTest dTest, dSrc, True
+        End If
+    Next varKey
+
+    modTestRunnerDiag.DiagBegin "merge.counts"
+    RebuildCountsFromTests
+    modTestRunnerDiag.DiagEnd "merge.counts"
+    this.State = etrsComplete
+
+End Sub
 
 
 ' ===================== Private helpers =====================
@@ -1149,6 +1385,7 @@ Private Sub SyncFactoryEntries(proj As VBIDE.VBProject)
     ' Markers not found — append the full TestClassFactory template
     If lngBegin = 0 Or lngEnd = 0 Then
         AppendFactoryTemplate cmp, colClassNames
+        SaveFactoryModule proj, cmp
         Exit Sub
     End If
 
@@ -1169,7 +1406,22 @@ Private Sub SyncFactoryEntries(proj As VBIDE.VBProject)
         cmp.CodeModule.DeleteLines lngBegin + 1, lngEnd - lngBegin - 1
     End If
     cmp.CodeModule.InsertLines lngBegin + 1, strExpected
+    SaveFactoryModule proj, cmp
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveFactoryModule
+' Author    : Adam Waller
+' Date      : 10/27/2026
+' Purpose   : Save modTestAssert after the factory entries change, or Access prompts
+'           : the user to save it when the database closes.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveFactoryModule(proj As VBIDE.VBProject, cmp As VBIDE.VBComponent)
+    Set VBE.ActiveVBProject = proj
+    DoCmd.Save acModule, cmp.Name
 End Sub
 
 
@@ -1314,6 +1566,7 @@ Private Sub ScanModuleForTests(cmp As VBIDE.VBComponent, blnHasFolderTags As Boo
             Set dTest = New Dictionary
             dTest.Add "moduleName", cmp.Name
             dTest.Add "procName", strProcName
+            dTest.Add "line", CLng(lngLine + 1)
             dTest.Add "folder", strFolder
             dTest.Add "sourceType", IIf(blnIsClass, "class", "module")
             dTest.Add "status", CLng(etsPending)
@@ -1571,6 +1824,316 @@ Private Function StatusToString(lngStatus As Long) As String
 End Function
 
 
+Private Function StringToStatus(ByVal strStatus As String) As eTestStatus
+
+    Select Case UCase$(Trim$(strStatus))
+        Case "PASSED":  StringToStatus = etsPassed
+        Case "FAILED":  StringToStatus = etsFailed
+        Case "ERRORED": StringToStatus = etsErrored
+        Case "EMPTY":   StringToStatus = etsEmpty
+        Case Else:      StringToStatus = etsPending
+    End Select
+
+End Function
+
+
+Private Function DictionaryFromStateEntry(ByVal strKey As String, ByVal dSrc As Dictionary) As Dictionary
+
+    Dim dTest As Dictionary
+    Dim colTags As Collection
+    Dim colTagsOut As Collection
+    Dim i As Long
+
+    Set dTest = New Dictionary
+    dTest.Add "moduleName", CStr(dSrc("moduleName"))
+    dTest.Add "procName", CStr(dSrc("procName"))
+    dTest.Add "folder", CStr(dSrc("folder"))
+    dTest.Add "line", CLng(Nz(dSrc("line"), 0))
+    dTest.Add "sourceType", CStr(Nz(dSrc("sourceType"), "module"))
+    dTest.Add "status", etsPending
+    dTest.Add "durationMs", CLng(0)
+    Set dTest("assertionResults") = New Collection
+
+    Set colTagsOut = New Collection
+    If dSrc.Exists("tags") Then
+        If TypeName(dSrc("tags")) = "Collection" Then
+            Set colTags = dSrc("tags")
+            For i = 1 To colTags.Count
+                colTagsOut.Add CStr(colTags(i))
+            Next i
+        End If
+    End If
+    Set dTest("tags") = colTagsOut
+
+    ApplyStateResultsToTest dTest, dSrc, True
+
+    Set DictionaryFromStateEntry = dTest
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyStateResultsToTest
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Copy result fields from a durable-state entry onto a test dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ApplyStateResultsToTest(ByVal dTest As Dictionary, ByVal dSrc As Dictionary, ByVal blnMarkPrior As Boolean)
+
+    Dim lngStatus As eTestStatus
+
+    lngStatus = StringToStatus(CStr(Nz(dSrc("status"), "PENDING")))
+    dTest("status") = CLng(lngStatus)
+    dTest("durationMs") = CLng(Nz(dSrc("durationMs"), 0))
+
+    If dSrc.Exists("errorMessage") Then
+        If Len(CStr(dSrc("errorMessage"))) > 0 Then
+            If dTest.Exists("errorMessage") Then
+                dTest("errorMessage") = CStr(dSrc("errorMessage"))
+            Else
+                dTest.Add "errorMessage", CStr(dSrc("errorMessage"))
+            End If
+        ElseIf dTest.Exists("errorMessage") Then
+            dTest.Remove "errorMessage"
+        End If
+    ElseIf dTest.Exists("errorMessage") Then
+        dTest.Remove "errorMessage"
+    End If
+
+    Set dTest("assertionResults") = StateAssertions(dSrc)
+    ApplyLoggedErrorsFromState dTest, dSrc
+
+    If dSrc.Exists("lastRunAt") Then
+        If Len(CStr(dSrc("lastRunAt"))) > 0 Then
+            If dTest.Exists("lastRunAt") Then
+                dTest("lastRunAt") = CStr(dSrc("lastRunAt"))
+            Else
+                dTest.Add "lastRunAt", CStr(dSrc("lastRunAt"))
+            End If
+        ElseIf dTest.Exists("lastRunAt") Then
+            dTest.Remove "lastRunAt"
+        End If
+    ElseIf dTest.Exists("lastRunAt") Then
+        dTest.Remove "lastRunAt"
+    End If
+
+    If blnMarkPrior And lngStatus <> etsPending Then
+        If dTest.Exists("fromPriorRun") Then
+            dTest("fromPriorRun") = True
+        Else
+            dTest.Add "fromPriorRun", True
+        End If
+    ElseIf dTest.Exists("fromPriorRun") Then
+        dTest("fromPriorRun") = False
+    End If
+
+End Sub
+
+
+' Hands back the parsed state's own assertion collection rather than a deep copy.
+'
+' Assertion records are write-once: every producer replaces the whole collection (see the
+' `Set dTest("assertionResults") = ...` sites) and no code mutates a record in place, so
+' sharing them with the durable-state cache is safe. Copying them is not cheap -- creating
+' a Scripting.Dictionary costs ~0.4 ms in a live Access session, so cloning ~2K assertion
+' records cost ~0.9 s of the runner's open path all by itself.
+Private Function StateAssertions(ByVal dSrc As Dictionary) As Collection
+
+    If dSrc.Exists("assertions") Then
+        If TypeName(dSrc("assertions")) = "Collection" Then
+            Set StateAssertions = dSrc("assertions")
+            Exit Function
+        End If
+    End If
+
+    Set StateAssertions = New Collection
+
+End Function
+
+
+Private Sub ApplyLoggedErrorsFromState(ByVal dTest As Dictionary, ByVal dSrc As Dictionary)
+
+    Dim colLoggedOut As Collection
+    Dim colLogged As Collection
+    Dim dErr As Dictionary
+    Dim dErrOut As Dictionary
+    Dim i As Long
+
+    If dTest.Exists("loggedErrors") Then dTest.Remove "loggedErrors"
+
+    If Not dSrc.Exists("loggedErrors") Then Exit Sub
+    If TypeName(dSrc("loggedErrors")) <> "Collection" Then Exit Sub
+
+    Set colLoggedOut = New Collection
+    Set colLogged = dSrc("loggedErrors")
+    For i = 1 To colLogged.Count
+        Set dErr = colLogged(i)
+        Set dErrOut = New Dictionary
+        dErrOut.Add "level", dErr("level")
+        dErrOut.Add "message", dErr("message")
+        If dErr.Exists("source") Then dErrOut.Add "source", CStr(dErr("source"))
+        If dErr.Exists("errNumber") Then dErrOut.Add "errNumber", CLng(dErr("errNumber"))
+        If dErr.Exists("errDescription") Then
+            dErrOut.Add "errDescription", CStr(dErr("errDescription"))
+        End If
+        colLoggedOut.Add dErrOut
+    Next i
+    Set dTest("loggedErrors") = colLoggedOut
+
+End Sub
+
+
+Private Sub AccumulateCountsFromTest(ByVal dTest As Dictionary)
+
+    Dim colAssertions As Collection
+    Dim dA As Dictionary
+    Dim i As Long
+
+    Select Case CLng(dTest("status"))
+        Case etsPassed
+            this.PassedCount = this.PassedCount + 1
+        Case etsFailed
+            this.FailedCount = this.FailedCount + 1
+        Case etsErrored
+            this.ErroredCount = this.ErroredCount + 1
+        Case etsEmpty
+            this.EmptyCount = this.EmptyCount + 1
+        Case Else
+            Exit Sub
+    End Select
+
+    If dTest.Exists("assertionResults") Then
+        Set colAssertions = dTest("assertionResults")
+        For i = 1 To colAssertions.Count
+            Set dA = colAssertions(i)
+            this.TotalAssertions = this.TotalAssertions + 1
+            If CBool(Nz(dA("passed"), False)) Then
+                this.PassedAssertions = this.PassedAssertions + 1
+            Else
+                this.FailedAssertions = this.FailedAssertions + 1
+            End If
+        Next i
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : McpNoteTest
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Compact MCP/CLI stream. Fast passes accumulate as dots and POST
+'           : on a 200ms timer so a burst of cheap tests is one callback.
+'           : A named line (pass >= 1s, FAIL/ERROR/EMPTY) takes any pending
+'           : dots in the same POST.
+'---------------------------------------------------------------------------------------
+'
+Private Sub McpNoteTest(ByVal strTestKey As String, ByVal dTest As Dictionary)
+
+    Dim lngStatus As Long
+    Dim lngMs As Long
+    Dim strTag As String
+    Dim strLine As String
+    Dim colResults As Collection
+    Dim dResult As Dictionary
+    Dim i As Long
+
+    lngStatus = CLng(dTest("status"))
+    If dTest.Exists("durationMs") Then lngMs = CLng(dTest("durationMs")) Else lngMs = 0
+
+    If lngStatus = etsPassed And lngMs < MCP_SLOW_MS Then
+        this.McpDots = this.McpDots & "."
+        If (Perf.MicroTimer - this.LastMcpDotFlush) >= MCP_DOT_FLUSH_SEC Then FlushMcpDots
+        Exit Sub
+    End If
+
+    strTag = McpStatusTag(lngStatus)
+    strLine = strTag & "  " & strTestKey
+    If lngMs > 0 Then strLine = strLine & "  " & FormatDuration(lngMs)
+    McpLogLine strLine
+
+    If lngStatus = etsErrored Then
+        If dTest.Exists("errorMessage") Then
+            If Len(CStr(dTest("errorMessage"))) > 0 Then
+                McpLogLine "    " & CStr(dTest("errorMessage"))
+            End If
+        End If
+    ElseIf lngStatus = etsFailed Then
+        If dTest.Exists("assertionResults") Then
+            If IsObject(dTest("assertionResults")) Then
+                Set colResults = dTest("assertionResults")
+                For i = 1 To colResults.Count
+                    Set dResult = colResults(i)
+                    If Not CBool(dResult("passed")) Then
+                        strLine = "    #" & dResult("seq") & " FAIL"
+                        If Len(Nz(dResult("context"), vbNullString)) > 0 Then
+                            strLine = strLine & ": " & CStr(dResult("context"))
+                        End If
+                        McpLogLine strLine
+                    End If
+                Next i
+            End If
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FlushMcpDots
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : POST accumulated pass-dots as one log callback for the CLI to print.
+'---------------------------------------------------------------------------------------
+'
+Private Sub FlushMcpDots()
+    If Len(this.McpDots) = 0 Then Exit Sub
+    McpLogLine this.McpDots
+    this.McpDots = vbNullString
+    this.LastMcpDotFlush = Perf.MicroTimer
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : McpLogLine
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : POST a named compact-stream line. Pending timer-batched dots ride
+'           : in the same callback so a slow/FAIL line is not a second HTTP POST.
+'---------------------------------------------------------------------------------------
+'
+Private Sub McpLogLine(ByVal strLine As String)
+    Dim strPayload As String
+    If Len(this.McpDots) > 0 Then
+        strPayload = this.McpDots & vbLf & strLine
+        this.McpDots = vbNullString
+        this.LastMcpDotFlush = Perf.MicroTimer
+    Else
+        strPayload = strLine
+    End If
+    If MCP.IsActive Then MCP.PostCallback "log", -1, -1, strPayload
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : McpStatusTag
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Short status word for the compact MCP stream.
+'---------------------------------------------------------------------------------------
+'
+Private Function McpStatusTag(ByVal lngStatus As Long) As String
+    Select Case lngStatus
+        Case etsPassed:  McpStatusTag = "PASS"
+        Case etsFailed:  McpStatusTag = "FAIL"
+        Case etsErrored: McpStatusTag = "ERROR"
+        Case etsEmpty:   McpStatusTag = "EMPTY"
+        Case Else:       McpStatusTag = "PEND"
+    End Select
+End Function
+
+
 '---------------------------------------------------------------------------------------
 ' Procedure : LogTestResult
 ' Author    : Adam Waller
@@ -1632,7 +2195,9 @@ Private Sub LogRunSummary()
         .Spacer True, SPACER_LEN
     End With
 
+    Log.SuppressMCPEcho = True
     LogTestTimingTable SPACER_LEN
+    Log.SuppressMCPEcho = False
 
 End Sub
 
@@ -1678,10 +2243,14 @@ Private Sub LogTestTimingTable(ByVal lngSpacerLen As Long)
 
     If this.Tests Is Nothing Then Exit Sub
 
-    ' Count only tests that actually ran (skip pending/unexecuted).
+    ' Count only tests that actually ran (skip pending/unexecuted). Guard against
+    ' non-object entries (a defensive backstop should this.Tests ever hold a stray
+    ' Empty value from an auto-vivified key).
     For Each varKey In this.Tests.Keys
-        Set dTest = this.Tests(CStr(varKey))
-        If CLng(dTest("status")) <> etsPending Then lngExecuted = lngExecuted + 1
+        If IsObject(this.Tests(CStr(varKey))) Then
+            Set dTest = this.Tests(CStr(varKey))
+            If CLng(dTest("status")) <> etsPending Then lngExecuted = lngExecuted + 1
+        End If
     Next varKey
     If lngExecuted < 2 Then Exit Sub
 
@@ -1694,6 +2263,7 @@ Private Sub LogTestTimingTable(ByVal lngSpacerLen As Long)
 
     i = 0
     For Each varKey In this.Tests.Keys
+        If Not IsObject(this.Tests(CStr(varKey))) Then GoTo NextTimingEntry
         Set dTest = this.Tests(CStr(varKey))
         If CLng(dTest("status")) = etsPending Then GoTo NextTimingEntry
         strProcName = CStr(dTest("procName"))
@@ -1795,6 +2365,204 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ScanDiscover
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Discover test modules and procedures into fresh Tests/SuiteMap dictionaries.
+'           : Caller sets etrsScanning and final state.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ScanDiscover()
+
+    Dim cmp As VBIDE.VBComponent
+    Dim proj As VBIDE.VBProject
+    Dim blnHasFolderTags As Boolean
+    Dim dModules As Dictionary
+    Dim varKey As Variant
+
+    Dim curMod As Currency
+    Dim dblMod As Double
+    Dim lngModCount As Long
+
+    Set this.Tests = New Dictionary
+    Set this.SuiteMap = New Dictionary
+    this.ScannedAssertionCount = 0
+    ResetCounts
+
+    Set proj = CurrentVBProject
+
+    modTestRunnerDiag.DiagBegin "scan.discover"
+    modTestRunnerDiag.DiagBegin "scan.folder_tags"
+    blnHasFolderTags = ProjectHasFolderAnnotations(proj)
+    modTestRunnerDiag.DiagEnd "scan.folder_tags"
+
+    modTestRunnerDiag.DiagBegin "scan.enum_modules"
+    Set dModules = New Dictionary
+    For Each cmp In proj.VBComponents
+        If IsTestModule(cmp, blnHasFolderTags) Then
+            dModules.Add cmp.Name, cmp
+        End If
+    Next cmp
+    modTestRunnerDiag.DiagEnd "scan.enum_modules", "modules=" & dModules.Count
+
+    modTestRunnerDiag.DiagBegin "scan.modules"
+    For Each varKey In dModules.Keys
+        curMod = Perf.MicroTimer
+        ScanModuleForTests dModules(varKey), blnHasFolderTags
+        dblMod = (Perf.MicroTimer - curMod) * 1000
+        lngModCount = lngModCount + 1
+        If dblMod >= 50 Then
+            modTestRunnerDiag.Diag "scan.module.slow", CStr(varKey) & " ms=" & Format$(dblMod, "0.0")
+        End If
+    Next varKey
+    modTestRunnerDiag.DiagEnd "scan.modules", "n=" & lngModCount
+
+    modTestRunnerDiag.DiagBegin "scan.factory"
+    SyncFactoryEntries proj
+    modTestRunnerDiag.DiagEnd "scan.factory"
+    modTestRunnerDiag.DiagEnd "scan.discover", "tests=" & this.Tests.Count
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SnapshotTestsByModuleProc
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Snapshot the current Tests dictionary keyed by Module.Proc for merge-scan.
+'---------------------------------------------------------------------------------------
+'
+Private Function SnapshotTestsByModuleProc() As Dictionary
+
+    Dim dPrior As Dictionary
+    Dim varKey As Variant
+    Dim dTest As Dictionary
+    Dim strMatchKey As String
+
+    Set dPrior = New Dictionary
+    If this.Tests Is Nothing Then
+        Set SnapshotTestsByModuleProc = dPrior
+        Exit Function
+    End If
+
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        strMatchKey = CStr(dTest("moduleName")) & "." & CStr(dTest("procName"))
+        If Not dPrior.Exists(strMatchKey) Then
+            Set dPrior(strMatchKey) = dTest
+        End If
+    Next varKey
+
+    Set SnapshotTestsByModuleProc = dPrior
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergePriorResultsIntoDiscovered
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Copy prior pass/fail state onto freshly discovered tests when Module.Proc
+'           : still matches.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MergePriorResultsIntoDiscovered(ByVal dPrior As Dictionary)
+
+    Dim varKey As Variant
+    Dim dNew As Dictionary
+    Dim dOld As Dictionary
+    Dim strMatchKey As String
+
+    If dPrior Is Nothing Then Exit Sub
+    If dPrior.Count = 0 Then Exit Sub
+
+    For Each varKey In this.Tests.Keys
+        Set dNew = this.Tests(CStr(varKey))
+        strMatchKey = CStr(dNew("moduleName")) & "." & CStr(dNew("procName"))
+        If dPrior.Exists(strMatchKey) Then
+            Set dOld = dPrior(strMatchKey)
+            MergePriorTestResult dNew, dOld
+        End If
+    Next varKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MergePriorTestResult
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Copy result fields from a prior test record onto a newly discovered one.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MergePriorTestResult(ByVal dNew As Dictionary, ByVal dOld As Dictionary)
+
+    If CLng(Nz(dOld("status"), etsPending)) = etsPending Then Exit Sub
+
+    dNew("status") = dOld("status")
+    dNew("durationMs") = CLng(Nz(dOld("durationMs"), 0))
+
+    If dOld.Exists("errorMessage") Then
+        If Len(CStr(dOld("errorMessage"))) > 0 Then
+            If dNew.Exists("errorMessage") Then
+                dNew("errorMessage") = CStr(dOld("errorMessage"))
+            Else
+                dNew.Add "errorMessage", CStr(dOld("errorMessage"))
+            End If
+        End If
+    End If
+
+    ' Shared, not copied: the snapshot holds the only other reference to these records and
+    ' they are never mutated in place. See StateAssertions.
+    If dOld.Exists("assertionResults") Then
+        Set dNew("assertionResults") = dOld("assertionResults")
+    End If
+
+    If dOld.Exists("lastRunAt") Then
+        If Len(CStr(dOld("lastRunAt"))) > 0 Then
+            If dNew.Exists("lastRunAt") Then
+                dNew("lastRunAt") = CStr(dOld("lastRunAt"))
+            Else
+                dNew.Add "lastRunAt", CStr(dOld("lastRunAt"))
+            End If
+        End If
+    End If
+
+    If dOld.Exists("fromPriorRun") Then
+        If dNew.Exists("fromPriorRun") Then
+            dNew("fromPriorRun") = CBool(dOld("fromPriorRun"))
+        Else
+            dNew.Add "fromPriorRun", CBool(dOld("fromPriorRun"))
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RebuildCountsFromTests
+' Author    : Adam Waller
+' Date      : 7/8/2026
+' Purpose   : Recompute run summary counters from the current Tests dictionary.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RebuildCountsFromTests()
+
+    Dim varKey As Variant
+    Dim dTest As Dictionary
+
+    ResetCounts
+    If this.Tests Is Nothing Then Exit Sub
+
+    For Each varKey In this.Tests.Keys
+        Set dTest = this.Tests(CStr(varKey))
+        AccumulateCountsFromTest dTest
+    Next varKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Class_Initialize
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
@@ -1805,4 +2573,19 @@ Private Sub Class_Initialize()
     Set this.Tests = New Dictionary
     Set this.SuiteMap = New Dictionary
     Set this.AssertionResults = New Collection
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : Class_Terminate
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Clear the hosted-project run flag when the runner singleton is released.
+'           : ReleaseObjects runs at root completion, so this fires on every path the
+'           : root clears on, including abandonment when a lease is dropped without
+'           : Complete.
+'---------------------------------------------------------------------------------------
+'
+Private Sub Class_Terminate()
+    SetHostedTestRunFlag False
 End Sub

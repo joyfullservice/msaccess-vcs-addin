@@ -19,6 +19,11 @@ Public SourcePath As String
 ' how error messages are reported to the user outside of operations.
 Public Active As Boolean
 
+' When True, suppress the Debug.Print echo to the Immediate window. Used by the web
+' test runner (which shows results in its own UI) so a run does not flood the
+' Immediate window. The log file and console buffer are unaffected.
+Public SuppressDebugOutput As Boolean
+
 Private Const cstrSpacer As String = "-------------------------------------"
 
 ' Throttle interval for Log.Increment. The visible bar work and DoEvents are
@@ -35,11 +40,37 @@ Private m_blnKeepProgressVisible As Boolean
 Private m_blnConsoleDirty As Boolean  ' True when m_Console has new content not yet assigned to txtLog
 Private m_sngLastUpdate As Single
 Private m_sngLastMCPProgress As Single  ' Throttle MCP progress updates
+Private m_sngMCPProgressInterval As Single ' Cached option value in seconds
+Private m_lngMCPProgressCandidates As Long
+Private m_lngMCPProgressSent As Long
+Private m_lngMCPProgressSuppressed As Long
 Private m_dblPendingIncrements As Double  ' Accumulated increments awaiting throttled flush
 Private m_sngLastIncrement As Single    ' Timer value of the last applied Increment
 Private m_OperationId As String ' Timestamp with milliseconds: "20260126_153042_847"
+Private m_SavedLogFilePath As String ' Path last written by SaveFile
 Private m_lngErrCount(eelNoError To eelCritical) As Long
 Private m_colErrorJournal As Collection
+Private m_blnAtNewLine As Boolean
+Private m_strMCPPending As String          ' Incomplete log line awaiting newline
+Private m_blnSuppressMCPEcho As Boolean    ' File/console only; runner uses a compact stream
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SuppressMCPEcho
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : When True, Add still writes the log file and console but does not POST
+'           : to MCP. The test runner uses this so Access-console fragments (colored
+'           : same-line status, per-assertion detail) stay out of the CLI stream.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SuppressMCPEcho() As Boolean
+    SuppressMCPEcho = m_blnSuppressMCPEcho
+End Property
+Public Property Let SuppressMCPEcho(ByVal blnSuppress As Boolean)
+    If blnSuppress And Not m_blnSuppressMCPEcho Then FlushMCPPending
+    m_blnSuppressMCPEcho = blnSuppress
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -176,31 +207,41 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             m_Prog.Hide
         End If
 
-        ' Build HTML output for console
-        With m_Console
+        ' HTML is only rendered on the console form. Headless MCP/API runs have
+        ' no RichText control; skip the entity-encode concat (thousands of
+        ' fragments per test run) and keep the log file + MCP stream.
+        If Not m_RichText Is Nothing Then
+            With m_Console
 
-            ' Opening tags
-            If blnBold Then .Add "<strong>"
-            If blnItalic Then .Add "<i>"
-            If strColor <> vbNullString Then .Add "<font color=", strColor, ">"
+                ' Opening tags
+                If blnBold Then .Add "<strong>"
+                If blnItalic Then .Add "<i>"
+                If strColor <> vbNullString Then .Add "<font color=", strColor, ">"
 
-            ' Content
-            .Add MultiReplace(strText, _
-                " ", "&nbsp;", _
-                vbCrLf, "<br>")
+                ' Content
+                .Add MultiReplace(strText, _
+                    " ", "&nbsp;", _
+                    vbCrLf, "<br>")
 
-            ' Closing tags
-            If strColor <> vbNullString Then .Add "</font>"
-            If blnItalic Then .Add "</i>"
-            If blnBold Then .Add "</strong>"
+                ' Closing tags
+                If strColor <> vbNullString Then .Add "</font>"
+                If blnItalic Then .Add "</i>"
+                If blnBold Then .Add "</strong>"
 
-            ' Add line break for HTML
-            If blnNextOutputOnNewLine Then m_Console.Add "<br>"
-        End With
-        m_blnConsoleDirty = True
+                ' Add line break for HTML
+                If blnNextOutputOnNewLine Then m_Console.Add "<br>"
+            End With
+            m_blnConsoleDirty = True
+        End If
+        m_blnAtNewLine = blnNextOutputOnNewLine
 
         ' Run debug output
-        If m_RichText Is Nothing Then
+        If m_RichText Is Nothing And Not Me.SuppressDebugOutput Then
+            ' Timed because this branch is reached only without a GUI console, which is
+            ' exactly the unattended case (MCP/API) whose builds get compared against
+            ' interactive ones. Untimed, its cost lands in "Other Operations" and reads
+            ' as unexplained overhead in the very comparison it distorts.
+            Perf.OperationStart "Debug Print"
             ' Only print debug output if not running from the GUI.
             If blnNextOutputOnNewLine Then
                 ' Create new line
@@ -209,6 +250,7 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
                 ' Continue next printout on this line.
                 Debug.Print strText;
             End If
+            Perf.OperationEnd
         End If
 
         ' Allow an update to the screen every second.
@@ -219,13 +261,31 @@ Public Sub Add(strText As String, Optional blnPrint As Boolean = True, _
             m_sngLastUpdate = Timer
         End If
 
-        ' Send to MCP if active (plain text, no HTML)
-        If MCP.IsActive Then
-            MCP.PostCallback "log", -1, -1, strText
+        ' Send complete lines to MCP. Same-line fragments (colored PASS, assertion
+        ' tags) are buffered until a newline so the CLI does not print Access
+        ' console layout as separate messages.
+        If MCP.IsActive And Not m_blnSuppressMCPEcho Then
+            m_strMCPPending = m_strMCPPending & strText
+            If blnNextOutputOnNewLine Then
+                If Len(m_strMCPPending) > 0 Then MCP.PostCallback "log", -1, -1, m_strMCPPending
+                m_strMCPPending = vbNullString
+            End If
         End If
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BufferChars
+' Author    : Adam Waller
+' Date      : 8/17/2026
+' Purpose   : Character length of the log-file buffer (for diagnostic traces).
+'---------------------------------------------------------------------------------------
+'
+Public Property Get BufferChars() As Double
+    If Not m_Log Is Nothing Then BufferChars = m_Log.Length
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -239,10 +299,12 @@ Public Sub Flush()
 
     ' Apply any throttled-but-not-yet-shown increments before refreshing the UI.
     ApplyPendingIncrements
+    If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagBeginQuiet "log.flush"
 
     ' See if the GUI form is loaded.
     Perf.OperationStart "Console Updates"
     If Not m_RichText Is Nothing Then
+        Perf.OperationStart "GUI Console Update"
         If Not m_blnKeepProgressVisible Then
             m_blnProgressActive = False
             If Not m_Prog Is Nothing Then m_Prog.Hide
@@ -258,12 +320,36 @@ Public Sub Flush()
             End With
             m_blnConsoleDirty = False
         End If
+        Perf.OperationEnd
     Else
-        ' Update display in immediate window if not using console
+        ' Yield to Access and COM. Async XMLHTTP completion notifications also use this
+        ' message pump, so keep it separate from callback submission timing.
+        Perf.OperationStart "Message Pump"
         DoEvents
+        Perf.OperationEnd
     End If
     Perf.OperationEnd
+    FlushMCPPending
+    If modTestRunnerDiag.DiagEnabled Then _
+        modTestRunnerDiag.DiagEnd "log.flush", "chars=" & CStr(Me.BufferChars)
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FlushMCPPending
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : POST any incomplete MCP log line (operation ended mid-fragment).
+'---------------------------------------------------------------------------------------
+'
+Private Sub FlushMCPPending()
+    If MCP.IsActive And Not m_blnSuppressMCPEcho Then
+        If Len(m_strMCPPending) > 0 Then
+            MCP.PostCallback "log", -1, -1, m_strMCPPending
+            m_strMCPPending = vbNullString
+        End If
+    End If
 End Sub
 
 
@@ -315,11 +401,16 @@ Public Sub Error(eLevel As eErrorLevel, strDescription As String, Optional strSo
         Me.Spacer (eLevel > eelWarning)
         Me.Flush ' Force a screen update.
         AppendErrorJournal eLevel, strDisplay, strSource, lngErrNum, strErrDesc
-        ' Show message boxes only when no console is attached to receive the output.
-        ' (Test runs and other console-driven operations log here instead of blocking
-        ' with a dialog when Log.Active is false.)
+        ' Without a console, route prompts through MsgBox2 so InteractionMode and
+        ' Attended suppress blocking dialogs during harness and automation runs.
         If m_RichText Is Nothing Then
-            If Log.Active Then
+            If Operation.InteractionMode <> eimNormal Or Not Operation.Attended Then
+                Select Case eLevel
+                    Case eelWarning:    MsgBox2 "Warning", strDisplay, .GetStr, vbInformation
+                    Case eelError:      MsgBox2 "Error", strDisplay, .GetStr, vbExclamation
+                    Case eelCritical:   MsgBox2 "Critical", strDisplay, .GetStr, vbCritical
+                End Select
+            ElseIf Log.Active Then
                 If eLevel = eelCritical Then
                     MsgBox2 "Unable to Continue", .GetStr, _
                         "Please review the log file for additional details.", vbCritical
@@ -428,6 +519,9 @@ Public Sub SaveFile(Optional strAlternatePath As String)
     Dim strBase As String
     Dim strLogsFolder As String
 
+    If modTestRunnerDiag.DiagEnabled Then _
+        modTestRunnerDiag.DiagBegin "log.save", "chars=" & CStr(Me.BufferChars)
+
     strPath = Nz2(strAlternatePath, Me.LogFilePath)
     strLogsFolder = FSO.GetParentFolderName(strPath)
 
@@ -441,6 +535,10 @@ Public Sub SaveFile(Optional strAlternatePath As String)
 
     ' Write log file (unique filename per operation)
     WriteFile m_Log.GetStr, strPath
+    m_SavedLogFilePath = strPath
+
+    ' Machine-readable performance data, when an agent asked for it
+    SavePerfJson strPath
 
     ' Cleanup old logs beyond MaxLogFiles
     Select Case Operation.OperationType
@@ -450,15 +548,66 @@ Public Sub SaveFile(Optional strAlternatePath As String)
         Case eotTestRun:  strBase = "TestRun"
         Case Else:        strBase = "Other"
     End Select
-    CleanupOldLogs strLogsFolder, strBase, Options.MaxLogFiles
+    CleanupOldLogs strLogsFolder, strBase & "_*.log", Options.MaxLogFiles
+    If modTestRunnerDiag.DiagEnabled Then modTestRunnerDiag.DiagEnd "log.save"
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SavePerfJson
+' Author    : Adam Waller
+' Date      : 8/27/2026
+' Purpose   : Write the performance measurements as JSON beside the log file that was
+'           : just saved, as <log base>.perf.json.
+'           : Kept out of the log itself on purpose. The log is written for a person
+'           : reading a build, and the call-path breakdown is hundreds of rows that would
+'           : bury it; a separate file lets an agent ask for the detail without changing
+'           : what everyone else reads. Pairing it with the log's own name means the
+'           : path is derivable from the log path a tool already has.
+'           : Hooked here rather than at each `Perf.GetReports` call site so export,
+'           : build, merge, and test runs are all covered by one place.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SavePerfJson(strLogPath As String)
+
+    Dim strPath As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    If Not OptionsLoaded Then Exit Sub
+    If Not Options.ExportPerfJson Then Exit Sub
+    If Len(strLogPath) = 0 Then Exit Sub
+
+    strPath = FSO.BuildPath(FSO.GetParentFolderName(strLogPath), _
+        FSO.GetBaseName(strLogPath) & ".perf.json")
+
+    WriteFile modJsonConverter.ConvertToJson(Perf.GetDiagnosticData, 2), strPath
+
+    CatchAny eelWarning, "Error writing performance diagnostics", "clsLog.SavePerfJson"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SavedLogFilePath
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the full path of the log file last written by SaveFile.
+'           : Use this (not LogFilePath) when linking to or reporting the on-disk log.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SavedLogFilePath() As String
+    SavedLogFilePath = m_SavedLogFilePath
+End Property
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LogFilePath
 ' Author    : Adam Waller
 ' Date      : 5/13/2023
-' Purpose   : Return the (default) full path to the current log file.
+' Purpose   : Return the prospective full path for the current log state (derived from
+'           : Operation.OperationType and m_OperationId). For the file that exists on
+'           : disk after SaveFile, use SavedLogFilePath instead.
 '---------------------------------------------------------------------------------------
 '
 Public Property Get LogFilePath() As String
@@ -492,11 +641,19 @@ Private Sub Class_Initialize()
     m_blnProgressActive = False
     m_blnKeepProgressVisible = False
     m_sngLastUpdate = 0
+    m_sngMCPProgressInterval = -1
+    m_lngMCPProgressCandidates = 0
+    m_lngMCPProgressSent = 0
+    m_lngMCPProgressSuppressed = 0
     m_dblPendingIncrements = 0
     m_sngLastIncrement = 0
     Erase m_lngErrCount
     Me.PadLength = 30
     Me.Active = False
+    m_SavedLogFilePath = vbNullString
+    m_blnAtNewLine = True
+    m_strMCPPending = vbNullString
+    m_blnSuppressMCPEcho = False
     ' Generate timestamp-based operation ID with millisecond precision
     m_OperationId = Format$(Now, "yyyymmdd\_hhnnss") & "_" & Format$((Timer * 1000) Mod 1000, "000")
 End Sub
@@ -516,6 +673,32 @@ Public Sub PadRight(strText As String, Optional blnPrint As Boolean = True, Opti
     Else
         Me.Add strText, blnPrint, blnNextOutputOnNewLine
     End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AtNewLine
+' Author    : Adam Waller
+' Date      : 8/13/2026
+' Purpose   : True when the last printed console entry ended with a line break, so the
+'           : next Add starts a new line rather than continuing a PadRight heading.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get AtNewLine() As Boolean
+    AtNewLine = m_blnAtNewLine
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EnsureNewLine
+' Author    : Adam Waller
+' Date      : 8/13/2026
+' Purpose   : End the current console line if a PadRight heading is still open, so a
+'           : following child entry sits underneath it instead of wrapping mid-line.
+'---------------------------------------------------------------------------------------
+'
+Public Sub EnsureNewLine()
+    If Not m_blnAtNewLine Then Me.Add vbNullString
 End Sub
 
 
@@ -542,6 +725,34 @@ Public Sub Increment()
     If Timer - m_sngLastIncrement < INCREMENT_THROTTLE_SEC Then Exit Sub
 
     ApplyPendingIncrements
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IncrementObjectScanProgress
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Throttled progress bar increment during GetAllFromDB change-detection
+'           : scans. After 1 second, show one console breadcrumb naming the category.
+'---------------------------------------------------------------------------------------
+'
+Public Sub IncrementObjectScanProgress(ByRef sngStart As Single, _
+    lngCount As Long, strCategory As String)
+
+    ' The scan loops pulse nowhere else - modExport and modBuild pulse once per
+    ' category - so the heartbeat would have to survive a whole category to get here.
+    ' Pulsing per component costs a variable assignment and matches how the export,
+    ' build, and merge loops already pulse.
+    Operation.Pulse
+
+    Increment
+    If sngStart > 0 Then
+        If Timer - sngStart > 1 Then
+            Me.Add " - Scanning " & lngCount & " " & LCase(strCategory) & "...", , , , , True
+            sngStart = 0
+        End If
+    End If
 
 End Sub
 
@@ -595,7 +806,8 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub Progress(lngCurrent As Long, lngTotal As Long, _
-    Optional strMessage As String = vbNullString)
+    Optional strMessage As String = vbNullString, _
+    Optional ByVal blnForce As Boolean = False)
 
     ' Update console progress bar (always)
     If Not m_Prog Is Nothing Then
@@ -605,11 +817,15 @@ Public Sub Progress(lngCurrent As Long, lngTotal As Long, _
         m_blnProgressActive = True
     End If
 
-    ' Send to MCP with throttling (max every 250ms)
+    ' Send to MCP with independently configurable throttling
     If MCP.IsActive Then
-        If Timer - m_sngLastMCPProgress > 0.25 Then
+        m_lngMCPProgressCandidates = m_lngMCPProgressCandidates + 1
+        If blnForce Or Timer - m_sngLastMCPProgress > MCPProgressIntervalSeconds Then
             MCP.PostCallback "progress", lngCurrent, lngTotal, strMessage
             m_sngLastMCPProgress = Timer
+            m_lngMCPProgressSent = m_lngMCPProgressSent + 1
+        Else
+            m_lngMCPProgressSuppressed = m_lngMCPProgressSuppressed + 1
         End If
     End If
 
@@ -617,31 +833,89 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : MCPProgressIntervalSeconds
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Cache the per-project throttle so a large component loop does not read
+'           : the options object on every progress candidate.
+'---------------------------------------------------------------------------------------
+'
+Private Property Get MCPProgressIntervalSeconds() As Single
+    If m_sngMCPProgressInterval < 0 Then
+        m_sngMCPProgressInterval = Options.McpProgressIntervalMs / 1000!
+        If m_sngMCPProgressInterval <= 0 Then m_sngMCPProgressInterval = 0.25
+    End If
+    MCPProgressIntervalSeconds = m_sngMCPProgressInterval
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetStreamDiagnosticData
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Return progress-throttle inputs and outcomes for perf JSON.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetStreamDiagnosticData() As Dictionary
+
+    Dim dData As New Dictionary
+    Dim lngIntervalMs As Long
+
+    If m_sngMCPProgressInterval < 0 Then
+        lngIntervalMs = Options.McpProgressIntervalMs
+    Else
+        lngIntervalMs = CLng(m_sngMCPProgressInterval * 1000)
+    End If
+
+    dData.Add "progressIntervalMs", lngIntervalMs
+    dData.Add "progressCandidates", m_lngMCPProgressCandidates
+    dData.Add "progressSent", m_lngMCPProgressSent
+    dData.Add "progressSuppressed", m_lngMCPProgressSuppressed
+
+    Set GetStreamDiagnosticData = dData
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : CleanupOldLogs
 ' Author    : Adam Waller
 ' Date      : 1/26/2026
-' Purpose   : Delete oldest log files when count exceeds maximum.
+' Purpose   : Delete oldest matching files when count exceeds MaxLogFiles.
+'           : strPattern is a Like expression (e.g. "Export_*.log", "TestResults_*.json").
+'           : Enumerates via ScanFolderContents (Win32); filters with VBA Like.
+'           : Timestamped names sort chronologically; 0 = keep all.
 '---------------------------------------------------------------------------------------
 '
-Private Sub CleanupOldLogs(strFolder As String, strBase As String, lngMaxFiles As Long)
+Public Sub CleanupOldLogs(strFolder As String, strPattern As String, lngMaxFiles As Long)
 
-    Dim oFolder As Object
-    Dim oFile As Object
+    Dim colAll As New Collection
+    Dim colSub As New Collection
     Dim colFiles As Collection
+    Dim varFile As Variant
+    Dim lngIdx As Long
+    Dim strName As String
 
     ' 0 = keep all logs (no cleanup)
     If lngMaxFiles <= 0 Then Exit Sub
 
     Set colFiles = New Collection
-    Set oFolder = FSO.GetFolder(strFolder)
 
-    ' Collect matching archived log files
-    ' (Timestamp naming means alphabetical sort = chronological sort)
-    For Each oFile In oFolder.Files
-        If oFile.Name Like strBase & "_*.log" Then
-            colFiles.Add oFile.Path
+    ' Single Win32 pass; filter with VBA Like (not Win32 mask) for exact semantics
+    ScanFolderContents strFolder, colAll, colSub
+    For Each varFile In colAll
+        strName = FSO.GetFileName(CStr(varFile))
+        If strName Like strPattern Then
+            For lngIdx = 1 To colFiles.Count
+                If StrComp(strName, FSO.GetFileName(colFiles(lngIdx)), vbTextCompare) < 0 Then Exit For
+            Next lngIdx
+            If lngIdx > colFiles.Count Then
+                colFiles.Add CStr(varFile)
+            Else
+                colFiles.Add CStr(varFile), Before:=lngIdx
+            End If
         End If
-    Next oFile
+    Next varFile
 
     ' Delete oldest files if over limit
     Do While colFiles.Count > lngMaxFiles

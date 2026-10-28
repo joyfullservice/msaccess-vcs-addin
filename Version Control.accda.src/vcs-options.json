@@ -1,13 +1,13 @@
 ﻿{
   "Info": {
-    "AddinVersion": "5.0.1",
+    "AddinVersion": "5.1.0",
     "AccessVersion": "16.0 64-bit"
   },
   "Options": {
     "ExportFolder": "",
     "UseFastSave": true,
     "SplitLayoutFromVBA": true,
-    "ExportFormatVersion": "5.0.0",
+    "ExportFormatVersion": "5.1.0",
     "RunBeforeExport": "",
     "RunAfterExport": "",
     "SanitizeLevel": 2,
@@ -48,10 +48,13 @@
     "ExportAfterMerge": false,
     "ForceImportOriginalQuerySQL": false,
     "UseMergeBuild": false,
+    "MergeTableData": true,
+    "SkipReopenBeforeMerge": true,
     "RunBeforeBuild": "",
     "RunAfterBuild": "AfterBuild",
     "RunBeforeMerge": "",
     "RunAfterMerge": "",
+    "ValidateAfterBuild": "",
     "TablesToExportData": {
       "USysRegInfo": {
         "Format": "Tab Delimited"
@@ -77,6 +80,11 @@
     "HashAlgorithm": "SHA256",
     "UseShortHash": true,
     "UseGitIntegration": false,
-    "ShowVCSLegacy": true
+    "ShowVCSLegacy": true,
+    "UseWebTestRunner": true,
+    "ExportTestResultsJUnit": true,
+    "ExportTestResultsHtml": true,
+    "ExportPerfJson": false,
+    "McpProgressIntervalMs": 500
   }
 }

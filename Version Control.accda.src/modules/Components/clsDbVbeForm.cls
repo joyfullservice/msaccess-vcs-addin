@@ -107,8 +107,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim cIdx As clsVCSIndexItem
     Set cIdx = VCSIndex.Update(Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), GetStringHash(strContent, True))
 
-    ' Cache the @Folder annotation in the index
-    cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
+    ' Cache the @Folder annotation in the index.
+    ' Guard against a Nothing item under an abnormal/re-entrant index state.
+    If Not cIdx Is Nothing Then _
+        cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
     ' Remove duplicate files at any other location in the base folder tree
     CleanupDuplicateSourceFiles IDbComponent_BaseFolder, strExportFolder, _
@@ -136,10 +138,14 @@ Private Sub IDbComponent_Import(strFile As String)
     ' Only import files with the correct (primary) extension.
     If Not strFile Like "*.json" Then Exit Sub
 
+    If FileHasGitConflictMarkers(strFile, ModuleName(Me) & ".Import") Then Exit Sub
+
     ' Make sure the other two companion files also exist
     strTestFile = SwapExtension(strFile, "frm")
     If Not FSO.FileExists(strTestFile) Then
         Log.Error eelError, "VBE Form definition file not found: " & strTestFile, ModuleName(Me) & ".Import"
+        Exit Sub
+    ElseIf FileHasGitConflictMarkers(strTestFile, ModuleName(Me) & ".Import") Then
         Exit Sub
     Else
         ' Check binary file
@@ -227,10 +233,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
-    VerifyPath strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".frm", strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".frx", strToFolder
+    MoveComponentSource Me, strFromFolder, strToFolder
 End Sub
 
 
@@ -246,12 +249,18 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim frm As VBComponent
     Dim cForm As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentVBProject.VBComponents.Count
+            sngStart = Timer
+        End If
         For Each frm In CurrentVBProject.VBComponents
             If frm.Type = vbext_ct_MSForm Then
                 Set cForm = New clsDbVbeForm
@@ -259,6 +268,7 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 If blnNeedAll Then m_Items(False).Add cForm.SourceFile, cForm
                 If blnModifiedOnly Then
                     If cForm.IsModified Then m_Items(True).Add cForm.SourceFile, cForm
+                    Log.IncrementObjectScanProgress sngStart, lngScanCount, "VBE Forms"
                 End If
             End If
         Next frm
@@ -367,7 +377,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "json"
     IDbComponent_FileExtensions.Add "frx"

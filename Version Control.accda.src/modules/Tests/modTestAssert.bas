@@ -13,12 +13,24 @@
 '           : TestAssert falls back to Debug.Assert, preserving the standard
 '           : debugger-break behavior.
 '           :
+'           : It also reports whether a test run is currently driving this project, so
+'           : project code can skip anything that would wait for a person. See
+'           : TestRunActive.
+'           :
 '           : This module has ZERO compile-time dependencies on the VCS add-in.
 '           : It compiles and runs in any Access database.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
 '@Folder("Tests")
+
+' True while a test run is driving this project. Set by the test runner, which executes
+' in the add-in - a different VBA project - and so cannot be observed from here any other
+' way. Guard anything that waits for a person, so an unattended run cannot stall on it:
+'
+'   If Not TestRunActive Then MsgBox "Import complete.", vbInformation
+'
+Public TestRunActive As Boolean
 
 ' Cached path for the add-in library, resolved on first use.
 Private m_strAddInPath As String
@@ -51,6 +63,19 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SetTestRunActive
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Called by the VCS test runner as a run starts and finishes. Application.Run
+'           : reaches procedures, not variables, so the flag is set through here.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetTestRunActive(ByVal blnActive As Boolean)
+    TestRunActive = blnActive
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : ResolveAddInPath
 ' Author    : Adam Waller
 ' Date      : 5/7/2026
@@ -62,7 +87,8 @@ End Sub
 '
 Private Function ResolveAddInPath() As String
     If Len(m_strAddInPath) = 0 Then
-        m_strAddInPath = GetSetting("MSAccessVCS", "Install", "Install Folder", _
+        ' Qualify with VBA. so a host project's own GetSetting cannot shadow the built-in.
+        m_strAddInPath = VBA.GetSetting("MSAccessVCS", "Install", "Install Folder", _
             Environ$("AppData") & "\MSAccessVCS") & "\Version Control"
     End If
     ResolveAddInPath = m_strAddInPath
@@ -84,11 +110,19 @@ Public Function TestClassFactory(ByVal strClassName As String) As Object
         Case "clsTestConnectionODBC": Set TestClassFactory = New clsTestConnectionODBC
         Case "clsTestDotEnv": Set TestClassFactory = New clsTestDotEnv
         Case "clsTestEncoding": Set TestClassFactory = New clsTestEncoding
+        Case "clsTestInstall": Set TestClassFactory = New clsTestInstall
         Case "clsTestOptions": Set TestClassFactory = New clsTestOptions
+        Case "clsTestPrinterSettings": Set TestClassFactory = New clsTestPrinterSettings
         Case "clsTestQueryComposer": Set TestClassFactory = New clsTestQueryComposer
+        Case "clsTestQueryComposerCrosstab": Set TestClassFactory = New clsTestQueryComposerCrosstab
+        Case "clsTestQueryComposerJoins": Set TestClassFactory = New clsTestQueryComposerJoins
+        Case "clsTestQueryComposerParameters": Set TestClassFactory = New clsTestQueryComposerParameters
+        Case "clsTestQueryLayout": Set TestClassFactory = New clsTestQueryLayout
         Case "clsTestRunnerFilters": Set TestClassFactory = New clsTestRunnerFilters
         Case "clsTestSourceParser": Set TestClassFactory = New clsTestSourceParser
         Case "clsTestSqlFormatter": Set TestClassFactory = New clsTestSqlFormatter
+        Case "clsTestSqlSyntax": Set TestClassFactory = New clsTestSqlSyntax
+        Case "clsTestWorkerLifecycle": Set TestClassFactory = New clsTestWorkerLifecycle
     End Select
 '--- END TEST CLASS ENTRIES ---
 End Function

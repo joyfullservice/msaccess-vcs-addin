@@ -130,10 +130,6 @@ Begin Form
                     Name ="txtExportFolder"
                     BeforeUpdate ="[Event Procedure]"
 
-                    LayoutCachedLeft =1920
-                    LayoutCachedTop =1620
-                    LayoutCachedWidth =6000
-                    LayoutCachedHeight =1935
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -144,10 +140,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label31"
                             Caption ="Export Folder:"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =1620
-                            LayoutCachedWidth =1800
-                            LayoutCachedHeight =1935
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -160,10 +152,6 @@ Begin Form
                     Top =1440
                     Width =6420
                     Name ="Line0"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1440
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =1440
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -177,10 +165,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label1"
                     Caption ="Project"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =1380
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -231,10 +215,6 @@ Begin Form
                     End
                     BackStyle =0
 
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =180
-                    LayoutCachedWidth =540
-                    LayoutCachedHeight =660
                     Gradient =0
                     BorderWidth =1
                     BorderThemeColorIndex =1
@@ -251,10 +231,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label3"
                     Caption ="General options for the VCS Add-in"
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =240
-                    LayoutCachedWidth =6240
-                    LayoutCachedHeight =660
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -267,10 +243,6 @@ Begin Form
                     FontSize =10
                     Name ="Label309"
                     Caption ="(leave blank for default)"
-                    LayoutCachedLeft =1920
-                    LayoutCachedTop =2040
-                    LayoutCachedWidth =6060
-                    LayoutCachedHeight =2340
                     ForeTint =50.0
                 End
                 Begin Line
@@ -280,10 +252,6 @@ Begin Form
                     Top =3120
                     Width =6420
                     Name ="Line4"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =3120
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =3120
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -297,10 +265,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label5"
                     Caption ="Tools (this machine only)"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =2760
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =3060
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -319,10 +283,6 @@ Begin Form
                     RowSource ="\"WinMerge\";\"VSCode\";\"TortoiseGitDiff\""
                     AllowValueListEdits =0
 
-                    LayoutCachedLeft =2460
-                    LayoutCachedTop =3420
-                    LayoutCachedWidth =4200
-                    LayoutCachedHeight =3735
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -333,10 +293,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label239"
                             Caption ="File Diff Tool:"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =3420
-                            LayoutCachedWidth =2400
-                            LayoutCachedHeight =3735
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -360,10 +316,6 @@ Begin Form
                     ColumnWidths ="0"
                     AllowValueListEdits =0
 
-                    LayoutCachedLeft =2460
-                    LayoutCachedTop =3900
-                    LayoutCachedWidth =4200
-                    LayoutCachedHeight =4215
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -374,10 +326,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label305"
                             Caption ="Open Repository:"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =3900
-                            LayoutCachedWidth =2400
-                            LayoutCachedHeight =4215
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -402,10 +350,6 @@ Begin Form
                     OnClick ="[Event Procedure]"
                     AllowValueListEdits =0
 
-                    LayoutCachedLeft =2460
-                    LayoutCachedTop =4380
-                    LayoutCachedWidth =4200
-                    LayoutCachedHeight =4695
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -416,10 +360,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label252"
                             Caption ="Language:"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =4380
-                            LayoutCachedWidth =2400
-                            LayoutCachedHeight =4695
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -445,10 +385,6 @@ Begin Form
                     BackStyle =0
 
                     CursorOnHover =1
-                    LayoutCachedLeft =4500
-                    LayoutCachedTop =4440
-                    LayoutCachedWidth =6000
-                    LayoutCachedHeight =4680
                     Alignment =3
                     ForeThemeColorIndex =10
                     ForeTint =100.0

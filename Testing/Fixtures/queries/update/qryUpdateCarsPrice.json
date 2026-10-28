@@ -5,7 +5,6 @@
   },
   "Items": {
     "QueryType": 48,
-    "OptionFlag": 2,
     "QueryProperties": {
       "FailOnError": {
         "Type": 1,

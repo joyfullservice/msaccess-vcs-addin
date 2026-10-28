@@ -35,6 +35,7 @@ End Type
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -70,7 +71,7 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     ' Produced for both normal and alternate-path (temp) exports so that conflict
     ' detection can compare all files and the conflict dialog can offer per-file diffs.
     ExportObjectMetadata FSO.GetParentFolderName(Nz2(strAlternatePath, IDbComponent_SourceFile)) & PathSep _
-        & strSafeName & ".json", "Modules", m_Module.Name, acModule
+        & strSafeName & ".json", "Modules", m_Module.Name, Me
 
     ' Clean up stale files only during normal exports (not alternate/temp exports)
     If strAlternatePath = vbNullString Then
@@ -98,7 +99,9 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Cache the @Folder annotation in the index so subsequent scans
     ' can skip the expensive VBE COM call for unchanged objects.
-    cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
+    ' Guard against a Nothing item under an abnormal/re-entrant index state.
+    If Not cIdx Is Nothing Then _
+        cIdx.FolderAnnotation = IIf(Len(strAnnotation) > 0, strAnnotation, FOLDER_ANNOTATION_NONE)
 
 End Sub
 
@@ -127,6 +130,8 @@ Private Sub IDbComponent_Import(strFile As String)
 
     ' Only import files with the correct extension.
     If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
+
+    If FileHasGitConflictMarkers(strFile, FunctionName) Then Exit Sub
 
     ' Parse source file
     strName = GetObjectNameFromFileName(strFile)
@@ -182,6 +187,8 @@ Public Sub ImportFast(strFile As String)
 
     If Not (strFile Like "*.bas" Or strFile Like "*.cls") Then Exit Sub
 
+    If FileHasGitConflictMarkers(strFile, FunctionName) Then Exit Sub
+
     strName = GetObjectNameFromFileName(strFile)
     udtFile = ParseSourceFile(strFile, strName)
 
@@ -208,6 +215,11 @@ Public Sub ImportFast(strFile As String)
 
     CatchAny eelError, T("Error importing module: {0}", var0:=strName), FunctionName
 
+End Sub
+
+
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+    ImportFast strFile
 End Sub
 
 
@@ -250,9 +262,7 @@ Public Sub FinalizeImports()
     SaveAllBatchModules FunctionName
     If Operation.ErrorLevel >= eelCritical Then GoTo FinalizeCleanUp
 
-    Perf.OperationStart "Refresh Documents"
-    SharedDb.Containers("Modules").Documents.Refresh
-    Perf.OperationEnd
+    RefreshContainerDocuments "Modules"
 
     For Each varItem In m_colBatchItems
         Set dBatch = varItem
@@ -266,6 +276,11 @@ FinalizeCleanUp:
 
     CatchAny eelError, T("Error finalizing module imports"), FunctionName
 
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+    FinalizeImports
 End Sub
 
 
@@ -537,9 +552,7 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
-    VerifyPath strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
+    MoveComponentSource Me, strFromFolder, strToFolder
 End Sub
 
 
@@ -556,6 +569,8 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim cModule As IDbComponent
     Dim proj As VBProject
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
@@ -563,12 +578,17 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
         Set proj = CurrentVBProject
+        If blnModifiedOnly Then
+            lngScanCount = CurrentProject.AllModules.Count
+            sngStart = Timer
+        End If
         For Each oMod In CurrentProject.AllModules
             Set cModule = New clsDbModule
             Set cModule.DbObject = oMod
             If blnNeedAll Then m_Items(False).Add cModule.SourceFile, cModule
             If blnModifiedOnly Then
                 If cModule.IsModified Then m_Items(True).Add cModule.SourceFile, cModule
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Modules"
             End If
         Next oMod
     End If
@@ -604,18 +624,10 @@ End Function
 '
 Public Function IDbComponent_IsModified() As Boolean
 
-    ' Fast path: if the VBE project has no unsaved changes and the
-    ' VBA project date matches the stored VBAProjectDate, skip the
-    ' expensive VBA code hash. (Access saves all modules as a monolithic
-    ' project, so all module dates move in lockstep -- we only need to
-    ' check one date against a single top-level stored value.)
-    If CurrentVBProject.Saved Then
-        If VCSIndex.VBAProjectDate <> 0 Then
-            If DateTruncToSeconds(CurrentProject.AllModules(0).DateModified) = VCSIndex.VBAProjectDate Then
-                GoTo CheckMetadata
-            End If
-        End If
-    End If
+    ' Fast path: skip the expensive VBA code hash when the whole project is unchanged
+    ' since the last export. (Access saves all modules as a monolithic project, so all
+    ' module dates move in lockstep -- we only need one date against VBAProjectDate.)
+    If VbaProjectUnchangedSinceExport Then GoTo CheckMetadata
 
     ' VBE is dirty or date changed -- hash the code to detect changes.
     ' NOTE: This will not detect changes to hidden VBE attributes
@@ -677,7 +689,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "bas"
     IDbComponent_FileExtensions.Add "cls"

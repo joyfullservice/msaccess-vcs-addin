@@ -16,6 +16,10 @@ Option Explicit
 
 Private Const ModuleName = "modLoadSaveText"
 
+' Batched query Description cache (query name -> Description from MSysObjects.LvProp).
+' Active only for the duration of a change-detection scan; see BuildQueryDescriptionCache.
+Private m_dQueryDescCache As Dictionary
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SaveComponentAsText
@@ -29,7 +33,7 @@ Private Const ModuleName = "modLoadSaveText"
 Public Function SaveComponentAsText(intType As AcObjectType _
                                     , strName As String _
                                     , strFile As String _
-                                    , Optional cDbObjectClass As IDbComponent = Nothing) As String
+                                    , cDbObjectClass As IDbComponent) As String
 
     Const FunctionName As String = ModuleName & ".SaveComponentAsText"
 
@@ -106,7 +110,7 @@ Public Function SaveComponentAsText(intType As AcObjectType _
                 If Options.DecodeConditionalFormatting _
                     And Options.ExportFormatVersion >= EFV_5_0_0 Then
                     WriteConditionalFormatting strPrintSettingsFile, _
-                        .GetConditionalFormats, strName
+                        .GetConditionalFormats, strName, TypeName(cDbObjectClass)
                 End If
             End With
 
@@ -173,7 +177,8 @@ Public Function LoadComponentFromText(intType As AcObjectType _
                                     , ByRef strName As String _
                                     , ByRef strFile As String _
                                     , Optional blnSuppressError As Boolean = False _
-                                    , Optional strSourceDisplayFile As String = vbNullString) As Boolean
+                                    , Optional strSourceDisplayFile As String = vbNullString _
+                                    , Optional blnSilentProbe As Boolean = False) As Boolean
 
     Const FunctionName As String = ModuleName & ".LoadComponentFromText"
 
@@ -193,6 +198,27 @@ Public Function LoadComponentFromText(intType As AcObjectType _
     On Error GoTo ErrHandler
     Perf.OperationStart FunctionName
 
+    If FileHasGitConflictMarkers(strFile, FunctionName) Then
+        blnErrInFunction = True
+        GoTo Exit_Here
+    End If
+
+    strAltFile = SwapExtension(strFile, "cls")
+    If FSO.FileExists(strAltFile) Then
+        If FileHasGitConflictMarkers(strAltFile, FunctionName) Then
+            blnErrInFunction = True
+            GoTo Exit_Here
+        End If
+    End If
+
+    strAltFile = SwapExtension(strFile, "json")
+    If FSO.FileExists(strAltFile) Then
+        If FileHasGitConflictMarkers(strAltFile, FunctionName) Then
+            blnErrInFunction = True
+            GoTo Exit_Here
+        End If
+    End If
+
 RetryImport:
     ' In most cases we are importing/converting the actual source file.
     strSourceFile = strFile
@@ -205,6 +231,7 @@ RetryImport:
             strContent = ReadFile(strFile)
             With New clsSourceParser
                 .LoadString strContent, intType
+                .ObjectName = strName
 
                 ' Check for companion JSON (print settings and conditional formatting)
                 strAltFile = SwapExtension(strFile, "json")
@@ -266,14 +293,14 @@ RetryImport:
             ConvertUtf8Ucs2 strSourceFile, strTempFile, False
         End If
         Perf.OperationStart "modLoadFromText.LoadFromText"
-        modLoadFromText.LoadFromText intType, strName, strTempFile
+        modLoadFromText.LoadFromText intType, strName, strTempFile, blnSilentProbe
         Perf.OperationEnd
         DeleteFile strTempFile, True
 
     Else
         ' Load UTF-8 file
         Perf.OperationStart "modLoadFromText.LoadFromText"
-        modLoadFromText.LoadFromText intType, strName, strSourceFile
+        modLoadFromText.LoadFromText intType, strName, strSourceFile, blnSilentProbe
         Perf.OperationEnd
     End If
 
@@ -306,10 +333,15 @@ ErrHandler:
 
     If blnSuppressError Then
         ' Generate warning entries for suppressed errors
-        Log.Error eelWarning, T("Import issue with '{0}'; {1}", var0:=strName, var1:=strErrDescription), FunctionName
+        If Not blnSilentProbe Then
+            Log.Error eelWarning, T("Import issue with '{0}'; {1}", _
+                var0:=strName, var1:=strErrDescription), FunctionName
+        End If
         blnErrInFunction = True
         Resume CleanUp
     End If
+
+    LogGitConflictMarkerIfPresent strSourceDisplayFile, FunctionName
 
     ' Log import details to the log file only; console gets one summary on Ignore.
     Log.Add T("Import issue with '{0}'; {1}", var0:=strName, var1:=strErrDescription), False
@@ -419,6 +451,7 @@ Public Function GetMetadataHash(strContainerName As String, _
 
     LogUnhandledErrors
     On Error Resume Next
+    Perf.OperationStart "Meta: Read Description"
     Set doc = dbs.Containers(strContainerName).Documents(strObjectName)
     If Err.Number = 0 Then
         strDesc = CStr(doc.Properties("Description").Value)
@@ -429,15 +462,221 @@ Public Function GetMetadataHash(strContainerName As String, _
     Else
         Err.Clear
     End If
+    Perf.OperationEnd
 
+    Perf.OperationStart "Meta: Hidden Attribute"
+    Err.Clear
     blnHidden = Application.GetHiddenAttribute(intObjType, strObjectName)
+    If Err.Number <> 0 Then
+        blnHidden = False
+        Err.Clear
+    End If
+    Perf.OperationEnd
+    On Error GoTo 0
+
+    GetMetadataHash = HashMetadataValues(strDesc, blnHidden)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HashMetadataValues
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Single source of truth for the metadata hash formula. Both the generic
+'           : per-object path (GetMetadataHash) and the batched query fast path
+'           : (GetQueryMetadataHash) must produce identical hashes for the same inputs,
+'           : otherwise unmodified objects would be flagged as changed.
+'---------------------------------------------------------------------------------------
+'
+Public Function HashMetadataValues(strDesc As String, blnHidden As Boolean) As String
+    HashMetadataValues = GetStringHash(strDesc & "|" & CStr(blnHidden), True)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetQueryMetadataHash
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Fast-path metadata hash for queries used during change-detection scans.
+'           : When a batch Description cache is active (built by
+'           : BuildQueryDescriptionCache), the Description is read from the cached
+'           : MSysObjects.LvProp values instead of a per-object DAO/COM call. On a
+'           : database with thousands of queries the per-object DAO Description read
+'           : dominated fast-save export time (~82% in one profile); a single batched
+'           : recordset read eliminates that cost. The hidden attribute stays a direct
+'           : GetHiddenAttribute call (negligibly fast). When no cache is active this
+'           : falls back to the standard per-object path, so correctness is unchanged
+'           : for callers outside the batch loop.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetQueryMetadataHash(strQueryName As String) As String
+
+    Dim strDesc As String
+    Dim blnHidden As Boolean
+
+    If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Function
+
+    ' No batch cache active - use the standard per-object path (identical result).
+    If m_dQueryDescCache Is Nothing Then
+        GetQueryMetadataHash = GetMetadataHash("Tables", strQueryName, acQuery)
+        Exit Function
+    End If
+
+    If m_dQueryDescCache.Exists(strQueryName) Then strDesc = m_dQueryDescCache(strQueryName)
+
+    LogUnhandledErrors
+    On Error Resume Next
+    blnHidden = Application.GetHiddenAttribute(acQuery, strQueryName)
     If Err.Number <> 0 Then
         blnHidden = False
         Err.Clear
     End If
     On Error GoTo 0
 
-    GetMetadataHash = GetStringHash(strDesc & "|" & CStr(blnHidden), True)
+    GetQueryMetadataHash = HashMetadataValues(strDesc, blnHidden)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildQueryDescriptionCache
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Batch-load every query Description from MSysObjects.LvProp into a module
+'           : cache in a single recordset pass, replacing thousands of per-object DAO
+'           : Description reads during a fast-save scan. Always rebuilds fresh so a
+'           : cache from a prior operation can never go stale (a missed clear on an
+'           : error path is harmless). Auto-generated "~sq_*" system queries are
+'           : skipped - they are not enumerated by CurrentData.AllQueries. LvProp
+'           : Description values were verified byte-for-byte equal to the DAO document
+'           : property (see DECISIONS.md 2026-07-13 - Fast-save query metadata scan).
+'---------------------------------------------------------------------------------------
+'
+Public Sub BuildQueryDescriptionCache()
+
+    Dim dbs As Database
+    Dim rst As DAO.Recordset
+    Dim strName As String
+    Dim strDesc As String
+    Dim bteLvProp() As Byte
+
+    Perf.OperationStart "Build Query Desc Cache"
+
+    Set m_dQueryDescCache = New Dictionary
+    m_dQueryDescCache.CompareMode = TextCompare
+
+    If DebugMode(True) Then On Error GoTo Err_Handler Else On Error Resume Next
+
+    Set dbs = SharedDb
+    Set rst = dbs.OpenRecordset( _
+        "SELECT Name, LvProp FROM MSysObjects WHERE Type=5", _
+        dbOpenSnapshot, dbReadOnly)
+    If rst Is Nothing Then GoTo Err_Handler
+
+    Do While Not rst.EOF
+        strName = Nz(rst!Name, vbNullString)
+        ' Skip auto-generated system queries (not in CurrentData.AllQueries).
+        If Len(strName) > 0 Then
+            If Left$(strName, 1) <> "~" Then
+                Erase bteLvProp
+                If Not IsNull(rst!LvProp) Then
+                    bteLvProp = rst!LvProp
+                    strDesc = ParseLvPropDescription(bteLvProp)
+                Else
+                    strDesc = vbNullString
+                End If
+                m_dQueryDescCache(strName) = strDesc
+            End If
+        End If
+        rst.MoveNext
+    Loop
+    rst.Close
+
+    ' Clear any benign leftover error so the failure handler only fires on real faults.
+    Err.Clear
+    On Error GoTo 0
+    GoTo CleanUp
+
+Err_Handler:
+    On Error Resume Next
+    ' On any failure, drop the (possibly partial) cache so IsModified falls back to the
+    ' reliable per-object Description read rather than trusting incomplete data.
+    CatchAny eelWarning, "Error building query Description cache", _
+        ModuleName & ".BuildQueryDescriptionCache", True, True
+    Set m_dQueryDescCache = Nothing
+
+CleanUp:
+    Set rst = Nothing
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearQueryDescriptionCache
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Release the batched query Description cache after a scan completes. Safe
+'           : to call when no cache is active.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ClearQueryDescriptionCache()
+    Set m_dQueryDescCache = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseLvPropDescription
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Extract the table-level Description property value from an LvProp blob.
+'           : Returns an empty string when the blob is absent or carries no Description.
+'---------------------------------------------------------------------------------------
+'
+Private Function ParseLvPropDescription(bteLvProp() As Byte) As String
+
+    Dim dParsed As Dictionary
+    Dim dTableProps As Dictionary
+    Dim dDesc As Dictionary
+    Dim cParser As clsLvPropParser
+    Dim intSanitize As eSanitizeLevel
+
+    If Not HasByteArrayDim(bteLvProp) Then Exit Function
+
+    If OptionsLoaded Then intSanitize = Options.SanitizeLevel Else intSanitize = eslStandard
+
+    Set cParser = New clsLvPropParser
+    Set dParsed = cParser.ParseLvProp(bteLvProp, intSanitize)
+    If dParsed Is Nothing Then Exit Function
+    If Not dParsed.Exists("TableProperties") Then Exit Function
+
+    Set dTableProps = dParsed("TableProperties")
+    If Not dTableProps.Exists("Description") Then Exit Function
+
+    Set dDesc = dTableProps("Description")
+    ParseLvPropDescription = Nz(dDesc("Value"), vbNullString)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HasByteArrayDim
+' Author    : Adam Waller
+' Date      : 7/13/2026
+' Purpose   : Returns true when a Byte array has been dimensioned (has elements).
+'---------------------------------------------------------------------------------------
+'
+Private Function HasByteArrayDim(bteData() As Byte) As Boolean
+
+    LogUnhandledErrors
+    On Error Resume Next
+    HasByteArrayDim = (UBound(bteData) >= LBound(bteData))
+    If Err.Number <> 0 Then
+        HasByteArrayDim = False
+        Err.Clear
+    End If
+    On Error GoTo 0
 
 End Function
 
@@ -454,7 +693,9 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Sub CollectObjectMetadata(dItems As Dictionary, strContainerName As String, _
-                                 strObjectName As String, intObjType As AcObjectType)
+                                 strObjectName As String, intObjType As AcObjectType, _
+                                 Optional ByVal blnUsePreloadedDescription As Boolean = False, _
+                                 Optional dPreloadedDescription As Dictionary = Nothing)
 
     Dim dProps As Dictionary
     Dim dProp As Dictionary
@@ -495,6 +736,16 @@ Public Sub CollectObjectMetadata(dItems As Dictionary, strContainerName As Strin
         Next prp
         CatchAny eelError, "Error reading document properties for " & strObjectName, _
             ModuleName & ".CollectObjectMetadata"
+    ElseIf blnUsePreloadedDescription Then
+        ' Deterministic query export has already parsed the same Description from
+        ' MSysObjects.LvProp. Reuse it instead of making a second DAO document call.
+        If Not dPreloadedDescription Is Nothing Then
+            Set dProp = New Dictionary
+            dProp.CompareMode = TextCompare
+            dProp.Add "Type", dPreloadedDescription("Type")
+            dProp.Add "Value", dPreloadedDescription("Value")
+            dProps.Add "Description", dProp
+        End If
     Else
         ' Fast path: only check for Description property
         LogUnhandledErrors
@@ -549,14 +800,28 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As String, _
-                                strObjectName As String, intObjType As AcObjectType)
+                                strObjectName As String, cDbObjectClass As IDbComponent)
 
     Dim dFile As Dictionary
     Dim dItems As Dictionary
     Dim dHeader As Dictionary
+    Dim strClass As String
+    Dim intObjType As AcObjectType
 
     ' Gate behind export format version
     If Options.ExportFormatVersion < EFV_5_0_0 Then Exit Sub
+
+    ' The Access object type is derived from the component (edb* enum members
+    ' equal their AcObjectType counterparts for these standard object types).
+    intObjType = cDbObjectClass.ComponentType
+
+    ' The owning component class (e.g. clsDbForm) is recorded in Info.Class for
+    ' EFV_5_1_0+; earlier formats leave it empty for backward-compatible bytes.
+    If Options.ExportFormatVersion >= EFV_5_1_0 Then
+        strClass = TypeName(cDbObjectClass)
+    Else
+        strClass = vbNullString
+    End If
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -583,12 +848,15 @@ Public Sub ExportObjectMetadata(strJsonFile As String, strContainerName As Strin
         ' existing files like linked tables already have one and it is preserved)
         If Not dFile.Exists("Info") Then
             Set dHeader = New Dictionary
-            dHeader.Add "Class", vbNullString
+            dHeader.Add "Class", strClass
             dHeader.Add "Description", strObjectName & " Metadata"
             ' Build new dictionary with Info before Items for correct JSON key order
             Set dFile = New Dictionary
             dFile.Add "Info", dHeader
             dFile.Add "Items", dItems
+        ElseIf Options.ExportFormatVersion >= EFV_5_1_0 Then
+            Set dHeader = dFile("Info")
+            dHeader("Class") = strClass
         End If
         WriteFile ConvertToJson(dFile, JSON_WHITESPACE), strJsonFile
     Else
@@ -610,11 +878,20 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub WriteConditionalFormatting(strJsonFile As String, dCF As Dictionary, _
-                                      strObjectName As String)
+                                      strObjectName As String, strComponentClass As String)
 
     Dim dFile As Dictionary
     Dim dItems As Dictionary
     Dim dHeader As Dictionary
+    Dim strClass As String
+
+    ' Use the owning component class (e.g. clsDbForm) for EFV_5_1_0+; earlier
+    ' formats keep the legacy "clsSourceParser" value for backward-compatible bytes.
+    If Options.ExportFormatVersion >= EFV_5_1_0 And Len(strComponentClass) > 0 Then
+        strClass = strComponentClass
+    Else
+        strClass = "clsSourceParser"
+    End If
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -638,11 +915,14 @@ Public Sub WriteConditionalFormatting(strJsonFile As String, dCF As Dictionary, 
     If dItems.Count > 0 Then
         If Not dFile.Exists("Info") Then
             Set dHeader = New Dictionary
-            dHeader.Add "Class", "clsSourceParser"
+            dHeader.Add "Class", strClass
             dHeader.Add "Description", strObjectName & " Conditional Formatting"
             Set dFile = New Dictionary
             dFile.Add "Info", dHeader
             dFile.Add "Items", dItems
+        ElseIf Options.ExportFormatVersion >= EFV_5_1_0 Then
+            Set dHeader = dFile("Info")
+            dHeader("Class") = strClass
         End If
         WriteFile ConvertToJson(dFile, JSON_WHITESPACE), strJsonFile
     Else
@@ -651,6 +931,29 @@ Public Sub WriteConditionalFormatting(strJsonFile As String, dCF As Dictionary, 
 
     CatchAny eelError, "Error writing conditional formatting for " & strObjectName, _
         ModuleName & ".WriteConditionalFormatting"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefreshContainerDocuments
+' Author    : Adam Waller
+' Date      : 9/15/2026
+' Purpose   : Refresh one DAO container's Documents collection, preserving the shared
+'           : performance operation used by immediate and batched metadata imports.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RefreshContainerDocuments(strContainerName As String)
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Perf.OperationStart "Refresh Documents"
+    SharedDb.Containers(strContainerName).Documents.Refresh
+    Perf.OperationEnd
+
+    CatchAny eelError, T("Error refreshing database documents for {0}", _
+        var0:=strContainerName), ModuleName & ".RefreshContainerDocuments"
 
 End Sub
 
@@ -691,9 +994,7 @@ Public Sub ImportObjectMetadata(strJsonFile As String, strContainerName As Strin
     ' Apply document properties
     If dItems.Exists("Properties") Then
         If Not blnSkipDocumentsRefresh Then
-            Perf.OperationStart "Refresh Documents"
-            dbs.Containers(strContainerName).Documents.Refresh
-            Perf.OperationEnd
+            RefreshContainerDocuments strContainerName
         End If
         Set dProps = dItems("Properties")
         For Each varProp In dProps.Keys
@@ -720,6 +1021,31 @@ Public Sub ImportObjectMetadata(strJsonFile As String, strContainerName As Strin
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormSourceRequiresEdgeControl
+' Author    : Adam Waller
+' Date      : 7/16/2026
+' Purpose   : True when a form source file contains an Edge browser control block.
+'---------------------------------------------------------------------------------------
+'
+Public Function FormSourceRequiresEdgeControl(strFile As String) As Boolean
+
+    Dim varLine As Variant
+    Dim strTrimmed As String
+
+    If Not FSO.FileExists(strFile) Then Exit Function
+
+    For Each varLine In Split(ReadFile(strFile), vbCrLf)
+        strTrimmed = Trim$(CStr(varLine))
+        If strTrimmed = "Begin Edge" Then
+            FormSourceRequiresEdgeControl = True
+            Exit Function
+        End If
+    Next varLine
+
+End Function
 
 
 '---------------------------------------------------------------------------------------

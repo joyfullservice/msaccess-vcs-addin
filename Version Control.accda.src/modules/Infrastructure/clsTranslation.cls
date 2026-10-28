@@ -36,6 +36,7 @@ Private Type udtThis
     dTranslation As Dictionary  ' Translated strings in local language (key of string ID)
     dTranslated As Dictionary   ' Translated strings (key of translated string)
     CurrentLanguage As String   ' Identifier of current language (i.e. "en_US")
+    blnLoadFailed As Boolean    ' Set when the string tables could not be read (see LoadLanguage)
 End Type
 Private this As udtThis
 
@@ -72,6 +73,7 @@ Public Function T(strText As String, Optional strReference As String, _
 
     Dim strNew As String
     Dim strKey As String
+    Dim lngId As Long
 
     ' Skip processing if no value is passed
     If strText = vbNullString Then Exit Function
@@ -89,14 +91,20 @@ Public Function T(strText As String, Optional strReference As String, _
             ' Use translated string
             strNew = this.dTranslation(this.dStrings(strKey))
         End If
+    ElseIf this.blnLoadFailed Then
+        ' The master string list could not be read, so a missing key does not mean
+        ' this string is new. Recording it would duplicate an existing row.
     Else
         If this.dTranslated.Exists(strText) Then
             ' We have already translated this string. Don't add the translation
             ' as a new string in our translation database.
         Else
             ' Add to master list of strings (no translation exists)
-            this.dStrings.Add strKey, SaveString(strText, strReference, strContext, strComments)
-            this.dTranslated.Add strText, vbNullString
+            lngId = SaveString(strText, strReference, strContext, strComments)
+            If lngId > 0 Then
+                this.dStrings.Add strKey, lngId
+                this.dTranslated.Add strText, vbNullString
+            End If
         End If
     End If
 
@@ -180,6 +188,11 @@ Public Sub ApplyTo(frmObject As Form)
 
         End Select
 
+        ' A tooltip is a separate user-facing string from the caption, and exists on
+        ' most interactive control types regardless of whether the caption above was
+        ' translated.
+        ApplyToControlTip ctl, strReference, dReferences
+
         ' Maintain list of references so we can purge unused entries
         If Len(strReference) Then If Not dReferences.Exists(strReference) Then dReferences.Add strReference, vbNullString
 
@@ -192,6 +205,57 @@ Public Sub ApplyTo(frmObject As Form)
     ' Purge any unused references
     If Me.Contribute Then PurgeStrings frmObject.Name & ".", dReferences
     PurgeStrings frmObject.Name & ".", dReferences
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyToControlTip
+' Author    : Adam Waller
+' Date      : 8/7/2026
+' Purpose   : Translate a control's tooltip, when it has one.
+'           :
+'           : Screened by an exclusion list rather than a list of types that do have a
+'           : tooltip, because the latter is long and a missing entry would silently
+'           : leave a tooltip in English. Labels are why the screen is worth having at
+'           : all: they are the most numerous control on these forms, and probing each
+'           : one for a property it does not have would raise an error every time, which
+'           : stops the debugger for anyone running with Break on All Errors.
+'           :
+'           : Keyed with a `.ControlTipText` suffix so a control's tooltip and its
+'           : caption are tracked as separate references, the same way the form's own
+'           : caption is keyed. Both must reach dReferences or PurgeStrings drops them.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ApplyToControlTip(ctl As Control, strReference As String, dReferences As Dictionary)
+
+    Dim strTip As String
+    Dim strKey As String
+
+    ' Decorative control types carry no tooltip.
+    Select Case ctl.ControlType
+        Case acLabel, acLine, acRectangle, acPageBreak, acTabCtl
+            Exit Sub
+    End Select
+
+    ' An unusual type (a custom or ActiveX control) may still lack the property, so read
+    ' it defensively rather than trusting the list above to be complete.
+    LogUnhandledErrors
+    On Error Resume Next
+    Err.Clear
+    strTip = ctl.ControlTipText
+    If Err Then
+        Err.Clear
+        On Error GoTo 0
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    If Len(strTip) = 0 Then Exit Sub
+
+    strKey = strReference & ".ControlTipText"
+    ctl.ControlTipText = T(strTip, strKey)
+    If Not dReferences.Exists(strKey) Then dReferences.Add strKey, vbNullString
 
 End Sub
 
@@ -481,8 +545,20 @@ Private Function SaveString(strText As String, strReference As String, _
     Dim dbs As Database
     Dim rst As Recordset
 
+    ' T() is called from inside other procedures that may already have a pending
+    ' Err. LogUnhandledErrors would treat that as unhandled and Stop here when
+    ' Break On Error is on, so suppress first and do not trap incoming errors.
+    ' Opening tblStrings fails for the same compile-error reason LoadLanguage
+    ' does; this procedure must not break on that either.
+    SuppressErrorBreaks
+    On Error Resume Next
+
     Set dbs = CodeDb
     Set rst = dbs.OpenRecordset("tblStrings")
+    If CatchAny(eelNoError, "Unable to open string table", _
+        ModuleName(Me) & ".SaveString", True, True, True) Or rst Is Nothing Then
+        GoTo CleanUp
+    End If
 
     With rst
         .AddNew
@@ -495,6 +571,14 @@ Private Function SaveString(strText As String, strReference As String, _
         SaveString = !Id
         .Close
     End With
+
+    If CatchAny(eelNoError, "Unable to save language string", _
+        ModuleName(Me) & ".SaveString", True, True, True) Then
+        SaveString = 0
+    End If
+
+CleanUp:
+    RestoreErrorBreaks
 
 End Function
 
@@ -532,7 +616,10 @@ End Sub
 ' Procedure : LoadLanguage
 ' Author    : Adam Waller
 ' Date      : 5/15/2021
-' Purpose   : Loads the language entries into the dictionary objects.
+' Purpose   : Loads the language entries into the dictionary objects. A compile error
+'           : anywhere in the add-in project can make qryTranslatedStrings fail to
+'           : open; that is non-fatal and we continue untranslated until a later
+'           : SetLanguage or LoadTranslations call retries.
 '---------------------------------------------------------------------------------------
 '
 Private Sub LoadLanguage(strLanguage As String)
@@ -543,15 +630,41 @@ Private Sub LoadLanguage(strLanguage As String)
     Dim strSql As String
     Dim strPath As String
 
+    ' Reset state before the error handling below, so that any logging from this
+    ' procedure cannot re-enter through CheckInit. (Plain assignments do not clear the
+    ' Err object, so LogUnhandledErrors still sees any error that arrived here.)
     this.CurrentLanguage = strLanguage
+    this.blnLoadFailed = False
     Set this.dStrings = New Dictionary
     Set this.dTranslation = New Dictionary
     Set this.dTranslated = New Dictionary
+
+    ' Make this procedure incapable of breaking, then report anything that arrived from
+    ' the caller. A failure below usually means a compile error elsewhere in the add-in
+    ' stopped Access evaluating the query's expressions -- not a translation problem.
+    ' Breaking would stop on a call T() makes from everywhere, unattended runs included,
+    ' and hide the compile error that needs fixing.
+    SuppressErrorBreaks
+    LogUnhandledErrors
+    On Error Resume Next
 
     ' Load strings and translations
     Set dbs = CodeDb
     strSql = "select * from qryTranslatedStrings where (Lang = '" & strLanguage & "')"
     Set rst = dbs.OpenRecordset(strSql, dbOpenDynaset)
+
+    ' A compile error anywhere in the add-in project stops Access from evaluating the
+    ' expressions in this query, so this open can fail for a reason that has nothing to
+    ' do with the translation data, and one the user resolves later. Continue
+    ' untranslated rather than failing the caller.
+    ' (Descriptions here are not wrapped in T() because the strings needed to translate
+    '  them are the ones that just failed to load.)
+    If CatchAny(eelNoError, "Unable to load language strings", _
+        ModuleName(Me) & ".LoadLanguage", True, True, True) Or rst Is Nothing Then
+        this.blnLoadFailed = True
+        GoTo CleanUp
+    End If
+
     With rst
         Do While Not .EOF
             strKey = BuildKey(Nz(!context), Nz(!msgid))
@@ -562,9 +675,21 @@ Private Sub LoadLanguage(strLanguage As String)
                 End If
             End If
             .MoveNext
+            ' Query expressions are evaluated as rows are fetched, so the failure above
+            ' can surface here instead. Stop rather than spin on a recordset that raises
+            ' on every row.
+            If Err Then Exit Do
         Loop
         .Close
     End With
+
+    ' A partial read leaves gaps that T() cannot tell apart from strings it has never
+    ' seen, so treat it the same as a failed load.
+    If CatchAny(eelNoError, "Unable to load all language strings", _
+        ModuleName(Me) & ".LoadLanguage", True, True, True) Then
+        this.blnLoadFailed = True
+        GoTo CleanUp
+    End If
 
     ' Reload the ribbon to reflect any translation changes there.
     If RibbonLoaded Then
@@ -573,6 +698,12 @@ Private Sub LoadLanguage(strLanguage As String)
         WriteFile ConvertToJson(GetRibbonStrings, 2), strPath
         modCOMAddIn.ReloadRibbon
     End If
+
+    CatchAny eelNoError, "Error reloading ribbon translations", _
+        ModuleName(Me) & ".LoadLanguage", True, True, True
+
+CleanUp:
+    RestoreErrorBreaks
 
 End Sub
 

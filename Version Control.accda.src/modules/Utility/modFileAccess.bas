@@ -13,6 +13,11 @@ Option Explicit
 
 Private Const ModuleName As String = "modFileAccess"
 
+Private Const GIT_CONFLICT_SCAN_MAX_BYTES As Double = 26214400  ' 25 MB
+Private Const GIT_MARKER_OVERLAP As Long = 6
+Private Const GIT_MARKER_OPEN As String = "<<<<<<<"
+Private Const GIT_MARKER_CLOSE As String = ">>>>>>>"
+
 Private Declare PtrSafe Function getTempPath Lib "kernel32" Alias "GetTempPathA" ( _
     ByVal nBufferLength As Long, _
     ByVal lpBuffer As String) As Long
@@ -110,12 +115,11 @@ Public Function ReadFile(strPath As String, Optional strCharset As String = "utf
             Loop
             .Close
         End With
+        ' Return text contents of file, normalizing line endings in case a file
+        ' was saved with LF-only or mixed line endings by an external tool.
+        ReadFile = NormalizeLineEndings(cData.GetStr)
         Perf.OperationEnd
     End If
-
-    ' Return text contents of file, normalizing line endings in case a file
-    ' was saved with LF-only or mixed line endings by an external tool.
-    ReadFile = NormalizeLineEndings(cData.GetStr)
 
 End Function
 
@@ -132,9 +136,256 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function NormalizeLineEndings(strText As String) As String
-    NormalizeLineEndings = Replace(Replace(strText, vbCrLf, vbLf), vbCr, vbLf)
-    NormalizeLineEndings = Replace(NormalizeLineEndings, vbLf, vbCrLf)
+    NormalizeLineEndings = Replace(Replace(strText, vbCrLf, vbLf, , , vbBinaryCompare), vbCr, vbLf, , , vbBinaryCompare)
+    NormalizeLineEndings = Replace(NormalizeLineEndings, vbLf, vbCrLf, , , vbBinaryCompare)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GitConflictMarkerLine
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : Returns the 1-based line number of the first unresolved Git conflict
+'           : marker at the start of a line, or 0 when the content is clean.
+'           : Only <<<<<<< and >>>>>>> are tested; ======= appears legitimately in
+'           : comment separators.
+'---------------------------------------------------------------------------------------
+'
+Public Function GitConflictMarkerLine(strContent As String) As Long
+
+    Dim lngPos As Long
+
+    lngPos = FindGitConflictMarker(strContent, 1)
+    If lngPos > 0 Then GitConflictMarkerLine = CountLinesBefore(strContent, lngPos)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileHasGitConflictMarkers
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : Returns True when a source file contains unresolved Git conflict
+'           : markers at the start of a line. Logs a clear error and skips binary
+'           : extensions and files larger than GIT_CONFLICT_SCAN_MAX_BYTES.
+'---------------------------------------------------------------------------------------
+'
+Public Function FileHasGitConflictMarkers(strFile As String, strSource As String) As Boolean
+
+    Dim lngLine As Long
+
+    lngLine = GitConflictMarkerLineInFile(strFile, False)
+    If lngLine > 0 Then
+        LogGitConflictMarkerError strFile, lngLine, strSource
+        FileHasGitConflictMarkers = True
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogGitConflictMarkerIfPresent
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : After a failed import, explain cryptic Access errors when the source
+'           : file actually contains Git conflict markers. Ignores the size gate.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LogGitConflictMarkerIfPresent(strFile As String, strSource As String)
+
+    Dim lngLine As Long
+
+    lngLine = GitConflictMarkerLineInFile(strFile, True)
+    If lngLine > 0 Then LogGitConflictMarkerError strFile, lngLine, strSource
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GitConflictMarkerLineInFile
+' Author    : Adam Waller
+' Date      : 8/20/2026
+' Purpose   : Scan a file on disk for Git conflict markers without loading it
+'           : through ReadFile. Uses chunked stream reads with a short overlap so
+'           : markers straddling chunk boundaries are still found.
+'---------------------------------------------------------------------------------------
+'
+Public Function GitConflictMarkerLineInFile(strFile As String, _
+    Optional blnIgnoreSizeLimit As Boolean = False) As Long
+
+    Dim dblSize As Double
+    Dim strActualName As String
+    Dim strExt As String
+    Dim strChunk As String
+    Dim strTail As String
+    Dim lngMarkerPos As Long
+    Dim lngLinesSoFar As Long
+    Dim lngAdvance As Long
+
+    Perf.OperationStart "Scan Conflict Markers"
+
+    If Not FSO.FileExists(strFile) Then
+        Perf.OperationEnd
+        Exit Function
+    End If
+
+    strExt = LCase$(FSO.GetExtensionName(strFile))
+    If IsGitConflictScanSkippedExtension(strExt) Then
+        Perf.OperationEnd
+        Exit Function
+    End If
+
+    If Not GetFileInfo(strFile, dblSize, strActualName) Then
+        Perf.OperationEnd
+        Exit Function
+    End If
+    If Not blnIgnoreSizeLimit Then
+        If dblSize > GIT_CONFLICT_SCAN_MAX_BYTES Then
+            Perf.OperationEnd
+            Exit Function
+        End If
+    End If
+
+    With New ADODB.Stream
+        .Charset = "utf-8"
+        .Open
+        .LoadFromFile strFile
+
+        strTail = vbNullString
+        lngLinesSoFar = 0
+
+        Do While Not .EOS
+            strChunk = strTail & .ReadText(CHUNK_SIZE)
+
+            lngMarkerPos = FindGitConflictMarker(strChunk, 1)
+            If lngMarkerPos > 0 Then
+                GitConflictMarkerLineInFile = lngLinesSoFar + CountLinesBefore(strChunk, lngMarkerPos)
+                .Close
+                Perf.OperationEnd
+                Exit Function
+            End If
+
+            lngAdvance = Len(strChunk) - GIT_MARKER_OVERLAP
+            If .EOS Then
+                ' Last chunk: the running count is never read again.
+            ElseIf lngAdvance > 0 Then
+                lngLinesSoFar = lngLinesSoFar + CountCompleteLines(Left$(strChunk, lngAdvance))
+                strTail = Right$(strChunk, GIT_MARKER_OVERLAP)
+            Else
+                strTail = strChunk
+            End If
+        Loop
+
+        .Close
+    End With
+
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindGitConflictMarker
+' Purpose   : Return the position of the next Git conflict marker at column 0.
+'---------------------------------------------------------------------------------------
+'
+Private Function FindGitConflictMarker(strContent As String, lngStart As Long) As Long
+
+    Dim lngOpen As Long
+    Dim lngClose As Long
+    Dim lngPos As Long
+
+    Do
+        lngOpen = InStr(lngStart, strContent, GIT_MARKER_OPEN, vbBinaryCompare)
+        lngClose = InStr(lngStart, strContent, GIT_MARKER_CLOSE, vbBinaryCompare)
+
+        If lngOpen = 0 And lngClose = 0 Then Exit Function
+
+        If lngOpen > 0 And (lngClose = 0 Or lngOpen < lngClose) Then
+            lngPos = lngOpen
+        Else
+            lngPos = lngClose
+        End If
+
+        If GitMarkerAtLineStart(strContent, lngPos) Then
+            FindGitConflictMarker = lngPos
+            Exit Function
+        End If
+
+        lngStart = lngPos + 1
+    Loop
+
+End Function
+
+
+Private Function GitMarkerAtLineStart(strContent As String, lngPos As Long) As Boolean
+
+    Dim strPrev As String
+
+    If lngPos = 1 Then
+        GitMarkerAtLineStart = True
+    Else
+        strPrev = Mid$(strContent, lngPos - 1, 1)
+        GitMarkerAtLineStart = (strPrev = vbLf Or strPrev = vbCr)
+    End If
+
+End Function
+
+
+Private Function CountLinesBefore(strContent As String, lngPos As Long) As Long
+
+    Dim lngSearch As Long
+    Dim lngCount As Long
+
+    If lngPos <= 1 Then
+        CountLinesBefore = 1
+        Exit Function
+    End If
+
+    lngSearch = 1
+    Do
+        lngSearch = InStr(lngSearch, strContent, vbCrLf, vbBinaryCompare)
+        If lngSearch = 0 Or lngSearch >= lngPos Then Exit Do
+        lngCount = lngCount + 1
+        lngSearch = lngSearch + 2
+    Loop
+    CountLinesBefore = lngCount + 1
+
+End Function
+
+
+Private Function CountCompleteLines(strContent As String) As Long
+
+    Dim lngSearch As Long
+
+    lngSearch = 1
+    Do
+        lngSearch = InStr(lngSearch, strContent, vbCrLf, vbBinaryCompare)
+        If lngSearch = 0 Then Exit Function
+        CountCompleteLines = CountCompleteLines + 1
+        lngSearch = lngSearch + 2
+    Loop
+
+End Function
+
+
+Private Function IsGitConflictScanSkippedExtension(strExt As String) As Boolean
+
+    Select Case strExt
+        Case "thmx", "frx", "jpg", "jpeg", "jpe", "gif", "png", "ico"
+            IsGitConflictScanSkippedExtension = True
+    End Select
+
+End Function
+
+
+Private Sub LogGitConflictMarkerError(strFile As String, lngLine As Long, strSource As String)
+
+    Log.Error eelError, T("Unresolved Git conflict markers in '{0}' (line {1}). " & _
+        "Resolve the conflict in this file, then merge again.", _
+        var0:=FSO.GetFileName(strFile), var1:=lngLine), strSource
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -148,47 +399,53 @@ End Function
 '
 Public Sub WriteFile(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
 
+    Dim bteContent() As Byte
+    Dim dblFileSize As Double
+    Dim strActualName As String
+
     ' If writing an empty string, remove any existing file instead.
     If Len(strText) = 0 Then
         If FSO.FileExists(strPath) Then DeleteFile strPath
         Exit Sub
     End If
 
-    Perf.OperationStart "Write File"
+    Perf.OperationStart "Compare File"
 
-    ' Write to a UTF-8 eoncoded file
+    ' Encode content once (UTF-8 w/ BOM by default), ensuring a trailing CRLF,
+    ' then capture the exact bytes that would be written to disk.
     With New ADODB.Stream
         .Type = adTypeText
         .Open
         .Charset = strEncoding
         .WriteText strText
-        ' Ensure that we are ending the content with a vbcrlf
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
-        ' Write to disk
-        VerifyPath strPath
-        ' Delete existing file if file name case differs. (The Overwrite flag will not change the name.)
-        If FSO.FileExists(strPath) Then
-            If StrComp(FSO.GetFileName(strPath), FSO.GetFile(strPath).Name, vbBinaryCompare) <> 0 Then
-                ' Remove existing file so we can use the correct case in the new file name.
-                DeleteFile strPath
-            End If
-        End If
-        ' Watch out for possible write error
-        LogUnhandledErrors
-        On Error Resume Next
-        .SaveToFile strPath, adSaveCreateOverWrite
-        If Catch(3004) Then
-            ' File is locked. Try again after 1 second, just in case something
-            ' like Google Drive momentarily locked the file.
-            Err.Clear
-            Pause 1
-            .SaveToFile strPath, adSaveCreateOverWrite
-        End If
-        CatchAny eelError, "Error writing file: " & strPath, ModuleName & ".WriteFile"
+        .Position = 0
+        .Type = adTypeBinary
+        bteContent = .Read
         .Close
     End With
 
+    VerifyPath strPath
+
+    ' Skip / case-correct based on the existing file (single Win32 stat, no COM).
+    If GetFileInfo(strPath, dblFileSize, strActualName) Then
+        If StrComp(FSO.GetFileName(strPath), strActualName, vbBinaryCompare) = 0 Then
+            ' Same name case: size gate, then content compare -> skip if identical.
+            If dblFileSize = (UBound(bteContent) - LBound(bteContent) + 1) Then
+                If GetBytesHash(bteContent) = GetFileHash(strPath) Then
+                    Perf.OperationEnd
+                    Exit Sub
+                End If
+            End If
+        Else
+            ' Name case differs; remove so the new file uses the correct case.
+            DeleteFile strPath
+        End If
+    End If
+
     Perf.OperationEnd
+
+    SaveByteArrayToFile bteContent, strPath, ModuleName & ".WriteFile"
 
 End Sub
 
@@ -204,40 +461,49 @@ End Sub
 '
 Public Sub WriteFileNoBom(strText As String, strPath As String, Optional strEncoding As String = "utf-8")
 
+    Dim bteContent() As Byte
+    Dim dblFileSize As Double
+    Dim strActualName As String
     Dim stmNoBom As ADODB.Stream
 
-    ' Write to a UTF-8 eoncoded file
+    Perf.OperationStart "Compare File"
+
+    ' Write to a UTF-8 encoded file, then capture bytes without the BOM.
     With New ADODB.Stream
         .Type = adTypeText
         .Open
         .Charset = strEncoding
         .WriteText strText
-        ' Ensure that we are ending the content with a vbcrlf
         If Right(strText, 2) <> vbCrLf Then .WriteText vbCrLf
 
-        ' Now, create a new BINARY stream and copy over the content.
         Set stmNoBom = New ADODB.Stream
         stmNoBom.Type = adTypeBinary
         stmNoBom.Open
         .Position = 3
         .CopyTo stmNoBom
-
-        ' Write to disk
-        VerifyPath strPath
-        ' Watch out for possible write error
-        LogUnhandledErrors
-        On Error Resume Next
-        stmNoBom.SaveToFile strPath, adSaveCreateOverWrite
-        If Catch(3004) Then
-            ' File is locked. Try again after 1 second, just in case something
-            ' like Google Drive momentarily locked the file.
-            Err.Clear
-            Pause 1
-            stmNoBom.SaveToFile strPath, adSaveCreateOverWrite
-        End If
-        CatchAny eelError, "Error writing file: " & strPath, ModuleName & ".WriteFile"
+        bteContent = stmNoBom.Read
+        stmNoBom.Close
         .Close
     End With
+
+    VerifyPath strPath
+
+    If GetFileInfo(strPath, dblFileSize, strActualName) Then
+        If StrComp(FSO.GetFileName(strPath), strActualName, vbBinaryCompare) = 0 Then
+            If dblFileSize = (UBound(bteContent) - LBound(bteContent) + 1) Then
+                If GetBytesHash(bteContent) = GetFileHash(strPath) Then
+                    Perf.OperationEnd
+                    Exit Sub
+                End If
+            End If
+        Else
+            DeleteFile strPath
+        End If
+    End If
+
+    Perf.OperationEnd
+
+    SaveByteArrayToFile bteContent, strPath, ModuleName & ".WriteFileNoBom"
 
 End Sub
 
@@ -332,30 +598,91 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function WriteBinaryFile(strPath As String, bteArray() As Byte)
-    Perf.OperationStart "Write Binary File"
+
+    Dim dblFileSize As Double
+    Dim strActualName As String
+
+    Perf.OperationStart "Compare File"
+
+    VerifyPath strPath
+
+    If GetFileInfo(strPath, dblFileSize, strActualName) Then
+        If StrComp(FSO.GetFileName(strPath), strActualName, vbBinaryCompare) = 0 Then
+            If dblFileSize = (UBound(bteArray) - LBound(bteArray) + 1) Then
+                If GetBytesHash(bteArray) = GetFileHash(strPath) Then
+                    Perf.OperationEnd
+                    Exit Function
+                End If
+            End If
+        Else
+            DeleteFile strPath
+        End If
+    End If
+
+    Perf.OperationEnd
+
+    SaveByteArrayToFile bteArray, strPath, ModuleName & ".WriteBinaryFile"
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SaveByteArrayToFile
+' Author    : Adam Waller
+' Date      : 7/24/2026
+' Purpose   : Write a byte array to disk with performance timing and locked-file retry.
+'---------------------------------------------------------------------------------------
+'
+Private Sub SaveByteArrayToFile(bteContent() As Byte, strPath As String, strCallingFunction As String)
+
+    Perf.OperationStart "Write File"
     With New ADODB.Stream
         .Type = adTypeBinary
         .Open
-        .Write bteArray
-        VerifyPath strPath
+        .Write bteContent
+        LogUnhandledErrors
+        On Error Resume Next
         .SaveToFile strPath, adSaveCreateOverWrite
+        If Catch(3004) Then
+            ' File is locked. Try again after 1 second, just in case something
+            ' like Google Drive momentarily locked the file.
+            Err.Clear
+            Pause 1
+            .SaveToFile strPath, adSaveCreateOverWrite
+        End If
+        CatchAny eelError, "Error writing file: " & strPath, strCallingFunction
         .Close
     End With
     Perf.OperationEnd
-End Function
+
+End Sub
 
 
 '---------------------------------------------------------------------------------------
 ' Procedure : DeleteFile
 ' Author    : Adam Waller
 ' Date      : 11/5/2020
-' Purpose   : Wrapper to delete file while monitoring performance.
+' Purpose   : Wrapper to delete file while monitoring performance. Deleting a file
+'           : that does not exist is treated as a no-op rather than an error, so
+'           : callers do not need to guard with their own existence check.
+'           : Accepts a wildcard pattern (such as "C:\Folder\*.json") in addition
+'           : to a specific file path.
 '---------------------------------------------------------------------------------------
 '
 Public Sub DeleteFile(strFile As String, Optional blnForce As Boolean = True)
+
+    ' FSO.FileExists cannot evaluate a wildcard, so patterns use an API scan instead.
+    If InStr(strFile, "*") > 0 Or InStr(strFile, "?") > 0 Then
+        If Not FilePatternExists(FSO.GetParentFolderName(strFile), _
+            FSO.GetFileName(strFile)) Then Exit Sub
+    ElseIf Not FSO.FileExists(strFile) Then
+        Exit Sub
+    End If
+
     Perf.OperationStart "Delete File"
     FSO.DeleteFile strFile, blnForce
     Perf.OperationEnd
+
 End Sub
 
 
@@ -408,22 +735,9 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub ClearFilesByExtension(ByVal strFolder As String, strExt As String)
-
-    Dim strFolderNoSlash As String
-
     Perf.OperationStart "Clear Files by Ext"
-    strFolderNoSlash = StripSlash(strFolder)
-
-    ' Quick API-level check to avoid expensive FSO scan when no files match
-    If Not FilePatternExists(strFolderNoSlash, "*." & strExt) Then
-        Perf.OperationEnd
-        Exit Sub
-    End If
-
-    ' At least one matching file exists. Use the wildcard delete.
-    DeleteFile FSO.BuildPath(strFolderNoSlash, "*." & strExt)
+    DeleteFile FSO.BuildPath(StripSlash(strFolder), "*." & strExt)
     Perf.OperationEnd
-
 End Sub
 
 
@@ -748,7 +1062,15 @@ End Function
 Public Function ReadJsonFile(strPath As String) As Dictionary
 
     Dim strText As String
+    Dim lngLine As Long
+
     strText = ReadFile(strPath)
+
+    lngLine = GitConflictMarkerLine(strText)
+    If lngLine > 0 Then
+        LogGitConflictMarkerError strPath, lngLine, ModuleName & ".ReadJsonFile"
+        Exit Function
+    End If
 
     ' If it looks like json content, then parse into a dictionary object.
     If Left$(strText, 1) = "{" Then
@@ -935,7 +1257,7 @@ HandleDriveLoss:
                         , "This usually just means you need to simply open the drive in File Explorer. " _
                         , "Click Cancel to stop operation." _
                         , vbRetryCancel + vbDefaultButton1 + vbExclamation _
-                        , "Drive not ready.")
+                        , "Drive not ready.", vbCancel)
 
         Case vbRetry
             GoTo Retry

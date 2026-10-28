@@ -64,6 +64,77 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : EscapeSqlQuote
+' Author    : Adam Waller
+' Date      : 4/10/2026
+' Purpose   : Escape double quotes in a string for use in an Access SQL query, inside a
+'           : double-quoted literal. Unlike DblQ, apostrophes are left alone, since
+'           : only the double quote delimits the literal.
+'---------------------------------------------------------------------------------------
+'
+Public Function EscapeSqlQuote(strValue As String) As String
+    EscapeSqlQuote = Replace(strValue, """", """""")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BracketFieldList
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Normalize a DAO Index.Fields value (or stored PrimaryKey JSON) into a
+'           : comma-separated bracketed field list for SQL DDL. DAO may already wrap
+'           : names containing special characters in brackets and prefix each field
+'           : with + (ascending) or - (descending); callers must not bracket again.
+'---------------------------------------------------------------------------------------
+'
+Public Function BracketFieldList(strFields As String) As String
+
+    Dim astrParts() As String
+    Dim strPart As String
+    Dim colOut As Collection
+    Dim varItem As Variant
+    Dim lngIdx As Long
+    Dim strResult As String
+
+    If Len(strFields) = 0 Then
+        BracketFieldList = vbNullString
+        Exit Function
+    End If
+
+    strFields = Replace(strFields, ";", ",")
+    astrParts = Split(strFields, ",")
+    Set colOut = New Collection
+
+    For lngIdx = LBound(astrParts) To UBound(astrParts)
+        strPart = Trim(astrParts(lngIdx))
+        If Len(strPart) > 0 Then
+            If Left$(strPart, 1) = "+" Or Left$(strPart, 1) = "-" Then
+                strPart = Mid$(strPart, 2)
+            End If
+            Do While Len(strPart) > 0 And Left$(strPart, 1) = "["
+                strPart = Mid$(strPart, 2)
+            Loop
+            Do While Len(strPart) > 0 And Right$(strPart, 1) = "]"
+                strPart = Left$(strPart, Len(strPart) - 1)
+            Loop
+            strPart = Trim(strPart)
+            If Len(strPart) > 0 Then
+                colOut.Add "[" & strPart & "]"
+            End If
+        End If
+    Next lngIdx
+
+    For Each varItem In colOut
+        If Len(strResult) > 0 Then strResult = strResult & ", "
+        strResult = strResult & CStr(varItem)
+    Next varItem
+
+    BracketFieldList = strResult
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : DeDupString
 ' Author    : Adam Waller
 ' Date      : 9/10/2022
@@ -99,8 +170,18 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function StartsWith(strText As String, strStartsWith As String, Optional Compare As VbCompareMethod = vbBinaryCompare) As Boolean
-    If Len(strStartsWith) = 0 Then
+    Dim lngPrefix As Long
+    lngPrefix = Len(strStartsWith)
+    If lngPrefix = 0 Then
         StartsWith = True
+    ElseIf Compare = vbBinaryCompare Then
+        ' InStr scans the whole string; prefix tests in hot loops only need the
+        ' first Len(strStartsWith) characters compared.
+        If Len(strText) < lngPrefix Then
+            StartsWith = False
+        Else
+            StartsWith = (StrComp(Left$(strText, lngPrefix), strStartsWith, vbBinaryCompare) = 0)
+        End If
     Else
         StartsWith = (InStr(1, strText, strStartsWith, Compare) = 1)
     End If

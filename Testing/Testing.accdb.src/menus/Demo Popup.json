@@ -15,11 +15,9 @@
       {
         "BeginGroup": false,
         "BuiltIn": false,
-        "BuiltInFace": false,
         "Caption": "Custom Button",
         "DescriptionText": "",
         "Enabled": true,
-        "FaceId": 0,
         "HelpContextId": 0,
         "HelpFile": "",
         "HyperlinkType": 0,

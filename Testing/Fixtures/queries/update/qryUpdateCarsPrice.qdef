@@ -1,5 +1,5 @@
 ﻿Operation =4
-Option =2
+Option =0
 Where ="(((tblCars.Manufacturer)=\"Audi\") AND ((tblCars.Year)=2011) AND ((tbl"
     "CarsModel.Model)=\"GS\"))"
 Begin InputTables

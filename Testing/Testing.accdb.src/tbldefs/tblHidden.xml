@@ -13,8 +13,8 @@
       <xsd:appinfo>
         <od:index index-name="ID" index-key="ID " primary="no" unique="no" clustered="no" order="asc"></od:index>
         <od:index index-name="PrimaryKey" index-key="ID " primary="yes" unique="yes" clustered="no" order="asc"></od:index>
-        <od:tableProperty name="Orientation" type="2" value="0"></od:tableProperty>
         <od:tableProperty name="Description" type="10" value="This table should be hidden."></od:tableProperty>
+        <od:tableProperty name="Orientation" type="2" value="0"></od:tableProperty>
       </xsd:appinfo>
     </xsd:annotation>
     <xsd:complexType>

@@ -18,16 +18,42 @@ Option Compare Database
 Option Explicit
 '@Folder("Components")
 
+' Saved queries in the database before the DAO table-def fast path is worth using.
+' Application.ImportXML costs roughly the total number of table references across the
+' saved-query catalog, so query count is the cheapest available proxy. Measured cost of
+' one acStructureOnly call against a growing catalog:
+'   4 queries                       0.02 sec
+'   2,000 queries, no table refs    2.00 sec
+'   2,000 queries, table refs      19.19 sec
+'   4,000 queries, table refs      43.13 sec
+'   3,692 real production queries    276-281 sec
+' Below this line ImportXML is cheap and is the better-proven path; above it, every
+' table avoided is seconds to minutes. (See DECISIONS.md 2026-07-30.)
+Private Const MIN_QUERIES_FOR_FAST_TABLEDEF As Long = 500
+
+' Consecutive expensive failures before the fast path stands down for the rest of the
+' operation. Source that predates the current export format could fail verification on
+' every table, and a merge touching many of them should not pay for the attempt twice.
+Private Const MAX_FAST_PATH_FAILURES As Long = 3
+
 Private m_Table As AccessObject
 Private m_lngTableType As Long
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
+Private m_colBatchItems As Collection
+
+' Fast-path eligibility, resolved once and cached. 0 = not yet checked, 1 = yes, 2 = no.
+' These live on the instance because one instance serves one operation: modContainers
+' builds a fresh set per build, and LoadSingleObject is handed a fresh one per call.
+Private m_intFastPathState As Integer
+Private m_lngFastPathFailures As Long
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -126,11 +152,10 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
             .Add "SourceTableName", tdf.SourceTableName
             .Add "Attributes", tdf.Attributes
             ' indexes (Find primary key)
-            If IndexAvailable(tdf) Then
+            If TableIndexesAvailable(tdf) Then
                 For Each idx In tdf.Indexes
                     If idx.Primary Then
-                        ' Add the primary key columns, using brackets just in case the field names have spaces.
-                        .Add "PrimaryKey", "[" & MultiReplace(CStr(idx.Fields), "+", vbNullString, ";", "], [") & "]"
+                        .Add "PrimaryKey", BracketFieldList(CStr(idx.Fields))
                         Exit For
                     End If
                 Next idx
@@ -141,10 +166,12 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
         ' from MSysObjects. This is sub-millisecond, works offline, and captures
         ' all locally-stored properties (column widths, lookup combos, formatting,
         ' datasheet colors, custom properties, etc.)
+        ' Filter on the linked table types (6 = Access, 4 = ODBC): a form or report
+        ' may share the table's name, and its LvProp would be parsed as the table's.
         If Options.ExportFormatVersion >= EFV_5_0_0 Then
             Perf.OperationStart "Export Linked Props"
             Set rst = dbs.OpenRecordset( _
-                "SELECT LvProp FROM MSysObjects WHERE Name=""" & tdf.Name & """", _
+                "SELECT LvProp FROM MSysObjects WHERE Name=""" & EscapeSqlQuote(tdf.Name) & """ AND Type IN (4,6)", _
                 dbOpenSnapshot)
             If Not rst.EOF Then
                 If Not IsNull(rst!LvProp) Then
@@ -192,16 +219,19 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strExportFolder As String
     strExportFolder = FSO.GetParentFolderName(strFile) & PathSep
 
+    ' Remove any alternate source file in case we have switched formats.
+    ' This runs BEFORE the metadata sidecar is written: a local table's alternate-format
+    ' name is <name>.json, which is also the sidecar's name, so removing it afterwards
+    ' would delete the metadata that was just exported.
+    If strAlternatePath = vbNullString Then
+        RemoveAlternateFormatSourceFile
+    End If
+
     ' Export object metadata for local tables into a companion .json file.
     ' Linked tables already have metadata included in their primary .json above.
     If Not IsLinkedTable Then
         ExportObjectMetadata strExportFolder & GetSafeFileName(m_Table.Name) & ".json", _
-            "Tables", m_Table.Name, acTable
-    End If
-
-    ' Remove any alternate source file in case we have switched formats
-    If strAlternatePath = vbNullString Then
-        RemoveAlternateFormatSourceFile
+            "Tables", m_Table.Name, Me
     End If
 
     ' Optionally save in SQL format
@@ -231,26 +261,96 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim blnUseTemp As Boolean
-    Dim strTempFile As String
     Dim strName As String
+
+    If Not ImportTableStructure(strFile, strName) Then Exit Sub
+    ApplyMetadataAndUpdateIndex strName, strFile
+
+End Sub
+
+
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+
+    Dim strName As String
+    Dim dBatch As Dictionary
+
+    If Not ImportTableStructure(strFile, strName) Then Exit Sub
+    If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
+
+    Set dBatch = New Dictionary
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    m_colBatchItems.Add dBatch
+
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+
+    If m_colBatchItems Is Nothing Then Exit Sub
+    If m_colBatchItems.Count = 0 Then
+        Set m_colBatchItems = Nothing
+        Exit Sub
+    End If
+
+    RefreshContainerDocuments "Tables"
+
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        ApplyMetadataAndUpdateIndex CStr(dBatch("Name")), CStr(dBatch("File")), True
+        If Operation.ErrorLevel = eelCritical Then Exit For
+    Next varItem
+
+    Set m_colBatchItems = Nothing
+
+End Sub
+
+
+Private Function ImportTableStructure(strFile As String, ByRef strName As String) As Boolean
+
+    Dim blnUseTemp As Boolean
+    Dim blnImportFailed As Boolean
+    Dim strTempFile As String
+    Dim strFileName As String
+    Dim colBigIntFields As Collection
 
     ' Full build reuses one instance; reset link-type cache per file.
     m_lngTableType = 0
+    strName = GetObjectNameFromFileName(strFile)
+    strFileName = FSO.GetFileName(strFile)
+
+    If FileHasGitConflictMarkers(strFile, ModuleName(Me) & ".Import") Then Exit Function
 
     ' Determine import type from extension
     Select Case LCase$(FSO.GetExtensionName(strFile))
 
         Case "json"
-            If Not ImportLinkedTable(strFile) Then Exit Sub
+            If Not ImportLinkedTable(strFile) Then Exit Function
 
         Case "xml"
+            ' Build the table directly through DAO where that is worth doing, and only
+            ' keep the result if it re-exports to exactly the source file. Everything
+            ' below is the fallback, unchanged.
+            If TryFastTableDefImport(strFile, strName) Then
+                ImportTableStructure = True
+                Exit Function
+            End If
+
             ' Watch out for errors when importing XML
             LogUnhandledErrors
             On Error Resume Next
 
+            ' Application.ImportXML has no schema representation for dbBigInt and
+            ' silently re-creates such fields as dbDecimal(38,0) instead. Detect them
+            ' from the source XML before the (possibly temp-copied) file is gone.
+            Set colBigIntFields = GetBigIntRepairFieldNamesFromTableDefXmlFile(strFile)
+
             ' The ImportXML function does not properly handle UrlEncoded paths
             blnUseTemp = (InStr(1, strFile, "%") > 0)
+            Perf.OperationStart "App.ImportXML() Structure"
             If blnUseTemp Then
                 ' Import from (safe) temporary file name.
                 strTempFile = GetTempFile
@@ -260,34 +360,278 @@ Private Sub IDbComponent_Import(strFile As String)
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If
+            Perf.OperationEnd
 
             ' Importing XML can throw an error if ActiveX security is too restrictive.
             If Catch(31521) Then
                 Log.Error eelError, "ActiveX security settings blocked the import of " & _
-                "table definition XML file: " & FSO.GetFileName(strFile) & ".", ModuleName(Me) & ".Import"
+                "table definition XML file: " & strFileName & ".", ModuleName(Me) & ".Import"
                 Log.Add "Importing XML files requires ActiveX to be enabled."
+                blnImportFailed = True
+            ElseIf Catch(31550) Then
+                ' Access can report failed data rows for a structure-only import even
+                ' though this XML contains no data. Accept that warning only when the
+                ' requested table was actually created.
+                blnImportFailed = Not ObjectExists(acTable, strName)
+                If blnImportFailed Then
+                    Log.Error eelError, "Unable to import XML for " & strFileName, _
+                        ModuleName(Me) & ".Import"
+                End If
             Else
-                ' Log any other error.
-                CatchAny eelError, "Unable to import XML for " & FSO.GetFileName(strFile), ModuleName(Me) & ".Import"
+                ' Keep handler arguments side-effect free while Err is pending.
+                blnImportFailed = CatchAny(eelError, "Unable to import XML for " & _
+                    strFileName, ModuleName(Me) & ".Import")
+            End If
+
+            ' Application.ImportXML creates the table outside SharedDb's TableDefs
+            ' snapshot. Invalidate before FixCorruptedBigIntFields / metadata apply /
+            ' single-object callers that have no per-category ReleaseDbReferences.
+            If Not blnImportFailed Then ReleaseDbReferences
+
+            If Not blnImportFailed And colBigIntFields.Count > 0 Then
+                FixCorruptedBigIntFields strName, colBigIntFields
             End If
 
         Case Else
             ' Unsupported file
-            Exit Sub
+            Exit Function
 
     End Select
 
-    ' Update index
-    strName = GetObjectNameFromFileName(strFile)
+    If Not blnImportFailed Then ImportTableStructure = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TryFastTableDefImport
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Create the table through DAO instead of Application.ImportXML, returning
+'           : true only when the result is provably identical to the source file.
+'           :
+'           : The verification is the whole point. A DAO build reproduces what we know
+'           : how to read, and the strict parser in modTableDefBuilder is meant to
+'           : decline anything else -- but "meant to" is not a guarantee, so the finished
+'           : table is exported and hash-compared before we accept it. On any doubt the
+'           : table is dropped and the caller falls through to the proven path, which
+'           : means the worst case is the old timing plus a few cheap milliseconds.
+'---------------------------------------------------------------------------------------
+'
+Private Function TryFastTableDefImport(strFile As String, strName As String) As Boolean
+
+    Dim strBuiltFile As String
+
+    If Not UseFastTableDefImport Then Exit Function
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    If TryBuildTableFromDefXml(strFile, strName) Then
+        If StoredDefinitionMatchesSource(strName, strFile, "Verify Table Def (DAO)", strBuiltFile) Then
+            m_lngFastPathFailures = 0
+            TryFastTableDefImport = True
+            Log.Add T("    Built {0} directly, without importing the XML.", var0:=strName), _
+                Options.ShowDebug
+        Else
+            LogDefinitionMismatch strBuiltFile, strFile
+            Set m_Table = Nothing
+            m_lngTableType = 0
+            DeleteObjectIfExists acTable, strName
+            RecordVerificationFailure T("the rebuilt table did not match the source file")
+            RecordFastPathFailure strName, GetLastDeclineReason
+        End If
+    ElseIf GetLastAttemptReachedBuild Then
+        RecordFastPathFailure strName, GetLastDeclineReason
+    Else
+        ' Declined during parsing, which costs about a millisecond. Not worth counting
+        ' against the breaker -- an unsupported construct in one table says nothing
+        ' about the next one.
+        Log.Add T("    Using XML import for {0}: {1}.", var0:=strName, _
+            var1:=GetLastDeclineReason), Options.ShowDebug
+    End If
+
+    ' Leave no residual error for the fallback path's Catch/CatchAny checks to find.
+    Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogDefinitionMismatch
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Record which lines of the rebuilt table's export differ from the source
+'           : file, so a fallback explains itself.
+'           :
+'           : Without this the log says only that the rebuilt table "did not match the
+'           : source file", which is a dead end: the temp export is swept at the end of
+'           : the operation, so by the time anyone reads the log the evidence is gone and
+'           : the only way to learn more is to reproduce -- on the very databases where
+'           : reproducing costs minutes per attempt.
+'           :
+'           : Written to the log file but not echoed to the console; this is diagnostic
+'           : detail for after the fact, and the fallback itself is already reported.
+'           : Both files come from the same exporter, so the lines correspond one to one
+'           : and a positional comparison is enough -- no need to diff properly.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LogDefinitionMismatch(strBuiltFile As String, strSourceFile As String)
+
+    ' Enough to characterize a mismatch without flooding the log on a wholesale
+    ' difference (a stale export format, say, where nearly every line differs).
+    Const MAX_REPORTED_LINES As Long = 8
+
+    Dim varBuilt As Variant
+    Dim varSource As Variant
+    Dim lngIndex As Long
+    Dim lngLast As Long
+    Dim lngShown As Long
+
+    If Not FSO.FileExists(strBuiltFile) Then Exit Sub
+    If Not FSO.FileExists(strSourceFile) Then Exit Sub
+
+    varBuilt = Split(ReadFile(strBuiltFile), vbCrLf)
+    varSource = Split(ReadFile(strSourceFile), vbCrLf)
+
+    lngLast = UBound(varBuilt)
+    If UBound(varSource) > lngLast Then lngLast = UBound(varSource)
+
+    For lngIndex = 0 To lngLast
+        If GetLineAt(varSource, lngIndex) <> GetLineAt(varBuilt, lngIndex) Then
+            If lngShown = 0 Then Log.Add "      Differences (source vs. rebuilt):", False
+            Log.Add "        " & lngIndex + 1 & " source: " & Trim$(GetLineAt(varSource, lngIndex)), False
+            Log.Add "        " & lngIndex + 1 & " built : " & Trim$(GetLineAt(varBuilt, lngIndex)), False
+            lngShown = lngShown + 1
+            If lngShown >= MAX_REPORTED_LINES Then
+                Log.Add "        ... additional differences not shown.", False
+                Exit For
+            End If
+        End If
+    Next lngIndex
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLineAt
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return one line from a Split() result, or an empty string past the end,
+'           : so two files of different lengths can be walked with one index.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetLineAt(varLines As Variant, lngIndex As Long) As String
+    If lngIndex <= UBound(varLines) Then GetLineAt = varLines(lngIndex)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UseFastTableDefImport
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Returns true when the DAO table-def path should be attempted for this
+'           : operation. Resolved once and cached, since a merge may ask per table.
+'---------------------------------------------------------------------------------------
+'
+Private Function UseFastTableDefImport() As Boolean
+
+    If m_lngFastPathFailures >= MAX_FAST_PATH_FAILURES Then Exit Function
+    If FastPathTestOverride Then
+        UseFastTableDefImport = True
+        Exit Function
+    End If
+
+    If m_intFastPathState = 0 Then
+        If FastTableDefImportApplies Then
+            m_intFastPathState = 1
+        Else
+            m_intFastPathState = 2
+        End If
+    End If
+
+    UseFastTableDefImport = (m_intFastPathState = 1)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FastTableDefImportApplies
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Decide whether this operation is one where Application.ImportXML is slow
+'           : enough to be worth replacing.
+'---------------------------------------------------------------------------------------
+'
+Private Function FastTableDefImportApplies() As Boolean
+
+    ' A DAO-built table and an ImportXML-built one export the same properties in a
+    ' different order, and only the canonical ordering introduced in EFV_5_1_0 makes the
+    ' two agree. On an older format the table would import correctly but re-export
+    ' differently from the file it came from, rewriting tbldefs on the next export. Not
+    ' worth trading source churn for speed, so the path waits for the format.
+    If Options.ExportFormatVersion < EFV_5_1_0 Then Exit Function
+
+    ' A full build creates every table before the first query exists (GetContainers
+    ' orders tables at #14 and queries at #15), so the pathology never appears there --
+    ' measured at 21.80 seconds for 372 tables. Leave that path on the proven call.
+    If Operation.OperationType = eotBuild Then Exit Function
+
+    ' Everything else -- merge build, ImportByType, single-object import -- runs against
+    ' a populated catalog, where the cost scales with it.
+    FastTableDefImportApplies = (CurrentData.AllQueries.Count >= MIN_QUERIES_FOR_FAST_TABLEDEF)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RecordFastPathFailure
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Count a fast-path attempt that cost real time, and stand the path down for
+'           : the rest of the operation once they stop looking like one-offs.
+'---------------------------------------------------------------------------------------
+'
+' ByVal on strReason: callers pass the result of T(), which is a Variant.
+Private Sub RecordFastPathFailure(ByVal strName As String, ByVal strReason As String)
+
+    m_lngFastPathFailures = m_lngFastPathFailures + 1
+
+    Log.Add T("    Using XML import for {0}: {1}.", var0:=strName, var1:=strReason), _
+        Options.ShowDebug
+
+    If m_lngFastPathFailures = MAX_FAST_PATH_FAILURES Then
+        Log.Add T("Direct table creation failed {0} times. Using XML import from here on.", _
+            var0:=CStr(MAX_FAST_PATH_FAILURES))
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyMetadataAndUpdateIndex
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Apply the object metadata (doc properties + hidden attribute) from the
+'           : companion .json file and record the import in the index. For linked
+'           : tables, the metadata is in the primary .json file itself. For local
+'           : tables (.xml import), this is a companion .json.
+'           : Shared by Import and by the Merge path that leaves the existing table in
+'           : place, since both need the table to end up in the same recorded state.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ApplyMetadataAndUpdateIndex(strName As String, strFile As String, _
+    Optional blnSkipDocumentsRefresh As Boolean = False)
+
+    Dim strJsonFile As String
+
     m_lngTableType = 0
     Set m_Table = CurrentData.AllTables(strName)
 
-    ' Apply object metadata (doc properties + hidden attribute) from companion .json.
-    ' For linked tables, the metadata is in the primary .json file itself.
-    ' For local tables (.xml import), check for a companion .json.
-    Dim strJsonFile As String
     strJsonFile = IDbComponent_BaseFolder & GetSafeFileName(strName) & ".json"
-    ImportObjectMetadata strJsonFile, "Tables", strName, acTable
+    ImportObjectMetadata strJsonFile, "Tables", strName, acTable, _
+        blnSkipDocumentsRefresh:=blnSkipDocumentsRefresh
 
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
         strMetaHash:=GetMetadataHash("Tables", strName, acTable)
@@ -301,6 +645,17 @@ End Sub
 ' Date      : 11/21/2020
 ' Purpose   : Merge the source file into the existing database, updating or replacing
 '           : any existing object.
+'           :
+'           : Replacing the table means Application.ImportXML, which dominates the cost
+'           : of this path once a database holds a lot of objects. Measured on a
+'           : three-field lookup table in a project with roughly 5,000 objects:
+'           : 281 seconds for the ImportXML call, against under 0.01 seconds each for
+'           : DoCmd.DeleteObject, creating the same table through DDL,
+'           : Application.ExportXML, and appending the rows. The cost tracks the object
+'           : count rather than the table, so it cannot be tuned from this side --
+'           : the only remedy is not to make the call. A table whose stored definition
+'           : already matches its source file has nothing to rebuild, so that case is
+'           : short-circuited before any of the destructive work begins.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
@@ -308,19 +663,34 @@ Private Sub IDbComponent_Merge(strFile As String)
     Dim strName As String
     Dim dRelations As Dictionary
 
-    ' Stage any affected relationships
     strName = GetObjectNameFromFileName(strFile)
+
+    ' Nothing to rebuild when the table already matches the source file.
+    If StoredDefinitionMatchesSource(strName, strFile) Then
+        Log.Add T("    {0} already matches the source file. Skipping table rebuild.", _
+            var0:=strName), Options.ShowDebug
+        ApplyMetadataAndUpdateIndex strName, strFile
+        Exit Sub
+    End If
+
+    ' Stage any affected relationships
+    Perf.OperationStart "Stage Relations"
     Set dRelations = StageRelations(strName)
+    Perf.OperationEnd
 
     ' Delete any existing table with this name
     Set m_Table = Nothing
     m_lngTableType = 0
+    Perf.OperationStart "Delete Table Object"
     DeleteObjectIfExists acTable, strName
+    Perf.OperationEnd
 
     If FSO.FileExists(strFile) Then
         IDbComponent_Import strFile
         ' Restore any affected relationships
+        Perf.OperationStart "Restore Relations"
         RestoreRelations dRelations
+        Perf.OperationEnd
     Else
         ' If the table is deleted, discard any staged relationships
         ' since we can't restore them when the table does not exist.
@@ -333,6 +703,73 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : StoredDefinitionMatchesSource
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Returns true when the table currently in the database exports to exactly
+'           : the content of the source file, meaning a merge would rebuild it into
+'           : what it already is.
+'           :
+'           : Deliberately limited to local tables (.xml source). Those are the ones
+'           : rebuilt through Application.ImportXML, which is the expensive call this
+'           : check exists to avoid. Linked tables import from .json without it, and
+'           : exporting one can reach across to the back end, so checking them could
+'           : cost more than the import it would skip.
+'           :
+'           : A false negative is harmless -- the caller just rebuilds as before -- so
+'           : anything unexpected (missing table, export that produces no file) returns
+'           : false. Source files outside the export folder are still verifiable: the
+'           : check falls back to a flat name in the temp folder rather than giving up.
+'           :
+'           : Also used to verify a table built by the DAO fast path, which is the same
+'           : question asked at a different moment. strTimerLabel keeps the two apart in
+'           : the performance report.
+'---------------------------------------------------------------------------------------
+'
+Private Function StoredDefinitionMatchesSource(strName As String, strFile As String, _
+    Optional strTimerLabel As String = "Compare Table Definition", _
+    Optional ByRef strComparedFile As String) As Boolean
+
+    Dim strTempFile As String
+
+    ' Only local table definitions take the Application.ImportXML path.
+    If LCase$(FSO.GetExtensionName(strFile)) <> "xml" Then Exit Function
+    If Not FSO.FileExists(strFile) Then Exit Function
+    If Not TableExists(strName) Then Exit Function
+
+    ' Prefer a mirrored path under the conflict-detection temp folder so the export
+    ' lands beside the other comparison copies and is cleaned up with them. When the
+    ' source file is not under the export folder (single-object import from an
+    ' arbitrary path, or a test fixture) there is no prefix to rewrite -- fall back
+    ' to a flat name in the same temp folder. The last check is the real invariant:
+    ' never export onto the source file being compared against.
+    strTempFile = Replace(strFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
+    If StrComp(strTempFile, strFile, vbTextCompare) = 0 Then
+        strTempFile = VCSIndex.GetTempExportFolder & FSO.GetFileName(strFile)
+    End If
+    If StrComp(strTempFile, strFile, vbTextCompare) = 0 Then Exit Function
+
+    Perf.OperationStart strTimerLabel
+
+    Set m_Table = CurrentData.AllTables(strName)
+    m_lngTableType = 0
+    If FSO.FileExists(strTempFile) Then DeleteFile strTempFile
+    IDbComponent_Export strTempFile
+
+    ' Hand the export back so a caller that cares *why* the two differ can diff them.
+    ' It stays in the temp folder until the operation's ClearTempExportFolder.
+    strComparedFile = strTempFile
+
+    If FSO.FileExists(strTempFile) Then
+        StoredDefinitionMatchesSource = (GetFileHash(strTempFile) = GetFileHash(strFile))
+    End If
+
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : StageRelations
 ' Author    : Adam Waller
 ' Date      : 6/2/2023
@@ -340,6 +777,12 @@ End Sub
 '           : Each relation is represented by a string value of the JSON source file
 '           : content for that relation. (This way we can release the object reference
 '           : and delete the actual relation object, but still recreate it later.)
+'           : Relations inherited from a linked database are left to the database
+'           : engine, which drops one with its linked table and adds it back when the
+'           : table is linked again. Restoring one would fail anyway: CreateRelation or
+'           : Relations.Append rejects the name the engine gives it, which carries the
+'           : path of the linked database in brackets. And deleting one from the front
+'           : end deletes the relationship in the linked database as well.
 '---------------------------------------------------------------------------------------
 '
 Private Function StageRelations(strTableName As String) As Dictionary
@@ -355,7 +798,9 @@ Private Function StageRelations(strTableName As String) As Dictionary
     ' Loop through relations, looking for matching table name
     Set dbs = SharedDb
     For Each rel In dbs.Relations
-        If StrComp(rel.Table, strTableName, vbTextCompare) = 0 Or _
+        If (rel.Attributes And dbRelationInherited) = dbRelationInherited Then
+            ' Maintained by the database engine (see above)
+        ElseIf StrComp(rel.Table, strTableName, vbTextCompare) = 0 Or _
             StrComp(rel.ForeignTable, strTableName, vbTextCompare) = 0 Then
             If strTempFile = vbNullString Then
                 ' Create temp file for export
@@ -459,6 +904,8 @@ Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
             .Add "  [", DblQ(fld.Name), "] "
             If (fld.Attributes And dbAutoIncrField) Then
                 .Add "AUTOINCREMENT"
+            ElseIf fld.Type = dbDecimal Then
+                .Add "DECIMAL(", fld.Precision, ",", fld.Scale, ")"
             Else
                 .Add GetTypeString(fld.Type)
             End If
@@ -484,7 +931,7 @@ Public Sub SaveTableSqlDef(strTable As String, strFolder As String)
         .Remove 3   ' strip off last comma and crlf
 
         ' Constraints
-        If IndexAvailable(tdf) Then
+        If TableIndexesAvailable(tdf) Then
             Set cAttr = New clsConcat
             For Each idx In tdf.Indexes
                 If idx.Fields.Count > 1 Then
@@ -599,6 +1046,75 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetBigIntRepairFieldNamesFromTableDefXmlFile
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Read a table-definition XML file and return dbBigInt field names that
+'           : Application.ImportXML would corrupt. Skips DOM parsing when the export
+'           : signature is absent.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetBigIntRepairFieldNamesFromTableDefXmlFile(strXmlFile As String) As Collection
+
+    Dim colNames As New Collection
+    Dim strXml As String
+
+    Set GetBigIntRepairFieldNamesFromTableDefXmlFile = colNames
+    If Not FSO.FileExists(strXmlFile) Then Exit Function
+
+    strXml = ReadFile(strXmlFile)
+    If InStr(1, strXml, "totalDigits value=""0""", vbTextCompare) = 0 Then Exit Function
+
+    Perf.OperationStart "Scan table XML for BigInt fields"
+    Set GetBigIntRepairFieldNamesFromTableDefXmlFile = GetBigIntRepairFieldNamesFromTableDefXml(strXml)
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FixCorruptedBigIntFields
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Correct fields that Application.ImportXML mis-created as dbDecimal(38,0)
+'           : back to genuine dbBigInt fields via ALTER COLUMN ... BIGINT.
+'---------------------------------------------------------------------------------------
+'
+Private Sub FixCorruptedBigIntFields(strTableName As String, colFieldNames As Collection)
+
+    Dim varName As Variant
+    Dim dbs As DAO.Database
+    Dim dbsVerify As DAO.Database
+    Dim lngVerifyType As Long
+
+    Set dbs = SharedDb
+
+    For Each varName In colFieldNames
+        On Error Resume Next
+        Err.Clear
+        dbs.Execute "ALTER TABLE [" & strTableName & "] ALTER COLUMN [" & varName & "] BIGINT", dbFailOnError
+        If Err Then
+            CatchAny eelWarning, "Unable to restore Big Integer field type for " & _
+                strTableName & "." & varName, ModuleName(Me) & ".FixCorruptedBigIntFields"
+        Else
+            Set dbsVerify = CurrentDb
+            Err.Clear
+            lngVerifyType = dbsVerify.TableDefs(strTableName).Fields(CStr(varName)).Type
+            If Err Then
+                CatchAny eelWarning, "Unable to verify Big Integer field type restoration for " & _
+                    strTableName & "." & varName, ModuleName(Me) & ".FixCorruptedBigIntFields"
+            ElseIf lngVerifyType <> dbBigInt Then
+                Log.Error eelWarning, "Big Integer field type restoration did not take effect for " & _
+                    strTableName & "." & varName, ModuleName(Me) & ".FixCorruptedBigIntFields"
+                Err.Clear
+            End If
+        End If
+    Next varName
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetTypeString
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
@@ -610,7 +1126,7 @@ Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
         Case dbLongBinary:      GetTypeString = "LONGBINARY"
         Case dbBinary:          GetTypeString = "BINARY"
         Case dbBoolean:         GetTypeString = "BIT"
-        Case dbAutoIncrField:   GetTypeString = "COUNTER"
+        Case dbBigInt:          GetTypeString = "BIGINT"
         Case dbCurrency:        GetTypeString = "CURRENCY"
         Case dbDate, dbTime:    GetTypeString = "DATETIME"
         Case dbGUID:            GetTypeString = "GUID"
@@ -624,31 +1140,6 @@ Private Function GetTypeString(intType As DAO.DataTypeEnum) As String
         Case dbText:            GetTypeString = "VARCHAR"
         Case Else:              GetTypeString = "VARCHAR"
     End Select
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : IndexAvailable
-' Author    : Adam Waller
-' Date      : 4/23/2020
-' Purpose   : Return true if the index collection is avilable. Without the error handling
-'           : this may throw an error if a linked table is not accessible during export.
-'---------------------------------------------------------------------------------------
-'
-Private Function IndexAvailable(tdf As TableDef) As Boolean
-
-    Dim lngTest As Long
-
-    LogUnhandledErrors
-    On Error Resume Next
-    lngTest = tdf.Indexes.Count
-    If Err Then
-        Err.Clear
-    Else
-        IndexAvailable = True
-    End If
-    CatchAny eelNoError, vbNullString, , False
-
 End Function
 
 
@@ -667,6 +1158,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
     Dim dbs As DAO.Database
     Dim tdf As DAO.TableDef
     Dim strSql As String
+    Dim strKeyFields As String
     Dim strConnect As String
     Dim strEnvKey As String
     Dim strKey As String
@@ -691,6 +1183,12 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
 
         ' Link the table
         Set dItem = dTable("Items")
+
+        ' A tbldefs .json is a linked-table definition only when it carries Connect.
+        ' Without Connect it is a local-table metadata sidecar (schema is in the .xml;
+        ' metadata is applied when that .xml imports).
+        If Not dItem.Exists("Connect") Then Exit Function
+
         Set dbs = SharedDb
 
         strConnect = dItem("Connect")
@@ -701,6 +1199,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
         End If
         strKey = IIf(Len(strEnvKey) > 0, strEnvKey, GetConnectionEnvKey(strConnect))
         Set dState = GetConnState(strKey)
+        If dState Is Nothing Then Exit Function
 
         If dState("Status") = csIgnored Then
             Log.Add "  " & T("Skipped {0} (connection ignored)", var0:=dItem("Name")), Options.ShowDebug
@@ -808,10 +1307,13 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
         Else
             ' Check for a primary key index (Linked SQL tables may bring over the index, but linked views won't.)
             If dItem.Exists("PrimaryKey") And Not HasUniqueIndex(tdf) Then
-                ' Create a pseudo index on the linked table
-                strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & DblQ(tdf.Name) & "] (" & dItem("PrimaryKey") & ") WITH PRIMARY"
-                dbs.Execute strSql, dbFailOnError
-                dbs.TableDefs.Refresh
+                strKeyFields = BracketFieldList(CStr(dItem("PrimaryKey")))
+                If Len(strKeyFields) Then
+                    ' Create a pseudo index on the linked table
+                    strSql = "CREATE UNIQUE INDEX __uniqueindex ON [" & DblQ(tdf.Name) & "] (" & strKeyFields & ") WITH PRIMARY"
+                    dbs.Execute strSql, dbFailOnError
+                    dbs.TableDefs.Refresh
+                End If
             End If
         End If
 
@@ -906,7 +1408,7 @@ Private Function HasUniqueIndex(tdf As TableDef) As Boolean
 
     Dim idx As DAO.Index
 
-    If IndexAvailable(tdf) Then
+    If TableIndexesAvailable(tdf) Then
         For Each idx In tdf.Indexes
             If idx.Unique Then
                 HasUniqueIndex = True
@@ -926,9 +1428,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_MoveSource(strFromFolder As String, strToFolder As String)
-    MoveFileIfExists strFromFolder & FSO.GetFileName(IDbComponent_SourceFile), strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".sql", strToFolder
-    MoveFileIfExists strFromFolder & FSO.GetBaseName(IDbComponent_SourceFile) & ".json", strToFolder
+    MoveComponentSource Me, strFromFolder, strToFolder
 End Sub
 
 
@@ -944,14 +1444,25 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim tdf As AccessObject
     Dim cTable As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
+    Dim dSysTables As Dictionary
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentData.AllTables.Count
+            sngStart = Timer
+        End If
+        ' Batch-load table Types from MSysObjects once, so per-table SourceFile /
+        ' IsLinkedTable checks avoid hundreds of slow single-row Type lookups.
+        BuildTableTypeCache
+        Set dSysTables = GetSystemTableNames
         For Each tdf In CurrentData.AllTables
-            If tdf.Name Like "MSys*" Or tdf.Name Like "~*" Then
+            If dSysTables.Exists(tdf.Name) Or tdf.Name Like "~*" Then
                 ' Skip system and temporary tables
             Else
                 Set cTable = New clsDbTableDef
@@ -959,9 +1470,11 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
                 If blnNeedAll Then m_Items(False).Add cTable.SourceFile, cTable
                 If blnModifiedOnly Then
                     If cTable.IsModified Then m_Items(True).Add cTable.SourceFile, cTable
+                    Log.IncrementObjectScanProgress sngStart, lngScanCount, "Tables"
                 End If
             End If
         Next tdf
+        ClearTableTypeCache
     End If
 
     ' Return cached collection
@@ -975,13 +1488,41 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 4/23/2020
 ' Purpose   : Return a list of file names to import for this component type.
+'           : Local tables export schema as .xml and metadata as a sibling .json sidecar;
+'           : only .json files without a matching .xml are linked-table definitions.
 '---------------------------------------------------------------------------------------
 '
 Private Function IDbComponent_GetFileList() As Dictionary
+
+    Dim dAll As Dictionary
+    Dim dXmlBaseNames As Dictionary
+    Dim varKey As Variant
+    Dim strExt As String
+
     If m_FileList Is Nothing Then
-        Set m_FileList = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml", "*.json")
+        Set dAll = GetFilePathsInFolder(IDbComponent_BaseFolder, "*.xml", "*.json")
+        Set dXmlBaseNames = New Dictionary
+        For Each varKey In dAll.Keys
+            If LCase$(FSO.GetExtensionName(CStr(varKey))) = "xml" Then
+                dXmlBaseNames.Add FSO.GetBaseName(CStr(varKey)), vbNullString
+            End If
+        Next varKey
+        Set m_FileList = New Dictionary
+        For Each varKey In dAll.Keys
+            strExt = LCase$(FSO.GetExtensionName(CStr(varKey)))
+            If strExt = "json" Then
+                If dXmlBaseNames.Exists(FSO.GetBaseName(CStr(varKey))) Then
+                    ' Metadata sidecar for a local table; schema imports from the .xml.
+                Else
+                    m_FileList.Add varKey, vbNullString
+                End If
+            Else
+                m_FileList.Add varKey, vbNullString
+            End If
+        Next varKey
     End If
     Set IDbComponent_GetFileList = m_FileList
+
 End Function
 
 
@@ -1050,7 +1591,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "xml"
     IDbComponent_FileExtensions.Add "json"
@@ -1100,6 +1641,13 @@ Private Property Get IsLinkedTable() As Boolean
     If m_Table Is Nothing Then Exit Property
 
     ' Use cached value if possible (per table object on this instance)
+    If m_lngTableType > 0 Then
+        IsLinkedTable = (m_lngTableType <> 1)
+        Exit Property
+    End If
+
+    ' Use module-level batch cache when active (built by GetAllFromDB).
+    m_lngTableType = GetCachedTableType(m_Table.Name)
     If m_lngTableType > 0 Then
         IsLinkedTable = (m_lngTableType <> 1)
         Exit Property

@@ -22,7 +22,9 @@ Attribute VB_Exposed = False
 '           :
 '           : The internal structure is never serialized; it exists only transiently
 '           : during the composition/decomposition process. The .sql file is the sole
-'           : source of truth for SQL text.
+'           : source of truth for SQL text and for every modifier SQL can express.
+'           : JSON OptionFlag cannot add DISTINCT / TOP / OWNERACCESS that the .sql
+'           : does not contain.
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -46,13 +48,56 @@ Private m_lngTopN As Long
 Private m_lngTopPercent As Long
 Private m_strTransformAgg As String     ' TRANSFORM aggregate expression
 Private m_strPivotField As String       ' PIVOT field
-Private m_strParameters As String       ' PARAMETERS clause
+Private m_colParameters As Collection   ' Of Dictionary: name, type, flag (declared PARAMETERS)
 Private m_strRawSql As String           ' Raw SQL (for pass-through/DDL/UNION)
 Private m_blnDesignerCompatible As Boolean
 Private m_blnIsPassThrough As Boolean
 Private m_blnIsDDL As Boolean
 Private m_blnRequiresDesignView As Boolean   ' True when SQL has shapes (e.g. multi-condition ON) that dbMemo "SQL" cannot represent
+Private m_blnHasDerivedTable As Boolean      ' True when a FROM operand is a derived table (subquery)
 Private m_colWarnings As Collection     ' Builder warnings captured for diagnostics
+Private m_syntax As clsSqlSyntax        ' Pure SQL token/identifier parsing core
+Private m_strContextLabel As String     ' Query name for export-path warning context
+Private m_dParamTypes As Dictionary     ' DAO data type -> canonical PARAMETERS keyword
+Private m_dParamFlags As Dictionary     ' PARAMETERS keyword -> DAO data type
+' Option bits the last ReconstructSQL wrote into generated SQL. -1 means the caller
+' must parse the SQL instead: either no reconstruction has run, or the query kept its
+' raw Attribute 0 text, which can carry modifiers the option row never recorded.
+Private m_lngReconstructedOptionFlag As Long
+
+' Access does not store 0 for a declared parameter -- an untyped "Value" parameter is
+' recorded as dbText -- but a zero flag is used as the fallback for an unknown type.
+Private Const PARAM_TYPE_UNTYPED As Long = 0
+
+' Attribute 3 bits that Access SQL text expresses on its own, so the .sql is the
+' authority for every one of them: 1 Output All Fields / UNION ALL, 2 DISTINCT,
+' 4 WITH OWNERACCESS OPTION, 8 DISTINCTROW, 16 TOP, 32 PERCENT.
+Private Const OPTION_BITS_FROM_SQL As Long = 63
+
+
+Private Sub Class_Initialize()
+    Set m_syntax = New clsSqlSyntax
+    Set m_colParameters = New Collection
+    m_lngReconstructedOptionFlag = -1
+End Sub
+
+
+Private Sub Class_Terminate()
+    Set m_syntax = Nothing
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ContextLabel
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Optional query/object name for diagnostics when m_strRawSql is unset
+'           : (e.g. during ReconstructSQL on the export path).
+'---------------------------------------------------------------------------------------
+'
+Public Property Let ContextLabel(ByVal strLabel As String)
+    m_strContextLabel = strLabel
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -72,6 +117,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     Set m_colWarnings = New Collection
+    m_lngReconstructedOptionFlag = -1
 
     Dim dRow As Dictionary
     Dim dTbl As Dictionary
@@ -138,8 +184,9 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 strTarget = strN1
                 strTargetDatabase = strN2
                 blnHasAttr1 = True
-                ' DDL (Flag=7) and Pass-through (Flag=8) store raw SQL in Expression
-                If lngFlag = 7 Or lngFlag = 8 Then
+                ' DDL (Flag=7) and pass-through (Flag=8=returns records,
+                ' Flag=10=no records) store raw SQL in Expression
+                If lngFlag = 7 Or lngFlag = 8 Or lngFlag = 10 Then
                     strRawSql = strExpr
                     blnHasRawSql = True
                 End If
@@ -217,8 +264,16 @@ Public Function ReconstructSQL(colRows As Collection) As String
         End Select
     Next dRow
 
-    ' If raw SQL was found (SQL View or DDL/pass-through), return it directly
+    ' If raw SQL was found (SQL View or DDL/pass-through), return it.
+    ' From 5.1.0, inject Attribute 3 modifiers that Access omitted from
+    ' Attribute 0 so the emitted .sql is self-contained. Pass-through and
+    ' DDL keep the stored Expression verbatim.
     If blnHasRawSql Then
+        If Options.ExportFormatVersion >= EFV_5_1_0 _
+            And lngOperation <> 7 And lngOperation <> 8 And lngOperation <> 10 Then
+            strRawSql = ApplyOptionFlagToSql(strRawSql, lngOption, lngTopN, blnTopPercent)
+        End If
+        m_strRawSql = strRawSql
         ReconstructSQL = strRawSql
         GoTo CleanUp
     End If
@@ -230,6 +285,8 @@ Public Function ReconstructSQL(colRows As Collection) As String
     ' Check if this is a crosstab query (operation 6 = TRANSFORM)
     Dim blnIsCrosstab As Boolean
     blnIsCrosstab = (lngOperation = 6)
+    m_lngReconstructedOptionFlag = ReconstructedOptionBits( _
+        lngOperation, lngOption, lngTopN, blnTopPercent, colFields.Count)
 
     ' Build SQL from decomposed structure
     cSql.AppendOnAdd = vbNullString
@@ -413,11 +470,58 @@ Public Function ReconstructSQL(colRows As Collection) As String
     ' Terminate with semicolon and newline
     cSql.Add ";" & vbCrLf
 
-    ReconstructSQL = cSql.GetStr
+    m_strRawSql = cSql.GetStr
+    ReconstructSQL = m_strRawSql
 
 CleanUp:
-    CatchAny eelError, "Error reconstructing SQL (" & colRows.Count & " rows)", _
+    CatchAny eelError, "Error reconstructing SQL (" & colRows.Count & " rows). " & SqlSnippet(), _
         ModuleName(Me) & ".ReconstructSQL"
+
+End Function
+
+
+' Return the Attribute 3 bits that ReconstructSQL writes into generated SQL.
+' Raw SQL keeps the -1 sentinel because it can contain modifiers not present in
+' the MSysQueries option row and must still be parsed after reconstruction.
+Private Function ReconstructedOptionBits(ByVal lngOperation As Long, _
+                                         ByVal lngOption As Long, _
+                                         ByVal lngTopN As Long, _
+                                         ByVal blnTopPercent As Boolean, _
+                                         ByVal lngFieldCount As Long) As Long
+
+    Dim lngBits As Long
+
+    Select Case lngOperation
+        Case 1, 2, 3, 6
+            If (lngOption And 8) <> 0 Then
+                lngBits = lngBits Or 8
+            ElseIf (lngOption And 2) <> 0 Then
+                lngBits = lngBits Or 2
+            End If
+            If lngTopN > 0 Then
+                lngBits = lngBits Or 16
+                If blnTopPercent Then lngBits = lngBits Or 32
+            End If
+            ' ReconstructSQL emits an explicit `, *` only for SELECT queries
+            ' that also have named output columns. A bare generated `*` is
+            ' self-describing and is intentionally omitted from OptionFlag.
+            If lngOperation = 1 And lngFieldCount > 0 And (lngOption And 1) <> 0 Then
+                lngBits = lngBits Or 1
+            End If
+
+        Case 4, 5
+            If (lngOption And 8) <> 0 Then lngBits = lngBits Or 8
+
+        Case 9
+            If (lngOption And 2) = 0 Then
+                lngBits = 1
+            Else
+                lngBits = 3
+            End If
+    End Select
+
+    If lngOperation <> 9 And (lngOption And 4) <> 0 Then lngBits = lngBits Or 4
+    ReconstructedOptionBits = lngBits
 
 End Function
 
@@ -458,12 +562,6 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
     strNorm = NormalizeWhitespace(strSql)
     strUpper = UCase$(strNorm)
 
-    ' Check for query types that cannot be represented in Design View
-    If IsUnionQuery(strUpper) Then
-        m_blnDesignerCompatible = False
-        GoTo CleanUp
-    End If
-
     ' DDL statements
     If IsDDLQuery(strUpper) Then
         m_blnIsDDL = True
@@ -477,7 +575,7 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
 
     ' Check for WITH OWNERACCESS OPTION at the end
     Dim lngOwnerAccess As Long
-    lngOwnerAccess = FindTopLevelKeyword(strNorm, "WITH OWNERACCESS OPTION")
+    lngOwnerAccess = FindTopLevelWord(strUpper, "WITH OWNERACCESS OPTION")
     If lngOwnerAccess > 0 Then
         ' Verify it's at the very end
         If Len(Trim$(Mid$(strNorm, lngOwnerAccess + 23))) = 0 Then
@@ -485,6 +583,19 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
             strNorm = RTrim$(Left$(strNorm, lngOwnerAccess - 1))
             strUpper = UCase$(strNorm)
         End If
+    End If
+
+    ' UNION is not designer-compatible. Parse UNION vs UNION ALL (and any
+    ' OWNERACCESS bit already collected) so OptionBitsFromSql can describe it.
+    If IsUnionQuery(strUpper) Then
+        m_blnDesignerCompatible = False
+        m_lngQueryType = 9
+        If IsUnionAllQuery(strUpper) Then
+            m_lngOption = m_lngOption Or 1
+        Else
+            m_lngOption = m_lngOption Or 3
+        End If
+        GoTo CleanUp
     End If
 
     ' Parse PARAMETERS clause if present
@@ -522,12 +633,12 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
         GoTo CleanUp
     End If
 
-    ' Crosstab (TRANSFORM/PIVOT) queries use SQL View because the Design
-    ' View qdef generator does not emit the Attribute 6 aggregate/pivot
-    ' fields that Access requires for Operation=6.
-    If blnIsCrosstab Then
-        m_blnDesignerCompatible = False
-    ElseIf Len(m_strTargetDatabase) > 0 Then
+    ' Crosstabs are designer-compatible: EmitCrosstabOutputColumns supplies the
+    ' Attribute 6 role markers Access requires for Operation =6. This holds even
+    ' when the query is parameterized and its PIVOT names no headings -- that
+    ' shape prompts in the Access designer, which has to run the query to
+    ' discover its column headings, but LoadFromText never executes it.
+    If Len(m_strTargetDatabase) > 0 Then
         ' External target databases are preserved most faithfully in SQL View;
         ' the Design View qdef grammar for Attribute 1 Name2 is not documented.
         m_blnDesignerCompatible = False
@@ -625,6 +736,10 @@ End Property
 '           : dProperties: query properties (ReturnsRecords, ODBCTimeout, etc.)
 '           : dColumns: column metadata (Name, AggregateType, ColumnWidth, etc.)
 '           : dLayout: design layout from LvExtra parsing (or Nothing for SQL View)
+'           : lngOptionFlag: JSON companion bits, used only to detect stale
+'           : companions. Every SQL-representable modifier comes from the
+'           : .sql, including Output All Fields (a bare `*` in the field
+'           : list); a disagreeing OptionFlag is ignored and warned.
 '---------------------------------------------------------------------------------------
 '
 Public Function GenerateQdef(blnDesignView As Boolean, _
@@ -637,24 +752,7 @@ Public Function GenerateQdef(blnDesignView As Boolean, _
 
     Dim cOut As New clsConcat
 
-    ' Merge JSON OptionFlag with SQL-derived flags. The SQL is the source of
-    ' truth -- if the JSON OptionFlag claims TOP/PERCENT but the parsed SQL did
-    ' not produce a TOP n value, drop those bits to avoid generating an Option
-    ' line that points to a non-existent TopN. Otherwise Access fails the import
-    ' with "Resource failure".
-    If lngOptionFlag > 0 Then
-        Dim lngMerged As Long
-        lngMerged = lngOptionFlag
-        If m_lngTopN = 0 And m_lngTopPercent = 0 Then
-            ' Clear TOP (16) and PERCENT (32) bits when no TOP value is present
-            lngMerged = lngMerged And Not 16
-            lngMerged = lngMerged And Not 32
-            If lngMerged <> lngOptionFlag Then
-                Log.Add "    Dropping TOP/PERCENT bits from OptionFlag (no TOP n in SQL)", Options.ShowDebug
-            End If
-        End If
-        m_lngOption = m_lngOption Or lngMerged
-    End If
+    ReconcileOptionFlag lngOptionFlag
 
     If blnDesignView And m_blnDesignerCompatible Then
         EmitDesignViewQdef cOut, dProperties, dColumns, dLayout
@@ -668,6 +766,302 @@ CleanUp:
     CatchAny eelError, "Error generating qdef (DesignView=" & blnDesignView & "). " & SqlSnippet(), _
         ModuleName(Me) & ".GenerateQdef"
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReconcileOptionFlag
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : SQL-derived modifiers are authoritative, so this never changes
+'           : m_lngOption -- it only reports a companion that no longer
+'           : matches its .sql. The comparison is symmetric: a bit the JSON
+'           : claims and the SQL lacks, and a bit the SQL carries that the
+'           : JSON dropped, are both stale companions.
+'           : lngOptionFlag < 0 means the caller omitted the field, which is
+'           : silent -- an absent OptionFlag makes no claim to contradict.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ReconcileOptionFlag(ByVal lngOptionFlag As Long)
+
+    Dim lngSqlBits As Long
+    Dim lngJsonBits As Long
+
+    If lngOptionFlag < 0 Then Exit Sub
+
+    lngSqlBits = m_lngOption And OPTION_BITS_FROM_SQL
+    lngJsonBits = lngOptionFlag And OPTION_BITS_FROM_SQL
+
+    ' A bare `SELECT *` sets bit 1 while storing no output columns. Access
+    ' records that shape with Attribute 3 = 1, but exports omit the flag
+    ' because the `*` already carries it, so both spellings agree here.
+    If lngSqlBits <> lngJsonBits And IsImplicitOutputAllFields() Then
+        lngSqlBits = lngSqlBits And Not 1
+        lngJsonBits = lngJsonBits And Not 1
+    End If
+
+    If lngSqlBits <> lngJsonBits Then
+        If m_colWarnings Is Nothing Then Set m_colWarnings = New Collection
+        m_colWarnings.Add T("OptionFlag {0} disagrees with SQL modifiers {1}; using SQL", _
+            var0:=CStr(lngJsonBits), var1:=CStr(lngSqlBits))
+        Log.Add T("    OptionFlag {0} disagrees with SQL modifiers {1}; using SQL", _
+            var0:=CStr(lngJsonBits), var1:=CStr(lngSqlBits))
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsImplicitOutputAllFields
+' Author    : Adam Waller
+' Date      : 9/9/2026
+' Purpose   : True when bit 1 came from a bare `*` that is the entire field
+'           : list, rather than from an explicit `*` alongside named output
+'           : columns. UNION queries reuse bit 1 for UNION ALL and never
+'           : populate output columns, so they are excluded.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsImplicitOutputAllFields() As Boolean
+    If m_lngQueryType = 9 Then Exit Function
+    If m_colOutputColumns Is Nothing Then Exit Function
+    IsImplicitOutputAllFields = ((m_lngOption And 1) <> 0 And _
+        m_colOutputColumns.Count = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyOptionFlagToSql
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : Inject Attribute 3 modifiers that are missing from an Access
+'           : SQL string, limited to what Jet can parse back. DISTINCT and
+'           : TOP go only onto a SELECT-shaped statement (DISTINCTROW is
+'           : also legal on UPDATE / DELETE); UNION vs UNION ALL is never
+'           : rewritten, since that changes which rows the query returns;
+'           : and Output All Fields is never injected, because the position
+'           : of its bare `*` in the field list is not recoverable.
+'---------------------------------------------------------------------------------------
+'
+Public Function ApplyOptionFlagToSql(ByVal strSql As String, ByVal lngOption As Long, _
+    Optional ByVal lngTopN As Long = 0, Optional ByVal blnTopPercent As Boolean = False) As String
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Dim strUpper As String
+    Dim strWork As String
+
+    ApplyOptionFlagToSql = strSql
+    If Len(strSql) = 0 Then GoTo CleanUp
+    If lngOption = 0 And lngTopN = 0 Then GoTo CleanUp
+
+    strUpper = UCase$(NormalizeWhitespace(strSql))
+    If IsDDLQuery(strUpper) Then GoTo CleanUp
+
+    strWork = strSql
+    If IsUnionQuery(strUpper) Then
+        strWork = ApplyOwnerAccessOption(strWork, strUpper, lngOption)
+    Else
+        strWork = InjectDistinctAndTop(strWork, lngOption, lngTopN, blnTopPercent)
+        strWork = ApplyOwnerAccessOption(strWork, strUpper, lngOption)
+    End If
+    ApplyOptionFlagToSql = strWork
+
+CleanUp:
+    CatchAny eelError, "Error applying option flag to SQL. " & SqlSnippet(), _
+        ModuleName(Me) & ".ApplyOptionFlagToSql"
+    If Len(ApplyOptionFlagToSql) = 0 Then ApplyOptionFlagToSql = strSql
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OptionBitsFromSql
+' Author    : Adam Waller
+' Date      : 9/8/2026
+' Purpose   : Parse an Access SQL string and return the Attribute 3 mask
+'           : implied by its modifiers. Uses a temporary composer so the
+'           : caller's decomposed state is left unchanged.
+'---------------------------------------------------------------------------------------
+'
+Public Function OptionBitsFromSql(ByVal strSql As String) As Long
+
+    Dim cTemp As clsQueryComposer
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    Set cTemp = New clsQueryComposer
+    cTemp.DecomposeSQL strSql
+    OptionBitsFromSql = cTemp.ParsedOptionFlag
+
+    CatchAny eelError, "Error reading option bits from SQL", _
+        ModuleName(Me) & ".OptionBitsFromSql"
+
+End Function
+
+
+Private Function InjectDistinctAndTop(ByVal strSql As String, ByVal lngOption As Long, _
+    ByVal lngTopN As Long, ByVal blnTopPercent As Boolean) As String
+
+    Dim lngVerb As Long
+    Dim strVerb As String
+    Dim blnSelectShaped As Boolean
+    Dim lngAfter As Long
+    Dim lngDistinctPos As Long
+    Dim lngTopPos As Long
+    Dim strRest As String
+    Dim blnHasDistinctRow As Boolean
+    Dim blnHasDistinct As Boolean
+    Dim blnHasTop As Boolean
+    Dim strInsert As String
+
+    InjectDistinctAndTop = strSql
+
+    lngVerb = FindQueryVerb(strSql, strVerb, blnSelectShaped)
+    If lngVerb = 0 Then Exit Function
+
+    lngAfter = lngVerb + Len(strVerb)
+    SkipSqlWhitespace strSql, lngAfter
+    lngDistinctPos = lngAfter
+
+    strRest = UCase$(Mid$(strSql, lngAfter))
+    If StartsWithKeyword(strRest, "DISTINCTROW") Then
+        blnHasDistinctRow = True
+        lngAfter = lngAfter + Len("DISTINCTROW")
+        SkipSqlWhitespace strSql, lngAfter
+    ElseIf StartsWithKeyword(strRest, "DISTINCT") Then
+        blnHasDistinct = True
+        lngAfter = lngAfter + Len("DISTINCT")
+        SkipSqlWhitespace strSql, lngAfter
+    End If
+    lngTopPos = lngAfter
+
+    strRest = UCase$(Mid$(strSql, lngAfter))
+    If StartsWithKeyword(strRest, "TOP") Then blnHasTop = True
+
+    If Not blnHasDistinctRow And Not blnHasDistinct Then
+        If (lngOption And 8) <> 0 Then
+            strInsert = "DISTINCTROW "
+        ElseIf (lngOption And 2) <> 0 And blnSelectShaped Then
+            strInsert = "DISTINCT "
+        End If
+    End If
+
+    ' Jet accepts TOP only on a SELECT-shaped statement. UPDATE and DELETE
+    ' carry the bit in Attribute 3 without it ever being legal SQL text, so
+    ' injecting it there would emit a .sql Access cannot parse back.
+    If Not blnHasTop And blnSelectShaped And (lngOption And 16) <> 0 And lngTopN > 0 Then
+        If blnHasDistinctRow Or blnHasDistinct Then
+            ' TOP belongs after an existing DISTINCT / DISTINCTROW
+            If blnTopPercent Or (lngOption And 32) <> 0 Then
+                InjectDistinctAndTop = Left$(strSql, lngTopPos - 1) & _
+                    "TOP " & CStr(lngTopN) & " PERCENT " & Mid$(strSql, lngTopPos)
+            Else
+                InjectDistinctAndTop = Left$(strSql, lngTopPos - 1) & _
+                    "TOP " & CStr(lngTopN) & " " & Mid$(strSql, lngTopPos)
+            End If
+            If Len(strInsert) > 0 Then
+                InjectDistinctAndTop = Left$(InjectDistinctAndTop, lngDistinctPos - 1) & _
+                    strInsert & Mid$(InjectDistinctAndTop, lngDistinctPos)
+            End If
+            Exit Function
+        Else
+            If blnTopPercent Or (lngOption And 32) <> 0 Then
+                strInsert = strInsert & "TOP " & CStr(lngTopN) & " PERCENT "
+            Else
+                strInsert = strInsert & "TOP " & CStr(lngTopN) & " "
+            End If
+        End If
+    End If
+
+    If Len(strInsert) > 0 Then
+        InjectDistinctAndTop = Left$(strSql, lngDistinctPos - 1) & strInsert & Mid$(strSql, lngDistinctPos)
+    End If
+
+End Function
+
+
+Private Function FindQueryVerb(ByVal strSql As String, ByRef strVerb As String, _
+    ByRef blnSelectShaped As Boolean) As Long
+
+    Dim strUpper As String
+    Dim lngSelect As Long
+    Dim lngUpdate As Long
+    Dim lngDelete As Long
+    Dim lngFirst As Long
+
+    strUpper = UCase$(strSql)
+    lngSelect = FindTopLevelWord(strUpper, "SELECT")
+    lngUpdate = FindTopLevelWord(strUpper, "UPDATE")
+    lngDelete = FindTopLevelWord(strUpper, "DELETE")
+
+    ' The statement's first top-level query verb determines its shape. This
+    ' still finds the SELECT in PARAMETERS / TRANSFORM / INSERT ... SELECT,
+    ' while ignoring keywords inside literals and bracketed identifiers.
+    If lngSelect > 0 Then
+        lngFirst = lngSelect
+        strVerb = "SELECT"
+        blnSelectShaped = True
+    End If
+    If lngUpdate > 0 And (lngFirst = 0 Or lngUpdate < lngFirst) Then
+        lngFirst = lngUpdate
+        strVerb = "UPDATE"
+        blnSelectShaped = False
+    End If
+    If lngDelete > 0 And (lngFirst = 0 Or lngDelete < lngFirst) Then
+        lngFirst = lngDelete
+        strVerb = "DELETE"
+        blnSelectShaped = False
+    End If
+
+    FindQueryVerb = lngFirst
+
+End Function
+
+
+Private Function StartsWithKeyword(ByVal strUpper As String, ByVal strKeyword As String) As Boolean
+    Dim strNext As String
+
+    If Left$(strUpper, Len(strKeyword)) <> strKeyword Then Exit Function
+    If Len(strUpper) = Len(strKeyword) Then
+        StartsWithKeyword = True
+        Exit Function
+    End If
+    strNext = Mid$(strUpper, Len(strKeyword) + 1, 1)
+    StartsWithKeyword = (strNext = " " Or strNext = vbTab Or _
+        strNext = vbCr Or strNext = vbLf Or strNext = "(")
+End Function
+
+
+Private Sub SkipSqlWhitespace(ByVal strSql As String, ByRef lngPos As Long)
+    Do While lngPos <= Len(strSql)
+        Select Case Mid$(strSql, lngPos, 1)
+            Case " ", vbTab, vbCr, vbLf
+                lngPos = lngPos + 1
+            Case Else
+                Exit Do
+        End Select
+    Loop
+End Sub
+
+
+' strUpperNorm is strSql uppercased with whitespace collapsed, so the clause is
+' recognized however Access wrapped it across lines. The presence test is
+' syntax-aware because the phrase is legal inside a literal or a field name,
+' where it is data rather than the query's own OWNERACCESS clause.
+Private Function ApplyOwnerAccessOption(ByVal strSql As String, ByVal strUpperNorm As String, _
+    ByVal lngOption As Long) As String
+
+    Dim strWork As String
+
+    ApplyOwnerAccessOption = strSql
+    If (lngOption And 4) = 0 Then Exit Function
+    If FindTopLevelWord(strUpperNorm, "WITH OWNERACCESS OPTION") > 0 Then Exit Function
+
+    strWork = RTrim$(strSql)
+    Do While Right$(strWork, 1) = ";"
+        strWork = RTrim$(Left$(strWork, Len(strWork) - 1))
+    Loop
+    ApplyOwnerAccessOption = strWork & vbCrLf & "WITH OWNERACCESS OPTION;" & vbCrLf
 End Function
 
 
@@ -764,24 +1158,183 @@ Private Sub AppendParameterDeclaration(ByRef strParams As String, ByVal strExpre
 End Sub
 
 
-Private Function ParameterTypeSql(ByVal lngFlag As Long) As String
-    Select Case lngFlag
-        Case 0:     ParameterTypeSql = "Value"
-        Case 1:     ParameterTypeSql = "Boolean"
-        Case 2:     ParameterTypeSql = "Byte"
-        Case 3:     ParameterTypeSql = "Short"
-        Case 4:     ParameterTypeSql = "Long"
-        Case 5:     ParameterTypeSql = "Currency"
-        Case 6:     ParameterTypeSql = "Single"
-        Case 7:     ParameterTypeSql = "Double"
-        Case 8:     ParameterTypeSql = "DateTime"
-        Case 10:    ParameterTypeSql = "Text ( 255 )"
-        Case 11:    ParameterTypeSql = "OLEObject"
-        Case 12:    ParameterTypeSql = "Memo"
-        Case 15:    ParameterTypeSql = "GUID"
-        Case 16:    ParameterTypeSql = "BigInt"
-    End Select
+'---------------------------------------------------------------------------------------
+' Procedure : EnsureParameterTypeTables
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Build the lookup tables translating between a DAO data type and the type
+'             keyword used in a SQL PARAMETERS clause.
+'           : Both directions are generated from one list so they cannot drift. The
+'             canonical keyword is the one we emit; the trailing aliases are only accepted
+'             on the way back in. Where two DAO types claim the same keyword, the first
+'             registration wins the reverse lookup.
+'           : The keywords were verified against the ACE parser rather than assumed.
+'             Several plausible spellings are rejected outright with error 3139 --
+'             "Boolean", "Memo", "OLEObject" and "Decimal" among them -- so those are
+'             import-only aliases that must never be emitted. Note also that a BigInt
+'             parameter reports as dbNumeric, not dbBigInt, and that "Value" is simply a
+'             spelling of dbText.
+'---------------------------------------------------------------------------------------
+'
+Private Sub EnsureParameterTypeTables()
+
+    If Not m_dParamTypes Is Nothing Then Exit Sub
+
+    Set m_dParamTypes = New Dictionary
+    Set m_dParamFlags = New Dictionary
+
+    AddParameterType dbBoolean, "Bit", "yesno", "logical", "boolean"
+    AddParameterType dbByte, "Byte"
+    AddParameterType dbInteger, "Short", "smallint"
+    AddParameterType dbLong, "Long", "integer", "int", "longinteger", "counter"
+    AddParameterType dbCurrency, "Currency", "money"
+    AddParameterType dbSingle, "Single", "ieeesingle", "real"
+    AddParameterType dbDouble, "Double", "ieeedouble", "float", "number", "numeric"
+    AddParameterType dbDate, "DateTime", "date", "time"
+    AddParameterType dbBinary, "Binary", "varbinary"
+    AddParameterType dbText, "Text ( 255 )", "char", "varchar", "string", "shorttext", "value"
+    AddParameterType dbLongBinary, "LongBinary", "oleobject", "image"
+    AddParameterType dbMemo, "LongText", "memo", "note"
+    AddParameterType dbGUID, "GUID", "replicationid"
+    AddParameterType dbNumeric, "BigInt", "largeint"
+
+    ' Types Access will not parse in a PARAMETERS clause, kept so that a flag arriving
+    ' from an older export or a hand-edited file still resolves to something.
+    AddParameterType dbBigInt, "BigInt"
+    AddParameterType dbDecimal, "Decimal"
+    AddParameterType PARAM_TYPE_UNTYPED, "Value"
+
+End Sub
+
+
+Private Sub AddParameterType(ByVal lngType As Long, ByVal strCanonical As String, _
+    ParamArray varAliases() As Variant)
+
+    Dim varAlias As Variant
+
+    m_dParamTypes(lngType) = strCanonical
+    RegisterParameterKeyword ParameterTypeKey(strCanonical), lngType
+    For Each varAlias In varAliases
+        RegisterParameterKeyword ParameterTypeKey(CStr(varAlias)), lngType
+    Next varAlias
+
+End Sub
+
+
+Private Sub RegisterParameterKeyword(ByVal strKey As String, ByVal lngType As Long)
+    If Len(strKey) = 0 Then Exit Sub
+    If Not m_dParamFlags.Exists(strKey) Then m_dParamFlags(strKey) = lngType
+End Sub
+
+
+Private Function ParameterTypeKey(ByVal strType As String) As String
+    ' Normalize a type keyword for lookup: drop any size specifier "( n )", remove
+    ' internal spaces, and lower-case it.
+    Dim lngParen As Long
+
+    strType = Trim$(strType)
+    lngParen = InStr(1, strType, "(")
+    If lngParen > 0 Then strType = Left$(strType, lngParen - 1)
+    ParameterTypeKey = LCase$(Replace$(Trim$(strType), " ", vbNullString))
+
 End Function
+
+
+Private Function ParameterTypeSql(ByVal lngFlag As Long) As String
+    EnsureParameterTypeTables
+    If m_dParamTypes.Exists(lngFlag) Then ParameterTypeSql = m_dParamTypes(lngFlag)
+End Function
+
+
+Private Function ParameterFlagFromType(ByVal strType As String) As Long
+
+    Dim strKey As String
+
+    EnsureParameterTypeTables
+    strKey = ParameterTypeKey(strType)
+
+    ' No type given at all; Access records these as text.
+    If Len(strKey) = 0 Then
+        ParameterFlagFromType = PARAM_TYPE_UNTYPED
+        Exit Function
+    End If
+
+    If m_dParamFlags.Exists(strKey) Then
+        ParameterFlagFromType = m_dParamFlags(strKey)
+    Else
+        ParameterFlagFromType = PARAM_TYPE_UNTYPED
+        AddBuilderWarning "Unrecognized parameter type '" & Trim$(strType) & _
+            "'; defaulting to Value (flag 0). " & SqlSnippet(), _
+            ModuleName(Me) & ".ParameterFlagFromType"
+    End If
+
+End Function
+
+
+Private Sub SplitParameterToken(ByVal strToken As String, _
+    ByRef strName As String, ByRef strType As String)
+    ' Split one parameter declaration ("[Enter ID] Long" or "SKU Text ( 255 )")
+    ' into its name (verbatim -- brackets preserved as authored) and type text.
+    Dim lngClose As Long
+    Dim lngSpace As Long
+
+    strName = vbNullString
+    strType = vbNullString
+    strToken = Trim$(strToken)
+    If Len(strToken) = 0 Then Exit Sub
+
+    If Left$(strToken, 1) = "[" Then
+        lngClose = InStr(1, strToken, "]")
+        If lngClose > 0 Then
+            strName = Left$(strToken, lngClose)
+            strType = Trim$(Mid$(strToken, lngClose + 1))
+        Else
+            strName = strToken
+        End If
+    Else
+        lngSpace = InStr(1, strToken, " ")
+        If lngSpace > 0 Then
+            strName = Left$(strToken, lngSpace - 1)
+            strType = Trim$(Mid$(strToken, lngSpace + 1))
+        Else
+            strName = strToken
+        End If
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EmitParameters
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Emit the Design View "Begin Parameters" block holding the query's declared
+'             parameters (MSysQueries Attribute 2).
+'           : Access writes all parameters as repeating Name/Flag pairs inside a single
+'             block -- not one block per parameter -- and Flag is the DAO data type
+'             constant. A parameter's size specifier (e.g. "Text ( 255 )") is not
+'             represented here; it survives only in the SQL PARAMETERS clause.
+'---------------------------------------------------------------------------------------
+'
+Private Sub EmitParameters(cOut As clsConcat)
+
+    Dim dParam As Dictionary
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    If m_colParameters.Count = 0 Then GoTo CleanUp
+
+    cOut.Add "Begin Parameters", vbCrLf
+    For Each dParam In m_colParameters
+        cOut.Add "    Name =""" & CStr(dParam("name")) & """", vbCrLf
+        cOut.Add "    Flag =" & CStr(dParam("flag")), vbCrLf
+    Next dParam
+    cOut.Add "End", vbCrLf
+
+CleanUp:
+    CatchAny eelError, "Error emitting parameters block. " & SqlSnippet(), _
+        ModuleName(Me) & ".EmitParameters"
+
+End Sub
 
 
 Private Sub BuildFromClause(cSql As clsConcat, colTables As Collection, colJoins As Collection)
@@ -1675,7 +2228,11 @@ End Function
 Private Function SqlSnippet() As String
     Const MAX_LEN As Long = 200
     If Len(m_strRawSql) = 0 Then
-        SqlSnippet = "(no SQL captured)"
+        If Len(m_strContextLabel) > 0 Then
+            SqlSnippet = "Query: " & m_strContextLabel
+        Else
+            SqlSnippet = "(no SQL captured)"
+        End If
     ElseIf Len(m_strRawSql) > MAX_LEN Then
         SqlSnippet = "SQL: " & Left$(m_strRawSql, MAX_LEN) & "..."
     Else
@@ -1713,58 +2270,17 @@ End Function
 
 
 Private Function BracketIfNeeded(strName As String) As String
-    ' Return name as-is if already bracketed, parenthesized (derived table
-    ' subquery), or contains a dot (qualified -- caller is responsible for
-    ' bracketing each segment, e.g. "[a].[b]").
-    If Left$(strName, 1) = "[" Or Left$(strName, 1) = "(" Then
-        BracketIfNeeded = strName
-    ElseIf InStr(1, strName, ".") > 0 Then
-        BracketIfNeeded = strName
-    ElseIf HasNonIdentChars(strName) Or IsAccessReservedWord(strName) Then
-        BracketIfNeeded = "[" & strName & "]"
-    Else
-        BracketIfNeeded = strName
-    End If
+    BracketIfNeeded = m_syntax.BracketIfNeeded(strName)
 End Function
 
 
-' EDGE CASE: Access aliases like the auto-generated %$##@_Alias placeholder
-' (used for unnamed derived tables in the FROM clause) contain '%', '$', '#',
-' '@' which are SQL operators / format specifiers. Emitted unbracketed they
-' are tokenized into separate symbols by clsSqlFormatter -- e.g.
-' '%$##@_Alias' becomes '% $ ##@_Alias' -- producing un-importable SQL.
-' Bracketing any identifier with non-regular chars prevents that.
-' See: docs/access-query-storage.md, regression/qryRegressionFromSubquery
 Private Function HasNonIdentChars(strName As String) As Boolean
-    Dim i As Long
-    Dim ch As String
-    For i = 1 To Len(strName)
-        ch = Mid$(strName, i, 1)
-        Select Case ch
-            Case "A" To "Z", "a" To "z", "0" To "9", "_"
-            Case Else
-                HasNonIdentChars = True
-                Exit Function
-        End Select
-    Next i
+    HasNonIdentChars = m_syntax.HasNonIdentChars(strName)
 End Function
 
 
 Private Function IsAccessReservedWord(strWord As String) As Boolean
-    Select Case UCase$(strWord)
-        Case "ACTION", "SELECT", "FROM", "WHERE", "ORDER", "BY", "GROUP", "HAVING", _
-             "INSERT", "INTO", "UPDATE", "DELETE", "SET", "VALUE", "VALUES", _
-             "JOIN", "INNER", "LEFT", "RIGHT", "OUTER", "ON", "AS", _
-             "AND", "OR", "NOT", "IN", "BETWEEN", "LIKE", "IS", "NULL", _
-             "EXISTS", "ALL", "ANY", "SOME", "UNION", "EXCEPT", "INTERSECT", _
-             "DISTINCT", "TOP", "TRANSFORM", "PIVOT", "TABLE", "CREATE", _
-             "ALTER", "DROP", "INDEX", "VIEW", "PROCEDURE", "PARAMETER", _
-             "PARAMETERS", "TRUE", "FALSE", "YES", "NO", "DATE", "TIME", "YEAR", _
-             "TEXT", "MEMO", "LONG", "SHORT", "SINGLE", "DOUBLE", "CURRENCY", _
-             "COUNTER", "YESNO", "BINARY", "OLEOBJECT", "GUID", "KEY", "NAMES", "NUMBER", _
-             "PRIMARY", "FOREIGN", "CONSTRAINT", "REFERENCES", "UNIQUE"
-            IsAccessReservedWord = True
-    End Select
+    IsAccessReservedWord = m_syntax.IsAccessReservedWord(strWord)
 End Function
 
 
@@ -1790,41 +2306,59 @@ Private Sub ResetState()
     m_lngTopPercent = 0
     m_strTransformAgg = vbNullString
     m_strPivotField = vbNullString
-    m_strParameters = vbNullString
+    Set m_colParameters = New Collection
     m_strRawSql = vbNullString
     m_blnDesignerCompatible = False
     m_blnIsPassThrough = False
     m_blnIsDDL = False
     m_blnRequiresDesignView = False
+    m_blnHasDerivedTable = False
     Set m_colWarnings = New Collection
+    m_lngReconstructedOptionFlag = -1
 End Sub
 
 
 Private Function NormalizeWhitespace(strSql As String) As String
-    Dim strResult As String
     Dim lngPos As Long
     Dim strChar As String
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
+    Dim blnInBracket As Boolean
+    Dim blnProtected As Boolean
     Dim blnLastWasSpace As Boolean
 
-    strResult = Replace(strSql, vbCrLf, " ")
-    strResult = Replace(strResult, vbCr, " ")
-    strResult = Replace(strResult, vbLf, " ")
-    strResult = Replace(strResult, vbTab, " ")
-
-    ' Collapse multiple spaces (outside quotes)
+    ' Collapse whitespace only outside literals and bracketed identifiers.
+    ' Replacing line breaks before scanning would alter literal content, so
+    ' consume the original SQL one character at a time.
     Dim strOut As String
     strOut = vbNullString
-    blnInString = False
     blnLastWasSpace = False
-    For lngPos = 1 To Len(strResult)
-        strChar = Mid$(strResult, lngPos, 1)
-        If strChar = """" Then blnInString = Not blnInString
-        If blnInString Then
+
+    For lngPos = 1 To Len(strSql)
+        strChar = Mid$(strSql, lngPos, 1)
+
+        Select Case strChar
+            Case """"
+                If Not blnInSingle And Not blnInBracket Then
+                    blnInDouble = Not blnInDouble
+                End If
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then
+                    blnInSingle = Not blnInSingle
+                End If
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
+        End Select
+
+        blnProtected = blnInDouble Or blnInSingle Or blnInBracket
+        If blnProtected Then
             strOut = strOut & strChar
             blnLastWasSpace = False
         Else
-            If strChar = " " Then
+            If strChar = " " Or strChar = vbTab Or _
+                strChar = vbCr Or strChar = vbLf Then
                 If Not blnLastWasSpace Then
                     strOut = strOut & " "
                     blnLastWasSpace = True
@@ -1854,28 +2388,101 @@ End Function
 
 
 Private Function IsUnionQuery(strUpper As String) As Boolean
-    ' Check if the query contains UNION outside of quotes
+    IsUnionQuery = (FindTopLevelWord(strUpper, "UNION") > 0)
+End Function
+
+
+' True when every top-level UNION is UNION ALL. Mixed UNION / UNION ALL
+' reports False so OptionFlag 3 (UNION) wins, matching ReconstructSQL.
+Private Function IsUnionAllQuery(strUpper As String) As Boolean
     Dim lngPos As Long
-    Dim blnInString As Boolean
+    Dim blnFound As Boolean
+
+    lngPos = FindTopLevelWord(strUpper, "UNION")
+    Do While lngPos > 0
+        blnFound = True
+        ' Anything other than a match at this same position means this
+        ' particular UNION is not spelled UNION ALL.
+        If FindTopLevelWord(strUpper, "UNION ALL", lngPos) <> lngPos Then Exit Function
+        lngPos = FindTopLevelWord(strUpper, "UNION", lngPos + Len("UNION"))
+    Loop
+    IsUnionAllQuery = blnFound
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindTopLevelWord
+' Author    : Adam Waller
+' Date      : 9/9/2026
+' Purpose   : Position of strWord (uppercase, single-spaced) as a whole word
+'           : at parenthesis depth 0 and outside "double" quotes, 'single'
+'           : quotes, and [bracketed identifiers]. Returns 0 when absent.
+'           : A keyword inside a literal or a field name is not the query's
+'           : keyword, so scanning for `InStr` alone reads UNION out of
+'           : `WHERE Note = "UNION ALL"`.
+'           : lngStart suppresses earlier matches without restarting the
+'           : scan, so quote and bracket state stays correct while a caller
+'           : walks every occurrence.
+'---------------------------------------------------------------------------------------
+'
+Private Function FindTopLevelWord(ByVal strUpper As String, ByVal strWord As String, _
+    Optional ByVal lngStart As Long = 1) As Long
+
+    Dim lngPos As Long
+    Dim lngLast As Long
+    Dim lngWordLen As Long
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
+    Dim blnInBracket As Boolean
     Dim lngDepth As Long
 
-    For lngPos = 1 To Len(strUpper) - 5
+    lngWordLen = Len(strWord)
+    If lngWordLen = 0 Then Exit Function
+    lngLast = Len(strUpper) - lngWordLen + 1
+
+    For lngPos = 1 To Len(strUpper)
+        If lngPos >= lngStart And lngPos <= lngLast And lngDepth = 0 _
+            And Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+            If Mid$(strUpper, lngPos, lngWordLen) = strWord Then
+                If Not IsSqlWordChar(PrevSqlChar(strUpper, lngPos)) _
+                    And Not IsSqlWordChar(Mid$(strUpper, lngPos + lngWordLen, 1)) Then
+                    FindTopLevelWord = lngPos
+                    Exit Function
+                End If
+            End If
+        End If
+
         Select Case Mid$(strUpper, lngPos, 1)
             Case """"
-                blnInString = Not blnInString
+                If Not blnInSingle And Not blnInBracket Then blnInDouble = Not blnInDouble
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then blnInSingle = Not blnInSingle
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
             Case "("
-                If Not blnInString Then lngDepth = lngDepth + 1
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+                    lngDepth = lngDepth + 1
+                End If
             Case ")"
-                If Not blnInString Then lngDepth = lngDepth - 1
-            Case "U"
-                If Not blnInString And lngDepth = 0 Then
-                    If Mid$(strUpper, lngPos, 6) = "UNION " Then
-                        IsUnionQuery = True
-                        Exit Function
-                    End If
+                If Not blnInDouble And Not blnInSingle And Not blnInBracket Then
+                    lngDepth = lngDepth - 1
                 End If
         End Select
     Next lngPos
+
+End Function
+
+
+Private Function PrevSqlChar(ByVal strText As String, ByVal lngPos As Long) As String
+    If lngPos > 1 Then PrevSqlChar = Mid$(strText, lngPos - 1, 1)
+End Function
+
+
+Private Function IsSqlWordChar(ByVal strChar As String) As Boolean
+    If Len(strChar) = 0 Then Exit Function
+    IsSqlWordChar = (strChar Like "[A-Za-z0-9_]")
 End Function
 
 
@@ -1891,24 +2498,85 @@ End Function
 
 
 Private Function HasSubqueries() As Boolean
-    Dim dTbl As Dictionary
-    For Each dTbl In m_colInputTables
-        If InStr(1, CStr(dTbl("name")), "(") > 0 Or _
-           InStr(1, CStr(dTbl("name")), "SELECT ", vbTextCompare) > 0 Then
-            HasSubqueries = True
-            Exit Function
-        End If
-    Next dTbl
+    ' Decided per operand in AddInputTable, while the operand still carries its
+    ' brackets -- InputTables names are stored unbracketed, so they can no longer
+    ' tell [Funds (Clients)] apart from a derived table.
+    HasSubqueries = m_blnHasDerivedTable
 End Function
 
 
+'---------------------------------------------------------------------------------------
+' Procedure : IsDerivedTableOperand
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/9/2026
+' Purpose   : Report whether a FROM operand is a derived table (subquery) rather
+'           : than a table or query name.
+'           : A single bracketed identifier is a name whatever it contains: Access
+'           : allows parentheses and words like SELECT inside [Funds (Clients)].
+'           : Access names cannot contain "]", so the operand is one identifier
+'           : only when its first "]" is its last character; [db].[Table] or
+'           : [T] [Alias] are not. Anything else keeps the original rule -- a
+'           : parenthesis or SELECT in the name -- so it is classified as before.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsDerivedTableOperand(strTableExpr As String, strName As String) As Boolean
+
+    Dim strRef As String
+    Dim lngAs As Long
+
+    strRef = Trim$(strTableExpr)
+    lngAs = FindTopLevelKeyword(strRef, " AS ")
+    If lngAs > 0 Then strRef = Trim$(Left$(strRef, lngAs - 1))
+    If Left$(strRef, 1) = "[" And InStr(1, strRef, "]") = Len(strRef) Then Exit Function
+
+    IsDerivedTableOperand = InStr(1, strName, "(") > 0 Or _
+        InStr(1, strName, "SELECT ", vbTextCompare) > 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseParametersClause
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Consume a leading "PARAMETERS ...;" clause, recording each declaration as a
+'             {name, type, flag} entry in m_colParameters and stripping the clause from
+'             strSql.
+'           : Names are stored verbatim. Access records a parameter exactly as it was
+'             declared, so "[Enter ID]" keeps its brackets while an unbracketed
+'             "StatusFilter" stays unbracketed -- even though Access brackets the matching
+'             reference inside the WHERE clause. Re-bracketing here would not round-trip.
+'---------------------------------------------------------------------------------------
+'
 Private Sub ParseParametersClause(ByRef strSql As String)
+
     Dim lngEnd As Long
+    Dim strClause As String
+    Dim astrTokens() As String
+    Dim lngI As Long
+    Dim strName As String
+    Dim strType As String
+    Dim dParam As Dictionary
+
     lngEnd = InStr(1, strSql, ";")
-    If lngEnd > 0 Then
-        m_strParameters = Mid$(strSql, 12, lngEnd - 12)
-        strSql = LTrim$(Mid$(strSql, lngEnd + 1))
-    End If
+    If lngEnd = 0 Then Exit Sub
+
+    strClause = Trim$(Mid$(strSql, 12, lngEnd - 12))
+    strSql = LTrim$(Mid$(strSql, lngEnd + 1))
+    If Len(strClause) = 0 Then Exit Sub
+
+    astrTokens = SplitTopLevel(strClause, ",")
+    For lngI = LBound(astrTokens) To UBound(astrTokens)
+        SplitParameterToken astrTokens(lngI), strName, strType
+        If Len(strName) > 0 Then
+            Set dParam = New Dictionary
+            dParam.Add "name", strName
+            dParam.Add "type", strType
+            dParam.Add "flag", ParameterFlagFromType(strType)
+            m_colParameters.Add dParam
+        End If
+    Next lngI
+
 End Sub
 
 
@@ -2072,6 +2740,13 @@ Private Sub ParseInsertQuery(strSql As String)
             m_lngOption = m_lngOption Or 2
             strRemainder = Mid$(strRemainder, 10)
         End If
+
+        ' TOP n [PERCENT] follows any DISTINCT / DISTINCTROW, exactly as in a
+        ' standalone SELECT. Without this the clause stays in the field list
+        ' and `TOP` is parsed as the first output column's expression.
+        strUpper = UCase$(strRemainder)
+        If Left$(strUpper, 4) = "TOP " Then ParseTopClause strRemainder
+
         Dim lngFrom As Long
         lngFrom = FindTopLevelKeyword(strRemainder, "FROM ")
         If lngFrom > 0 Then
@@ -2484,8 +3159,10 @@ Private Sub ParseJoinExpression(strExpr As String)
     ' first "=" sits on the wrong side.
     Dim strLeftSimple As String
     Dim strRightSimple As String
+    Dim dJoinRefs As Dictionary
     strLeftSimple = TryExtractSimpleTable(strLeft)
     strRightSimple = TryExtractSimpleTable(strRight)
+    Set dJoinRefs = BuildInputTableRefLookup()
 
     If Len(strLeftSimple) > 0 And Len(strRightSimple) > 0 Then
         strLeftTable = strLeftSimple
@@ -2493,12 +3170,26 @@ Private Sub ParseJoinExpression(strExpr As String)
     ElseIf Len(strLeftSimple) > 0 Then
         strLeftTable = strLeftSimple
         strRightTable = OnClauseTableExcluding(strOnExpr, strLeftTable)
+        ' Compound or expression ON clauses yield no extractable name for the
+        ' nested side; recover a known InputTables ref rather than leaving it
+        ' empty for the emitter.
+        If Len(strRightTable) = 0 Then
+            strRightTable = FindAlternateInputRefInCondition(strOnExpr, _
+                dJoinRefs, strLeftTable)
+        End If
     ElseIf Len(strRightSimple) > 0 Then
         strRightTable = strRightSimple
         strLeftTable = OnClauseTableExcluding(strOnExpr, strRightTable)
+        If Len(strLeftTable) = 0 Then
+            strLeftTable = FindAlternateInputRefInCondition(strOnExpr, _
+                dJoinRefs, strRightTable)
+        End If
     Else
-        strLeftTable = ExtractTableFromOnSide(strOnExpr, True)
-        strRightTable = ExtractTableFromOnSide(strOnExpr, False)
+        ' Both operands nested — resolve against known InputTables so a
+        ' function-call operand cannot leave LeftTable/RightTable empty or
+        ' filled with a garbage token from ExtractTableFromOnSide.
+        ResolveConditionJoinTables strOnExpr, dJoinRefs, _
+            vbNullString, vbNullString, strLeftTable, strRightTable
     End If
 
     Set dJoin = New Dictionary
@@ -2518,22 +3209,9 @@ Private Sub AddInputTable(strTableExpr As String)
     Dim dTbl As Dictionary
     Dim strName As String
     Dim strAlias As String
-    Dim lngAs As Long
 
-    strName = Trim$(strTableExpr)
-
-    ' Check for AS alias
-    lngAs = FindTopLevelKeyword(strName, " AS ")
-    If lngAs > 0 Then
-        strAlias = Trim$(Mid$(strName, lngAs + 4))
-        strName = Trim$(Left$(strName, lngAs - 1))
-    Else
-        strAlias = vbNullString
-    End If
-
-    ' Remove brackets
-    strName = UnBracket(strName)
-    If Len(strAlias) > 0 Then strAlias = UnBracket(strAlias)
+    m_syntax.SplitTableRef strTableExpr, strName, strAlias
+    If IsDerivedTableOperand(strTableExpr, strName) Then m_blnHasDerivedTable = True
 
     Set dTbl = New Dictionary
     dTbl.Add "name", strName
@@ -2594,311 +3272,73 @@ End Sub
 
 
 '=======================================================================================
-' PRIVATE: Parsing utility functions
+' PRIVATE: Parsing utility functions (delegate to clsSqlSyntax)
 '=======================================================================================
 
 Private Function FindTopLevelKeyword(strSql As String, strKeyword As String) As Long
-    ' Find keyword position at the top level
-    ' (not inside parentheses, double-quoted strings, or bracketed identifiers)
-    Dim lngPos As Long
-    Dim lngDepth As Long
-    Dim blnInString As Boolean
-    Dim blnInBracket As Boolean
-    Dim strUpper As String
-    Dim strKeyUpper As String
+    FindTopLevelKeyword = m_syntax.FindTopLevelKeyword(strSql, strKeyword)
+End Function
 
-    strUpper = UCase$(strSql)
-    strKeyUpper = UCase$(strKeyword)
 
-    For lngPos = 1 To Len(strUpper) - Len(strKeyUpper) + 1
-        Select Case Mid$(strUpper, lngPos, 1)
-            Case """"
-                If Not blnInBracket Then blnInString = Not blnInString
-            Case "["
-                If Not blnInString Then blnInBracket = True
-            Case "]"
-                If Not blnInString Then blnInBracket = False
-            Case "("
-                If Not blnInString And Not blnInBracket Then lngDepth = lngDepth + 1
-            Case ")"
-                If Not blnInString And Not blnInBracket Then lngDepth = lngDepth - 1
-        End Select
+Private Function FindJoinKeyword(strExpr As String, ByRef strJoinType As String, ByRef lngFlag As Long) As Long
+    FindJoinKeyword = m_syntax.FindJoinKeyword(strExpr, strJoinType, lngFlag)
+End Function
 
-        If Not blnInString And Not blnInBracket And lngDepth = 0 Then
-            If Mid$(strUpper, lngPos, Len(strKeyUpper)) = strKeyUpper Then
-                ' Verify word boundary before keyword. Keywords that start
-                ' with a space (like " LEFT JOIN ") already carry their own
-                ' boundary, so no extra check is needed.
-                If Left$(strKeyUpper, 1) = " " Then
-                    FindTopLevelKeyword = lngPos
-                    Exit Function
-                ElseIf lngPos = 1 Then
-                    FindTopLevelKeyword = lngPos
-                    Exit Function
-                ElseIf Mid$(strUpper, lngPos - 1, 1) = " " Or _
-                   Mid$(strUpper, lngPos - 1, 1) = ")" Then
-                    FindTopLevelKeyword = lngPos
-                    Exit Function
-                End If
-            End If
-        End If
-    Next lngPos
+
+Private Function FindLastJoinKeyword(strExpr As String, ByRef strJoinType As String, ByRef lngFlag As Long) As Long
+    FindLastJoinKeyword = m_syntax.FindLastJoinKeyword(strExpr, strJoinType, lngFlag)
+End Function
+
+
+Private Function FindTopLevelKeywordFrom(strSql As String, strKeyword As String, lngStart As Long) As Long
+    FindTopLevelKeywordFrom = m_syntax.FindTopLevelKeywordFrom(strSql, strKeyword, lngStart)
+End Function
+
+
+Private Function FindMatchingParen(strExpr As String, lngStart As Long) As Long
+    FindMatchingParen = m_syntax.FindMatchingParen(strExpr, lngStart)
+End Function
+
+
+Private Function HasTopLevelBoolean(strExpr As String) As Boolean
+    HasTopLevelBoolean = m_syntax.HasTopLevelBoolean(strExpr)
+End Function
+
+
+Private Function StripOuterParens(strExpr As String) As String
+    StripOuterParens = m_syntax.StripOuterParens(strExpr)
+End Function
+
+
+Private Function SplitTopLevel(strExpr As String, strDelim As String) As String()
+    SplitTopLevel = m_syntax.SplitTopLevel(strExpr, strDelim)
+End Function
+
+
+Private Function UnBracket(strName As String) As String
+    UnBracket = m_syntax.UnBracket(strName)
+End Function
+
+
+Private Function TryExtractSimpleTable(strTableExpr As String) As String
+    TryExtractSimpleTable = m_syntax.TryExtractSimpleTable(strTableExpr)
+End Function
+
+
+Private Function OnClauseTableExcluding(strOnExpr As String, _
+                                        strExcludeTable As String) As String
+    OnClauseTableExcluding = m_syntax.OnClauseTableExcluding(strOnExpr, strExcludeTable)
+End Function
+
+
+Private Function ExtractTableFromOnSide(strOnExpr As String, blnLeftSide As Boolean) As String
+    ExtractTableFromOnSide = m_syntax.ExtractTableFromOnSide(strOnExpr, blnLeftSide)
 End Function
 
 
 Private Function FindKeyword(strUpper As String, strKeyword As String, lngStart As Long) As Long
     ' Simple keyword find from a starting position
     FindKeyword = InStr(lngStart, strUpper, strKeyword, vbTextCompare)
-End Function
-
-
-Private Function FindJoinKeyword(strExpr As String, ByRef strJoinType As String, ByRef lngFlag As Long) As Long
-    ' Find the first JOIN keyword at the top level
-    Dim lngPos As Long
-
-    lngPos = FindTopLevelKeyword(strExpr, " INNER JOIN ")
-    If lngPos > 0 Then
-        strJoinType = " INNER JOIN "
-        lngFlag = 1
-        FindJoinKeyword = lngPos
-        Exit Function
-    End If
-
-    lngPos = FindTopLevelKeyword(strExpr, " LEFT JOIN ")
-    If lngPos > 0 Then
-        strJoinType = " LEFT JOIN "
-        lngFlag = 2
-        FindJoinKeyword = lngPos
-        Exit Function
-    End If
-
-    lngPos = FindTopLevelKeyword(strExpr, " RIGHT JOIN ")
-    If lngPos > 0 Then
-        strJoinType = " RIGHT JOIN "
-        lngFlag = 3
-        FindJoinKeyword = lngPos
-        Exit Function
-    End If
-End Function
-
-
-Private Function FindLastJoinKeyword(strExpr As String, ByRef strJoinType As String, ByRef lngFlag As Long) As Long
-    ' Find the last top-level JOIN keyword
-    Dim lngPos As Long
-    Dim lngLast As Long
-    Dim strLastType As String
-    Dim lngLastFlag As Long
-    Dim lngSearch As Long
-    Dim strTmpType As String
-    Dim lngTmpFlag As Long
-    Dim strUpper As String
-
-    strUpper = UCase$(strExpr)
-    lngSearch = 1
-    lngLast = 0
-
-    Do
-        lngPos = 0
-        ' Check each join type from current search position
-        Dim lngInner As Long, lngLeft As Long, lngRight As Long
-        lngInner = FindTopLevelKeywordFrom(strExpr, " INNER JOIN ", lngSearch)
-        lngLeft = FindTopLevelKeywordFrom(strExpr, " LEFT JOIN ", lngSearch)
-        lngRight = FindTopLevelKeywordFrom(strExpr, " RIGHT JOIN ", lngSearch)
-
-        ' Find the nearest one
-        If lngInner > 0 Then
-            lngPos = lngInner: strTmpType = " INNER JOIN ": lngTmpFlag = 1
-        End If
-        If lngLeft > 0 And (lngPos = 0 Or lngLeft < lngPos) Then
-            lngPos = lngLeft: strTmpType = " LEFT JOIN ": lngTmpFlag = 2
-        End If
-        If lngRight > 0 And (lngPos = 0 Or lngRight < lngPos) Then
-            lngPos = lngRight: strTmpType = " RIGHT JOIN ": lngTmpFlag = 3
-        End If
-
-        If lngPos > 0 Then
-            lngLast = lngPos
-            strLastType = strTmpType
-            lngLastFlag = lngTmpFlag
-            lngSearch = lngPos + Len(strTmpType)
-        End If
-    Loop While lngPos > 0
-
-    If lngLast > 0 Then
-        FindLastJoinKeyword = lngLast
-        strJoinType = strLastType
-        lngFlag = lngLastFlag
-    End If
-End Function
-
-
-Private Function FindTopLevelKeywordFrom(strSql As String, strKeyword As String, lngStart As Long) As Long
-    Dim lngPos As Long
-    Dim lngDepth As Long
-    Dim blnInString As Boolean
-    Dim strUpper As String
-    Dim strKeyUpper As String
-
-    strUpper = UCase$(strSql)
-    strKeyUpper = UCase$(strKeyword)
-
-    For lngPos = lngStart To Len(strUpper) - Len(strKeyUpper) + 1
-        Select Case Mid$(strUpper, lngPos, 1)
-            Case """"
-                blnInString = Not blnInString
-            Case "("
-                If Not blnInString Then lngDepth = lngDepth + 1
-            Case ")"
-                If Not blnInString Then lngDepth = lngDepth - 1
-        End Select
-
-        If Not blnInString And lngDepth = 0 Then
-            If Mid$(strUpper, lngPos, Len(strKeyUpper)) = strKeyUpper Then
-                FindTopLevelKeywordFrom = lngPos
-                Exit Function
-            End If
-        End If
-    Next lngPos
-End Function
-
-
-Private Function FindMatchingParen(strExpr As String, lngStart As Long) As Long
-    Dim lngPos As Long
-    Dim lngDepth As Long
-    Dim blnInString As Boolean
-
-    lngDepth = 0
-    For lngPos = lngStart To Len(strExpr)
-        Select Case Mid$(strExpr, lngPos, 1)
-            Case """"
-                blnInString = Not blnInString
-            Case "("
-                If Not blnInString Then lngDepth = lngDepth + 1
-            Case ")"
-                If Not blnInString Then
-                    lngDepth = lngDepth - 1
-                    If lngDepth = 0 Then
-                        FindMatchingParen = lngPos
-                        Exit Function
-                    End If
-                End If
-        End Select
-    Next lngPos
-End Function
-
-
-'---------------------------------------------------------------------------------------
-' Procedure : HasTopLevelBoolean
-' Author    : Adam Waller
-' Date      : 4/27/2026
-' Purpose   : Returns True when the given expression contains a top-level AND or OR
-'           : operator after a single layer of outer parens has been stripped.
-'           : Used to detect multi-condition ON clauses such as:
-'           :     ON (tblA.x = tblB.x) AND (tblA.y = tblB.y)
-'           :     ON tblA.x = tblB.x AND tblA.y = tblB.y
-'           :     ON ((tblA.x = tblB.x) AND (tblA.y = tblB.y))
-'           : All three forms come back as True. A single-condition ON clause such
-'           : as ON tblA.x = tblB.x or ON (tblA.x = tblB.x) returns False.
-'---------------------------------------------------------------------------------------
-'
-Private Function HasTopLevelBoolean(strExpr As String) As Boolean
-    Dim strWork As String
-
-    strWork = Trim$(strExpr)
-    If Len(strWork) = 0 Then Exit Function
-
-    ' Strip any number of full-wrapping outer paren layers so that
-    ' "((a=b) AND (c=d))" reduces to "(a=b) AND (c=d)" -- which still
-    ' has a top-level AND -- but a single-condition wrap like
-    ' "(a=b)" reduces to "a=b" with no top-level boolean.
-    Do While Left$(strWork, 1) = "(" And Right$(strWork, 1) = ")"
-        If FindMatchingParen(strWork, 1) = Len(strWork) Then
-            strWork = Trim$(Mid$(strWork, 2, Len(strWork) - 2))
-        Else
-            Exit Do
-        End If
-    Loop
-
-    HasTopLevelBoolean = (FindTopLevelKeyword(strWork, " AND ") > 0) Or _
-                         (FindTopLevelKeyword(strWork, " OR ") > 0)
-End Function
-
-
-Private Function StripOuterParens(strExpr As String) As String
-    Dim strWork As String
-    strWork = Trim$(strExpr)
-    Do While Left$(strWork, 1) = "(" And Right$(strWork, 1) = ")"
-        If FindMatchingParen(strWork, 1) = Len(strWork) Then
-            strWork = Trim$(Mid$(strWork, 2, Len(strWork) - 2))
-        Else
-            Exit Do
-        End If
-    Loop
-    StripOuterParens = strWork
-End Function
-
-
-Private Function SplitTopLevel(strExpr As String, strDelim As String) As String()
-    ' Split a string by delimiter, but only at the top level (not inside
-    ' parentheses, double-quoted strings, single-quoted strings, or
-    ' bracketed identifiers).
-    Dim colParts As New Collection
-    Dim lngStart As Long
-    Dim lngPos As Long
-    Dim lngDepth As Long
-    Dim blnInDblQuote As Boolean
-    Dim blnInSglQuote As Boolean
-    Dim blnInBracket As Boolean
-    Dim asParts() As String
-    Dim blnInAnyString As Boolean
-
-    lngStart = 1
-    For lngPos = 1 To Len(strExpr)
-        blnInAnyString = blnInDblQuote Or blnInSglQuote
-        Select Case Mid$(strExpr, lngPos, 1)
-            Case """"
-                If Not blnInBracket And Not blnInSglQuote Then blnInDblQuote = Not blnInDblQuote
-            Case "'"
-                If Not blnInBracket And Not blnInDblQuote Then blnInSglQuote = Not blnInSglQuote
-            Case "["
-                If Not blnInAnyString Then blnInBracket = True
-            Case "]"
-                If Not blnInAnyString Then blnInBracket = False
-            Case "("
-                If Not blnInAnyString And Not blnInBracket Then lngDepth = lngDepth + 1
-            Case ")"
-                If Not blnInAnyString And Not blnInBracket Then lngDepth = lngDepth - 1
-            Case Else
-                If Mid$(strExpr, lngPos, Len(strDelim)) = strDelim Then
-                    If Not blnInAnyString And Not blnInBracket And lngDepth = 0 Then
-                        colParts.Add Mid$(strExpr, lngStart, lngPos - lngStart)
-                        lngStart = lngPos + Len(strDelim)
-                    End If
-                End If
-        End Select
-    Next lngPos
-
-    ' Add the last part
-    colParts.Add Mid$(strExpr, lngStart)
-
-    ' Convert to array
-    ReDim asParts(0 To colParts.Count - 1)
-    Dim lngI As Long
-    For lngI = 1 To colParts.Count
-        asParts(lngI - 1) = CStr(colParts(lngI))
-    Next lngI
-
-    SplitTopLevel = asParts
-End Function
-
-
-Private Function UnBracket(strName As String) As String
-    strName = Trim$(strName)
-    If Left$(strName, 1) = "[" And Right$(strName, 1) = "]" Then
-        UnBracket = Mid$(strName, 2, Len(strName) - 2)
-    Else
-        UnBracket = strName
-    End If
 End Function
 
 
@@ -2911,104 +3351,6 @@ Private Function UnquoteSqlString(strValue As String) As String
         End If
     End If
     UnquoteSqlString = Replace$(strValue, "''", "'")
-End Function
-
-
-Private Function TryExtractSimpleTable(strTableExpr As String) As String
-    ' Returns the table name if strTableExpr is a simple table reference
-    ' (optionally with an alias), or vbNullString if it contains a nested
-    ' JOIN expression. Used by ParseJoinExpression to decide which side of
-    ' a JOIN can be authoritatively named without ON-clause inspection.
-    Dim strClean As String
-    strClean = Trim$(strTableExpr)
-
-    Do While Left$(strClean, 1) = "(" And Right$(strClean, 1) = ")"
-        If FindMatchingParen(strClean, 1) = Len(strClean) Then
-            strClean = Trim$(Mid$(strClean, 2, Len(strClean) - 2))
-        Else
-            Exit Do
-        End If
-    Loop
-
-    strClean = UnBracket(strClean)
-
-    If InStr(1, strClean, " JOIN ", vbTextCompare) > 0 Then
-        TryExtractSimpleTable = vbNullString
-        Exit Function
-    End If
-
-    ' Check for AS alias. For self-joins (same table with different aliases)
-    ' the alias is the disambiguating identifier in the join graph, so
-    ' returning it instead of the raw table name prevents the graph from
-    ' collapsing both sides into one node.
-    Dim lngAs As Long
-    lngAs = InStr(1, strClean, " AS ", vbTextCompare)
-    If lngAs > 0 Then
-        TryExtractSimpleTable = Trim$(Mid$(strClean, lngAs + 4))
-        Exit Function
-    End If
-
-    Dim lngSpace As Long
-    lngSpace = InStr(1, strClean, " ", vbTextCompare)
-    If lngSpace > 0 Then
-        TryExtractSimpleTable = Trim$(Left$(strClean, lngSpace - 1))
-    Else
-        TryExtractSimpleTable = strClean
-    End If
-End Function
-
-
-Private Function OnClauseTableExcluding(strOnExpr As String, _
-                                        strExcludeTable As String) As String
-    ' Extract both table names from the first '=' in an ON expression and
-    ' return whichever is NOT strExcludeTable. Caller has already established
-    ' the excluded side authoritatively (via TryExtractSimpleTable on the
-    ' opposite operand) so this disambiguation is reliable even for multi-
-    ' condition ON clauses where the first "=" sits on the "wrong" side.
-    Dim strTblA As String
-    Dim strTblB As String
-    strTblA = ExtractTableFromOnSide(strOnExpr, True)
-    strTblB = ExtractTableFromOnSide(strOnExpr, False)
-
-    If StrComp(strTblA, strExcludeTable, vbTextCompare) = 0 Then
-        OnClauseTableExcluding = strTblB
-    Else
-        OnClauseTableExcluding = strTblA
-    End If
-End Function
-
-
-Private Function ExtractTableFromOnSide(strOnExpr As String, blnLeftSide As Boolean) As String
-    ' Extract a table name from one side of the first '=' in an ON expression.
-    ' blnLeftSide=True returns the table before '=', False returns after '='.
-    Dim lngEq As Long
-    Dim strSide As String
-
-    lngEq = InStr(1, strOnExpr, "=")
-    If lngEq = 0 Then Exit Function
-
-    If blnLeftSide Then
-        strSide = Trim$(Left$(strOnExpr, lngEq - 1))
-    Else
-        strSide = Trim$(Mid$(strOnExpr, lngEq + 1))
-    End If
-
-    ' Strip outer parens
-    Do While Left$(strSide, 1) = "("
-        strSide = Mid$(strSide, 2)
-    Loop
-    Do While Right$(strSide, 1) = ")"
-        strSide = Left$(strSide, Len(strSide) - 1)
-    Loop
-    strSide = Trim$(strSide)
-
-    Dim lngDot As Long
-    lngDot = InStr(1, strSide, ".")
-    If lngDot > 0 Then
-        ExtractTableFromOnSide = UnBracket(Trim$(Left$(strSide, lngDot - 1)))
-    Else
-        ExtractTableFromOnSide = UnBracket(strSide)
-    End If
 End Function
 
 
@@ -3033,7 +3375,8 @@ Private Function CompactSql(strExpr As String) As String
     Dim lngLen As Long
     Dim strChar As String
     Dim cOut As New clsConcat
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
     Dim blnInBracket As Boolean
 
     lngLen = Len(strExpr)
@@ -3042,11 +3385,22 @@ Private Function CompactSql(strExpr As String) As String
     For lngI = 1 To lngLen
         strChar = Mid$(strExpr, lngI, 1)
 
-        If strChar = """" And Not blnInBracket Then blnInString = Not blnInString
-        If strChar = "[" And Not blnInString Then blnInBracket = True
-        If strChar = "]" And Not blnInString Then blnInBracket = False
+        Select Case strChar
+            Case """"
+                If Not blnInSingle And Not blnInBracket Then
+                    blnInDouble = Not blnInDouble
+                End If
+            Case "'"
+                If Not blnInDouble And Not blnInBracket Then
+                    blnInSingle = Not blnInSingle
+                End If
+            Case "["
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = True
+            Case "]"
+                If Not blnInDouble And Not blnInSingle Then blnInBracket = False
+        End Select
 
-        If blnInString Or blnInBracket Then
+        If blnInDouble Or blnInSingle Or blnInBracket Then
             cOut.Add strChar
         ElseIf strChar <> " " Then
             cOut.Add strChar
@@ -3141,9 +3495,9 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     ' when the SQL aliased it (e.g. "tbl AS tbl_1" in a self-join). Without
     ' the Alias line, Access stores both Attribute 5 rows with null Name2 and
     ' the Attribute 7 join rows collapse to leftTable == rightTable, which on
-    ' the next export crashes BuildJoinChain (no graph root). This bit
-    ' affected ~723 queries in db-sec alone, including qryBucketCombineRandUCos
-    ' and qdelTempInvByQtrSubMergerAcquisition3.
+    ' the next export crashes BuildJoinChain (no graph root). Production
+    ' validation found this affecting ~723 queries in a single database,
+    ' across both SELECT and action query types.
     ' Always emit InputTables block (even when empty). Access SaveAsText does
     ' the same for Design View queries; omitting the empty block causes
     ' LoadFromText to silently drop OutputColumns on table-less SELECTs.
@@ -3157,8 +3511,11 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     Next dTbl
     cOut.Add "End", vbCrLf
 
-    ' Output Columns
-    If m_colOutputColumns.Count > 0 Then
+    ' Output Columns. A crosstab annotates each column with the role marker
+    ' Access requires for Operation =6, so it gets its own emitter.
+    If m_lngQueryType = 6 Then
+        EmitCrosstabOutputColumns cOut
+    ElseIf m_colOutputColumns.Count > 0 Then
         cOut.Add "Begin OutputColumns", vbCrLf
         Dim dCol As Dictionary
         For Each dCol In m_colOutputColumns
@@ -3172,6 +3529,15 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         Next dCol
         cOut.Add "End", vbCrLf
     End If
+
+    ' Parameters -- declared query parameters (MSysQueries Attribute 2). Access
+    ' stores these in a Begin Parameters block immediately after the
+    ' OutputColumns block for designer-built queries. LoadFromText rejects the
+    ' block ("Expected: End of file. Found: Parameters.") when it appears after
+    ' the Joins/OrderBy/Groups blocks, so it must be emitted here -- before
+    ' Joins -- not merely before the properties. Omitting it entirely drops the
+    ' PARAMETERS clause when a parameterized query takes the Design View path.
+    EmitParameters cOut
 
     ' Joins — multi-condition ON clauses must be decomposed into separate
     ' rows because Access's Design View .qdef stores each condition as its
@@ -3193,16 +3559,19 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         Dim strCondition As String
         Dim strCondLeft As String
         Dim strCondRight As String
+        Dim dInputRefs As Dictionary
+        Set dInputRefs = BuildInputTableRefLookup()
         For Each dJn In m_colJoins
             If HasTopLevelBoolean(CStr(dJn("expression"))) Then
                 asConditions = SplitTopLevel(StripOuterParens(CStr(dJn("expression"))), " AND ")
                 For lngC = LBound(asConditions) To UBound(asConditions)
                     strCondition = StripOuterParens(Trim$(asConditions(lngC)))
                     If Len(strCondition) > 0 Then
-                        strCondLeft = ExtractTableFromOnSide(strCondition, True)
-                        strCondRight = ExtractTableFromOnSide(strCondition, False)
-                        If Len(strCondLeft) = 0 Then strCondLeft = CStr(dJn("leftTable"))
-                        If Len(strCondRight) = 0 Then strCondRight = CStr(dJn("rightTable"))
+                        ResolveConditionJoinTables strCondition, dInputRefs, _
+                            CStr(dJn("leftTable")), CStr(dJn("rightTable")), _
+                            strCondLeft, strCondRight
+                        WarnIfJoinRefMissing strCondLeft, dInputRefs
+                        WarnIfJoinRefMissing strCondRight, dInputRefs
                         cOut.Add "    LeftTable =""" & strCondLeft & """", vbCrLf
                         cOut.Add "    RightTable =""" & strCondRight & """", vbCrLf
                         EmitWrappedString cOut, "    Expression", strCondition
@@ -3210,6 +3579,8 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
                     End If
                 Next lngC
             Else
+                WarnIfJoinRefMissing CStr(dJn("leftTable")), dInputRefs
+                WarnIfJoinRefMissing CStr(dJn("rightTable")), dInputRefs
                 cOut.Add "    LeftTable =""" & CStr(dJn("leftTable")) & """", vbCrLf
                 cOut.Add "    RightTable =""" & CStr(dJn("rightTable")) & """", vbCrLf
                 EmitWrappedString cOut, "    Expression", CStr(dJn("expression"))
@@ -3235,7 +3606,9 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     End If
 
     ' GROUP BY
-    If m_colGroups.Count > 0 Then
+    If m_lngQueryType = 6 Then
+        EmitCrosstabGroups cOut
+    ElseIf m_colGroups.Count > 0 Then
         cOut.Add "Begin Groups", vbCrLf
         Dim dGrp As Dictionary
         For Each dGrp In m_colGroups
@@ -3262,6 +3635,357 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         ModuleName(Me) & ".EmitDesignViewQdef"
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EmitCrosstabOutputColumns
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Emit the Operation =6 OutputColumns block, where each column carries a
+'           : GroupLevel marker naming its crosstab role.
+'           :
+'           : GroupLevel is a role, not a nesting depth: every row heading is 2 no
+'           : matter how many there are, the single column heading is 1, and the
+'           : aggregate carries none at all. The marker follows the expression it
+'           : annotates. Order is fixed -- row headings in SELECT order, then the
+'           : column heading, then the aggregate -- and the values match the
+'           : Attribute 6 flags. Captured from Access; see the crosstab section of
+'           : docs/access-query-storage.md.
+'---------------------------------------------------------------------------------------
+'
+Private Sub EmitCrosstabOutputColumns(cOut As clsConcat)
+
+    Dim dCol As Dictionary
+    Dim strAgg As String
+    Dim strAlias As String
+    Dim lngAs As Long
+
+    cOut.Add "Begin OutputColumns", vbCrLf
+
+    ' Row headings -- for a crosstab the parsed SELECT list is exactly these.
+    For Each dCol In m_colOutputColumns
+        If Len(dCol("alias")) > 0 Then
+            cOut.Add "    Alias =""" & CStr(dCol("alias")) & """", vbCrLf
+        End If
+        EmitWrappedString cOut, "    Expression", CompactSql(CStr(dCol("expression")))
+        cOut.Add "    GroupLevel =2", vbCrLf
+    Next dCol
+
+    ' Column heading. A fixed heading list (PIVOT x In (1, 2, 3)) stays part of
+    ' this expression; only the matching Groups row drops it.
+    If Len(m_strPivotField) > 0 Then
+        EmitWrappedString cOut, "    Expression", CompactSql(m_strPivotField)
+        cOut.Add "    GroupLevel =1", vbCrLf
+    End If
+
+    ' Aggregate. Its alias is the TRANSFORM clause's own AS, which the parser
+    ' leaves attached to the expression.
+    strAgg = m_strTransformAgg
+    lngAs = FindTopLevelKeyword(strAgg, " AS ")
+    If lngAs > 0 Then
+        strAlias = UnBracket(Trim$(Mid$(strAgg, lngAs + 4)))
+        strAgg = Trim$(Left$(strAgg, lngAs - 1))
+        cOut.Add "    Alias =""" & strAlias & """", vbCrLf
+    End If
+    If Len(strAgg) > 0 Then
+        EmitWrappedString cOut, "    Expression", CompactSql(strAgg)
+    End If
+
+    cOut.Add "End", vbCrLf
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EmitCrosstabGroups
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Emit the Operation =6 Groups block, which repeats the same levels as
+'           : OutputColumns. The GROUP BY entries are the row headings; the pivot
+'           : field is appended even though it never appears in the SQL GROUP BY.
+'---------------------------------------------------------------------------------------
+'
+Private Sub EmitCrosstabGroups(cOut As clsConcat)
+
+    Dim dGrp As Dictionary
+
+    If m_colGroups.Count = 0 And Len(m_strPivotField) = 0 Then Exit Sub
+
+    cOut.Add "Begin Groups", vbCrLf
+
+    For Each dGrp In m_colGroups
+        EmitWrappedString cOut, "    Expression", CompactSql(CStr(dGrp("expression")))
+        cOut.Add "    GroupLevel =2", vbCrLf
+    Next dGrp
+
+    If Len(m_strPivotField) > 0 Then
+        EmitWrappedString cOut, "    Expression", CompactSql(PivotFieldWithoutHeadings())
+        cOut.Add "    GroupLevel =1", vbCrLf
+    End If
+
+    cOut.Add "End", vbCrLf
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PivotFieldWithoutHeadings
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : The pivot expression with any fixed heading list removed, which is the
+'           : form the Groups block uses. `PIVOT x In (1, 2, 3)` groups on `x`.
+'---------------------------------------------------------------------------------------
+'
+Private Function PivotFieldWithoutHeadings() As String
+
+    Dim lngIn As Long
+
+    PivotFieldWithoutHeadings = m_strPivotField
+    lngIn = FindTopLevelKeyword(PivotFieldWithoutHeadings, " IN ")
+    If lngIn > 0 Then
+        PivotFieldWithoutHeadings = Trim$(Left$(PivotFieldWithoutHeadings, lngIn - 1))
+    End If
+
+End Function
+
+
+Private Sub WarnIfJoinRefMissing(ByVal strRef As String, dInputRefs As Dictionary)
+    If Len(strRef) = 0 Then Exit Sub
+    If dInputRefs.Exists(strRef) Then Exit Sub
+    AddBuilderWarning "Join reference '" & strRef & _
+        "' not found in InputTables block; qdef may be rejected by LoadFromText. " & _
+        SqlSnippet(), ModuleName(Me) & ".EmitDesignViewQdef"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveConditionJoinTables
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : Resolve LeftTable/RightTable for one ON condition. Candidates are
+'           : whole pairs, ranked by whether they cover every InputTables ref
+'           : named in the condition (the same invariant the round-trip harness
+'           : checks):
+'           :   1. Per-condition extraction, when both sides resolve to known
+'           :      refs and the pair covers the condition. Required so a
+'           :      cross-table condition wins over the parent pair.
+'           :   2. The parent join's pair, when it covers the condition. Keeps
+'           :      single-table predicates (tblB.ID > 0) and non-equi
+'           :      conditions on the parent's orientation.
+'           :   3. Extraction where available plus a ref named in the condition,
+'           :      normalized to parent orientation when it is just a swap.
+'           :      Outer-join Flag values (2=LEFT, 3=RIGHT) are orientation-
+'           :      sensitive.
+'           :   4. Neither covers: prefer the parent pair, else the mixed pair.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ResolveConditionJoinTables(ByVal strCondition As String, _
+    ByVal dInputRefs As Dictionary, ByVal strParentLeft As String, _
+    ByVal strParentRight As String, ByRef strLeft As String, ByRef strRight As String)
+
+    Dim colRefs As Collection
+    Dim strExtractLeft As String
+    Dim strExtractRight As String
+    Dim strMixedLeft As String
+    Dim strMixedRight As String
+    Dim blnParentPair As Boolean
+
+    Set colRefs = CollectConditionInputRefs(strCondition, dInputRefs)
+    strExtractLeft = ExtractedInputRef(strCondition, True, dInputRefs)
+    strExtractRight = ExtractedInputRef(strCondition, False, dInputRefs)
+    blnParentPair = (Len(strParentLeft) > 0 And Len(strParentRight) > 0)
+
+    ' 1. Per-condition extraction
+    If Len(strExtractLeft) > 0 And Len(strExtractRight) > 0 Then
+        If PairCoversRefs(colRefs, strExtractLeft, strExtractRight) Then
+            strLeft = strExtractLeft
+            strRight = strExtractRight
+            Exit Sub
+        End If
+    End If
+
+    ' 2. Parent join pair
+    If blnParentPair Then
+        If PairCoversRefs(colRefs, strParentLeft, strParentRight) Then
+            strLeft = strParentLeft
+            strRight = strParentRight
+            Exit Sub
+        End If
+    End If
+
+    ' 3. Extraction plus a ref named in the condition
+    strMixedLeft = strExtractLeft
+    If Len(strMixedLeft) = 0 Then
+        strMixedLeft = FirstRefExcluding(colRefs, strExtractRight)
+    End If
+    strMixedRight = strExtractRight
+    If Len(strMixedRight) = 0 Then
+        strMixedRight = FirstRefExcluding(colRefs, strMixedLeft)
+    End If
+
+    If Len(strMixedLeft) > 0 And Len(strMixedRight) > 0 Then
+        If PairCoversRefs(colRefs, strMixedLeft, strMixedRight) Then
+            If blnParentPair _
+                And StrComp(strMixedLeft, strParentRight, vbTextCompare) = 0 _
+                And StrComp(strMixedRight, strParentLeft, vbTextCompare) = 0 Then
+                strLeft = strParentLeft
+                strRight = strParentRight
+            Else
+                strLeft = strMixedLeft
+                strRight = strMixedRight
+            End If
+            Exit Sub
+        End If
+    End If
+
+    ' 4. Nothing covers the condition
+    If blnParentPair Then
+        strLeft = strParentLeft
+        strRight = strParentRight
+    Else
+        strLeft = strMixedLeft
+        strRight = strMixedRight
+        If Len(strLeft) = 0 Then strLeft = strParentLeft
+        If Len(strRight) = 0 Then strRight = strParentRight
+    End If
+
+End Sub
+
+
+Private Function ExtractedInputRef(ByVal strCondition As String, _
+    ByVal blnLeftSide As Boolean, ByVal dInputRefs As Dictionary) As String
+    Dim strRef As String
+    If dInputRefs Is Nothing Then Exit Function
+    strRef = ExtractTableFromOnSide(strCondition, blnLeftSide)
+    If Len(strRef) = 0 Then Exit Function
+    If dInputRefs.Exists(strRef) Then ExtractedInputRef = strRef
+End Function
+
+
+Private Function PairCoversRefs(ByVal colRefs As Collection, _
+    ByVal strLeft As String, ByVal strRight As String) As Boolean
+    Dim varRef As Variant
+    If colRefs Is Nothing Then
+        PairCoversRefs = True
+        Exit Function
+    End If
+    For Each varRef In colRefs
+        If StrComp(CStr(varRef), strLeft, vbTextCompare) <> 0 _
+            And StrComp(CStr(varRef), strRight, vbTextCompare) <> 0 Then
+            Exit Function
+        End If
+    Next varRef
+    PairCoversRefs = True
+End Function
+
+
+Private Function FirstRefExcluding(ByVal colRefs As Collection, _
+    ByVal strExclude As String) As String
+    Dim varRef As Variant
+    If colRefs Is Nothing Then Exit Function
+    For Each varRef In colRefs
+        If Len(strExclude) = 0 _
+            Or StrComp(CStr(varRef), strExclude, vbTextCompare) <> 0 Then
+            FirstRefExcluding = CStr(varRef)
+            Exit Function
+        End If
+    Next varRef
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindAlternateInputRefInCondition
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : First InputTables ref named in strCondition other than strExclude.
+'           : Used where a side could not be extracted (function-call operand)
+'           : but the expression still names a known input table, e.g.
+'           : DateAdd('yyyy', -1, cur.OrderDate).
+'---------------------------------------------------------------------------------------
+'
+Private Function FindAlternateInputRefInCondition(ByVal strCondition As String, _
+    ByVal dInputRefs As Dictionary, ByVal strExclude As String) As String
+    FindAlternateInputRefInCondition = FirstRefExcluding( _
+        CollectConditionInputRefs(strCondition, dInputRefs), strExclude)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CollectConditionInputRefs
+' Author    : Adam Waller
+' Date      : 8/10/2026
+' Purpose   : Distinct qualifiers of qualifier.field tokens in strCondition that
+'           : exist in dInputRefs, in order of appearance. Bracketed qualifiers
+'           : ([My Table].fld) are returned unbracketed.
+'---------------------------------------------------------------------------------------
+'
+Private Function CollectConditionInputRefs(ByVal strCondition As String, _
+    ByVal dInputRefs As Dictionary) As Collection
+
+    Dim colRefs As New Collection
+    Dim dSeen As New Dictionary
+    Dim lngPos As Long
+    Dim lngDot As Long
+    Dim lngStart As Long
+    Dim strTable As String
+    Dim ch As String
+    Dim lngBracket As Long
+
+    Set CollectConditionInputRefs = colRefs
+    If dInputRefs Is Nothing Then Exit Function
+    dSeen.CompareMode = vbTextCompare
+
+    lngPos = 1
+    Do
+        lngDot = InStr(lngPos, strCondition, ".")
+        If lngDot = 0 Then Exit Do
+
+        lngStart = lngDot - 1
+        If lngStart >= 1 And Mid$(strCondition, lngStart, 1) = "]" Then
+            lngBracket = InStrRev(strCondition, "[", lngStart)
+            If lngBracket > 0 Then
+                strTable = Mid$(strCondition, lngBracket + 1, lngStart - lngBracket - 1)
+            Else
+                strTable = vbNullString
+            End If
+        Else
+            Do While lngStart >= 1
+                ch = Mid$(strCondition, lngStart, 1)
+                If ch Like "[A-Za-z0-9_]" Then
+                    lngStart = lngStart - 1
+                Else
+                    Exit Do
+                End If
+            Loop
+            strTable = Mid$(strCondition, lngStart + 1, lngDot - lngStart - 1)
+        End If
+
+        If Len(strTable) > 0 And Not IsNumeric(strTable) Then
+            If dInputRefs.Exists(strTable) And Not dSeen.Exists(strTable) Then
+                dSeen.Add strTable, True
+                colRefs.Add strTable
+            End If
+        End If
+
+        lngPos = lngDot + 1
+    Loop
+
+End Function
+
+
+Private Function BuildInputTableRefLookup() As Dictionary
+    Dim dTableRefs As New Dictionary
+    Dim dTbl As Dictionary
+    For Each dTbl In m_colInputTables
+        If Len(CStr(dTbl("name"))) > 0 Then
+            If Not dTableRefs.Exists(CStr(dTbl("name"))) Then dTableRefs.Add CStr(dTbl("name")), True
+        End If
+        If Len(Nz(dTbl("alias"), vbNullString)) > 0 Then
+            If Not dTableRefs.Exists(CStr(dTbl("alias"))) Then dTableRefs.Add CStr(dTbl("alias")), True
+        End If
+    Next dTbl
+    Set BuildInputTableRefLookup = dTableRefs
+End Function
 
 
 Private Sub EmitSqlViewQdef(cOut As clsConcat, dProperties As Dictionary, _
@@ -3298,7 +4022,8 @@ Private Sub EmitDbMemoSql(cOut As clsConcat, strSql As String)
     Dim blnFirst As Boolean
 
     ' Escape the SQL for .qdef format:
-    ' - Escape backslashes as \\ and double quotes as \" (in that order)
+    ' - Escape backslashes as \\, double quotes as \", and tabs as \011
+    '   (backslashes first, so escape markers added afterward stay single)
     ' - Replace CR+LF with \015\012 (added after escaping so the leading \ is literal)
     ' - Wrap in dbMemo "SQL" ="..." with continuation lines
     strEscaped = EscapeQdefString(strSql)
@@ -3346,7 +4071,7 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 4/10/2026
 ' Purpose   : Returns a safe line length that does not split an escape sequence
-'           : (\\, \015, \012, \") across a line boundary. Access LoadFromText
+'           : (\\, \011, \015, \012, \") across a line boundary. Access LoadFromText
 '           : will misparse the file if a backslash escape spans two quoted
 '           : segments.
 '---------------------------------------------------------------------------------------
@@ -3365,7 +4090,7 @@ Private Function SafeBreak(strText As String, lngStart As Long, lngMaxLen As Lon
 
     ' Scan backward from the break point looking for a backslash within
     ' the last 3 characters that could start an escape extending past
-    ' the break. Escapes: \\ (2 chars), \" (2 chars), \015 (4 chars), \012 (4 chars).
+    ' the break. Escapes: \\ (2 chars), \" (2 chars), and \011/\015/\012 (4 chars).
     For lngI = 0 To 3
         lngCheckPos = lngEnd - lngI
         If lngCheckPos < lngStart Then Exit For
@@ -3380,7 +4105,7 @@ Private Function SafeBreak(strText As String, lngStart As Long, lngMaxLen As Lon
                 ElseIf lngCheckPos + 3 <= Len(strText) Then
                     Dim strSeq As String
                     strSeq = Mid$(strText, lngCheckPos + 1, 3)
-                    If strSeq = "015" Or strSeq = "012" Then
+                    If strSeq = "011" Or strSeq = "015" Or strSeq = "012" Then
                         lngEscLen = 4
                     End If
                 End If
@@ -3491,15 +4216,16 @@ End Sub
 ' Date      : 4/20/2026
 ' Purpose   : Escape a string value for inclusion inside a "..." segment of a
 '           : .qdef text file. Doubles backslashes first (so `\` becomes `\\`),
-'           : then escapes embedded double quotes (so `"` becomes `\"`).
-'           : The order matters -- escaping quotes first would re-double the
-'           : backslash that was just inserted as part of `\"`.
+'           : then escapes embedded double quotes (so `"` becomes `\"`) and tabs
+'           : (as octal `\011`). The order matters -- escape markers added after
+'           : the first replacement must remain single backslashes for LoadFromText.
 '---------------------------------------------------------------------------------------
 '
 Private Function EscapeQdefString(strValue As String) As String
     Dim s As String
     s = Replace(strValue, "\", "\\")
     s = Replace(s, """", "\""")
+    s = Replace(s, vbTab, "\011")
     EscapeQdefString = s
 End Function
 
@@ -3727,7 +4453,8 @@ Private Sub AddWhereFieldsToColumns(dColumns As Dictionary)
     Dim lngLen As Long
     Dim lngStart As Long
     Dim strToken As String
-    Dim blnInString As Boolean
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
 
     strWhere = m_strWhere
     lngLen = Len(strWhere)
@@ -3736,8 +4463,12 @@ Private Sub AddWhereFieldsToColumns(dColumns As Dictionary)
     For lngI = 1 To lngLen
         Dim strCh As String
         strCh = Mid$(strWhere, lngI, 1)
-        If strCh = """" Then blnInString = Not blnInString
-        If blnInString Then GoTo NextChar
+        If strCh = """" And Not blnInSingle Then
+            blnInDouble = Not blnInDouble
+        ElseIf strCh = "'" And Not blnInDouble Then
+            blnInSingle = Not blnInSingle
+        End If
+        If blnInDouble Or blnInSingle Then GoTo NextChar
 
         ' Look for table.field patterns: word characters and dots
         If IsIdentChar(strCh) Or strCh = "." Then
@@ -3776,12 +4507,7 @@ End Sub
 
 
 Private Function IsIdentChar(strCh As String) As Boolean
-    Dim lngCode As Long
-    lngCode = AscW(strCh)
-    IsIdentChar = (lngCode >= 65 And lngCode <= 90) Or _
-                  (lngCode >= 97 And lngCode <= 122) Or _
-                  (lngCode >= 48 And lngCode <= 57) Or _
-                  lngCode = 95 Or lngCode = 91 Or lngCode = 93
+    IsIdentChar = m_syntax.IsIdentChar(strCh)
 End Function
 
 
@@ -3821,7 +4547,8 @@ Private Sub EmitDesignLayout(cOut As clsConcat, dLayout As Dictionary)
         cOut.Add "    Bottom =" & CStr(dPane("bottom")), vbCrLf
     End If
 
-    ' Grid origin
+    ' Grid origin. LoadFromText requires Left before Top here; emitting Top
+    ' first fails the whole Design View import with "Expected: 'Left'".
     If dLayout.Exists("gridLeft") Then
         cOut.Add "    Left =" & CStr(dLayout("gridLeft")), vbCrLf
         cOut.Add "    Top =" & CStr(dLayout("gridTop")), vbCrLf
@@ -3914,6 +4641,41 @@ End Property
 
 Public Property Get QueryType() As Long
     QueryType = m_lngQueryType
+End Property
+
+Public Property Get ParsedOptionFlag() As Long
+    ParsedOptionFlag = m_lngOption
+End Property
+
+Public Property Get ReconstructedOptionFlag() As Long
+    ReconstructedOptionFlag = m_lngReconstructedOptionFlag
+End Property
+
+Public Property Get OutputColumnCount() As Long
+    If m_colOutputColumns Is Nothing Then
+        OutputColumnCount = 0
+    Else
+        OutputColumnCount = m_colOutputColumns.Count
+    End If
+End Property
+
+' Mask of the Attribute 3 bits that SQL text can express, so callers comparing a
+' .json OptionFlag against a .sql use the same definition this class does.
+Public Property Get SqlRepresentableOptionBits() As Long
+    SqlRepresentableOptionBits = OPTION_BITS_FROM_SQL
+End Property
+
+' True when bit 1 of ParsedOptionFlag is an implicit bare `*` rather than an
+' explicit `*` beside named columns. Exports drop the flag in that case.
+Public Property Get ImplicitOutputAllFields() As Boolean
+    ImplicitOutputAllFields = IsImplicitOutputAllFields()
+End Property
+
+' Declared query parameters, as a collection of {name, type, flag} dictionaries.
+' Name and type are verbatim from the PARAMETERS clause; flag is the DAO data type.
+Public Property Get Parameters() As Collection
+    If m_colParameters Is Nothing Then Set m_colParameters = New Collection
+    Set Parameters = m_colParameters
 End Property
 
 Public Property Get IsPassThrough() As Boolean

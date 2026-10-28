@@ -21,12 +21,14 @@ Option Explicit
 Private m_Macro As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
+Private m_colBatchItems As Collection
 
 ' This requires us to use all the public methods and properties of the implemented class
 ' which keeps all the component classes consistent in how they are used in the export
 ' and import process. The implemented functions should be kept private as they are called
 ' from the implementing class, not this class.
 Implements IDbComponent
+Implements IDbBatchImport
 
 
 '---------------------------------------------------------------------------------------
@@ -38,13 +40,13 @@ Implements IDbComponent
 '
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
     Dim strHash As String
-    strHash = SaveComponentAsText(acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile))
+    strHash = SaveComponentAsText(acMacro, m_Macro.Name, Nz2(strAlternatePath, IDbComponent_SourceFile), Me)
 
-    ' Export object metadata (doc properties + hidden attribute) into companion .json
-    If strAlternatePath = vbNullString Then
-        ExportObjectMetadata IDbComponent_BaseFolder & GetSafeFileName(m_Macro.Name) & ".json", _
-            "Scripts", m_Macro.Name, acMacro
-    End If
+    ' Export object metadata (doc properties + hidden attribute) into companion .json.
+    ' Produced for both normal and alternate-path (temp) exports so that conflict
+    ' detection and merge change-detection can compare all indexed files.
+    ExportObjectMetadata SwapExtension(Nz2(strAlternatePath, IDbComponent_SourceFile), "json"), _
+        "Scripts", m_Macro.Name, Me
 
     VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), strHash, _
         strMetaHash:=GetMetadataHash("Scripts", m_Macro.Name, acMacro)
@@ -60,19 +62,73 @@ End Sub
 '
 Private Sub IDbComponent_Import(strFile As String)
 
-    Dim blnImportCheck As Boolean
     Dim strName As String
 
-    ' Only import files with the correct extension.
-    If Not (strFile Like "*.macro" Or strFile Like "*.bas") Then Exit Sub
+    If Not ImportMacroStructure(strFile, strName) Then Exit Sub
+    FinalizeOneMacro strFile, strName
+
+End Sub
+
+
+Private Sub IDbBatchImport_ImportFast(strFile As String)
+
+    Dim strName As String
+    Dim dBatch As Dictionary
+
+    If Not ImportMacroStructure(strFile, strName) Then Exit Sub
+    If m_colBatchItems Is Nothing Then Set m_colBatchItems = New Collection
+
+    Set dBatch = New Dictionary
+    dBatch.Add "File", strFile
+    dBatch.Add "Name", strName
+    m_colBatchItems.Add dBatch
+
+End Sub
+
+
+Private Sub IDbBatchImport_FinalizeImports()
+
+    Dim varItem As Variant
+    Dim dBatch As Dictionary
+
+    If m_colBatchItems Is Nothing Then Exit Sub
+    If m_colBatchItems.Count = 0 Then
+        Set m_colBatchItems = Nothing
+        Exit Sub
+    End If
+
+    RefreshContainerDocuments "Scripts"
+
+    For Each varItem In m_colBatchItems
+        Set dBatch = varItem
+        FinalizeOneMacro CStr(dBatch("File")), CStr(dBatch("Name")), True
+        If Operation.ErrorLevel = eelCritical Then Exit For
+    Next varItem
+
+    Set m_colBatchItems = Nothing
+
+End Sub
+
+
+Private Function ImportMacroStructure(strFile As String, ByRef strName As String) As Boolean
+
+    If Not (strFile Like "*.macro" Or strFile Like "*.bas") Then Exit Function
 
     strName = GetObjectNameFromFileName(strFile)
-    blnImportCheck = LoadComponentFromText(acMacro, strName, strFile)
-    If Not blnImportCheck Or Operation.ErrorLevel = eelCritical Then Exit Sub
-    Set m_Macro = CurrentProject.AllMacros(strName)
+    If Not LoadComponentFromText(acMacro, strName, strFile) Then Exit Function
+    If Operation.ErrorLevel = eelCritical Then Exit Function
 
-    ' Apply object metadata (doc properties + hidden attribute) from companion .json
-    ImportObjectMetadata SwapExtension(strFile, "json"), "Scripts", strName, acMacro
+    ImportMacroStructure = True
+
+End Function
+
+
+Private Sub FinalizeOneMacro(strFile As String, strName As String, _
+    Optional blnSkipDocumentsRefresh As Boolean = False)
+
+    Set m_Macro = CurrentProject.AllMacros(strName)
+    ImportObjectMetadata SwapExtension(strFile, "json"), "Scripts", strName, acMacro, _
+        blnSkipDocumentsRefresh:=blnSkipDocumentsRefresh
 
     VCSIndex.Update Me, eatImport, GetFileHash(strFile), _
         strMetaHash:=GetMetadataHash("Scripts", strName, acMacro)
@@ -123,18 +179,25 @@ Private Function IDbComponent_GetAllFromDB(Optional blnModifiedOnly As Boolean =
     Dim oMac As AccessObject
     Dim cMac As IDbComponent
     Dim blnNeedAll As Boolean
+    Dim sngStart As Single
+    Dim lngScanCount As Long
 
     ' Build collection if not already cached
     If m_Items(blnModifiedOnly) Is Nothing Then
         blnNeedAll = (m_Items(False) Is Nothing)
         If blnNeedAll Then Set m_Items(False) = New Dictionary
         If blnModifiedOnly Then Set m_Items(True) = New Dictionary
+        If blnModifiedOnly Then
+            lngScanCount = CurrentProject.AllMacros.Count
+            sngStart = Timer
+        End If
         For Each oMac In CurrentProject.AllMacros
             Set cMac = New clsDbMacro
             Set cMac.DbObject = oMac
             If blnNeedAll Then m_Items(False).Add cMac.SourceFile, cMac
             If blnModifiedOnly Then
                 If cMac.IsModified Then m_Items(True).Add cMac.SourceFile, cMac
+                Log.IncrementObjectScanProgress sngStart, lngScanCount, "Macros"
             End If
         Next oMac
     End If
@@ -225,7 +288,7 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     If Options.ExportFormatVersion >= EFV_5_0_0 Then
         IDbComponent_FileExtensions.Add "macro"

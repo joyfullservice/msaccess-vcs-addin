@@ -1,0 +1,1456 @@
+﻿Attribute VB_Name = "modTestTableDef"
+'---------------------------------------------------------------------------------------
+' Module    : modTestTableDef
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Unit and integration tests for local table-definition export/import,
+'           : including dbBigInt repair after Application.ImportXML.
+'---------------------------------------------------------------------------------------
+Option Compare Database
+Option Explicit
+Option Private Module
+'@Folder("Tests.Components")
+'@Tag("unit")
+
+
+Private Const TEST_TABLE_BIGINT As String = "vcs_test_bigint_repair"
+Private Const TEST_TABLE_OUTSIDE_EXPORT As String = "vcs_test_td_outside_export"
+Private Const TEST_TABLE_DECIMAL_SQL As String = "vcs_test_decimal_sql"
+Private Const TEST_TABLE_DECIMAL_DAO As String = "vcs_test_decimal_dao"
+Private Const TEST_TABLE_HIDDEN_SIDECAR As String = "vcs_test_hidden_sidecar"
+Private Const TEST_TABLE_SYSTEM_PREFIX As String = "MSysVcsTestUserTable"
+Private Const TEST_TABLE_SYSTEM_ATTRIBUTE As String = "vcs_test_system_attribute"
+Private Const TEST_TABLE_SYSTEM_BOTH As String = "MSysVcsTestSystemTable"
+Private Const TEST_TABLE_LINKED_HOMONYM As String = "vcs_test_linked_homonym"
+Private Const TEST_TABLE_LINKED_ALONE As String = "vcs_test_linked_alone"
+Private Const TEST_TABLE_LINKED_MERGE As String = "vcs_test_linked_merge"
+Private Const TEST_TABLE_INHERIT_PARENT As String = "vcs_test_inherit_parent"
+Private Const TEST_TABLE_INHERIT_CHILD As String = "vcs_test_inherit_child"
+Private Const TEST_RELATION_FRONT_END As String = "vcs_test_front_end_relation"
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestBigIntFieldXmlDetection
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Access exports a dbBigInt field as an xsd:decimal restriction carrying
+'           : `totalDigits value="0"` and no od:jetType attribute. A genuine Decimal
+'           : field always carries its real configured precision, so the zero value is
+'           : the only available signature.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestBigIntFieldXmlDetection()
+    Dim colNames As Collection
+    Dim strXml As String
+
+    strXml = BigIntFixtureXml("BigVal")
+    Set colNames = GetBigIntRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 1, "bigint signature should match one field"
+    TestAssert colNames(1) = "BigVal", "matched field name"
+
+    strXml = Replace(strXml, "totalDigits value=""0""", "totalDigits value=""18""")
+    Set colNames = GetBigIntRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "genuine decimal precision should not match"
+
+    strXml = "<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:od=""urn:schemas-microsoft-com:officedata"">" & _
+        "<xsd:element name=""LongVal"" minOccurs=""0"" od:jetType=""longinteger"" od:sqlSType=""int"" type=""xsd:int""/>" & _
+        "</xsd:schema>"
+    Set colNames = GetBigIntRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "longinteger field should not match"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestBigIntImportXmlRepair
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : End-to-end check that a dbBigInt field survives the ExportXML/ImportXML
+'           : round trip once the ALTER COLUMN repair runs. Each stage re-reads the
+'           : table through a fresh Database handle: Application.ImportXML rebuilds the
+'           : table outside DAO, so a handle obtained earlier keeps reporting the old
+'           : catalog (error 3265) even after TableDefs.Refresh.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestBigIntImportXmlRepair()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim strTemp As String
+    Dim colNames As Collection
+    Dim lngImportError As Long
+    Dim strImportError As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_BIGINT
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_BIGINT)
+    Set fld = tdf.CreateField("ID", dbLong)
+    tdf.Fields.Append fld
+    Set fld = tdf.CreateField("BigVal", dbBigInt)
+    tdf.Fields.Append fld
+    Set fld = tdf.CreateField("Notes", dbText, 50)
+    tdf.Fields.Append fld
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+
+    strTemp = GetTempFile & ".xml"
+    Application.ExportXML acExportTable, TEST_TABLE_BIGINT, , strTemp, , , , acExportAllTableAndFieldProperties
+
+    DropTestTable TEST_TABLE_BIGINT
+    LogUnhandledErrors
+
+    ' ImportXML's own error code is asserted below, so this call runs untrapped.
+    On Error Resume Next
+    Application.ImportXML strTemp, acStructureOnly
+    lngImportError = Err.Number
+    strImportError = Err.Description
+    Err.Clear
+    On Error GoTo ErrHandler
+
+    ReleaseDbReferences
+
+    TestAssert lngImportError = 0 Or lngImportError = 31550, _
+        "ImportXML returned an unexpected error " & CStr(lngImportError) & ": " & _
+        strImportError
+    Set colNames = GetBigIntRepairFieldNamesFromTableDefXml(ReadFile(strTemp))
+    TestAssert colNames.Count = 1, "exported bigint field is detected in source XML"
+
+    If colNames.Count = 1 Then
+        Set dbs = CurrentDb
+        TestAssert TableExists(TEST_TABLE_BIGINT, dbs), "ImportXML recreated the table"
+        TestAssert dbs.TableDefs(TEST_TABLE_BIGINT).Fields(colNames(1)).Type <> dbBigInt, _
+            "ImportXML does not preserve dbBigInt on its own"
+
+        dbs.Execute "ALTER TABLE [" & TEST_TABLE_BIGINT & "] ALTER COLUMN [" & _
+            colNames(1) & "] BIGINT", dbFailOnError
+        RefreshTableCollections dbs
+
+        Set dbs = CurrentDb
+        TestAssert dbs.TableDefs(TEST_TABLE_BIGINT).Fields(colNames(1)).Type = dbBigInt, _
+            "ALTER COLUMN restores dbBigInt after ImportXML"
+        TestAssert dbs.TableDefs(TEST_TABLE_BIGINT).Fields("BigVal").OrdinalPosition = 1, _
+            "field ordinal is preserved"
+    End If
+
+CleanUp:
+    On Error Resume Next
+    DeleteFile strTemp
+    DropTestTable TEST_TABLE_BIGINT
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected bigint repair error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestDaoImportFromOutsideExportFolder
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : Pin that the DAO fast path still verifies (and keeps) a table whose source
+'           : XML sits outside Options.GetExportFolder. StoredDefinitionMatchesSource used
+'           : to treat that case as an automatic mismatch by refusing to write a temp
+'           : export when the export-folder prefix rewrite was a no-op, which made every
+'           : round-trip fixture under Testing\Fixtures\scratch\ fall through to
+'           : Application.ImportXML even when the DAO build was correct.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDaoImportFromOutsideExportFolder()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim strXml As String
+    Dim cTable As clsDbTableDef
+    Dim cComponent As IDbComponent
+    Dim lngPriorFormat As Long
+    Dim blnPriorOverride As Boolean
+
+    DropTestTable TEST_TABLE_OUTSIDE_EXPORT
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_OUTSIDE_EXPORT)
+    Set fld = tdf.CreateField("ID", dbLong)
+    fld.Attributes = fld.Attributes Or dbAutoIncrField
+    tdf.Fields.Append fld
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+
+    ' Export through the same path the verification step uses, under the format that
+    ' makes DAO and ImportXML output comparable, so a successful re-import is able to
+    ' hash-match the source file.
+    lngPriorFormat = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+
+    ' Import derives the object name from the file basename, so the source file
+    ' must be named for the table. Place it under the system temp directory --
+    ' never under the project's export folder -- which is the case under test.
+    strXml = GetTempFile
+    DeleteFile strXml
+    strXml = FSO.GetParentFolderName(strXml) & PathSep & TEST_TABLE_OUTSIDE_EXPORT & ".xml"
+    If FSO.FileExists(strXml) Then DeleteFile strXml
+    Application.ExportXML acExportTable, TEST_TABLE_OUTSIDE_EXPORT, , strXml, , , , _
+        acExportAllTableAndFieldProperties
+    With New clsSourceParser
+        .LoadSourceFile strXml, edbTableDef
+        DeleteFile strXml
+        WriteFile .Sanitize(ectXML), strXml
+    End With
+
+    DropTestTable TEST_TABLE_OUTSIDE_EXPORT
+
+    TestAssert InStr(1, strXml, Options.GetExportFolder, vbTextCompare) = 0, _
+        "fixture path is outside the export folder"
+
+    blnPriorOverride = FastPathTestOverride
+    FastPathTestOverride = True
+
+    Set cTable = New clsDbTableDef
+    Set cComponent = cTable
+    cComponent.Import strXml
+    ReleaseDbReferences
+
+    FastPathTestOverride = blnPriorOverride
+    Options.ExportFormatVersion = lngPriorFormat
+
+    TestAssert TableExists(TEST_TABLE_OUTSIDE_EXPORT), "import created the table"
+    TestAssert Len(GetLastDeclineReason()) = 0, _
+        "DAO path kept the table (verification ran outside the export folder)"
+
+    DeleteFile strXml
+    DropTestTable TEST_TABLE_OUTSIDE_EXPORT
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestSaveTableSqlDecimalScale
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Issue 756. SaveTableSqlDef must read DAO Field.Scale, not NumericScale, when
+'           : emitting DECIMAL(p,s) in the optional .sql companion file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestSaveTableSqlDecimalScale()
+    '@Tag("integration")
+
+    Dim cTable As clsDbTableDef
+    Dim strFolder As String
+    Dim strSqlFile As String
+    Dim strSql As String
+
+    DropTestTable TEST_TABLE_DECIMAL_SQL
+
+    CurrentProject.Connection.Execute _
+        "CREATE TABLE [" & TEST_TABLE_DECIMAL_SQL & "] (" & _
+        "[ID] LONG, [Year4] DECIMAL(4,0), [Amount] DECIMAL(18,4))"
+    RefreshTableCollections CurrentDb
+
+    strFolder = GetTempFolder("vcs_dec_sql")
+
+    Set cTable = New clsDbTableDef
+    cTable.SaveTableSqlDef TEST_TABLE_DECIMAL_SQL, AddSlash(strFolder)
+
+    strSqlFile = AddSlash(strFolder) & GetSafeFileName(TEST_TABLE_DECIMAL_SQL) & ".sql"
+    TestAssert FSO.FileExists(strSqlFile), "sql companion file was written"
+    strSql = ReadFile(strSqlFile)
+
+    TestAssert InStr(1, strSql, "DECIMAL(4,0)", vbTextCompare) > 0, "Year4 emits DECIMAL(4,0)"
+    TestAssert InStr(1, strSql, "DECIMAL(18,4)", vbTextCompare) > 0, "Amount emits DECIMAL(18,4)"
+    TestAssert InStr(1, strSql, "[Year4] VARCHAR", vbTextCompare) = 0, "Year4 is not VARCHAR"
+    TestAssert InStr(1, strSql, "[Amount] VARCHAR", vbTextCompare) = 0, "Amount is not VARCHAR"
+
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    DropTestTable TEST_TABLE_DECIMAL_SQL
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestDaoDecimalPrecisionAndScale
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : The DAO table builder must materialize decimal fields as dbDecimal with the
+'           : parsed precision and scale, using ADO ALTER after CreateField.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestDaoDecimalPrecisionAndScale()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim fld As DAO.Field
+    Dim strXml As String
+    Dim blnPriorOverride As Boolean
+
+    DropTestTable TEST_TABLE_DECIMAL_DAO
+
+    strXml = GetTempFile
+    DeleteFile strXml
+    strXml = FSO.GetParentFolderName(strXml) & PathSep & TEST_TABLE_DECIMAL_DAO & ".xml"
+    If FSO.FileExists(strXml) Then DeleteFile strXml
+    WriteFile DecimalFixtureXml, strXml
+
+    blnPriorOverride = FastPathTestOverride
+    FastPathTestOverride = True
+
+    TestAssert TryBuildTableFromDefXml(strXml, TEST_TABLE_DECIMAL_DAO), _
+        "DAO build succeeds for decimal fields"
+    TestAssert Len(GetLastDeclineReason()) = 0, "no decline reason"
+
+    FastPathTestOverride = blnPriorOverride
+
+    Set dbs = CurrentDb
+    TestAssert TableExists(TEST_TABLE_DECIMAL_DAO, dbs), "table was created"
+
+    Set fld = dbs.TableDefs(TEST_TABLE_DECIMAL_DAO).Fields("Year4")
+    TestAssert fld.Type = dbDecimal, "Year4 type is dbDecimal"
+    TestAssert fld.Precision = 4, "Year4 precision"
+    TestAssert fld.Scale = 0, "Year4 scale"
+
+    Set fld = dbs.TableDefs(TEST_TABLE_DECIMAL_DAO).Fields("Amount")
+    TestAssert fld.Type = dbDecimal, "Amount type is dbDecimal"
+    TestAssert fld.Precision = 18, "Amount precision"
+    TestAssert fld.Scale = 4, "Amount scale"
+
+    DeleteFile strXml
+    DropTestTable TEST_TABLE_DECIMAL_DAO
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestPropertyNodesSortedUnderNewFormat
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Under EFV_5_1_0 the sanitizer orders od:fieldProperty and od:tableProperty
+'           : nodes by name, so a table built through DAO and one built by ImportXML
+'           : export identically. Older formats must be left exactly as Access wrote them.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestPropertyNodesSortedUnderNewFormat()
+
+    Dim strSorted As String
+    Dim strLegacy As String
+    Dim lngPrior As Long
+
+    lngPrior = Options.ExportFormatVersion
+
+    Options.ExportFormatVersion = EFV_5_1_0
+    strSorted = SanitizeFixture(UnsortedPropertyXml)
+
+    Options.ExportFormatVersion = EFV_5_0_0
+    strLegacy = SanitizeFixture(UnsortedPropertyXml)
+
+    Options.ExportFormatVersion = lngPrior
+
+    TestAssert InStr(1, strSorted, "AllowZeroLength") < InStr(1, strSorted, "ColumnWidth"), _
+        "field properties sorted by name"
+    TestAssert InStr(1, strSorted, "ColumnWidth") < InStr(1, strSorted, "Required"), _
+        "sort is alphabetical, not merely reversed"
+    TestAssert InStr(1, strSorted, "Description") < InStr(1, strSorted, "Orientation"), _
+        "table properties sorted by name"
+
+    ' The index shares the appinfo block and must not be dragged into the sort.
+    TestAssert InStr(1, strSorted, "od:index") < InStr(1, strSorted, "od:tableProperty"), _
+        "index node keeps its position ahead of the properties"
+
+    TestAssert InStr(1, strLegacy, "ColumnWidth") < InStr(1, strLegacy, "AllowZeroLength"), _
+        "older export format leaves the original order untouched"
+
+    ' The lookup chain is the one place alphabetical ordering looks dangerous: Access
+    ' always emits DisplayControl ahead of BoundColumn and ColumnCount, and issue 691
+    ' blamed the reverse for losing ColumnCount and ColumnWidths. Measurement showed the
+    ' reverse restores correctly through every import path, so the inversion below is
+    ' deliberate. Asserting it keeps a future "fix" from silently reintroducing a rank
+    ' table nobody needs. See DECISIONS.md 2026-07-31.
+    TestAssert InStr(1, strSorted, "BoundColumn") < InStr(1, strSorted, "DisplayControl"), _
+        "lookup chain is alphabetised, inverting Access's emission order on purpose"
+    TestAssert InStr(1, strSorted, "ColumnCount") < InStr(1, strSorted, "RowSourceType"), _
+        "ColumnCount sorts ahead of RowSourceType"
+
+    ' Reordering must never lose or duplicate a node.
+    TestAssert CountOccurrences(strSorted, "<od:fieldProperty ") = _
+        CountOccurrences(strLegacy, "<od:fieldProperty "), _
+        "sorting preserves the field property count"
+    TestAssert CountOccurrences(strSorted, "<od:tableProperty ") = _
+        CountOccurrences(strLegacy, "<od:tableProperty "), _
+        "sorting preserves the table property count"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestPropertyNodesNotSortedForTableData
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : The sort is gated to table definitions. SanitizeXML is shared with table
+'           : data, where a retained schema is rare and the document can run to many
+'           : megabytes, so the document scan must not happen there at all.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestPropertyNodesNotSortedForTableData()
+
+    Dim cParser As clsSourceParser
+    Dim strOut As String
+    Dim lngPrior As Long
+
+    lngPrior = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+
+    Set cParser = New clsSourceParser
+    cParser.LoadString UnsortedPropertyXml, edbTableData
+    strOut = cParser.Sanitize(ectXML)
+
+    Options.ExportFormatVersion = lngPrior
+
+    TestAssert InStr(1, strOut, "ColumnWidth") < InStr(1, strOut, "AllowZeroLength"), _
+        "table data content is not reordered"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CountOccurrences
+' Author    : Adam Waller
+' Date      : 7/31/2026
+' Purpose   : Count non-overlapping occurrences of a substring.
+'---------------------------------------------------------------------------------------
+'
+Private Function CountOccurrences(strText As String, strFind As String) As Long
+
+    Dim lngPos As Long
+
+    lngPos = InStr(1, strText, strFind, vbBinaryCompare)
+    Do While lngPos > 0
+        CountOccurrences = CountOccurrences + 1
+        lngPos = InStr(lngPos + Len(strFind), strText, strFind, vbBinaryCompare)
+    Loop
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SanitizeFixture
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Run a table definition XML string through the real export sanitizer.
+'---------------------------------------------------------------------------------------
+'
+Private Function SanitizeFixture(strXml As String) As String
+
+    Dim cParser As clsSourceParser
+
+    Set cParser = New clsSourceParser
+    cParser.LoadString strXml, edbTableDef
+    SanitizeFixture = cParser.Sanitize(ectXML)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UnsortedPropertyXml
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : A table definition whose properties are deliberately out of name order, in
+'           : the arrangement Access produces: Required and AllowZeroLength trailing the
+'           : datasheet properties, and the lookup chain led by DisplayControl. Sorting
+'           : this by name inverts the lookup chain, which is the case worth pinning.
+'---------------------------------------------------------------------------------------
+'
+' Built through clsConcat rather than a continued expression: VBA allows only 25 line
+' continuations in one statement, and this document needs more lines than that.
+Private Function UnsortedPropertyXml() As String
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "<?xml version=""1.0""?>"
+        .Add "<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:od=""urn:schemas-microsoft-com:officedata"">"
+        .Add "  <xsd:element name=""Fixture"">"
+        .Add "    <xsd:annotation><xsd:appinfo>"
+        .Add "      <od:index index-name=""PrimaryKey"" index-key=""F1 "" primary=""yes"" unique=""yes"" clustered=""no"" order=""asc""/>"
+        .Add "      <od:tableProperty name=""Orientation"" type=""2"" value=""0""/>"
+        .Add "      <od:tableProperty name=""Description"" type=""10"" value=""A table""/>"
+        .Add "    </xsd:appinfo></xsd:annotation>"
+        .Add "    <xsd:complexType><xsd:sequence>"
+        .Add "      <xsd:element name=""F1"" minOccurs=""0"" od:jetType=""text"">"
+        .Add "        <xsd:annotation><xsd:appinfo>"
+        .Add "          <od:fieldProperty name=""ColumnWidth"" type=""3"" value=""-1""/>"
+        .Add "          <od:fieldProperty name=""ColumnOrder"" type=""3"" value=""0""/>"
+        .Add "          <od:fieldProperty name=""Required"" type=""1"" value=""0""/>"
+        .Add "          <od:fieldProperty name=""AllowZeroLength"" type=""1"" value=""0""/>"
+        .Add "          <od:fieldProperty name=""DisplayControl"" type=""3"" value=""111""/>"
+        .Add "          <od:fieldProperty name=""RowSourceType"" type=""10"" value=""Value List""/>"
+        .Add "          <od:fieldProperty name=""RowSource"" type=""12"" value=""1;One;2;Two""/>"
+        .Add "          <od:fieldProperty name=""BoundColumn"" type=""3"" value=""1""/>"
+        .Add "          <od:fieldProperty name=""ColumnCount"" type=""3"" value=""2""/>"
+        .Add "          <od:fieldProperty name=""ColumnWidths"" type=""10"" value=""0;1440""/>"
+        .Add "        </xsd:appinfo></xsd:annotation>"
+        .Add "        <xsd:simpleType>"
+        .Add "          <xsd:restriction base=""xsd:string"">"
+        .Add "            <xsd:maxLength value=""10""/>"
+        .Add "          </xsd:restriction>"
+        .Add "        </xsd:simpleType>"
+        .Add "      </xsd:element>"
+        .Add "    </xsd:sequence></xsd:complexType>"
+        .Add "  </xsd:element>"
+        .Add "</xsd:schema>"
+        UnsortedPropertyXml = .GetStr
+    End With
+
+End Function
+
+
+Private Function BigIntFixtureXml(strFieldName As String) As String
+    BigIntFixtureXml = _
+        "<?xml version=""1.0""?>" & vbCrLf & _
+        "<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:od=""urn:schemas-microsoft-com:officedata"">" & vbCrLf & _
+        "  <xsd:element name=""Fixture"">" & vbCrLf & _
+        "    <xsd:complexType><xsd:sequence>" & vbCrLf & _
+        "      <xsd:element name=""" & strFieldName & """ minOccurs=""0"">" & vbCrLf & _
+        "        <xsd:annotation><xsd:appinfo>" & vbCrLf & _
+        "          <od:fieldProperty name=""Required"" type=""1"" value=""0""/>" & vbCrLf & _
+        "        </xsd:appinfo></xsd:annotation>" & vbCrLf & _
+        "        <xsd:simpleType>" & vbCrLf & _
+        "          <xsd:restriction base=""xsd:decimal"">" & vbCrLf & _
+        "            <xsd:totalDigits value=""0""/>" & vbCrLf & _
+        "            <xsd:fractionDigits value=""0""/>" & vbCrLf & _
+        "          </xsd:restriction>" & vbCrLf & _
+        "        </xsd:simpleType>" & vbCrLf & _
+        "      </xsd:element>" & vbCrLf & _
+        "    </xsd:sequence></xsd:complexType>" & vbCrLf & _
+        "  </xsd:element>" & vbCrLf & _
+        "</xsd:schema>"
+End Function
+
+
+Private Function DecimalFixtureXml() As String
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "<?xml version=""1.0""?>"
+        .Add "<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:od=""urn:schemas-microsoft-com:officedata"">"
+        .Add "  <xsd:element name=""dataroot"">"
+        .Add "    <xsd:complexType><xsd:sequence>"
+        .Add "      <xsd:element ref=""" & TEST_TABLE_DECIMAL_DAO & """ minOccurs=""0"" maxOccurs=""unbounded""/>"
+        .Add "    </xsd:sequence>"
+        .Add "    <xsd:attribute name=""generated"" type=""xsd:dateTime""/>"
+        .Add "    </xsd:complexType></xsd:element>"
+        .Add "  <xsd:element name=""" & TEST_TABLE_DECIMAL_DAO & """>"
+        .Add "    <xsd:annotation><xsd:appinfo>"
+        .Add "      <od:index index-name=""PrimaryKey"" index-key=""ID "" primary=""yes"" unique=""yes"" clustered=""no"" order=""asc""/>"
+        .Add "    </xsd:appinfo></xsd:annotation>"
+        .Add "    <xsd:complexType><xsd:sequence>"
+        .Add "      <xsd:element name=""ID"" minOccurs=""1"" od:jetType=""autonumber"" od:sqlSType=""int"" od:autoUnique=""yes"" od:nonNullable=""yes"" type=""xsd:int""/>"
+        .Add "      <xsd:element name=""Year4"" minOccurs=""0"" od:jetType=""decimal"">"
+        .Add "        <xsd:simpleType><xsd:restriction base=""xsd:decimal"">"
+        .Add "          <xsd:totalDigits value=""4""/>"
+        .Add "          <xsd:fractionDigits value=""0""/>"
+        .Add "        </xsd:restriction></xsd:simpleType></xsd:element>"
+        .Add "      <xsd:element name=""Amount"" minOccurs=""0"" od:jetType=""decimal"">"
+        .Add "        <xsd:simpleType><xsd:restriction base=""xsd:decimal"">"
+        .Add "          <xsd:totalDigits value=""18""/>"
+        .Add "          <xsd:fractionDigits value=""4""/>"
+        .Add "        </xsd:restriction></xsd:simpleType></xsd:element>"
+        .Add "    </xsd:sequence></xsd:complexType></xsd:element>"
+        .Add "</xsd:schema>"
+        DecimalFixtureXml = .GetStr
+    End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestHiddenLocalTableKeepsMetadataSidecar
+' Author    : Ricardo Hernandez
+' Date      : 9/5/2026
+' Purpose   : A hidden local table must keep its companion metadata file after a normal
+'           : export. The alternate-format name for a local table is <name>.json -- the
+'           : same name the metadata sidecar uses -- so RemoveAlternateFormatSourceFile
+'           : deletes the file ExportObjectMetadata wrote a few lines earlier, and the
+'           : hidden attribute never reaches source. A Build from Source then recreates
+'           : the table visible.
+'           :
+'           : The export folder is redirected to a temp folder so the fixture never
+'           : writes into the project's own source tree, and restored before the
+'           : assertions so a failure cannot leave the option pointing elsewhere.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestHiddenLocalTableKeepsMetadataSidecar()
+    '@Tag("integration")
+
+    Dim cTable As clsDbTableDef
+    Dim cComponent As IDbComponent
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim strFolder As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim strBase As String
+    Dim strXmlFile As String
+    Dim strJsonFile As String
+    Dim blnWasHidden As Boolean
+    Dim blnJsonExists As Boolean
+    Dim blnHasHidden As Boolean
+
+    DropTestTable TEST_TABLE_HIDDEN_SIDECAR
+
+    CurrentProject.Connection.Execute _
+        "CREATE TABLE [" & TEST_TABLE_HIDDEN_SIDECAR & "] ([ID] LONG)"
+    RefreshTableCollections CurrentDb
+    Application.SetHiddenAttribute acTable, TEST_TABLE_HIDDEN_SIDECAR, True
+    blnWasHidden = Application.GetHiddenAttribute(acTable, TEST_TABLE_HIDDEN_SIDECAR)
+
+    strFolder = GetTempFolder("vcs_hidden_sidecar")
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_0_0
+
+    ' Export through the normal (non-alternate) path -- the one a real export takes for
+    ' any table the change scan did not already export to the temp folder.
+    Set cTable = New clsDbTableDef
+    Set cComponent = cTable
+    Set cComponent.DbObject = CurrentData.AllTables(TEST_TABLE_HIDDEN_SIDECAR)
+    cComponent.Export
+
+    strBase = Options.GetExportFolder & "tbldefs" & PathSep & GetSafeFileName(TEST_TABLE_HIDDEN_SIDECAR)
+    strXmlFile = strBase & ".xml"
+    strJsonFile = strBase & ".json"
+    blnJsonExists = FSO.FileExists(strJsonFile)
+    If blnJsonExists Then
+        Set dFile = ReadJsonFile(strJsonFile)
+        If Not dFile Is Nothing Then
+            If dFile.Exists("Items") Then
+                Set dItems = dFile("Items")
+                If dItems.Exists("Hidden") Then blnHasHidden = dItems("Hidden")
+            End If
+        End If
+    End If
+
+    ' Restore before asserting so a failure cannot leave the options redirected.
+    Options.ExportFolder = strPriorFolder
+    Options.ExportFormatVersion = lngPriorFormat
+
+    TestAssert blnWasHidden, "fixture table is hidden before the export"
+    TestAssert FSO.FileExists(strXmlFile), "local table schema was exported"
+    TestAssert blnJsonExists, "metadata sidecar survives the export of a hidden local table"
+    TestAssert blnHasHidden, "sidecar records the hidden attribute"
+
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    DropTestTable TEST_TABLE_HIDDEN_SIDECAR
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestUserTableWithSystemPrefixIsExported
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/1/2026
+' Purpose   : A user table whose name begins with MSys must be enumerated for export.
+'           : The prefix is not reserved, and DAO creates such a table with no system
+'           : attribute, which makes it indistinguishable from any other user table.
+'           : Checked in both directions on purpose: the engine's own tables must stay
+'           : out, so that fixing the omission does not start exporting them instead.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestUserTableWithSystemPrefixIsExported()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim blnNoSystemAttribute As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_SYSTEM_PREFIX
+    Set dbs = CurrentDb
+    CreateAttributeTestTable dbs, TEST_TABLE_SYSTEM_PREFIX, 0
+
+    blnNoSystemAttribute = ((dbs.TableDefs(TEST_TABLE_SYSTEM_PREFIX).Attributes And dbSystemObject) = 0)
+    TestAssert blnNoSystemAttribute, "a user table named MSys* carries no system attribute"
+    TestAssert TableDefEnumerated(TEST_TABLE_SYSTEM_PREFIX), "user table named MSys* should be enumerated for export"
+    TestAssert Not TableDefEnumerated("MSysObjects"), "engine system tables should stay excluded"
+
+CleanUp:
+    On Error Resume Next
+    DropTestTable TEST_TABLE_SYSTEM_PREFIX
+    If lngErr <> 0 Then TestAssert False, "unexpected MSys* user table error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestLinkedTableWithHomonymKeepsProperties
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/5/2026
+' Purpose   : The export reads the front-end properties of a linked table from its
+'           : MSysObjects.LvProp row, looked up by name. A form or report may share
+'           : the table's name, and without a filter on Type the lookup could return
+'           : that row instead: the .json came out without the table's own properties,
+'           : or with the form's in their place. The form is created
+'           : before the link so that its row is the one a name-only lookup meets first.
+'           : The second table, with no homonym, is the control.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestLinkedTableWithHomonymKeepsProperties()
+    '@Tag("integration")
+
+    Dim dbsBack As DAO.Database
+    Dim frm As Form
+    Dim strForm As String
+    Dim strFolder As String
+    Dim strBackEnd As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim lngPriorEnv As Long
+    Dim blnSaved As Boolean
+    Dim blnFormCreated As Boolean
+    Dim blnHomonymTable As Boolean
+    Dim blnHomonymField As Boolean
+    Dim blnAloneTable As Boolean
+    Dim blnAloneField As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_LINKED_HOMONYM
+    DropTestTable TEST_TABLE_LINKED_ALONE
+    DeleteTestForm TEST_TABLE_LINKED_HOMONYM
+
+    ' Back end with the source table
+    strFolder = GetTempFolder("vcs_linked_homonym")
+    strBackEnd = strFolder & PathSep & "backend.accdb"
+    Set dbsBack = DBEngine.CreateDatabase(strBackEnd, dbLangGeneral)
+    dbsBack.Execute "CREATE TABLE [Source] ([ID] LONG, [Nombre] TEXT(50))", dbFailOnError
+    dbsBack.Close
+    Set dbsBack = Nothing
+
+    ' The homonym form goes first, so its MSysObjects row precedes the table's
+    Set frm = Application.CreateForm
+    strForm = frm.Name
+    Set frm = Nothing
+    DoCmd.Close acForm, strForm, acSaveYes
+    DoCmd.Rename TEST_TABLE_LINKED_HOMONYM, acForm, strForm
+    blnFormCreated = True
+
+    CreateLinkedTableWithProperties TEST_TABLE_LINKED_HOMONYM, strBackEnd
+    CreateLinkedTableWithProperties TEST_TABLE_LINKED_ALONE, strBackEnd
+
+    ' Sandbox the export folder
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    lngPriorEnv = Options.UseEnvForConnections
+    blnSaved = True
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_0_0
+    Options.UseEnvForConnections = uecNever
+
+    ExportLinkedTableProperties TEST_TABLE_LINKED_HOMONYM, blnHomonymTable, blnHomonymField
+    ExportLinkedTableProperties TEST_TABLE_LINKED_ALONE, blnAloneTable, blnAloneField
+
+    TestAssert blnFormCreated, "homonym form exists before the link"
+    TestAssert blnAloneTable, "control: linked table exports its TableProperties"
+    TestAssert blnAloneField, "control: linked table exports its FieldProperties"
+    TestAssert blnHomonymTable, "linked table with a homonym form exports its TableProperties"
+    TestAssert blnHomonymField, "linked table with a homonym form exports its FieldProperties"
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        Options.ExportFolder = strPriorFolder
+        Options.ExportFormatVersion = lngPriorFormat
+        Options.UseEnvForConnections = lngPriorEnv
+    End If
+    DropTestTable TEST_TABLE_LINKED_HOMONYM
+    DropTestTable TEST_TABLE_LINKED_ALONE
+    DeleteTestForm TEST_TABLE_LINKED_HOMONYM
+    If Len(strForm) > 0 Then DeleteTestForm strForm
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    Err.Clear
+    If lngErr <> 0 Then TestAssert False, "linked table homonym error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CreateLinkedTableWithProperties
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/5/2026
+' Purpose   : Link the back-end Source table under a new name, with one front-end
+'           : table property (Description) and one field property (Caption), both of
+'           : them stored only in the front end's LvProp.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CreateLinkedTableWithProperties(strTable As String, strBackEnd As String)
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(strTable)
+    tdf.Connect = ";DATABASE=" & strBackEnd
+    tdf.SourceTableName = "Source"
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.TableDefs(strTable)
+    tdf.Properties.Append tdf.CreateProperty("Description", dbText, "Descripcion local")
+    Set fld = tdf.Fields("Nombre")
+    fld.Properties.Append fld.CreateProperty("Caption", dbText, "Etiqueta")
+    Set fld = Nothing
+    Set tdf = Nothing
+    RefreshTableCollections dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportLinkedTableProperties
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/5/2026
+' Purpose   : Export a linked table through the normal path and report whether its
+'           : .json carries the fixture's table and field properties.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportLinkedTableProperties(strTable As String, _
+    ByRef blnTableProps As Boolean, ByRef blnFieldProps As Boolean)
+
+    Dim cComponent As IDbComponent
+    Dim dFile As Dictionary
+    Dim dItems As Dictionary
+    Dim strJsonFile As String
+
+    Set cComponent = New clsDbTableDef
+    Set cComponent.DbObject = CurrentData.AllTables(strTable)
+    cComponent.Export
+
+    strJsonFile = Options.GetExportFolder & "tbldefs" & PathSep & GetSafeFileName(strTable) & ".json"
+    If FSO.FileExists(strJsonFile) Then Set dFile = ReadJsonFile(strJsonFile)
+    If Not dFile Is Nothing Then
+        If dFile.Exists("Items") Then
+            Set dItems = dFile("Items")
+            If dItems.Exists("TableProperties") Then blnTableProps = dItems("TableProperties").Exists("Description")
+            If dItems.Exists("FieldProperties") Then blnFieldProps = dItems("FieldProperties").Exists("Nombre")
+        End If
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DeleteTestForm
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/5/2026
+' Purpose   : Delete a fixture form if it exists. Checked first rather than swallowing
+'           : the "not found" error, for the same reason as DropTestTable.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DeleteTestForm(strForm As String)
+
+    Dim objForm As AccessObject
+
+    For Each objForm In CurrentProject.AllForms
+        If objForm.Name = strForm Then
+            DoCmd.DeleteObject acForm, strForm
+            Exit For
+        End If
+    Next objForm
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeLinkedTablesKeepsFrontEndRelation
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : When both tables of a back-end relationship are linked, the database
+'           : engine adds an inherited relation to the front end, named after the back
+'           : end's path in brackets. Merging either linked table staged that relation
+'           : with the others and could not restore it, since CreateRelation or
+'           : Relations.Append rejects that name. CreateRelation raises 3001 when the
+'           : name is over 64 characters, which stops the restore. Only the relations
+'           : defined in the front end are staged and restored; the engine drops the
+'           : inherited one with the linked table and adds it back when the table is
+'           : linked again. The front-end relation between the two linked tables,
+'           : without referential integrity, is the one that must survive. Both tables
+'           : are merged, so each side is covered.
+'           : Staging also deleted the inherited relation, and deleting it from the front
+'           : end deletes the relationship in the back end: the back end must keep it.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeLinkedTablesKeepsFrontEndRelation()
+    '@Tag("integration")
+
+    Dim dbsBack As DAO.Database
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+    Dim fld As DAO.Field
+    Dim cComponent As IDbComponent
+    Dim cSavedIndex As clsVCSIndex
+    Dim varTable As Variant
+    Dim strFolder As String
+    Dim strBackEnd As String
+    Dim strJsonFile As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim lngPriorEnv As Long
+    Dim blnSaved As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+    Dim lngMergeErr As Long
+    Dim strMergeErr As String
+
+    On Error GoTo ErrHandler
+
+    DropInheritanceFixture
+
+    ' Back end: two tables with an enforced relationship
+    strFolder = GetTempFolder("vcs_inherited_relation")
+    strBackEnd = strFolder & PathSep & "backend.accdb"
+    Set dbsBack = DBEngine.CreateDatabase(strBackEnd, dbLangGeneral)
+    dbsBack.Execute "CREATE TABLE [" & TEST_TABLE_INHERIT_PARENT & "] " & _
+        "([ID] LONG CONSTRAINT [pk] PRIMARY KEY, [Code] TEXT(10))", dbFailOnError
+    dbsBack.Execute "CREATE TABLE [" & TEST_TABLE_INHERIT_CHILD & "] " & _
+        "([ID] LONG CONSTRAINT [pk] PRIMARY KEY, [ParentID] LONG, [ParentCode] TEXT(10))", dbFailOnError
+    Set rel = dbsBack.CreateRelation("ParentChild", TEST_TABLE_INHERIT_PARENT, TEST_TABLE_INHERIT_CHILD)
+    Set fld = rel.CreateField("ID")
+    fld.ForeignName = "ParentID"
+    rel.Fields.Append fld
+    dbsBack.Relations.Append rel
+    Set fld = Nothing
+    Set rel = Nothing
+    dbsBack.Close
+    Set dbsBack = Nothing
+
+    ' Front end: link both tables, which adds the inherited relation, then define a
+    ' relation of its own between them, without referential integrity.
+    LinkInheritanceTable TEST_TABLE_INHERIT_PARENT, strBackEnd
+    LinkInheritanceTable TEST_TABLE_INHERIT_CHILD, strBackEnd
+    Set dbs = CurrentDb
+    Set rel = dbs.CreateRelation(TEST_RELATION_FRONT_END, _
+        TEST_TABLE_INHERIT_PARENT, TEST_TABLE_INHERIT_CHILD, dbRelationDontEnforce)
+    Set fld = rel.CreateField("Code")
+    fld.ForeignName = "ParentCode"
+    rel.Fields.Append fld
+    dbs.Relations.Append rel
+    Set fld = Nothing
+    Set rel = Nothing
+    Set dbs = Nothing
+
+    ' Without the inherited relation the test would not exercise anything
+    TestAssert CountInheritedRelations(TEST_TABLE_INHERIT_PARENT) = 1, _
+        "linking both tables adds the inherited relation"
+    If CountInheritedRelations(TEST_TABLE_INHERIT_PARENT) <> 1 Then GoTo CleanUp
+
+    ' Sandbox the export folder and the index
+    Set cSavedIndex = VCSIndex
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    lngPriorEnv = Options.UseEnvForConnections
+    blnSaved = True
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_0_0
+    Options.UseEnvForConnections = uecNever
+    Set VCSIndex = Nothing
+    ' The connection state is keyed by the back end's file name and outlives a test,
+    ' so a linked-table test that ran before, with its own backend.accdb, would hand
+    ' this one its completed connection string. A build clears it before merging.
+    ClearConnState
+
+    ' Merge each linked table from its own source file. A failed merge is recorded
+    ' rather than raised, so the checks below still run: the relationship has already
+    ' been deleted from the back end by the time the restore fails.
+    For Each varTable In Array(TEST_TABLE_INHERIT_CHILD, TEST_TABLE_INHERIT_PARENT)
+        Set cComponent = New clsDbTableDef
+        Set cComponent.DbObject = CurrentData.AllTables(CStr(varTable))
+        cComponent.Export
+        strJsonFile = Options.GetExportFolder & "tbldefs" & PathSep & GetSafeFileName(CStr(varTable)) & ".json"
+        ReleaseDbReferences
+        Set cComponent = New clsDbTableDef
+        On Error Resume Next
+        cComponent.Merge strJsonFile
+        If Err.Number <> 0 And lngMergeErr = 0 Then
+            lngMergeErr = Err.Number
+            strMergeErr = Err.Description
+        End If
+        Err.Clear
+        On Error GoTo ErrHandler
+        VCSIndex.Remove cComponent, strJsonFile
+    Next varTable
+
+    ReleaseDbReferences
+    If lngMergeErr <> 0 Then TestAssert False, _
+        "merge of linked tables with an inherited relation, error " & lngMergeErr & ": " & strMergeErr
+    TestAssert FrontEndRelationKept, "merge keeps the front-end relation between the linked tables"
+    TestAssert CountInheritedRelations(TEST_TABLE_INHERIT_PARENT) = 1, _
+        "the engine adds the inherited relation back when the table is linked again"
+    TestAssert BackEndRelationKept(strBackEnd), _
+        "the back end keeps its relationship (deleting the inherited one would remove it)"
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        Options.ExportFolder = strPriorFolder
+        Options.ExportFormatVersion = lngPriorFormat
+        Options.UseEnvForConnections = lngPriorEnv
+        Set VCSIndex = cSavedIndex
+    End If
+    ClearConnState
+    DropInheritanceFixture
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    Err.Clear
+    If lngErr <> 0 Then TestAssert False, "merge of linked tables with an inherited relation, error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LinkInheritanceTable
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : Link a back-end table under its own name, as ImportLinkedTable does.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LinkInheritanceTable(strTable As String, strBackEnd As String)
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(strTable)
+    tdf.Connect = ";DATABASE=" & strBackEnd
+    tdf.SourceTableName = strTable
+    dbs.TableDefs.Append tdf
+    Set tdf = Nothing
+    RefreshTableCollections dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CountInheritedRelations
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : Number of inherited relations in the current database that involve the
+'           : table, read through a fresh handle.
+'---------------------------------------------------------------------------------------
+'
+Private Function CountInheritedRelations(strTable As String) As Long
+
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+
+    Set dbs = CurrentDb
+    For Each rel In dbs.Relations
+        If (rel.Attributes And dbRelationInherited) = dbRelationInherited Then
+            If rel.Table = strTable Or rel.ForeignTable = strTable Then
+                CountInheritedRelations = CountInheritedRelations + 1
+            End If
+        End If
+    Next rel
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FrontEndRelationKept
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : True when the front-end relation of the fixture is still there, between
+'           : the same tables and fields, and still without referential integrity.
+'---------------------------------------------------------------------------------------
+'
+Private Function FrontEndRelationKept() As Boolean
+
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+
+    Set dbs = CurrentDb
+    For Each rel In dbs.Relations
+        If rel.Name = TEST_RELATION_FRONT_END Then
+            If rel.Table = TEST_TABLE_INHERIT_PARENT _
+                And rel.ForeignTable = TEST_TABLE_INHERIT_CHILD _
+                And (rel.Attributes And dbRelationDontEnforce) = dbRelationDontEnforce _
+                And rel.Fields.Count = 1 Then
+                FrontEndRelationKept = (rel.Fields(0).Name = "Code" _
+                    And rel.Fields(0).ForeignName = "ParentCode")
+            End If
+        End If
+    Next rel
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BackEndRelationKept
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : True when the back end of the fixture still holds its relationship. Deleting
+'           : the inherited relation from the front end deletes this one too.
+'---------------------------------------------------------------------------------------
+'
+Private Function BackEndRelationKept(strBackEnd As String) As Boolean
+
+    Dim dbsBack As DAO.Database
+    Dim rel As DAO.Relation
+
+    Set dbsBack = DBEngine.OpenDatabase(strBackEnd, False, True)
+    For Each rel In dbsBack.Relations
+        If rel.Name = "ParentChild" Then BackEndRelationKept = True
+    Next rel
+    dbsBack.Close
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DropInheritanceFixture
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/10/2026
+' Purpose   : Remove the front-end relation, if present, and then the two linked tables.
+'           : The relation goes first: a table that takes part in a relation cannot be
+'           : dropped. The links are found in TableDefs rather than through TableExists,
+'           : which reports a link whose back end is gone as missing: a failed run
+'           : would then leave links behind that make every later run fail.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DropInheritanceFixture()
+
+    Dim dbs As DAO.Database
+    Dim rel As DAO.Relation
+    Dim tdf As DAO.TableDef
+    Dim colLinks As Collection
+    Dim varName As Variant
+    Dim blnFound As Boolean
+
+    Set dbs = CurrentDb
+    For Each rel In dbs.Relations
+        If rel.Name = TEST_RELATION_FRONT_END Then blnFound = True
+    Next rel
+    If blnFound Then dbs.Relations.Delete TEST_RELATION_FRONT_END
+
+    Set colLinks = New Collection
+    For Each tdf In dbs.TableDefs
+        If tdf.Name = TEST_TABLE_INHERIT_CHILD Or tdf.Name = TEST_TABLE_INHERIT_PARENT Then colLinks.Add tdf.Name
+    Next tdf
+    For Each varName In colLinks
+        dbs.TableDefs.Delete CStr(varName)
+    Next varName
+    RefreshTableCollections dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestSystemAttributeExcludesOnlyMSysTables
+' Author    : Adam Waller
+' Date      : 10/1/2026
+' Purpose   : Setting dbSystemObject on a user table stores the same bits the engine
+'           : uses, so the attribute alone cannot identify an engine table. A table
+'           : outside the MSys prefix that carries it is a hidden user table and must
+'           : still export; an MSys* table that carries it is treated as a system table.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestSystemAttributeExcludesOnlyMSysTables()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim blnHasAttribute As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_SYSTEM_ATTRIBUTE
+    DropTestTable TEST_TABLE_SYSTEM_BOTH
+    Set dbs = CurrentDb
+    CreateAttributeTestTable dbs, TEST_TABLE_SYSTEM_ATTRIBUTE, dbSystemObject
+    CreateAttributeTestTable dbs, TEST_TABLE_SYSTEM_BOTH, dbSystemObject
+
+    blnHasAttribute = ((dbs.TableDefs(TEST_TABLE_SYSTEM_ATTRIBUTE).Attributes And dbSystemObject) <> 0)
+    TestAssert blnHasAttribute, "fixture table carries the system attribute"
+    TestAssert TableDefEnumerated(TEST_TABLE_SYSTEM_ATTRIBUTE), _
+        "user table hidden with the system attribute should be enumerated for export"
+    TestAssert Not TableDefEnumerated(TEST_TABLE_SYSTEM_BOTH), _
+        "MSys* table with the system attribute should be excluded"
+
+CleanUp:
+    On Error Resume Next
+    DropTestTable TEST_TABLE_SYSTEM_ATTRIBUTE
+    DropTestTable TEST_TABLE_SYSTEM_BOTH
+    If lngErr <> 0 Then TestAssert False, "unexpected system attribute error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CreateAttributeTestTable
+' Author    : Adam Waller
+' Date      : 10/1/2026
+' Purpose   : Create a one-field local table through DAO with the given attributes.
+'---------------------------------------------------------------------------------------
+'
+Private Sub CreateAttributeTestTable(dbs As DAO.Database, strTable As String, lngAttributes As Long)
+
+    Dim tdf As DAO.TableDef
+
+    Set tdf = dbs.CreateTableDef(strTable)
+    tdf.Fields.Append tdf.CreateField("ID", dbLong)
+    If lngAttributes <> 0 Then tdf.Attributes = lngAttributes
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TableDefEnumerated
+' Author    : Adam Waller
+' Date      : 10/1/2026
+' Purpose   : True when clsDbTableDef.GetAllFromDB returns the named table, read through
+'           : the IDbComponent interface as modExport does.
+'---------------------------------------------------------------------------------------
+'
+Private Function TableDefEnumerated(strTable As String) As Boolean
+
+    Dim cCategory As IDbComponent
+    Dim cItem As IDbComponent
+    Dim varItem As Variant
+
+    Set cCategory = New clsDbTableDef
+    For Each varItem In cCategory.GetAllFromDB(False).Items
+        Set cItem = varItem
+        If StrComp(cItem.Name, strTable, vbTextCompare) = 0 Then
+            TableDefEnumerated = True
+            Exit Function
+        End If
+    Next varItem
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeLinkedTableAfterSharedDbLoaded
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Merging a linked table deletes it with DoCmd.DeleteObject, outside
+'           : SharedDb, and ImportLinkedTable then appends the new TableDef through
+'           : SharedDb. If SharedDb had already loaded TableDefs -- the conflict check
+'           : exports the same table first, and that reads TableDefs -- the appended
+'           : TableDef was dead after the Refresh: error 3420, and the link came back
+'           : without its field and table properties. The warm-up line below is what
+'           : a Merge Build does before merging the table.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeLinkedTableAfterSharedDbLoaded()
+    '@Tag("integration")
+
+    Dim dbsBack As DAO.Database
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim cComponent As IDbComponent
+    Dim dFile As Dictionary
+    Dim cSavedIndex As clsVCSIndex
+    Dim strFolder As String
+    Dim strBackEnd As String
+    Dim strJsonFile As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim lngPriorEnv As Long
+    Dim strConnect As String
+    Dim strCaption As String
+    Dim blnFixtureHasProps As Boolean
+    Dim blnSaved As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_LINKED_MERGE
+
+    ' Back end with the source table
+    strFolder = GetTempFolder("vcs_linked_merge")
+    strBackEnd = strFolder & PathSep & "backend.accdb"
+    Set dbsBack = DBEngine.CreateDatabase(strBackEnd, dbLangGeneral)
+    dbsBack.Execute "CREATE TABLE [Source] ([ID] LONG, [Nombre] TEXT(50))", dbFailOnError
+    dbsBack.Close
+    Set dbsBack = Nothing
+
+    ' Linked table carrying a front-end field property
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_LINKED_MERGE)
+    tdf.Connect = ";DATABASE=" & strBackEnd
+    tdf.SourceTableName = "Source"
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+    Set dbs = CurrentDb
+    Set fld = dbs.TableDefs(TEST_TABLE_LINKED_MERGE).Fields("Nombre")
+    fld.Properties.Append fld.CreateProperty("Caption", dbText, "Etiqueta")
+    Set fld = Nothing
+    Set dbs = Nothing
+
+    ' Sandbox the export folder and the index
+    Set cSavedIndex = VCSIndex
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    lngPriorEnv = Options.UseEnvForConnections
+    blnSaved = True
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_1_0
+    Options.UseEnvForConnections = uecNever
+    Set VCSIndex = Nothing
+    ' The connection state is keyed by the back end's base name and outlives a test:
+    ' the add-in's build and merge operations clear it, a component's own Merge does
+    ' not. Start from a clean state, as those operations would.
+    ClearConnState
+
+    ' Source file for the merge, through the normal export path
+    Set cComponent = New clsDbTableDef
+    Set cComponent.DbObject = CurrentData.AllTables(TEST_TABLE_LINKED_MERGE)
+    cComponent.Export
+    strJsonFile = Options.GetExportFolder & "tbldefs" & PathSep & _
+        GetSafeFileName(TEST_TABLE_LINKED_MERGE) & ".json"
+    If FSO.FileExists(strJsonFile) Then
+        Set dFile = ReadJsonFile(strJsonFile)
+        If Not dFile Is Nothing Then
+            If dFile.Exists("Items") Then blnFixtureHasProps = dFile("Items").Exists("FieldProperties")
+        End If
+    End If
+
+    ' What the conflict check leaves behind: SharedDb with TableDefs loaded
+    strConnect = SharedDb.TableDefs(TEST_TABLE_LINKED_MERGE).Connect
+
+    Set cComponent = New clsDbTableDef
+    cComponent.Merge strJsonFile
+
+    ' Read back through a fresh handle
+    ReleaseDbReferences
+    Set dbs = CurrentDb
+    If TableExists(TEST_TABLE_LINKED_MERGE, dbs) Then
+        Set fld = dbs.TableDefs(TEST_TABLE_LINKED_MERGE).Fields("Nombre")
+        strCaption = FieldCaption(fld)
+        Set fld = Nothing
+        strConnect = dbs.TableDefs(TEST_TABLE_LINKED_MERGE).Connect
+    Else
+        strConnect = vbNullString
+    End If
+    Set dbs = Nothing
+
+    TestAssert blnFixtureHasProps, "fixture source file carries FieldProperties"
+    TestAssert Len(strConnect) > 0, "merged linked table exists and keeps its Connect"
+    TestAssert strCaption = "Etiqueta", "merge restores the field properties of the linked table"
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        If Not cComponent Is Nothing And Len(strJsonFile) > 0 Then VCSIndex.Remove cComponent, strJsonFile
+        Options.ExportFolder = strPriorFolder
+        Options.ExportFormatVersion = lngPriorFormat
+        Options.UseEnvForConnections = lngPriorEnv
+        Set VCSIndex = cSavedIndex
+    End If
+    ' The Merge left this backend.accdb in the connection state, and its folder is
+    ' deleted below: a later linked-table test that merges without a build would
+    ' be handed that dead path.
+    ClearConnState
+    DropTestTable TEST_TABLE_LINKED_MERGE
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    If lngErr <> 0 Then TestAssert False, "linked table merge error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FieldCaption
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Caption of a field, or an empty string when the property does not exist.
+'           : Clears the expected "not found" error so it cannot leak to a later caller.
+'---------------------------------------------------------------------------------------
+'
+Private Function FieldCaption(fld As DAO.Field) As String
+    On Error Resume Next
+    FieldCaption = fld.Properties("Caption").Value
+    Err.Clear
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : DropTestTable
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Drop a temp table if it exists. Deliberately avoids `On Error Resume Next`
+'           : around an expected "not found" error: the swallowed error stays in Err and
+'           : the next LogUnhandledErrors reports it against an unrelated caller.
+'---------------------------------------------------------------------------------------
+'
+Private Sub DropTestTable(strTable As String, Optional dbs As DAO.Database)
+
+    If dbs Is Nothing Then Set dbs = CurrentDb
+    If Not TableExists(strTable, dbs) Then Exit Sub
+
+    dbs.Execute "DROP TABLE [" & strTable & "]", dbFailOnError
+    RefreshTableCollections dbs
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefreshTableCollections
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Pick up a schema change made through DAO, and release the shared handle so
+'           : the next SharedDb caller sees the current catalog.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RefreshTableCollections(dbs As DAO.Database)
+    dbs.TableDefs.Refresh
+    ReleaseDbReferences
+End Sub

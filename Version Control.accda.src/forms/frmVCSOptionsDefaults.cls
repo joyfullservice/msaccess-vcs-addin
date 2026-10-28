@@ -101,7 +101,7 @@ Private Sub cmdSaveAsDefault_Click()
 
     ' Save current working options as defaults
     ' (Ensure current subform state is saved first)
-    Me.Parent.Form.SaveCurrentSubform
+    Form_frmVCSOptions.SaveCurrentSubform
     opt.SaveOptionsAsDefault
     MsgBox2 T("Options Saved"), T("The current options have been saved as default for new projects."), , vbInformation
 
@@ -149,7 +149,7 @@ Private Sub cmdClearDefaults_Click()
     If MsgBox2(T("Apply to this Project?"), _
         T("The default options have been reset. Would you like these applied to this project as well?"), _
         T("Click 'Yes' to apply the default options, or 'No' to leave the current options."), _
-        vbQuestion + vbYesNo, T("Version Control System")) = VbMsgBoxResult.vbYes Then
+        vbQuestion + vbYesNo, T("Version Control System"), vbNo) = VbMsgBoxResult.vbYes Then
         cmdRestoreDefaults_Click
     End If
 End Sub

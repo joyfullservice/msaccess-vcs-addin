@@ -1,6 +1,15 @@
 # AGENTS.md - Testing Folder Guide
 
-This folder contains two different testing layers. Keep their roles separate:
+**Nothing in this folder runs the add-in's own tests, or rebuilds the add-in.**
+Both are done against the development copy of `Version Control.accda` in the
+repository root, driven over MCP; see
+[../docs/agent-test-runs.md](../docs/agent-test-runs.md) and
+[../docs/agentic-rebuild.md](../docs/agentic-rebuild.md). A test run pointed at
+`Testing.accdb` searches that sample database for tests and reports a vacuous
+pass, and opening it to host a rebuild is never the process — if an API call was
+refused, those documents explain what the refusal actually means.
+
+What is here is two different testing layers. Keep their roles separate:
 
 - `Fixtures/` is the canonical object round-trip regression corpus used by
   `VCS.RunRoundtripTests`. Query fixtures live under `Fixtures/queries/` as

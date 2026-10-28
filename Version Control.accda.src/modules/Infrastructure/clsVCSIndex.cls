@@ -48,8 +48,11 @@ Private m_Conflicts As clsConflicts
 Private m_strTempExportFolderPath As String
 
 ' Binary index format
+' Version 4 appended the SchemaState section. Version 3 files still load (the section
+' is simply absent), so upgrading the add-in does not discard an existing index.
 Private Const cstrIdxMagic As String = "VCSI"
-Private Const cintIdxFormatVersion As Integer = 3
+Private Const cintIdxFormatVersion As Integer = 4
+Private Const cintIdxMinReadVersion As Integer = 3
 Private Const cstrLegacyFileName As String = "vcs-index.json"
 
 ' Optional field flags for component entries
@@ -58,6 +61,7 @@ Private Const cbytFlagOtherHash As Byte = 2
 Private Const cbytFlagMetaHash As Byte = 4
 Private Const cbytFlagFilePropertiesHash As Byte = 8
 Private Const cbytFlagFolderAnnotation As Byte = 16
+Private Const cbytFlagAllFilesHash As Byte = 32
 
 ' UDTs for LSet Double <-> Byte() punning
 Private Type tDoubleBytes
@@ -143,9 +147,12 @@ Public Sub LoadFromFile(Optional strFile As String)
     Next intCnt
     lngPos = Len(cstrIdxMagic)
 
-    ' Read and validate format version
+    ' Read and validate format version. Older (but still readable) versions are
+    ' accepted so an add-in upgrade does not force a full re-export.
     lngVersion = ReadUInt16(bData, lngPos)
-    If lngVersion <> cintIdxFormatVersion Then GoTo CorruptIndex
+    If lngVersion < cintIdxMinReadVersion Or lngVersion > cintIdxFormatVersion Then
+        GoTo CorruptIndex
+    End If
 
     ' Read global properties (UTC dates converted to local)
     Me.MergeBuildDate = ReadUtcDate(bData, lngPos)
@@ -187,10 +194,20 @@ Public Sub LoadFromFile(Optional strFile As String)
             If (bFlags And cbytFlagMetaHash) Then cEntry.MetaHash = ReadLPS(bData, lngPos)
             If (bFlags And cbytFlagFilePropertiesHash) Then cEntry.FilePropertiesHash = ReadLPS(bData, lngPos)
             If (bFlags And cbytFlagFolderAnnotation) Then cEntry.FolderAnnotation = ReadLPS(bData, lngPos)
+            If (bFlags And cbytFlagAllFilesHash) Then cEntry.AllFilesHash = ReadLPS(bData, lngPos)
 
             dCategory.Add strFileName, cEntry
         Next lngItem
     Next lngCat
+
+    ' Read external database schema state (added in format version 4)
+    If lngVersion >= 4 Then
+        lngHashCount = ReadUInt32(bData, lngPos)
+        For lngHash = 1 To lngHashCount
+            strCat = ReadLPS(bData, lngPos)
+            m_dIndex("SchemaState").Add strCat, ReadLPS(bData, lngPos)
+        Next lngHash
+    End If
 
     Perf.OperationEnd
     Exit Sub
@@ -225,6 +242,7 @@ Public Sub Save(Optional strInFolder As String)
     Dim dComponents As Dictionary
     Dim dCategory As Dictionary
     Dim dCatHashes As Dictionary
+    Dim dSchemaState As Dictionary
     Dim cEntry As clsVCSIndexItem
     Dim bFlags As Byte
 
@@ -293,6 +311,7 @@ Public Sub Save(Optional strInFolder As String)
             If Len(cEntry.MetaHash) > 0 Then bFlags = bFlags Or cbytFlagMetaHash
             If Len(cEntry.FilePropertiesHash) > 0 Then bFlags = bFlags Or cbytFlagFilePropertiesHash
             If Len(cEntry.FolderAnnotation) > 0 Then bFlags = bFlags Or cbytFlagFolderAnnotation
+            If Len(cEntry.AllFilesHash) > 0 Then bFlags = bFlags Or cbytFlagAllFilesHash
             WriteByte bFlags
 
             ' Fixed date fields (UTC)
@@ -307,7 +326,17 @@ Public Sub Save(Optional strInFolder As String)
             If (bFlags And cbytFlagMetaHash) Then WriteLPS cEntry.MetaHash
             If (bFlags And cbytFlagFilePropertiesHash) Then WriteLPS cEntry.FilePropertiesHash
             If (bFlags And cbytFlagFolderAnnotation) Then WriteLPS cEntry.FolderAnnotation
+            If (bFlags And cbytFlagAllFilesHash) Then WriteLPS cEntry.AllFilesHash
         Next varFile
+    Next varCat
+
+    ' External database schema state (sorted for deterministic output)
+    Set dSchemaState = SortDictionaryByKeys(m_dIndex("SchemaState"))
+    Set m_dIndex("SchemaState") = dSchemaState
+    WriteUInt32 dSchemaState.Count
+    For Each varCat In dSchemaState.Keys
+        WriteLPS CStr(varCat)
+        WriteLPS CStr(dSchemaState(varCat))
     Next varCat
 
     ' Write the buffer to file
@@ -358,8 +387,13 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
     Dim cEntry As clsVCSIndexItem
     Dim strSection As String
 
-    ' Exit if we have disabled the index functionality
-    If Me.Disabled Then Exit Function
+    ' Return an empty item when disabled so callers can safely set properties
+    ' (e.g. .FolderAnnotation) on the result. The entry is not tracked, matching the
+    ' behavior of Me.Item, which also returns an empty item when disabled.
+    If Me.Disabled Then
+        Set Update = New clsVCSIndexItem
+        Exit Function
+    End If
 
     ' Determine section
     If intAction = eatAltExport Then
@@ -388,11 +422,10 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
         ' Save the object's DateModified for accurate change detection.
         ' Truncate to seconds since serialization cannot preserve sub-second
         ' precision, and Access DateModified may carry fractional seconds.
-        ' For modules, use the top-level VBAProjectDate instead (all module
-        ' dates are always identical since Access saves VBA as a monolith).
-        If cItem.ComponentType = edbModule Then
-            Me.VBAProjectDate = DateTruncToSeconds(cItem.DateModified)
-        Else
+        ' Modules rely on the top-level VBAProjectDate instead, which is NOT
+        ' refreshed here: recording one module, form, or report says nothing about
+        ' the rest of the VBA project. (See CertifyVBAProjectDate.)
+        If cItem.ComponentType <> edbModule Then
             .ObjectDate = DateTruncToSeconds(cItem.DateModified)
         End If
 
@@ -404,6 +437,7 @@ Public Function Update(cItem As IDbComponent, intAction As eIndexOperationType, 
             dteDateTime = GetSourceModifiedDate(cItem, cItem.SourceFile)
             .SourceModified = dteDateTime
             .FilePropertiesHash = GetSourceFilesPropertyHash(cItem)
+            .AllFilesHash = GetSourceFilesContentHash(cItem)
         End If
     End With
 
@@ -413,13 +447,41 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : CertifyVBAProjectDate
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/6/2026
+' Purpose   : Record dteInSyncDate as VBAProjectDate, the date at which every module,
+'           : form, and report was known to match the index. Callers capture the date
+'           : at the point where that became true, and call this only after an
+'           : operation that checked the whole VBA project without skipping anything.
+'           : Nothing is recorded if the project was saved again after dteInSyncDate
+'           : (a hook or casing correction may have changed code nobody exported), or
+'           : has unsaved changes. Leaving the date stale is always safe: the next
+'           : scan hashes the code instead of trusting the fast path.
+'---------------------------------------------------------------------------------------
+'
+Public Sub CertifyVBAProjectDate(dteInSyncDate As Date)
+    If Me.Disabled Then Exit Sub
+    If dteInSyncDate = 0 Then Exit Sub
+    If Not CurrentVBProject.Saved Then Exit Sub
+    If GetVbaProjectDate <> dteInSyncDate Then Exit Sub
+    Me.VBAProjectDate = dteInSyncDate
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : UpdateFromAltExport
 ' Author    : Adam Waller
 ' Date      : 9/1/2022
 ' Purpose   : Update the index entry from the alternate export section. This is done
 '           : after resolving a conflict where the exported file in the temp folder is
-'           : moved to the primary export folder. (This way we don't have to compute
-'           : the hashes and index values again.
+'           : moved to the primary export folder. Hashes of the object and its content
+'           : are carried over rather than computed again, but the source file state
+'           : must be measured here: the alternate entry was written while the files
+'           : were still in the temp folder, so Update deliberately left those values
+'           : blank. Copying the blanks leaves the component reported as modified on
+'           : every later merge scan, since a multi-file component with no recorded
+'           : content hash cannot be proven unchanged.
 '---------------------------------------------------------------------------------------
 '
 Public Sub UpdateFromAltExport(cItem As IDbComponent)
@@ -448,15 +510,21 @@ Public Sub UpdateFromAltExport(cItem As IDbComponent)
     If Not cAltItem Is Nothing Then
         Set cTarget = LoadItem(cItem, strFile, "Components")
         With cTarget
+            ' Values describing the database object and the exported content are
+            ' unaffected by moving the files into the export folder.
             .FileHash = cAltItem.FileHash
             .OtherHash = cAltItem.OtherHash
             .MetaHash = cAltItem.MetaHash
-            .FilePropertiesHash = cAltItem.FilePropertiesHash
             .FolderAnnotation = cAltItem.FolderAnnotation
             .ExportDate = cAltItem.ExportDate
             .ImportDate = cAltItem.ImportDate
-            .SourceModified = cAltItem.SourceModified
             .ObjectDate = cAltItem.ObjectDate
+
+            ' Source file state is measured where the files now live. (Callers move
+            ' the temp files into the export folder before calling this.)
+            .SourceModified = GetSourceModifiedDate(cItem, cItem.SourceFile)
+            .FilePropertiesHash = GetSourceFilesPropertyHash(cItem)
+            .AllFilesHash = GetSourceFilesContentHash(cItem)
         End With
     End If
 
@@ -728,19 +796,52 @@ End Property
 ' Author    : Adam Waller
 ' Date      : 12/2/2020
 ' Purpose   : Return a collection of source files that appear to be different from
-'           : the index hash of the previous export. File modified dates will be used
-'           ' to determine which files have changed.
+'           : the index entry recorded at the last export or import.
 '           : NOTE: This will also include source file paths for database objects that
 '           : no longer exist. (Orphaned database objects not represented in source.)
+'           : An object only counts as orphaned when no source file shares its base file
+'           : name, so a file in another folder (@Folder drift) or with other casing does
+'           : not get its object deleted by the merge.
+'           : It also includes every source file whose object is missing from the
+'           : database, even when the file itself is unchanged, so a merge restores it.
+'           :
+'           : Detection precedence per file:
+'           :   1. Property hash (date + size of every indexed file) matches the index
+'           :      -- nothing has been written since the last sync, so the file is clean
+'           :      and no content is read. This is the fast path, and on a project with
+'           :      thousands of components it is the difference between a merge scan that
+'           :      touches the disk once per folder and one that reads every file.
+'           :      When the entry lacks AllFilesHash and more than one indexed file
+'           :      exists, the combined content hash is recorded now so later scans can
+'           :      arbitrate companion edits precisely (upgrade-path backfill).
+'           :   2. Property hash differs and AllFilesHash is recorded -- the combined
+'           :      content hash of all indexed files decides. This catches companion-only
+'           :      edits (a metadata `.json` or form `.cls`) and dismisses timestamp-only
+'           :      drift, such as a checkout that rewrote mtimes without changing content.
+'           :   3. Property hash differs, AllFilesHash is absent, and more than one
+'           :      indexed file exists -- report modified. The primary FileHash alone
+'           :      cannot rule out a companion-only edit, and refreshing the property
+'           :      hash would record that edited state as synced (issue #748).
+'           :   4. Property hash differs, AllFilesHash is absent, and only one indexed
+'           :      file exists -- fall back to the primary file content hash alone.
+'           :
+'           : Optionally accepts a folder metadata map (path -> Array(date, size)) from
+'           : ScanFolderMetadata. A merge build passes one recursive scan covering the
+'           : entire export folder so every category shares it; when omitted, this scans
+'           : just the category's own folder.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
+Public Function GetModifiedSourceFiles(cCategory As IDbComponent, _
+    Optional dSharedMeta As Dictionary) As Dictionary
 
     Dim dAllFiles As Dictionary
     Dim dItems As Dictionary
+    Dim dDbBaseNames As Dictionary
+    Dim dSourceBaseNames As Dictionary
     Dim dMeta As Dictionary
     Dim varItem As Variant
     Dim cItem As IDbComponent
+    Dim cIdx As clsVCSIndexItem
     Dim strHash As String
     Dim strFile As String
     Dim blnModified As Boolean
@@ -753,12 +854,24 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
         ' Get a full list of source files and database objects
         Set dAllFiles = cCategory.GetFileList
         Set dItems = cCategory.GetAllFromDB
+        If Not cCategory.SingleFile Then Set dDbBaseNames = GetBaseNameKeys(dItems)
 
-        ' Capture file dates/sizes for the whole category folder in a single Win32
-        ' pass, so the per-file property hash below can look them up instead of
-        ' issuing a separate FSO.GetFile (date+size) for every source file. (The
-        ' batch scan is ~20x faster than per-file FSO on large folders.)
-        Set dMeta = ScanFolderMetadata(cCategory.BaseFolder)
+        ' File dates and sizes come from a single Win32 folder walk rather than a
+        ' per-file FSO.GetFile. (The batch scan is ~20x faster than per-file FSO on
+        ' large folders.) Prefer a map supplied by the caller: a merge build scans the
+        ' whole export folder once and shares it across every category, which matters
+        ' because nine component types report the export root as their BaseFolder and
+        ' would otherwise each re-walk the entire source tree.
+        ' An empty map is treated as absent, not as "no files exist on disk". If a shared
+        ' scan came back empty because the walk failed, trusting it would report every
+        ' component modified and merge the entire project.
+        If dSharedMeta Is Nothing Then
+            Set dMeta = ScanFolderMetadata(cCategory.BaseFolder)
+        ElseIf dSharedMeta.Count = 0 Then
+            Set dMeta = ScanFolderMetadata(cCategory.BaseFolder)
+        Else
+            Set dMeta = dSharedMeta
+        End If
 
         ' Loop through files and check modified dates.
         ' Get a list of all the files for this component.
@@ -778,33 +891,81 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
             Else
                 ' See if the database object currently exists
                 If Not cCategory.SingleFile Then
-                    blnMissing = Not dItems.Exists(strFile)
+                    blnMissing = IsMissingFromDatabase(cCategory, strFile, dItems, dDbBaseNames)
                 End If
 
-                ' Check the index for any existing entry, so we can compare the saved modified date.
-                ' NOTE: We intentionally do NOT gate this on blnMissing. The
-                ' path-based check (dItems.Exists) can fail due to casing,
-                ' @Folder annotation drift, or stale index state. As long as
-                ' the index has an entry keyed by filename we can still compare
-                ' hashes and avoid unnecessary merges.
-                If Me.Exists(cCategory, strFile) Then
-                    ' Get hash of current source files (date/size sourced from the
-                    ' single folder scan above instead of per-file FSO.GetFile).
+                ' Check the index for any existing entry, so we can compare the saved hashes.
+                ' NOTE: The path-based check (dItems.Exists) can fail due to casing,
+                ' @Folder annotation drift, or stale index state, so an object is only
+                ' treated as missing when no database object shares its base file name.
+                ' A missing object is always merged, whatever the index says: a source
+                ' file for an object that does not exist in the database belongs in the
+                ' database after a merge (issue #471). Otherwise, as long as the index has
+                ' an entry keyed by filename we can still compare hashes and avoid
+                ' unnecessary merges.
+                ' Resolve the entry once. GetExistingIndexItem also honors the legacy
+                ' table def .xml/.json key alias, which Me.Item does not -- going through
+                ' Me.Item would silently create a blank entry for those and report the
+                ' component modified on every merge.
+                If blnMissing Then
+                    Log.Add "  Missing from database: " & FSO.GetFileName(strFile), False
+                    Set cIdx = Nothing
+                Else
+                    Set cIdx = GetExistingIndexItem(cCategory, strFile)
+                End If
+                If Not cIdx Is Nothing Then
+
+                    ' Hash the current file dates and sizes (sourced from the folder scan
+                    ' above rather than a per-file FSO.GetFile).
                     strHash = GetSourceFilesPropertyHash(cCategory, strFile, dMeta)
-                    ' File is considered not modified if the index hash matches the current hash.
-                    blnModified = Not (Me.Item(cCategory, strFile).FilePropertiesHash = strHash)
-                    ' Content-hash fallback: if property hash differs (e.g. git
-                    ' checkout touched timestamps without changing content), verify
-                    ' by comparing the stored file content hash.
-                    If blnModified Then
-                        strStoredHash = Me.Item(cCategory, strFile).FileHash
+
+                    If Len(strHash) > 0 And cIdx.FilePropertiesHash = strHash Then
+                        ' Every indexed file still carries the date and size recorded at
+                        ' the last sync, so nothing was written since. Clean without
+                        ' reading a single byte.
+                        blnModified = False
+                        ' Legacy multi-file entry in a provably clean tree: record the
+                        ' combined content hash now so later scans can arbitrate
+                        ' companion edits precisely. Single-file entries are skipped:
+                        ' their primary-hash comparison below is already just as
+                        ' correct and costs the same one file read, so backfilling
+                        ' them would pay for content reads that buy nothing.
+                        If Len(cIdx.AllFilesHash) = 0 Then
+                            If GetSourceFileCount(cCategory, strFile, dMeta) > 1 Then
+                                cIdx.AllFilesHash = _
+                                    GetSourceFilesContentHash(cCategory, strFile, dMeta)
+                            End If
+                        End If
+
+                    ElseIf Len(cIdx.AllFilesHash) > 0 Then
+                        ' A date or size moved. The combined content hash is the arbiter:
+                        ' it spans companion files, so a metadata-only `.json` edit is
+                        ' detected, and it dismisses timestamp-only drift.
+                        blnModified = (cIdx.AllFilesHash <> _
+                            GetSourceFilesContentHash(cCategory, strFile, dMeta))
+                        If Not blnModified Then
+                            ' Timestamp-only drift. Refresh the stale property metadata so
+                            ' the next merge takes the fast path above instead of re-reading.
+                            cIdx.FilePropertiesHash = strHash
+                            cIdx.SourceModified = GetSourceModifiedDate(cCategory, strFile)
+                        End If
+
+                    ElseIf GetSourceFileCount(cCategory, strFile, dMeta) > 1 Then
+                        ' Legacy entry for a multi-file component. FileHash covers only
+                        ' the primary file, so a companion-only edit cannot be ruled out.
+                        ' Merge it rather than refreshing the property hash, which would
+                        ' record the edited state as synced and lose the edit with no
+                        ' conflict prompt. (Issue #748.)
+                        blnModified = True
+
+                    Else
+                        ' Legacy single-file entry: the primary content hash is conclusive.
+                        strStoredHash = cIdx.FileHash
                         If Len(strStoredHash) > 0 Then
                             blnModified = (strStoredHash <> GetFileHash(strFile))
                             If Not blnModified Then
-                                ' Content unchanged -- refresh stale property hash so this
-                                ' fallback doesn't repeat on the next operation.
-                                Me.Item(cCategory, strFile).FilePropertiesHash = strHash
-                                Me.Item(cCategory, strFile).SourceModified = GetSourceModifiedDate(cCategory, strFile)
+                                cIdx.FilePropertiesHash = strHash
+                                cIdx.SourceModified = GetSourceModifiedDate(cCategory, strFile)
                             End If
                         End If
                     End If
@@ -817,20 +978,76 @@ Public Function GetModifiedSourceFiles(cCategory As IDbComponent) As Dictionary
 
         ' Now loop through database objects, and compare to source file list
         ' to identify orphaned database objects no longer represented in source.
+        ' The expected path alone is not enough: it follows the object's @Folder
+        ' annotation and casing, so a source file in another folder or with other
+        ' casing would be taken for an orphan, and merging an orphan deletes the
+        ' object. Like the missing check above, compare by base file name.
+        Set dSourceBaseNames = GetBaseNameKeys(dAllFiles)
         For Each varItem In dItems.Items
             Set cItem = varItem
             ' We are only concerned about non single-file items.
             If Not cItem.SingleFile Then
                 ' See if the path exists in the list of source files
                 If Not dAllFiles.Exists(cItem.SourceFile) Then
-                    ' This object does not appear to exist in the source files.
-                    ' Add to list of files to process. (This will remove the
-                    ' existing database object during the merge.)
-                    .Add cItem.SourceFile, vbNullString
+                    If Not dSourceBaseNames.Exists(LCase$(FSO.GetBaseName(cItem.SourceFile))) Then
+                        ' This object does not appear to exist in the source files.
+                        ' Add to list of files to process. (This will remove the
+                        ' existing database object during the merge.)
+                        .Add cItem.SourceFile, vbNullString
+                    End If
                 End If
             End If
         Next varItem
     End With
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetBaseNameKeys
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : Return the lower case base file names (no folder, no extension) of the
+'           : file paths keyed in a dictionary (a GetAllFromDB or GetFileList result).
+'---------------------------------------------------------------------------------------
+'
+Private Function GetBaseNameKeys(dPaths As Dictionary) As Dictionary
+
+    Dim varKey As Variant
+    Dim strBaseName As String
+
+    Set GetBaseNameKeys = New Dictionary
+    For Each varKey In dPaths.Keys
+        strBaseName = LCase$(FSO.GetBaseName(CStr(varKey)))
+        If Not GetBaseNameKeys.Exists(strBaseName) Then GetBaseNameKeys.Add strBaseName, vbNullString
+    Next varKey
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsMissingFromDatabase
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : Returns true when no database object is represented by this source file.
+'           : The full path is checked first, then the base file name, so a path that
+'           : differs only by folder (@Folder drift), casing or a legacy extension does
+'           : not count as missing. Table data is only missing when the table is still
+'           : configured to export data: GetAllFromDB lists configured tables only, and
+'           : merging a leftover data file for a table that is no longer configured would
+'           : overwrite its records.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsMissingFromDatabase(cCategory As IDbComponent, strFile As String, _
+    dItems As Dictionary, dDbBaseNames As Dictionary) As Boolean
+
+    If dItems.Exists(strFile) Then Exit Function
+    If dDbBaseNames.Exists(LCase$(FSO.GetBaseName(strFile))) Then Exit Function
+    If cCategory.ComponentType = edbTableData Then
+        IsMissingFromDatabase = Options.TablesToExportData.Exists(GetObjectNameFromFileName(strFile))
+    Else
+        IsMissingFromDatabase = True
+    End If
 
 End Function
 
@@ -1265,6 +1482,7 @@ Public Sub DumpToJson(Optional strPath As String)
     dDump.Add "LastMergedCommit", Me.LastMergedCommit
     dDump.Add "VBAProjectDate", ZNDate(Me.VBAProjectDate)
     Set dDump("CategoryHashes") = m_dIndex("CategoryHashes")
+    Set dDump("SchemaState") = m_dIndex("SchemaState")
 
     ' Convert clsVCSIndexItem entries to Dictionaries
     Set dComponents = New Dictionary
@@ -1279,6 +1497,7 @@ Public Sub DumpToJson(Optional strPath As String)
                 If cEntry.ImportDate <> 0 Then dEntryOut.Add "ImportDate", cEntry.ImportDate
                 dEntryOut.Add "SourceModified", ZNDate(cEntry.SourceModified)
                 If Len(cEntry.FilePropertiesHash) > 0 Then dEntryOut.Add "FilePropertiesHash", cEntry.FilePropertiesHash
+                If Len(cEntry.AllFilesHash) > 0 Then dEntryOut.Add "AllFilesHash", cEntry.AllFilesHash
                 If Len(cEntry.OtherHash) > 0 Then dEntryOut.Add "OtherHash", cEntry.OtherHash
                 If Len(cEntry.MetaHash) > 0 Then dEntryOut.Add "MetaHash", cEntry.MetaHash
                 If cEntry.ObjectDate <> 0 Then dEntryOut.Add "ObjectDate", cEntry.ObjectDate
@@ -1312,6 +1531,34 @@ End Property
 
 Public Property Set CategoryHashes(dHashes As Dictionary)
     Set m_dIndex("CategoryHashes") = dHashes
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SchemaState
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Per-schema export fingerprint for external database schema exports.
+'           : External schemas detect changes by comparing the exported file date to the
+'           : server object's last_modified date, so nothing in that comparison reflects
+'           : how the DDL was generated. This slot records that: the exporter revision
+'           : plus any runtime capability affecting output (e.g. whether sp_GetDDL is
+'           : installed on the SQL Server). When the recorded value no longer matches,
+'           : the schema exporter re-exports every object in that schema once.
+'           : Accessed per key rather than as a whole dictionary because, unlike
+'           : CategoryHashes, this section is not rebuilt from options on each export.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SchemaState(strName As String) As String
+    If Me.Disabled Then Exit Property
+    If m_dIndex("SchemaState").Exists(strName) Then
+        SchemaState = CStr(m_dIndex("SchemaState")(strName))
+    End If
+End Property
+
+Public Property Let SchemaState(strName As String, strValue As String)
+    If Me.Disabled Then Exit Property
+    m_dIndex("SchemaState")(strName) = strValue
 End Property
 
 
@@ -1537,6 +1784,8 @@ Private Sub Class_Initialize()
         .Add "VBAProjectDate", Null
         .Add "LastMergedCommit", vbNullString
         Set .Item("CategoryHashes") = New Dictionary
+        Set .Item("SchemaState") = New Dictionary
+        .Item("SchemaState").CompareMode = TextCompare
         Set .Item("Components") = New Dictionary
         Set .Item("AlternateExport") = New Dictionary
     End With

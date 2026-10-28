@@ -1,0 +1,80 @@
+{
+  "Info": {
+    "Class": "clsDbCommandBar",
+    "Description": "CommandBar"
+  },
+  "Items": {
+    "AdaptiveMenu": false,
+    "Context": "",
+    "Enabled": true,
+    "NameLocal": "customized_split_button",
+    "Position": 1,
+    "Protection": 22,
+    "Type": 1,
+    "Controls": [
+      {
+        "ControlIdName": "View",
+        "BeginGroup": false,
+        "BuiltIn": true,
+        "Caption": "View",
+        "DescriptionText": "",
+        "Enabled": false,
+        "HelpContextId": 0,
+        "HelpFile": "",
+        "OLEMenuGroup": -1,
+        "OLEUsage": 1,
+        "Parameter": "",
+        "Tag": "",
+        "TooltipText": "View",
+        "Type": 13,
+        "Visible": true,
+        "Id": 212,
+        "Controls": [
+          {
+            "ControlIdName": "Design View",
+            "BeginGroup": false,
+            "BuiltIn": true,
+            "Type": 1,
+            "Visible": false,
+            "Id": 2952
+          },
+          {
+            "ControlIdName": "Form View",
+            "BeginGroup": false,
+            "BuiltIn": true,
+            "Type": 1,
+            "Visible": false,
+            "Id": 502
+          },
+          {
+            "BeginGroup": false,
+            "BuiltIn": false,
+            "Caption": "",
+            "DescriptionText": "",
+            "Enabled": true,
+            "HelpContextId": 0,
+            "HelpFile": "",
+            "HyperlinkType": 0,
+            "OLEUsage": 1,
+            "OnAction": "",
+            "Parameter": "",
+            "ShortcutText": "",
+            "Style": 0,
+            "Tag": "",
+            "TooltipText": "",
+            "Type": 1,
+            "Visible": true
+          },
+          {
+            "ControlIdName": "Form View",
+            "BeginGroup": false,
+            "BuiltIn": true,
+            "Type": 1,
+            "Visible": true,
+            "Id": 502
+          }
+        ]
+      }
+    ]
+  }
+}

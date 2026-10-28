@@ -22,6 +22,23 @@ Public Format As eTableDataExportFormat
 
 Const UNSUPPORTED_DATA_TYPE As String = "UNSUPPORTED DATA TYPE"
 
+' Raised by the database engine when it cannot compile a statement, regardless of how
+' many rows are involved. (See UpdateChangedRows.)
+Private Const ERR_QUERY_TOO_COMPLEX As Long = 3360
+
+' Application.ImportXML raises this when some rows are rejected and writes the details
+' to an ImportErrors table. (See FinishXmlDataImport.)
+Private Const ERR_XML_IMPORT_INCOMPLETE As Long = 31550
+
+' Cap the number of ImportErrors rows written to the log. A large file can reject
+' thousands of rows; the rest are summarized.
+Private Const XML_IMPORT_ERROR_LOG_LIMIT As Long = 20
+
+' Number of fields to assign and compare in a single statement when the reconcile update
+' has to be split up. Well inside the widest statement observed to compile, and reduced
+' further at runtime if the engine still refuses one.
+Private Const UPDATE_FIELD_GROUP_SIZE As Long = 12
+
 Private m_Table As AccessObject
 Private m_Items(True To False) As Dictionary
 Private m_FileList As Dictionary
@@ -43,8 +60,13 @@ Implements IDbComponent
 Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     Dim strFile As String
+    Dim strExportedFile As String
     Dim intFormat As eTableDataExportFormat
     Dim strConnect As String
+
+    ' Nothing to export from a category-level instance, such as the one a merge build uses
+    ' to re-export after merging a table it ended up skipping.
+    If m_Table Is Nothing Then Exit Sub
 
     ' Use error handling in case we encouter errors during export
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -74,8 +96,14 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
 
     ' Save as selected format, and remove other formats if they exist.
     For intFormat = 1 To eTableDataExportFormat.[_Last] - 1
-        ' Build file name for this format
-        strFile = Nz2(strAlternatePath, IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat))
+        ' A caller-supplied path names a single output file, so the cleanup pass for the
+        ' other formats would resolve to that same path and delete what we just wrote.
+        If Len(strAlternatePath) > 0 Then
+            If intFormat <> Me.Format Then GoTo NextFormat
+            strFile = strAlternatePath
+        Else
+            strFile = IDbComponent_BaseFolder & GetSafeFileName(m_Table.Name) & "." & GetExtByFormat(intFormat)
+        End If
         If FSO.FileExists(strFile) Then DeleteFile strFile, True
         If intFormat = Me.Format Then
             ' Export the table using this format.
@@ -86,22 +114,18 @@ Private Sub IDbComponent_Export(Optional strAlternatePath As String)
                 Case etdXML
                     ' Export data rows as XML (encoding default is UTF-8)
                     VerifyPath strFile
-                    Perf.OperationStart "App.ExportXML()"
-                    If IsLocalTable(m_Table.Name) Then
-                        ' Embedded schema for local tables to support calculated fields
-                        Application.ExportXML acExportTable, m_Table.Name, strFile, , , , , acEmbedSchema
-                    Else
-                        ' Export data only for linked tables
-                        Application.ExportXML acExportTable, m_Table.Name, strFile
-                    End If
-                    Perf.OperationEnd
-                    With New clsSourceParser
-                        .LoadSourceFile strFile, IDbComponent_ComponentType
-                        WriteFile .Sanitize(ectXML), strFile
-                    End With
+                    ExportTableDataAsXml m_Table.Name, strFile
             End Select
+            If Err.Number = 0 Then strExportedFile = strFile
         End If
+NextFormat:
     Next intFormat
+
+    ' Record the file we just exported so the next merge sees it as unchanged.
+    If Len(strExportedFile) > 0 And Err.Number = 0 Then
+        VCSIndex.Update Me, IIf(strAlternatePath = vbNullString, eatExport, eatAltExport), _
+            GetFileHash(strExportedFile)
+    End If
 
     ' Trap any errors while exporting table data.
     CatchAny eelError, "Error exporting table data for " & m_Table.Name, ModuleName(Me) & ".Export"
@@ -131,7 +155,18 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
 
     ' Open table in fast read-only view
     Set dbs = SharedDb
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
     Set rst = dbs.OpenRecordset(GetTableExportSql(strTable), dbOpenSnapshot, dbReadOnly)
+    If Err Then
+        Log.Add T("Unable to sort table data for {0} during export. Exporting without ORDER BY.", var0:=strTable), False
+        Err.Clear
+        Set rst = dbs.OpenRecordset(GetTableExportSql(strTable, False), dbOpenSnapshot, dbReadOnly)
+    End If
+    CatchAny eelWarning, "Error opening sorted recordset for " & strTable, ModuleName(Me) & ".ExportTableDataAsTDF"
+    If rst Is Nothing Then
+        Log.Error eelError, T("Unable to export table data for {0}.", var0:=strTable), ModuleName(Me) & ".ExportTableDataAsTDF"
+        Exit Sub
+    End If
     intFields = rst.Fields.Count
 
     ' Add header row
@@ -145,17 +180,20 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
     ' Make sure we actually have records
     If Not rst.EOF Then
 
-        ' Stash current progress bar values so we can reuse the
-        ' progress bar to show the progress through the rows.
-        With Log.ProgressBar
-            lngProgMax = .Max
-            lngProgValue = .Value
-            ' Set to recordset after accessing all records
-            rst.MoveLast
-            .Max = rst.RecordCount
-            .Value = 1
-            rst.MoveFirst
-        End With
+        ' Populate the recordset so we have an accurate record count
+        rst.MoveLast
+        rst.MoveFirst
+
+        ' Reuse the console progress bar for the row loop. It is only present when
+        ' frmVCSMain is hosting the log, not on web runner or headless test runs.
+        If Not Log.ProgressBar Is Nothing Then
+            With Log.ProgressBar
+                lngProgMax = .Max
+                lngProgValue = .Value
+                .Max = rst.RecordCount
+                .Value = 1
+            End With
+        End If
 
         ' Add data rows
         Do While Not rst.EOF
@@ -177,10 +215,12 @@ Private Sub ExportTableDataAsTDF(strTable As String, strFile As String)
         Loop
 
         ' Restore progress bar values for object iteration
-        With Log.ProgressBar
-             .Max = lngProgMax
-             .Value = lngProgValue
-        End With
+        If Not Log.ProgressBar Is Nothing Then
+            With Log.ProgressBar
+                .Max = lngProgMax
+                .Value = lngProgValue
+            End With
+        End If
     End If
 
     ' Close database objects
@@ -200,9 +240,12 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 5/7/2020
 ' Purpose   : Imports the data from a TDF file, loading it into the table
+'           : Pass strTargetTable to load the rows somewhere other than the table the
+'           : file is named for, such as the staging table used by a merge. The target
+'           : is then assumed to be empty, so nothing is cleared first.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ImportTableDataTDF(strFile As String)
+Private Sub ImportTableDataTDF(strFile As String, Optional strTargetTable As String)
 
     Dim strTable As String
     Dim dCols As Dictionary
@@ -220,7 +263,7 @@ Private Sub ImportTableDataTDF(strFile As String)
 
     ' Build a dictionary of column names so we can load the data
     ' into the matching columns.
-    strTable = GetObjectNameFromFileName(strFile)
+    strTable = Nz2(strTargetTable, GetObjectNameFromFileName(strFile))
     Set dbs = SharedDb
     Set dCols = New Dictionary
     For Each fld In dbs.TableDefs(strTable).Fields
@@ -228,7 +271,7 @@ Private Sub ImportTableDataTDF(strFile As String)
     Next fld
 
     ' Clear any existing records before importing this data.
-    dbs.Execute "delete from [" & strTable & "]", dbFailOnError
+    If Len(strTargetTable) = 0 Then dbs.Execute "delete from [" & strTable & "]", dbFailOnError
     Set rst = dbs.OpenRecordset(strTable)
 
     ' Read file line by line
@@ -339,43 +382,184 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ExportTableDataAsXml
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Export table data as XML in a deterministic row order.
+'           : Application.ExportXML has no ordering parameter and ignores a table's saved
+'           : OrderBy property, so the rows come back in engine order. Routing the export
+'           : through a temporary ORDER BY query lets the database engine do the sorting,
+'           : which avoids reordering the parsed DOM in VBA. Tables that need the embedded
+'           : schema, and any failure along the way, fall back to the table export where
+'           : clsSourceParser sorts the rows instead.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportTableDataAsXml(strTable As String, strFile As String)
+
+    Dim strQuery As String
+    Dim strSql As String
+    Dim blnExported As Boolean
+    Dim blnNeedsSchema As Boolean
+
+    Perf.OperationStart "Check Calculated Fields"
+    blnNeedsSchema = TableRequiresXmlSchema(SharedDb.TableDefs(strTable))
+    Perf.OperationEnd
+
+    If Not blnNeedsSchema Then
+        Perf.OperationStart "Build Table Sort Fields"
+        strSql = GetTableExportSql(strTable)
+        Perf.OperationEnd
+        strQuery = AssignTableDataSortQuery(strSql)
+    End If
+
+    If Len(strQuery) > 0 Then
+        blnExported = ExportXmlFromQuery(strTable, strQuery, strFile)
+        If blnExported Then Exit Sub
+    End If
+
+    ExportXmlFromTable strTable, strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportXmlFromQuery
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Export pre-sorted rows through a temporary query. Returns false when the
+'           : caller should fall back to the table export.
+'---------------------------------------------------------------------------------------
+'
+Private Function ExportXmlFromQuery(strTable As String, strQuery As String, strFile As String) As Boolean
+
+    Dim strContent As String
+    Dim strFrom As String
+    Dim strTo As String
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Perf.OperationStart "App.ExportXML()"
+    If IsLocalTable(strTable) Then
+        Application.ExportXML acExportQuery, strQuery, strFile, , , , , acEmbedSchema
+    Else
+        ' Export data only for linked tables
+        Application.ExportXML acExportQuery, strQuery, strFile
+    End If
+    Perf.OperationEnd
+
+    If Err Then
+        Log.Add T("Unable to export sorted table data for {0}. Falling back to an unsorted export.", _
+            var0:=strTable), False
+        Err.Clear
+        Exit Function
+    End If
+    On Error GoTo 0
+
+    With New clsSourceParser
+        .LoadSourceFile strFile, IDbComponent_ComponentType
+        strContent = .Sanitize(ectXML)
+    End With
+    If Len(strContent) = 0 Then Exit Function
+
+    ' A retained schema would still describe the temporary query rather than the table,
+    ' so this path is only safe once sanitization has discarded it. TableRequiresXmlSchema
+    ' normally prevents us from getting here, and this guards against it being wrong.
+    If InStr(1, strContent, "xsd:schema", vbTextCompare) > 0 Then Exit Function
+
+    ' Row elements carry the temporary query name, so restore the table name to match a
+    ' table export. XML escapes "<" inside character data, which means these tags can
+    ' only ever appear as markup and never within an exported value.
+    strFrom = EscapeXmlName(strQuery)
+    strTo = EscapeXmlName(strTable)
+    strContent = Replace(strContent, "<" & strFrom & ">", "<" & strTo & ">", , , vbBinaryCompare)
+    strContent = Replace(strContent, "</" & strFrom & ">", "</" & strTo & ">", , , vbBinaryCompare)
+
+    ' Never ship a file that still names the temporary query anywhere.
+    If InStr(1, strContent, strFrom, vbTextCompare) > 0 Then Exit Function
+
+    WriteFile strContent, strFile
+    ExportXmlFromQuery = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportXmlFromTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Export the table directly, letting clsSourceParser reorder the rows.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ExportXmlFromTable(strTable As String, strFile As String)
+
+    Perf.OperationStart "App.ExportXML()"
+    If IsLocalTable(strTable) Then
+        ' Embedded schema for local tables to support calculated fields
+        Application.ExportXML acExportTable, strTable, strFile, , , , , acEmbedSchema
+    Else
+        ' Export data only for linked tables
+        Application.ExportXML acExportTable, strTable, strFile
+    End If
+    Perf.OperationEnd
+
+    With New clsSourceParser
+        ' Loading resets the parser, so the sort fields must be assigned after.
+        .LoadSourceFile strFile, IDbComponent_ComponentType
+        Set .RowSortFields = GetTableSortFields(SharedDb.TableDefs(strTable))
+        WriteFile .Sanitize(ectXML), strFile
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : GetTableExportSql
 ' Author    : Adam Waller
 ' Date      : 1/18/2019
 ' Purpose   : Build SQL to export `tbl_name` sorted by each field from first to last
 '---------------------------------------------------------------------------------------
 '
-Private Function GetTableExportSql(strTable As String) As String
+Private Function GetTableExportSql(strTable As String, Optional blnIncludeOrderBy As Boolean = True) As String
 
     Dim tdf As DAO.TableDef
     Dim fld As DAO.Field
-    Dim intFields As Integer
+    Dim varKey As Variant
     Dim cText As New clsConcat
     Dim cFieldList As New clsConcat
     Dim cSortList As New clsConcat
+    Dim dSortFields As Dictionary
     Dim dbs As Database
 
     Set dbs = SharedDb
     Set tdf = dbs.TableDefs(strTable)
-    intFields = tdf.Fields.Count
 
     ' Build list of fields
     With cFieldList
         For Each fld In tdf.Fields
             .Add "[", fld.Name, "], "
-            If Not IsBinaryType(fld) Then cSortList.Add "[", fld.Name, "], "
         Next fld
     End With
 
     ' Remove any trailing commas
     cFieldList.Remove 2
-    cSortList.Remove 2
+
+    Set dSortFields = GetTableSortFields(tdf)
+    If blnIncludeOrderBy Then
+        For Each varKey In dSortFields.Keys
+            cSortList.Add "[" & varKey & "], "
+        Next varKey
+        cSortList.Remove 2
+    End If
 
     ' Build select statement
     With cText
         .Add "SELECT ", cFieldList.GetStr
-        .Add " FROM [", strTable, "] ORDER BY "
-        .Add cSortList.GetStr
+        .Add " FROM [", strTable, "]"
+        If blnIncludeOrderBy And dSortFields.Count > 0 Then
+            .Add " ORDER BY "
+            .Add cSortList.GetStr
+        End If
     End With
 
     GetTableExportSql = cText.GetStr
@@ -395,11 +579,14 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim blnUseTemp As Boolean
     Dim strTempFile As String
     Dim strTable As String
+    Dim blnImported As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Make sure table exists before importing data to it.
     strTable = GetObjectNameFromFileName(strFile)
+
+    If FileHasGitConflictMarkers(strFile, ModuleName(Me) & ".Import") Then Exit Sub
 
     ' Only allow import into local tables (not linked tables)
     If IsLocalTable(strTable) Then
@@ -410,22 +597,40 @@ Private Sub IDbComponent_Import(strFile As String)
 
                     ' The ImportXML function does not properly handle UrlEncoded paths
                     blnUseTemp = (InStr(1, strFile, "%") > 0)
+                    Perf.OperationStart "App.ImportXML() Data"
+                    ' ImportXML raises 31550 when some rows are rejected. Catch that even
+                    ' in debug mode, where the function-level handler would otherwise stop.
+                    LogUnhandledErrors
+                    On Error Resume Next
                     If blnUseTemp Then
                         ' Import from (safe) temporary file name.
                         strTempFile = GetTempFile
                         FSO.CopyFile strFile, strTempFile
                         Application.ImportXML strTempFile, acAppendData
-                        DeleteFile strTempFile
                     Else
                         Application.ImportXML strFile, acAppendData
                     End If
+                    Perf.OperationEnd
 
-                    ' Trap any XML import errors
-                    CatchAny eelError, "Error importing XML data from '" & strFile & "'", ModuleName(Me) & ".Import"
+                    blnImported = FinishXmlDataImport(strFile, ModuleName(Me) & ".Import")
+                    If blnUseTemp Then DeleteFile strTempFile
+                    LogGitConflictMarkerIfPresent strFile, ModuleName(Me) & ".Import"
 
             Case etdTabDelimited
+                Perf.OperationStart "Import Table Data (TDF)"
                 ImportTableDataTDF strFile
+                Perf.OperationEnd
+                blnImported = (Err.Number = 0)
         End Select
+
+        ' Record the file we just imported so the next merge sees it as unchanged.
+        ' A rejected-row import (31550) clears Err when it is logged, so completeness
+        ' is tracked with blnImported rather than Err.Number.
+        If blnImported And Operation.ErrorLevel <> eelCritical Then
+            Set m_Table = CurrentData.AllTables(strTable)
+            Me.Format = GetFormatByExt(strFile)
+            VCSIndex.Update Me, eatImport, GetFileHash(strFile)
+        End If
 
     Else
         ' Either not a local table, or it doesn't exist
@@ -447,14 +652,836 @@ End Sub
 ' Procedure : Merge
 ' Author    : Adam Waller
 ' Date      : 11/21/2020
-' Purpose   : Merge the source file into the existing database, updating or replacing
-'           : any existing object.
+' Purpose   : Merge the source file into the existing database, reconciling the rows in
+'           : the table against the rows in the source file.
+'           :
+'           : Import cannot be reused here. It clears the table and reloads every row,
+'           : which fails outright once other tables reference this one, and would
+'           : rewrite rows that never changed. Instead the file is loaded into a staging
+'           : table and reconciled with three set-based statements, so only the rows that
+'           : actually differ are touched and existing key values survive.
+'           :
+'           : Source is authoritative: rows missing from the file are removed from the
+'           : table. This is consistent with the index, which has always treated table
+'           : data as something to overwrite rather than something to raise a conflict.
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Merge(strFile As String)
-    Log.Error eelWarning, "Merge not supported for table data. (" & _
-        GetObjectNameFromFileName(strFile) & ")", "clsDbTableData.Merge"
+
+    Dim strTable As String
+    Dim strStaging As String
+    Dim strReason As String
+    Dim eStrategy As eTableMergeStrategy
+    Dim lngInserted As Long
+    Dim lngUpdated As Long
+    Dim lngDeleted As Long
+    Dim strSummary As String
+
+    strTable = GetObjectNameFromFileName(strFile)
+
+    ' A missing source file means the table was removed from the list of tables to export
+    ' data for, or the file was deleted outright. Discarding the rows is never the right
+    ' response to either one, so only the index entry is cleared.
+    If Not FSO.FileExists(strFile) Then
+        Log.Add "  " & T("No source file for {0}. Leaving existing table data unchanged.", _
+            var0:=strTable), Options.ShowDebug
+        VCSIndex.Remove Me, strFile
+        Exit Sub
+    End If
+
+    ' Only local tables hold data we can merge.
+    If Not IsLocalTable(strTable) Then
+        If TableExists(strTable) Then
+            Log.Add "  " & T("Skipping table data for linked table '{0}' (data resides in the back-end).", _
+                var0:=strTable), Options.ShowDebug
+        Else
+            Log.Error eelError, "Table structure not found for '" & strTable & "'.", _
+                ModuleName(Me) & ".Merge"
+            Log.Add T("Table definition does not exist for '{0}'." & _
+                " This must be created before merging table data.", var0:=strTable), False
+        End If
+        Exit Sub
+    End If
+
+    eStrategy = GetMergeStrategy(strTable, strFile, strReason)
+    If eStrategy = etmsNone Then
+        Log.Error eelWarning, T("Unable to merge table data for {0} ({1})." & _
+            " Perform a full build to import this table.", var0:=strTable, var1:=strReason), _
+            ModuleName(Me) & ".Merge"
+        Exit Sub
+    End If
+
+    Perf.OperationStart "Merge Table Data"
+
+    strStaging = CreateTableDataStagingTable(strTable)
+    If Len(strStaging) = 0 Then
+        Log.Error eelError, T("Unable to create a staging table to merge table data for {0}.", _
+            var0:=strTable), ModuleName(Me) & ".Merge"
+        Perf.OperationEnd
+        Exit Sub
+    End If
+
+    If LoadStagingTable(strFile, strTable, strStaging) Then
+        If ReconcileTableData(strTable, strStaging, eStrategy, _
+            lngInserted, lngUpdated, lngDeleted) Then
+            If eStrategy = etmsReload Then
+                ' Counting changes is not possible without a key, so report what was done.
+                Log.EnsureNewLine
+                Log.Add "  " & T("{0}: {1} row(s) reloaded (no key to compare on)", _
+                    var0:=strTable, var1:=CStr(lngInserted)), True
+            Else
+                strSummary = FormatTableDataChangeSummary(lngInserted, lngUpdated, lngDeleted)
+                If Len(strSummary) > 0 Or Options.ShowDebug Then
+                    If Len(strSummary) = 0 Then strSummary = T("no changes")
+                    Log.EnsureNewLine
+                    Log.Add "  " & strTable & ": " & strSummary, True
+                End If
+            End If
+            ' Record the file we just merged so the next merge sees it as unchanged.
+            Perf.OperationStart "Update Index (Table Data)"
+            Set m_Table = CurrentData.AllTables(strTable)
+            Me.Format = GetFormatByExt(strFile)
+            VCSIndex.Update Me, eatImport, GetFileHash(strFile)
+            Perf.OperationEnd
+        End If
+    End If
+
+    DropTableDataStagingTable strStaging
+    Perf.OperationEnd
+
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatTableDataChangeSummary
+' Author    : Adam Waller
+' Date      : 8/13/2026
+' Purpose   : Build the per-table merge console fragment from the counts that actually
+'           : changed, so unchanged states are not listed. Empty when nothing changed.
+'---------------------------------------------------------------------------------------
+'
+Public Function FormatTableDataChangeSummary(lngInserted As Long, lngUpdated As Long, _
+    lngDeleted As Long) As String
+
+    Dim strOut As String
+
+    If lngInserted > 0 Then strOut = T("{0} added", var0:=CStr(lngInserted))
+    If lngUpdated > 0 Then
+        If Len(strOut) > 0 Then strOut = strOut & ", "
+        strOut = strOut & T("{0} changed", var0:=CStr(lngUpdated))
+    End If
+    If lngDeleted > 0 Then
+        If Len(strOut) > 0 Then strOut = strOut & ", "
+        strOut = strOut & T("{0} removed", var0:=CStr(lngDeleted))
+    End If
+
+    FormatTableDataChangeSummary = strOut
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConsumeXmlImportErrors
+' Author    : Adam Waller
+' Date      : 9/2/2026
+' Purpose   : Application.ImportXML writes rejected rows to ImportErrors and raises
+'           : 31550. Read those rows into a log fragment, drop the table so it is not
+'           : later exported as a table definition, and return the fragment. Called only after
+'           : an import failure, so the successful path does no catalog lookup.
+'---------------------------------------------------------------------------------------
+'
+Public Function ConsumeXmlImportErrors() As String
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+    Dim lngCount As Long
+    Dim strDetails As String
+    Dim strLine As String
+
+    Perf.OperationStart "XML Import Errors"
+    Set dbs = CurrentDb
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    ' Selecting the known fields doubles as the schema check, so an unrelated
+    ' user table named ImportErrors is not dropped.
+    Set rst = dbs.OpenRecordset( _
+        "SELECT TOP " & CStr(XML_IMPORT_ERROR_LOG_LIMIT + 1) & _
+        " [XML Text], [Error Message], [Result] FROM [ImportErrors]", _
+        dbOpenSnapshot, dbReadOnly)
+    If Not rst Is Nothing Then
+        Do While Not rst.EOF
+            lngCount = lngCount + 1
+            If lngCount <= XML_IMPORT_ERROR_LOG_LIMIT Then
+                strLine = T("  {0}: {1}", _
+                    var0:=Nz(rst![XML Text], vbNullString), _
+                    var1:=Nz(rst![Error Message], vbNullString))
+                If Len(Nz(rst!Result, vbNullString)) > 0 Then
+                    strLine = strLine & T(" ({0})", var0:=Nz(rst!Result, vbNullString))
+                End If
+                strDetails = strDetails & strLine & vbCrLf
+            End If
+            rst.MoveNext
+        Loop
+        rst.Close
+
+        If Err Then Err.Clear
+        dbs.Execute "DROP TABLE [ImportErrors]", dbFailOnError
+        If Err Then Err.Clear Else ReleaseDbReferences
+    ElseIf Err Then
+        Err.Clear
+    End If
+    On Error GoTo 0
+
+    If lngCount > XML_IMPORT_ERROR_LOG_LIMIT Then
+        strDetails = strDetails & T("  Additional import errors were not shown.") & vbCrLf
+    End If
+
+    ConsumeXmlImportErrors = strDetails
+    Perf.OperationEnd
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FinishXmlDataImport
+' Author    : Adam Waller
+' Date      : 9/2/2026
+' Purpose   : After Application.ImportXML acAppendData, treat rejected rows as a failed
+'           : import: log 31550 and any ImportErrors rows, drop those tables, and
+'           : return false so the caller does not update the index or reconcile.
+'---------------------------------------------------------------------------------------
+'
+Private Function FinishXmlDataImport(strFile As String, strSource As String) As Boolean
+
+    Dim strImportErrors As String
+
+    ' The common case returns immediately: no catalog query, no TableDefs refresh,
+    ' and no SharedDb invalidation.
+    If Err.Number = 0 Then
+        FinishXmlDataImport = True
+        Exit Function
+    End If
+
+    If Not Catch(ERR_XML_IMPORT_INCOMPLETE) Then
+        CatchAny eelError, T("Error importing XML data from '{0}'", var0:=strFile), strSource
+        Exit Function
+    End If
+
+    strImportErrors = ConsumeXmlImportErrors
+    Log.Error eelError, T("Not all records were imported from '{0}'.", _
+        var0:=strFile), strSource
+    If Len(strImportErrors) > 0 Then Log.Add strImportErrors, False
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetMergeStrategy
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Returns how this table and source file can be merged, setting strReason to a
+'           : translated explanation when they cannot. Extends the table-level test in
+'           : GetTableMergeStrategy with what the source file itself rules out.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetMergeStrategy(strTable As String, strFile As String, _
+    ByRef strReason As String) As eTableMergeStrategy
+
+    ' A format we cannot load would leave the staging table empty, and an empty staging
+    ' table reads as "the source has no rows" -- which would empty the live table.
+    If GetFormatByExt(strFile) = etdNoData Then
+        strReason = T("unrecognized source file format")
+        Exit Function
+    End If
+
+    GetMergeStrategy = GetTableMergeStrategy(SharedDb.TableDefs(strTable), strReason)
+    If GetMergeStrategy = etmsNone Then Exit Function
+
+    ' A retained schema names the table it was exported from, so the row elements cannot
+    ' be pointed at the staging table without contradicting it. Tables that need the
+    ' schema are already rejected above; this catches a file exported before that was so.
+    If GetFormatByExt(strFile) = etdXML Then
+        If InStr(1, ReadFile(strFile), "xsd:schema", vbTextCompare) > 0 Then
+            strReason = T("source file has an embedded schema")
+            GetMergeStrategy = etmsNone
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LoadStagingTable
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Load the rows from the source file into the (empty) staging table.
+'---------------------------------------------------------------------------------------
+'
+Private Function LoadStagingTable(strFile As String, strTable As String, _
+    strStaging As String) As Boolean
+
+    Dim strTempFile As String
+    Dim strImportErrors As String
+    Dim lngSourceRows As Long
+    Dim blnImported As Boolean
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Select Case GetFormatByExt(strFile)
+
+        Case etdTabDelimited
+            ImportTableDataTDF strFile, strStaging
+
+        Case etdXML
+            ' ImportXML takes the target table from the row element names rather than from
+            ' any parameter, so the rows have to be relabeled to reach the staging table.
+            strTempFile = GetTempFile
+            Perf.OperationStart "Relabel Staging XML"
+            If Not WriteStagingXml(strFile, strTable, strStaging, strTempFile, lngSourceRows) Then
+                On Error GoTo 0
+                Perf.OperationEnd
+                Log.Error eelError, T("Unable to prepare table data from '{0}' for merge.", _
+                    var0:=strFile), ModuleName(Me) & ".LoadStagingTable"
+                Exit Function
+            End If
+            Perf.OperationEnd
+            ' A file with no rows needs no import: the staging table is already empty,
+            ' which is what "the source has no records" means. Skipping the call is not
+            ' just an optimization -- ImportXML spends about 95 seconds on a row-less
+            ' document, however small, while a 2,000 row file imports in a fraction of a
+            ' second. Two empty tables were enough to make a merge look broken.
+            If lngSourceRows > 0 Then
+                Perf.OperationStart "Import XML to Staging"
+                Application.ImportXML strTempFile, acAppendData
+                Perf.OperationEnd
+            End If
+            If lngSourceRows > 0 Then
+                blnImported = FinishXmlDataImport(strFile, ModuleName(Me) & ".LoadStagingTable")
+                DeleteFile strTempFile
+                If Not blnImported Then
+                    On Error GoTo 0
+                    Exit Function
+                End If
+            Else
+                DeleteFile strTempFile
+            End If
+
+        Case Else
+            ' Guarded by GetMergeStrategy. Never fall through to the reconcile with an
+            ' empty staging table, which would read as a source file with no rows.
+            On Error GoTo 0
+            Exit Function
+
+    End Select
+
+    If Err Then
+        On Error GoTo 0
+        Log.Error eelError, T("Error reading table data from '{0}' for merge. {1}", _
+            var0:=strFile, var1:=Err.Description), ModuleName(Me) & ".LoadStagingTable"
+        Err.Clear
+        Exit Function
+    End If
+    On Error GoTo 0
+
+    ' ImportXML can reject individual rows without raising an error, diverting them to an
+    ' import errors table. A short load would look like rows the source no longer has, and
+    ' the reconcile would delete them, so the counts have to agree before going any further.
+    If GetFormatByExt(strFile) = etdXML Then
+        If DCount("*", "[" & strStaging & "]") <> lngSourceRows Then
+            strImportErrors = ConsumeXmlImportErrors
+            Log.Error eelError, T("Only {0} of {1} rows from '{2}' could be read for merge.", _
+                var0:=CStr(DCount("*", "[" & strStaging & "]")), var1:=CStr(lngSourceRows), _
+                var2:=strFile), ModuleName(Me) & ".LoadStagingTable"
+            If Len(strImportErrors) > 0 Then Log.Add strImportErrors, False
+            Exit Function
+        End If
+    End If
+
+    LoadStagingTable = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteStagingXml
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Write a copy of the exported XML with the row elements renamed to the
+'           : staging table, so ImportXML loads the rows there instead of into the live
+'           : table. Returns false when the file could not be parsed.
+'           :
+'           : The rows are rebuilt through the DOM rather than by replacing tag text,
+'           : because a table is allowed to have a field with the same name as the table
+'           : itself. A blind text replacement would rename that field element too.
+'---------------------------------------------------------------------------------------
+'
+Private Function WriteStagingXml(strFile As String, strTable As String, _
+    strStaging As String, strOutputFile As String, ByRef lngRows As Long) As Boolean
+
+    Dim objXml As MSXML2.DOMDocument60
+    Dim objRow As MSXML2.IXMLDOMNode
+    Dim objField As MSXML2.IXMLDOMNode
+    Dim cData As clsConcat
+    Dim strRowTag As String
+
+    ' Parsed from the file's content rather than its path, since the DOM treats the path
+    ' as a URL and these file names can contain percent-encoded characters.
+    Set objXml = New MSXML2.DOMDocument60
+    If Not objXml.LoadXML(ReadFile(strFile)) Then Exit Function
+
+    strRowTag = EscapeXmlName(strStaging)
+    Set cData = New clsConcat
+    cData.Add "<?xml version=""1.0"" encoding=""UTF-8""?>", vbCrLf
+    ' The namespace is declared even though data-only rows do not normally use it, so a
+    ' field element that does carry an od: attribute still resolves.
+    cData.Add "<dataroot xmlns:od=""urn:schemas-microsoft-com:officedata"">", vbCrLf
+
+    For Each objRow In objXml.SelectNodes("/dataroot/" & EscapeXmlName(strTable))
+        cData.Add "<", strRowTag, ">"
+        For Each objField In objRow.ChildNodes
+            cData.Add objField.XML
+        Next objField
+        cData.Add "</", strRowTag, ">", vbCrLf
+        lngRows = lngRows + 1
+    Next objRow
+
+    cData.Add "</dataroot>"
+
+    WriteFile cData.GetStr, strOutputFile
+    WriteStagingXml = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReconcileTableData
+' Author    : Adam Waller
+' Date      : 7/28/2026
+' Purpose   : Bring the live table in line with the staging table, returning the number of
+'           : rows affected. With a merge key that is three set-based statements; without
+'           : one it is a wholesale replace, and lngInserted reports the rows reloaded.
+'           : The update is the one statement that scales with the width of the table, so
+'           : it is delegated to UpdateChangedRows, which splits it up when it has to.
+'           :
+'           : Order matters. Inserting before deleting means a row that a child record
+'           : depends on is present before anything tries to remove its predecessor, and
+'           : deleting last means a delete blocked by referential integrity is reported
+'           : against a table that is otherwise already up to date.
+'           :
+'           : The whole reconcile runs in one transaction. A delete blocked by
+'           : referential integrity is the expected failure, and rolling back leaves the
+'           : table exactly as it was rather than half merged. Errors are always trapped
+'           : here, including in debug mode, since an untrapped error would leave the
+'           : transaction open.
+'---------------------------------------------------------------------------------------
+'
+Private Function ReconcileTableData(strTable As String, strStaging As String, _
+    eStrategy As eTableMergeStrategy, ByRef lngInserted As Long, _
+    ByRef lngUpdated As Long, ByRef lngDeleted As Long) As Boolean
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim dKey As Dictionary
+    Dim varKey As Variant
+    Dim cTargetCols As clsConcat
+    Dim cSourceCols As clsConcat
+    Dim cJoin As clsConcat
+    Dim colDataFields As Collection
+    Dim strT As String
+    Dim strS As String
+    Dim strFirstKey As String
+    Dim blnInTrans As Boolean
+    Dim blnTiming As Boolean
+
+    Set dbs = SharedDb
+    Set tdf = dbs.TableDefs(strTable)
+    Set dKey = GetTableMergeKey(tdf)
+    strT = "[" & strTable & "]"
+    strS = "[" & strStaging & "]"
+
+    Set cTargetCols = New clsConcat
+    Set cSourceCols = New clsConcat
+    Set colDataFields = New Collection
+    For Each fld In tdf.Fields
+        cTargetCols.Add "[", fld.Name, "], "
+        cSourceCols.Add strS, ".[", fld.Name, "], "
+        If Not dKey.Exists(fld.Name) Then colDataFields.Add fld.Name
+    Next fld
+    cTargetCols.Remove 2
+    cSourceCols.Remove 2
+
+    Set cJoin = New clsConcat
+    For Each varKey In dKey.Keys
+        If Len(strFirstKey) = 0 Then strFirstKey = CStr(varKey)
+        cJoin.Add "(", strS, ".[", CStr(varKey), "] = ", strT, ".[", CStr(varKey), "]) AND "
+    Next varKey
+    If cJoin.Length > 0 Then cJoin.Remove 5
+
+    LogUnhandledErrors
+    On Error GoTo Failed
+
+    DBEngine.Workspaces(0).BeginTrans
+    blnInTrans = True
+
+    If eStrategy = etmsReload Then
+        ' No key means no way to pair a source row with a table row, so the rows are
+        ' replaced outright. Both statements are inside the transaction, so a failure
+        ' leaves the original rows in place rather than an emptied table.
+        blnTiming = True
+        Perf.OperationStart "Reload: Delete All"
+        dbs.Execute "DELETE FROM " & strT, dbFailOnError
+        lngDeleted = dbs.RecordsAffected
+        Perf.OperationEnd
+        Perf.OperationStart "Reload: Insert All"
+        dbs.Execute "INSERT INTO " & strT & " (" & cTargetCols.GetStr & ") SELECT " & _
+            cSourceCols.GetStr & " FROM " & strS, dbFailOnError
+        lngInserted = dbs.RecordsAffected
+        Perf.OperationEnd
+        blnTiming = False
+        DBEngine.Workspaces(0).CommitTrans
+        blnInTrans = False
+        On Error GoTo 0
+        ReconcileTableData = True
+        Exit Function
+    End If
+
+    blnTiming = True
+    Perf.OperationStart "Reconcile: Insert"
+    dbs.Execute "INSERT INTO " & strT & " (" & cTargetCols.GetStr & ") SELECT " & _
+        cSourceCols.GetStr & " FROM " & strS & " LEFT JOIN " & strT & " ON " & cJoin.GetStr & _
+        " WHERE " & strT & ".[" & strFirstKey & "] IS NULL", dbFailOnError
+    lngInserted = dbs.RecordsAffected
+    Perf.OperationEnd
+    blnTiming = False
+
+    ' Nothing to compare or assign when the key covers every column. The update owns its
+    ' own timers, so the caller's are closed around it rather than left open across it.
+    If colDataFields.Count > 0 Then
+        lngUpdated = UpdateChangedRows(dbs, strTable, strStaging, colDataFields, _
+            dKey, cJoin.GetStr)
+    End If
+
+    blnTiming = True
+    Perf.OperationStart "Reconcile: Delete"
+    dbs.Execute "DELETE FROM " & strT & " WHERE NOT EXISTS (SELECT 1 FROM " & strS & _
+        " WHERE " & cJoin.GetStr & ")", dbFailOnError
+    lngDeleted = dbs.RecordsAffected
+    Perf.OperationEnd
+    blnTiming = False
+
+    DBEngine.Workspaces(0).CommitTrans
+    blnInTrans = False
+    On Error GoTo 0
+
+    ReconcileTableData = True
+    Exit Function
+
+Failed:
+    ' Close the statement's timer, not the caller's, so the failure is attributed to the
+    ' phase that raised it.
+    If blnTiming Then Perf.OperationEnd
+    Log.Error eelError, T("Unable to merge table data for {0}. No changes were made" & _
+        " to this table. {1}", var0:=strTable, var1:=Err.Description), _
+        ModuleName(Me) & ".ReconcileTableData"
+    Err.Clear
+    ' Clearing the error object is not enough while a handler is active; the handler state
+    ' has to be reset before Resume Next protects the rollback.
+    On Error GoTo -1
+    On Error Resume Next
+    If blnInTrans Then DBEngine.Workspaces(0).Rollback
+    If Err Then Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateChangedRows
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Bring the non-key fields of the matched rows in line with the staging table,
+'           : returning the number of rows changed.
+'           :
+'           : One statement assigns and compares every non-key field, which is both the
+'           : fastest way to do this and, past a certain width, more than the database
+'           : engine will compile. It answers a wide enough table with "Query is too
+'           : complex" no matter how few rows are involved, and the width at which that
+'           : happens is not a published number -- it depends on the whole expression tree,
+'           : not on a field count. So rather than guess a threshold, the one statement is
+'           : attempted and the fields are split into groups only when the engine refuses.
+'           :
+'           : Retrying is safe because the refusal happens while compiling, before any row
+'           : is touched, leaving the surrounding transaction intact. Any other error is
+'           : raised to the caller, whose handler rolls that transaction back.
+'---------------------------------------------------------------------------------------
+'
+Private Function UpdateChangedRows(dbs As DAO.Database, strTable As String, _
+    strStaging As String, colFields As Collection, dKey As Dictionary, _
+    strJoin As String) As Long
+
+    Dim strT As String
+    Dim strS As String
+    Dim lngErrNumber As Long
+    Dim strErrDescription As String
+
+    strT = "[" & strTable & "]"
+    strS = "[" & strStaging & "]"
+
+    Perf.OperationStart "Reconcile: Update"
+    LogUnhandledErrors
+    On Error Resume Next
+    dbs.Execute "UPDATE " & strT & " INNER JOIN " & strS & " ON " & strJoin & _
+        " SET " & BuildFieldAssignments(strT, strS, colFields, 1, colFields.Count) & _
+        " WHERE " & BuildFieldComparisons(strT, strS, colFields, 1, colFields.Count), _
+        dbFailOnError
+    lngErrNumber = Err.Number
+    strErrDescription = Err.Description
+    If lngErrNumber = 0 Then UpdateChangedRows = dbs.RecordsAffected
+    Err.Clear
+    On Error GoTo 0
+    Perf.OperationEnd
+
+    If lngErrNumber = 0 Then Exit Function
+    If lngErrNumber <> ERR_QUERY_TOO_COMPLEX Then
+        Err.Raise lngErrNumber, ModuleName(Me) & ".UpdateChangedRows", strErrDescription
+        Exit Function
+    End If
+
+    UpdateChangedRows = UpdateChangedRowsInGroups(dbs, strTable, strStaging, colFields, _
+        dKey, strJoin)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateChangedRowsInGroups
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Update the non-key fields a group at a time, for a table too wide to update
+'           : in one statement. Returns the number of rows changed.
+'           :
+'           : The group size is halved and the whole pass repeated whenever the engine
+'           : still refuses a statement, since there is no field count that is known to be
+'           : safe. Repeating is harmless: the groups already applied no longer differ from
+'           : the staging table, so they simply match nothing on the way through again.
+'---------------------------------------------------------------------------------------
+'
+Private Function UpdateChangedRowsInGroups(dbs As DAO.Database, strTable As String, _
+    strStaging As String, colFields As Collection, dKey As Dictionary, _
+    strJoin As String) As Long
+
+    Dim dChanged As Dictionary
+    Dim lngGroup As Long
+    Dim lngErrNumber As Long
+    Dim strErrDescription As String
+
+    Set dChanged = New Dictionary
+    lngGroup = UPDATE_FIELD_GROUP_SIZE
+
+    Log.Add "  " & T("{0}: too many fields to update in one statement." & _
+        " Updating in groups of {1}.", var0:=strTable, var1:=CStr(lngGroup)), _
+        Options.ShowDebug
+
+    Perf.OperationStart "Reconcile: Update (Grouped)"
+    Do
+        If UpdateFieldGroups(dbs, strTable, strStaging, colFields, dKey, strJoin, _
+            lngGroup, dChanged, lngErrNumber, strErrDescription) Then
+            Perf.OperationEnd
+            UpdateChangedRowsInGroups = dChanged.Count
+            Exit Function
+        End If
+        If lngErrNumber <> ERR_QUERY_TOO_COMPLEX Then Exit Do
+        If lngGroup = 1 Then Exit Do
+        lngGroup = lngGroup \ 2
+    Loop
+    Perf.OperationEnd
+
+    Err.Raise lngErrNumber, ModuleName(Me) & ".UpdateChangedRowsInGroups", _
+        strErrDescription
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateFieldGroups
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Run one pass of grouped updates, adding the key of every row it changed to
+'           : dChanged. Returns false with the error details when a statement failed, so
+'           : the caller can decide whether a smaller group would help.
+'           :
+'           : The keys of the rows a group is about to change are read before the update
+'           : rather than counted after it, for two reasons: the rows stop differing once
+'           : the update runs, and a row that differs in two groups has to count once.
+'---------------------------------------------------------------------------------------
+'
+Private Function UpdateFieldGroups(dbs As DAO.Database, strTable As String, _
+    strStaging As String, colFields As Collection, dKey As Dictionary, _
+    strJoin As String, lngGroup As Long, dChanged As Dictionary, _
+    ByRef lngErrNumber As Long, ByRef strErrDescription As String) As Boolean
+
+    Dim rst As DAO.Recordset
+    Dim strT As String
+    Dim strS As String
+    Dim strDiff As String
+    Dim lngStart As Long
+    Dim lngCount As Long
+
+    strT = "[" & strTable & "]"
+    strS = "[" & strStaging & "]"
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    For lngStart = 1 To colFields.Count Step lngGroup
+        lngCount = colFields.Count - lngStart + 1
+        If lngCount > lngGroup Then lngCount = lngGroup
+        strDiff = BuildFieldComparisons(strT, strS, colFields, lngStart, lngCount)
+
+        Set rst = dbs.OpenRecordset("SELECT " & BuildKeyColumns(strT, dKey) & _
+            " FROM " & strT & " INNER JOIN " & strS & " ON " & strJoin & _
+            " WHERE " & strDiff, dbOpenSnapshot, dbReadOnly)
+        If Err Then GoTo Failed
+        Do While Not rst.EOF
+            dChanged(GetRowKey(rst)) = True
+            rst.MoveNext
+        Loop
+        rst.Close
+        Set rst = Nothing
+        If Err Then GoTo Failed
+
+        dbs.Execute "UPDATE " & strT & " INNER JOIN " & strS & " ON " & strJoin & _
+            " SET " & BuildFieldAssignments(strT, strS, colFields, lngStart, lngCount) & _
+            " WHERE " & strDiff, dbFailOnError
+        If Err Then GoTo Failed
+    Next lngStart
+
+    On Error GoTo 0
+    UpdateFieldGroups = True
+    Exit Function
+
+Failed:
+    lngErrNumber = Err.Number
+    strErrDescription = Err.Description
+    Err.Clear
+    If Not rst Is Nothing Then
+        rst.Close
+        Set rst = Nothing
+    End If
+    Err.Clear
+    On Error GoTo 0
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildFieldAssignments
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the SET clause assigning lngCount fields, starting at lngStart, from
+'           : the staging table to the live table.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildFieldAssignments(strT As String, strS As String, _
+    colFields As Collection, lngStart As Long, lngCount As Long) As String
+
+    Dim cSet As clsConcat
+    Dim lngField As Long
+    Dim strField As String
+
+    Set cSet = New clsConcat
+    For lngField = lngStart To lngStart + lngCount - 1
+        strField = colFields(lngField)
+        cSet.Add strT, ".[", strField, "] = ", strS, ".[", strField, "], "
+    Next lngField
+    If cSet.Length > 0 Then cSet.Remove 2
+
+    BuildFieldAssignments = cSet.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildFieldComparisons
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the WHERE clause matching rows that differ in any of lngCount fields,
+'           : starting at lngStart.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildFieldComparisons(strT As String, strS As String, _
+    colFields As Collection, lngStart As Long, lngCount As Long) As String
+
+    Dim cDiff As clsConcat
+    Dim lngField As Long
+    Dim strField As String
+
+    Set cDiff = New clsConcat
+    For lngField = lngStart To lngStart + lngCount - 1
+        strField = colFields(lngField)
+        ' Null is not equal to anything, including another Null, so an inequality
+        ' test alone would miss every change to or from Null.
+        cDiff.Add "((", strT, ".[", strField, "] <> ", strS, ".[", strField, "])"
+        cDiff.Add " OR (", strT, ".[", strField, "] IS NULL XOR ", _
+            strS, ".[", strField, "] IS NULL)) OR "
+    Next lngField
+    If cDiff.Length > 0 Then cDiff.Remove 4
+
+    BuildFieldComparisons = cDiff.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : BuildKeyColumns
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return the merge key columns, qualified with the given table, as a select
+'           : list.
+'---------------------------------------------------------------------------------------
+'
+Private Function BuildKeyColumns(strTable As String, dKey As Dictionary) As String
+
+    Dim cKeys As clsConcat
+    Dim varKey As Variant
+
+    Set cKeys = New clsConcat
+    For Each varKey In dKey.Keys
+        cKeys.Add strTable, ".[", CStr(varKey), "], "
+    Next varKey
+    If cKeys.Length > 0 Then cKeys.Remove 2
+
+    BuildKeyColumns = cKeys.GetStr
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRowKey
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Return a string identifying the row a key-columns recordset is positioned
+'           : on, for counting distinct changed rows across several passes. The separator
+'           : is a character that cannot appear in a key value.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetRowKey(rst As DAO.Recordset) As String
+
+    Dim cKey As clsConcat
+    Dim fld As DAO.Field
+
+    Set cKey = New clsConcat
+    For Each fld In rst.Fields
+        cKey.Add CStr(Nz(fld.Value, vbNullString)), vbNullChar
+    Next fld
+
+    GetRowKey = cKey.GetStr
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -541,10 +1568,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function IsBinaryType(fld As DAO.Field) As Boolean
-    Select Case fld.Type
-        Case dbLongBinary, dbVarBinary, dbAttachment: IsBinaryType = True
-        Case Else: IsBinaryType = False
-    End Select
+    IsBinaryType = IsBinaryTableFieldType(fld.Type)
 End Function
 
 
@@ -640,10 +1664,11 @@ End Property
 '           : component type.
 '---------------------------------------------------------------------------------------
 '
-Private Property Get IDbComponent_FileExtensions() As Collection
+Private Property Get IDbComponent_FileExtensions(Optional Scope As eFileExtensionScope = efesIndexed) As Collection
     Set IDbComponent_FileExtensions = New Collection
     IDbComponent_FileExtensions.Add "txt"
     IDbComponent_FileExtensions.Add "tdf"
+    IDbComponent_FileExtensions.Add "xml"
 End Property
 
 

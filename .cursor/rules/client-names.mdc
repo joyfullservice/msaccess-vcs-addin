@@ -1,0 +1,26 @@
+---
+description: Do not write client database or object names into this public repository
+alwaysApply: true
+---
+
+# Client names stay out of the repo
+
+This is a public repository. Sessions often inspect real client databases.
+Do not copy those names into anything that can be committed or published.
+
+Do not write:
+- Client or customer database file names or paths
+- Form, report, query, table, field, macro, or module names from those databases
+- Connection strings, server names, user names, or business-domain terms
+- Absolute local paths (user home, machine, UNC, or client folders)
+- Log excerpts, warning text, or measurements that still contain those names
+
+Write instead:
+- Generic identifiers: `frmExample`, `qryJoinCase`, `tblLookup`, `a production export`
+- Shape language: "a 4-cell totals row with an attached label"
+- Placeholder or repo-relative paths: `C:\path\to\export`, `docs/access-form-geometry.md`
+- This repo's own objects are fine: `frmVCSMain`, `modTestEncoding`, shipped fixtures
+
+Applies to source, comments, tests, docs, `DECISIONS.md`, Wiki, commit
+messages, PR bodies, and GitHub issue text. Fixture sanitization checklist:
+[Testing/Fixtures/README.md](../../Testing/Fixtures/README.md).

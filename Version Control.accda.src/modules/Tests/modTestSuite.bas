@@ -35,6 +35,7 @@ End Sub
 
 
 Public Sub TestGitRepositoryRoot()
+'@Tag("slow")
 
     With New clsGitIntegration
 
@@ -71,5 +72,75 @@ Public Sub TestGetClassFromComponentType()
         TestAssert Not GetComponentClass(intType) Is Nothing, _
             "component type " & intType & " has a class"
     Next intType
+
+End Sub
+
+
+Public Sub TestSidecarClassGating()
+
+    Dim lngSaved As Long
+    Dim strJsonFile As String
+    Dim dFile As Dictionary
+    Dim cComp As IDbComponent
+    Const strModuleName As String = "modTestAssert"
+
+    ' TypeName(cComp) drives Info.Class; an unbound instance is sufficient here.
+    Set cComp = New clsDbModule
+
+    lngSaved = Options.ExportFormatVersion
+    strJsonFile = GetTempFolder("vcs_sidecar_class") & PathSep & strModuleName & ".json"
+    If FSO.FileExists(strJsonFile) Then DeleteFile strJsonFile
+
+    ' Seed a companion file without Info so ExportObjectMetadata creates the header.
+    ' A non-metadata Items key ensures the file is retained even when DAO has no Description.
+    WriteFile "{""Items"":{""TestRetention"":true}}", strJsonFile
+
+    ' Below 5.1.0 the owning class name is ignored and Info.Class stays empty.
+    Options.ExportFormatVersion = EFV_5_0_0
+    ExportObjectMetadata strJsonFile, "Modules", strModuleName, cComp
+    Set dFile = ReadJsonFile(strJsonFile)
+    TestAssert Not dFile Is Nothing, "companion file written at 5.0.0"
+    TestAssert dFile.Exists("Info"), "Info header created at 5.0.0"
+    TestAssert dFile("Info")("Class") = vbNullString, "5.0.0 uses empty Class on new companion"
+
+    ' At 5.1.0 the owning component class (via TypeName) is recorded and healed in.
+    Options.ExportFormatVersion = EFV_5_1_0
+    ExportObjectMetadata strJsonFile, "Modules", strModuleName, cComp
+    Set dFile = ReadJsonFile(strJsonFile)
+    TestAssert dFile("Info")("Class") = "clsDbModule", "5.1.0 sets owning component class"
+
+    If FSO.FileExists(strJsonFile) Then DeleteFile strJsonFile
+    Options.ExportFormatVersion = lngSaved
+
+End Sub
+
+
+Public Sub TestCollectObjectMetadataUsesPreloadedDescription()
+
+    Dim blnSaved As Boolean
+    Dim dItems As Dictionary
+    Dim dDescription As Dictionary
+    Dim dExported As Dictionary
+
+    blnSaved = Options.SaveAllDocumentProperties
+    Options.SaveAllDocumentProperties = False
+
+    Set dItems = New Dictionary
+    Set dDescription = New Dictionary
+    dDescription.Add "Type", dbText
+    dDescription.Add "Value", "Preloaded description"
+
+    CollectObjectMetadata dItems, "Modules", "modTestAssert", acModule, True, dDescription
+    Set dExported = dItems("Properties")("Description")
+
+    TestAssert dExported("Type") = dbText, "preloaded Description type preserved"
+    TestAssert dExported("Value") = "Preloaded description", _
+        "preloaded Description value preserved"
+
+    dDescription("Value") = "Changed after collection"
+    TestAssert dExported("Value") = "Preloaded description", _
+        "export metadata owns a copy of the preloaded property"
+
+    Options.SaveAllDocumentProperties = blnSaved
 
 End Sub

@@ -5,10 +5,10 @@
 ' Date      : 6/24/2026
 ' Purpose   : Tests for command bar control classification. The runtime addability probe
 '           : (IsBuiltInControlAddable) is the classifier; IsNonAddableControl is an
-'           : empty manual override. Probe tests are tagged slow/access because
-'           : addability is tested against the running Access version.
+'           : empty manual override. Probe tests are tagged access because addability
+'           : is tested against the running Access version.
 '           : Run: ?VCS.RunTests("modTestCommandBarNames")
-'           : Skip on older Access: ?VCS.RunTests("-access") or ?VCS.RunTests("-slow")
+'           : Skip on older Access: ?VCS.RunTests("-access")
 '---------------------------------------------------------------------------------------
 Option Compare Database
 Option Explicit
@@ -26,7 +26,6 @@ End Sub
 
 
 Public Sub TestKnownNonAddableControls()
-    '@Tag("slow")
     '@Tag("access")
     ' Access "custom built-in" and discontinued controls that cannot be recreated by Id.
     AssertNotAddable msoControlButton, 1835, "Open Table (1835)"
@@ -38,7 +37,6 @@ End Sub
 
 
 Public Sub TestKnownAddableControls()
-    '@Tag("slow")
     '@Tag("access")
     ' Ids used as minimal built-in exports in the Menus round-trip corpus.
     AssertAddable msoControlButton, 4, "Print (4)"
@@ -51,7 +49,6 @@ End Sub
 
 
 Public Sub TestAddableCacheMatchesFreshProbe()
-    '@Tag("slow")
     '@Tag("access")
     ' The cached classifier must agree with a fresh, uncached probe.
     ResetAddableCache
@@ -66,7 +63,6 @@ End Sub
 
 
 Public Sub TestTemplateControlOpenTable()
-    '@Tag("slow")
     '@Tag("access")
     ' Non-addable object-openers route through the template bar, not replicas.
     Dim cbTemplate As CommandBar

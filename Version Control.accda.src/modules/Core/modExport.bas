@@ -36,17 +36,23 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     Dim lngCount As Long
     Dim lngCurrent As Long
     Dim strTempFile As String
+    Dim dteVbaInSync As Date
+    Dim blnCompleted As Boolean
 
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     ' Can't export without an open database
-    If Not DatabaseFileOpen Then Exit Sub
+    If Not DatabaseFileOpen Then
+        Operation.ErrorLevel = eelCritical
+        Exit Sub
+    End If
 
     ' If we are running this from the current database, we need to run it a different
     ' way to prevent file corruption issues. (This really shouldn't happen after v4.02)
     If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) = 0 Then
         MsgBox2 T("Unabled to Export Running Database", "Please launch the export using the add-in menu or ribbon"), , vbExclamation
+        Operation.ErrorLevel = eelCritical
         Exit Sub
     End If
 
@@ -139,7 +145,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Log.Add T("Export Canceled"), , , "Red", True
         Log.Flush
         Operation.ErrorLevel = eelCritical
-        Exit Sub
+        GoTo StoppedBeforeExport
     End If
 
     ' Check project VCS version
@@ -151,21 +157,21 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                     vbNewLine & "Would you like to continue anyway?", _
                     var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), _
                 T("Click YES to continue this operation, or NO to cancel."), _
-                vbExclamation + vbYesNo + vbDefaultButton2) <> vbYes Then
+                vbExclamation + vbYesNo + vbDefaultButton2, , vbNo) <> vbYes Then
                     Log.Spacer
                     Log.Add T("Export Canceled"), , , "Red", True
                     Log.Flush
                     Operation.ErrorLevel = eelCritical
-                    Exit Sub
+                    GoTo StoppedBeforeExport
             End If
         Case evcOlderVersion
             Log.Add T("Updated VCS ({0} -> {1})", var0:=Options.GetLoadedVersion, var1:=GetVCSVersion), , , "blue"
     End Select
 
     ' Notify about newer export format version
-    If Options.ExportFormatVersion < LATEST_EXPORT_FORMAT Then
+    If Options.ExportFormatVersion < LatestExportFormat Then
         Log.Add T("Note: Export format {0} is available (currently using {1}). Update via Options > Export when ready.", _
-            var0:=ExportFormatToVersion(LATEST_EXPORT_FORMAT), _
+            var0:=ExportFormatToVersion(LatestExportFormat), _
             var1:=ExportFormatToVersion(Options.ExportFormatVersion)), , , "blue"
     End If
 
@@ -179,6 +185,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         RevertFileExtensions
     End If
 
+    ' Close open database objects before export (and again after RunBeforeExport
+    ' in case the hook opened anything).
+    If Not CloseObjectsOrAbort() Then GoTo CleanUp
+
     ' Run any custom sub before export
     If Options.RunBeforeExport <> vbNullString Then
         Log.Add T("Running {0}...", var0:=Options.RunBeforeExport)
@@ -186,39 +196,38 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         Perf.OperationStart "RunBeforeExport"
         RunSubInCurrentProject Options.RunBeforeExport
         Perf.OperationEnd
-    End If
-
-    ' Close open database objects and save unsaved VBA changes.
-    ' Pause timing so user interaction doesn't affect performance.
-    Perf.PauseTiming
-    If Not CloseDatabaseObjects Then
-        Perf.ResumeTiming
-        MsgBox2 T("Please close all database objects"), _
-            T("All database objects (i.e.forms, reports, tables, queries, etc...) must be closed to export source code."), _
-            , vbExclamation
-        Operation.ErrorLevel = eelCritical
-        GoTo CleanUp
+        If Not CloseObjectsOrAbort() Then GoTo CleanUp
     End If
 
     ' Save unsaved VBA project changes so exported source reflects
     ' the current state of the code. (Analogous to closing forms/reports
     ' which forces a save decision on layout changes.)
-    If Not CurrentVBProject.Saved Then
-        If CurrentProject.AllModules.Count > 0 Then
-            DoCmd.Save acModule, CurrentProject.AllModules(0).Name
-        End If
-    End If
-    Perf.ResumeTiming
+    SaveUnsavedVbaProject
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections
+    PrepareTableDataSortExport
 
     ' Enforce any supplied letter casing rules
-    StandardizeLetterCasing
+    Dim colCasingChanges As Collection
+    Dim varChange As Variant
+    Set colCasingChanges = StandardizeLetterCasing
+    If Not colCasingChanges Is Nothing Then
+        If colCasingChanges.Count > 0 Then
+            Log.Add T("{0} letter casing correction(s) applied:", var0:=colCasingChanges.Count), False
+            For Each varChange In colCasingChanges
+                Log.Add "  " & varChange, False
+            Next varChange
+        End If
+    End If
 
     ' Export any external database schemas
     ExportSchemas blnFullExport
     If Operation.ErrorLevel = eelCritical Then GoTo CleanUp
+
+    ' The VBA project is saved and will not change from here on. If this export checks
+    ' every module, form, and report, the index will match the project as of this date.
+    If intFilter = ecfAllObjects Or intFilter = ecfVBAItems Then dteVbaInSync = GetVbaProjectDate
 
     ' Finish header section
     Log.Spacer
@@ -234,7 +243,12 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Set up progress bar to show status on large projects
     Set colCategories = GetContainers(intFilter)
     Log.ProgressBar.Reset
-    Log.ProgressBar.Max = GetQuickObjectCount(colCategories) + GetQuickFileCount(colCategories)
+    ' Size the scan progress bar to the object count only. Change detection cost is
+    ' dominated by the per-object GetAllFromDB scan; orphaned-file cleanup is a near-
+    ' instant disk enumeration, so including the (much larger) file count made the bar
+    ' crawl through the real work then leap in bulk bursts as each category's files were
+    ' scanned. Keeping only the object count makes bar motion track wall-clock time.
+    Log.ProgressBar.Max = GetQuickObjectCount(colCategories)
 
     ' Scan database objects for changes
     Set dCategories = New Dictionary
@@ -284,6 +298,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
                 Log.Spacer
                 Log.Add T("Export Canceled"), , , "Red", True
                 Operation.ErrorLevel = eelCritical
+                Operation.Result = eorCanceled
                 GoTo CleanUp
             End If
         End If
@@ -310,6 +325,10 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
             ' Post category start to MCP server
             MCP.Log "Exporting " & lngCount & " " & LCase(cCategory.Category) & "..."
             Log.Flush
+
+            ' Serve duplicate-file cleanup from one snapshot of the export tree instead
+            ' of rescanning it for every object in this category.
+            BeginDuplicateScanCache
 
             ' Loop through each object in this category.
             For Each varKey In dObjects.Keys
@@ -344,6 +363,9 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
             Next varKey
 
+            ' Release the snapshot, removing any folder the cleanup emptied.
+            EndDuplicateScanCache
+
             Select Case cCategory.ComponentType
                 Case edbModule
                     WarnDuplicateModuleBasenames cCategory.BaseFolder
@@ -377,8 +399,8 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Ensure that we have created the .gitignore and .gitattributes files in Git environments.
     CheckGitFiles
 
-    ' Export AGENTS.md file for AI agent assistance
-    modResource.ExtractResource "AGENTS.md", Options.GetExportFolder
+    ' Export AGENTS.md and its reference documents for AI agent assistance
+    modResource.ExtractAgentDocs Options.GetExportFolder
 
     ' Run any custom sub after export
     If Options.RunAfterExport <> vbNullString Then
@@ -395,12 +417,15 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
     ' Show final output and save log
     Log.Spacer
     Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, "green", True
+    blnCompleted = True
 
 CleanUp:
 
     ' Run any cleanup routines
+    EndDuplicateScanCache
     CloseBackEndConnections
     ClearEnvCache
+    ReleaseTableDataSortExport
     VCSIndex.ClearTempExportFolder
     RemoveThemeZipFiles
 
@@ -427,9 +452,268 @@ CleanUp:
             .ExportDate = Now
             If blnFullExport Then .FullExportDate = Now
             Set .CategoryHashes = dCurrentHashes
+            ' Every modified module, form, and report was exported, so the fast path
+            ' can trust the project date again. Not after a skip or an error: the
+            ' object left behind must still be found by hashing on the next scan.
+            If blnCompleted And Operation.ErrorLevel < eelError Then
+                If Not .Conflicts.SkippedAny Then .CertifyVBAProjectDate dteVbaInSync
+            End If
             .Save
         End With
     End If
+    Exit Sub
+
+StoppedBeforeExport:
+    ' Stopped before anything was exported, by a check the caller may not have seen:
+    ' an unattended caller gets the default answer instead of the question. Save the
+    ' log so the reason reaches it, but leave the options and the index as they were.
+    ' Saving the options would write this add-in's version into the project, which is
+    ' what the newer version check is there to prevent.
+    Perf.EndTiming
+    With Log
+        .SaveFile
+        .Active = False
+        .Flush
+    End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportScoped
+' Author    : Adam Waller
+' Date      : 7/17/2026
+' Purpose   : Category-scoped export: export the named container(s), reconciling
+'           : deletions (orphaned source files) within each category. This is a
+'           : middle tier between ExportSingleObject (one object, no orphan cleanup)
+'           : and ExportSource (full project with global front-matter).
+'           :
+'           : Assumes the caller has already begun an Operation, loaded Options/Index/
+'           : Log, and started Perf timing. Does NOT run ExportSchemas, letter-casing,
+'           : UpgradeSourceFiles, CheckGitFiles, AGENTS.md extraction, or RunAfter/
+'           : RunBefore hooks.
+'           :
+'           : Open objects of the targeted categories are closed before scanning,
+'           : with the save argument determined by the interaction mode.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ExportScoped(colContainers As Collection, blnFullExport As Boolean)
+
+    Dim dCategories As Dictionary
+    Dim dCategory As Dictionary
+    Dim dObjects As Dictionary
+    Dim dCurrentHashes As Dictionary
+    Dim dStoredHashes As Dictionary
+    Dim dStaleCategories As Dictionary
+    Dim varCatKey As Variant
+    Dim varKey As Variant
+    Dim cCategory As IDbComponent
+    Dim cDbObject As IDbComponent
+    Dim lngCount As Long
+    Dim lngCurrent As Long
+    Dim lngSkipped As Long
+    Dim strTempFile As String
+    Dim intSave As AcCloseSave
+    Dim blnGlobalChanged As Boolean
+    Dim blnFullForCategory As Boolean
+    Dim varHashKey As Variant
+
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+
+    ' Determine save argument for closing open objects
+    If Operation.InteractionMode = eimNormal _
+        And Operation.Source <> eosMCPTool _
+        And Operation.Source <> eosExternalAPI Then
+        intSave = acSavePrompt
+    Else
+        intSave = acSaveYes
+    End If
+
+    If Not CloseOpenObjectsForContainers(colContainers, intSave) Then
+        Log.Spacer
+        Log.Add T("Export Canceled"), , , "Red", True
+        Operation.ErrorLevel = eelCritical
+        Exit Sub
+    End If
+
+    SaveUnsavedVbaProjectIfNeeded colContainers
+    CacheBackEndConnections
+    PrepareTableDataSortExport
+
+    ' Detect categories that need a full re-export due to option-hash drift
+    Set dCurrentHashes = Options.GetCategoryHashes
+    Set dStoredHashes = VCSIndex.CategoryHashes
+    Set dStaleCategories = New Dictionary
+    blnGlobalChanged = False
+
+    If dCurrentHashes.Exists("_Global") Then
+        If Not dStoredHashes.Exists("_Global") Then
+            blnGlobalChanged = True
+        ElseIf dCurrentHashes("_Global") <> dStoredHashes("_Global") Then
+            blnGlobalChanged = True
+        End If
+    End If
+
+    For Each varHashKey In dCurrentHashes.Keys
+        If CStr(varHashKey) <> "_Global" Then
+            If Not dStoredHashes.Exists(CStr(varHashKey)) Then
+                dStaleCategories.Add CStr(varHashKey), True
+            ElseIf dCurrentHashes(CStr(varHashKey)) <> dStoredHashes(CStr(varHashKey)) Then
+                dStaleCategories.Add CStr(varHashKey), True
+            End If
+        End If
+    Next varHashKey
+
+    If blnGlobalChanged And Not blnFullExport Then
+        Log.Spacer
+        Log.Add T("Global export options have changed. Run a full Export to migrate the project."), , , "Red", True
+        Operation.ErrorLevel = eelCritical
+        Exit Sub
+    End If
+
+    ' Scan database objects for changes
+    Set dCategories = New Dictionary
+    VCSIndex.Conflicts.Initialize dCategories, eatExport
+    Perf.OperationStart "Scan DB Objects"
+    For Each cCategory In colContainers
+        Perf.CategoryStart cCategory.Category
+        Operation.Pulse
+        Set dCategory = New Dictionary
+        dCategory.Add "Class", cCategory
+        blnFullForCategory = blnFullExport Or dStaleCategories.Exists(cCategory.Category)
+        Set dObjects = cCategory.GetAllFromDB(Not blnFullForCategory)
+        If dObjects.Count = 0 Then
+            Log.Add IIf(blnFullForCategory, _
+                T("No {0} found in this database.", var0:=T(LCase(cCategory.Category))), _
+                T("No modified {0} found in this database.", var0:=T(LCase(cCategory.Category)))), _
+                Options.ShowDebug
+        End If
+        dCategory.Add "Objects", dObjects
+        dCategory.Add "FullExport", blnFullForCategory
+        dCategories.Add cCategory.Category, dCategory
+        VCSIndex.CheckExportConflicts dObjects
+        ClearOrphanedSourceFiles cCategory
+        Perf.CategoryEnd 0
+        If Operation.ErrorLevel = eelCritical Then
+            Log.Add vbNullString
+            Perf.OperationEnd
+            Exit Sub
+        End If
+    Next cCategory
+    Perf.OperationEnd
+
+    ' Check for any conflicts
+    With VCSIndex.Conflicts
+        If .Count > 0 Then
+            .ResolveOrPrompt
+            If .ApproveResolutions Then
+                Log.Add T("Resolving source conflicts"), False
+                .Resolve
+            Else
+                Log.Spacer
+                Log.Add T("Export Canceled"), , , "Red", True
+                Operation.ErrorLevel = eelCritical
+                Exit Sub
+            End If
+        End If
+    End With
+
+    ' Loop through all categories and export
+    For Each varCatKey In dCategories.Keys
+        Set dCategory = dCategories(varCatKey)
+        Set cCategory = dCategory("Class")
+        Set dObjects = dCategory("Objects")
+        blnFullForCategory = dCategory("FullExport")
+
+        lngCount = dObjects.Count
+        If lngCount > 0 Then
+            Log.Spacer Options.ShowDebug
+            Log.PadRight T("Exporting {0}...", var0:=T(LCase(cCategory.Category))), , Options.ShowDebug
+            Perf.CategoryStart cCategory.Category
+            lngCurrent = 0
+            Log.Flush
+
+            ' Serve duplicate-file cleanup from one snapshot of the export tree instead
+            ' of rescanning it for every object in this category.
+            BeginDuplicateScanCache
+
+            For Each varKey In dObjects.Keys
+                lngCurrent = lngCurrent + 1
+                Set cDbObject = dObjects(varKey)
+                Log.Add "  " & cDbObject.Name, Options.ShowDebug
+                Log.Progress lngCurrent, lngCount, cDbObject.Name
+                Operation.Pulse
+
+                strTempFile = Replace(cDbObject.SourceFile, Options.GetExportFolder, VCSIndex.GetTempExportFolder)
+                If FSO.FileExists(strTempFile) Then
+                    cDbObject.MoveSource FSO.GetParentFolderName(strTempFile) & PathSep, _
+                        FSO.GetParentFolderName(cDbObject.SourceFile) & PathSep
+                    VCSIndex.UpdateFromAltExport cDbObject
+                Else
+                    cDbObject.Export
+                End If
+
+                CatchAny eelError, T("Error exporting {0}", var0:=cDbObject.Name), ModuleName & ".ExportScoped", True, True
+                If Operation.ErrorLevel = eelCritical Then
+                    Log.Add vbNullString
+                    EndDuplicateScanCache
+                    Exit Sub
+                End If
+                If cCategory.SingleFile Then Exit For
+            Next varKey
+
+            ' Release the snapshot, removing any folder the cleanup emptied.
+            EndDuplicateScanCache
+
+            Select Case cCategory.ComponentType
+                Case edbModule
+                    WarnDuplicateModuleBasenames cCategory.BaseFolder
+                Case edbForm
+                    WarnDuplicateFormBasenames cCategory.BaseFolder
+                Case edbReport
+                    WarnDuplicateReportBasenames cCategory.BaseFolder
+            End Select
+
+            If Options.ShowDebug Then
+                Log.Add T("[{0}] {1} processed.", var0:=lngCount, var1:=T(LCase(cCategory.Category)))
+            Else
+                Log.Add "[" & lngCount & "]"
+            End If
+            Perf.CategoryEnd lngCount
+
+            If Not blnFullForCategory Then
+                lngSkipped = cCategory.QuickCount - lngCount
+                If lngSkipped > 0 Then
+                    Log.Add T("  Skipped {0} unchanged {1}", var0:=lngSkipped, var1:=LCase(cCategory.Category)), Options.ShowDebug
+                End If
+            End If
+        End If
+    Next varCatKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : UpdateScopedExportIndex
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Refresh index metadata for categories exported by ExportScoped without
+'           : claiming a project-wide full export or updating untouched option hashes.
+'---------------------------------------------------------------------------------------
+'
+Public Sub UpdateScopedExportIndex(colContainers As Collection)
+
+    Dim dCurrentHashes As Dictionary
+    Dim cCategory As IDbComponent
+
+    Set dCurrentHashes = Options.GetCategoryHashes
+    VCSIndex.ExportDate = Now
+
+    For Each cCategory In colContainers
+        If dCurrentHashes.Exists(cCategory.Category) Then
+            VCSIndex.CategoryHashes(cCategory.Category) = dCurrentHashes(cCategory.Category)
+        End If
+    Next cCategory
 
 End Sub
 
@@ -514,6 +798,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections
+    PrepareTableDataSortExport
 
     ' Get a database component class from the item
     Set cDbObject = GetClassFromObject(objItem)
@@ -543,6 +828,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
                     Log.Spacer
                     Log.Add T("Export Canceled"), , , "Red", True
                     Operation.ErrorLevel = eelCritical
+                    Operation.Result = eorCanceled
                     GoTo CleanUp
                 End If
             End If
@@ -573,8 +859,8 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
     End If
     ExportDependentObjects cDbObject
 
-    ' Export AGENTS.md file for AI agent assistance
-    modResource.ExtractResource "AGENTS.md", Options.GetExportFolder
+    ' Export AGENTS.md and its reference documents for AI agent assistance
+    modResource.ExtractAgentDocs Options.GetExportFolder
 
 PostExport:
 
@@ -585,8 +871,10 @@ PostExport:
 CleanUp:
 
     ' Run any cleanup routines
+    EndDuplicateScanCache
     CloseBackEndConnections
     ClearEnvCache
+    ReleaseTableDataSortExport
     If Not blnNoIndex Then VCSIndex.ClearTempExportFolder
 
     ' Add performance data to log file and save file
@@ -639,16 +927,12 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     ' Use inline error handling functions to trap and log errors.
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
-    ' Reset the log file
-    Log.Clear
-
     ' Use the main form to display progress
     DoCmd.OpenForm "frmVCSMain", , , , , acHidden
     Set frm = Form_frmVCSMain   ' Connect to hidden instance
     With frm
 
         .ResetForOperation
-        .strLastLogFilePath = Log.LogFilePath
 
         ' Show the status
         .SetStatusText T("Running..."), T("Automatically exporting the saved source code"), _
@@ -701,6 +985,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections
+    PrepareTableDataSortExport
 
     Set dCategories = New Dictionary
 
@@ -773,6 +1058,8 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
     If dCategories.Count = 0 Then
         Log.Add T("Skipped after conflict resolution."), , , "blue", True
     Else
+        ' Serve duplicate-file cleanup from one snapshot per export tree.
+        BeginDuplicateScanCache
         For Each varCategory In dCategories.Keys
             Set dCategory = dCategories.Item(varCategory)
             Set dObjects = dCategory.Item("Objects")
@@ -795,6 +1082,8 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
                 ExportDependentObjects cDbObject
             Next
         Next
+        ' Release the snapshot, removing any folder the cleanup emptied.
+        EndDuplicateScanCache
     End If
 
     ' Show final output and save log
@@ -804,8 +1093,10 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
 CleanUp:
 
     ' Run any cleanup routines
+    EndDuplicateScanCache
     CloseBackEndConnections
     ClearEnvCache
+    ReleaseTableDataSortExport
     VCSIndex.ClearTempExportFolder
 
     ' Add performance data to log file and save log
@@ -816,6 +1107,13 @@ CleanUp:
         .Active = False
         .Flush
     End With
+
+    If FormLoaded(frm) Then
+        frm.strLastLogFilePath = Log.SavedLogFilePath
+        frm.strCopyToClipboardPath = Log.SavedLogFilePath
+        frm.cmdOpenLogFile.Visible = (Len(frm.strLastLogFilePath) > 0)
+        frm.cmdCopyPath.Visible = frm.cmdOpenLogFile.Visible
+    End If
 
     ' Save index file (don't change export date for multiple items export).
     ' Skipped if the user canceled a conflict dialog so the same conflicts
@@ -963,3 +1261,30 @@ Public Sub RemoveThemeZipFiles()
         If FSO.FolderExists(strFolder) Then ClearFilesByExtension strFolder, "zip"
     End If
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CloseObjectsOrAbort
+' Author    : Adam Waller
+' Date      : 7/27/2026
+' Purpose   : Close open database objects for export. Pauses performance timing while
+'           : the user may interact with save prompts. Returns False and sets a critical
+'           : error when objects could not be closed.
+'---------------------------------------------------------------------------------------
+'
+Private Function CloseObjectsOrAbort() As Boolean
+
+    Perf.PauseTiming
+    If Not CloseDatabaseObjects Then
+        Perf.ResumeTiming
+        MsgBox2 T("Please close all database objects"), _
+            T("All database objects (i.e.forms, reports, tables, queries, etc...) must be closed to export source code."), _
+            , vbExclamation
+        Operation.ErrorLevel = eelCritical
+        CloseObjectsOrAbort = False
+    Else
+        Perf.ResumeTiming
+        CloseObjectsOrAbort = True
+    End If
+
+End Function

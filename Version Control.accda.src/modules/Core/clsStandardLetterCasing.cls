@@ -26,3 +26,5 @@ Dim lngAs       'lngAs
 Dim strId       'strId
 Dim lngId       'lngId
 Dim Id          'Id
+Dim CleanUp     'CleanUp
+Dim strXml      'strXml

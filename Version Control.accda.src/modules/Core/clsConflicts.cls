@@ -66,9 +66,9 @@ End Sub
 ' Procedure : ResolveOrPrompt
 ' Author    : Adam Waller
 ' Date      : 4/15/2026
-' Purpose   : For agent/API operations, auto-resolve all conflicts (source is truth for
-'           : imports, database is truth for exports). For user-initiated operations,
-'           : show the interactive conflict dialog as usual.
+' Purpose   : For automated callers and any non-normal interaction mode, auto-resolve
+'           : all conflicts (source is truth for imports, database is truth for exports).
+'           : For user-initiated operations in normal mode, show the interactive dialog.
 '---------------------------------------------------------------------------------------
 '
 Public Sub ResolveOrPrompt()
@@ -79,7 +79,8 @@ Public Sub ResolveOrPrompt()
     ' Log detected conflicts with date details for diagnostics
     LogDetectedConflicts
 
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI _
+        Or Operation.InteractionMode <> eimNormal Then
         For Each varKey In m_dItems.Keys
             Set cItem = m_dItems(varKey)
             If cItem.ActionType <> ercNone Then
@@ -298,6 +299,26 @@ End Sub
 '
 Public Function Count() As Long
     Count = m_dItems.Count
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SkippedAny
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/6/2026
+' Purpose   : True if any conflict was resolved by skipping it, which leaves that object
+'           : out of sync with the index.
+'---------------------------------------------------------------------------------------
+'
+Public Function SkippedAny() As Boolean
+    Dim varKey As Variant
+    If m_dItems Is Nothing Then Exit Function
+    For Each varKey In m_dItems.Keys
+        If m_dItems(varKey).Resolution = ercSkip Then
+            SkippedAny = True
+            Exit Function
+        End If
+    Next varKey
 End Function
 
 

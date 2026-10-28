@@ -23,7 +23,26 @@ None of these are required for basic use; they help locked-down environments.
 |---------|---------|-------------|
 | **Use Ribbon Addin** | On | Installs the twinBASIC COM ribbon add-in (32- and 64-bit DLLs). Provides **Export**, **Build**, **Merge**, **Options**, **Run Tests**, and related commands. Turn off only if COM add-ins are blocked; use **Database Tools** → **Add-Ins** → **VCS** menu items instead. |
 | **Open add-in after installing to trust the add-in file** | Off | Opens the `.accda` after install so you can trust it in strict environments. |
+| **Create compiled version** | Off | Installs a compiled `.accde` instead of the `.accda`. |
+| **Use helper script (Worker.vbs)** | On | Allows the add-in to run a small helper script for the few jobs it cannot do inside its own process. Turn it off if antivirus or endpoint protection blocks it (below). |
 | **Install Folder** | `%AppData%\Roaming\MSAccessVCS\` | Custom path if policy requires it. **Uninstall completely before changing** the install folder. |
+
+## Worker script
+
+A few jobs cannot be done from inside the process that is running the add-in: deleting the add-in file while Access still has it open, checking whether other users can open your database, saving the VBA project, and rebuilding the add-in itself. For these the add-in writes a small script (`Worker.vbs`) into the install folder and runs it.
+
+Some endpoint protection products treat Access launching a freshly written script as suspicious and block it, which can leave the add-in unable to finish these steps. If that describes your environment, uncheck **Use helper script (Worker.vbs)** in **Advanced Options** during install. The script is deleted from the install folder when you do.
+
+Everything else keeps working. What changes:
+
+| Job | With the script off |
+|-----|---------------------|
+| **Export / merge** | If your VBA project has unsaved changes, the add-in tells you to press **Save** in the Visual Basic Editor and run the export again, instead of saving it for you. Exported source would otherwise be missing your latest form and report code. |
+| **Build and merge** | The database is always closed and reopened afterwards, because there is no way to check whether it is still available to other users. Slightly slower; no difference in the result. |
+| **Uninstall** | Access closes and lists the files for you to delete by hand, instead of removing them itself. |
+| **Rebuild Add-In** | Unavailable. Build from source and open the resulting file to install it. |
+
+To turn it back on, re-run the installer with **Use helper script (Worker.vbs)** checked.
 
 ## Ribbon (Version 4+)
 

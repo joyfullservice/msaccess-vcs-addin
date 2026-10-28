@@ -218,9 +218,6 @@ Begin Form
                     BorderColor =15321539
                     Name ="Line10"
                     HorizontalAnchor =2
-                    LayoutCachedTop =1080
-                    LayoutCachedWidth =10800
-                    LayoutCachedHeight =1080
                     BorderThemeColorIndex =-1
                 End
                 Begin Rectangle
@@ -233,8 +230,6 @@ Begin Form
                     BackColor =5324600
                     Name ="Box1"
                     HorizontalAnchor =2
-                    LayoutCachedWidth =10800
-                    LayoutCachedHeight =1020
                     BackThemeColorIndex =-1
                 End
                 Begin Label
@@ -247,10 +242,6 @@ Begin Form
                     FontWeight =700
                     Name ="lblOptions"
                     Caption ="External Database Connection"
-                    LayoutCachedLeft =540
-                    LayoutCachedTop =240
-                    LayoutCachedWidth =6600
-                    LayoutCachedHeight =780
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                 End
@@ -265,10 +256,6 @@ Begin Form
                     Caption ="This add-in provides limited support for exporting object definitions from exter"
                         "nal databases for use in version control."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7200
-                    LayoutCachedTop =1500
-                    LayoutCachedWidth =10635
-                    LayoutCachedHeight =2640
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -282,10 +269,6 @@ Begin Form
                     Name ="txtName"
                     HorizontalAnchor =2
 
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =1740
-                    LayoutCachedWidth =4440
-                    LayoutCachedHeight =2055
                     Begin
                         Begin Label
                             OverlapFlags =93
@@ -297,10 +280,6 @@ Begin Form
                             Name ="Label244"
                             Caption ="Connection Name:"
                             HorizontalAnchor =2
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =1440
-                            LayoutCachedWidth =2880
-                            LayoutCachedHeight =1755
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -317,10 +296,6 @@ Begin Form
                     Name ="txtDescription"
                     HorizontalAnchor =2
 
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =3300
-                    LayoutCachedWidth =6780
-                    LayoutCachedHeight =3615
                     Begin
                         Begin Label
                             OverlapFlags =93
@@ -332,10 +307,6 @@ Begin Form
                             Name ="Label246"
                             Caption ="Description:"
                             HorizontalAnchor =2
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =3000
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =3315
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -354,10 +325,6 @@ Begin Form
                     HorizontalAnchor =2
                     VerticalAnchor =2
 
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =5220
-                    LayoutCachedWidth =6780
-                    LayoutCachedHeight =6600
                     Begin
                         Begin Label
                             OverlapFlags =93
@@ -368,10 +335,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label250"
                             Caption ="Filter for database objects (source file paths):"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =4920
-                            LayoutCachedWidth =5340
-                            LayoutCachedHeight =5235
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -395,10 +358,6 @@ Begin Form
                     HorizontalAnchor =1
                     VerticalAnchor =1
 
-                    LayoutCachedLeft =6540
-                    LayoutCachedTop =6900
-                    LayoutCachedWidth =8040
-                    LayoutCachedHeight =7320
                     BackColor =14262935
                     BackThemeColorIndex =-1
                     BackTint =100.0
@@ -465,10 +424,6 @@ Begin Form
                         0x0000000000000000
                     End
 
-                    LayoutCachedLeft =8340
-                    LayoutCachedTop =6900
-                    LayoutCachedWidth =10200
-                    LayoutCachedHeight =7320
                     PictureCaptionArrangement =5
                     BackColor =14262935
                     BackThemeColorIndex =-1
@@ -533,10 +488,6 @@ Begin Form
                     End
                     BackStyle =0
 
-                    LayoutCachedLeft =3720
-                    LayoutCachedTop =6960
-                    LayoutCachedWidth =5280
-                    LayoutCachedHeight =7320
                     PictureCaptionArrangement =4
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -565,10 +516,6 @@ Begin Form
                     Name ="Label32"
                     Caption ="joyfullservice/msaccess-vcs-addin"
                     VerticalAnchor =1
-                    LayoutCachedLeft =240
-                    LayoutCachedTop =7020
-                    LayoutCachedWidth =3615
-                    LayoutCachedHeight =7260
                     ForeThemeColorIndex =1
                     ForeTint =100.0
                     ForeShade =50.0
@@ -590,10 +537,6 @@ Begin Form
                     ColumnWidths ="0"
                     HorizontalAnchor =2
 
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =2520
-                    LayoutCachedWidth =4440
-                    LayoutCachedHeight =2835
                     Begin
                         Begin Label
                             OverlapFlags =93
@@ -604,10 +547,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label252"
                             Caption ="Database Type:"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =2220
-                            LayoutCachedWidth =3060
-                            LayoutCachedHeight =2535
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -624,10 +563,6 @@ Begin Form
                     Caption ="Filter paths to source files. Start line with ! to exclude match. Use * for wild"
                         "card matches (LIKE comparison)."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7200
-                    LayoutCachedTop =5100
-                    LayoutCachedWidth =10620
-                    LayoutCachedHeight =6480
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -652,10 +587,6 @@ Begin Form
                     BackStyle =0
 
                     CursorOnHover =1
-                    LayoutCachedLeft =5580
-                    LayoutCachedTop =4920
-                    LayoutCachedWidth =6720
-                    LayoutCachedHeight =5160
                     Alignment =1
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -686,10 +617,6 @@ Begin Form
                     DefaultValue ="False"
                     HorizontalAnchor =1
 
-                    LayoutCachedLeft =780
-                    LayoutCachedTop =4470
-                    LayoutCachedWidth =1040
-                    LayoutCachedHeight =4710
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -701,10 +628,6 @@ Begin Form
                             Name ="Label257"
                             Caption ="Save in .env file*"
                             HorizontalAnchor =1
-                            LayoutCachedLeft =1080
-                            LayoutCachedTop =4440
-                            LayoutCachedWidth =2820
-                            LayoutCachedHeight =4755
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -719,10 +642,6 @@ Begin Form
                     DefaultValue ="False"
                     HorizontalAnchor =1
 
-                    LayoutCachedLeft =4740
-                    LayoutCachedTop =2190
-                    LayoutCachedWidth =5000
-                    LayoutCachedHeight =2430
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -734,10 +653,6 @@ Begin Form
                             Name ="Label259"
                             Caption ="Use UTC Dates"
                             HorizontalAnchor =1
-                            LayoutCachedLeft =5040
-                            LayoutCachedTop =2160
-                            LayoutCachedWidth =6660
-                            LayoutCachedHeight =2475
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -752,10 +667,6 @@ Begin Form
                     DefaultValue ="True"
                     HorizontalAnchor =1
 
-                    LayoutCachedLeft =4740
-                    LayoutCachedTop =1770
-                    LayoutCachedWidth =5000
-                    LayoutCachedHeight =2010
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -767,10 +678,6 @@ Begin Form
                             Name ="Label261"
                             Caption ="Enabled"
                             HorizontalAnchor =1
-                            LayoutCachedLeft =5040
-                            LayoutCachedTop =1740
-                            LayoutCachedWidth =6120
-                            LayoutCachedHeight =2055
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -790,10 +697,6 @@ Begin Form
                     OnClick ="[Event Procedure]"
                     HorizontalAnchor =2
 
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =4080
-                    LayoutCachedWidth =6780
-                    LayoutCachedHeight =4395
                     ForeThemeColorIndex =0
                     ForeTint =75.0
                     ForeShade =100.0
@@ -808,10 +711,6 @@ Begin Form
                             Name ="Label248"
                             Caption ="ADO (OLE) Connection String:"
                             HorizontalAnchor =2
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =3780
-                            LayoutCachedWidth =3510
-                            LayoutCachedHeight =4095
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -838,10 +737,6 @@ Begin Form
                     BackStyle =0
 
                     CursorOnHover =1
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =6660
-                    LayoutCachedWidth =1860
-                    LayoutCachedHeight =6900
                     Alignment =1
                     ForeThemeColorIndex =10
                     ForeTint =100.0
@@ -874,10 +769,6 @@ Begin Form
                     Caption ="Provide an ADO (OLE) connection string or check \"attempt conversion\" if you on"
                         "ly have an ODBC string."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7200
-                    LayoutCachedTop =2760
-                    LayoutCachedWidth =10395
-                    LayoutCachedHeight =3885
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -892,10 +783,6 @@ Begin Form
                     Caption ="* If the connection string contains a password, please use the .env option, and "
                         "exclude this file from version control."
                     HorizontalAnchor =1
-                    LayoutCachedLeft =7200
-                    LayoutCachedTop =3960
-                    LayoutCachedWidth =10620
-                    LayoutCachedHeight =5040
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -908,10 +795,6 @@ Begin Form
                     DefaultValue ="True"
                     HorizontalAnchor =1
 
-                    LayoutCachedLeft =3000
-                    LayoutCachedTop =4470
-                    LayoutCachedWidth =3260
-                    LayoutCachedHeight =4710
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -923,10 +806,6 @@ Begin Form
                             Name ="Label268"
                             Caption ="Attempt Conversion to ADO (OLE) String"
                             HorizontalAnchor =1
-                            LayoutCachedLeft =3300
-                            LayoutCachedTop =4440
-                            LayoutCachedWidth =7140
-                            LayoutCachedHeight =4755
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End

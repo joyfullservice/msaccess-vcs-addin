@@ -135,10 +135,6 @@ Begin Form
                     Top =1620
                     Width =6420
                     Name ="Line0"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1620
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =1620
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -152,10 +148,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label1"
                     Caption ="Source Files"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =1260
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =1560
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -206,10 +198,6 @@ Begin Form
                     End
                     BackStyle =0
 
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =180
-                    LayoutCachedWidth =540
-                    LayoutCachedHeight =660
                     Gradient =0
                     BorderWidth =1
                     BorderThemeColorIndex =1
@@ -226,10 +214,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label3"
                     Caption ="Configure how database objects are exported to source files"
-                    LayoutCachedLeft =720
-                    LayoutCachedTop =240
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =960
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -240,10 +224,6 @@ Begin Form
                     Top =3900
                     Width =6420
                     Name ="Line4"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =3900
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =3900
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -257,10 +237,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label5"
                     Caption ="Hooks"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =3540
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =3840
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -271,10 +247,6 @@ Begin Form
                     TabIndex =2
                     Name ="chkUseFastSave"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =2400
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =2640
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -285,10 +257,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label25"
                             Caption ="Use Fast Save"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =2340
-                            LayoutCachedWidth =6060
-                            LayoutCachedHeight =2655
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -301,10 +269,6 @@ Begin Form
                     TabIndex =3
                     Name ="chkSplitLayoutFromVBA"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =2880
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =3120
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -315,10 +279,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label251"
                             Caption ="Split Layout from VBA"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =2820
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =3135
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -340,10 +300,6 @@ Begin Form
                     ColumnWidths ="0"
                     AllowValueListEdits =0
 
-                    LayoutCachedLeft =2160
-                    LayoutCachedTop =1860
-                    LayoutCachedWidth =4140
-                    LayoutCachedHeight =2175
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -354,10 +310,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="lblExportFormatVersion"
                             Caption ="Export Format"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =1860
-                            LayoutCachedWidth =1980
-                            LayoutCachedHeight =2165
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -373,10 +325,6 @@ Begin Form
                     TabIndex =4
                     Name ="txtRunBeforeExport"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =4200
-                    LayoutCachedWidth =5640
-                    LayoutCachedHeight =4515
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -387,10 +335,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label44"
                             Caption ="Run Sub Before Export:"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =4200
-                            LayoutCachedWidth =2880
-                            LayoutCachedHeight =4515
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -406,10 +350,6 @@ Begin Form
                     TabIndex =5
                     Name ="txtRunAfterExport"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =4680
-                    LayoutCachedWidth =5640
-                    LayoutCachedHeight =4995
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -420,10 +360,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label48"
                             Caption ="Run Sub After Export:"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =4680
-                            LayoutCachedWidth =2880
-                            LayoutCachedHeight =4995
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -436,10 +372,6 @@ Begin Form
                     Top =7680
                     Width =6420
                     Name ="Line6"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =7680
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =7680
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -453,10 +385,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label7"
                     Caption ="Content"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =7320
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =7620
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -467,10 +395,6 @@ Begin Form
                     Top =5760
                     Width =6420
                     Name ="Line8"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =5760
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =5760
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -484,10 +408,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label9"
                     Caption ="Sanitization"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =5400
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =5700
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -498,10 +418,6 @@ Begin Form
                     Top =12720
                     Width =6420
                     Name ="Line10"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =12720
-                    LayoutCachedWidth =6480
-                    LayoutCachedHeight =12720
                     BorderThemeColorIndex =1
                     BorderShade =75.0
                 End
@@ -515,10 +431,6 @@ Begin Form
                     ForeColor =5324600
                     Name ="Label11"
                     Caption ="Printer Settings Detail"
-                    LayoutCachedLeft =60
-                    LayoutCachedTop =12360
-                    LayoutCachedWidth =6420
-                    LayoutCachedHeight =12660
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -529,10 +441,6 @@ Begin Form
                     TabIndex =12
                     Name ="chkExtractThemeFiles"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =9900
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =10140
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -543,10 +451,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label112"
                             Caption ="Extract Theme Files"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =9840
-                            LayoutCachedWidth =6420
-                            LayoutCachedHeight =10155
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -559,10 +463,6 @@ Begin Form
                     TabIndex =14
                     Name ="chkDecodeConditionalFormatting"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =10860
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =11100
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -573,10 +473,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="lblDecodeConditionalFormatting"
                             Caption ="Decode conditional formatting to JSON"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =10800
-                            LayoutCachedWidth =6420
-                            LayoutCachedHeight =11115
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -589,10 +485,6 @@ Begin Form
                     TabIndex =11
                     Name ="chkSavePrintVars"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =9415
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =9655
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -603,10 +495,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label27"
                             Caption ="Save Printer Settings"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =9360
-                            LayoutCachedWidth =6420
-                            LayoutCachedHeight =9675
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -619,10 +507,6 @@ Begin Form
                     TabIndex =8
                     Name ="chkSaveQuerySQL"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =7980
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =8220
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -633,10 +517,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label29"
                             Caption ="Save Query SQL"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =7920
-                            LayoutCachedWidth =6420
-                            LayoutCachedHeight =8235
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -649,10 +529,6 @@ Begin Form
                     TabIndex =10
                     Name ="chkSaveTableSQL"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =8940
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =9180
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -663,10 +539,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label38"
                             Caption ="Save Table SQL"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =8880
-                            LayoutCachedWidth =6420
-                            LayoutCachedHeight =9195
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -679,10 +551,6 @@ Begin Form
                     TabIndex =9
                     Name ="chkFormatSQL"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =8460
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =8700
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -693,10 +561,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label249"
                             Caption ="Format SQL"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =8400
-                            LayoutCachedWidth =6420
-                            LayoutCachedHeight =8715
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -709,10 +573,6 @@ Begin Form
                     TabIndex =13
                     Name ="chkUseDeterministicQueryExport"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =10375
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =10615
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -723,10 +583,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="lblUseDeterministicQueryExport"
                             Caption ="Use Deterministic Query Export"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =10320
-                            LayoutCachedWidth =6420
-                            LayoutCachedHeight =10635
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -746,10 +602,6 @@ Begin Form
                     RowSourceType ="Value List"
                     ColumnWidths ="0"
 
-                    LayoutCachedLeft =4200
-                    LayoutCachedTop =11280
-                    LayoutCachedWidth =5640
-                    LayoutCachedHeight =11595
                     Begin
                         Begin Label
                             OverlapFlags =93
@@ -760,10 +612,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label315"
                             Caption ="Store connection credentials in .env"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =11280
-                            LayoutCachedWidth =4320
-                            LayoutCachedHeight =11595
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -785,10 +633,6 @@ Begin Form
                     ColumnWidths ="0"
                     AllowValueListEdits =0
 
-                    LayoutCachedLeft =2160
-                    LayoutCachedTop =6060
-                    LayoutCachedWidth =4140
-                    LayoutCachedHeight =6375
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -799,10 +643,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label235"
                             Caption ="Sanitize Level"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =6060
-                            LayoutCachedWidth =1980
-                            LayoutCachedHeight =6365
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -824,10 +664,6 @@ Begin Form
                     ColumnWidths ="0"
                     AllowValueListEdits =0
 
-                    LayoutCachedLeft =2160
-                    LayoutCachedTop =6540
-                    LayoutCachedWidth =4140
-                    LayoutCachedHeight =6855
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -838,10 +674,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label233"
                             Caption ="Sanitize Colors"
-                            LayoutCachedLeft =420
-                            LayoutCachedTop =6540
-                            LayoutCachedWidth =1980
-                            LayoutCachedHeight =6845
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -854,10 +686,6 @@ Begin Form
                     TabIndex =16
                     Name ="chkOrientation"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =13015
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =13255
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -868,10 +696,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label115"
                             Caption ="Page Orientation"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =12960
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =13275
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -884,10 +708,6 @@ Begin Form
                     TabIndex =17
                     Name ="chkPaperSize"
 
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =13495
-                    LayoutCachedWidth =680
-                    LayoutCachedHeight =13735
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -898,10 +718,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label117"
                             Caption ="Paper Size"
-                            LayoutCachedLeft =720
-                            LayoutCachedTop =13440
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =13755
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -918,10 +734,6 @@ Begin Form
                     Caption ="Select any additional settings that you would like saved to version control and "
                         "used when building a database from source files."
                     HorizontalAnchor =2
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =13980
-                    LayoutCachedWidth =6000
-                    LayoutCachedHeight =14805
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End
@@ -932,10 +744,6 @@ Begin Form
                     TabIndex =18
                     Name ="chkDuplex"
 
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =15055
-                    LayoutCachedWidth =620
-                    LayoutCachedHeight =15295
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -946,10 +754,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label130"
                             Caption ="Duplex"
-                            LayoutCachedLeft =660
-                            LayoutCachedTop =15000
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =15315
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -962,10 +766,6 @@ Begin Form
                     TabIndex =19
                     Name ="chkPrintQuality"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =15055
-                    LayoutCachedWidth =3200
-                    LayoutCachedHeight =15295
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -976,10 +776,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label128"
                             Caption ="Print Quality"
-                            LayoutCachedLeft =3240
-                            LayoutCachedTop =15000
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =15315
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -992,10 +788,6 @@ Begin Form
                     TabIndex =20
                     Name ="chkCollate"
 
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =15535
-                    LayoutCachedWidth =620
-                    LayoutCachedHeight =15775
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1006,10 +798,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label134"
                             Caption ="Collate"
-                            LayoutCachedLeft =660
-                            LayoutCachedTop =15480
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =15795
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1022,10 +810,6 @@ Begin Form
                     TabIndex =21
                     Name ="chkResolution"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =15535
-                    LayoutCachedWidth =3200
-                    LayoutCachedHeight =15775
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1036,10 +820,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label132"
                             Caption ="Resolution"
-                            LayoutCachedLeft =3240
-                            LayoutCachedTop =15480
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =15795
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1052,10 +832,6 @@ Begin Form
                     TabIndex =22
                     Name ="chkColor"
 
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =16015
-                    LayoutCachedWidth =620
-                    LayoutCachedHeight =16255
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1066,10 +842,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label144"
                             Caption ="Color or B/W"
-                            LayoutCachedLeft =660
-                            LayoutCachedTop =15960
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =16275
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1082,10 +854,6 @@ Begin Form
                     TabIndex =23
                     Name ="chkCopies"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =16015
-                    LayoutCachedWidth =3200
-                    LayoutCachedHeight =16255
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1096,10 +864,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label123"
                             Caption ="Number of Copies"
-                            LayoutCachedLeft =3240
-                            LayoutCachedTop =15960
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =16275
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1112,10 +876,6 @@ Begin Form
                     TabIndex =24
                     Name ="chkDefaultSource"
 
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =16495
-                    LayoutCachedWidth =620
-                    LayoutCachedHeight =16735
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1126,10 +886,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label125"
                             Caption ="Paper Tray"
-                            LayoutCachedLeft =660
-                            LayoutCachedTop =16440
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =16755
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1142,10 +898,6 @@ Begin Form
                     TabIndex =26
                     Name ="chkFormName"
 
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =16975
-                    LayoutCachedWidth =620
-                    LayoutCachedHeight =17215
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1156,10 +908,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label142"
                             Caption ="Form Name"
-                            LayoutCachedLeft =660
-                            LayoutCachedTop =16920
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =17235
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1172,10 +920,6 @@ Begin Form
                     TabIndex =28
                     Name ="chkMediaType"
 
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =17455
-                    LayoutCachedWidth =620
-                    LayoutCachedHeight =17695
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1186,10 +930,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label154"
                             Caption ="Media Type"
-                            LayoutCachedLeft =660
-                            LayoutCachedTop =17400
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =17715
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1202,10 +942,6 @@ Begin Form
                     TabIndex =30
                     Name ="chkDisplayFrequency"
 
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =17935
-                    LayoutCachedWidth =620
-                    LayoutCachedHeight =18175
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1216,10 +952,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label148"
                             Caption ="Display Freq."
-                            LayoutCachedLeft =660
-                            LayoutCachedTop =17880
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =18195
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1232,10 +964,6 @@ Begin Form
                     TabIndex =32
                     Name ="chkDisplayFlags"
 
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =18415
-                    LayoutCachedWidth =620
-                    LayoutCachedHeight =18655
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1246,10 +974,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label146"
                             Caption ="Display Flags"
-                            LayoutCachedLeft =660
-                            LayoutCachedTop =18360
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =18675
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1262,10 +986,6 @@ Begin Form
                     TabIndex =34
                     Name ="chkICMMethod"
 
-                    LayoutCachedLeft =360
-                    LayoutCachedTop =18895
-                    LayoutCachedWidth =620
-                    LayoutCachedHeight =19135
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1276,10 +996,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label150"
                             Caption ="ICM Method"
-                            LayoutCachedLeft =660
-                            LayoutCachedTop =18840
-                            LayoutCachedWidth =2640
-                            LayoutCachedHeight =19155
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1292,10 +1008,6 @@ Begin Form
                     TabIndex =25
                     Name ="chkScale"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =16495
-                    LayoutCachedWidth =3200
-                    LayoutCachedHeight =16735
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1306,10 +1018,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label121"
                             Caption ="Print Scale"
-                            LayoutCachedLeft =3240
-                            LayoutCachedTop =16440
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =16755
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1322,10 +1030,6 @@ Begin Form
                     TabIndex =35
                     Name ="chkICMIntent"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =18895
-                    LayoutCachedWidth =3200
-                    LayoutCachedHeight =19135
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1336,10 +1040,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label152"
                             Caption ="ICM Intent"
-                            LayoutCachedLeft =3240
-                            LayoutCachedTop =18840
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =19155
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1352,10 +1052,6 @@ Begin Form
                     TabIndex =27
                     Name ="chkPaperLength"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =16975
-                    LayoutCachedWidth =3200
-                    LayoutCachedHeight =17215
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1366,10 +1062,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label119"
                             Caption ="Custom Length"
-                            LayoutCachedLeft =3240
-                            LayoutCachedTop =16920
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =17235
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1382,10 +1074,6 @@ Begin Form
                     TabIndex =31
                     Name ="chkDitherType"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =17935
-                    LayoutCachedWidth =3200
-                    LayoutCachedHeight =18175
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1396,10 +1084,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label156"
                             Caption ="Dither Type"
-                            LayoutCachedLeft =3240
-                            LayoutCachedTop =17880
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =18195
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1412,10 +1096,6 @@ Begin Form
                     TabIndex =29
                     Name ="chkPaperWidth"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =17455
-                    LayoutCachedWidth =3200
-                    LayoutCachedHeight =17695
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1426,10 +1106,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label158"
                             Caption ="Custom Width"
-                            LayoutCachedLeft =3240
-                            LayoutCachedTop =17400
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =17715
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1442,10 +1118,6 @@ Begin Form
                     TabIndex =33
                     Name ="chkTTOption"
 
-                    LayoutCachedLeft =2940
-                    LayoutCachedTop =18415
-                    LayoutCachedWidth =3200
-                    LayoutCachedHeight =18655
                     Begin
                         Begin Label
                             OverlapFlags =85
@@ -1456,10 +1128,6 @@ Begin Form
                             ForeColor =5324600
                             Name ="Label140"
                             Caption ="TT Font Handling"
-                            LayoutCachedLeft =3240
-                            LayoutCachedTop =18360
-                            LayoutCachedWidth =6180
-                            LayoutCachedHeight =18675
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End
@@ -1476,10 +1144,6 @@ Begin Form
                     Name ="Label14"
                     Caption ="Applies to both export and build/import"
                     HorizontalAnchor =2
-                    LayoutCachedLeft =420
-                    LayoutCachedTop =11700
-                    LayoutCachedWidth =6000
-                    LayoutCachedHeight =12060
                     ForeThemeColorIndex =-1
                     ForeTint =100.0
                 End

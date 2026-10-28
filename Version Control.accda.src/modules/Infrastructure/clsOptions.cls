@@ -52,11 +52,15 @@ Public LayoutSvgScaleMode As String     ' "Universal", "Screenshot"
 Public ExportAfterMerge As Boolean
 Public ForceImportOriginalQuerySQL As Boolean
 Public UseMergeBuild As Boolean
+Public MergeTableData As Boolean        ' Reconcile exported table data on merge (default: True)
+Public SkipReopenBeforeMerge As Boolean ' Prepare for merge in place instead of reopening (default: False)
 Public RunBeforeBuild As String
 Public RunAfterBuild As String
 Public RunBeforeMerge As String
 Public RunAfterMerge As String
-Public GitSettings As Dictionary
+' Name of a function in the built database that returns True when the build is good.
+' Unlike the RunAfter* hooks, a False return or an error fails the build. (Empty = skip.)
+Public ValidateAfterBuild As String
 
 ' Table Data
 Public TablesToExportData As Dictionary
@@ -83,6 +87,11 @@ Public HashAlgorithm As String
 Public UseShortHash As Boolean
 Public UseGitIntegration As Boolean
 Public ShowVCSLegacy As Boolean
+Public UseWebTestRunner As Boolean      ' Use the HTML/Edge test runner UI (default: True)
+Public ExportTestResultsJUnit As Boolean ' Write test-results/test-results.xml after each run (default: True)
+Public ExportTestResultsHtml As Boolean  ' Write test-results/test-results.html after each run (default: True)
+Public ExportPerfJson As Boolean         ' Write <log>.perf.json with call-path performance data (default: False)
+Public McpProgressIntervalMs As Long     ' Minimum delay between MCP progress posts (default: 500)
 
 ' Enum to compare loaded version to installed version.
 Public Enum eVersionCompare
@@ -116,7 +125,7 @@ Public Sub LoadDefaults()
         ' Export
         .UseFastSave = True
         .SplitLayoutFromVBA = True
-        .ExportFormatVersion = LATEST_EXPORT_FORMAT
+        .ExportFormatVersion = LatestExportFormat
         .SanitizeLevel = eslStandard
         .SanitizeColors = eslMinimal
         .SaveQuerySQL = True
@@ -159,18 +168,8 @@ Public Sub LoadDefaults()
         .ExportAfterMerge = False
         .ForceImportOriginalQuerySQL = False
         .UseMergeBuild = False
-        Set .GitSettings = New Dictionary
-        With .GitSettings
-            .CompareMode = TextCompare
-            .Add "MergeUntrackedFiles", True
-            .Add "ImportTableData", False
-            .Add "MergeQuerySQL", False
-            .Add "MergeConflicts", "Cancel Merge"
-            .Add "RunBeforeMerge", vbNullString
-            .Add "RunAfterMerge", vbNullString
-            .Add "InspectSharedImages", False
-            .Add "InspectThemeFiles", False
-        End With
+        .MergeTableData = True
+        .SkipReopenBeforeMerge = False
 
         ' Table Data
         Set .TablesToExportData = New Dictionary
@@ -201,6 +200,11 @@ Public Sub LoadDefaults()
         .UseShortHash = True
         .UseGitIntegration = False
         .ShowVCSLegacy = True
+        .UseWebTestRunner = True
+        .ExportTestResultsJUnit = True
+        .ExportTestResultsHtml = True
+        .ExportPerfJson = False
+        .McpProgressIntervalMs = 500
     End With
 
 End Sub
@@ -481,7 +485,7 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
     ' 3/2026 (5.0.0)
     ' Existing projects without an export format version default to the
     ' 4.1.2 baseline (last v4 release) so upgrades don't change export output.
-    ' New projects (no options file) get LATEST_EXPORT_FORMAT via LoadDefaults.
+    ' New projects (no options file) get LatestExportFormat via LoadDefaults.
     If Not dOptions.Exists("ExportFormatVersion") Then
         dOptions.Add "ExportFormatVersion", "4.1.2"
     End If
@@ -741,7 +745,9 @@ Public Function GetCategoryHashes() As Dictionary
     Dim dGlobal As Dictionary
     Dim dResult As Dictionary
     Dim dMerged As Dictionary
+    Dim dRev As Dictionary
     Dim varKey As Variant
+    Dim varRevCat As Variant
 
     Set dOptions = CloneDictionary(SerializeOptions)
     Set dCats = New Dictionary
@@ -804,15 +810,19 @@ Public Function GetCategoryHashes() As Dictionary
             ' --- Non-export options (skip) ---
             Case "ExportFolder", "ShowDebug", "UseFastSave", _
                  "UseMergeBuild", "ExportAfterMerge", "UseGitIntegration", _
-                 "ForceImportOriginalQuerySQL", _
+                 "ForceImportOriginalQuerySQL", "MergeTableData", _
+                 "SkipReopenBeforeMerge", _
                  "RunBeforeExport", "RunAfterExport", _
                  "RunBeforeBuild", "RunAfterBuild", _
                  "RunBeforeMerge", "RunAfterMerge", _
+                 "ValidateAfterBuild", _
                  "ShowVCSLegacy", "BreakOnError", "MaxLogFiles", _
                  "HashAlgorithm", "UseShortHash", "SchemaExports", _
                  "TablesToExportData", "DefaultTestFilter", _
                  "McpAllowRunVBA", "McpAllowExecuteSQL", _
-                 "McpAllowCallVBA", "McpAllowImport"
+                 "McpAllowCallVBA", "McpAllowImport", "UseWebTestRunner", _
+                 "ExportTestResultsJUnit", "ExportTestResultsHtml", _
+                 "ExportPerfJson", "McpProgressIntervalMs"
                 ' Not included in hash
 
             Case Else
@@ -821,6 +831,13 @@ Public Function GetCategoryHashes() As Dictionary
                     "Please add it to the appropriate category or non-export list."
         End Select
     Next varKey
+
+    ' Fold in per-category exporter revisions (forces one-time re-export on bump)
+    Set dRev = GetExporterRevisions
+    For Each varRevCat In dRev.Keys
+        If Not dCats.Exists(CStr(varRevCat)) Then Set dCats(CStr(varRevCat)) = New Dictionary
+        dCats(CStr(varRevCat)).Add "ExporterRevision", CStr(dRev(varRevCat))
+    Next varRevCat
 
     ' Build hashes: global hash + per-category hashes (each includes global options)
     dResult.Add "_Global", GetDictionaryHash(dGlobal)
@@ -992,10 +1009,13 @@ Private Sub Class_Initialize()
         .Add "ExportAfterMerge"
         .Add "ForceImportOriginalQuerySQL"
         .Add "UseMergeBuild"
+        .Add "MergeTableData"
+        .Add "SkipReopenBeforeMerge"
         .Add "RunBeforeBuild"
         .Add "RunAfterBuild"
         .Add "RunBeforeMerge"
         .Add "RunAfterMerge"
+        .Add "ValidateAfterBuild"
         ' Table Data
         .Add "TablesToExportData"
         ' External Databases
@@ -1018,6 +1038,11 @@ Private Sub Class_Initialize()
         .Add "UseShortHash"
         .Add "UseGitIntegration"
         .Add "ShowVCSLegacy"
+        .Add "UseWebTestRunner"
+        .Add "ExportTestResultsJUnit"
+        .Add "ExportTestResultsHtml"
+        .Add "ExportPerfJson"
+        .Add "McpProgressIntervalMs"
     End With
 
     ' Load default values

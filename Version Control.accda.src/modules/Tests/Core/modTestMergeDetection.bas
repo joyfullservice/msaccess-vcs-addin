@@ -1,0 +1,1304 @@
+﻿Attribute VB_Name = "modTestMergeDetection"
+'---------------------------------------------------------------------------------------
+' Module    : modTestMergeDetection
+' Author    : Adam Waller
+' Date      : 7/20/2026
+' Purpose   : Regression tests for multi-file merge change-detection (AllFilesHash,
+'           : companion .json / .cls indexing, and the legacy-entry upgrade path).
+'---------------------------------------------------------------------------------------
+Option Compare Database
+Option Explicit
+Option Private Module
+'@Folder("Tests.Core")
+
+
+Public Sub TestMergeDetectsFormMetadataOnlyJsonChange()
+    RunMetadataOnlyMergeTest GetTestFormComponent, "frmVCSMain"
+End Sub
+
+
+Public Sub TestMergeDetectsModuleMetadataOnlyJsonChange()
+    RunMetadataOnlyMergeTest GetTestModuleComponent, "modTestIndex"
+End Sub
+
+
+Public Sub TestMergeDetectsMacroMetadataOnlyJsonChange()
+    RunMetadataOnlyMergeTest GetTestMacroComponent, "autoexec"
+End Sub
+
+
+Public Sub TestMergeIgnoresTimestampOnlyWhenAllFilesHashMatches()
+    Dim cForm As IDbComponent
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    blnCreatedJson = EnsureCompanionJson(strFile)
+    SeedMergeIndexBaseline cForm, strFile
+    VCSIndex.Item(cForm, strFile).FilePropertiesHash = "stale_property_hash"
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    TestAssert Not dModified.Exists(strFile), "timestamp-only drift ignored when AllFilesHash matches"
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeSkipsContentHashWhenPropertyHashMatches
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : Pin the fast path in GetModifiedSourceFiles. When the property hash (date
+'           : and size of every indexed file) matches the index, no file content is read
+'           : at all. Poisoning AllFilesHash proves that: if the content hash were still
+'           : being consulted, the bogus value would report the file as modified.
+'           :
+'           : This is what keeps a no-change merge from reading every source file. See
+'           : the 2026-07-29 DECISIONS.md entry.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeSkipsContentHashWhenPropertyHashMatches()
+
+    Dim cForm As IDbComponent
+    Dim cIdx As clsVCSIndexItem
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    blnCreatedJson = EnsureCompanionJson(strFile)
+    SeedMergeIndexBaseline cForm, strFile
+
+    ' Poison the content hash while leaving the property hash valid
+    Set cIdx = VCSIndex.Item(cForm, strFile)
+    cIdx.AllFilesHash = "bogus_content_hash"
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    TestAssert Not dModified.Exists(strFile), _
+        "matching property hash short-circuits before the content hash is consulted"
+
+    ' Restore a valid baseline so later tests are not affected
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeSkipsTableDataAfterExport
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Export must seed the index for table data so a subsequent merge scan skips
+'           : unchanged source files. Before the fix, only Merge updated the index.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeSkipsTableDataAfterExport()
+    '@Tag("integration")
+
+    Dim cCategory As IDbComponent
+    Dim cTable As clsDbTableData
+    Dim dbs As DAO.Database
+    Dim strTable As String
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
+
+    strTable = "vcs_test_export_idx"
+    strFile = vbNullString
+    Set dbs = CurrentDb
+    Set cCategory = New clsDbTableData
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    ' A leftover table from an interrupted run is expected, so the drop is tolerated.
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strTable & "]"
+    Err.Clear
+    On Error GoTo ErrHandler
+
+    dbs.Execute "CREATE TABLE [" & strTable & "] (ID LONG, Name TEXT(10))"
+    dbs.Execute "INSERT INTO [" & strTable & "] (ID, Name) VALUES (1, 'a')"
+    ' Export reads the table through SharedDb, and a handle cached before the table
+    ' existed raises error 3265 for it.
+    dbs.TableDefs.Refresh
+    ReleaseDbReferences
+
+    Set cTable = New clsDbTableData
+    cTable.Format = etdTabDelimited
+
+    ' An unbindable table is reported as a skip below, not as an error.
+    On Error Resume Next
+    Set cTable.Parent.DbObject = CurrentData.AllTables(strTable)
+    Err.Clear
+    On Error GoTo ErrHandler
+
+    If cTable.Parent.DbObject Is Nothing Then
+        TestAssert True, "SKIP: could not bind test table"
+        GoTo CleanUp
+    End If
+
+    cTable.Parent.Export
+    strFile = Options.GetExportFolder & "tables\" & strTable & ".txt"
+    If Not FSO.FileExists(strFile) Then
+        TestAssert True, "SKIP: table data export file missing"
+        GoTo CleanUp
+    End If
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cCategory)
+    TestAssert Not dModified.Exists(strFile), _
+        "freshly exported table data skipped on merge scan"
+
+CleanUp:
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strTable & "]"
+    dbs.TableDefs.Refresh
+    ReleaseDbReferences
+    If Len(strFile) > 0 Then
+        If FSO.FileExists(strFile) Then DeleteFile strFile
+        VCSIndex.Remove cCategory, strFile
+    End If
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected table data export index error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeUsesSharedScanMetadata
+' Author    : Adam Waller
+' Date      : 7/29/2026
+' Purpose   : A merge build passes one folder metadata map covering every category rather
+'           : than letting each category scan its own folder. Verify the shared map
+'           : produces the same verdict as the per-category fallback.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeUsesSharedScanMetadata()
+
+    Dim cForm As IDbComponent
+    Dim strFile As String
+    Dim dShared As Dictionary
+    Dim dOwnScan As Dictionary
+    Dim dRootMeta As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    blnCreatedJson = EnsureCompanionJson(strFile)
+    SeedMergeIndexBaseline cForm, strFile
+
+    ' A recursive scan of the export root covers every category folder
+    Set dRootMeta = ScanFolderMetadata(Options.GetExportFolder)
+    Set dShared = VCSIndex.GetModifiedSourceFiles(cForm, dRootMeta)
+    Set dOwnScan = VCSIndex.GetModifiedSourceFiles(cForm)
+
+    TestAssert dShared.Exists(strFile) = dOwnScan.Exists(strFile), _
+        "shared folder scan agrees with the per-category scan"
+    TestAssert dShared.Count = dOwnScan.Count, "same number of modified files reported"
+
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
+
+End Sub
+
+
+Public Sub TestGetSourceFilesContentHashIncludesJson()
+    Dim cForm As IDbComponent
+    Dim strFile As String
+    Dim strHashBefore As String
+    Dim strHashAfter As String
+    Dim strJson As String
+    Dim strOriginal As String
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    strJson = SwapExtension(strFile, "json")
+    blnCreatedJson = EnsureCompanionJson(strFile)
+    strOriginal = ReadFile(strJson)
+    strHashBefore = GetSourceFilesContentHash(cForm, strFile)
+
+    WriteFile strOriginal & vbCrLf, strJson
+    strHashAfter = GetSourceFilesContentHash(cForm, strFile)
+    TestAssert strHashBefore <> strHashAfter, "content hash reflects json change"
+
+    WriteFile strOriginal, strJson
+    CleanupCreatedCompanionJson strFile, blnCreatedJson
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeDetectsClsOnlyChangeWithLegacyIndexEntry
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Issue #748 regression. An index entry written before AllFilesHash existed
+'           : must still report a form as modified when only its companion .cls changes.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeDetectsClsOnlyChangeWithLegacyIndexEntry()
+
+    Dim cForm As IDbComponent
+    Dim strFile As String
+    Dim strCls As String
+    Dim strOriginal As String
+    Dim dModified As Dictionary
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    strCls = SwapExtension(strFile, "cls")
+    If Not FSO.FileExists(strCls) Then
+        TestAssert True, "SKIP: frmVCSMain.cls fixture missing"
+        Exit Sub
+    End If
+
+    strOriginal = ReadFile(strCls)
+    SeedLegacyMergeIndexBaseline cForm, strFile
+
+    WriteFile strOriginal & " ", strCls
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    TestAssert dModified.Exists(strFile), _
+        "legacy index entry detects .cls-only change (issue #748)"
+
+    WriteFile strOriginal, strCls
+    SeedMergeIndexBaseline cForm, strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeDoesNotMarkLegacyEntrySyncedAfterMissedEdit
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : Pin the silent-data-loss half of issue #748. The legacy multi-file branch
+'           : must not refresh FilePropertiesHash to the edited tree's dates/sizes, which
+'           : would record a companion-only edit as synced and hide it from later merges.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeDoesNotMarkLegacyEntrySyncedAfterMissedEdit()
+
+    Dim cForm As IDbComponent
+    Dim cIdx As clsVCSIndexItem
+    Dim strFile As String
+    Dim strCls As String
+    Dim strOriginal As String
+    Dim strSeededPropHash As String
+    Dim dModified As Dictionary
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    strCls = SwapExtension(strFile, "cls")
+    If Not FSO.FileExists(strCls) Then
+        TestAssert True, "SKIP: frmVCSMain.cls fixture missing"
+        Exit Sub
+    End If
+
+    strOriginal = ReadFile(strCls)
+    SeedLegacyMergeIndexBaseline cForm, strFile
+    strSeededPropHash = VCSIndex.Item(cForm, strFile).FilePropertiesHash
+
+    WriteFile strOriginal & " ", strCls
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    Set cIdx = VCSIndex.Item(cForm, strFile)
+
+    TestAssert dModified.Exists(strFile), "edited form reported modified"
+    TestAssert cIdx.FilePropertiesHash = strSeededPropHash, _
+        "legacy multi-file branch does not refresh FilePropertiesHash to the edited state"
+
+    WriteFile strOriginal, strCls
+    SeedMergeIndexBaseline cForm, strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeBackfillsAllFilesHashForLegacyEntry
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : When a legacy multi-file entry is still in its synced state (property hash
+'           : matches), the fast path records AllFilesHash so later scans can arbitrate
+'           : companion edits precisely without a full re-export.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeBackfillsAllFilesHashForLegacyEntry()
+
+    Dim cForm As IDbComponent
+    Dim cIdx As clsVCSIndexItem
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    ' Ensure the form is multi-file so the backfill path runs
+    blnCreatedJson = EnsureCompanionJson(strFile)
+    SeedLegacyMergeIndexBaseline cForm, strFile
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    Set cIdx = VCSIndex.Item(cForm, strFile)
+
+    TestAssert Not dModified.Exists(strFile), "clean legacy entry not reported modified"
+    TestAssert Len(cIdx.AllFilesHash) > 0, "AllFilesHash backfilled on clean fast path"
+    TestAssert cIdx.AllFilesHash = GetSourceFilesContentHash(cForm, strFile), _
+        "backfilled AllFilesHash matches current content"
+
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeLegacySingleFileUsesPrimaryHash
+' Author    : Adam Waller
+' Date      : 8/11/2026
+' Purpose   : A legacy entry for a single-file component (no companion on disk) must
+'           : still resolve via the primary content hash and not be reported modified
+'           : on timestamp-only drift. The multi-file conservative branch must not
+'           : fire here -- FileExtensions.Count is not the criterion; existence is.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeLegacySingleFileUsesPrimaryHash()
+
+    Dim cModule As IDbComponent
+    Dim strFile As String
+    Dim strJson As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cModule, "modTestIndex")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Guard: a companion .json would make this multi-file
+    strJson = SwapExtension(strFile, "json")
+    If FSO.FileExists(strJson) Then
+        TestAssert True, "SKIP: modTestIndex has a companion .json"
+        Exit Sub
+    End If
+
+    SeedLegacyMergeIndexBaseline cModule, strFile
+    ' Force the property-hash mismatch path while content is unchanged
+    VCSIndex.Item(cModule, strFile).FilePropertiesHash = "stale_property_hash"
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert Not dModified.Exists(strFile), _
+        "legacy single-file entry dismisses timestamp-only drift via primary hash"
+
+    SeedMergeIndexBaseline cModule, strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestAltExportPromotionRecordsSourceFileState
+' Author    : Adam Waller
+' Date      : 8/12/2026
+' Purpose   : When an export resolves a conflict by moving the temp copy into the export
+'           : folder, UpdateFromAltExport must measure the source files where they now
+'           : live. Update leaves those values blank for an alternate export, so copying
+'           : them across left a multi-file component with no recorded content hash --
+'           : reported modified by every later merge, which for an add-in form fails with
+'           : "Merging not supported for add-in forms" even though nothing changed.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestAltExportPromotionRecordsSourceFileState()
+
+    Dim cForm As IDbComponent
+    Dim cIdx As clsVCSIndexItem
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    Set cForm = GetTestFormComponent
+    If cForm Is Nothing Then
+        TestAssert True, "SKIP: frmVCSMain not available"
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cForm, "frmVCSMain")
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: frmVCSMain.form fixture missing"
+        Exit Sub
+    End If
+
+    ' A companion .json makes this multi-file, where a missing content hash cannot
+    ' be ruled out as a companion-only edit.
+    blnCreatedJson = EnsureCompanionJson(strFile)
+
+    ' Record the entry a conflict temp export leaves behind, then promote it the way
+    ' the export loop does once the files have been moved into the export folder.
+    VCSIndex.Update cForm, eatAltExport, GetFileHash(strFile)
+    VCSIndex.UpdateFromAltExport cForm
+
+    Set cIdx = VCSIndex.Item(cForm, strFile)
+    TestAssert cIdx.FilePropertiesHash = GetSourceFilesPropertyHash(cForm, strFile), _
+        "promotion records the property hash of the promoted files"
+    TestAssert cIdx.AllFilesHash = GetSourceFilesContentHash(cForm, strFile), _
+        "promotion records the combined content hash of the promoted files"
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cForm)
+    TestAssert Not dModified.Exists(strFile), _
+        "a promoted component is not reported modified on the next merge scan"
+
+    ' The AlternateExport entry seeded above is dropped when the index is saved.
+    RestoreMergeIndexBaseline cForm, strFile, blnCreatedJson
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeReportsObjectMissingFromDatabase
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A source file whose object does not exist in the database must be
+'           : reported for merging even when the index holds matching hashes for it
+'           : (issue #471). Otherwise a deleted object is never restored.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeReportsObjectMissingFromDatabase()
+
+    Dim cModule As IDbComponent
+    Dim strFile As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    ' A module source file with no matching module in the database
+    strFile = cModule.BaseFolder & "modTestMissingFromDb.bas"
+    WriteFile "Attribute VB_Name = ""modTestMissingFromDb""" & vbCrLf & "Option Explicit" & vbCrLf, strFile
+
+    ' The file list is cached per component instance, so create a new one that
+    ' sees the file just written.
+    Set cModule = GetTestModuleComponent
+
+    ' Give the file an index entry whose hashes match the file on disk.
+    SeedMergeIndexBaseline cModule, strFile
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert dModified.Exists(strFile), _
+        "unchanged source file of an object missing from the database is reported (issue #471)"
+
+    ' Leave neither the file nor its index entry behind.
+    VCSIndex.Remove cModule, strFile
+    DeleteFile strFile
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeIgnoresFolderDriftForExistingObject
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A source file that differs from the object's expected path only by
+'           : folder and casing (@Folder drift) must not count as missing: when the
+'           : index matches, it is not reported for merging.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeIgnoresFolderDriftForExistingObject()
+
+    Dim cModule As IDbComponent
+    Dim strOriginal As String
+    Dim strFolder As String
+    Dim strCopy As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strOriginal = ResolveSourceFilePath(cModule, "modTestIndex")
+    If Len(strOriginal) = 0 Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Same module, different folder and casing
+    strFolder = cModule.BaseFolder & "zzTestFolderDrift" & PathSep
+    strCopy = strFolder & "MODTESTINDEX.bas"
+    If Not FSO.FolderExists(strFolder) Then FSO.CreateFolder strFolder
+    FSO.CopyFile strOriginal, strCopy, True
+
+    ' New instance, so the cached file list includes the copy.
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strCopy
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert Not dModified.Exists(strCopy), _
+        "folder and casing drift of an existing object is not reported as missing"
+
+    ' The index keys on the file name, so the copy may share the original's entry.
+    ' Remove it, drop the copy, and describe the original again.
+    VCSIndex.Remove cModule, strCopy
+    DeleteFile strCopy
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder Left$(strFolder, Len(strFolder) - 1), True
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strOriginal
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeKeepsObjectWithFolderDriftedSource
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A database object whose source file sits in another folder and with other
+'           : casing than its expected path (@Folder drift) must not be reported as an
+'           : orphan: merging an orphan deletes the object from the database.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeKeepsObjectWithFolderDriftedSource()
+
+    Dim cModule As IDbComponent
+    Dim strExpected As String
+    Dim strFolder As String
+    Dim strMoved As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strExpected = cModule.SourceFile
+    If Not FSO.FileExists(strExpected) Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Move the module's own source file to another folder, with other casing.
+    strFolder = cModule.BaseFolder & "zzTestOrphanDrift" & PathSep
+    strMoved = strFolder & "MODTESTINDEX.bas"
+    If Not FSO.FolderExists(strFolder) Then FSO.CreateFolder strFolder
+    FSO.MoveFile strExpected, strMoved
+
+    ' New instance, so the cached file list sees the move.
+    Set cModule = GetTestModuleComponent
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert Not dModified.Exists(strExpected), _
+        "object whose source file drifted to another folder is not reported as an orphan"
+
+    ' Put the file back and describe it again.
+    FSO.MoveFile strMoved, strExpected
+    If FSO.FolderExists(strFolder) Then FSO.DeleteFolder Left$(strFolder, Len(strFolder) - 1), True
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strExpected
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeKeepsObjectWithRecasedSource
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A database object whose source file differs from its expected path only
+'           : by casing must not be reported as an orphan.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeKeepsObjectWithRecasedSource()
+
+    Dim cModule As IDbComponent
+    Dim strExpected As String
+    Dim strTemp As String
+    Dim strRecased As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strExpected = cModule.SourceFile
+    If Not FSO.FileExists(strExpected) Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Rename in place to other casing. (Through a temporary name: a case-only
+    ' rename is a no-op on a case-insensitive file system.)
+    strTemp = strExpected & ".tmp"
+    strRecased = FSO.GetParentFolderName(strExpected) & PathSep & "MODTESTINDEX.bas"
+    FSO.MoveFile strExpected, strTemp
+    FSO.MoveFile strTemp, strRecased
+
+    Set cModule = GetTestModuleComponent
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert Not dModified.Exists(strExpected), _
+        "object whose source file differs only by casing is not reported as an orphan"
+
+    ' Restore the original casing and describe the file again.
+    FSO.MoveFile strRecased, strTemp
+    FSO.MoveFile strTemp, strExpected
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strExpected
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeReportsOrphanWithoutSourceFile
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A database object with no source file of its name anywhere in the
+'           : category folder is still reported as an orphan, so the merge removes it.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeReportsOrphanWithoutSourceFile()
+
+    Dim cModule As IDbComponent
+    Dim strExpected As String
+    Dim strHidden As String
+    Dim dModified As Dictionary
+
+    Set cModule = GetTestModuleComponent
+    If cModule Is Nothing Then
+        TestAssert True, "SKIP: modTestIndex not available"
+        Exit Sub
+    End If
+
+    strExpected = cModule.SourceFile
+    If Not FSO.FileExists(strExpected) Then
+        TestAssert True, "SKIP: modTestIndex.bas fixture missing"
+        Exit Sub
+    End If
+
+    ' Hide the source file from the file list (other extension).
+    strHidden = strExpected & ".tmp"
+    FSO.MoveFile strExpected, strHidden
+
+    Set cModule = GetTestModuleComponent
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cModule)
+    TestAssert dModified.Exists(strExpected), _
+        "object with no source file of its name is reported as an orphan"
+
+    ' Put the file back and describe it again.
+    FSO.MoveFile strHidden, strExpected
+    Set cModule = GetTestModuleComponent
+    SeedMergeIndexBaseline cModule, strExpected
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeReportsDataOfMissingConfiguredTable
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : When a table configured in TablesToExportData is missing from the
+'           : database, its unchanged data file must be reported for merging, so the
+'           : table comes back with its records after the table def is restored.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeReportsDataOfMissingConfiguredTable()
+    '@Tag("integration")
+
+    Dim cCategory As IDbComponent
+    Dim strTable As String
+    Dim strFile As String
+    Dim blnConfigured As Boolean
+    Dim dModified As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
+
+    strTable = "vcs_test_missing_data"
+    strFile = Options.GetExportFolder & "tables\" & strTable & ".txt"
+    If Options.TablesToExportData.Exists(strTable) Then
+        TestAssert True, "SKIP: test table already configured for data export"
+        Exit Sub
+    End If
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    ' A leftover table from an interrupted run is expected, so the drop is tolerated.
+    On Error Resume Next
+    CurrentDb.Execute "DROP TABLE [" & strTable & "]"
+    Err.Clear
+    On Error GoTo ErrHandler
+
+    ' Data file for a configured table that does not exist in the database
+    VerifyPath strFile
+    WriteFile "ID" & vbTab & "Name" & vbCrLf & "1" & vbTab & "a" & vbCrLf, strFile
+    Options.AddTableToExportData strTable, etdTabDelimited
+    blnConfigured = True
+
+    ' New instance, so the cached file list includes the data file.
+    Set cCategory = New clsDbTableData
+    SeedMergeIndexBaseline cCategory, strFile
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cCategory)
+    TestAssert dModified.Exists(strFile), _
+        "unchanged data file of a configured table missing from the database is reported"
+
+CleanUp:
+    On Error Resume Next
+    If blnConfigured Then Options.TablesToExportData.Remove strTable
+    If Not cCategory Is Nothing Then VCSIndex.Remove cCategory, strFile
+    If FSO.FileExists(strFile) Then DeleteFile strFile
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected missing table data error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeIgnoresDataFileOfUnconfiguredTable
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A leftover data file for a table that exists in the database but is no
+'           : longer in TablesToExportData must not count as missing: GetAllFromDB only
+'           : lists configured tables, and merging the file would overwrite the
+'           : table's records.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeIgnoresDataFileOfUnconfiguredTable()
+    '@Tag("integration")
+
+    Dim cCategory As IDbComponent
+    Dim dbs As DAO.Database
+    Dim strTable As String
+    Dim strFile As String
+    Dim dModified As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
+
+    strTable = "vcs_test_unconfigured_data"
+    strFile = Options.GetExportFolder & "tables\" & strTable & ".txt"
+    If Options.TablesToExportData.Exists(strTable) Then
+        TestAssert True, "SKIP: test table already configured for data export"
+        Exit Sub
+    End If
+    Set dbs = CurrentDb
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    ' A leftover table from an interrupted run is expected, so the drop is tolerated.
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strTable & "]"
+    Err.Clear
+    On Error GoTo ErrHandler
+
+    ' The table exists, is not configured, and still has a data file in source.
+    dbs.Execute "CREATE TABLE [" & strTable & "] (ID LONG, Name TEXT(10))"
+    dbs.TableDefs.Refresh
+    VerifyPath strFile
+    WriteFile "ID" & vbTab & "Name" & vbCrLf & "1" & vbTab & "a" & vbCrLf, strFile
+
+    ' New instance, so the cached file list includes the data file.
+    Set cCategory = New clsDbTableData
+    SeedMergeIndexBaseline cCategory, strFile
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cCategory)
+    TestAssert Not dModified.Exists(strFile), _
+        "unchanged data file of an unconfigured table is not reported as missing"
+
+CleanUp:
+    On Error Resume Next
+    dbs.Execute "DROP TABLE [" & strTable & "]"
+    dbs.TableDefs.Refresh
+    ReleaseDbReferences
+    If Not cCategory Is Nothing Then VCSIndex.Remove cCategory, strFile
+    If FSO.FileExists(strFile) Then DeleteFile strFile
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected unconfigured table data error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestMergeSkipsRelationFileOfSystemTables
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/9/2026
+' Purpose   : A source file of a relation on tables that are not exported (here the
+'           : navigation pane tables, under a non-standard name, as an older export may
+'           : have left it) is neither listed for build nor reported for merge. Two
+'           : controls: a relation between user tables that are missing is still
+'           : reported, and so is one on a user table whose name begins with MSys. A full
+'           : build lists relation files before it imports any table, so that table is
+'           : missing too, and its name alone must not exclude the relation.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestMergeSkipsRelationFileOfSystemTables()
+
+    Dim cRelation As IDbComponent
+    Dim strFolder As String
+    Dim strSystem As String
+    Dim strUser As String
+    Dim strUserMSys As String
+    Dim blnCreatedFolder As Boolean
+    Dim dFiles As Dictionary
+    Dim dModified As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    TestAssert GetSystemTableNames.Exists("MSysNavPaneGroups"), _
+        "precondition: MSysNavPaneGroups is a system table in this database"
+
+    Set cRelation = New clsDbRelation
+    strFolder = cRelation.BaseFolder
+    If Not FSO.FolderExists(strFolder) Then
+        FSO.CreateFolder strFolder
+        blnCreatedFolder = True
+    End If
+    strSystem = strFolder & "{6B1F0C2E-8D4A-4C55-9E21-3F7A0D5B1C01}.json"
+    strUser = strFolder & "zzTestRelationUserTables.json"
+    strUserMSys = strFolder & "zzTestRelationUserMSysTable.json"
+    WriteFile GetTestRelationJson("{6B1F0C2E-8D4A-4C55-9E21-3F7A0D5B1C01}", _
+        "MSysNavPaneGroups", "MSysNavPaneGroupToObjects", "Id", "GroupID"), strSystem
+    WriteFile GetTestRelationJson("zzTestRelationUserTables", _
+        "zzTestRelParent", "zzTestRelChild", "ID", "ParentID"), strUser
+    WriteFile GetTestRelationJson("zzTestRelationUserMSysTable", _
+        "MSysZzTestRelParent", "zzTestRelChild", "ID", "ParentID"), strUserMSys
+
+    ' New instance, so the cached file list sees the files just written.
+    Set cRelation = New clsDbRelation
+    Set dFiles = cRelation.GetFileList
+    TestAssert Not dFiles.Exists(strSystem), _
+        "relation file on system tables is not listed for build or merge"
+    TestAssert dFiles.Exists(strUser), _
+        "control: relation file on user tables is listed"
+    TestAssert dFiles.Exists(strUserMSys), _
+        "control: relation file on a missing user table named MSys* is listed"
+
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cRelation)
+    TestAssert Not dModified.Exists(strSystem), _
+        "relation file on system tables is not reported as missing from the database"
+    TestAssert dModified.Exists(strUser), _
+        "control: relation file on missing user tables is still reported"
+    TestAssert dModified.Exists(strUserMSys), _
+        "control: relation file on a missing user table named MSys* is still reported"
+
+CleanUp:
+    On Error Resume Next
+    If Not cRelation Is Nothing Then
+        VCSIndex.Remove cRelation, strSystem
+        VCSIndex.Remove cRelation, strUser
+        VCSIndex.Remove cRelation, strUserMSys
+    End If
+    If Len(strSystem) Then If FSO.FileExists(strSystem) Then DeleteFile strSystem
+    If Len(strUser) Then If FSO.FileExists(strUser) Then DeleteFile strUser
+    If Len(strUserMSys) Then If FSO.FileExists(strUserMSys) Then DeleteFile strUserMSys
+    If blnCreatedFolder Then FSO.DeleteFolder StripSlash(strFolder), True
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected relation file list error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestImportSkipsRelationOnSystemTables
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/9/2026
+' Purpose   : Importing a source file of a relation on system tables creates nothing and
+'           : raises no error.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestImportSkipsRelationOnSystemTables()
+
+    Dim cRelation As IDbComponent
+    Dim dbs As DAO.Database
+    Dim strFile As String
+    Dim strName As String
+    Dim lngBefore As Long
+    Dim blnFound As Boolean
+    Dim rel As DAO.Relation
+    Dim lngErr As Long
+    Dim strErr As String
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    strName = "{6B1F0C2E-8D4A-4C55-9E21-3F7A0D5B1C02}"
+    strFile = GetTempFile & ".json"
+    WriteFile GetTestRelationJson(strName, _
+        "MSysNavPaneGroups", "MSysNavPaneGroupToObjects", "Id", "GroupID"), strFile
+
+    Set dbs = SharedDb
+    dbs.Relations.Refresh
+    lngBefore = dbs.Relations.Count
+
+    Set cRelation = New clsDbRelation
+    cRelation.Import strFile
+
+    dbs.Relations.Refresh
+    For Each rel In dbs.Relations
+        If rel.Name = strName Then blnFound = True
+    Next rel
+    TestAssert Not blnFound, "relation on system tables is not created"
+    TestAssert dbs.Relations.Count = lngBefore, "no relation was added"
+
+CleanUp:
+    On Error Resume Next
+    ' Leave the database as it was, even when the import created the relation.
+    If blnFound Then dbs.Relations.Delete strName
+    If Len(strFile) Then If FSO.FileExists(strFile) Then DeleteFile strFile
+    If lngErr <> 0 Then TestAssert False, _
+        "import of a relation on system tables raised error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestExportSkipsRelationsOnSystemTables
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/9/2026
+' Purpose   : No relation that involves a system table is listed for export, whatever its
+'           : name. The test creates one under a non-standard name on the navigation pane
+'           : tables, as found in an older export, and removes it afterwards; where Access
+'           : refuses to create it, only the relations already in the database are checked.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestExportSkipsRelationsOnSystemTables()
+
+    Dim cRelation As IDbComponent
+    Dim dbs As DAO.Database
+    Dim dSysTables As Dictionary
+    Dim dNames As Dictionary
+    Dim varItem As Variant
+    Dim rel As DAO.Relation
+    Dim strName As String
+    Dim blnCreated As Boolean
+    Dim lngChecked As Long
+    Dim lngErr As Long
+    Dim strErr As String
+
+    LogUnhandledErrors
+    On Error GoTo ErrHandler
+
+    strName = "{6B1F0C2E-8D4A-4C55-9E21-3F7A0D5B1C03}"
+    Set dbs = SharedDb
+
+    ' Access may refuse a relation on system tables, so creating it is tolerated.
+    On Error Resume Next
+    Set rel = dbs.CreateRelation(strName, "MSysNavPaneGroups", "MSysNavPaneGroupToObjects", _
+        dbRelationDontEnforce)
+    rel.Fields.Append rel.CreateField("Id")
+    rel.Fields("Id").ForeignName = "GroupID"
+    dbs.Relations.Append rel
+    blnCreated = (Err.Number = 0)
+    Err.Clear
+    On Error GoTo ErrHandler
+    dbs.Relations.Refresh
+
+    ' New instance, so the cached list sees the relation just created.
+    Set cRelation = New clsDbRelation
+    Set dNames = New Dictionary
+    dNames.CompareMode = TextCompare
+    For Each varItem In cRelation.GetAllFromDB.Items
+        dNames(varItem.Name) = True
+    Next varItem
+
+    Set dSysTables = GetSystemTableNames
+    For Each rel In dbs.Relations
+        If dSysTables.Exists(rel.Table) Or dSysTables.Exists(rel.ForeignTable) Then
+            lngChecked = lngChecked + 1
+            TestAssert Not dNames.Exists(rel.Name), _
+                "relation on a system table is not exported: " & rel.Name
+        End If
+    Next rel
+    If blnCreated Then
+        TestAssert lngChecked > 0, "the relation created on system tables was checked"
+    ElseIf lngChecked = 0 Then
+        TestAssert True, "SKIP: no relation on system tables here, and none could be created"
+    End If
+
+CleanUp:
+    On Error Resume Next
+    If blnCreated Then dbs.Relations.Delete strName
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected relation export error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+Private Function GetTestRelationJson(strName As String, strTable As String, _
+    strForeignTable As String, strField As String, strForeignField As String) As String
+    GetTestRelationJson = "{" & vbCrLf & _
+        "  ""Info"": {" & vbCrLf & _
+        "    ""Class"": ""clsDbRelation""," & vbCrLf & _
+        "    ""Description"": ""Database relationship""" & vbCrLf & _
+        "  }," & vbCrLf & _
+        "  ""Items"": {" & vbCrLf & _
+        "    ""Name"": """ & strName & """," & vbCrLf & _
+        "    ""Attributes"": 4352," & vbCrLf & _
+        "    ""Table"": """ & strTable & """," & vbCrLf & _
+        "    ""ForeignTable"": """ & strForeignTable & """," & vbCrLf & _
+        "    ""Fields"": [" & vbCrLf & _
+        "      {" & vbCrLf & _
+        "        ""Name"": """ & strField & """," & vbCrLf & _
+        "        ""ForeignName"": """ & strForeignField & """" & vbCrLf & _
+        "      }" & vbCrLf & _
+        "    ]" & vbCrLf & _
+        "  }" & vbCrLf & _
+        "}" & vbCrLf
+End Function
+
+
+Private Sub RunMetadataOnlyMergeTest(cCategory As IDbComponent, strBaseName As String)
+    Dim strFile As String
+    Dim strJson As String
+    Dim strOriginal As String
+    Dim dModified As Dictionary
+    Dim blnCreatedJson As Boolean
+
+    If cCategory Is Nothing Then
+        TestAssert True, "SKIP: component not available for " & strBaseName
+        Exit Sub
+    End If
+
+    strFile = ResolveSourceFilePath(cCategory, strBaseName)
+    If Len(strFile) = 0 Then
+        TestAssert True, "SKIP: fixture missing: " & strBaseName
+        Exit Sub
+    End If
+
+    strJson = SwapExtension(strFile, "json")
+    blnCreatedJson = EnsureCompanionJson(strFile)
+    If Not FSO.FileExists(strJson) Then
+        CleanupCreatedCompanionJson strFile, blnCreatedJson
+        TestAssert True, "SKIP: companion json missing for " & strBaseName
+        Exit Sub
+    End If
+
+    strOriginal = ReadFile(strJson)
+    SeedMergeIndexBaseline cCategory, strFile
+
+    WriteFile strOriginal & " ", strJson
+    Set dModified = VCSIndex.GetModifiedSourceFiles(cCategory)
+    TestAssert dModified.Exists(strFile), "metadata-only json change detected: " & strBaseName
+
+    WriteFile strOriginal, strJson
+    RestoreMergeIndexBaseline cCategory, strFile, blnCreatedJson
+End Sub
+
+
+Private Sub SeedMergeIndexBaseline(cCategory As IDbComponent, strFile As String)
+    Dim cIdx As clsVCSIndexItem
+
+    Set cIdx = VCSIndex.Item(cCategory, strFile)
+    cIdx.FileHash = GetFileHash(strFile)
+    cIdx.FilePropertiesHash = GetSourceFilesPropertyHash(cCategory, strFile)
+    cIdx.AllFilesHash = GetSourceFilesContentHash(cCategory, strFile)
+End Sub
+
+
+' Leave the index describing the files that actually remain on disk. Seeding a
+' baseline before removing a companion created for the test records hashes for a
+' file that no longer exists, which reports the component modified on every merge
+' from then on -- in this project, against the developer's own live index.
+Private Sub RestoreMergeIndexBaseline(cCategory As IDbComponent, strFile As String, _
+    blnCreatedJson As Boolean)
+
+    CleanupCreatedCompanionJson strFile, blnCreatedJson
+    SeedMergeIndexBaseline cCategory, strFile
+
+End Sub
+
+
+' Same as SeedMergeIndexBaseline but leaves AllFilesHash empty, simulating an index
+' entry written by a pre-AllFilesHash build (5.0.1 and earlier).
+Private Sub SeedLegacyMergeIndexBaseline(cCategory As IDbComponent, strFile As String)
+    Dim cIdx As clsVCSIndexItem
+
+    Set cIdx = VCSIndex.Item(cCategory, strFile)
+    cIdx.FileHash = GetFileHash(strFile)
+    cIdx.FilePropertiesHash = GetSourceFilesPropertyHash(cCategory, strFile)
+    cIdx.AllFilesHash = vbNullString
+End Sub
+
+
+' Returns True when this call created the companion file (caller must delete it).
+Private Function EnsureCompanionJson(strFile As String) As Boolean
+    Dim strJson As String
+
+    strJson = SwapExtension(strFile, "json")
+    If Not FSO.FileExists(strJson) Then
+        WriteFile "{}", strJson
+        EnsureCompanionJson = True
+    End If
+End Function
+
+
+Private Sub CleanupCreatedCompanionJson(strFile As String, blnCreated As Boolean)
+    Dim strJson As String
+
+    If Not blnCreated Then Exit Sub
+    strJson = SwapExtension(strFile, "json")
+    If FSO.FileExists(strJson) Then DeleteFile strJson
+End Sub
+
+
+Private Function ResolveSourceFilePath(cCategory As IDbComponent, strBaseName As String) As String
+    Dim dFiles As Dictionary
+    Dim varFile As Variant
+
+    Set dFiles = cCategory.GetFileList
+    For Each varFile In dFiles
+        If StrComp(FSO.GetBaseName(CStr(varFile)), strBaseName, vbTextCompare) = 0 Then
+            ResolveSourceFilePath = CStr(varFile)
+            Exit Function
+        End If
+    Next varFile
+End Function
+
+
+Private Function GetTestFormComponent() As IDbComponent
+    Dim cForm As IDbComponent
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set cForm = New clsDbForm
+    Set cForm.DbObject = CurrentProject.AllForms("frmVCSMain")
+    On Error GoTo 0
+    If cForm.DbObject Is Nothing Then Exit Function
+    Set GetTestFormComponent = cForm
+End Function
+
+
+Private Function GetTestModuleComponent() As IDbComponent
+    Dim cModule As IDbComponent
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set cModule = New clsDbModule
+    Set cModule.DbObject = CurrentProject.AllModules("modTestIndex")
+    On Error GoTo 0
+    If cModule.DbObject Is Nothing Then Exit Function
+    Set GetTestModuleComponent = cModule
+End Function
+
+
+Private Function GetTestMacroComponent() As IDbComponent
+    Dim cMacro As IDbComponent
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set cMacro = New clsDbMacro
+    Set cMacro.DbObject = CurrentProject.AllMacros("autoexec")
+    On Error GoTo 0
+    If cMacro.DbObject Is Nothing Then Exit Function
+    Set GetTestMacroComponent = cMacro
+End Function

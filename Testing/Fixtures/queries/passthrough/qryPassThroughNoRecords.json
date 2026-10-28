@@ -1,0 +1,16 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryPassThroughNoRecords"
+  },
+  "Items": {
+    "QueryType": 144,
+    "Connect": "ODBC;",
+    "QueryProperties": {
+      "ReturnsRecords": {
+        "Type": 1,
+        "Value": false
+      }
+    }
+  }
+}

@@ -22,6 +22,10 @@ Private m_dEnvKeysWritten As Dictionary
 Private m_dMissingEnvKeys As Dictionary
 Private m_dConnState As Dictionary
 Private m_dStrippedConnWarn As Dictionary
+Private m_dDsnDrivers As Dictionary
+Private m_dDsnDriverPaths As Dictionary
+Private m_dFileDsnDrivers As Dictionary
+Private m_dLearnedOracle As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -181,6 +185,10 @@ End Function
 '
 Public Sub ClearConnState()
     Set m_dConnState = Nothing
+    Set m_dDsnDrivers = Nothing
+    Set m_dDsnDriverPaths = Nothing
+    Set m_dFileDsnDrivers = Nothing
+    Set m_dLearnedOracle = Nothing
 End Sub
 
 
@@ -208,6 +216,7 @@ Public Function GetConnState(strKey As String) As Dictionary
         dState.Add "EnvKey", vbNullString
         dState.Add "Source", vbNullString
         dState.Add "NeedsSave", False
+        dState.Add "SaveConnect", vbNullString
         m_dConnState.Add strKey, dState
         Set GetConnState = dState
     End If
@@ -227,6 +236,401 @@ Public Function IsConnectionError(lngErr As Long) As Boolean
         Case 3059, 3146, 3151
             IsConnectionError = True
     End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsOracleDriverName
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Returns True when a driver name (or DLL path) identifies an Oracle ODBC
+'           : driver. Real-world friendly names contain "Oracle"; a short DLL list
+'           : covers oddly-named drivers that do not.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsOracleDriverName(strDriverName As String) As Boolean
+    If Len(strDriverName) = 0 Then Exit Function
+    If InStr(1, strDriverName, "Oracle", vbTextCompare) > 0 Then
+        IsOracleDriverName = True
+    Else
+        IsOracleDriverName = IsOracleDriverDll(strDriverName)
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsOracleDriverDll
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Returns True when the basename is a known Oracle ODBC driver DLL.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsOracleDriverDll(strPathOrName As String) As Boolean
+    If Len(strPathOrName) = 0 Then Exit Function
+    Select Case LCase$(FSO.GetFileName(strPathOrName))
+        Case "sqora32.dll", "sqora64.dll", "msorcl32.dll"
+            IsOracleDriverDll = True
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetOdbcDriverName
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Resolve the ODBC driver name from a connection string. DRIVER= is used
+'           : as-is. FILEDSN= is read from the .dsn file. DSN= is looked up in the
+'           : ODBC Data Sources registry. Empty when none of those yield a name.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetOdbcDriverName(strConnect As String) As String
+
+    Dim strDriver As String
+    Dim strFileDsn As String
+    Dim strDSN As String
+
+    strDriver = GetConnectPart(strConnect, "DRIVER")
+    If Len(strDriver) > 0 Then
+        GetOdbcDriverName = strDriver
+        Exit Function
+    End If
+
+    strFileDsn = GetConnectPart(strConnect, "FILEDSN")
+    If Len(strFileDsn) > 0 Then
+        GetOdbcDriverName = GetFileDsnDriverName(strFileDsn)
+        Exit Function
+    End If
+
+    strDSN = GetConnectPart(strConnect, "DSN")
+    If Len(strDSN) > 0 Then
+        GetOdbcDriverName = GetDsnDriverName(strDSN)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDsnDriverName
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Return the friendly driver name for a machine/user DSN from the ODBC
+'           : Data Sources registry value. When that name is not Oracle but the DSN's
+'           : Driver DLL is a known Oracle library, return the DLL basename instead
+'           : so IsOracleDriverName still matches.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDsnDriverName(strDSN As String) As String
+
+    Dim strKey As String
+    Dim strName As String
+    Dim strDll As String
+
+    If Len(strDSN) = 0 Then Exit Function
+
+    strKey = UCase$(strDSN)
+    If m_dDsnDrivers Is Nothing Then Set m_dDsnDrivers = New Dictionary
+    If m_dDsnDrivers.Exists(strKey) Then
+        GetDsnDriverName = m_dDsnDrivers(strKey)
+        Exit Function
+    End If
+
+    strName = RegRead("HKCU\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\" & strDSN)
+    If Len(strName) = 0 Then
+        strName = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources\" & strDSN)
+    End If
+    If Len(strName) = 0 Then
+        strName = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\ODBC Data Sources\" & strDSN)
+    End If
+
+    If Not IsOracleDriverName(strName) Then
+        strDll = GetDsnDriverPath(strDSN)
+        If IsOracleDriverDll(strDll) Then strName = FSO.GetFileName(strDll)
+    End If
+
+    m_dDsnDrivers.Add strKey, strName
+    GetDsnDriverName = strName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDsnDriverPath
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Return the Driver DLL path stored under a DSN's own registry key.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetDsnDriverPath(strDSN As String) As String
+
+    Dim strKey As String
+    Dim strPath As String
+
+    If Len(strDSN) = 0 Then Exit Function
+
+    strKey = UCase$(strDSN)
+    If m_dDsnDriverPaths Is Nothing Then Set m_dDsnDriverPaths = New Dictionary
+    If m_dDsnDriverPaths.Exists(strKey) Then
+        GetDsnDriverPath = m_dDsnDriverPaths(strKey)
+        Exit Function
+    End If
+
+    strPath = RegRead("HKCU\SOFTWARE\ODBC\ODBC.INI\" & strDSN & "\Driver")
+    If Len(strPath) = 0 Then
+        strPath = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\" & strDSN & "\Driver")
+    End If
+    If Len(strPath) = 0 Then
+        strPath = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\" & strDSN & "\Driver")
+    End If
+
+    m_dDsnDriverPaths.Add strKey, strPath
+    GetDsnDriverPath = strPath
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFileDsnDriverName
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Read DRIVER= from the [ODBC] section of a File DSN. Bare filenames
+'           : resolve against DefaultDSNDir (or CommonProgramFiles\ODBC\Data Sources).
+'           : A file that only carries DSN= chains to GetDsnDriverName.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFileDsnDriverName(strFileDsn As String) As String
+
+    Dim strPath As String
+    Dim strCacheKey As String
+    Dim strContent As String
+    Dim varLines As Variant
+    Dim lngLine As Long
+    Dim strLine As String
+    Dim blnInOdbc As Boolean
+    Dim strDriver As String
+    Dim strDSN As String
+    Dim lngEq As Long
+    Dim strName As String
+    Dim strValue As String
+
+    If Len(strFileDsn) = 0 Then Exit Function
+
+    strPath = ResolveFileDsnPath(strFileDsn)
+    If Len(strPath) = 0 Then Exit Function
+
+    strCacheKey = UCase$(strPath)
+    If m_dFileDsnDrivers Is Nothing Then Set m_dFileDsnDrivers = New Dictionary
+    If m_dFileDsnDrivers.Exists(strCacheKey) Then
+        GetFileDsnDriverName = m_dFileDsnDrivers(strCacheKey)
+        Exit Function
+    End If
+
+    If Not FSO.FileExists(strPath) Then
+        m_dFileDsnDrivers.Add strCacheKey, vbNullString
+        Exit Function
+    End If
+
+    strContent = ReadFile(strPath)
+    varLines = Split(strContent, vbCrLf)
+    For lngLine = 0 To UBound(varLines)
+        strLine = Trim$(CStr(varLines(lngLine)))
+        If Len(strLine) > 0 Then
+            If Left$(strLine, 1) = "[" And Right$(strLine, 1) = "]" Then
+                blnInOdbc = (StrComp(Mid$(strLine, 2, Len(strLine) - 2), "ODBC", vbTextCompare) = 0)
+            ElseIf blnInOdbc Then
+                If Left$(strLine, 1) <> ";" And Left$(strLine, 1) <> "#" Then
+                    lngEq = InStr(1, strLine, "=")
+                    If lngEq > 0 Then
+                        strName = Trim$(Left$(strLine, lngEq - 1))
+                        strValue = Trim$(Mid$(strLine, lngEq + 1))
+                        If StrComp(strName, "DRIVER", vbTextCompare) = 0 Then
+                            strDriver = strValue
+                        ElseIf StrComp(strName, "DSN", vbTextCompare) = 0 Then
+                            strDSN = strValue
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    Next lngLine
+
+    If Len(strDriver) > 0 Then
+        GetFileDsnDriverName = strDriver
+    ElseIf Len(strDSN) > 0 Then
+        GetFileDsnDriverName = GetDsnDriverName(strDSN)
+    End If
+
+    m_dFileDsnDrivers.Add strCacheKey, GetFileDsnDriverName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveFileDsnPath
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Turn a FILEDSN= value into a full path. Quoted values are unquoted.
+'           : A value with no path separator is resolved against DefaultDSNDir.
+'---------------------------------------------------------------------------------------
+'
+Private Function ResolveFileDsnPath(strFileDsn As String) As String
+
+    Dim strPath As String
+    Dim strDir As String
+
+    strPath = Trim$(strFileDsn)
+    If Len(strPath) >= 2 Then
+        If Left$(strPath, 1) = """" And Right$(strPath, 1) = """" Then
+            strPath = Mid$(strPath, 2, Len(strPath) - 2)
+        End If
+    End If
+    If Len(strPath) = 0 Then Exit Function
+
+    If InStr(1, strPath, PathSep) > 0 Then
+        ResolveFileDsnPath = strPath
+        Exit Function
+    End If
+
+    strDir = GetFileDsnDefaultDir
+    If Len(strDir) = 0 Then Exit Function
+    ResolveFileDsnPath = BuildPath2(strDir, strPath)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFileDsnDefaultDir
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Directory used for bare File DSN names. Registry DefaultDSNDir first,
+'           : then the documented CommonProgramFiles fallback.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetFileDsnDefaultDir() As String
+
+    Dim strDir As String
+
+    strDir = RegRead("HKLM\SOFTWARE\ODBC\ODBC.INI\ODBC File DSN\DefaultDSNDir")
+    If Len(strDir) = 0 Then
+        strDir = RegRead("HKLM\SOFTWARE\WOW6432Node\ODBC\ODBC.INI\ODBC File DSN\DefaultDSNDir")
+    End If
+    If Len(strDir) = 0 Then
+        strDir = BuildPath2(Environ$("CommonProgramFiles"), "ODBC", "Data Sources")
+    End If
+    GetFileDsnDefaultDir = strDir
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsOracleOdbcConnect
+' Author    : Adam Waller
+' Date      : 07/13/2026
+' Purpose   : Returns True when an ODBC connection string names an Oracle driver,
+'           : including DSN-only and FILEDSN= strings resolved to a driver name,
+'           : and connections learned from an ORA-00923 probe failure.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsOracleOdbcConnect(strConnect As String) As Boolean
+    If IsLearnedOracleConnect(strConnect) Then
+        IsOracleOdbcConnect = True
+    Else
+        IsOracleOdbcConnect = IsOracleDriverName(GetOdbcDriverName(strConnect))
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConnectivityProbeSql
+' Author    : Adam Waller
+' Date      : 07/13/2026
+' Purpose   : Lightweight SQL for ODBC connectivity probes. Branch on the resolved
+'           : driver so a future dialect (e.g. DB2 FROM SYSIBM.SYSDUMMY1) is one line.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetConnectivityProbeSql(strConnect As String) As String
+    If IsOracleOdbcConnect(strConnect) Then
+        GetConnectivityProbeSql = "SELECT 1 FROM DUAL;"
+    Else
+        GetConnectivityProbeSql = "SELECT 1;"
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsOracleSyntaxError
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : True only for ORA-00923 (FROM keyword not found). Other Oracle errors
+'           : such as ORA-01017 (credentials) and generic ODBC 3146 do not match.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsOracleSyntaxError(strErrText As String) As Boolean
+    IsOracleSyntaxError = (InStr(1, strErrText, "ORA-00923", vbTextCompare) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConnectErrorDetail
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : DAO puts the native driver text in DBEngine.Errors while Err.Description
+'           : is often just "ODBC--call failed." Walk the collection first.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetConnectErrorDetail() As String
+
+    Dim errItem As DAO.Error
+
+    If DBEngine.Errors.Count > 0 Then
+        With New clsConcat
+            .AppendOnAdd = vbCrLf
+            For Each errItem In DBEngine.Errors
+                .Add CStr(errItem.Number) & " - " & errItem.Description
+            Next errItem
+            If .Length >= Len(vbCrLf) Then .Remove Len(vbCrLf)
+            GetConnectErrorDetail = .GetStr
+        End With
+    End If
+
+    If Len(GetConnectErrorDetail) = 0 Then
+        If Err.Number <> 0 Then
+            GetConnectErrorDetail = CStr(Err.Number) & " - " & Err.Description
+        Else
+            GetConnectErrorDetail = Err.Description
+        End If
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RememberOracleConnect
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Record a connection that revealed itself as Oracle via ORA-00923 so
+'           : later probes on the same string use FROM DUAL immediately.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RememberOracleConnect(strConnect As String)
+    If Len(strConnect) = 0 Then Exit Sub
+    If m_dLearnedOracle Is Nothing Then Set m_dLearnedOracle = New Dictionary
+    If Not m_dLearnedOracle.Exists(strConnect) Then
+        m_dLearnedOracle.Add strConnect, True
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsLearnedOracleConnect
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : True when a previous probe on this exact connection string hit ORA-00923.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsLearnedOracleConnect(strConnect As String) As Boolean
+    If m_dLearnedOracle Is Nothing Then Exit Function
+    If Len(strConnect) = 0 Then Exit Function
+    IsLearnedOracleConnect = m_dLearnedOracle.Exists(strConnect)
 End Function
 
 
@@ -270,14 +674,19 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 06/19/2026
 ' Purpose   : Remember a successfully authenticated connection for reuse and optional
-'           : .env save at the end of the build.
+'           : .env save at the end of the build. Pass blnSettingsCompleted when the
+'           : driver completed settings beyond the stored string (see CacheConnection).
+'           : The first caller to schedule a save for a key decides the saved value;
+'           : later linked tables may report a Connect that Access has stripped.
 '---------------------------------------------------------------------------------------
 '
 Public Sub RecordAuthenticatedConnection(strKey As String, strEnvKey As String, _
-    strCompletedConnect As String, strSource As String)
+    strCompletedConnect As String, strSource As String, _
+    Optional blnSettingsCompleted As Boolean = False)
 
     Dim dState As Dictionary
     Dim strEnvValue As String
+    Dim strSaveConnect As String
     Dim cEnv As clsDotEnv
 
     If Len(strKey) = 0 Then Exit Sub
@@ -289,26 +698,26 @@ Public Sub RecordAuthenticatedConnection(strKey As String, strEnvKey As String, 
 
     If Len(strEnvKey) = 0 Then Exit Sub
     If Options.UseEnvForConnections = uecNever Then Exit Sub
-
-    ' Only worth saving if the completed string carries the authentication detail
-    ' (UID/PWD, trusted, or an AD/SSPI authentication method) that lets a future
-    ' build connect without prompting.
-    If Not HasAuthInfo(strCompletedConnect) Then Exit Sub
+    If dState("NeedsSave") Then Exit Sub
 
     Set cEnv = GetEnvCache(False)
     strEnvValue = cEnv.GetVar(strEnvKey, False)
-    If Len(strEnvValue) > 0 Then
-        strEnvValue = GetFullConnect(strEnvValue)
-        ' If the stored value already resolves authentication on its own, it would
-        ' not prompt, so there is nothing new to save.
-        If HasAuthInfo(strEnvValue) Then Exit Sub
-        ' Identical parameters mean nothing meaningful changed.
-        If ConnectionParamsMatch(strCompletedConnect, strEnvValue) Then Exit Sub
+    If Len(strEnvValue) > 0 Then strEnvValue = GetFullConnect(strEnvValue)
+
+    If Not ShouldSaveCompletedConnect(strEnvValue, strCompletedConnect, blnSettingsCompleted) Then Exit Sub
+
+    strSaveConnect = PrepareCompletedConnectForSave(strEnvValue, strCompletedConnect)
+    If Len(strSaveConnect) = 0 Then
+        Log.Error eelWarning, T("Did not save the completed connection for {0} to .env because " & _
+            "it omits the stored password and names a different user.", var0:=strEnvKey), _
+            ModuleName & ".RecordAuthenticatedConnection"
+        Exit Sub
     End If
 
     dState("NeedsSave") = True
     dState("EnvKey") = strEnvKey
     dState("Source") = strSource
+    dState("SaveConnect") = strSaveConnect
 
 End Sub
 
@@ -356,7 +765,7 @@ Public Sub PromptAndSaveConnections()
     End With
 
     If Options.UseEnvForConnections = uecAuto Then
-        If MsgBox2(T("Save Connection Credentials?"), strList, _
+        If MsgBox2(T("Save Connection Settings?"), strList, _
             T("Save them to your .env file so you are not prompted again?"), _
             vbYesNo Or vbQuestion, , vbNo) <> vbYes Then
             Set m_dConnState = Nothing
@@ -366,13 +775,13 @@ Public Sub PromptAndSaveConnections()
 
     For Each varKey In colSave
         Set dState = m_dConnState(CStr(varKey))
-        SaveConnectionToEnv CStr(dState("EnvKey")), CStr(dState("Completed")), CStr(dState("Source"))
+        SaveConnectionToEnv CStr(dState("EnvKey")), CStr(dState("SaveConnect")), CStr(dState("Source"))
         lngCount = lngCount + 1
     Next varKey
 
     ClearEnvCache
     If lngCount > 0 Then
-        Log.Add T("Saved {0} connection credential(s) to .env.", var0:=lngCount), False
+        Log.Add T("Saved {0} connection setting(s) to .env.", var0:=lngCount), False
     End If
     Set m_dConnState = Nothing
 
@@ -385,16 +794,25 @@ End Sub
 ' Date      : 3/31/2023
 ' Purpose   : Open an ODBC database to allow us to leverage Access' built-in caching
 '             and hopefully reduce the numbers of ODBC prompts. Because the connection
-'             may be incomplete, we will force a prompt for the user to then fill in
+'             may be incomplete, we will force a prompt for the user to then fill in.
+'           : QueryDef.Connect only echoes the string that was assigned, so when prompts
+'           : are allowed the connection is first opened as a Database, whose Connect
+'           : property returns the string the driver completed (including any dialog
+'           : choices such as TrustServerCertificate). blnSettingsCompleted reports
+'           : whether that string differs from strConnect beyond driver-added keys.
 '---------------------------------------------------------------------------------------
 '
 Public Function CacheConnection(strConnect As String, _
-    Optional ByRef strCompletedConnect As String, Optional ByRef lngErr As Long) As Boolean
+    ByRef strCompletedConnect As String, ByRef lngErr As Long, _
+    ByRef strErrDesc As String, Optional ByRef blnSettingsCompleted As Boolean) As Boolean
 
     Dim qdf As DAO.QueryDef
+    Dim strProbeConnect As String
 
     lngErr = 0
     strCompletedConnect = vbNullString
+    strErrDesc = vbNullString
+    blnSettingsCompleted = False
 
     If Not (Left$(strConnect, 5) = "ODBC;") Then
         Exit Function
@@ -409,6 +827,15 @@ Public Function CacheConnection(strConnect As String, _
         strCompletedConnect = qdf.Connect
         CacheConnection = True
     Else
+        strProbeConnect = strConnect
+        If PromptWouldDisplay(False) Then
+            ' The driver dialog cannot be suppressed through DAO, so this only runs
+            ' when a prompt is allowed anyway.
+            strProbeConnect = OpenDriverCompletedConnect(strConnect, lngErr, strErrDesc)
+            If lngErr Then Exit Function
+            blnSettingsCompleted = Not ConnectionSettingsMatch(strConnect, strProbeConnect)
+        End If
+
         ' We need to use the CurrentDb because it's the one that'll get stuff imported into. Otherwise,
         ' we will get unwanted prompts during the import.
         Set qdf = CurrentDb.CreateQueryDef
@@ -418,18 +845,11 @@ Public Function CacheConnection(strConnect As String, _
         ' string will avoid the bug.
         qdf.Name = ""
 
-        ' We must provide a SQL statement. Every database engine understand this, right?
-        qdf.SQL = "SELECT 1;"
-        qdf.Connect = strConnect
-
-        LogUnhandledErrors
-        On Error Resume Next
-        qdf.OpenRecordset
-        lngErr = Err.Number
-        On Error GoTo 0
+        RunConnectivityProbe qdf, strProbeConnect, lngErr, strErrDesc
 
         If lngErr Then
             Set qdf = Nothing
+            blnSettingsCompleted = False
         Else
             strCompletedConnect = qdf.Connect
         End If
@@ -688,7 +1108,7 @@ End Sub
 ' Author    : Adam Waller
 ' Date      : 03/11/2026
 ' Purpose   : Perform a lightweight server-level connection test for non-Access
-'           : connections (ODBC, etc.) by creating a temp QueryDef with SELECT 1.
+'           : connections (ODBC, etc.) via GetConnectivityProbeSql.
 '           : Returns True if the server responds. Used to distinguish "server down"
 '           : from "single table missing" when a linked table fails TableExists.
 '---------------------------------------------------------------------------------------
@@ -699,6 +1119,8 @@ Public Function TestBackEndConnection(strConnect As String) As Boolean
     Dim strPath As String
     Dim strKey As String
     Dim dbBackEnd As DAO.Database
+    Dim lngErr As Long
+    Dim strErrDesc As String
 
     If IsAccessBackEndConnect(strConnect) Then
         strPath = GetConnectPath(strConnect)
@@ -723,21 +1145,92 @@ Public Function TestBackEndConnection(strConnect As String) As Boolean
     End If
 
     ' For ODBC and other connection types, attempt a lightweight query
-    LogUnhandledErrors
-    On Error Resume Next
-
     Set qdf = CurrentDb.CreateQueryDef("")
-    qdf.Connect = strConnect
-    qdf.SQL = "SELECT 1;"
-    qdf.OpenRecordset
-    TestBackEndConnection = (Err.Number = 0)
+    RunConnectivityProbe qdf, strConnect, lngErr, strErrDesc
+    TestBackEndConnection = (lngErr = 0)
 
     If Not qdf Is Nothing Then
         qdf.Close
         Set qdf = Nothing
     End If
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunConnectivityProbe
+' Author    : Adam Waller
+' Date      : 08/17/2026
+' Purpose   : Assign probe SQL then Connect (CacheConnection order) and open a
+'           : recordset. On ORA-00923, learn the dialect and retry once with FROM DUAL.
+'---------------------------------------------------------------------------------------
+'
+Private Sub RunConnectivityProbe(qdf As DAO.QueryDef, strConnect As String, _
+    ByRef lngErr As Long, ByRef strErrDesc As String)
+
+    qdf.SQL = GetConnectivityProbeSql(strConnect)
+    qdf.Connect = strConnect
+
+    LogUnhandledErrors
+    On Error Resume Next
+    qdf.OpenRecordset
+    lngErr = Err.Number
+    If lngErr Then
+        strErrDesc = GetConnectErrorDetail()
+    Else
+        strErrDesc = vbNullString
+    End If
     On Error GoTo 0
+
+    If lngErr = 0 Then Exit Sub
+    If Not IsOracleSyntaxError(strErrDesc) Then Exit Sub
+
+    RememberOracleConnect strConnect
+    qdf.SQL = GetConnectivityProbeSql(strConnect)
+
+    LogUnhandledErrors
+    On Error Resume Next
+    qdf.OpenRecordset
+    lngErr = Err.Number
+    If lngErr Then
+        strErrDesc = GetConnectErrorDetail()
+    Else
+        strErrDesc = vbNullString
+    End If
+    On Error GoTo 0
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : OpenDriverCompletedConnect
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Open the ODBC connection as a Database (prompting through the driver
+'           : dialog if it is incomplete) and return Database.Connect, the string the
+'           : driver completed. The Options argument cannot suppress the dialog in an
+'           : Access workspace, so callers must only use this when a prompt is allowed.
+'---------------------------------------------------------------------------------------
+'
+Private Function OpenDriverCompletedConnect(strConnect As String, _
+    ByRef lngErr As Long, ByRef strErrDesc As String) As String
+
+    Dim dbs As DAO.Database
+
+    LogUnhandledErrors
+    On Error Resume Next
+    Set dbs = DBEngine.Workspaces(0).OpenDatabase(vbNullString, False, True, strConnect)
+    lngErr = Err.Number
+    If lngErr Then
+        strErrDesc = GetConnectErrorDetail()
+    Else
+        strErrDesc = vbNullString
+        OpenDriverCompletedConnect = dbs.Connect
+        dbs.Close
+    End If
+    On Error GoTo 0
+
+    If lngErr = 0 And Len(OpenDriverCompletedConnect) = 0 Then OpenDriverCompletedConnect = strConnect
 
 End Function
 
@@ -1354,6 +1847,152 @@ Private Function ParseConnectionParams(strConnect As String) As Dictionary
     Next lngPart
 
     Set ParseConnectionParams = dParams
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ConnectionSettingsMatch
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Compare two connection strings like ConnectionParamsMatch, but ignore
+'           : what a driver changes on its own when it completes a string: the APP and
+'           : WSID keys, the UID it reports for a trusted connection, and braces
+'           : around values. A completed string then matches its unchanged input.
+'---------------------------------------------------------------------------------------
+'
+Public Function ConnectionSettingsMatch(strConnect1 As String, strConnect2 As String) As Boolean
+
+    Dim d1 As Dictionary
+    Dim d2 As Dictionary
+    Dim varKey As Variant
+
+    Set d1 = GetComparableConnectParams(strConnect1)
+    Set d2 = GetComparableConnectParams(strConnect2)
+
+    If d1.Count <> d2.Count Then Exit Function
+
+    For Each varKey In d1.Keys
+        If Not d2.Exists(CStr(varKey)) Then Exit Function
+        If StrComp(CStr(d1(varKey)), CStr(d2(varKey)), vbTextCompare) <> 0 Then Exit Function
+    Next varKey
+
+    ConnectionSettingsMatch = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetComparableConnectParams
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Parse a connection string for ConnectionSettingsMatch, dropping the keys
+'           : and value braces that drivers add when completing a connection.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetComparableConnectParams(strConnect As String) As Dictionary
+
+    Dim dParams As Dictionary
+    Dim varKey As Variant
+    Dim strValue As String
+
+    Set dParams = ParseConnectionParams(strConnect)
+
+    If dParams.Exists("APP") Then dParams.Remove "APP"
+    If dParams.Exists("WSID") Then dParams.Remove "WSID"
+    If dParams.Exists("Trusted_Connection") And dParams.Exists("UID") Then
+        strValue = CStr(dParams("Trusted_Connection"))
+        If StrComp(strValue, "yes", vbTextCompare) = 0 _
+            Or StrComp(strValue, "true", vbTextCompare) = 0 Then dParams.Remove "UID"
+    End If
+
+    For Each varKey In dParams.Keys
+        strValue = Trim$(CStr(dParams(varKey)))
+        If Left$(strValue, 1) = "{" And Right$(strValue, 1) = "}" Then
+            strValue = Mid$(strValue, 2, Len(strValue) - 2)
+        End If
+        dParams(varKey) = strValue
+    Next varKey
+
+    Set GetComparableConnectParams = dParams
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ShouldSaveCompletedConnect
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Decide whether a connection completed during a build should replace the
+'           : stored .env value. The completed string must carry authentication. When
+'           : the driver completed settings beyond the stored string (for example a
+'           : TrustServerCertificate choice in the dialog), any meaningful difference
+'           : is saved even if the stored value already authenticates. Otherwise only
+'           : a stored value with no authentication is replaced.
+'---------------------------------------------------------------------------------------
+'
+Public Function ShouldSaveCompletedConnect(strStored As String, strCompleted As String, _
+    blnSettingsCompleted As Boolean) As Boolean
+
+    If Not HasAuthInfo(strCompleted) Then Exit Function
+
+    If Len(strStored) = 0 Then
+        ShouldSaveCompletedConnect = True
+    ElseIf blnSettingsCompleted Then
+        ShouldSaveCompletedConnect = Not ConnectionSettingsMatch(strStored, strCompleted)
+    ElseIf Not HasAuthInfo(strStored) Then
+        ShouldSaveCompletedConnect = Not ConnectionParamsMatch(strCompleted, strStored)
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PrepareCompletedConnectForSave
+' Author    : Adam Waller
+' Date      : 10/9/2026
+' Purpose   : Return the completed connection string to save, without losing a stored
+'           : password the driver left out of its completed string. The stored
+'           : password is carried over only for the same user; for a different user
+'           : an empty string is returned and the caller must not save.
+'---------------------------------------------------------------------------------------
+'
+Public Function PrepareCompletedConnectForSave(strStored As String, strCompleted As String) As String
+
+    Dim dStored As Dictionary
+    Dim dCompleted As Dictionary
+    Dim strPwd As String
+    Dim strCompletedPwd As String
+    Dim strStoredUid As String
+    Dim strCompletedUid As String
+    Dim varParts As Variant
+    Dim lngPart As Long
+    Dim strPart As String
+
+    Set dStored = ParseConnectionParams(strStored)
+    Set dCompleted = ParseConnectionParams(strCompleted)
+
+    If dStored.Exists("PWD") Then strPwd = CStr(dStored("PWD"))
+    If dCompleted.Exists("PWD") Then strCompletedPwd = CStr(dCompleted("PWD"))
+    If dStored.Exists("UID") Then strStoredUid = CStr(dStored("UID"))
+    If dCompleted.Exists("UID") Then strCompletedUid = CStr(dCompleted("UID"))
+
+    If Len(strPwd) = 0 Or Len(strCompletedPwd) > 0 Then
+        PrepareCompletedConnectForSave = strCompleted
+    ElseIf StrComp(strStoredUid, strCompletedUid, vbTextCompare) = 0 Then
+        ' Drop an empty PWD= first; SQL Server drivers use the first value of a key.
+        varParts = Split(strCompleted, ";")
+        With New clsConcat
+            .AppendOnAdd = ";"
+            For lngPart = 0 To UBound(varParts)
+                strPart = Trim$(CStr(varParts(lngPart)))
+                If Len(strPart) > 0 And Not StartsWith(strPart, "PWD=", vbTextCompare) Then .Add strPart
+            Next lngPart
+            .Add "PWD=" & strPwd
+            .Remove 1
+            PrepareCompletedConnectForSave = .GetStr
+        End With
+    End If
 
 End Function
 

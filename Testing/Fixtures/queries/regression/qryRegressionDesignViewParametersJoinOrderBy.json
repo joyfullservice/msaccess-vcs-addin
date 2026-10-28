@@ -1,0 +1,47 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionDesignViewParametersJoinOrderBy"
+  },
+  "Items": {
+    "QueryType": 0,
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 900,
+        "bottom": 600
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 880,
+        "bottom": 300
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 543,
+      "Tables": [
+        {
+          "Name": "tblCustomers",
+          "Alias": "",
+          "Left": 60,
+          "Top": 15,
+          "Right": 300,
+          "Bottom": 195,
+          "ScrollTop": 0
+        },
+        {
+          "Name": "tblOrders",
+          "Alias": "",
+          "Left": 400,
+          "Top": 15,
+          "Right": 640,
+          "Bottom": 210,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

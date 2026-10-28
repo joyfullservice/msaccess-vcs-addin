@@ -12,6 +12,25 @@ Option Explicit
 ' MCP Debug log file path (set when first used)
 Private m_strMCPDebugLogPath As String
 
+' True while this project is dispatching a call on to the installed add-in. A refusal that
+' arrives while it is set came back through that dispatch into the project that issued it,
+' which is a different failure from a genuinely nested call and needs to say so.
+' RedirectTargetIsSelf exists to make that unreachable; this reports it if it ever is not.
+Private m_blnRedirecting As Boolean
+
+' Why an API entry point turned a call away. The two cases need opposite advice, and the
+' wrong one costs the caller the whole diagnosis -- see RefuseReentrantCall.
+Private Enum eRefusalReason
+    rrNested = 0            ' A call arrived from inside another API call
+    rrSelfDispatch = 1      ' A dispatch to the installed add-in came back to its sender
+End Enum
+
+' Returned by API (and embedded in the APIAsync JSON) when a call arrives while another
+' is still in progress. Published as a prefix rather than an error number because the
+' refusal cannot be raised -- see RefuseReentrantCall. External callers (the MCP server
+' in particular) match on this to report a refusal instead of treating it as data.
+Public Const API_REFUSED_PREFIX As String = "VCS_API_REFUSED: "
+
 
 ' Note, some enums are listed here when they are directly exposed
 ' through the Options and VCS classes. (Allowing them to be used externally)
@@ -67,6 +86,12 @@ Public Function HandleRibbonCommand(strCommand As String, Optional strArgument A
     ' commands while the current command is running.
     Static IsRunning As Boolean
 
+    Dim lngErrNumber As Long
+    Dim strErrSource As String
+    Dim strErrDescription As String
+    Dim strErrHelpFile As String
+    Dim lngErrHelpContext As Long
+
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
@@ -84,6 +109,9 @@ Public Function HandleRibbonCommand(strCommand As String, Optional strArgument A
         GoTo CleanUp
     End If
 
+    ' Ribbon commands are interactive by definition.
+    Operation.ResetForInteractiveCommand
+
     ' If a function is not found, this will throw an error. It is up to the ribbon
     ' designer to ensure that the control IDs match public procedures in the VCS
     ' (clsVersionControl) class module.
@@ -97,16 +125,23 @@ Public Function HandleRibbonCommand(strCommand As String, Optional strArgument A
     End If
 
 CleanUp:
+    Operation.EndInteractiveCommand
     IsRunning = False
     Exit Function
 
 ErrHandler:
     ' An error occurred so we need to make it available for further attempts
     ' but do not handle the error.
+    lngErrNumber = Err.Number
+    strErrSource = Err.Source
+    strErrDescription = Err.Description
+    strErrHelpFile = Err.HelpFile
+    lngErrHelpContext = Err.HelpContext
+    Operation.EndInteractiveCommand
     IsRunning = False
 
     ' Re-throw
-    Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
+    Err.Raise lngErrNumber, strErrSource, strErrDescription, strErrHelpFile, lngErrHelpContext
 
 End Function
 
@@ -202,6 +237,37 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : RedirectTargetIsSelf
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Returns true when a redirect to the installed add-in would land back in the
+'           : project that is already running.
+'           :
+'           : `RunningOnLocal` only reports that the current database and the running code
+'           : are the same file. That is true of a development copy open as the current
+'           : database, where redirecting to the installed add-in is the whole point -- and
+'           : equally true of the *installed* add-in open as the current database, where the
+'           : redirect target is the same file. `Application.Run` then re-enters the entry
+'           : point while the outer call still holds its `Static IsRunning`, so every call
+'           : came back as a re-entrant refusal blaming nesting that never happened.
+'           : Nothing is supposed to open the install as the current database, but a user
+'           : who double-clicks the file does exactly that, and a misleading refusal sends
+'           : whoever reads it looking for a caller that does not exist.
+'           :
+'           : Compare the extension-less form, which is exactly the string handed to
+'           : `Application.Run`, so an installed .accde never reads as a different file
+'           : from the .accda it was built from.
+'---------------------------------------------------------------------------------------
+'
+Private Function RedirectTargetIsSelf() As Boolean
+    RedirectTargetIsSelf = (StrComp( _
+        FSO.BuildPath(FSO.GetParentFolderName(CodeProject.FullName), _
+            FSO.GetBaseName(CodeProject.FullName)), _
+        GetRunCmdAddInFullLibName, vbTextCompare) = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : RunInAddIn
 ' Author    : Adam Waller
 ' Date      : 3/3/2023
@@ -231,7 +297,10 @@ Public Function RunInAddIn(strProcedure As String, blnUseTimer As Boolean, Optio
     ' (The API timer is helpful when you need to clear the call stack on the
     '  current database before running the add-in code.)
     If blnUseTimer And Not RunningOnLocal Then
-        If Operation.Status = eosRunning Then Operation.Stage
+        ' The dispatched procedure begins and owns its own root, so nothing here stages or
+        ' resumes the current one. A root that is still active when the callback fires
+        ' belongs to another caller: that caller's request is refused and logged, which is
+        ' far better than silently resuming an operation nobody holds a lease on.
         SetTimer strProcedure, CStr(varArg1), CStr(varArg2)
     Else
         ' Build the command to execute using Application.Run
@@ -311,19 +380,22 @@ Public Function API(strMethod As String, _
     Optional varArg2 As Variant, _
     Optional varArg3 As Variant) As Variant
 
-    ' The function is called by Application.Run which can be re-entrant but we really
-    ' don't want it to be since that'd cause errors. To avoid this, we will ignore any
-    ' commands while the current command is running.
+    ' The function is called by Application.Run, which can be re-entrant. We really don't
+    ' want it to be, since a nested call would run against Operation state the outer call
+    ' owns. Refuse it, and say so in the return value rather than coming back Empty --
+    ' see RefuseReentrantCall for why silence was worse and why this is not an Err.Raise.
     Static IsRunning As Boolean
     Dim varResult As Variant
     Dim strLibName As String
     Dim strRunCmd As String
 
+    SuppressErrorBreaks
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
     If IsRunning Then
-        ' Ignore the re-entry; do NOT go to clean-up.
+        API = RefuseReentrantCall(strMethod, "API", RefusalReason)
+        RestoreErrorBreaks
         Exit Function
     End If
 
@@ -334,13 +406,17 @@ Public Function API(strMethod As String, _
 
     ' Make sure we are not attempting to run this from the current database when making
     ' changes to the add-in itself. (It will re-run the command through the add-in.)
-    If RunningOnLocal() Then
+    ' Only redirect when the installed add-in is a *different* file than the one running:
+    ' where they are the same, the redirect re-enters this function and refuses itself.
+    ' See RedirectTargetIsSelf.
+    If RunningOnLocal() And Not RedirectTargetIsSelf() Then
         ' When running from within the add-in database, we need to use the full path
         ' to ensure we call the add-in version, not a local version.
         strLibName = GetRunCmdAddInFullLibName
         strRunCmd = strLibName & ".API"
 
         ' Use Application.Run to call the add-in version, which will return the value
+        m_blnRedirecting = True
         If Not IsMissing(varArg3) Then
             API = Application.Run(strRunCmd, strMethod, varArg1, varArg2, varArg3)
         ElseIf Not IsMissing(varArg2) Then
@@ -357,6 +433,10 @@ Public Function API(strMethod As String, _
     ' This ensures we don't interfere with any staging of settings during a running operation
     ' Use CallByName to invoke the method dynamically
     ' Handle different numbers of arguments
+    ' Every parameter of a method reachable from here must be declared ByVal. These
+    ' arguments arrive as Variants, and CallByName cannot bind a Variant to a ByRef typed
+    ' parameter: it raises a type mismatch before the method runs a single line, which
+    ' reads to the caller as the method having done nothing.
     If Not IsMissing(varArg3) Then
         ' Three arguments
         varResult = CallByName(VCS, strMethod, VbMethod, varArg1, varArg2, varArg3)
@@ -376,12 +456,16 @@ Public Function API(strMethod As String, _
 
 CleanUp:
     IsRunning = False
+    m_blnRedirecting = False
+    RestoreErrorBreaks
     Exit Function
 
 ErrHandler:
     ' An error occurred so we need to make it available for further attempts
     ' but do not handle the error.
     IsRunning = False
+    m_blnRedirecting = False
+    RestoreErrorBreaks
 
     ' Re-throw
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
@@ -401,9 +485,10 @@ End Function
 Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
     Optional varArg1 As Variant, Optional varArg2 As Variant) As String
 
-    ' The function is called by Application.Run which can be re-entrant but we really
-    ' don't want it to be since that'd cause errors. To avoid this, we will ignore any
-    ' commands while the current command is running.
+    ' The function is called by Application.Run, which can be re-entrant. We really don't
+    ' want it to be, since a nested call would run against Operation state the outer call
+    ' owns. Refuse it, and say so in the return value rather than coming back Empty --
+    ' see RefuseReentrantCall for why silence was worse and why this is not an Err.Raise.
     Static IsRunning As Boolean
     Dim varResult As Variant
     Dim strLibName As String
@@ -412,11 +497,17 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
     Dim dResult As Dictionary
     Dim lngTimeoutMs As Long
 
+    SuppressErrorBreaks
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
     If IsRunning Then
-        ' Ignore the re-entry; do NOT go to clean-up.
+        ' Callers parse this return value as JSON, so the refusal has to arrive as JSON.
+        Set dResult = New Dictionary
+        dResult.Add "success", False
+        dResult.Add "error", RefuseReentrantCall(strMethod, "APIAsync", RefusalReason)
+        APIAsync = modJsonConverter.ConvertToJson(dResult)
+        RestoreErrorBreaks
         Exit Function
     End If
 
@@ -431,13 +522,15 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
 
     ' Make sure we are not attempting to run this from the current database when making
     ' changes to the add-in itself. (It will re-run the command through the add-in.)
-    If RunningOnLocal() Then
+    ' Same self-dispatch guard as API -- see RedirectTargetIsSelf.
+    If RunningOnLocal() And Not RedirectTargetIsSelf() Then
         ' When running from within the add-in database, we need to use the full path
         ' to ensure we call the add-in version, not a local version.
         strLibName = GetRunCmdAddInFullLibName
         strRunCmd = strLibName & ".APIAsync"
 
         ' Use Application.Run to call the add-in version
+        m_blnRedirecting = True
         If Not IsMissing(varArg2) Then
             APIAsync = Application.Run(strRunCmd, strCallbackInfo, strMethod, varArg1, varArg2)
         ElseIf Not IsMissing(varArg1) Then
@@ -450,7 +543,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
 
     ' Determine if this is an async operation or should fall back to sync
     Select Case strMethod
-        Case "Export", "FullExport", "ExportVBA", "Build", "BuildAs", "MergeBuild"
+        Case "Export", "FullExport", "ExportVBA", "Build", "BuildAs", "MergeBuild", "RunFilteredTests"
             ' These are async operations - spawn via timer with callback support
 
             ' Store callback info in registry for timer callback to retrieve
@@ -466,7 +559,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
                     lngTimeoutMs = 600000  ' 10 minutes (full export takes longer)
                 Case "ExportVBA"
                     lngTimeoutMs = 120000  ' 2 minutes
-                Case "Build", "BuildAs"
+                Case "Build", "BuildAs", "RunFilteredTests"
                     lngTimeoutMs = 600000  ' 10 minutes
                 Case "MergeBuild"
                     lngTimeoutMs = 300000  ' 5 minutes
@@ -508,16 +601,97 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
 
 CleanUp:
     IsRunning = False
+    m_blnRedirecting = False
+    RestoreErrorBreaks
     Exit Function
 
 ErrHandler:
     ' An error occurred so we need to make it available for further attempts
     ' but do not handle the error.
     IsRunning = False
+    m_blnRedirecting = False
+    RestoreErrorBreaks
 
     ' Re-throw
     Err.Raise Err.Number, Err.Source, Err.Description, Err.HelpFile, Err.HelpContext
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefuseReentrantCall
+' Author    : Adam Waller
+' Date      : 7/30/2026
+' Purpose   : Build the message for a call that arrived while another is still running.
+'           :
+'           : The reason decides the advice, and getting it wrong is expensive. A nested
+'           : call is the caller's own doing and the message says how to restructure it.
+'           : A self-dispatched one is a defect here, and telling that caller to
+'           : restructure sends it looking for a different database to host the call from
+'           : -- a search that ends somewhere plausible and wrong, such as the sample
+'           : database in Testing\. Name the defect instead.
+'           :
+'           : This used to be a bare `Exit Function`, returning Empty -- indistinguishable
+'           : from a method that legitimately returned nothing. The most common way to
+'           : reach it makes that silence actively misleading: code submitted through
+'           : vcs_run_vba is itself delivered via API, so anything it calls back into API
+'           : is nested by construction, and every call coming back Empty reads as a
+'           : broken add-in rather than a refused call.
+'           :
+'           : Returning a marked string rather than raising is deliberate, and was
+'           : arrived at the hard way. An Err.Raise here does not reach the caller: an
+'           : error raised inside a library database does not propagate across
+'           : Application.Run into the calling project's handler, so even a caller with
+'           : `On Error GoTo` active gets a modal "Run-time error" dialog that blocks
+'           : Access until a human dismisses it. Since this guard only ever trips on a
+'           : nested call -- precisely the case that crosses that boundary -- raising is
+'           : guaranteed to hit it. A blocking dialog is worse for automation than the
+'           : silence it replaced. Callers match API_REFUSED_PREFIX to tell a refusal
+'           : from a real return value.
+'---------------------------------------------------------------------------------------
+'
+Private Function RefuseReentrantCall(strMethod As String, strEntryPoint As String, _
+    Optional intReason As eRefusalReason = rrNested) As String
+
+    Dim strMsg As String
+
+    strMsg = API_REFUSED_PREFIX & "VCS " & strEntryPoint & " refused a call to '" & _
+        strMethod & "': "
+
+    Select Case intReason
+        Case rrSelfDispatch
+            strMsg = strMsg & "the call was dispatched to the installed add-in and " & _
+                "arrived back in the project that sent it, so it refused itself. " & _
+                "Nothing ran. This is a defect in the add-in's own dispatch, not " & _
+                "something the caller can host its way around: another database will " & _
+                "not help, and the sample database in the Testing folder is not a " & _
+                "workaround. Report it with the method name above."
+        Case Else
+            strMsg = strMsg & "another API command is still running. Note that code " & _
+                "executed through vcs_run_vba already runs inside an API call, so it " & _
+                "cannot call back into the API; invoke API methods directly " & _
+                "(vcs_call_vba) instead."
+    End Select
+
+    RefuseReentrantCall = strMsg
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RefusalReason
+' Author    : Adam Waller
+' Date      : 8/21/2026
+' Purpose   : Classify a refusal about to be returned. A dispatch still in flight from
+'           : this project means the call we are turning away is the one we just sent.
+'---------------------------------------------------------------------------------------
+'
+Private Function RefusalReason() As eRefusalReason
+    If m_blnRedirecting Then
+        RefusalReason = rrSelfDispatch
+    Else
+        RefusalReason = rrNested
+    End If
 End Function
 
 
@@ -527,6 +701,8 @@ End Function
 ' Date      : 1/26/2026
 ' Purpose   : Write debug messages to a file for MCP callback troubleshooting.
 '           : Writes to logs/MCP_Debug.log in the source folder.
+'           : Do not call this from the per-callback streaming path (PostCallback
+'           : log/progress). File appends dominated agentic build time.
 '---------------------------------------------------------------------------------------
 '
 Public Sub MCPDebugLog(strMessage As String)
@@ -542,4 +718,17 @@ Public Sub MCPDebugLog(strMessage As String)
     ' Append to log file
     AppendToFile Format$(Now, "yyyy-mm-dd hh:nn:ss") & " | " & strMessage, m_strMCPDebugLogPath
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PreferFullPowerCore
+' Author    : Adam Waller
+' Date      : 8/28/2026
+' Purpose   : Public entry for Worker.vbs / Application.Run. Turns EcoQoS off
+'           : on this Access process so MCP-launched work prefers a P-core.
+'---------------------------------------------------------------------------------------
+'
+Public Sub PreferFullPowerCore()
+    PreferFullPowerCurrentProcess
 End Sub
