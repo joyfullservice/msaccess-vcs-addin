@@ -832,7 +832,10 @@ End Function
 ' Procedure : RestoreRelations
 ' Author    : Adam Waller
 ' Date      : 6/2/2023
-' Purpose   : Restore any staged relationships.
+' Purpose   : Restore any staged relationships. They are restored through RestoreStaged,
+'           : not Import, so that a relation on a table that is not exported (system or
+'           : ~*) comes back too: excluding it from the source files is no reason to
+'           : delete it from the database.
 '---------------------------------------------------------------------------------------
 '
 Private Function RestoreRelations(dRelations As Dictionary)
@@ -849,7 +852,7 @@ Private Function RestoreRelations(dRelations As Dictionary)
         For Each varKey In dRelations.Keys
             WriteFile dRelations.Item(varKey), strTempFile
             With New clsDbRelation
-                .Parent.Import strTempFile
+                .RestoreStaged strTempFile
             End With
         Next varKey
         DeleteFile strTempFile

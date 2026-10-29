@@ -68,12 +68,44 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub IDbComponent_Import(strFile As String)
+    ImportRelation strFile, False
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreStaged
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/21/2026
+' Purpose   : Recreate a relation that clsDbTableDef staged from the database before
+'           : rebuilding one of its tables. Unlike Import, a relation on a table that is
+'           : not exported (system or ~*) is recreated too: it was in the database a
+'           : moment ago, and the merge only removed it to rebuild the table. Access
+'           : refuses to delete a table held by an enforced relation, and deleting a
+'           : table deletes any other relation on it. Such a relation gets no index
+'           : entry, since it has no source file.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RestoreStaged(strFile As String)
+    ImportRelation strFile, True
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ImportRelation
+' Author    : Adam Waller
+' Date      : 4/23/2020
+' Purpose   : Create the relation described in the file. blnStaged is set when the
+'           : relation comes from RestoreStaged (see above) rather than a source file.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ImportRelation(strFile As String, blnStaged As Boolean)
 
     Dim dItem As Dictionary
     Dim dFile As Dictionary
     Dim dField As Dictionary
     Dim fld As DAO.Field
     Dim rel As DAO.Relation
+    Dim blnExcluded As Boolean
 
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
@@ -85,8 +117,11 @@ Private Sub IDbComponent_Import(strFile As String)
         ' A relation on a table that is not exported is not recreated either:
         ' the export leaves it out, and Access may refuse to create it on a
         ' system table (error 3033 where the user has no permission on it).
+        ' A relation staged from the database is restored all the same: excluding it
+        ' from the source files is no reason to delete it from the database.
         Set dItem = dFile("Items")
-        If IsExcludedRelation(dNZ(dFile, "Items\Table"), dNZ(dFile, "Items\ForeignTable")) Then
+        blnExcluded = IsExcludedRelation(dNZ(dFile, "Items\Table"), dNZ(dFile, "Items\ForeignTable"))
+        If blnExcluded And Not blnStaged Then
             Log.Add "  Skipped relation on a table that is not exported: " & FSO.GetFileName(strFile), False
             Exit Sub
         End If
@@ -120,8 +155,8 @@ Private Sub IDbComponent_Import(strFile As String)
         Set m_Relation = rel
     End If
 
-    ' Update index
-    VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
+    ' Update index, unless the relation is one that is not exported
+    If Not blnExcluded Then VCSIndex.Update Me, eatImport, GetDictionaryHash(GetDictionary)
 
 End Sub
 
