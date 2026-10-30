@@ -65,6 +65,62 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestEscapeXmlNameLeadingDigit
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : A digit cannot start an XML name, so Access escapes it in the first
+'           : position and nowhere else. Expectations were captured from actual
+'           : Application.ExportXML output: table "0T" exports its rows as <_x0030_T>
+'           : and field "9c" as <_x0039_c>.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestEscapeXmlNameLeadingDigit()
+    TestAssert EscapeXmlName("0T") = "_x0030_T", "leading digit in a table name is escaped"
+    TestAssert EscapeXmlName("9c") = "_x0039_c", "leading digit in a field name is escaped"
+    TestAssert EscapeXmlName("T0") = "T0", "digit after the first position is left alone"
+    TestAssert EscapeXmlName("123") = "_x0031_23", "only the first of several digits is escaped"
+    TestAssert EscapeXmlName("-q") = "_x002D_q", "leading hyphen is escaped"
+    TestAssert EscapeXmlName("1-2") = "_x0031_-2", "hyphen after an escaped leading digit is left alone"
+    TestAssert UnescapeXmlName(EscapeXmlName("0T")) = "0T", "leading digit round-trips"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestEscapeXmlNameNameChars
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 9/29/2026
+' Purpose   : Access follows the XML 1.0 name rules without the colon: a hyphen and
+'           : letters outside ASCII are left alone, while a colon or a symbol such as
+'           : the ordinal indicator is escaped. Expectations were captured from actual
+'           : Application.ExportXML output. The characters are built with ChrW$ so the
+'           : test does not depend on the code page the module is imported with.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestEscapeXmlNameNameChars()
+
+    Dim strAnno As String
+    Dim strTable As String
+    Dim strOrdinal As String
+
+    strAnno = "A" & ChrW$(241) & "o"
+    strTable = "Tabla-" & strAnno
+    strOrdinal = "N" & ChrW$(186)
+
+    TestAssert EscapeXmlName("a-b") = "a-b", "hyphen inside a name is left alone"
+    TestAssert EscapeXmlName(strAnno) = strAnno, "letter outside ASCII is left alone"
+    TestAssert EscapeXmlName(strTable) = strTable, "hyphen and accented letter in a table name"
+    TestAssert EscapeXmlName(ChrW$(193) & "mbito") = ChrW$(193) & "mbito", "accented letter may start a name"
+    TestAssert EscapeXmlName("a" & ChrW$(183) & "b") = "a" & ChrW$(183) & "b", "middle dot inside a name is left alone"
+    TestAssert EscapeXmlName(strOrdinal) = "N_x00BA_", "ordinal indicator is escaped"
+    TestAssert EscapeXmlName(ChrW$(186) & "x") = "_x00BA_x", "ordinal indicator is escaped at the start"
+    TestAssert EscapeXmlName("a:b") = "a_x003A_b", "colon is escaped"
+    TestAssert UnescapeXmlName(EscapeXmlName(strTable)) = strTable, "table name round-trips"
+    TestAssert UnescapeXmlName(EscapeXmlName(strOrdinal)) = strOrdinal, "escaped symbol round-trips"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : TestFormatTableDataChangeSummary
 ' Author    : Adam Waller
 ' Date      : 8/13/2026
