@@ -1,0 +1,42 @@
+name: Build Add-in
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Access runtime
+        uses: DecimalTurn/setup-vba@797e4a232699a98507cb4411d5bea3697427ad57 # v0.3.0
+        with:
+          office-apps: Access
+
+      - name: Build from source
+        id: build
+        uses: AccessCodeLib/msaccess-vcs-build@da38fda0d878d93cf8be66846da0084d27ea97f1 # v1.1.0
+        with:
+          source-dir: "./Version Control.accda.src"
+          target-dir: "bin"
+          vcs-url: "https://api.github.com/repos/joyfullservice/msaccess-vcs-addin/releases/tags/v5.0.1"
+          # compile: "true" # enable compile to produce .accde with exposed public API
+        timeout-minutes: 10
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Version_Control
+          path: "./bin/*"
+          if-no-files-found: error
