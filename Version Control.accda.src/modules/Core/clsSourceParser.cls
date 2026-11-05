@@ -24,6 +24,8 @@ Public RowSortFields As Dictionary
 Private Const NS_XSD_URI As String = "http://www.w3.org/2001/XMLSchema"
 Private Const NS_OD_URI As String = "urn:schemas-microsoft-com:officedata"
 
+Private Const CF_UNNAMED_BLOCK As String = "<unnamed>"
+
 Public Enum eContentType
     ectObjectDefinition
     ectXML
@@ -369,6 +371,27 @@ Private Sub StoreCFBlock(strKind As String, cBuffer As clsConcat)
         this.dConditionalFormat.Add this.strCFControl, dControl
     End If
     dControl(strKind) = cBuffer.GetStr
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FixUnnamedCFBlock
+' Author    : Hans Schupp
+' Date      : 11/2/2026
+' Purpose   : Rename an "unnamed" CF block after the Name property is available
+'---------------------------------------------------------------------------------------
+'
+Private Sub FixUnnamedCFBlock()
+
+    Dim dControl As Dictionary
+
+    If this.dConditionalFormat Is Nothing Then Exit Sub
+    If this.strCFControl = CF_UNNAMED_BLOCK Or Len(this.strCFControl) = 0 Then Exit Sub ' paranoia
+    If Not this.dConditionalFormat.Exists(CF_UNNAMED_BLOCK) Then Exit Sub
+    Set dControl = this.dConditionalFormat(CF_UNNAMED_BLOCK)
+    this.dConditionalFormat.Remove CF_UNNAMED_BLOCK
+    this.dConditionalFormat.Add this.strCFControl, dControl
 
 End Sub
 
@@ -831,6 +854,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                                 (StrComp(strTLine, "Begin Tab", vbBinaryCompare) = 0)
                         End If
                         BeginBlock Mid$(strTLine, 7)
+                        this.strCFControl = CF_UNNAMED_BLOCK
                     ElseIf EndsWith(strTLine, " = Begin") Then
                         BeginBlock
                     Else
@@ -855,7 +879,12 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         ' Track the current control name so conditional formatting
                         ' blocks can be keyed correctly in the companion JSON.
                         If blnStripCF Then
-                            If StartsWith(strTLine, "Name =""") Then this.strCFControl = ExtractControlName(strTLine)
+                            If StartsWith(strTLine, "Name =""") Then
+                                this.strCFControl = ExtractControlName(strTLine)
+                                ' Link CF blocks then occurred up to this point
+                                ' to the now known control name.
+                                FixUnnamedCFBlock
+                            End If
                         End If
 
                         ' Check for color properties
