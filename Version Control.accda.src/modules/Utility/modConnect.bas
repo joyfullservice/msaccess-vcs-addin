@@ -1350,7 +1350,9 @@ Public Function GetConnectionEnvKey(strConnect As String) As String
         strIdentity = GetConnectPart(strConnect, "DSN")
     End If
 
-    If Len(strIdentity) > 0 Then
+    ' FIX for issues #827 and #830: when UseEnvForConnections = Never
+    ' then internally use hashes, so connections don't clash
+    If Len(strIdentity) > 0 And Options.UseEnvForConnections <> uecNever Then
         ' Readable key from database identity (sanitized to lowercase)
         GetConnectionEnvKey = ENV_KEY_PREFIX & SanitizeKeyName(strIdentity)
     Else
