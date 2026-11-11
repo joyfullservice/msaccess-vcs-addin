@@ -746,6 +746,17 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         ' Check for theme color index
                         CloseBlock intSanitizeColors
                     End If
+                    ' handle name for CF blocks (should not happen under normal circumstances)
+                    If Not this.dConditionalFormat Is Nothing Then
+                        If this.dConditionalFormat.Exists(CF_UNNAMED_BLOCK) Then
+                            Log.Error eelWarning, MultiReplace( _
+                                "Found ConditionalFormat block without Name in ${File} (before line ${Line}).", _
+                                "${Line}", lngLine, _
+                                "${File}", this.strFilePath), _
+                                ModuleName(Me) & ".SanitizeObject"
+                            this.dConditionalFormat.Remove CF_UNNAMED_BLOCK
+                        End If
+                    End If
 
                 ' See if this file is from a report object
                 ' (Need more review and testing to apply this to forms. See #641)
