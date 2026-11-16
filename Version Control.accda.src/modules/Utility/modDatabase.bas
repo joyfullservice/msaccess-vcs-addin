@@ -1022,6 +1022,59 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetRequiredRepairFieldNamesFromTableDefXml
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : Return the Yes/No fields that are not Required, which
+'           : Application.ImportXML creates as Required=True.
+'           : ExportXML writes every Yes/No field as minOccurs="1" od:nonNullable="yes",
+'           : whether it is Required or not, so the element itself cannot tell them
+'           : apart. The Required field property can: ExportXML writes it with value 1
+'           : for every Required Yes/No field, however the field was created (DAO, or
+'           : NOT NULL through DDL). Without the property, or with value 0, the field is
+'           : not Required. Any other value, or a Required property with no value, is
+'           : taken as Required, so a spelling this was not measured against leaves the
+'           : field as ImportXML made it. Only Yes/No fields are returned: ImportXML
+'           : keeps Required=False on the other types.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetRequiredRepairFieldNamesFromTableDefXml(strXml As String) As Collection
+
+    Const XPATH_YESNO_NOT_REQUIRED As String = _
+        "//*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='element'" & _
+        " and @*[namespace-uri()='urn:schemas-microsoft-com:officedata' and local-name()='jetType']='yesno'" & _
+        " and not(*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='annotation']" & _
+        "/*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='appinfo']" & _
+        "/*[namespace-uri()='urn:schemas-microsoft-com:officedata' and local-name()='fieldProperty'" & _
+        " and @name='Required' and not(@value='0')])]"
+
+    Dim colNames As New Collection
+    Dim objXml As MSXML2.DOMDocument60
+    Dim objNodes As MSXML2.IXMLDOMNodeList
+    Dim objNode As MSXML2.IXMLDOMNode
+    Dim objNameAttr As MSXML2.IXMLDOMNode
+
+    Set GetRequiredRepairFieldNamesFromTableDefXml = colNames
+    If Len(strXml) = 0 Then Exit Function
+
+    Set objXml = New MSXML2.DOMDocument60
+    objXml.async = False
+    If Not objXml.LoadXML(strXml) Then Exit Function
+
+    ' ExportXML escapes names that are not valid XML ("10" is written "_x0031_0"), and
+    ' the caller looks the field up in the table, so return the real name.
+    Set objNodes = objXml.SelectNodes(XPATH_YESNO_NOT_REQUIRED)
+    For Each objNode In objNodes
+        Set objNameAttr = objNode.Attributes.getNamedItem("name")
+        If Not objNameAttr Is Nothing Then colNames.Add UnescapeXmlName(objNameAttr.Text)
+    Next objNode
+
+    Set GetRequiredRepairFieldNamesFromTableDefXml = colNames
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsLocalTable
 ' Author    : Adam Waller
 ' Date      : 3/13/2023

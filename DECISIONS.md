@@ -83,6 +83,63 @@ contradictory guidance.
 
 ---
 
+## 2026-11-16 — Restore Required=False on Yes/No fields after Application.ImportXML
+
+**Trigger**: `Application.ImportXML` creates every Yes/No field as `Required = True`.
+`ExportXML` writes every Yes/No field as `minOccurs="1" od:nonNullable="yes"`,
+Required or not, and the `Required` field property that tells them apart (`1`, or
+`0`/missing) is not applied by the import. A Full Build, and a merge that does not
+take the DAO table-def path, therefore turns every optional Yes/No field into a
+Required one, and the next export writes `Required=1` for it.
+
+**Options explored**:
+- *Edit the XML before `ImportXML`.* Removing only `od:nonNullable` from the element
+  changes nothing; removing `minOccurs` as well leaves the field optional. Rejected:
+  it rewrites a file Access owns the format of, it is not clear which of the two
+  attributes the import reads, and the next export still writes `Required=0` for a
+  field that had no property.
+- *Build tables through DAO (`modTableDefBuilder`) on a Full Build too.* It already
+  sets `Required` from its own field property, but a Full Build leaves it off on
+  purpose (see "Build local table definitions through DAO instead of
+  Application.ImportXML"). Out of scope.
+- *Scan the source XML before the import, set `Required = False` through DAO after it*
+  — chosen, the same shape as the dbBigInt repair (2026-07-30, below), and at the same
+  point.
+- *Read the result back through a fresh `CurrentDb`, as the dbBigInt repair does.*
+  Rejected: it adds a `CurrentDb` per table, and a failed DAO property assignment
+  already raises an error, which is logged. `ImportTableStructure` calls
+  `ReleaseDbReferences` before both repairs, so `SharedDb` sees the imported table.
+  The integration test reads the result back.
+
+**Decision**: `GetRequiredRepairFieldNamesFromTableDefXml` (`modDatabase.bas`) returns
+the Yes/No fields whose `Required` property is `0` or missing; any other value, or a
+property with no value, counts as Required and the field is left alone. Names are
+passed through `UnescapeXmlName`. `FixImportedRequiredFields` (`clsDbTableDef.cls`)
+sets them to `False` after a successful import. A failed scan is logged as a warning
+and costs the repair, never the import.
+
+The dbBigInt entry rejects a DOM parse on every table and gates it on an `InStr`. This
+repair keeps the gate (`od:jetType="yesno"`, binary compare), but Yes/No fields are
+common, so every table that has one pays the parse, even when all its Yes/No fields
+are Required. Measured on 300 synthetic tables (a third with optional Yes/No fields, a
+third with only Required ones, a third with none): the scan costs about 0.14 s in total
+and the repair 0.30 s, against about 5 s for `ImportXML`. The scan reads the file again
+rather than sharing the dbBigInt scan's read; the second read shows under `Read File`
+(300 more calls, about 0.1 s more). That is small enough that neither a finer gate
+(one that tells an all-Required table from the rest without parsing) nor a shared
+read was worth changing the dbBigInt scan for.
+
+**What this rules out**: Expecting a Yes/No field that had no `Required` property in
+the source to come back without it: after the build it is exported with `Required=0`,
+and the source carries the `0` from then on. Sources already exported from a build
+that made the fields Required keep `Required=1`; the repair does not guess them back.
+Revisit if `ImportXML` starts honoring the property, or if the DAO path becomes the
+default for a Full Build.
+
+**Relevant files**: `clsDbTableDef.cls`, `modDatabase.bas`, `modTestTableDef.bas`.
+
+---
+
 ## 2026-10-27 — An interactive command gives a live root back its Source; a suppressed cancel resumes
 
 **Trigger**: Review after merging #818. `ResetForInteractiveCommand` set `Source` to

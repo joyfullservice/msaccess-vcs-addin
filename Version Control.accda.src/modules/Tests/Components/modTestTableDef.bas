@@ -62,6 +62,79 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : TestRequiredRepairFieldXmlDetection
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A Yes/No field needs the repair when its Required field property is 0 or
+'           : missing. Any other value, or no value at all, means Required and leaves
+'           : the field alone.
+'           : ExportXML writes that property as 0 for a field created through DAO and
+'           : leaves it out for one added through DDL; both are optional and both must
+'           : match. A name ExportXML had to escape comes back as the real field name.
+'           : An autonumber key is also nonNullable with no Required property, and
+'           : an optional text field has Required=0; neither is a Yes/No field, so
+'           : neither may match.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestRequiredRepairFieldXmlDetection()
+    Dim colNames As Collection
+    Dim strXml As String
+
+    strXml = RequiredFixtureXml( _
+        "<xsd:element name=""YesNoFromDdl"" minOccurs=""1"" od:jetType=""yesno"" od:sqlSType=""bit"" od:nonNullable=""yes"" type=""xsd:boolean"">" & _
+        "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""Format"" type=""10"" value=""Yes/No""/>" & _
+        "</xsd:appinfo></xsd:annotation></xsd:element>")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 1, "Yes/No field without a Required property should match"
+    If colNames.Count = 1 Then TestAssert colNames(1) = "YesNoFromDdl", "matched field name"
+
+    strXml = Replace(strXml, "name=""YesNoFromDdl""", "name=""_x0031_0""")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 1, "Yes/No field with an escaped name should match"
+    If colNames.Count = 1 Then TestAssert colNames(1) = "10", "escaped field name is returned unescaped"
+
+    strXml = RequiredFixtureXml( _
+        "<xsd:element name=""YesNoOptional"" minOccurs=""1"" od:jetType=""yesno"" od:sqlSType=""bit"" od:nonNullable=""yes"" type=""xsd:boolean"">" & _
+        "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""Format"" type=""10"" value=""Yes/No""/>" & _
+        "<od:fieldProperty name=""Required"" type=""1"" value=""0""/>" & _
+        "</xsd:appinfo></xsd:annotation></xsd:element>")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 1, "Yes/No field with Required=0 should match"
+    If colNames.Count = 1 Then TestAssert colNames(1) = "YesNoOptional", "matched field name"
+
+    strXml = Replace(strXml, "name=""Required"" type=""1"" value=""0""", "name=""Required"" type=""1"" value=""1""")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "Yes/No field with Required=1 should not match"
+
+    strXml = Replace(strXml, "name=""Required"" type=""1"" value=""1""", "name=""Required"" type=""1"" value=""-1""")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "Yes/No field with any other non-zero Required value should not match"
+
+    strXml = Replace(strXml, "name=""Required"" type=""1"" value=""-1""", "name=""Required"" type=""1""")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "Yes/No field with a Required property but no value should not match"
+
+    strXml = RequiredFixtureXml( _
+        "<xsd:element name=""ID"" minOccurs=""1"" od:jetType=""autonumber"" od:sqlSType=""int"" od:autoUnique=""yes"" od:nonNullable=""yes"" type=""xsd:int"">" & _
+        "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""ColumnWidth"" type=""3"" value=""-1""/>" & _
+        "</xsd:appinfo></xsd:annotation></xsd:element>")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "autonumber key without a Required property should not match"
+
+    strXml = RequiredFixtureXml( _
+        "<xsd:element name=""TextOptional"" minOccurs=""0"" od:jetType=""text"" od:sqlSType=""nvarchar"">" & _
+        "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""Required"" type=""1"" value=""0""/>" & _
+        "</xsd:appinfo></xsd:annotation></xsd:element>")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "optional text field should not match"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : TestBigIntImportXmlRepair
 ' Author    : Adam Waller
 ' Date      : 7/30/2026
@@ -718,6 +791,19 @@ Private Function BigIntFixtureXml(strFieldName As String) As String
         "          </xsd:restriction>" & vbCrLf & _
         "        </xsd:simpleType>" & vbCrLf & _
         "      </xsd:element>" & vbCrLf & _
+        "    </xsd:sequence></xsd:complexType>" & vbCrLf & _
+        "  </xsd:element>" & vbCrLf & _
+        "</xsd:schema>"
+End Function
+
+
+Private Function RequiredFixtureXml(strFieldElement As String) As String
+    RequiredFixtureXml = _
+        "<?xml version=""1.0""?>" & vbCrLf & _
+        "<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:od=""urn:schemas-microsoft-com:officedata"">" & vbCrLf & _
+        "  <xsd:element name=""Fixture"">" & vbCrLf & _
+        "    <xsd:complexType><xsd:sequence>" & vbCrLf & _
+        "      " & strFieldElement & vbCrLf & _
         "    </xsd:sequence></xsd:complexType>" & vbCrLf & _
         "  </xsd:element>" & vbCrLf & _
         "</xsd:schema>"
