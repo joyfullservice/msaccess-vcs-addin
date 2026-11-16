@@ -177,6 +177,48 @@ time on blob-heavy forms.
 went from **>60 s (never completed)** to **62 ms**. Harness: direct `Canonicalize`
 timing via `modTestPerf` / `vcs_run_vba`.
 
+### Pass vbBinaryCompare to InStr and InStrRev in loops over large strings
+
+**Prefer:** `InStr(lngPos, strText, strFind, vbBinaryCompare)` and
+`InStrRev(strText, strFind, lngPos, vbBinaryCompare)` when a loop searches a large
+string once per token or line, and the search does not need to ignore case.
+
+**Why:** under `Option Compare Database`, an `InStr` without the compare argument
+compares as text, and a text-mode `InStr` costs the length of the **whole** string on
+every call, wherever it starts and however close the match is. A loop that walks a
+large string with one search per step therefore grows with the square of the string
+length. Passing `vbTextCompare` explicitly to `InStr` costs the same. `InStrRev`
+without the argument compares as text too, although the VBA reference says that
+omitting it performs a binary comparison: `InStrRev("aAa", "a", 2)` returns 2, as
+with `vbTextCompare`, and 1 with `vbBinaryCompare`.
+
+**Measured:** one `InStr` call searching for `'` in a synthetic string, with the match
+always within 10 characters of the start position, averaged over 200 calls per cell:
+
+| Length | Text, from 1 | Text, from the middle | Text, 100 before the end | Binary |
+|---|---|---|---|---|
+| 175,000 | 0.70 ms | 0.70 ms | 0.70 ms | 0.05 µs |
+| 350,000 | 1.59 ms | 1.57 ms | 1.57 ms | 0.05 µs |
+| 700,000 | 3.16 ms | 3.38 ms | 3.09 ms | 0.05 µs |
+| 1,400,000 | 6.40 ms | 6.29 ms | 6.24 ms | 0.05 µs |
+
+Harness: a standalone benchmark module with `Option Compare Database`, timed with
+`QueryPerformanceCounter`, Access 16.0 32-bit with a Spanish locale. One run per cell,
+not interleaved: take the ratio between columns, four orders of magnitude, as the
+result rather than the digits.
+
+On a real function: a VBA code normalizer in the closed, unmerged #794, which
+searched once per string literal, comment and line end, took **84 s** with all its
+searches in text mode and **0.03 s** with all of them binary, on the synthetic 470 KB
+input of that PR's `TestNormalizeCasing_21_LargeModule`.
+
+Switching to binary can change what a search finds when the collation treats two
+characters as equal. For that normalizer's delimiters (`"`, `'` and `vbCrLf`, and
+`vbLf` searched backwards) it did not, with a Spanish locale: each of the 256 ANSI
+characters alone, next to each delimiter, and every pair of them gave the same
+position in both modes. With letters, case and, depending on the collation, accents
+come into play, so check the equivalence for each search you switch.
+
 ### VBA does not short-circuit And
 
 **Prefer:** nested `If` blocks or a precomputed flag instead of
