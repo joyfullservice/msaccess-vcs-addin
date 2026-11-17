@@ -226,6 +226,27 @@ Public Sub TestFormGeometry_MinimalSanitizeLeavesGeometry()
 End Sub
 
 
+' A 16x16 icon sized at 256 twips is what #839 reported shrinking to 240. With
+' snapping off, layout geometry is exported exactly as written, while the rest of
+' the 5.1.0 form sanitizing still applies.
+Public Sub TestFormGeometry_SnapOffKeepsExactGeometry()
+    Dim strOut As String
+    strOut = SanitizeForm(IconPairForm, EFV_5_1_0, eslStandard, False)
+    TestAssert InStr(strOut, "Height =256") > 0, "icon height kept at 256"
+    TestAssert InStr(strOut, "Height =240") = 0, "icon height not snapped to 240"
+    TestAssert InStr(strOut, "Left =105") > 0, "off-grid origin kept"
+    TestAssert InStr(strOut, "LayoutCached") = 0, "LayoutCached* still stripped at 5.1.0"
+End Sub
+
+
+Public Sub TestFormGeometry_SnapOnMovesIconHeight()
+    Dim strOut As String
+    strOut = SanitizeForm(IconPairForm)
+    TestAssert InStr(strOut, "Height =240") > 0, "default snaps the 256-twip icon to 240"
+    TestAssert InStr(strOut, "Left =120") > 0, "default snaps the origin to the lattice"
+End Sub
+
+
 Public Sub TestFormGeometry_ResumesAfterInlineBinary()
     Dim strOut As String
     strOut = SanitizeForm(InlineBinaryForm)
@@ -295,19 +316,34 @@ End Sub
 
 Private Function SanitizeForm(strContent As String, _
     Optional lngFormat As Long = EFV_5_1_0, _
-    Optional intSanitize As eSanitizeLevel = eslStandard) As String
+    Optional intSanitize As eSanitizeLevel = eslStandard, _
+    Optional blnSnapGeometry As Boolean = True) As String
 
     Dim lngOldFormat As Long
     Dim intOldSanitize As eSanitizeLevel
+    Dim blnOldSnap As Boolean
     lngOldFormat = Options.ExportFormatVersion
     intOldSanitize = Options.SanitizeLevel
+    blnOldSnap = Options.SnapFormLayoutGeometry
+
+    On Error GoTo ErrHandler
     Options.ExportFormatVersion = lngFormat
     Options.SanitizeLevel = intSanitize
+    Options.SnapFormLayoutGeometry = blnSnapGeometry
     m_parser.LoadString strContent, edbForm
     m_parser.Sanitize ectObjectDefinition
     SanitizeForm = m_parser.GetOutput
+
+CleanUp:
+    ' Options is shared by every later test, so it is restored even when sanitizing
+    ' fails; the empty result then fails the caller's assertions.
     Options.ExportFormatVersion = lngOldFormat
     Options.SanitizeLevel = intOldSanitize
+    Options.SnapFormLayoutGeometry = blnOldSnap
+    Exit Function
+
+ErrHandler:
+    Resume CleanUp
 End Function
 
 
@@ -389,6 +425,26 @@ Private Function TabularPairForm(lngLeftA As Long, lngLeftB As Long, lngWidth As
         "            Begin" & vbCrLf & _
         CellBlock("Label", "lblA", lngLeftA, 120, lngWidth, 360, 0, 0) & _
         CellBlock("Label", "lblB", lngLeftB, 120, lngWidth, 360, 1, 1) & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
+' Two 256-twip image cells in one tabular row, the shape reported in #839.
+Private Function IconPairForm() As String
+    IconPairForm = _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =6000" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin FormHeader" & vbCrLf & _
+        "            Height =600" & vbCrLf & _
+        "            Name =""FormHeader""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        CellBlock("Image", "imgUp", 105, 120, 256, 256, 0, 0) & _
+        CellBlock("Image", "imgDown", 421, 120, 256, 256, 1, 1) & _
         "            End" & vbCrLf & _
         "        End" & vbCrLf & _
         "    End" & vbCrLf & _
