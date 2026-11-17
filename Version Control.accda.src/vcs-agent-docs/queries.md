@@ -6,17 +6,38 @@ and a `.json` holding everything that SQL cannot express.
 ## Editing query logic
 
 Edit the `.sql`. It is the sole source of truth for the query's SQL text, and
-changing it is the normal way to change what a query does.
+changing it is the normal way to change what a query does. The file is Access SQL:
+it must paste into the Access SQL View and run unchanged.
 
 ```sql
 SELECT
-    CustomerID,
-    CustomerName,
-    Email
-FROM tblCustomers
-WHERE Active = True
-ORDER BY CustomerName;
+  tblCustomers.CustomerName,
+  IIf([tblOrders].[Shipped], "Yes", "No") AS ShipStatus,
+  [tblCustomers].[FirstName] & " " & [tblCustomers].[LastName] AS FullName
+FROM
+  (tblCustomers
+  INNER JOIN tblOrders ON tblCustomers.CustomerID = tblOrders.CustomerID)
+  INNER JOIN tblOrderLines ON (tblOrders.OrderID = tblOrderLines.OrderID)
+    AND (tblOrders.Region = tblOrderLines.Region)
+WHERE
+  (tblOrders.OrderDate >= #1/1/2024#)
+  AND (tblCustomers.CustomerName Like "A*");
 ```
+
+Keep the Access syntax that standard SQL would spell differently; Access rejects or
+misreads the standard forms:
+
+- Parentheses around each nested join (`(A INNER JOIN B ON ...) INNER JOIN C`)
+- Parentheses around each condition of a multi-condition `ON`
+- `#date#` literals, `*` and `?` wildcards in `Like`, `IIf()` rather than `CASE`,
+  and `&` for string concatenation
+- Brackets around names with spaces or reserved words (`AS [Option]`)
+
+Layout is yours to choose; the next export rewrites it in the style above without
+changing meaning. With export format 5.2.0 or later, export also drops redundant
+parentheses from `WHERE` and `HAVING`, including the extra pairs the query designer
+adds when it saves a query, so a designer save leaves at most one pair per criterion
+in the diff.
 
 On import the add-in reads both files, generates a temporary `.qdef` in memory, and
 hands it to `LoadFromText`. When the SQL is designer-compatible and the `.json`

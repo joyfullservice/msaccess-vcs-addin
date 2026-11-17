@@ -125,6 +125,168 @@ snapping off.
 
 ---
 
+## 2026-10-28 — Exported query SQL is standard SQL wherever Access accepts it
+
+**Trigger**: A contributor's builder validation run and a review of a large production
+export. Exported `.sql` files carried Access presentation quirks (`(((t.a)=1))` WHERE
+wrapping, `( a, b )` spacing, staircased join chains) that make diffs noisy and give
+agents, which are not deeply trained on Access SQL, more to trip over.
+
+**Options explored**:
+- *Match Access's text exactly, quirks included.* Rejected: the quirks change whenever
+  a query is saved through the designer, so they churn diffs and teach readers syntax
+  they never need to write.
+- *Convert to ANSI SQL* (`CASE` for `IIf`, `%` for `*`, `||` for `&`). Rejected: the
+  `.sql` must paste into Access's SQL View and run unchanged, and these do not.
+- *Standard SQL layout and spelling where Access accepts it, Access syntax only where
+  Access requires it* — chosen.
+
+**Decision**: Export runs three stages, each with one job. The builder
+(`clsQueryComposer`) reconstructs Access's structure and every stored attribute; the
+canonicalizer (`clsSqlCanonicalizer`) removes only provably redundant parentheses; the
+formatter (`clsSqlFormatter`) changes only whitespace. The builder validator compares
+the builder's raw output, so no later stage can hide a reconstruction loss. Never
+changed by any stage: join-nesting parentheses, ON parentheses, `#date#`, `*`/`?`
+wildcards, `IIf`/`Nz`, `&`, reserved-word brackets, `PARAMETERS` spellings. The
+acceptance test is that the exported `.sql` parses in Access (the round-trip "paste"
+check). The check tolerates a query only when Access's own `QueryDefs.SQL` for it does
+not parse either: Access writes a compound ON that compares a column to a constant
+without the outer pair its parser requires (`ON ((a = b) AND (c > 0))`, error 3296),
+and a bare `SELECT;` fails with 3141. This refines "SQL reconstruction fidelity" (2026-04-14) and "Reconstruct stored
+query attributes" (2026-04-29): structure follows Access, presentation follows standard
+SQL.
+
+**What this rules out**: Matching Access's spacing in the builder; rewriting Access
+syntax into ANSI equivalents; any stage changing what a query means. A presentation
+change that a reader would call "more standard" still needs an export format gate and
+must keep the paste check passing.
+
+**Relevant files**: `clsQueryComposer.cls`, `clsSqlCanonicalizer.cls`,
+`clsSqlFormatter.cls`, `clsDbQuery.cls` (`ExportNewFormat`), `modTestRoundtrip.bas`,
+`docs/access-query-storage.md`.
+
+---
+
+## 2026-10-28 — Query SQL layout at export format 5.2.0
+
+**Trigger**: In a production export, a parenthesized group stayed inline only when it
+held at most 30 characters with no nested group, so `Sum(t.Loan)` stayed inline while
+`Sum(t.Interest)` spread over three lines. Broken groups packed arguments by character
+count (a lone `0` on its own line), `&` was unspaced (`)& IIf(`), unary minus split
+(`- Nz(`), left-deep join chains staircased one indent per join, and each `(cond)` of a
+multi-condition ON became its own block.
+
+**Options explored**:
+- *Tune the 30-character threshold.* Rejected: any fixed content length breaks
+  differently at different indents; the line width is what the reader sees.
+- *Pack arguments to fill the line.* Rejected: a one-argument change reflows its
+  neighbors, which is the diff noise this work removes.
+- *Width-based inline rule with one argument per line otherwise* — chosen, the layout
+  common to SQL and code formatters that agents and reviewers already read.
+
+**Decision**: Gated at `EFV_5_2_0` in `clsSqlFormatter`. A group stays on one line
+when it fits within 100 columns from where it starts; otherwise each argument goes on
+its own line and the closing parenthesis on its own line, with inner groups measured
+independently. `&`, `\` and `^` are spaced like other operators. A minus after `(`, a
+comma, an operator, or a keyword is unary and glued to its operand (`-Nz(x, 0)`). A
+left-deep join chain is flat: its parentheses open before the first table and close
+at the end of each join line. ON stays on the JOIN line when it fits; each extra
+AND/OR condition goes on its own line, one level under the JOIN. The formatter never
+adds, removes, or changes a non-whitespace token, and formatting its own output
+changes nothing; tests check both over the whole fixture corpus. Below 5.2.0 the
+output is byte-identical to before (existing tests are pinned to `EFV_5_1_0`).
+
+**What this rules out**: Layout rules that depend on anything other than the token
+stream and the column; a formatter rule that removes a token (that belongs in the
+canonicalizer). `x\y` tokenizes as one word and stays unspaced.
+
+**Relevant files**: `clsSqlFormatter.cls`, `clsTestSqlFormatter.cls`.
+
+---
+
+## 2026-10-28 — Redundant WHERE/HAVING parentheses are removed by a separate canonicalizer
+
+**Trigger**: Access rewrites stored WHERE and HAVING text whenever a query goes
+through the designer, even a query written in SQL View: `WHERE t.a = 1 AND t.b = 2`
+comes back as `WHERE (((t.a)=1) AND ((t.b)=2))` with no change in logic. About 2,200
+queries in one reviewed export carried that wrapping, and opening a query in Design
+View was enough to churn its `.sql`.
+
+**Options explored**:
+- *Leave the parentheses.* Rejected: designer saves keep churning diffs, and readers
+  cannot tell a real grouping from the designer's habit.
+- *Let the formatter remove them.* Rejected: the formatter's whitespace-only rule is
+  what lets its token-preservation test prove it safe.
+- *Precedence-aware removal* (drop any pair the operator precedence makes redundant).
+  Rejected: one precedence mistake (`Not`, `Between ... And`, mixed AND/OR, `&`)
+  silently changes results.
+- *A separate class removing only syntactically redundant pairs* — chosen.
+
+**Decision**: `clsSqlCanonicalizer`, run by `clsDbQuery.ExportNewFormat` before the
+formatter at `EFV_5_2_0`, never for pass-through and never in `ExportLegacy`. It works
+only inside WHERE and HAVING (including subqueries and every SELECT of a UNION) and
+removes a pair that wraps the whole condition, or a pair around one single value: a
+bare, bracketed or qualified name (including `Forms!frm!ctl`), a bracketed parameter, a
+string, a `#date#`, or an unsigned number. Everything else keeps its parentheses,
+including `-5`, `Null`, function-call arguments, `IN`, `EXISTS`, `ANY`/`ALL`/`SOME`,
+subqueries, and FROM/ON. A fail-safe returns the input unchanged, with a
+`DeclineReason`, if the rewrite would change any non-parenthesis token or unbalance
+the parentheses; an SQL comment or an internal error also keeps the input. Before it
+was enabled, a report-only validator section checked every rewrite on the fixture
+corpus for idempotence, an Access parse, an identical decomposed structure, and (for
+read-only SELECTs) the same row count and columns; it found no failures.
+Accepted churn: a designer save still rewrites the text Access stores, but the next
+export returns to the same `.sql`. The designer form `(Count(t.b))>1` keeps its pair,
+since a function call is not a single value.
+
+**What this rules out**: Using operator precedence to remove parentheses; touching
+ON, FROM, or SELECT-list parentheses. If Access turns up an edge case, narrow a rule
+as a bug fix through the exporter-revision mechanism, not a new format version.
+
+**Relevant files**: `clsSqlCanonicalizer.cls`, `clsDbQuery.cls`,
+`modTestQuerySqlBuilder.bas` (`CheckCanonicalizer`), `clsTestSqlCanonicalizer.cls`.
+
+---
+
+## 2026-10-28 — Reserved-word aliases and FROM order follow Access at export format 5.2.0
+
+**Trigger**: The same validation run flagged five queries whose aliases Access
+brackets and we did not (`Option`, `First`, `Second`, `To`) and two queries (a SELECT
+and an UPDATE) with a table outside every join. `SELECT 1 AS Option` fails in Access
+with error 3141, so an exported `.sql` with that alias could not be pasted or imported
+through SQL View.
+
+**Options explored**:
+- *Add the four reported words.* Rejected: widening the list later changes output
+  again and needs another format version, so the list has to be complete now.
+- *Use Microsoft's published reserved-word list.* Rejected: Access does not bracket
+  every published word as an alias (`Name` stays bare), so the output would drift
+  from `QueryDefs.SQL` in the other direction.
+- *Sweep Access itself* — chosen: each candidate (the published Access and SQL-92 words
+  plus the old list) loaded as a Design View alias and read back through
+  `QueryDefs.SQL`, plus each tested bare as an alias. The new list is the words the
+  designer brackets plus `EQV`, `IMP`, `MOD` and `XOR`, which the engine rejects as
+  table aliases. It has 296 words and leaves out `Name`, `Parameter` and `Yes`.
+- *Keep `(A JOIN B ON ...), X` for disconnected tables.* Valid SQL with the same rows,
+  but it differs from Access's text, which leaves the validator a permanent review item.
+
+**Decision**: At `EFV_5_2_0`, `clsQueryComposer` brackets aliases with the swept list
+(`clsSqlSyntax.BracketIfNeeded` with `blnDesignerWords`), and `BuildJoinForestSql`
+writes tables outside every join first, in stored order, followed by the join groups
+unwrapped: `FROM X, A INNER JOIN B ON ...`, for SELECT, UPDATE and DELETE alike. Below
+5.2.0 both are unchanged. `MSysQueries` stores aliases unbracketed whether a query was
+saved in SQL View or the designer, so the list applies to both.
+
+**What this rules out**: Editing the 5.2.0 word list without a new format version;
+bracketing by the published list. Parameter declarations keep their authored text.
+
+**Relevant files**: `clsSqlSyntax.cls`, `clsQueryComposer.cls`,
+`Testing/Fixtures/queries/regression/qryRegressionReservedAliasDesignView.*`,
+`qryRegressionDisconnectedNestedJoinDesignView.*`,
+`qryRegressionUpdateCartesianDesignView.*`.
+
+---
+
 ## 2026-10-27 — An interactive command gives a live root back its Source; a suppressed cancel resumes
 
 **Trigger**: Review after merging #818. `ResetForInteractiveCommand` set `Source` to
@@ -6569,6 +6731,10 @@ external targets emit `IN '<path>'`, Attribute 2 rows become `PARAMETERS`
 clauses, UPDATE/DELETE emit `DISTINCTROW` when bit 8 is set, UNION appends
 stored `ORDER BY`, and aliases use a wider Access reserved/contextual keyword
 set for bracketing.
+
+> **⚠ Partially superseded** (2026-10-28): From export format 5.2.0 the alias
+> bracket list is swept from Access itself rather than this hand-picked set. See
+> "Reserved-word aliases and FROM order follow Access at export format 5.2.0" above.
 
 **What this rules out**: Do not classify these as formatting-only review
 cases, and do not solve them by changing only `modTestQuerySqlBuilder`.

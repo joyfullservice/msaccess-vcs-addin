@@ -6,12 +6,8 @@ SELECT
 FROM
   qryCars
 WHERE
-  (
-    (
-      (qryCars.Manufacturer) = "BMW"
-      Or (qryCars.Manufacturer) = "Audi"
-    )
-  )
+  qryCars.Manufacturer = "BMW"
+  Or qryCars.Manufacturer = "Audi"
 GROUP BY
   qryCars.Manufacturer,
   qryCars.Year

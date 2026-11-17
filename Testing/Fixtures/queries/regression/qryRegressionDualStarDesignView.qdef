@@ -1,6 +1,6 @@
 ﻿Operation =1
 Option =1
-Where ="(((tblCars.ID)>0))"
+Where ="(((tblCars.ID>0)))"
 Begin InputTables
     Name ="tblCars"
 End

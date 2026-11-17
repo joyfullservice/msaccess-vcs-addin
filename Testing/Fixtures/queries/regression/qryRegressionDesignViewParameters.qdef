@@ -1,7 +1,7 @@
 ﻿Operation =1
 Option =0
-Where ="(((tblParamSample.ID)=[Enter ID]) AND ((tblParamSample.Category)=[Ente"
-    "r Category]))"
+Where ="(tblParamSample.ID=[Enter ID]) AND (tblParamSample.Category=[Enter Cat"
+    "egory])"
 Begin InputTables
     Name ="tblParamSample"
 End

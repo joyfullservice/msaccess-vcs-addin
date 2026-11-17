@@ -7,11 +7,7 @@ FROM
   tblParamSample
   INNER JOIN tblParamDetail ON tblParamSample.ID = tblParamDetail.SampleID
 WHERE
-  (
-    (
-      (tblParamSample.Category) = [Select Category]
-    )
-  )
+  tblParamSample.Category = [Select Category]
 GROUP BY
   tblParamSample.Category
 PIVOT

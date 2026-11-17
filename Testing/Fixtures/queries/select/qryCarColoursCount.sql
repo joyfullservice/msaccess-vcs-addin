@@ -6,21 +6,13 @@
 FROM
   qryCars
 WHERE
-  (
-    (
-      (qryCars.Price) < 15000
-    )
-  )
+  qryCars.Price < 15000
 GROUP BY
   qryCars.Manufacturer,
   qryCars.Year,
   qryCars.Model
 HAVING
-  (
-    (
-      (qryCars.Year) = 2011
-    )
-  )
+  qryCars.Year = 2011
 ORDER BY
   qryCars.Manufacturer,
   qryCars.Model;

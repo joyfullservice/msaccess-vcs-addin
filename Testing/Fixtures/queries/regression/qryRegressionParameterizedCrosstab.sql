@@ -6,11 +6,7 @@ SELECT
 FROM
   qryCars
 WHERE
-  (
-    (
-      (qryCars.Manufacturer) = [Select Manufacturer]
-    )
-  )
+  qryCars.Manufacturer = [Select Manufacturer]
 GROUP BY
   qryCars.Manufacturer
 ORDER BY

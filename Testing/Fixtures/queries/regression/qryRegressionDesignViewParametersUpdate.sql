@@ -5,8 +5,4 @@ UPDATE
 SET
   tblParamSample.Price = [New Price]
 WHERE
-  (
-    (
-      (tblParamSample.ID) = [Enter ID]
-    )
-  );
+  tblParamSample.ID = [Enter ID];

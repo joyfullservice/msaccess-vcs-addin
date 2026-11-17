@@ -6,8 +6,4 @@ FROM
   tblVehicles
   LEFT JOIN tblCars ON tblVehicles.Manufacturer = tblCars.Manufacturer
 WHERE
-  (
-    (
-      (tblCars.Manufacturer) Is Null
-    )
-  );
+  tblCars.Manufacturer Is Null;

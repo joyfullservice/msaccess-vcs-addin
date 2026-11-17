@@ -1147,7 +1147,9 @@ Private Sub AppendParameterDeclaration(ByRef strParams As String, ByVal strExpre
     If Len(strExpression) > 0 Then
         strParam = strExpression
     ElseIf Len(strName) > 0 Then
-        strParam = BracketIfNeeded(strName)
+        ' Access stores parameter names as authored, so the wider designer word
+        ' list would re-bracket a name that was declared bare.
+        strParam = m_syntax.BracketIfNeeded(strName)
         strType = ParameterTypeSql(lngFlag)
         If Len(strType) > 0 Then strParam = strParam & " " & strType
     End If
@@ -1687,8 +1689,16 @@ Private Function BuildJoinForestSql(colJoins As Collection, colTables As Collect
         End If
     Next dComp
 
+    ' From export format 5.2.0, tables outside every join come first, in stored
+    ' order, and the join groups follow unwrapped: FROM X, A INNER JOIN B ON ...
+    ' That is how Access writes it. Earlier formats append them after the
+    ' parenthesized join groups.
+    Dim blnUnjoinedFirst As Boolean
+    blnUnjoinedFirst = (Options.ExportFormatVersion >= EFV_5_2_0)
+
     Dim dTbl As Dictionary
     Dim strRef As String
+    Dim strUnjoined As String
     Dim blnWrappedForDisconnected As Boolean
     For Each dTbl In colTables
         If Len(dTbl("alias")) > 0 Then
@@ -1697,16 +1707,29 @@ Private Function BuildJoinForestSql(colJoins As Collection, colTables As Collect
             strRef = CStr(dTbl("name"))
         End If
         If Not dRefToComponent.Exists(strRef) Then
-            If Len(strResult) > 0 Then
-                If Not blnWrappedForDisconnected Then
-                    strResult = "(" & strResult & ")"
-                    blnWrappedForDisconnected = True
+            If blnUnjoinedFirst Then
+                If Len(strUnjoined) > 0 Then strUnjoined = strUnjoined & ", "
+                strUnjoined = strUnjoined & InputTableSql(strRef, dTableLookup)
+            Else
+                If Len(strResult) > 0 Then
+                    If Not blnWrappedForDisconnected Then
+                        strResult = "(" & strResult & ")"
+                        blnWrappedForDisconnected = True
+                    End If
+                    strResult = strResult & ", "
                 End If
-                strResult = strResult & ", "
+                strResult = strResult & InputTableSql(strRef, dTableLookup)
             End If
-            strResult = strResult & InputTableSql(strRef, dTableLookup)
         End If
     Next dTbl
+
+    If Len(strUnjoined) > 0 Then
+        If Len(strResult) > 0 Then
+            strResult = strUnjoined & ", " & strResult
+        Else
+            strResult = strUnjoined
+        End If
+    End If
 
     BuildJoinForestSql = strResult
 
@@ -2270,7 +2293,7 @@ End Function
 
 
 Private Function BracketIfNeeded(strName As String) As String
-    BracketIfNeeded = m_syntax.BracketIfNeeded(strName)
+    BracketIfNeeded = m_syntax.BracketIfNeeded(strName, Options.ExportFormatVersion >= EFV_5_2_0)
 End Function
 
 
@@ -3047,25 +3070,30 @@ Private Sub ParseFromExpression(strFrom As String)
 
     strUpper = UCase$(strWork)
 
-    ' Check for JOIN keywords
-    lngJoinPos = FindJoinKeyword(strWork, strJoinType, lngFlag)
-
-    If lngJoinPos = 0 Then
-        ' No joins -- parse as comma-separated table list
-        Dim asTables() As String
-        Dim lngT As Long
-        asTables = SplitTopLevel(strWork, ",")
-        For lngT = 0 To UBound(asTables)
-            Dim strTblExpr As String
-            strTblExpr = Trim$(asTables(lngT))
-            If Len(strTblExpr) > 0 Then
-                AddInputTable strTblExpr
+    ' Top-level commas separate cartesian operands, and any operand may be a
+    ' join group: "X, A INNER JOIN B ON ..." (how Access writes it) or
+    ' "(A INNER JOIN B ON ...), X". Parse each operand on its own, in order.
+    Dim asTables() As String
+    Dim lngT As Long
+    Dim strTblExpr As String
+    Dim strInner As String
+    asTables = SplitTopLevel(strWork, ",")
+    For lngT = 0 To UBound(asTables)
+        strTblExpr = Trim$(asTables(lngT))
+        If Len(strTblExpr) > 0 Then
+            strInner = StripOuterParens(strTblExpr)
+            If StartsWithSelectKeyword(strInner) Then
+                lngJoinPos = 0
+            Else
+                lngJoinPos = FindJoinKeyword(strInner, strJoinType, lngFlag)
             End If
-        Next lngT
-    Else
-        ' Has joins -- parse recursively
-        ParseJoinExpression strWork
-    End If
+            If lngJoinPos = 0 Then
+                AddInputTable strTblExpr
+            Else
+                ParseJoinExpression strTblExpr
+            End If
+        End If
+    Next lngT
 
 CleanUp:
     CatchAny eelError, "Error parsing FROM expression. " & SqlSnippet(), _
@@ -3307,6 +3335,12 @@ End Function
 
 Private Function StripOuterParens(strExpr As String) As String
     StripOuterParens = m_syntax.StripOuterParens(strExpr)
+End Function
+
+
+Private Function StartsWithSelectKeyword(strExpr As String) As Boolean
+    If UCase$(Left$(strExpr, 6)) <> "SELECT" Then Exit Function
+    StartsWithSelectKeyword = Not m_syntax.IsIdentChar(Mid$(strExpr, 7, 1) & " ")
 End Function
 
 

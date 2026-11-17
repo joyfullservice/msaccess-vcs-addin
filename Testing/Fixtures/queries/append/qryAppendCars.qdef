@@ -1,7 +1,7 @@
 ﻿Operation =3
 Name ="tblCars"
 Option =2
-Where ="(((tblCars.Manufacturer) Is Null))"
+Where ="(((tblCars.Manufacturer Is Null)))"
 Begin InputTables
     Name ="tblVehicles"
     Name ="tblCars"

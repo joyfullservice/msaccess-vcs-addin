@@ -6,10 +6,6 @@ SELECT TOP 5
 FROM
   tblParamSample
 WHERE
-  (
-    (
-      (tblParamSample.Price) >= [Min Price]
-    )
-  )
+  tblParamSample.Price >= [Min Price]
 ORDER BY
   tblParamSample.Price;

@@ -611,6 +611,85 @@ Public Sub TestReconstructSQL_InjectsDistinctAt510()
 End Sub
 
 
+' Three tables, one of them outside the only join, with aliases from both
+' reserved-word lists.
+Private Function UnjoinedTableWithAliasesRows() As Collection
+    Dim colRows As Collection
+    Set colRows = New Collection
+    AddShapeRow colRows, 1, 1, vbNullString, vbNullString, vbNullString
+    AddShapeRow colRows, 5, 0, vbNullString, "tblC", vbNullString
+    AddShapeRow colRows, 5, 0, vbNullString, "tblA", vbNullString
+    AddShapeRow colRows, 5, 0, vbNullString, "tblB", vbNullString
+    AddShapeRow colRows, 6, 0, "tblA.x", "Option", vbNullString
+    AddShapeRow colRows, 6, 0, "tblB.y", "Name", vbNullString
+    AddShapeRow colRows, 6, 0, "tblC.z", "Second", vbNullString
+    AddShapeRow colRows, 7, 1, "tblA.ID = tblB.AID", "tblA", "tblB"
+    Set UnjoinedTableWithAliasesRows = colRows
+End Function
+
+
+Public Sub TestReconstructSQL_DesignerAliasesAndFromOrderAt520()
+    Dim lngSaved As Long
+    Dim strResult As String
+
+    lngSaved = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_2_0
+    strResult = m_qc.ReconstructSQL(UnjoinedTableWithAliasesRows())
+    Options.ExportFormatVersion = lngSaved
+
+    TestAssert InStr(1, strResult, "AS [Option]", vbBinaryCompare) > 0, "5.2.0 brackets Option"
+    TestAssert InStr(1, strResult, "AS [Second]", vbBinaryCompare) > 0, "5.2.0 brackets Second"
+    TestAssert InStr(1, strResult, "AS Name,", vbBinaryCompare) > 0, _
+        "5.2.0 leaves Name bare, as the Access designer does"
+    TestAssert InStr(1, strResult, "FROM tblC, tblA INNER JOIN tblB ON tblA.ID = tblB.AID;", _
+        vbBinaryCompare) > 0, "5.2.0 puts the unjoined table first, join unwrapped"
+End Sub
+
+
+Public Sub TestReconstructSQL_AliasesAndFromOrderUnchangedAt510()
+    Dim lngSaved As Long
+    Dim strResult As String
+
+    lngSaved = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+    strResult = m_qc.ReconstructSQL(UnjoinedTableWithAliasesRows())
+    Options.ExportFormatVersion = lngSaved
+
+    TestAssert InStr(1, strResult, "AS Option,", vbBinaryCompare) > 0, "5.1.0 leaves Option bare"
+    TestAssert InStr(1, strResult, "AS Second" & vbCrLf, vbBinaryCompare) > 0, "5.1.0 leaves Second bare"
+    TestAssert InStr(1, strResult, "FROM (tblA INNER JOIN tblB ON tblA.ID = tblB.AID), tblC;", _
+        vbBinaryCompare) > 0, "5.1.0 appends the unjoined table after the wrapped join"
+End Sub
+
+
+Public Sub TestDecomposeSQL_AccessSpacing()
+    Dim strSpaced As String
+    Dim strTight As String
+
+    m_qc.DecomposeSQL "INSERT INTO t2 ( a, b ) SELECT t1.a, t1.b FROM t1 ORDER BY t1.a DESC , t1.b;"
+    strSpaced = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+    m_qc.DecomposeSQL "INSERT INTO t2 (a, b) SELECT t1.a, t1.b FROM t1 ORDER BY t1.a DESC, t1.b;"
+    strTight = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+
+    TestAssert strSpaced = strTight, _
+        "Access's ( a, b ) and DESC , parse the same as the compact spelling"
+    TestAssert InStr(1, strTight, "Name =""b""", vbBinaryCompare) > 0, "both target columns parsed"
+End Sub
+
+
+Public Sub TestDecomposeSQL_UnjoinedTableBeforeJoin()
+    Dim strQdef As String
+
+    m_qc.DecomposeSQL "SELECT tblA.x FROM tblC, tblA INNER JOIN tblB ON tblA.ID = tblB.AID;"
+    TestAssert m_qc.IsDesignerCompatible, "FROM X, A JOIN B is designer compatible"
+    strQdef = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+
+    TestAssert InStr(1, strQdef, "Name =""tblC""", vbBinaryCompare) > 0, "unjoined table is an input table"
+    TestAssert InStr(1, strQdef, "LeftTable =""tblA""" & vbCrLf & "    RightTable =""tblB""", _
+        vbBinaryCompare) > 0, "the join after the comma is read as a join"
+End Sub
+
+
 Public Sub TestReconstructedOptionFlag_GeneratedSelect()
     Dim colRows As Collection
     Dim strResult As String

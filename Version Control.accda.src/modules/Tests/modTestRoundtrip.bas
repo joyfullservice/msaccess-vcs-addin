@@ -287,6 +287,7 @@ Private Sub RunQueryFixtures(ByVal strQueriesFolder As String, ByVal strScratch 
     Dim varFile As Variant
     Dim dFixtureResult As Dictionary
     Dim lngTotal As Long
+    Dim lngPriorFormat As Long
 
     If Not FSO.FolderExists(strQueriesFolder) Then
         Log.Add T("No 'queries' folder under fixture root; skipping queries."), False
@@ -303,11 +304,18 @@ Private Sub RunQueryFixtures(ByVal strQueriesFolder As String, ByVal strScratch 
 
     Log.Add T("Running {0} query fixture(s)...", var0:=CStr(lngTotal))
 
+    ' The fixtures are baselined in the current release's format, whatever the host
+    ' database is configured for. Restored below.
+    lngPriorFormat = Options.ExportFormatVersion
+    Options.ExportFormatVersion = LatestExportFormat
+
     For Each varFile In colFiles
         Set dFixtureResult = RunQueryRoundtrip(CStr(varFile), strScratch, blnRebaseline)
         colResults.Add dFixtureResult
         LogFixtureResult dFixtureResult
     Next varFile
+
+    Options.ExportFormatVersion = lngPriorFormat
 
 End Sub
 
@@ -355,6 +363,7 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
     Dim blnExpectStoredLayout As Boolean
     Dim lngErrCountBefore As Long
     Dim eelPriorErrorLevel As eErrorLevel
+    Dim strParseError As String
 
     Set dResult = New Dictionary
     Set colChecks = New Collection
@@ -489,6 +498,24 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
     ' --- Pass 1 comparison (re-export vs canonical fixture) ---
     ComparePass1ToFixture strFixtureSql, strFixtureJson, strPass1Sql, strPass1Json, _
         strOriginalName, strSandboxName, blnRebaseline, colChecks
+
+    ' --- Paste check: Access accepts the exported SQL exactly as written ---
+    ' Pass-through SQL is the server's dialect, which Access does not parse. Some
+    ' stored shapes have no parseable spelling at all -- a compound ON comparing a
+    ' column to a constant is written by Access without the outer parentheses its own
+    ' parser requires -- so the export only fails when Access's own SQL text parses.
+    If CurrentDb.QueryDefs(strSandboxName).Type <> dbQSQLPassThrough Then
+        strParseError = SqlParseError(ReadFile(strPass1Sql))
+        If Len(strParseError) = 0 Then
+            AddCheck colChecks, "paste", "pass", vbNullString
+        ElseIf Len(SqlParseError(CurrentDb.QueryDefs(strSandboxName).SQL)) Then
+            AddCheck colChecks, "paste", "pass", _
+                "Access's own SQL for this query does not parse either: " & strParseError
+        Else
+            AddCheck colChecks, "paste", "fail", _
+                "Access rejects the exported SQL: " & strParseError
+        End If
+    End If
 
     ' --- Pass 2 export (idempotency) ---
     cComponent.Export strPass2Sql

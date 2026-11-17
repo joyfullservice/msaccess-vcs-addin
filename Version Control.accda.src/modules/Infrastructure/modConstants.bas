@@ -239,6 +239,7 @@ Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
     EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, command bar replica export, etc.
     EFV_5_1_0 = 50100      ' Sidecar Info.Class names; canonical tbldefs property order; IMEX spec SpecID; form layout geometry; query OptionFlag derived from SQL.
+    EFV_5_2_0 = 50200      ' Query SQL: Access reserved-word brackets and FROM order; width-based SQL layout; redundant WHERE/HAVING parentheses removed.
 End Enum
 
 ' Bump this whenever the SVG layout generator output changes
@@ -280,6 +281,7 @@ Public Function GetExportFormatVersions() As Collection
     col.Add EFV_4_1_2
     col.Add EFV_5_0_0
     col.Add EFV_5_1_0
+    col.Add EFV_5_2_0
     Set GetExportFormatVersions = col
 
 End Function

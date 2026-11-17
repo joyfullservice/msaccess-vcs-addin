@@ -1,6 +1,6 @@
 ﻿Operation =1
 Option =0
-Where ="(((tblItems.Flags)<>3) AND ((tblItems.Type)=5))"
+Where ="(tblItems.Flags<>3) AND (tblItems.Type=5)"
 Begin InputTables
     Name ="tblItems"
     Name ="tblItemTypes"

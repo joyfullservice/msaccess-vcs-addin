@@ -5,11 +5,7 @@ SELECT
 FROM
   tblParamSample
 WHERE
-  (
-    (
-      (tblParamSample.Qty) >= [Min Qty]
-    )
-  )
+  tblParamSample.Qty >= [Min Qty]
 GROUP BY
   tblParamSample.Category
 ORDER BY

@@ -1,7 +1,7 @@
 ﻿Operation =1
 Option =2
-Where ="(((tblCars.Manufacturer)=\"Ford\") AND ((tblCars.Year)=2007) AND ((tbl"
-    "CarsModel.Model)=\"Altima\") AND ((tblCarsColour.Colour)=\"Orange\"))"
+Where ="(tblCars.Manufacturer=\"Ford\") AND (tblCars.Year=2007) AND (tblCarsMo"
+    "del.Model=\"Altima\") AND (tblCarsColour.Colour=\"Orange\")"
 Begin InputTables
     Name ="tblCars"
     Name ="tblCarsModel"

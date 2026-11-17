@@ -9,10 +9,6 @@
 FROM
   tblMeasurements AS a
   INNER JOIN tblMeasurements AS b ON (a.GroupCode = b.GroupCode)
-  AND (a.[SampleDate] = b.[SampleDate])
+    AND (a.[SampleDate] = b.[SampleDate])
 WHERE
-  (
-    (
-      (a.ItemCode) < [b].[ItemCode]
-    )
-  );
+  a.ItemCode < [b].[ItemCode];

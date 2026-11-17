@@ -8,13 +8,7 @@ SELECT
 FROM
   tblParamTypes
 WHERE
-  (
-    (
-      (
-        tblParamTypes.IsActive = pActive
-        AND tblParamTypes.OrderDate >= [Start Date]
-        AND tblParamTypes.Price >= [Min Price]
-        AND tblParamTypes.Weight <= [Max Weight]
-      )
-    )
-  );
+  tblParamTypes.IsActive = pActive
+  AND tblParamTypes.OrderDate >= [Start Date]
+  AND tblParamTypes.Price >= [Min Price]
+  AND tblParamTypes.Weight <= [Max Weight];

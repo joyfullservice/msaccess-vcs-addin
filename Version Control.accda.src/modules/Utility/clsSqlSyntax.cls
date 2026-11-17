@@ -18,6 +18,43 @@ Option Compare Database
 Option Explicit
 '@Folder("Utility")
 
+' Words the Access query designer brackets when it writes them as an alias, plus
+' EQV, IMP, MOD and XOR, which the engine rejects as table aliases. Swept from
+' Access itself; see docs/access-query-storage.md. Space-delimited on both ends.
+Private Const DESIGNER_RESERVED_WORDS_1 As String = " " & _
+    "ABSOLUTE ACTION ADD ADMINDB ALL ALLOCATE ALPHANUMERIC ALTER AND ANY ARE AS ASC " & _
+    "ASSERTION AT AUTHORIZATION AUTOINCREMENT AVG BAND BEGIN BETWEEN BINARY BIT " & _
+    "BIT_LENGTH BNOT BOR BOTH BXOR BY BYTE CASCADE CASCADED CASE CAST CATALOG CHAR " & _
+    "CHAR_LENGTH CHARACTER CHARACTER_LENGTH CHECK CLOSE COALESCE COLLATE COLLATION " & _
+    "COLUMN COMMIT COMP COMPRESSION CONNECT CONNECTION CONSTRAINT CONSTRAINTS " & _
+    "CONTAINER CONTINUE CONVERT CORRESPONDING COUNT COUNTER CREATE CREATEDB CROSS " & _
+    "CURRENCY CURRENT CURRENT_DATE CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER " & _
+    "CURSOR DATABASE DATE DATETIME DAY DEALLOCATE DEC DECIMAL DECLARE DEFAULT " & _
+    "DEFERRABLE DEFERRED DELETE DESC DESCRIBE DESCRIPTOR DIAGNOSTICS DISALLOW " & _
+    "DISCONNECT DISTINCT DISTINCTROW DOMAIN DOUBLE DROP ELSE END EQV ESCAPE EXCEPT " & _
+    "EXCEPTION EXCLUSIVECONNECT EXEC EXECUTE EXISTS EXTERNAL EXTRACT FALSE FETCH " & _
+    "FIRST FLOAT FLOAT4 FLOAT8 FOR FOREIGN FOUND FROM FULL GENERAL GET GLOBAL GO " & _
+    "GOTO GRANT GROUP GUID HAVING HOUR IDENTITY IEEEDOUBLE IEEESINGLE IGNORE IMAGE " & _
+    "IMMEDIATE IMP IN INDEX INDICATOR INHERITABLE INITIALLY INNER INPUT INSENSITIVE " & _
+    "INSERT INT INTEGER INTEGER1 INTEGER2 INTEGER4 INTERSECT INTERVAL INTO IS "
+Private Const DESIGNER_RESERVED_WORDS_2 As String = _
+    "ISOLATION JOIN KEY LANGUAGE LAST LEADING LEFT LEVEL LIKE LOCAL LOGICAL LOGICAL1 " & _
+    "LONG LONGBINARY LONGCHAR LONGTEXT LOWER MATCH MAX MEMO MIN MINUTE MOD MODULE " & _
+    "MONEY MONTH NAMES NATIONAL NATURAL NCHAR NEXT NO NOT NOTE NULL NULLIF NUMBER " & _
+    "NUMERIC OBJECT OCTET_LENGTH OF OLEOBJECT ON ONLY OPEN OPTION OR ORDER OUTER " & _
+    "OUTPUT OVERLAPS OWNERACCESS PAD PARAMETERS PARTIAL PASSWORD PERCENT PIVOT " & _
+    "POSITION PRECISION PREPARE PRESERVE PRIMARY PRIOR PRIVILEGES PROC PROCEDURE " & _
+    "PUBLIC READ REAL REFERENCES RELATIVE RESTRICT REVOKE RIGHT ROLLBACK ROWS SCHEMA " & _
+    "SCROLL SECOND SECTION SELECT SELECTSCHEMA SELECTSECURITY SESSION SESSION_USER " & _
+    "SET SHORT SINGLE SIZE SMALLINT SOME SPACE SQL SQLCODE SQLERROR SQLSTATE STRING " & _
+    "SUBSTRING SUM SYSTEM_USER TABLE TABLEID TEMPORARY TEXT THEN TIME TIMESTAMP " & _
+    "TIMEZONE_HOUR TIMEZONE_MINUTE TO TOP TRAILING TRANSACTION TRANSFORM TRANSLATE " & _
+    "TRANSLATION TRIM TRUE UNION UNIQUE UNIQUEIDENTIFIER UNKNOWN UPDATE " & _
+    "UPDATEIDENTITY UPDATEOWNER UPDATESECURITY UPPER USAGE USER USING VALUE VALUES " & _
+    "VARBINARY VARCHAR VARYING VIEW WHEN WHENEVER WHERE WITH WORK WRITE XOR YEAR " & _
+    "YESNO ZONE "
+Private Const DESIGNER_RESERVED_WORDS As String = DESIGNER_RESERVED_WORDS_1 & DESIGNER_RESERVED_WORDS_2
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SplitTableRef
@@ -554,12 +591,21 @@ Public Function UnBracket(strName As String) As String
 End Function
 
 
-Public Function BracketIfNeeded(strName As String) As String
+'---------------------------------------------------------------------------------------
+' Procedure : BracketIfNeeded
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Bracket an identifier that is not a plain word or is reserved.
+'           : blnDesignerWords selects the word list the Access designer uses
+'           : (export format 5.2.0+); otherwise the original shorter list.
+'---------------------------------------------------------------------------------------
+'
+Public Function BracketIfNeeded(strName As String, Optional blnDesignerWords As Boolean = False) As String
     If Left$(strName, 1) = "[" Or Left$(strName, 1) = "(" Then
         BracketIfNeeded = strName
     ElseIf InStr(1, strName, ".") > 0 Then
         BracketIfNeeded = strName
-    ElseIf HasNonIdentChars(strName) Or IsAccessReservedWord(strName) Then
+    ElseIf HasNonIdentChars(strName) Or IsAccessReservedWord(strName, blnDesignerWords) Then
         BracketIfNeeded = "[" & strName & "]"
     Else
         BracketIfNeeded = strName
@@ -582,7 +628,12 @@ Public Function HasNonIdentChars(strName As String) As Boolean
 End Function
 
 
-Public Function IsAccessReservedWord(strWord As String) As Boolean
+Public Function IsAccessReservedWord(strWord As String, Optional blnDesignerWords As Boolean = False) As Boolean
+    If blnDesignerWords Then
+        If Len(strWord) = 0 Or HasNonIdentChars(strWord) Then Exit Function
+        IsAccessReservedWord = (InStr(1, DESIGNER_RESERVED_WORDS, " " & UCase$(strWord) & " ", vbBinaryCompare) > 0)
+        Exit Function
+    End If
     Select Case UCase$(strWord)
         Case "ACTION", "SELECT", "FROM", "WHERE", "ORDER", "BY", "GROUP", "HAVING", _
              "INSERT", "INTO", "UPDATE", "DELETE", "SET", "VALUE", "VALUES", _

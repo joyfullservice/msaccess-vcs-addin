@@ -8,14 +8,8 @@ FROM
   tblCustomers
   INNER JOIN tblOrders ON tblCustomers.ID = tblOrders.CustomerID
 WHERE
-  (
-    (
-      (
-        tblOrders.Quantity >= [Min Qty]
-        AND tblOrders.StatusID = StatusFilter
-      )
-    )
-  )
+  tblOrders.Quantity >= [Min Qty]
+  AND tblOrders.StatusID = StatusFilter
 ORDER BY
   tblOrders.Quantity,
   tblCustomers.CustomerName;

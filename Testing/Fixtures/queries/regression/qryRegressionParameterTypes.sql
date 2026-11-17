@@ -5,8 +5,4 @@ SELECT
 FROM
   tblCars
 WHERE
-  (
-    (
-      (tblCars.Year) > Year([Pick Date])
-    )
-  );
+  tblCars.Year > Year([Pick Date]);

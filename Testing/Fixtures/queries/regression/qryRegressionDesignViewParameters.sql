@@ -6,11 +6,5 @@ SELECT
 FROM
   tblParamSample
 WHERE
-  (
-    (
-      (tblParamSample.ID) = [Enter ID]
-    )
-    AND (
-      (tblParamSample.Category) = [Enter Category]
-    )
-  );
+  (tblParamSample.ID = [Enter ID])
+  AND (tblParamSample.Category = [Enter Category]);

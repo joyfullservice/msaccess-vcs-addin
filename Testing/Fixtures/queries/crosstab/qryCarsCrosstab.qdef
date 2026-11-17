@@ -1,6 +1,6 @@
 ﻿Operation =6
 Option =0
-Where ="(((qryCars.Manufacturer)=\"BMW\" Or (qryCars.Manufacturer)=\"Audi\"))"
+Where ="(((qryCars.Manufacturer=\"BMW\" Or qryCars.Manufacturer=\"Audi\")))"
 Begin InputTables
     Name ="qryCars"
 End
