@@ -47,6 +47,11 @@ Private Sub Form_Load()
         Next intSanitizeLevel
     End With
 
+    Me.chkSnapFormLayoutGeometry.ControlTipText = T("Snap controls in form layouts " & _
+        "(Tabular or Stacked) to a 60-twip grid, so forms export identically at any " & _
+        "display scaling from 100% to 200% (export format 5.1.0+). Turn off to keep " & _
+        "exact control sizes when every developer uses the same display scaling.")
+
     ' Populate .env connection string combo
     With Me.cboUseEnvForConnections
         .RowSource = vbNullString
@@ -112,6 +117,7 @@ Private Sub LoadOptions()
         ' Sanitization
         Me.cboSanitizeLevel = .SanitizeLevel
         Me.cboSanitizeColors = .SanitizeColors
+        Me.chkSnapFormLayoutGeometry = .SnapFormLayoutGeometry
 
         ' Content
         Me.chkSaveQuerySQL = .SaveQuerySQL
@@ -160,6 +166,7 @@ Private Sub SaveOptions()
         ' Sanitization
         .SanitizeLevel = Nz(Me.cboSanitizeLevel)
         .SanitizeColors = Nz(Me.cboSanitizeColors)
+        .SnapFormLayoutGeometry = Nz(Me.chkSnapFormLayoutGeometry)
 
         ' Content
         .SaveQuerySQL = Nz(Me.chkSaveQuerySQL)

@@ -83,6 +83,48 @@ contradictory guidance.
 
 ---
 
+## 2026-11-17 — Form layout snapping is an on/off option, not a grid-size choice
+
+**Trigger**: #839. A 16x16 icon in a tabular layout, sized at 256 twips (16 px at
+100%), exported as 240 twips under format 5.1.0, so Access rescaled the picture
+and it blurred. The reporter's team all works at 100%, so the 60-twip lattice
+cost them pixel-exact sizes and bought nothing.
+
+**Options explored**:
+- A dropdown of grid sizes (60 / 30 / 15 / off), each listing the scalings it
+  supports. Rejected after re-running the structure-aware algorithm at 30 and 15
+  twips on the captured probe runs. Access's solver adds about one pixel per
+  track boundary even on canonical input (+12 twips at 125%, +10 at 150%, +8 at
+  200%), and the snap radius must absorb that plus the grid's own pixel rounding.
+  30 twips held at 100/150/200% but failed at 125% (2.5 px per step); 15 held only
+  at 100%. A finer grid only unifies a subset of scalings, which a team on one
+  scaling gets from no grid at all, and the subsets are hard to explain in a UI.
+- Set the export format back to 5.0 (the previous documented advice). Gives up
+  every other 5.1.0 change to get rid of one.
+- A Boolean `SnapFormLayoutGeometry`, default True (chosen).
+
+**Decision**: The option gates only the canonicalizer pass in
+`clsSourceParser.SanitizeObject`. `LayoutCached*` stripping and
+`NormalizeViewport` keep their own gates, so turning snapping off changes only
+layout-cell geometry. The option is hashed in the Forms category only, so
+toggling it re-exports forms. A missing key loads the default, so existing
+`vcs-options.json` files need no upgrade step. Teams on mixed scaling keep
+snapping on and size icon cells on the lattice with `SizeMode = Clip` and
+`PictureAlignment = Center`, or remove the control from the layout.
+
+**What this rules out**: Offering intermediate grid sizes unless a new probe shows
+one that holds across 100–200%. Restoring pre-snap sizes automatically: the
+source, and any database built or merged from it, already holds snapped values,
+so users restore `.form` files from Git and merge before exporting with
+snapping off.
+
+**Relevant files**: `clsOptions.cls`, `clsSourceParser.cls`,
+`frmVCSOptionsExport.form`, `frmVCSOptionsExport.cls`, `clsTestSourceParser.cls`,
+`clsTestOptions.cls`, `docs/access-form-geometry.md`,
+`Wiki/Form-Layout-Geometry.md`, `Wiki/Options.md`.
+
+---
+
 ## 2026-10-27 — An interactive command gives a live root back its Source; a suppressed cancel resumes
 
 **Trigger**: Review after merging #818. `ResetForInteractiveCommand` set `Source` to
@@ -827,6 +869,10 @@ export, so adding one means adding its SQL spelling too.
 > a span no other cell subdivides, and an axis with no observed position at all.
 > See "Unsubdivided spans and position-free axes are solvable, not
 > underdetermined" above.
+
+> **⚠ Partially superseded** (2026-11-17): the sanitizer is also gated on the
+> `SnapFormLayoutGeometry` option (default on), not on the export format alone.
+> See "Form layout snapping is an on/off option, not a grid-size choice" above.
 
 **Trigger**: Untouched forms churned between developers, and a one-control edit
 exported hundreds of unrelated geometry values re-solved to the editor's DPI.

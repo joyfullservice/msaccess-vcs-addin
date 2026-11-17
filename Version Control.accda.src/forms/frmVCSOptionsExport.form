@@ -123,7 +123,7 @@ Begin Form
             GridlineShade =65.0
         End
         Begin Section
-            Height =19155
+            Height =19635
             BackColor =15130848
             Name ="Detail"
             AlternateBackColor =15130848
@@ -369,7 +369,7 @@ Begin Form
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =7680
+                    Top =8160
                     Width =6420
                     Name ="Line6"
                     BorderThemeColorIndex =1
@@ -378,7 +378,7 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =7320
+                    Top =7800
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -415,7 +415,7 @@ Begin Form
                     BorderWidth =1
                     OverlapFlags =85
                     Left =60
-                    Top =12720
+                    Top =13200
                     Width =6420
                     Name ="Line10"
                     BorderThemeColorIndex =1
@@ -424,7 +424,7 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =60
-                    Top =12360
+                    Top =12840
                     Width =6360
                     Height =300
                     FontWeight =700
@@ -437,15 +437,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =9900
-                    TabIndex =12
+                    Top =10380
+                    TabIndex =13
                     Name ="chkExtractThemeFiles"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =9840
+                            Top =10320
                             Width =5700
                             Height =315
                             ForeColor =5324600
@@ -459,15 +459,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =10860
-                    TabIndex =14
+                    Top =11340
+                    TabIndex =15
                     Name ="chkDecodeConditionalFormatting"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =10800
+                            Top =11280
                             Width =5700
                             Height =315
                             ForeColor =5324600
@@ -481,15 +481,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =9415
-                    TabIndex =11
+                    Top =9895
+                    TabIndex =12
                     Name ="chkSavePrintVars"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =9360
+                            Top =9840
                             Width =5700
                             Height =315
                             ForeColor =5324600
@@ -503,15 +503,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =7980
-                    TabIndex =8
+                    Top =8460
+                    TabIndex =9
                     Name ="chkSaveQuerySQL"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =7920
+                            Top =8400
                             Width =5700
                             Height =315
                             ForeColor =5324600
@@ -525,15 +525,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =8940
-                    TabIndex =10
+                    Top =9420
+                    TabIndex =11
                     Name ="chkSaveTableSQL"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =8880
+                            Top =9360
                             Width =5700
                             Height =315
                             ForeColor =5324600
@@ -547,15 +547,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =8460
-                    TabIndex =9
+                    Top =8940
+                    TabIndex =10
                     Name ="chkFormatSQL"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =8400
+                            Top =8880
                             Width =5700
                             Height =315
                             ForeColor =5324600
@@ -569,15 +569,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =10375
-                    TabIndex =13
+                    Top =10855
+                    TabIndex =14
                     Name ="chkUseDeterministicQueryExport"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =10320
+                            Top =10800
                             Width =5700
                             Height =315
                             ForeColor =5324600
@@ -595,9 +595,9 @@ Begin Form
                     IMESentenceMode =3
                     ColumnCount =2
                     Left =4200
-                    Top =11280
+                    Top =11760
                     Height =315
-                    TabIndex =15
+                    TabIndex =16
                     Name ="cboUseEnvForConnections"
                     RowSourceType ="Value List"
                     ColumnWidths ="0"
@@ -606,7 +606,7 @@ Begin Form
                         Begin Label
                             OverlapFlags =93
                             Left =420
-                            Top =11280
+                            Top =11760
                             Width =3900
                             Height =315
                             ForeColor =5324600
@@ -682,15 +682,37 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =13015
-                    TabIndex =16
+                    Top =7020
+                    TabIndex =8
+                    Name ="chkSnapFormLayoutGeometry"
+
+                    Begin
+                        Begin Label
+                            OverlapFlags =85
+                            Left =720
+                            Top =6960
+                            Width =5700
+                            Height =315
+                            ForeColor =5324600
+                            Name ="lblSnapFormLayoutGeometry"
+                            Caption ="Snap Form Layout Geometry"
+                            ForeThemeColorIndex =-1
+                            ForeTint =100.0
+                        End
+                    End
+                End
+                Begin CheckBox
+                    OverlapFlags =85
+                    Left =420
+                    Top =13495
+                    TabIndex =17
                     Name ="chkOrientation"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =12960
+                            Top =13440
                             Width =1920
                             Height =315
                             ForeColor =5324600
@@ -704,15 +726,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =420
-                    Top =13495
-                    TabIndex =17
+                    Top =13975
+                    TabIndex =18
                     Name ="chkPaperSize"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =720
-                            Top =13440
+                            Top =13920
                             Width =1920
                             Height =315
                             ForeColor =5324600
@@ -726,7 +748,7 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =420
-                    Top =13980
+                    Top =14460
                     Width =5580
                     Height =825
                     ForeColor =5324600
@@ -740,15 +762,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =360
-                    Top =15055
-                    TabIndex =18
+                    Top =15535
+                    TabIndex =19
                     Name ="chkDuplex"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =660
-                            Top =15000
+                            Top =15480
                             Width =1980
                             Height =315
                             ForeColor =5324600
@@ -762,15 +784,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =2940
-                    Top =15055
-                    TabIndex =19
+                    Top =15535
+                    TabIndex =20
                     Name ="chkPrintQuality"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =3240
-                            Top =15000
+                            Top =15480
                             Width =2940
                             Height =315
                             ForeColor =5324600
@@ -784,15 +806,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =360
-                    Top =15535
-                    TabIndex =20
+                    Top =16015
+                    TabIndex =21
                     Name ="chkCollate"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =660
-                            Top =15480
+                            Top =15960
                             Width =1980
                             Height =315
                             ForeColor =5324600
@@ -806,15 +828,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =2940
-                    Top =15535
-                    TabIndex =21
+                    Top =16015
+                    TabIndex =22
                     Name ="chkResolution"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =3240
-                            Top =15480
+                            Top =15960
                             Width =2940
                             Height =315
                             ForeColor =5324600
@@ -828,15 +850,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =360
-                    Top =16015
-                    TabIndex =22
+                    Top =16495
+                    TabIndex =23
                     Name ="chkColor"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =660
-                            Top =15960
+                            Top =16440
                             Width =1980
                             Height =315
                             ForeColor =5324600
@@ -850,15 +872,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =2940
-                    Top =16015
-                    TabIndex =23
+                    Top =16495
+                    TabIndex =24
                     Name ="chkCopies"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =3240
-                            Top =15960
+                            Top =16440
                             Width =2940
                             Height =315
                             ForeColor =5324600
@@ -872,15 +894,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =360
-                    Top =16495
-                    TabIndex =24
+                    Top =16975
+                    TabIndex =25
                     Name ="chkDefaultSource"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =660
-                            Top =16440
+                            Top =16920
                             Width =1980
                             Height =315
                             ForeColor =5324600
@@ -894,15 +916,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =360
-                    Top =16975
-                    TabIndex =26
+                    Top =17455
+                    TabIndex =27
                     Name ="chkFormName"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =660
-                            Top =16920
+                            Top =17400
                             Width =1980
                             Height =315
                             ForeColor =5324600
@@ -916,15 +938,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =360
-                    Top =17455
-                    TabIndex =28
+                    Top =17935
+                    TabIndex =29
                     Name ="chkMediaType"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =660
-                            Top =17400
+                            Top =17880
                             Width =1980
                             Height =315
                             ForeColor =5324600
@@ -938,15 +960,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =360
-                    Top =17935
-                    TabIndex =30
+                    Top =18415
+                    TabIndex =31
                     Name ="chkDisplayFrequency"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =660
-                            Top =17880
+                            Top =18360
                             Width =1980
                             Height =315
                             ForeColor =5324600
@@ -960,15 +982,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =360
-                    Top =18415
-                    TabIndex =32
+                    Top =18895
+                    TabIndex =33
                     Name ="chkDisplayFlags"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =660
-                            Top =18360
+                            Top =18840
                             Width =1980
                             Height =315
                             ForeColor =5324600
@@ -982,15 +1004,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =360
-                    Top =18895
-                    TabIndex =34
+                    Top =19375
+                    TabIndex =35
                     Name ="chkICMMethod"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =660
-                            Top =18840
+                            Top =19320
                             Width =1980
                             Height =315
                             ForeColor =5324600
@@ -1004,15 +1026,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =2940
-                    Top =16495
-                    TabIndex =25
+                    Top =16975
+                    TabIndex =26
                     Name ="chkScale"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =3240
-                            Top =16440
+                            Top =16920
                             Width =2940
                             Height =315
                             ForeColor =5324600
@@ -1026,15 +1048,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =2940
-                    Top =18895
-                    TabIndex =35
+                    Top =19375
+                    TabIndex =36
                     Name ="chkICMIntent"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =3240
-                            Top =18840
+                            Top =19320
                             Width =2940
                             Height =315
                             ForeColor =5324600
@@ -1048,15 +1070,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =2940
-                    Top =16975
-                    TabIndex =27
+                    Top =17455
+                    TabIndex =28
                     Name ="chkPaperLength"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =3240
-                            Top =16920
+                            Top =17400
                             Width =2940
                             Height =315
                             ForeColor =5324600
@@ -1070,15 +1092,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =2940
-                    Top =17935
-                    TabIndex =31
+                    Top =18415
+                    TabIndex =32
                     Name ="chkDitherType"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =3240
-                            Top =17880
+                            Top =18360
                             Width =2940
                             Height =315
                             ForeColor =5324600
@@ -1092,15 +1114,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =2940
-                    Top =17455
-                    TabIndex =29
+                    Top =17935
+                    TabIndex =30
                     Name ="chkPaperWidth"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =3240
-                            Top =17400
+                            Top =17880
                             Width =2940
                             Height =315
                             ForeColor =5324600
@@ -1114,15 +1136,15 @@ Begin Form
                 Begin CheckBox
                     OverlapFlags =85
                     Left =2940
-                    Top =18415
-                    TabIndex =33
+                    Top =18895
+                    TabIndex =34
                     Name ="chkTTOption"
 
                     Begin
                         Begin Label
                             OverlapFlags =85
                             Left =3240
-                            Top =18360
+                            Top =18840
                             Width =2940
                             Height =315
                             ForeColor =5324600
@@ -1136,7 +1158,7 @@ Begin Form
                 Begin Label
                     OverlapFlags =85
                     Left =420
-                    Top =11700
+                    Top =12180
                     Width =5580
                     Height =360
                     FontSize =10

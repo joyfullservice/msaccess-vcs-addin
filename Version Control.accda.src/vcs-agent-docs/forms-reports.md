@@ -38,9 +38,9 @@ Attribute VB_Name = "Form_frmMyForm"
 
 Property edits are safe wherever you can infer the expected format from
 neighboring values: caption text inside quotes, geometry such as `Left`, `Top`,
-`Width`, and `Height`, colors, and font sizes. On forms (export format 5.1.0+),
-layout-group geometry is rewritten to a 60-twip grid, so a track edit rewrites
-sibling cells; do not drop `Left`/`Top`/`Width`/`Height` or `EmptyCell` spacers.
+`Width`, and `Height`, colors, and font sizes. On forms (export format 5.1.0+,
+`SnapFormLayoutGeometry` on), layout geometry snaps to a 60-twip grid, so a
+track edit moves sibling cells; keep every geometry line and `EmptyCell` spacer.
 `LayoutCached*` is omitted on export. Guessing at a property whose format you
 cannot infer breaks the layout or fails the import, so leave those alone, along
 with the `Version` lines at the top. Keep `Begin`/`End` balanced throughout.

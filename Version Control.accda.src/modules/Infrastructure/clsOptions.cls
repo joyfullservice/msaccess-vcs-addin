@@ -34,6 +34,7 @@ Public RunBeforeExport As String
 Public RunAfterExport As String
 Public SanitizeLevel As eSanitizeLevel
 Public SanitizeColors As eSanitizeLevel
+Public SnapFormLayoutGeometry As Boolean ' Snap form layout groups to the 60-twip grid (default: True)
 Public SaveQuerySQL As Boolean
 Public FormatSQL As Boolean
 Public UseDeterministicQueryExport As Boolean
@@ -128,6 +129,7 @@ Public Sub LoadDefaults()
         .ExportFormatVersion = LatestExportFormat
         .SanitizeLevel = eslStandard
         .SanitizeColors = eslMinimal
+        .SnapFormLayoutGeometry = True
         .SaveQuerySQL = True
         .FormatSQL = True
         .UseDeterministicQueryExport = True
@@ -768,6 +770,10 @@ Public Function GetCategoryHashes() As Dictionary
                 AddToCat dCats, "Forms", varKey, dOptions("Options")
                 AddToCat dCats, "Reports", varKey, dOptions("Options")
 
+            ' --- Forms only (reports are not geometry-canonicalized) ---
+            Case "SnapFormLayoutGeometry"
+                AddToCat dCats, "Forms", varKey, dOptions("Options")
+
             ' --- Queries ---
             Case "SaveQuerySQL", "FormatSQL", "UseDeterministicQueryExport"
                 AddToCat dCats, "Queries", varKey, dOptions("Options")
@@ -992,6 +998,7 @@ Private Sub Class_Initialize()
         .Add "RunAfterExport"
         .Add "SanitizeLevel"
         .Add "SanitizeColors"
+        .Add "SnapFormLayoutGeometry"
         .Add "SaveQuerySQL"
         .Add "FormatSQL"
         .Add "UseDeterministicQueryExport"

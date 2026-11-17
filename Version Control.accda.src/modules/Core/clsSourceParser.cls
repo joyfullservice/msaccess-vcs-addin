@@ -619,7 +619,8 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
         And (this.intObjectType = edbForm Or this.intObjectType = edbReport)
     blnTrackFormGeometry = (this.intObjectType = edbForm) _
         And intSanitizeLevel >= eslStandard _
-        And lngExportFormat >= EFV_5_1_0
+        And lngExportFormat >= EFV_5_1_0 _
+        And Options.SnapFormLayoutGeometry
 
     ' Set up direct membership map of lines to skip
     ReDim m_blnSkipLine(0 To lngUpper)

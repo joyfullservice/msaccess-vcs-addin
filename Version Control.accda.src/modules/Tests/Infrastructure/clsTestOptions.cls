@@ -56,6 +56,69 @@ Public Sub TestSkipReopenBeforeMergeIsNotAnExportOption()
 End Sub
 
 
+Public Sub TestSnapFormLayoutGeometry_HashesFormsOnly()
+    Dim cOpt As New clsOptions
+    Dim dBefore As Dictionary
+    Dim dAfter As Dictionary
+    Dim strHash As String
+
+    cOpt.LoadDefaults
+    TestAssert cOpt.SnapFormLayoutGeometry = True, "defaults to on"
+    Set dBefore = cOpt.GetCategoryHashes
+    strHash = cOpt.GetHash
+
+    ' Only forms are geometry-canonicalized, so toggling must re-export forms and
+    ' nothing else.
+    cOpt.SnapFormLayoutGeometry = False
+    Set dAfter = cOpt.GetCategoryHashes
+    TestAssert dBefore("Forms") <> dAfter("Forms"), "toggling changes the Forms hash"
+    TestAssert dBefore("Reports") = dAfter("Reports"), "Reports hash unchanged"
+    TestAssert dBefore("Queries") = dAfter("Queries"), "Queries hash unchanged"
+    TestAssert cOpt.GetHash <> strHash, "toggling changes the combined export hash"
+End Sub
+
+
+Public Sub TestSnapFormLayoutGeometry_RoundTripsThroughFile()
+
+    Dim cOpt As clsOptions
+    Dim cLoaded As clsOptions
+    Dim strFile As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+    strFile = GetTempFile()
+
+    Set cOpt = New clsOptions
+    cOpt.LoadDefaults
+    cOpt.SnapFormLayoutGeometry = False
+    cOpt.SaveOptionsToFile strFile
+
+    Set cLoaded = New clsOptions
+    cLoaded.LoadDefaults
+    cLoaded.LoadOptionsFromFile strFile
+    TestAssert cLoaded.SnapFormLayoutGeometry = False, "False survives save and load"
+
+    ' An options file written before this option existed keeps the default.
+    WriteFile "{""Info"":{""AddinVersion"":""5.1.0""},""Options"":{""SanitizeLevel"":2}}", strFile
+    Set cLoaded = New clsOptions
+    cLoaded.LoadDefaults
+    cLoaded.LoadOptionsFromFile strFile
+    TestAssert cLoaded.SnapFormLayoutGeometry = True, "missing key keeps the default"
+
+CleanUp:
+    On Error Resume Next
+    If Len(strFile) > 0 Then If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
+    If lngErr <> 0 Then TestAssert False, "round trip error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+End Sub
+
+
 Public Sub TestSanitizeLevelNames()
     Dim cOpt As New clsOptions
     TestAssert cOpt.GetSanitizeLevelName(eslNone) = "None (Off)", "None level"
