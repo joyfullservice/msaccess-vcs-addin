@@ -1,4 +1,4 @@
-Attribute VB_Name = "modTestBatchImport"
+﻿Attribute VB_Name = "modTestBatchImport"
 '---------------------------------------------------------------------------------------
 ' Module    : modTestBatchImport
 ' Author    : Adam Waller

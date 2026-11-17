@@ -1,17 +1,18 @@
 ﻿{
   "Info": {
-    "AddinVersion": "5.1.0",
+    "AddinVersion": "5.2.0",
     "AccessVersion": "16.0 64-bit"
   },
   "Options": {
     "ExportFolder": "",
     "UseFastSave": true,
     "SplitLayoutFromVBA": true,
-    "ExportFormatVersion": "5.1.0",
+    "ExportFormatVersion": "5.2.0",
     "RunBeforeExport": "",
     "RunAfterExport": "",
     "SanitizeLevel": 2,
     "SanitizeColors": 3,
+    "SnapFormLayoutGeometry": true,
     "SaveQuerySQL": true,
     "FormatSQL": true,
     "UseDeterministicQueryExport": true,
