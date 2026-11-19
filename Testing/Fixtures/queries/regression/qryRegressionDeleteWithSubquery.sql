@@ -1,4 +1,5 @@
-﻿DELETE tblCars.*
+﻿DELETE
+  tblCars.*
 FROM
   tblCars
 WHERE

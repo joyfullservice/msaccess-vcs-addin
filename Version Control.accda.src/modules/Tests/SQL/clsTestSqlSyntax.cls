@@ -122,6 +122,68 @@ Public Sub TestFindMatchingParen_IgnoresSingleQuotedParen()
 End Sub
 
 
+Public Sub TestFormatSetTarget_QualifiedNameShapes()
+    ' SQL View stores Name2 unbracketed, Design View brackets it; both export alike
+    TestAssert m_syntax.FormatSetTarget("Order Lines.Unit Cost") = "[Order Lines].[Unit Cost]", _
+        "SQL View Name2 with spaces gains brackets"
+    TestAssert m_syntax.FormatSetTarget("[Order Lines].[Unit Cost]") = "[Order Lines].[Unit Cost]", _
+        "Design View Name2 keeps its brackets"
+    TestAssert m_syntax.FormatSetTarget("tblCars.Price") = "tblCars.Price", _
+        "plain qualified target stays bare"
+    TestAssert m_syntax.FormatSetTarget("[Order Lines].Month") = "[Order Lines].Month", _
+        "qualified reserved word stays bare"
+    TestAssert m_syntax.FormatSetTarget("Order Lines.Month") = "[Order Lines].Month", _
+        "only the part that needs brackets gets them"
+    TestAssert m_syntax.FormatSetTarget("[tblCars (Archive)].Price") = "[tblCars (Archive)].Price", _
+        "bracketed qualifier with parentheses"
+End Sub
+
+
+Public Sub TestFormatSetTarget_UnqualifiedReservedWords()
+    TestAssert m_syntax.FormatSetTarget("Price") = "Price", "plain target stays bare"
+    TestAssert m_syntax.FormatSetTarget("Level") = "[Level]", _
+        "a word Access rejects as an unqualified target is bracketed"
+    TestAssert m_syntax.FormatSetTarget("Year") = "[Year]", _
+        "a bracket the older reserved list adds is kept"
+    TestAssert m_syntax.FormatSetTarget("Unit Cost") = "[Unit Cost]", "spaces gain brackets"
+    TestAssert m_syntax.FormatSetTarget("[Month]") = "[Month]", "already bracketed"
+End Sub
+
+
+Public Sub TestSplitQualifiedName_FirstPeriodOutsideBrackets()
+    Dim strQualifier As String
+    Dim strMember As String
+
+    TestAssert m_syntax.SplitQualifiedName("[Order Lines].[Unit Cost]", strQualifier, strMember), _
+        "bracketed qualified name splits"
+    TestAssert strQualifier = "[Order Lines]" And strMember = "[Unit Cost]", "bracketed parts"
+    TestAssert m_syntax.SplitQualifiedName("Order Lines.Unit Cost", strQualifier, strMember), _
+        "unbracketed qualified name splits"
+    TestAssert strQualifier = "Order Lines" And strMember = "Unit Cost", "unbracketed parts"
+    TestAssert Not m_syntax.SplitQualifiedName("Price", strQualifier, strMember), _
+        "unqualified name does not split"
+    TestAssert Not m_syntax.SplitQualifiedName("[a.b]", strQualifier, strMember), _
+        "period inside brackets is not a separator"
+End Sub
+
+
+Public Sub TestFindUnquotedChar_SkipsQuotesAndBrackets()
+    TestAssert m_syntax.FindUnquotedChar("[tblCars (Archive)] (a, b)", "(") = 21, _
+        "parenthesis inside brackets is skipped"
+    TestAssert m_syntax.FindUnquotedChar("t IN 'C:\x (1)\db.accdb' (a)", "(") = 26, _
+        "parenthesis inside a quoted path is skipped"
+    TestAssert m_syntax.FindUnquotedChar("tblPlain", "(") = 0, "not found"
+End Sub
+
+
+Public Sub TestBracketIfNeeded_LeadingParenthesis()
+    ' Issue #815: a name starting with "(" is not already bracketed
+    TestAssert m_syntax.BracketIfNeeded("(Old) Clients") = "[(Old) Clients]", _
+        "name starting with a parenthesis gains brackets"
+    TestAssert m_syntax.BracketIfNeeded("[Car Models]") = "[Car Models]", "already bracketed"
+End Sub
+
+
 Private Sub AssertSplitTableRef(ByVal strExpr As String, _
                                 ByVal strExpName As String, _
                                 ByVal strExpAlias As String, _

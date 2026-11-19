@@ -229,7 +229,18 @@ Private Sub ExportNewFormat(strSqlFile As String, strJsonFile As String)
         If Len(strConnect) = 0 Then strConnect = "ODBC;"
     End If
 
-    ' Step 5: Format SQL (skip formatting for pass-through queries)
+    ' Step 5: Canonicalize, then format SQL (skip both for pass-through queries)
+    If Not blnIsPassThrough And Options.ExportFormatVersion >= EFV_5_2_0 Then
+        Perf.OperationStart "Canonicalize SQL"
+        With New clsSqlCanonicalizer
+            strSql = .Canonicalize(strSql)
+            If Len(.DeclineReason) Then
+                Log.Add T("Kept builder SQL for {0}: {1}", _
+                    var0:=strQueryName, var1:=.DeclineReason), False
+            End If
+        End With
+        Perf.OperationEnd
+    End If
     If Not blnIsPassThrough Then
         Perf.OperationStart "Format SQL"
         With New clsSqlFormatter

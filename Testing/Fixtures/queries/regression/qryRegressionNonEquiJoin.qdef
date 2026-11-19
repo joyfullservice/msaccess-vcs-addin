@@ -1,6 +1,6 @@
 ﻿Operation =1
 Option =0
-Where ="(((A.MeterFK)<=1) AND ((B.Estimate)=False) AND ((A.Estimate)=False))"
+Where ="(A.MeterFK<=1) AND (B.Estimate=False) AND (A.Estimate=False)"
 Begin InputTables
     Name ="tblMeterReadings"
     Alias ="A"

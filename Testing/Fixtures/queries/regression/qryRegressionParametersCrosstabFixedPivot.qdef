@@ -1,6 +1,6 @@
 ﻿Operation =6
 Option =0
-Where ="(((tblParamSample.Category)=[Select Category]))"
+Where ="(((tblParamSample.Category=[Select Category])))"
 Begin InputTables
     Name ="tblParamSample"
     Name ="tblParamDetail"

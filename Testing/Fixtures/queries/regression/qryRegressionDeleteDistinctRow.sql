@@ -1,9 +1,6 @@
-﻿DELETE DISTINCTROW tblCars.*
+﻿DELETE DISTINCTROW
+  tblCars.*
 FROM
   tblCars
 WHERE
-  (
-    (
-      (tblCars.ID) > 0
-    )
-  );
+  tblCars.ID > 0;

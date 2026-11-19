@@ -7,7 +7,8 @@
   tblCurrencyExchange.Rate
 FROM
   tblCurrencies
-  INNER JOIN tblCurrencyExchange ON tblCurrencies.CurrencyCode = tblCurrencyExchange.Currency
+  INNER JOIN tblCurrencyExchange
+    ON tblCurrencies.CurrencyCode = tblCurrencyExchange.Currency
 ORDER BY
   tblCurrencies.CurrencyCode,
   tblCurrencyExchange.Date DESC;

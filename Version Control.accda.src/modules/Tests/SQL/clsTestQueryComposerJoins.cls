@@ -203,6 +203,132 @@ Public Sub TestReconstructSQL_SpacedJoinOperands()
 End Sub
 
 
+Public Sub TestReconstructSQL_CompoundOnOuterParens()
+    ' Pins: 5.2.0 wraps every compound ON in outer parentheses, whether Access
+    ' stored it as one row per condition or as one compound row, because SQL
+    ' View rejects `ON (a = b) AND (c > 0)` (error 3296). 5.1.0 is unchanged.
+    Dim lngSaved As Long
+    Dim strMerged51 As String
+    Dim strMerged52 As String
+    Dim strSingle51 As String
+    Dim strSingle52 As String
+    Dim strSimple52 As String
+
+    lngSaved = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+    strMerged51 = NoSpace(m_qc.ReconstructSQL(TwoTableJoinRows("t1.x=t2.x", "t2.flag>0")))
+    strSingle51 = NoSpace(m_qc.ReconstructSQL(TwoTableJoinRows("(t1.x=t2.x) AND (t2.flag>0)")))
+    Options.ExportFormatVersion = EFV_5_2_0
+    strMerged52 = NoSpace(m_qc.ReconstructSQL(TwoTableJoinRows("t1.x=t2.x", "t2.flag>0")))
+    strSingle52 = NoSpace(m_qc.ReconstructSQL(TwoTableJoinRows("(t1.x=t2.x) AND (t2.flag>0)")))
+    strSimple52 = NoSpace(m_qc.ReconstructSQL(TwoTableJoinRows("t1.x=t2.x")))
+    Options.ExportFormatVersion = lngSaved
+
+    TestAssert InStr(1, strMerged51, "ON(t1.x=t2.x)AND(t2.flag>0);", vbTextCompare) > 0, _
+        "5.1.0 leaves a merged compound ON bare: " & strMerged51
+    TestAssert InStr(1, strSingle51, "ON(t1.x=t2.x)AND(t2.flag>0);", vbTextCompare) > 0, _
+        "5.1.0 leaves a single-row compound ON bare: " & strSingle51
+    TestAssert InStr(1, strMerged52, "ON((t1.x=t2.x)AND(t2.flag>0));", vbTextCompare) > 0, _
+        "5.2.0 wraps a merged compound ON: " & strMerged52
+    TestAssert InStr(1, strSingle52, "ON((t1.x=t2.x)AND(t2.flag>0));", vbTextCompare) > 0, _
+        "5.2.0 wraps a single-row compound ON: " & strSingle52
+    TestAssert InStr(1, strSimple52, "ONt1.x=t2.x;", vbTextCompare) > 0, _
+        "5.2.0 leaves a single condition bare: " & strSimple52
+End Sub
+
+
+Public Sub TestReconstructSQL_CrossPairOnKeepsSeparateTerms()
+    ' Pins: SQL View needs each top-level AND term of an ON to name one table
+    ' from each side. A condition on another table pair stays its own term at
+    ' 5.2.0; only conditions on the same pair are enclosed together.
+    Dim lngSaved As Long
+    Dim strCross51 As String
+    Dim strCross52 As String
+    Dim strMixed51 As String
+    Dim strMixed52 As String
+
+    lngSaved = Options.ExportFormatVersion
+    Options.ExportFormatVersion = EFV_5_1_0
+    strCross51 = NoSpace(m_qc.ReconstructSQL(ThreeTableJoinRows(False)))
+    strMixed51 = NoSpace(m_qc.ReconstructSQL(ThreeTableJoinRows(True)))
+    Options.ExportFormatVersion = EFV_5_2_0
+    strCross52 = NoSpace(m_qc.ReconstructSQL(ThreeTableJoinRows(False)))
+    strMixed52 = NoSpace(m_qc.ReconstructSQL(ThreeTableJoinRows(True)))
+    Options.ExportFormatVersion = lngSaved
+
+    TestAssert InStr(1, strCross51, "ON(t2.b=t3.b)AND(t1.c=t3.c);", vbTextCompare) > 0, _
+        "5.1.0 cross-pair ON: " & strCross51
+    TestAssert InStr(1, strCross52, "ON(t2.b=t3.b)AND(t1.c=t3.c);", vbTextCompare) > 0, _
+        "5.2.0 keeps cross-pair conditions as separate terms: " & strCross52
+    TestAssert InStr(1, strMixed51, "ON(t2.b=t3.b)AND(t3.flag>0)AND(t1.c=t3.c);", vbTextCompare) > 0, _
+        "5.1.0 mixed ON: " & strMixed51
+    TestAssert InStr(1, strMixed52, "ON((t2.b=t3.b)AND(t3.flag>0))AND(t1.c=t3.c);", vbTextCompare) > 0, _
+        "5.2.0 encloses the same-pair conditions and keeps the other pair separate: " & strMixed52
+End Sub
+
+
+Public Sub TestNestedAndGroupInOn_SplitsIntoConditionRows()
+    ' Pins: import descends into an enclosed same-pair group, so the 5.2.0
+    ' spelling stores one Attribute 7 row per condition, like Access does.
+    Dim colJoins As Collection
+
+    Set colJoins = QdefJoinRows("SELECT t1.a FROM (t1 INNER JOIN t2 ON t1.a = t2.a) " & _
+        "INNER JOIN t3 ON ((t2.b = t3.b) AND (t3.flag > 0)) AND (t1.c = t3.c)", True)
+    TestAssert colJoins.Count = 4, "one join row per condition, got " & colJoins.Count
+End Sub
+
+
+Private Function ThreeTableJoinRows(ByVal blnSamePairPredicate As Boolean) As Collection
+    Dim colRows As New Collection
+
+    colRows.Add QueryRow(1, 1)
+    colRows.Add QueryRow(5, 0, , "t1")
+    colRows.Add QueryRow(5, 0, , "t2")
+    colRows.Add QueryRow(5, 0, , "t3")
+    colRows.Add QueryRow(7, 1, "t1.a=t2.a", "t1", "t2")
+    colRows.Add QueryRow(7, 1, "t2.b=t3.b", "t2", "t3")
+    colRows.Add QueryRow(7, 1, "t1.c=t3.c", "t1", "t3")
+    If blnSamePairPredicate Then colRows.Add QueryRow(7, 1, "t3.flag>0", "t2", "t3")
+    colRows.Add QueryRow(6, 0, "t1.a")
+    colRows.Add QueryRow(255, 0)
+    Set ThreeTableJoinRows = colRows
+End Function
+
+
+Private Function TwoTableJoinRows(ParamArray avarConditions() As Variant) As Collection
+    Dim colRows As New Collection
+    Dim varCondition As Variant
+
+    colRows.Add QueryRow(1, 1)
+    colRows.Add QueryRow(5, 0, , "t1")
+    colRows.Add QueryRow(5, 0, , "t2")
+    For Each varCondition In avarConditions
+        colRows.Add QueryRow(7, 1, CStr(varCondition), "t1", "t2")
+    Next varCondition
+    colRows.Add QueryRow(6, 0, "t1.a")
+    colRows.Add QueryRow(255, 0)
+    Set TwoTableJoinRows = colRows
+End Function
+
+
+Private Function QueryRow(ByVal lngAttribute As Long, ByVal lngFlag As Long, _
+    Optional ByVal strExpression As String, Optional ByVal strName1 As String, _
+    Optional ByVal strName2 As String) As Dictionary
+
+    Set QueryRow = New Dictionary
+    QueryRow.Add "Attribute", lngAttribute
+    QueryRow.Add "Flag", lngFlag
+    QueryRow.Add "Expression", strExpression
+    QueryRow.Add "Name1", strName1
+    QueryRow.Add "Name2", strName2
+End Function
+
+
+Private Function NoSpace(ByVal strText As String) As String
+    NoSpace = Replace(Replace(Replace(strText, vbCrLf, vbNullString), vbTab, vbNullString), " ", vbNullString)
+End Function
+
+
 Public Sub TestClosedLoop_SpacedTableNameJoin()
     Dim colRows As Collection
     Dim strSql1 As String

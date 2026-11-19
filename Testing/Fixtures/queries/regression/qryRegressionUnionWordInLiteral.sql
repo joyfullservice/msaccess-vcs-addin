@@ -3,8 +3,4 @@
 FROM
   tblCars
 WHERE
-  (
-    (
-      (tblCars.Manufacturer) = "UNION ALL"
-    )
-  );
+  tblCars.Manufacturer = "UNION ALL";

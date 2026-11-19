@@ -1,6 +1,6 @@
 ﻿Operation =1
 Option =0
-Where ="(((MSysObjects.Flags)<>3))"
+Where ="(((MSysObjects.Flags<>3)))"
 Begin InputTables
     Name ="MSysObjects"
     Name ="MSysQueries"

@@ -240,8 +240,12 @@ eotOther = 9   ' Other / catch-all operations
 ## Modifying the query parser
 
 The query parser (`clsQueryComposer.cls` + `clsDbQuery.cls`) carries hard-won
-decisions in places that are not always obvious from a casual read. Before
-modifying either class, read these in order:
+decisions in places that are not always obvious from a casual read. Export writes
+a query's `.sql` in three stages with separate jobs: the builder
+(`clsQueryComposer.ReconstructSQL`) keeps Access's structure, `clsSqlCanonicalizer`
+removes only redundant WHERE/HAVING parentheses, and `clsSqlFormatter` changes only
+whitespace. Keep a change in the stage that owns it; see "Export stages" in
+access-query-storage.md. Before modifying any of these classes, read these in order:
 
 - **[access-query-storage.md](access-query-storage.md)** — how Access stores
   queries, what shapes our parser handles (with the canonical fixture for each),

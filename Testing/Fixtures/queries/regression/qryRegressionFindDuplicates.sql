@@ -5,19 +5,15 @@
 FROM
   tblCars
 WHERE
-  (
-    (
-      (tblCars.Manufacturer) In (
-        SELECT
-          [Manufacturer]
-        FROM
-          [tblCars] AS Tmp
-        GROUP BY
-          [Manufacturer]
-        HAVING
-          Count(*) > 1
-      )
-    )
+  tblCars.Manufacturer In (
+    SELECT
+      [Manufacturer]
+    FROM
+      [tblCars] AS Tmp
+    GROUP BY
+      [Manufacturer]
+    HAVING
+      Count(*) > 1
   )
 ORDER BY
   tblCars.Manufacturer;

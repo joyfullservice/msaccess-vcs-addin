@@ -1,6 +1,6 @@
 ﻿Operation =1
 Option =0
-Where ="(((a.ItemCode)<[b].[ItemCode]))"
+Where ="(((a.ItemCode<[b].[ItemCode])))"
 Begin InputTables
     Name ="tblMeasurements"
     Alias ="a"

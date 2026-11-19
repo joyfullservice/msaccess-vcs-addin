@@ -120,6 +120,7 @@ Public Function TestClassFactory(ByVal strClassName As String) As Object
         Case "clsTestQueryLayout": Set TestClassFactory = New clsTestQueryLayout
         Case "clsTestRunnerFilters": Set TestClassFactory = New clsTestRunnerFilters
         Case "clsTestSourceParser": Set TestClassFactory = New clsTestSourceParser
+        Case "clsTestSqlCanonicalizer": Set TestClassFactory = New clsTestSqlCanonicalizer
         Case "clsTestSqlFormatter": Set TestClassFactory = New clsTestSqlFormatter
         Case "clsTestSqlSyntax": Set TestClassFactory = New clsTestSqlSyntax
         Case "clsTestWorkerLifecycle": Set TestClassFactory = New clsTestWorkerLifecycle

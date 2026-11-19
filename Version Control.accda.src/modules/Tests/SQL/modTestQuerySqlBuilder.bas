@@ -55,6 +55,11 @@ Public Function RunQuerySqlBuilderValidation(Optional ByVal varQueryNames As Var
     Dim dQueryResult As Dictionary
     Dim blnCanceled As Boolean
     Dim strQueryFilterDisplay As String
+    Dim lngPriorFormat As Long
+    Dim blnFormatPinned As Boolean
+    Dim dCanonStats As Dictionary
+    Dim cLedger As clsConcat
+    Dim strLedgerPath As String
 
     LogUnhandledErrors ModuleName & ".RunQuerySqlBuilderValidation"
     On Error GoTo ErrHandler
@@ -98,11 +103,25 @@ Public Function RunQuerySqlBuilderValidation(Optional ByVal varQueryNames As Var
         Options.LoadOptionOverrides
     End If
 
+    ' Validate the builder as the current release writes it, whatever format this
+    ' project pins; the project's setting is restored afterwards.
+    lngPriorFormat = Options.ExportFormatVersion
+    blnFormatPinned = True
+    Options.ExportFormatVersion = LatestExportFormat
+
+    Set dCanonStats = NewCanonicalizerStats()
+    Set cLedger = New clsConcat
+    cLedger.Add "# Canonicalizer report", vbCrLf, vbCrLf
+    cLedger.Add "Builder SQL before and after clsSqlCanonicalizer. Report only: export output is unchanged.", vbCrLf, vbCrLf
+    cLedger.Add "| Query | Result | Idempotent | Parse | Structure | Behavior |", vbCrLf
+    cLedger.Add "|---|---|---|---|---|---|", vbCrLf
+
     strExportRoot = Options.GetExportFolder
     If Len(strExportRoot) = 0 Then strExportRoot = CurrentProject.Path & PathSep
     strLogFolder = FSO.BuildPath(strExportRoot, "logs")
     strArtifactRoot = FSO.BuildPath(strLogFolder, "SqlBuilderValidation_" & Log.OperationId) & PathSep
     strLogPath = FSO.BuildPath(strLogFolder, "SqlBuilderValidation_" & Log.OperationId & ".log")
+    strLedgerPath = strArtifactRoot & "canonicalizer.md"
     VerifyPath strArtifactRoot
 
     ' Only the owner of the root starts a fresh log; a nested run appends to the
@@ -122,6 +141,7 @@ Public Function RunQuerySqlBuilderValidation(Optional ByVal varQueryNames As Var
         .Add T("VCS Version {0}", var0:=GetVCSVersion)
         .Add T("Database: {0}", var0:=CurrentProject.FullName), False
         .Add T("Artifact folder: {0}", var0:=strArtifactRoot), False
+        .Add T("Export format: {0}", var0:=ExportFormatToVersion(LatestExportFormat))
         If Len(strQueryFilterDisplay) > 0 Then .Add T("Query filter: {0}", var0:=strQueryFilterDisplay)
         .Add T("Started: {0}", var0:=Format$(Now, "yyyy-mm-dd hh:nn:ss"))
         .Spacer
@@ -150,6 +170,10 @@ Public Function RunQuerySqlBuilderValidation(Optional ByVal varQueryNames As Var
         Set dQueryResult = ValidateOneQuery(CStr(varName), strArtifactRoot)
         colResults.Add dQueryResult
         IncrementStatus dStats, CStr(dQueryResult("status"))
+        If dQueryResult.Exists("canonicalizer") Then
+            TallyCanonicalizer dCanonStats, dQueryResult("canonicalizer")
+            cLedger.Add CanonicalizerLedgerLine(CStr(varName), dQueryResult("canonicalizer"))
+        End If
 
         ' Now print the result, completing the line
         Log.Add ResultLabel(CStr(dQueryResult("status"))), , , _
@@ -187,8 +211,21 @@ CleanUp:
         .Add T("  Log file:           {0}", var0:=strLogPath)
         .Add T("  Artifact folder:    {0}", var0:=strArtifactRoot)
         If blnCanceled Then .Add T("  Result:             CANCELED"), , , "red", True
+        .Add vbNullString
+        .Add T("Canonicalizer report (export output unchanged)"), True, , "blue", True
+        LogSummaryLine "  Checked:            ", CStr(dCanonStats("total")), vbNullString
+        LogSummaryLine "  Changed:            ", CStr(dCanonStats("changed")), vbNullString
+        LogSummaryLine "  Declined:           ", CStr(dCanonStats("declined")), _
+            IIf(dCanonStats("declined") > 0, "orange", vbNullString)
+        LogSummaryLine "  Failures:           ", CStr(dCanonStats("failures")), _
+            IIf(dCanonStats("failures") > 0, "red", vbNullString)
+        .Add T("  Ledger:             {0}", var0:=strLedgerPath)
         .Spacer
     End With
+    WriteFile cLedger.GetStr, strLedgerPath
+
+    Options.ExportFormatVersion = lngPriorFormat
+    blnFormatPinned = False
 
     If blnRootOwned Then
         Perf.EndTiming
@@ -201,14 +238,18 @@ CleanUp:
         Log.Flush
     End If
 
-    dResult.Add "success", (Not blnCanceled And ValidationSucceeded(dStats))
+    dResult.Add "success", (Not blnCanceled And ValidationSucceeded(dStats) _
+        And CLng(dCanonStats("failures")) = 0)
     dResult.Add "canceled", blnCanceled
+    dResult.Add "exportFormat", ExportFormatToVersion(LatestExportFormat)
     dResult.Add "database", CurrentProject.FullName
     dResult.Add "queryFilter", strQueryFilterDisplay
     dResult.Add "queryFilters", QueryFilterCollectionForJson(colQueryNames)
     dResult.Add "logPath", strLogPath
     dResult.Add "artifactRoot", strArtifactRoot
     dResult.Add "stats", dStats
+    dResult.Add "canonicalizer", dCanonStats
+    dResult.Add "canonicalizerLedger", strLedgerPath
     dResult.Add "results", colResults
 
     If blnRootOwned Then UpdateValidationConsoleComplete strLogPath, strArtifactRoot, blnCanceled, dResult
@@ -228,6 +269,7 @@ CleanUp:
 
 ErrHandler:
     On Error Resume Next
+    If blnFormatPinned Then Options.ExportFormatVersion = lngPriorFormat
     If blnRootOwned Then
         cRoot.Complete eorFailed
         Log.KeepProgressVisible = False
@@ -282,16 +324,21 @@ Public Function InspectQuerySqlStorage(ByVal strSql As String, _
     blnCreated = True
 
     If blnForceDesignView Then
+        ' Closing with acSaveYes does not save an unchanged query, so the
+        ' designer never rewrites its storage without the explicit save.
         On Error Resume Next
         DoCmd.OpenQuery strQueryName, acViewDesign
-        DoCmd.Close acQuery, strQueryName, acSaveYes
+        DoCmd.Save acQuery, strQueryName
+        DoCmd.Close acQuery, strQueryName, acSaveNo
         If Err.Number <> 0 Then
             dResult.Add "designViewError", CStr(Err.Number) & " " & Err.Description
             Err.Clear
         End If
         On Error GoTo ErrHandler
+        dbs.QueryDefs.Refresh
     End If
 
+    dResult.Add "lvExtraPresent", QueryHasDesignLayout(dbs, strQueryName)
     dResult.Add "accessSql", dbs.QueryDefs(strQueryName).SQL
     Set dMetadata = New Dictionary
     Set colRows = ReadMsysQueryRows(strQueryName, dMetadata)
@@ -311,6 +358,21 @@ ErrHandler:
     dResult.Add "error", Err.Description
     dResult.Add "errorNumber", CLng(Err.Number)
     Resume CleanUp
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QueryHasDesignLayout
+' Purpose   : True when the query was last saved in Design View, which is when
+'           : Access stores the designer layout in MSysObjects.LvExtra.
+'---------------------------------------------------------------------------------------
+'
+Private Function QueryHasDesignLayout(dbs As DAO.Database, ByVal strQueryName As String) As Boolean
+    Dim rst As DAO.Recordset
+    Set rst = dbs.OpenRecordset("SELECT LvExtra FROM MSysObjects WHERE Type = 5 AND Name = '" & _
+        Replace(strQueryName, "'", "''") & "'", dbOpenSnapshot)
+    If Not rst.EOF Then QueryHasDesignLayout = Not IsNull(rst!LvExtra)
+    rst.Close
 End Function
 
 
@@ -716,7 +778,9 @@ Private Function ValidateOneQuery(ByVal strQueryName As String, ByVal strArtifac
     strCheckpoint = "ReadMsysQueryRows"
     Set colRows = ReadMsysQueryRows(strQueryName, dMetadata)
     strCheckpoint = "HasConnectRow"
-    blnPassThrough = HasConnectRow(colRows)
+    ' A pass-through query may keep its connect string in Attribute 1, not Attribute 4.
+    blnPassThrough = HasConnectRow(colRows) _
+        Or (CurrentDb.QueryDefs(strQueryName).Type = dbQSQLPassThrough)
 
     strCheckpoint = "new clsQueryComposer"
     Set cComposer = New clsQueryComposer
@@ -758,6 +822,10 @@ Private Function ValidateOneQuery(ByVal strQueryName As String, ByVal strArtifac
     dResult.Add "status", strStatus
     If Len(strReason) > 0 Then dResult.Add "reason", strReason
     dResult.Add "warnings", colWarnings
+
+    ' Report only: the builder comparison above never sees canonicalized SQL.
+    strCheckpoint = "CheckCanonicalizer"
+    If Not blnPassThrough Then dResult.Add "canonicalizer", CheckCanonicalizer(strQueryName, strGeneratedRaw)
 
     If strStatus = STATUS_REVIEW Or strStatus = STATUS_FAIL_WARNING Or strStatus = STATUS_ERROR Then
         strCheckpoint = "WriteQueryArtifacts"
@@ -940,7 +1008,333 @@ End Function
 
 
 Private Function CanonicalSql(ByVal strSql As String) As String
-    CanonicalSql = NormalizeOnAndOrder(CollapseWhitespaceOutsideLiterals(NormalizeLineEndings(strSql)))
+    CanonicalSql = NormalizeOnAndOrder(TightenParenSpacing( _
+        CollapseWhitespaceOutsideLiterals(NormalizeLineEndings(strSql))))
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TightenParenSpacing
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Drop a space after "(" and before ")" or ",", outside strings and
+'           : brackets. Access stores `(a, b)` whether it was typed `( a, b )` or
+'           : `DESC ,`, so the spacing is presentation only.
+'---------------------------------------------------------------------------------------
+'
+Private Function TightenParenSpacing(ByVal strText As String) As String
+    Dim lngI As Long
+    Dim strCh As String
+    Dim strNext As String
+    Dim blnInString As Boolean
+    Dim blnInBracket As Boolean
+    Dim cOut As New clsConcat
+
+    For lngI = 1 To Len(strText)
+        strCh = Mid$(strText, lngI, 1)
+
+        If blnInString Then
+            cOut.Add strCh
+            If strCh = """" Then
+                If lngI < Len(strText) And Mid$(strText, lngI + 1, 1) = """" Then
+                    lngI = lngI + 1
+                    cOut.Add """"
+                Else
+                    blnInString = False
+                End If
+            End If
+        ElseIf blnInBracket Then
+            cOut.Add strCh
+            If strCh = "]" Then blnInBracket = False
+        Else
+            Select Case strCh
+                Case """"
+                    blnInString = True
+                    cOut.Add strCh
+                Case "["
+                    blnInBracket = True
+                    cOut.Add strCh
+                Case " "
+                    strNext = Mid$(strText, lngI + 1, 1)
+                    If cOut.RightStr(1) <> "(" And strNext <> ")" And strNext <> "," Then cOut.Add strCh
+                Case Else
+                    cOut.Add strCh
+            End Select
+        End If
+    Next lngI
+
+    TightenParenSpacing = cOut.GetStr
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CheckCanonicalizer
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Report what clsSqlCanonicalizer would do to the builder's SQL for one
+'           : query, and prove the rewrite safe: idempotent, parsed by Access, same
+'           : decomposed structure, and (for read-only SELECTs) the same rows and
+'           : columns. Changes nothing outside temporary query definitions.
+'---------------------------------------------------------------------------------------
+'
+Private Function CheckCanonicalizer(ByVal strQueryName As String, ByVal strBuilderSql As String) As Dictionary
+
+    Dim dCheck As Dictionary
+    Dim cCanon As clsSqlCanonicalizer
+    Dim strCanonical As String
+    Dim strAgain As String
+    Dim blnFailed As Boolean
+
+    Set dCheck = New Dictionary
+    Set cCanon = New clsSqlCanonicalizer
+
+    strCanonical = cCanon.Canonicalize(strBuilderSql)
+    If cCanon.Changed Then
+        dCheck.Add "result", "changed"
+    ElseIf Len(cCanon.DeclineReason) > 0 Then
+        dCheck.Add "result", "declined"
+        dCheck.Add "declineReason", cCanon.DeclineReason
+    Else
+        dCheck.Add "result", "unchanged"
+    End If
+
+    If cCanon.Changed Then
+        strAgain = cCanon.Canonicalize(strCanonical)
+        dCheck.Add "idempotent", (Not cCanon.Changed And Len(cCanon.DeclineReason) = 0 _
+            And StrComp(strAgain, strCanonical, vbBinaryCompare) = 0)
+        dCheck.Add "parse", CanonicalParseCheck(strBuilderSql, strCanonical)
+        dCheck.Add "structure", CanonicalStructureCheck(strBuilderSql, strCanonical)
+        dCheck.Add "behavior", CanonicalBehaviorCheck(strQueryName, strBuilderSql, strCanonical)
+        dCheck.Add "canonicalSql", strCanonical
+        blnFailed = (Not dCheck("idempotent")) _
+            Or StartsWith(CStr(dCheck("parse")), "fail") _
+            Or StartsWith(CStr(dCheck("structure")), "fail") _
+            Or StartsWith(CStr(dCheck("behavior")), "fail")
+    End If
+    dCheck.Add "failed", blnFailed
+
+    Set CheckCanonicalizer = dCheck
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CanonicalParseCheck
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : The paste test: Access must accept the canonical SQL as a query
+'           : definition. Skipped when the builder SQL itself does not parse.
+'---------------------------------------------------------------------------------------
+'
+Private Function CanonicalParseCheck(ByVal strBefore As String, ByVal strAfter As String) As String
+    Dim strError As String
+    strError = SqlParseError(strBefore)
+    If Len(strError) > 0 Then
+        CanonicalParseCheck = "skipped: builder SQL does not parse (" & strError & ")"
+        Exit Function
+    End If
+    strError = SqlParseError(strAfter)
+    If Len(strError) > 0 Then
+        CanonicalParseCheck = "fail: " & strError
+    Else
+        CanonicalParseCheck = "pass"
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SqlParseError
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return the error Access raises when creating a temporary (unsaved)
+'           : query definition from strSql, or an empty string when it parses.
+'---------------------------------------------------------------------------------------
+'
+Public Function SqlParseError(ByVal strSql As String) As String
+    Dim qdf As DAO.QueryDef
+    LogUnhandledErrors ModuleName & ".SqlParseError"
+    On Error Resume Next
+    Set qdf = CurrentDb.CreateQueryDef(vbNullString, strSql)
+    If Err.Number <> 0 Then SqlParseError = CStr(Err.Number) & " " & Err.Description
+    Err.Clear
+    On Error GoTo 0
+    Set qdf = Nothing
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CanonicalStructureCheck
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Decompose both SQL strings and compare the structure the parser reads
+'           : from them. The generated .qdef text may differ only by parentheses
+'           : (the WHERE/HAVING expressions); anything else is a failure.
+'---------------------------------------------------------------------------------------
+'
+Private Function CanonicalStructureCheck(ByVal strBefore As String, ByVal strAfter As String) As String
+
+    Dim cBefore As clsQueryComposer
+    Dim cAfter As clsQueryComposer
+    Dim strQdefBefore As String
+    Dim strQdefAfter As String
+
+    LogUnhandledErrors ModuleName & ".CanonicalStructureCheck"
+    On Error GoTo ErrHandler
+
+    Set cBefore = New clsQueryComposer
+    Set cAfter = New clsQueryComposer
+    cBefore.DecomposeSQL strBefore
+    cAfter.DecomposeSQL strAfter
+
+    If cBefore.QueryType <> cAfter.QueryType Then
+        CanonicalStructureCheck = "fail: query type differs"
+    ElseIf cBefore.IsDesignerCompatible <> cAfter.IsDesignerCompatible Then
+        CanonicalStructureCheck = "fail: designer compatibility differs"
+    Else
+        strQdefBefore = cBefore.GenerateQdef(True, New Dictionary, New Dictionary)
+        strQdefAfter = cAfter.GenerateQdef(True, New Dictionary, New Dictionary)
+        If StrComp(WithoutParensOrSpace(strQdefBefore), WithoutParensOrSpace(strQdefAfter), vbBinaryCompare) = 0 Then
+            CanonicalStructureCheck = "pass"
+        Else
+            CanonicalStructureCheck = "fail: decomposed structure differs"
+        End If
+    End If
+    Exit Function
+
+ErrHandler:
+    CanonicalStructureCheck = "fail: " & CStr(Err.Number) & " " & Err.Description
+    Err.Clear
+End Function
+
+
+' Quotes go too: the .qdef wraps long expressions into fixed-width quoted chunks,
+' so removing a parenthesis moves every chunk boundary after it.
+Private Function WithoutParensOrSpace(ByVal strText As String) As String
+    Dim varChar As Variant
+    For Each varChar In Array("(", ")", " ", vbTab, vbCr, vbLf, """")
+        strText = Replace$(strText, CStr(varChar), vbNullString)
+    Next varChar
+    WithoutParensOrSpace = strText
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CanonicalBehaviorCheck
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : For read-only SELECTs, run both SQL strings and compare row count and
+'           : column schema. Skipped when the builder SQL cannot run on its own
+'           : (parameters, form references, unavailable links).
+'---------------------------------------------------------------------------------------
+'
+Private Function CanonicalBehaviorCheck(ByVal strQueryName As String, _
+    ByVal strBefore As String, ByVal strAfter As String) As String
+
+    Dim dbs As DAO.Database
+    Dim strSelectBefore As String
+    Dim strSelectAfter As String
+    Dim strNameBefore As String
+    Dim strNameAfter As String
+    Dim lngCountBefore As Long
+    Dim lngCountAfter As Long
+    Dim strSchemaBefore As String
+    Dim strSchemaAfter As String
+    Dim blnAfterStage As Boolean
+
+    strSelectBefore = ExtractSourceSelect(strBefore)
+    strSelectAfter = ExtractSourceSelect(strAfter)
+    If Len(strSelectBefore) = 0 Or Len(strSelectAfter) = 0 Then
+        CanonicalBehaviorCheck = "skipped: not a read-only SELECT"
+        Exit Function
+    End If
+
+    Set dbs = CurrentDb
+    strNameBefore = "vcs_canon_before_" & UniqueHashSuffix(strQueryName)
+    strNameAfter = "vcs_canon_after_" & UniqueHashSuffix(strQueryName)
+
+    LogUnhandledErrors ModuleName & ".CanonicalBehaviorCheck"
+    On Error GoTo ErrHandler
+
+    ' Both definitions exist before either is measured: saving a query adds rows to
+    ' system tables such as MSysQueries, which a query may itself be reading.
+    DeleteQueryDefIfExists dbs, strNameBefore
+    DeleteQueryDefIfExists dbs, strNameAfter
+    dbs.CreateQueryDef strNameBefore, strSelectBefore
+    blnAfterStage = True
+    dbs.CreateQueryDef strNameAfter, strSelectAfter
+    blnAfterStage = False
+    lngCountBefore = QueryDefRowCount(dbs, strNameBefore)
+    strSchemaBefore = QueryDefSchemaSignature(dbs, strNameBefore)
+
+    blnAfterStage = True
+    lngCountAfter = QueryDefRowCount(dbs, strNameAfter)
+    strSchemaAfter = QueryDefSchemaSignature(dbs, strNameAfter)
+
+    If lngCountBefore <> lngCountAfter Then
+        CanonicalBehaviorCheck = "fail: row count " & lngCountBefore & " vs " & lngCountAfter
+    ElseIf strSchemaBefore <> strSchemaAfter Then
+        CanonicalBehaviorCheck = "fail: column schema differs"
+    Else
+        CanonicalBehaviorCheck = "pass"
+    End If
+
+CleanUp:
+    On Error Resume Next
+    DeleteQueryDefIfExists dbs, strNameBefore
+    DeleteQueryDefIfExists dbs, strNameAfter
+    Err.Clear
+    On Error GoTo 0
+    Exit Function
+
+ErrHandler:
+    If blnAfterStage Then
+        CanonicalBehaviorCheck = "fail: " & CStr(Err.Number) & " " & Err.Description
+    Else
+        CanonicalBehaviorCheck = "skipped: builder SQL does not run (" & CStr(Err.Number) & " " & Err.Description & ")"
+    End If
+    Resume CleanUp
+End Function
+
+
+Private Function NewCanonicalizerStats() As Dictionary
+    Dim dStats As New Dictionary
+    dStats.Add "total", CLng(0)
+    dStats.Add "changed", CLng(0)
+    dStats.Add "unchanged", CLng(0)
+    dStats.Add "declined", CLng(0)
+    dStats.Add "failures", CLng(0)
+    Set NewCanonicalizerStats = dStats
+End Function
+
+
+Private Sub TallyCanonicalizer(ByVal dStats As Dictionary, ByVal dCheck As Dictionary)
+    dStats("total") = CLng(dStats("total")) + 1
+    dStats(CStr(dCheck("result"))) = CLng(dStats(CStr(dCheck("result")))) + 1
+    If dCheck("failed") Then dStats("failures") = CLng(dStats("failures")) + 1
+End Sub
+
+
+Private Function CanonicalizerLedgerLine(ByVal strQueryName As String, ByVal dCheck As Dictionary) As String
+    Dim strResult As String
+    strResult = CStr(dCheck("result"))
+    If dCheck.Exists("declineReason") Then strResult = strResult & ": " & CStr(dCheck("declineReason"))
+    If dCheck("failed") Then strResult = "**FAILED** " & strResult
+    CanonicalizerLedgerLine = "| `" & Replace(strQueryName, "|", "\|") & "` | " & _
+        LedgerCell(strResult) & " | " & _
+        LedgerCell(DictValue(dCheck, "idempotent")) & " | " & _
+        LedgerCell(DictValue(dCheck, "parse")) & " | " & _
+        LedgerCell(DictValue(dCheck, "structure")) & " | " & _
+        LedgerCell(DictValue(dCheck, "behavior")) & " |" & vbCrLf
+End Function
+
+
+Private Function DictValue(ByVal dItems As Dictionary, ByVal strKey As String) As String
+    If dItems.Exists(strKey) Then DictValue = CStr(dItems(strKey))
+End Function
+
+
+Private Function LedgerCell(ByVal strText As String) As String
+    LedgerCell = Replace(Replace(strText, vbCrLf, " "), "|", "\|")
 End Function
 
 
@@ -1038,15 +1432,43 @@ End Function
 Private Function CanonicalAndCondition(ByVal strCondition As String) As String
     Dim asParts() As String
     Dim lngCount As Long
+    Dim colLeaves As New Collection
+    Dim varLeaf As Variant
 
-    asParts = SplitTopLevelAnd(strCondition, lngCount)
-    If lngCount <= 1 Then
+    ' Export encloses each table pair's ON conditions as one term at 5.2.0
+    ' (`((a) AND (b)) AND (c)`); QueryDefs.SQL writes a flat `(a) AND (b) AND (c)`.
+    AddAndConditionLeaves colLeaves, strCondition
+    If colLeaves.Count <= 1 Then
         CanonicalAndCondition = Trim$(strCondition)
     Else
+        ReDim asParts(0 To colLeaves.Count - 1)
+        For Each varLeaf In colLeaves
+            asParts(lngCount) = CStr(varLeaf)
+            lngCount = lngCount + 1
+        Next varLeaf
         SortStrings asParts, lngCount
         CanonicalAndCondition = JoinFirstN(asParts, lngCount, " AND ")
     End If
 End Function
+
+
+Private Sub AddAndConditionLeaves(colLeaves As Collection, ByVal strCondition As String)
+    Dim asParts() As String
+    Dim lngCount As Long
+    Dim lngPart As Long
+
+    With New clsSqlSyntax
+        strCondition = .StripOuterParens(strCondition)
+    End With
+    asParts = SplitTopLevelAnd(strCondition, lngCount)
+    If lngCount <= 1 Then
+        colLeaves.Add strCondition
+    Else
+        For lngPart = 0 To lngCount - 1
+            AddAndConditionLeaves colLeaves, asParts(lngPart)
+        Next lngPart
+    End If
+End Sub
 
 
 Private Function SplitTopLevelAnd(ByVal strText As String, ByRef lngCount As Long) As String()
@@ -1409,3 +1831,101 @@ End Function
 Private Function MaxLong(ByVal a As Long, ByVal b As Long) As Long
     If a > b Then MaxLong = a Else MaxLong = b
 End Function
+
+
+Public Sub TestCanonicalSql_InsertColumnSpacing()
+    TestAssert CanonicalSql("INSERT INTO t ( a, b ) SELECT u.a, u.b FROM u;") = _
+        CanonicalSql("INSERT INTO t (a, b) SELECT u.a, u.b FROM u;"), _
+        "Access's ( a, b ) matches (a, b)"
+End Sub
+
+
+Public Sub TestCanonicalSql_OrderBySpacing()
+    TestAssert CanonicalSql("SELECT a FROM t ORDER BY a DESC , b;") = _
+        CanonicalSql("SELECT a FROM t ORDER BY a DESC, b;"), _
+        "Access's DESC , matches DESC,"
+End Sub
+
+
+Public Sub TestCanonicalSql_UpdateSetLine()
+    TestAssert CanonicalSql("UPDATE t SET t.a = 1;") = _
+        CanonicalSql("UPDATE t" & vbCrLf & "SET t.a = 1;"), _
+        "SET on the UPDATE line matches SET on its own line"
+End Sub
+
+
+Public Sub TestCanonicalSql_DroppedAliasBracketIsReview()
+    TestAssert CanonicalSql("SELECT t.a AS [Option] FROM t;") <> _
+        CanonicalSql("SELECT t.a AS Option FROM t;"), _
+        "a dropped alias bracket is still a difference to review"
+End Sub
+
+
+Public Sub TestCheckCanonicalizer_KnownGoodQuery()
+    Dim dCheck As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+    Set dCheck = CheckCanonicalizer("vcsTestCanonicalizer", _
+        "SELECT MSysObjects.Name FROM MSysObjects WHERE ((MSysObjects.Type)=1);")
+    TestAssert dCheck("result") = "changed", "designer wrappers are removed"
+    TestAssert dCheck("idempotent"), "idempotent"
+    TestAssert dCheck("parse") = "pass", "parse: " & dCheck("parse")
+    TestAssert dCheck("structure") = "pass", "structure: " & dCheck("structure")
+    TestAssert dCheck("behavior") = "pass", "behavior: " & dCheck("behavior")
+    TestAssert dCheck("canonicalSql") = "SELECT MSysObjects.Name FROM MSysObjects WHERE MSysObjects.Type=1;", _
+        "canonical SQL"
+    TestAssert Not dCheck("failed"), "not a failure"
+
+CleanUp:
+    On Error Resume Next
+    If lngErr <> 0 Then TestAssert False, "CheckCanonicalizer " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+End Sub
+
+
+Public Sub TestCheckCanonicalizer_UnchangedQuery()
+    Dim dCheck As Dictionary
+    Set dCheck = CheckCanonicalizer("vcsTestCanonicalizer", "SELECT MSysObjects.Name FROM MSysObjects;")
+    TestAssert dCheck("result") = "unchanged", "nothing to remove"
+    TestAssert Not dCheck.Exists("parse"), "no checks run for an unchanged query"
+    TestAssert Not dCheck("failed"), "not a failure"
+End Sub
+
+
+Public Sub TestCanonicalizerReport_CountsAndFlagsFailure()
+    Dim dStats As Dictionary
+    Dim dGood As Dictionary
+    Dim dBad As Dictionary
+    Dim strLine As String
+
+    Set dStats = NewCanonicalizerStats()
+    Set dGood = New Dictionary
+    dGood.Add "result", "unchanged"
+    dGood.Add "failed", False
+    Set dBad = New Dictionary
+    dBad.Add "result", "changed"
+    dBad.Add "idempotent", True
+    dBad.Add "parse", "pass"
+    dBad.Add "structure", "fail: decomposed structure differs"
+    dBad.Add "behavior", "pass"
+    dBad.Add "failed", True
+
+    TallyCanonicalizer dStats, dGood
+    TallyCanonicalizer dStats, dBad
+    TestAssert dStats("total") = 2, "both queries counted"
+    TestAssert dStats("unchanged") = 1 And dStats("changed") = 1, "results tallied by kind"
+    TestAssert dStats("failures") = 1, "the failed check is counted"
+
+    strLine = CanonicalizerLedgerLine("qry|Example", dBad)
+    TestAssert InStr(1, strLine, "**FAILED** changed", vbBinaryCompare) > 0, "ledger flags the failure"
+    TestAssert InStr(1, strLine, "qry\|Example", vbBinaryCompare) > 0, "pipe in a name is escaped"
+    TestAssert InStr(1, strLine, "fail: decomposed structure differs", vbBinaryCompare) > 0, _
+        "ledger shows which check failed"
+End Sub

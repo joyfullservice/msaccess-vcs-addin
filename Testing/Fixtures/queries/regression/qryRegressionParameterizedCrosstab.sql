@@ -1,4 +1,5 @@
-﻿PARAMETERS [Select Manufacturer] Text (255);
+﻿PARAMETERS
+  [Select Manufacturer] Text (255);
 TRANSFORM
   Count(qryCars.Colour) AS CountOfColour
 SELECT
@@ -6,11 +7,7 @@ SELECT
 FROM
   qryCars
 WHERE
-  (
-    (
-      (qryCars.Manufacturer) = [Select Manufacturer]
-    )
-  )
+  qryCars.Manufacturer = [Select Manufacturer]
 GROUP BY
   qryCars.Manufacturer
 ORDER BY

@@ -3,10 +3,5 @@
 FROM
   tblCars
 WHERE
-  (
-    (
-      (tblCars.Manufacturer) = "WITH OWNERACCESS OPTION"
-    )
-  )
-WITH
-  OWNERACCESS OPTION;
+  tblCars.Manufacturer = "WITH OWNERACCESS OPTION"
+WITH OWNERACCESS OPTION;

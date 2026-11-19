@@ -34,9 +34,15 @@ It is wired into the export path by
 inside `SanitizeObject`:
 
 - On **form** export, after `NormalizeViewport`, when
-  `SanitizeLevel > eslMinimal` and `ExportFormatVersion >= EFV_5_1_0`.
+  `SanitizeLevel > eslMinimal`, `ExportFormatVersion >= EFV_5_1_0`, and
+  the `SnapFormLayoutGeometry` option is on (the default).
 - `LayoutCached*` is used as optional edge data during the rewrite, then
-  stripped for forms at the same format gate.
+  stripped for forms at the same format gate. Stripping and viewport
+  normalization do not depend on `SnapFormLayoutGeometry`.
+- `SnapFormLayoutGeometry` (#839) is the opt-out for teams that share one
+  display scaling and need exact control sizes, such as 16x16 icons in a
+  layout. It is hashed in the Forms category only, so toggling it
+  re-exports forms and nothing else.
 - **Reports are not canonicalized.** Their `LayoutCached*` lines stay.
 - Import is ungated. Older source without the rewrite imports unchanged.
 
@@ -264,6 +270,23 @@ A read-only structure-aware prototype that did exactly that unified
 **all 311 available layout geometry properties** across the six
 harvested fixtures at 96 / 120 / 144 / 192 DPI. Only Tab/Page-derived
 geometry remained inconsistent; see §9.
+
+**A finer structure-aware grid does not hold.** Re-run at 30 and 15
+twips against the captured probe runs (for #839), the same algorithm
+broke where 60 did not. Even on canonical input, Access's solver adds
+about one pixel per track boundary: +12 twips at 125%, +10 at 150%,
++8 at 200%. A grid's snap radius must absorb that plus the pixel
+rounding of the grid itself.
+
+| Grid | Holds at | Fails at |
+|---|---|---|
+| 60 twips | 100–200% | — |
+| 30 twips | 100%, 150%, 200% | 125% (2.5 px per step) |
+| 15 twips | 100% | 125%, 150%, 200% |
+
+So the option is on/off rather than a choice of grid sizes: a finer
+grid would only unify a subset of scalings, which is the same
+guarantee as turning snapping off for a team on one scaling.
 
 ---
 
@@ -620,6 +643,12 @@ the remaining 14.5%.
   original series captured 96 / 120 / 144 / 192 outputs for
   unification. 175% was never harvested; `N(P_168(C)) = C` is
   still measured.
+- **Pixel-exact controls in a layout are resized.** A 256-twip (16 px at
+  100%) image cell snaps to 240, so the picture is rescaled and blurs
+  (#839). Workarounds that keep snapping on: size the cell at 300 twips
+  with `SizeMode = Clip` and `PictureAlignment = Center`, or remove the
+  control from the layout. Otherwise turn `SnapFormLayoutGeometry` off,
+  which gives up cross-DPI stability for every form in the project.
 - **Reports are not canonicalized.** The same layout properties exist
   on reports; no probe corpus was captured for them, and the
   sanitizer does not touch them.
@@ -682,8 +711,9 @@ The measurements that matter, in the order they justified the design:
    path or procedure, decides whether a run is valid.
 4. **VBA port.** `VCS.RunTests("clsTestSourceParser")` covers snap,
    span derivation, zero and non-60 gap classes, envelope normalization,
-   `EmptyCell` preservation, fail-closed, idempotence, and the 5.0.0
-   gate leaving caches untouched. These are synthetic parity tests,
+   `EmptyCell` preservation, fail-closed, idempotence, the 5.0.0
+   gate leaving caches untouched, and the `SnapFormLayoutGeometry`
+   opt-out keeping exact geometry. These are synthetic parity tests,
    not a second cross-DPI proof.
 
 When a future Access version or a new layout shape breaks one of

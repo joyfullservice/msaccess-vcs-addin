@@ -10,10 +10,15 @@ The harness:
 1. Imports each fixture into the running database under a sandboxed name
    (`vcs_test_<basename>_<hash>`).
 2. Validates the emitter's `.qdef` output (`qdef_joins` check — see below).
-3. Exports it twice (Pass 1 and Pass 2).
+3. Exports it twice (Pass 1 and Pass 2). Query fixtures are exported at the
+   latest export format, whatever the host database's own setting.
 4. Asserts Pass 2 equals Pass 1 (idempotency, hard requirement).
 5. Asserts Pass 1 equals the fixture (drift check, soft requirement).
-6. Drops the sandboxed object and moves on.
+6. For queries other than pass-through, asserts that Access parses the exported
+   `.sql` as written (`paste` check). A query whose own `QueryDefs.SQL` does not
+   parse either passes with a note; see "A compound `ON` does not always parse as
+   Access writes it" in [docs/access-query-storage.md](../../docs/access-query-storage.md) § 6.
+7. Drops the sandboxed object and moves on.
 
 Fixtures themselves are **never modified** by a normal run. The only way to
 overwrite them is to deliberately invoke the harness with `blnRebaseline:=True`
@@ -174,6 +179,14 @@ For queries (v1):
 
 The harness uses the file basename (`<name>`) only to derive the sandbox
 object name. Embedded names inside the .sql are unchanged.
+
+**SQL View or Design View.** Every query fixture's `.sql` is written by the export
+builder from `MSysQueries`, so the builder runs either way. What a `DesignLayout` in
+the `.json` (or a shape that `RequiresDesignView`) changes is the import: only then
+does the fixture go through the Design View `.qdef` emitter, and only then does
+Access store the query the way its designer does. A shape that users build in the
+designer needs a Design View fixture, even if a SQL View fixture of the same SQL
+already exists.
 
 ### Table definitions
 

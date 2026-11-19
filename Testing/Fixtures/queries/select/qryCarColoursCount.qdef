@@ -1,7 +1,7 @@
 ﻿Operation =1
 Option =2
-Where ="(((qryCars.Price)<15000))"
-Having ="(((qryCars.Year)=2011))"
+Where ="(((qryCars.Price<15000)))"
+Having ="(((qryCars.Year=2011)))"
 Begin InputTables
     Name ="qryCars"
 End

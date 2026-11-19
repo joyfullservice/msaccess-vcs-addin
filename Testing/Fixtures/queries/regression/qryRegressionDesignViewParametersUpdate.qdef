@@ -1,0 +1,31 @@
+﻿Operation =4
+Option =0
+Where ="(((tblParamSample.ID=[Enter ID])))"
+Begin InputTables
+    Name ="tblParamSample"
+End
+Begin OutputColumns
+    Name ="tblParamSample.Price"
+    Expression ="[New Price]"
+End
+Begin Parameters
+    Name ="[Enter ID]"
+    Flag =4
+    Name ="[New Price]"
+    Flag =5
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbBoolean "UseTransaction" ="-1"
+dbBoolean "FailOnError" ="0"
+dbByte "Orientation" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblParamSample.Price"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblParamSample.ID"
+        dbLong "AggregateType" ="-1"
+    End
+End
