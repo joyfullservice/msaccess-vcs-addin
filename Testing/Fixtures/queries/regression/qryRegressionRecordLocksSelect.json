@@ -1,0 +1,48 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionRecordLocksSelect"
+  },
+  "Items": {
+    "QueryType": 0,
+    "QueryProperties": {
+      "DefaultView": {
+        "Type": 2,
+        "Value": 0
+      },
+      "RecordLocks": {
+        "Type": 2,
+        "Value": 2
+      }
+    },
+    "DesignLayout": {
+      "State": 0,
+      "Window": {
+        "left": 0,
+        "top": 0,
+        "right": 1000,
+        "bottom": 700
+      },
+      "DesignerPane": {
+        "left": -1,
+        "top": -1,
+        "right": 980,
+        "bottom": 300
+      },
+      "GridLeft": 0,
+      "GridTop": 0,
+      "ColumnsShown": 539,
+      "Tables": [
+        {
+          "Name": "tblCars",
+          "Alias": "",
+          "Left": 48,
+          "Top": 12,
+          "Right": 192,
+          "Bottom": 156,
+          "ScrollTop": 0
+        }
+      ]
+    }
+  }
+}

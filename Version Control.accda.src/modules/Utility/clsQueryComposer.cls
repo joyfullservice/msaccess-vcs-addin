@@ -4421,7 +4421,11 @@ Private Sub EmitAllProperties(cOut As clsConcat, dProperties As Dictionary)
             Case "MaxRecords"
                 cOut.Add "dbLong ""MaxRecords"" =""" & dOverrides(varKey) & """", vbCrLf
             Case "RecordLocks"
-                ' LvProp-only property; not part of the .qdef text format
+                ' SaveAsText does not write RecordLocks, but LoadFromText accepts this
+                ' line and the property survives (measured with Access 16, 32-bit).
+                cOut.Add "dbByte ""RecordLocks"" =""" & dOverrides(varKey) & """", vbCrLf
+            Case "NoFormat"
+                EmitBoolProp cOut, "NoFormat", dOverrides(varKey)
             Case "RowHeight"
                 cOut.Add "dbInteger ""RowHeight"" =""" & dOverrides(varKey) & """", vbCrLf
             Case Else
@@ -4477,7 +4481,7 @@ Private Function ResolvePropertyOverrides(dProperties As Dictionary) As Dictiona
         ' Normalize boolean values to Access format
         Select Case CStr(varKey)
             Case "ReturnsRecords", "OrderByOn", "FilterOnLoad", "OrderByOnLoad", _
-                 "TotalsRow", "UseTransaction", "FailOnError"
+                 "TotalsRow", "UseTransaction", "FailOnError", "NoFormat"
                 dResult.Add CStr(varKey), BoolToAccessStr(varVal)
             Case Else
                 dResult.Add CStr(varKey), CStr(varVal)

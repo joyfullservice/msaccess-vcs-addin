@@ -1,0 +1,25 @@
+﻿Operation =3
+Name ="tblCarsPrice"
+Option =0
+Begin InputTables
+    Name ="tblCars"
+End
+Begin OutputColumns
+    Name ="Price"
+    Expression ="tblCars.Price"
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbBoolean "UseTransaction" ="-1"
+dbByte "Orientation" ="0"
+dbByte "RecordLocks" ="2"
+Begin
+    Begin
+        dbText "Name" ="tblCars.Price"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCarsPrice.Price"
+        dbLong "AggregateType" ="-1"
+    End
+End
