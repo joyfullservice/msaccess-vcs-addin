@@ -1,0 +1,9 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryAppendExternalTarget"
+  },
+  "Items": {
+    "QueryType": 64
+  }
+}

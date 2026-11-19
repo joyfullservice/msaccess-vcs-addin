@@ -1,0 +1,15 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryUpdateSpacedTargetSqlView"
+  },
+  "Items": {
+    "QueryType": 48,
+    "QueryProperties": {
+      "FailOnError": {
+        "Type": 1,
+        "Value": false
+      }
+    }
+  }
+}

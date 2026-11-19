@@ -763,6 +763,7 @@ Public Sub TestFormat52_TokensPreservedForTestInputs()
         "PARAMETERS [Enter Year] Short; INSERT INTO tblA (a, [Year]) SELECT u.a, [Enter Year] FROM u;", _
         "SELECT a FROM tblA INNER JOIN tblB ON ((tblA.ID = tblB.AID) AND (tblB.Active = True)) INNER JOIN tblC ON tblB.ID = tblC.BID;", _
         "SELECT t.ID, t.Name INTO tblCopy IN 'C:\path\to\other.accdb' FROM t WITH OWNERACCESS OPTION;", _
+        "INSERT INTO tblA (a, b) IN 'C:\path\to\other.accdb' SELECT u.a, u.b FROM u IN '' [ODBC;DSN=Example;];", _
         "SELECT a FROM t WHERE t.d Between #1/1/2020# And #12/31/2020# AND t.x = 1")
         TestAssert SignificantTokens(Format52(CStr(varSql))) = SignificantTokens(CStr(varSql)), _
             "tokens preserved: " & Left$(varSql, 40)

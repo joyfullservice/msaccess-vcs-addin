@@ -83,6 +83,48 @@ contradictory guidance.
 
 ---
 
+## 2026-11-19 — Unparseable query exports are fixed for every 5.x format under an exporter revision
+
+**Trigger**: Several export shapes did not parse when pasted back into Access. An
+UPDATE saved in SQL View exported `SET Order Lines.Unit Cost = 0`, because Attribute 6
+`Name2` stores the target unbracketed (#840). A source name starting with `(` was taken
+as already bracketed (#815). An external append exported `INSERT INTO t IN '<db>' (a, b)`,
+which Access rejects. A connect-string append target and every `FROM ... IN` source were
+dropped. Separately, the Design View WHERE column scan split bracketed names (#814).
+
+**Options explored**:
+- *Gate the fixes behind `EFV_5_2_0`.* Rejected: old-format output that does not parse is a
+  bug, not a format. Users on 5.0 and 5.1 formats would keep exporting SQL they cannot
+  paste.
+- *Bracket every SET target part.* Rejected: Design View stores `[Order Lines].Month` with
+  the reserved word bare, and Access parses any qualified reserved word, so blanket
+  brackets would churn every Design View UPDATE for no gain.
+- *Reuse `IsAccessReservedWord` for unqualified targets.* Rejected: a probe of every word
+  showed 84 that fail as an unqualified target (`Level`, `Value`), a list that matches
+  neither alias list. The new list is added on top of the old one, so brackets an older
+  export wrote stay.
+
+**Decision**: All five fixes apply at every 5.x format and ship as the `Queries = 1`
+exporter revision, which re-exports queries once. A SET target is written the way the
+Design View stores it (`clsSqlSyntax.FormatSetTarget`); the target splits at the first
+period outside brackets, because Access allows no period in a table or field name, local
+or linked. External databases are written after the column list (append) or the table
+list (source), and as `IN '' [<connect>]` when Access stores a connect string. Import keeps
+both in SQL View and rewrites the legacy append order, so 5.0 and 5.1 files still import.
+The connect string is written as Access stores it. Linked-table export already keeps
+`UID` and `PWD` unless the connection is trusted, so this adds no new kind of exposure.
+
+**What this rules out**: Exporting a stored name verbatim on the assumption that Access
+will accept its own text back.
+
+**Relevant files**: `clsSqlSyntax.cls` (`FormatSetTarget`, `SplitQualifiedName`,
+`FindUnquotedChar`, `BracketIfNeeded`), `clsQueryComposer.cls` (`ReconstructSQL`,
+`ParseInsertQuery`, `ReorderLegacyExternalAppend`, `ParseSourceDatabaseClause`,
+`AddWhereFieldsToColumns`), `modConstants.bas` (`GetExporterRevisions`),
+`modTestQuerySqlBuilder.bas` (`InspectQuerySqlStorage`), `docs/access-query-storage.md`.
+
+---
+
 ## 2026-11-19 — Exported ON clauses group each table pair's conditions at export format 5.2.0
 
 **Trigger**: Exported `.sql` should paste into SQL View without errors; that matters

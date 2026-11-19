@@ -1,0 +1,8 @@
+﻿dbMemo "SQL" ="UPDATE\015\012  [Order Lines]\015\012SET\015\012  [Order Lines].[Unit "
+    "Cost] = 0,\015\012  [Order Lines].Month = 1;\015\012"
+dbMemo "Connect" =""
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbBoolean "UseTransaction" ="-1"
+dbBoolean "FailOnError" ="0"
+dbByte "Orientation" ="0"

@@ -322,6 +322,9 @@ End Function
 '           :   Reports = 1      7/28/2026  Fixed CF14 data bar decode (issue #730)
 '           :   Reports = 2      9/16/2026  Preserve legacy-only conditional formatting (issue #779)
 '           :   Tables = 1       8/21/2026  Fixed DECIMAL(p,s) in optional .sql sidecar (issue #756)
+'           :   Queries = 1      11/19/2026 Pasteable UPDATE SET targets (issue #840), names
+'           :                               starting with "(" (#815), external append and
+'           :                               source databases
 '---------------------------------------------------------------------------------------
 '
 Public Function GetExporterRevisions() As Dictionary
@@ -332,6 +335,7 @@ Public Function GetExporterRevisions() As Dictionary
     d.Add "Forms", 3
     d.Add "Reports", 2
     d.Add "Tables", 1
+    d.Add "Queries", 1
     Set GetExporterRevisions = d
 
 End Function

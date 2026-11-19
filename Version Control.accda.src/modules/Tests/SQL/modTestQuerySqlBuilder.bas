@@ -324,16 +324,21 @@ Public Function InspectQuerySqlStorage(ByVal strSql As String, _
     blnCreated = True
 
     If blnForceDesignView Then
+        ' Closing with acSaveYes does not save an unchanged query, so the
+        ' designer never rewrites its storage without the explicit save.
         On Error Resume Next
         DoCmd.OpenQuery strQueryName, acViewDesign
-        DoCmd.Close acQuery, strQueryName, acSaveYes
+        DoCmd.Save acQuery, strQueryName
+        DoCmd.Close acQuery, strQueryName, acSaveNo
         If Err.Number <> 0 Then
             dResult.Add "designViewError", CStr(Err.Number) & " " & Err.Description
             Err.Clear
         End If
         On Error GoTo ErrHandler
+        dbs.QueryDefs.Refresh
     End If
 
+    dResult.Add "lvExtraPresent", QueryHasDesignLayout(dbs, strQueryName)
     dResult.Add "accessSql", dbs.QueryDefs(strQueryName).SQL
     Set dMetadata = New Dictionary
     Set colRows = ReadMsysQueryRows(strQueryName, dMetadata)
@@ -353,6 +358,21 @@ ErrHandler:
     dResult.Add "error", Err.Description
     dResult.Add "errorNumber", CLng(Err.Number)
     Resume CleanUp
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : QueryHasDesignLayout
+' Purpose   : True when the query was last saved in Design View, which is when
+'           : Access stores the designer layout in MSysObjects.LvExtra.
+'---------------------------------------------------------------------------------------
+'
+Private Function QueryHasDesignLayout(dbs As DAO.Database, ByVal strQueryName As String) As Boolean
+    Dim rst As DAO.Recordset
+    Set rst = dbs.OpenRecordset("SELECT LvExtra FROM MSysObjects WHERE Type = 5 AND Name = '" & _
+        Replace(strQueryName, "'", "''") & "'", dbOpenSnapshot)
+    If Not rst.EOF Then QueryHasDesignLayout = Not IsNull(rst!LvExtra)
+    rst.Close
 End Function
 
 

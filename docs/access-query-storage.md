@@ -73,7 +73,7 @@ The parser handles every value below:
 | Flag | Query type                | Where Name1/Name2 carry data                           |
 |------|---------------------------|--------------------------------------------------------|
 | 1    | SELECT                    | —                                                      |
-| 3    | Append (INSERT INTO)      | Name1 = target table; Name2 = external DB path if any  |
+| 3    | Append (INSERT INTO)      | Name1 = target table; Name2 = external DB path if any; Expression = connect string of an `IN '' [ODBC;...]` target |
 | 4    | UPDATE                    | —                                                      |
 | 5    | DELETE                    | —                                                      |
 | 6    | TRANSFORM (Crosstab)      | —                                                      |
@@ -152,6 +152,13 @@ The full set:
 
 For `TOP n` and `TOP n PERCENT`, `Name1` carries the count.
 
+### Attribute 4 — source database (`FROM ... IN`)
+
+Present when the tables come from another database. `FROM t IN '<path>'` stores
+the path in `Name1`; `FROM t IN '' [ODBC;...]` stores the connect string in
+`Expression`. The export writes the clause after the table list, and import keeps
+such a query in SQL View.
+
 ### Attribute 5 — input tables (FROM)
 
 One row per table, query, or UNION segment. `Name1` is the table or query
@@ -169,6 +176,10 @@ name; `Name2` is the alias (if any) or the UNION segment id.
 The April 2026 addendum corrects the upstream docs: simple field references
 go in `Expression` (not `Name1`); only the alias of a calculated column
 goes in `Name1`.
+
+For UPDATE, `Name2` is the SET target and `Expression` its new value. The target's
+spelling depends on how the query was saved: `Order Lines.Unit Cost` from SQL View,
+`[Order Lines].[Unit Cost]` from Design View. See § 6, "UPDATE SET targets".
 
 ### Attribute 7 — joins
 
@@ -678,7 +689,7 @@ contribute a fixture (see the bug-as-fixture workflow in
 | Top-level `OR` in a compound `ON`                  | No fixture. `HasTopLevelBoolean` returns True for `OR`, so `RequiresDesignView` is set and Design View is forced — but `EmitDesignViewQdef` splits on `" AND "` only, so the whole `OR` expression lands in a single join row with the pair taken from the first `=`. Whether Access accepts and round-trips that is unverified. |
 | Post-import validation of the stored query         | None. Import treats a `LoadFromText` success as success, and Access accepts structurally invalid `Joins` rows silently (see § 6). Reading `QueryDefs(name).SQL` after import would surface error 3080 / 3082 corruption at merge time instead of at first execution. |
 | Function calls in ON-clause operands (`Left(a.x,3)=b.y`) | **Covered.** `ExtractTableFromOnSide` returns empty for expression operands; `ResolveConditionJoinTables` validates against `InputTables` and falls back via qualifier scan / parent join. Pinned by [regression/qryRegressionFunctionInOnClause.sql](../Testing/Fixtures/queries/regression/qryRegressionFunctionInOnClause.sql). See § 6. |
-| External-database joins (`IN '...'` clause)        | No fixture. Attribute 4 carries the connect string; verify it round-trips.                                                     |
+| External-database sources (`FROM ... IN '...'`)    | **Covered** by [select/qrySelectSourceDatabase.sql](../Testing/Fixtures/queries/select/qrySelectSourceDatabase.sql). Attribute 4 carries the path (`Name1`) or connect string (`Expression`); exports before the `Queries = 1` exporter revision dropped it. A connect-string source has unit coverage only. |
 | Crosstab in Design View (`Operation =6` + layout)  | **Covered.** `EmitCrosstabOutputColumns` supplies the Attribute 6 `GroupLevel` role markers and the matching `Groups` rows, so a crosstab carrying a `DesignLayout` keeps its designer grid. Pinned by [crosstab/qryCarsCrosstab.sql](../Testing/Fixtures/queries/crosstab/qryCarsCrosstab.sql) (two row headings plus `ORDER BY`) and [regression/qryRegressionParametersCrosstabFixedPivot.sql](../Testing/Fixtures/queries/regression/qryRegressionParametersCrosstabFixedPivot.sql) (parameterized, fixed heading list), with unit coverage in `clsTestQueryComposerCrosstab`. |
 
 When adding a fixture for any of the above, follow the contribution
@@ -1117,9 +1128,46 @@ a cross-pair ON) and `qryNoTable`.
 ### `INSERT INTO t IN '<path>' (a, b)` is rejected
 
 **Observation.** Access parses an external append target only with the column list
-before `IN`: `INSERT INTO t (a, b) IN '<path>' SELECT ...`. The composer emits
-`INSERT INTO t IN '<path>' (a, b) SELECT ...`, which Access rejects. No fixture covers
-an external append target yet.
+before `IN`: `INSERT INTO t (a, b) IN '<path>' SELECT ...`. A target reached through
+a connect string (`IN '' [ODBC;...]`) leaves `Name2` empty and keeps the connect
+string in Attribute 1 `Expression`.
+
+**Implementation.** Exports before the `Queries = 1` exporter revision wrote
+`INSERT INTO t IN '<path>' (a, b)`, which Access rejects, and dropped a connect-string
+target entirely. The composer now writes the clause after the column list, including
+`IN '' [<connect>]`. An external target imports in SQL View, which hands the text to
+Access unchanged, so `ParseInsertQuery` rewrites the legacy order
+(`ReorderLegacyExternalAppend`) before import. Pinned by
+[append/qryAppendExternalTarget.sql](../Testing/Fixtures/queries/append/qryAppendExternalTarget.sql).
+
+### UPDATE SET targets
+
+**Observation.** Attribute 6 `Name2` holds the SET target exactly as the save wrote
+it. A query saved in SQL View stores it unbracketed (`Order Lines.Unit Cost`), so
+writing `Name2` back verbatim gives SQL that does not parse (#840). A query saved in
+Design View stores the designer's form (`[Order Lines].[Unit Cost]`,
+`[Order Lines].Month`). Measured with `CreateQueryDef`:
+
+- A qualified target parses with any reserved word as its field name.
+- As an unqualified target, 84 words fail, `Level` and `Value` among them. That list
+  differs from both alias lists in `IsAccessReservedWord`.
+- An unqualified target comes only from SQL View, where Access stores it unbracketed.
+- No table or field name can contain a period, local or linked, so the first period
+  outside brackets always separates table from field.
+
+To capture the Design View form, a probe that opens the query in the designer must
+`DoCmd.Save` it before closing. Closing without saving leaves the SQL View rows in
+place.
+
+**Implementation.** `clsSqlSyntax.FormatSetTarget` writes both stored forms the way
+the designer does: each part keeps its brackets, and gains them only for characters
+outside `[A-Za-z0-9_]`. An unqualified target is also bracketed for a word on
+`SET_TARGET_RESERVED_WORDS`, on top of `BracketIfNeeded`'s own list, so no bracket an
+older export wrote is dropped. Import stores a qualified target in the designer's
+form. This ships under the `Queries = 1` exporter revision rather than a format
+version, because the old output did not parse. Pinned by
+[update/qryUpdateSpacedTargetSqlView.sql](../Testing/Fixtures/queries/update/qryUpdateSpacedTargetSqlView.sql)
+and [update/qryUpdateSpacedTargetDesign.sql](../Testing/Fixtures/queries/update/qryUpdateSpacedTargetDesign.sql).
 
 ## 7. References
 

@@ -1039,3 +1039,135 @@ Private Function RawSqlWithOption(ByVal strSql As String, ByVal lngOption As Lon
 
     Set RawSqlWithOption = colRows
 End Function
+
+
+' An UPDATE on one table with a single SET target stored as Name2.
+Private Function UpdateSetRows(ByVal strTable As String, ByVal strName2 As String) As Collection
+    Dim colRows As Collection
+    Set colRows = New Collection
+    AddShapeRow colRows, 1, 4, vbNullString, vbNullString, vbNullString
+    AddShapeRow colRows, 5, 0, vbNullString, strTable, vbNullString
+    AddShapeRow colRows, 6, 0, "0", vbNullString, strName2
+    Set UpdateSetRows = colRows
+End Function
+
+
+Public Sub TestReconstructSQL_UpdateSetTargetsPasteable()
+    Dim lngSaved As Long
+    Dim varVersion As Variant
+    Dim strResult As String
+    Dim strLabel As String
+
+    lngSaved = Options.ExportFormatVersion
+    For Each varVersion In Array(EFV_5_0_0, EFV_5_1_0, EFV_5_2_0)
+        Options.ExportFormatVersion = varVersion
+        strLabel = " at format " & CStr(varVersion)
+
+        ' Issue #840: SQL View stores the target unbracketed
+        strResult = m_qc.ReconstructSQL(UpdateSetRows("Order Lines", "Order Lines.Unit Cost"))
+        TestAssert InStr(1, strResult, "SET [Order Lines].[Unit Cost] = 0", vbBinaryCompare) > 0, _
+            "SQL View Name2 is bracketed" & strLabel
+
+        strResult = m_qc.ReconstructSQL(UpdateSetRows("Order Lines", "[Order Lines].Month"))
+        TestAssert InStr(1, strResult, "SET [Order Lines].Month = 0", vbBinaryCompare) > 0, _
+            "Design View Name2 is kept as stored" & strLabel
+
+        strResult = m_qc.ReconstructSQL(UpdateSetRows("tblLookup", "Level"))
+        TestAssert InStr(1, strResult, "SET [Level] = 0", vbBinaryCompare) > 0, _
+            "unqualified reserved target is bracketed" & strLabel
+    Next varVersion
+    Options.ExportFormatVersion = lngSaved
+End Sub
+
+
+Public Sub TestDecomposeSQL_UpdateSetTargetStoredAsDesignerWritesIt()
+    Dim strQdef As String
+
+    m_qc.DecomposeSQL "UPDATE [Order Lines] SET [Order Lines].[Unit Cost] = 0"
+    strQdef = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+    TestAssert InStr(1, strQdef, "[Order Lines].[Unit Cost]", vbBinaryCompare) > 0, _
+        "bracketed qualified target keeps its brackets"
+    TestAssert InStr(1, strQdef, "Order Lines.Unit Cost", vbBinaryCompare) = 0, _
+        "target is not stored with its brackets stripped"
+End Sub
+
+
+' An append query into an external database, with one target column.
+Private Function ExternalAppendRows(ByVal strDatabase As String, ByVal strConnect As String) As Collection
+    Dim colRows As Collection
+    Set colRows = New Collection
+    AddShapeRow colRows, 1, 3, strConnect, "tblArchive", strDatabase
+    AddShapeRow colRows, 5, 0, vbNullString, "t1", vbNullString
+    AddShapeRow colRows, 6, 0, "t1.a", vbNullString, "a"
+    Set ExternalAppendRows = colRows
+End Function
+
+
+Public Sub TestReconstructSQL_ExternalAppendAfterColumnList()
+    Dim strResult As String
+
+    strResult = m_qc.ReconstructSQL(ExternalAppendRows("C:\path\db.accdb", vbNullString))
+    TestAssert InStr(1, strResult, "INSERT INTO tblArchive (a) IN 'C:\path\db.accdb'", vbBinaryCompare) > 0, _
+        "external database follows the column list, the only order Access parses"
+
+    strResult = m_qc.ReconstructSQL(ExternalAppendRows(vbNullString, "ODBC;DSN=Example;"))
+    TestAssert InStr(1, strResult, "INSERT INTO tblArchive (a) IN '' [ODBC;DSN=Example;]", vbBinaryCompare) > 0, _
+        "connect string target is exported from Attribute 1 Expression"
+End Sub
+
+
+Public Sub TestReconstructSQL_SourceDatabaseInFrom()
+    Dim colRows As Collection
+    Dim strResult As String
+
+    Set colRows = New Collection
+    AddShapeRow colRows, 1, 1, vbNullString, vbNullString, vbNullString
+    AddShapeRow colRows, 4, 0, vbNullString, "C:\path\src.accdb", vbNullString
+    AddShapeRow colRows, 5, 0, vbNullString, "t1", vbNullString
+    AddShapeRow colRows, 6, 0, "t1.a", vbNullString, vbNullString
+    strResult = m_qc.ReconstructSQL(colRows)
+    TestAssert InStr(1, strResult, "FROM t1 IN 'C:\path\src.accdb'", vbBinaryCompare) > 0, _
+        "Attribute 4 source database is exported after the table list"
+End Sub
+
+
+Public Sub TestDecomposeSQL_ExternalAppendBothOrders()
+    m_qc.DecomposeSQL "INSERT INTO tblArchive (a, b) IN 'C:\x (1)\db.accdb' SELECT t1.a, t1.b FROM t1"
+    TestAssert Not m_qc.IsDesignerCompatible, "external target imports in SQL View"
+    TestAssert InStr(1, m_qc.RawSQL, "tblArchive (a, b) IN 'C:\x (1)\db.accdb'", vbBinaryCompare) > 0, _
+        "Access order is passed through unchanged"
+
+    ' Exports from 5.0 and 5.1 put IN before the column list, which Access rejects
+    m_qc.DecomposeSQL "INSERT INTO tblArchive IN 'C:\x (1)\db.accdb' (a, b) SELECT t1.a, t1.b FROM t1"
+    TestAssert Not m_qc.IsDesignerCompatible, "legacy external target imports in SQL View"
+    TestAssert InStr(1, m_qc.RawSQL, "tblArchive (a, b) IN 'C:\x (1)\db.accdb'", vbBinaryCompare) > 0, _
+        "legacy order is rewritten to the order Access parses"
+End Sub
+
+
+Public Sub TestDecomposeSQL_SourceDatabaseImportsInSqlView()
+    m_qc.DecomposeSQL "SELECT t1.a FROM t1 IN 'C:\path\src.accdb'"
+    TestAssert Not m_qc.IsDesignerCompatible, "source database imports in SQL View"
+
+    m_qc.DecomposeSQL "UPDATE t1 IN 'C:\path\src.accdb' SET t1.a = 0"
+    TestAssert Not m_qc.IsDesignerCompatible, "UPDATE source database imports in SQL View"
+End Sub
+
+
+Public Sub TestDesignViewQdef_WhereColumnsWithBracketedNames()
+    Dim strQdef As String
+
+    ' Issue #814
+    m_qc.DecomposeSQL "SELECT [tblCars (Archive)].Manufacturer FROM [tblCars (Archive)] " & _
+        "WHERE [tblCars (Archive)].Year > 2000 AND [tblCars (Archive)].[Model Year] = 2020 " & _
+        "AND [tblCars (Archive)].Rate > 1.5"
+    strQdef = m_qc.GenerateQdef(True, New Dictionary, New Dictionary)
+    TestAssert InStr(1, strQdef, "dbText ""Name"" =""[tblCars (Archive)].Year""", vbBinaryCompare) > 0, _
+        "bracketed table with parentheses is one column name"
+    TestAssert InStr(1, strQdef, "dbText ""Name"" =""[tblCars (Archive)].[Model Year]""", vbBinaryCompare) > 0, _
+        "bracketed field with a space is one column name"
+    TestAssert InStr(1, strQdef, "dbText ""Name"" =""].Year""", vbBinaryCompare) = 0, _
+        "no fragment of a bracketed name becomes a column"
+    TestAssert InStr(1, strQdef, "dbText ""Name"" =""1.5""", vbBinaryCompare) = 0, _
+        "a decimal literal is not a column"
+End Sub
