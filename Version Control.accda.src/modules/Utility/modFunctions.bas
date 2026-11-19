@@ -585,3 +585,20 @@ Public Function GetClipboardText() As String
     If Err.Number <> 0 Then GetClipboardText = vbNullString
     Set objData = Nothing
 End Function
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLocalizedImportErrors
+' Author    : Hans Schupp
+' Date      : 11/09/2026
+' Purpose   : Return localized name of then ImportErrors table
+'           : (as the name is not "ImportErrors" in every locale)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLocalizedImportErrors() As String
+    Select Case Application.LanguageSettings.LanguageID(msoLanguageIDExeMode)
+        Case 1031, 3079, 5127, 4103, 2055:  ' de_DE, de_AT, de_LI, de_LU, de_CH
+            GetLocalizedImportErrors = "Importfehler"
+        Case Else: ' use setting for 1033 / en_US
+            GetLocalizedImportErrors = "ImportErrors"
+    End Select
+End Function

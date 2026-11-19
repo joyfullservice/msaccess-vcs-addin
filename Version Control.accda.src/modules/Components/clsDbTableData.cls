@@ -797,6 +797,8 @@ Public Function ConsumeXmlImportErrors() As String
     Dim lngCount As Long
     Dim strDetails As String
     Dim strLine As String
+    Dim strErrorTable As String
+    Dim strFieldNames As String
 
     Perf.OperationStart "XML Import Errors"
     Set dbs = CurrentDb
@@ -804,11 +806,18 @@ Public Function ConsumeXmlImportErrors() As String
     LogUnhandledErrors
     On Error Resume Next
 
+    strErrorTable = GetLocalizedImportErrors()
+    If strErrorTable = "Importfehler" Then
+        strFieldNames = " [XML-Text] AS [XML Text], [Fehlermeldung] AS [Error Message], [Ergebnis] AS [Result]"
+    Else
+        strFieldNames = " [XML Text], [Error Message], [Result]"
+    End If
+
     ' Selecting the known fields doubles as the schema check, so an unrelated
     ' user table named ImportErrors is not dropped.
     Set rst = dbs.OpenRecordset( _
         "SELECT TOP " & CStr(XML_IMPORT_ERROR_LOG_LIMIT + 1) & _
-        " [XML Text], [Error Message], [Result] FROM [ImportErrors]", _
+        strFieldNames & " FROM [" & strErrorTable & "]", _
         dbOpenSnapshot, dbReadOnly)
     If Not rst Is Nothing Then
         Do While Not rst.EOF
@@ -827,7 +836,7 @@ Public Function ConsumeXmlImportErrors() As String
         rst.Close
 
         If Err Then Err.Clear
-        dbs.Execute "DROP TABLE [ImportErrors]", dbFailOnError
+        dbs.Execute "DROP TABLE [" & strErrorTable & "]", dbFailOnError
         If Err Then Err.Clear Else ReleaseDbReferences
     ElseIf Err Then
         Err.Clear
