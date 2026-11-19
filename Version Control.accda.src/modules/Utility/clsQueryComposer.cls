@@ -1908,6 +1908,26 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
         End If
     Next dJn
 
+    ' Access's SQL View reads each top-level AND term of an ON as one join
+    ' condition, and each term must name one table from each side: it rejects
+    ' `ON (a.x = b.x) AND (b.y > 0)` with error 3296 but accepts
+    ' `ON ((a.x = b.x) AND (b.y > 0))`. QueryDefs.SQL leaves the outer pair
+    ' out. At 5.2.0, enclose each table pair's conditions as one term here;
+    ' conditions on other pairs join below as separate terms, because one
+    ' term naming two tables on the same side fails just the same.
+    Dim blnGroupPairs As Boolean
+    blnGroupPairs = (Options.ExportFormatVersion >= EFV_5_2_0)
+    If blnGroupPairs Then
+        For Each dJn In colGrouped
+            If dJn.Exists("merged") Then
+                dJn("expression") = "((" & CStr(dJn("expression")) & "))"
+                dJn.Remove "merged"
+            Else
+                dJn("expression") = EncloseCompoundCondition(CStr(dJn("expression")))
+            End If
+        Next dJn
+    End If
+
     ' --- Phase 2: Detect secondary conditions via Union-Find ---
     ' An edge where both endpoints are already connected is a secondary
     ' ON condition (it would create a cycle). Merge it immediately into
@@ -1943,7 +1963,7 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
         strRootR = UFFind(dUFParent, strRight)
 
         If strRootL = strRootR Then
-            MergeSecondaryJoinNow colPrimary, dItem, dIntroJoin, dIntroOrder
+            MergeSecondaryJoinNow colPrimary, dItem, dIntroJoin, dIntroOrder, blnGroupPairs
         Else
             dUFParent(strRootL) = strRootR
             colPrimary.Add dItem
@@ -1965,6 +1985,90 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
     CatchAny eelError, "Error consolidating joins. " & SqlSnippet(), _
         ModuleName(Me) & ".ConsolidateJoins"
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppendSecondaryCondition
+' Purpose   : Add a condition on another table pair to a primary join's ON.
+'           : Below 5.2.0 the pieces are joined as `a) AND (b` and wrapped once
+'           : at the end. At 5.2.0 each pair's conditions are already one term,
+'           : so the result is `(a) AND (b)` built here and never re-wrapped.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AppendSecondaryCondition(dPrimary As Dictionary, dSec As Dictionary, _
+    ByVal blnGroupPairs As Boolean)
+
+    If Not blnGroupPairs Then
+        dPrimary("expression") = CStr(dPrimary("expression")) & _
+            ") AND (" & CStr(dSec("expression"))
+        dPrimary("merged") = True
+    ElseIf dPrimary.Exists("chained") Then
+        dPrimary("expression") = CStr(dPrimary("expression")) & _
+            " AND " & EnclosedTerm(CStr(dSec("expression")))
+    Else
+        dPrimary("expression") = EnclosedTerm(CStr(dPrimary("expression"))) & _
+            " AND " & EnclosedTerm(CStr(dSec("expression")))
+        dPrimary("chained") = True
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EncloseCompoundCondition
+' Purpose   : Wrap a condition with a top-level AND or OR in one pair of outer
+'           : parentheses, unless a single pair already encloses all of it.
+'           : `a = b AND (c > 0)` starts with no paren; `(a) AND (b)` starts
+'           : with one that closes early. Both are wrapped.
+'---------------------------------------------------------------------------------------
+'
+Private Function EncloseCompoundCondition(ByVal strExpr As String) As String
+    strExpr = Trim$(strExpr)
+    EncloseCompoundCondition = strExpr
+    If Not m_syntax.HasTopLevelBoolean(strExpr) Then Exit Function
+    EncloseCompoundCondition = EnclosedTerm(strExpr)
+End Function
+
+
+Private Function EnclosedTerm(ByVal strExpr As String) As String
+    strExpr = Trim$(strExpr)
+    If Left$(strExpr, 1) = "(" Then
+        If m_syntax.FindMatchingParen(strExpr, 1) = Len(strExpr) Then
+            EnclosedTerm = strExpr
+            Exit Function
+        End If
+    End If
+    EnclosedTerm = "(" & strExpr & ")"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AndConditionLeaves
+' Purpose   : Split a join expression into its individual conditions, descending
+'           : into parenthesized AND groups: `((a) AND (b)) AND (c)` yields a, b, c.
+'           : A condition with a top-level OR stays whole.
+'---------------------------------------------------------------------------------------
+'
+Private Function AndConditionLeaves(ByVal strExpr As String) As Collection
+    Dim colLeaves As New Collection
+    AddAndConditionLeaves colLeaves, strExpr
+    Set AndConditionLeaves = colLeaves
+End Function
+
+
+Private Sub AddAndConditionLeaves(colLeaves As Collection, ByVal strExpr As String)
+    Dim asParts() As String
+    Dim lngPart As Long
+
+    strExpr = StripOuterParens(Trim$(strExpr))
+    asParts = SplitTopLevel(strExpr, " AND ")
+    If UBound(asParts) = LBound(asParts) Then
+        colLeaves.Add strExpr
+    Else
+        For lngPart = LBound(asParts) To UBound(asParts)
+            AddAndConditionLeaves colLeaves, asParts(lngPart)
+        Next lngPart
+    End If
+End Sub
 
 
 Private Sub TrackIntroducedJoin(dSeenRef As Dictionary, dIntroJoin As Dictionary, _
@@ -2005,7 +2109,7 @@ End Sub
 
 
 Private Sub MergeSecondaryJoinNow(colPrimary As Collection, dSec As Dictionary, _
-    dIntroJoin As Dictionary, dIntroOrder As Dictionary)
+    dIntroJoin As Dictionary, dIntroOrder As Dictionary, ByVal blnGroupPairs As Boolean)
     Dim lngP As Long
     Dim strSecLeft As String
     Dim strSecRight As String
@@ -2016,9 +2120,7 @@ Private Sub MergeSecondaryJoinNow(colPrimary As Collection, dSec As Dictionary, 
     Dim dOwner As Dictionary
     Set dOwner = SecondaryOwnerByIntroducedRef(strSecLeft, strSecRight, dIntroJoin, dIntroOrder)
     If Not dOwner Is Nothing Then
-        dOwner("expression") = CStr(dOwner("expression")) & _
-            ") AND (" & CStr(dSec("expression"))
-        dOwner("merged") = True
+        AppendSecondaryCondition dOwner, dSec, blnGroupPairs
         Exit Sub
     End If
 
@@ -2026,9 +2128,7 @@ Private Sub MergeSecondaryJoinNow(colPrimary As Collection, dSec As Dictionary, 
         Dim dPri As Dictionary
         Set dPri = colPrimary(lngP)
         If JoinSharesTable(dPri, strSecLeft, strSecRight) Then
-            dPri("expression") = CStr(dPri("expression")) & _
-                ") AND (" & CStr(dSec("expression"))
-            dPri("merged") = True
+            AppendSecondaryCondition dPri, dSec, blnGroupPairs
             Exit Sub
         End If
     Next lngP
@@ -3588,8 +3688,7 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     If m_colJoins.Count > 0 Then
         cOut.Add "Begin Joins", vbCrLf
         Dim dJn As Dictionary
-        Dim asConditions() As String
-        Dim lngC As Long
+        Dim varCondition As Variant
         Dim strCondition As String
         Dim strCondLeft As String
         Dim strCondRight As String
@@ -3597,9 +3696,8 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         Set dInputRefs = BuildInputTableRefLookup()
         For Each dJn In m_colJoins
             If HasTopLevelBoolean(CStr(dJn("expression"))) Then
-                asConditions = SplitTopLevel(StripOuterParens(CStr(dJn("expression"))), " AND ")
-                For lngC = LBound(asConditions) To UBound(asConditions)
-                    strCondition = StripOuterParens(Trim$(asConditions(lngC)))
+                For Each varCondition In AndConditionLeaves(CStr(dJn("expression")))
+                    strCondition = CStr(varCondition)
                     If Len(strCondition) > 0 Then
                         ResolveConditionJoinTables strCondition, dInputRefs, _
                             CStr(dJn("leftTable")), CStr(dJn("rightTable")), _
@@ -3611,7 +3709,7 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
                         EmitWrappedString cOut, "    Expression", strCondition
                         cOut.Add "    Flag =" & CStr(dJn("flag")), vbCrLf
                     End If
-                Next lngC
+                Next varCondition
             Else
                 WarnIfJoinRefMissing CStr(dJn("leftTable")), dInputRefs
                 WarnIfJoinRefMissing CStr(dJn("rightTable")), dInputRefs

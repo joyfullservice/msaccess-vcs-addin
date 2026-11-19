@@ -16,8 +16,8 @@ The harness:
 5. Asserts Pass 1 equals the fixture (drift check, soft requirement).
 6. For queries other than pass-through, asserts that Access parses the exported
    `.sql` as written (`paste` check). A query whose own `QueryDefs.SQL` does not
-   parse either passes with a note; see "A compound `ON` comparing a column to a
-   constant" in [docs/access-query-storage.md](../../docs/access-query-storage.md) § 6.
+   parse either passes with a note; see "A compound `ON` does not always parse as
+   Access writes it" in [docs/access-query-storage.md](../../docs/access-query-storage.md) § 6.
 7. Drops the sandboxed object and moves on.
 
 Fixtures themselves are **never modified** by a normal run. The only way to

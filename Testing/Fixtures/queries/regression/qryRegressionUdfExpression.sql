@@ -6,8 +6,10 @@
 FROM
   tblItems
   INNER JOIN tblItemTypes
-    ON (tblItems.Flags = tblItemTypes.Flags)
-    AND (tblItems.Type = tblItemTypes.Type)
+    ON (
+      (tblItems.Flags = tblItemTypes.Flags)
+      AND (tblItems.Type = tblItemTypes.Type)
+    )
 WHERE
   (tblItems.Flags <> 3)
   AND (tblItems.Type = 5)

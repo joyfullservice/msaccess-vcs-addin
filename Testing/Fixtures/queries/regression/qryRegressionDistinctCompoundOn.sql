@@ -4,5 +4,7 @@
 FROM
   tblCars
   INNER JOIN tblCarsModel
-    ON (tblCars.ID = tblCarsModel.ID)
-    AND (tblCarsModel.ID > 0);
+    ON (
+      (tblCars.ID = tblCarsModel.ID)
+      AND (tblCarsModel.ID > 0)
+    );

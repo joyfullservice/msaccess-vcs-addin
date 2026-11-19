@@ -1412,15 +1412,43 @@ End Function
 Private Function CanonicalAndCondition(ByVal strCondition As String) As String
     Dim asParts() As String
     Dim lngCount As Long
+    Dim colLeaves As New Collection
+    Dim varLeaf As Variant
 
-    asParts = SplitTopLevelAnd(strCondition, lngCount)
-    If lngCount <= 1 Then
+    ' Export encloses each table pair's ON conditions as one term at 5.2.0
+    ' (`((a) AND (b)) AND (c)`); QueryDefs.SQL writes a flat `(a) AND (b) AND (c)`.
+    AddAndConditionLeaves colLeaves, strCondition
+    If colLeaves.Count <= 1 Then
         CanonicalAndCondition = Trim$(strCondition)
     Else
+        ReDim asParts(0 To colLeaves.Count - 1)
+        For Each varLeaf In colLeaves
+            asParts(lngCount) = CStr(varLeaf)
+            lngCount = lngCount + 1
+        Next varLeaf
         SortStrings asParts, lngCount
         CanonicalAndCondition = JoinFirstN(asParts, lngCount, " AND ")
     End If
 End Function
+
+
+Private Sub AddAndConditionLeaves(colLeaves As Collection, ByVal strCondition As String)
+    Dim asParts() As String
+    Dim lngCount As Long
+    Dim lngPart As Long
+
+    With New clsSqlSyntax
+        strCondition = .StripOuterParens(strCondition)
+    End With
+    asParts = SplitTopLevelAnd(strCondition, lngCount)
+    If lngCount <= 1 Then
+        colLeaves.Add strCondition
+    Else
+        For lngPart = 0 To lngCount - 1
+            AddAndConditionLeaves colLeaves, asParts(lngPart)
+        Next lngPart
+    End If
+End Sub
 
 
 Private Function SplitTopLevelAnd(ByVal strText As String, ByRef lngCount As Long) As String()

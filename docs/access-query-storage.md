@@ -1083,23 +1083,36 @@ changes reach the `.sql`; only the parentheses are removed. Undoing them would m
 choosing a canonical order and factoring boolean expressions, which is a rewrite of
 the query rather than a spelling fix, so the export follows what Access stores.
 
-### A compound `ON` comparing a column to a constant does not parse as Access writes it
+### A compound `ON` does not always parse as Access writes it
 
-**Observation.** A join whose stored ON has two conditions, one of them a column
-compared to a constant, is written by `QueryDefs.SQL` as
-`ON (a.x = b.x) AND (b.y > 0)`. Pasting that text back into SQL View fails with error
-3296 ("Join expression not supported"). It parses only with an outer pair:
-`ON ((a.x = b.x) AND (b.y > 0))`. The query itself is valid and runs, because Access
-reads the stored rows, not the text. A bare `SELECT;` (a stored query with no output
-columns) likewise fails with error 3141.
+**Observation.** SQL View reads each top-level AND term of an ON as one join
+condition, and each term must name one table from each side of the join. Measured
+with `CreateQueryDef` on synthetic joins:
 
-**Implication.** The builder matches Access's text, so the exported `.sql` inherits
-the problem. Import is unaffected, because a multi-condition `ON` always imports
-through the Design View path (§ 3). The round-trip paste
-check tolerates a fixture only when Access's own `QueryDefs.SQL` for it fails to parse
-too (`qryRegressionDistinctCompoundOn`, `qryRegressionMultiCondJoin`, `qryNoTable`).
-Adding the outer pair on export would make these paste, at the cost of differing from
-Access's text; that would need its own format version.
+| ON spelling | INNER JOIN | LEFT JOIN |
+|---|---|---|
+| `(a.x = b.x) AND (b.y > 0)` | 3296 | 3296 |
+| `((a.x = b.x) AND (b.y > 0))` | parses | parses |
+| `(a.x = b.x) AND (a.y = b.y)`, either spelling | parses | parses |
+| `(a.x = c.x) AND (b.y = c.y)`, with `a` and `b` joined on the left | parses | 3296 |
+| `((a.x = c.x) AND (b.y = c.y))` | 3296 | 3296 |
+| `((a.x = c.x) AND (c.z > 0)) AND (b.y = c.y)` | parses | 3296 |
+
+`QueryDefs.SQL` writes every compound ON as a flat `(cond) AND (cond)`, so a
+condition naming one table (a column compared to a constant) fails with error 3296
+("Join expression not supported"). The query itself is valid and runs, because Access
+reads the stored rows, not the text. An outer join whose ON names two tables from one
+side fails in every spelling. A bare `SELECT;` (a stored query with no output columns)
+fails with error 3141.
+
+**Implementation.** From export format 5.2.0, `ConsolidateJoins` encloses the
+conditions on each table pair (one Attribute 7 row each) as one term and joins
+conditions on other pairs as separate terms, matching the rows above that parse.
+Wrapping the whole ON instead breaks the cross-pair rows. Import descends into enclosed
+AND groups (`AndConditionLeaves`), so the qdef still gets one join row per condition.
+The round-trip paste check tolerates a fixture only when Access's own `QueryDefs.SQL`
+for it fails to parse too; that leaves `qryRegressionMultiCondJoin` (an outer join with
+a cross-pair ON) and `qryNoTable`.
 
 ### `INSERT INTO t IN '<path>' (a, b)` is rejected
 

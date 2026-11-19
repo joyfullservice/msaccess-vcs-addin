@@ -83,6 +83,45 @@ contradictory guidance.
 
 ---
 
+## 2026-11-19 — Exported ON clauses group each table pair's conditions at export format 5.2.0
+
+**Trigger**: Exported `.sql` should paste into SQL View without errors; that matters
+more than matching Access's text. `QueryDefs.SQL` writes `ON (a.x = b.x) AND (b.y > 0)`,
+which fails with error 3296, so two fixtures passed the round-trip paste check only
+through its "Access's own SQL fails too" fallback.
+
+**Options explored**:
+- *Leave Access's text* (the 2026-10-28 tolerance). Rejected: users paste exported SQL,
+  and agents copy it.
+- *Wrap every compound ON in one outer pair.* Built and rebaselined, then rejected: the
+  paste check failed six fixtures that had passed. A probe of synthetic joins showed
+  why. SQL View reads each top-level AND term of an ON as one join condition, and each
+  term must name one table from each side. `(b.y > 0)` alone names one table, so it
+  fails until grouped with `a.x = b.x`; a single pair around conditions on different
+  table pairs names two tables on one side, so it fails too.
+- *Analyze the condition text for table references.* Rejected: `ConsolidateJoins`
+  already knows which conditions share a table pair (one Attribute 7 row each, grouped
+  in its phase 1) and which belong to another pair (merged in phase 2).
+
+**Decision**: At `EFV_5_2_0`, `ConsolidateJoins` encloses each table pair's conditions as
+one term (`ON ((a.x = b.x) AND (b.y > 0))`) and joins conditions on other pairs as
+separate terms (`ON ((b.x = c.x) AND (c.y > 0)) AND (a.z = c.z)`). A single condition and
+a cross-pair-only ON export as before. Import (`GenerateQdef`) and the builder validator
+descend into enclosed AND groups, so the qdef still holds one row per condition. An
+outer join whose ON names two tables from one side has no spelling Access parses
+(`qryRegressionMultiCondJoin`); with a bare `SELECT;` (`qryNoTable`) it is the only
+remaining use of the paste check's fallback.
+
+**What this rules out**: A blanket outer pair on compound ONs, at any format. Once 5.2.0
+ships, changing this grouping needs a new export format version.
+
+**Relevant files**: `clsQueryComposer.cls` (`ConsolidateJoins`,
+`AppendSecondaryCondition`, `AndConditionLeaves`), `modTestQuerySqlBuilder.bas`,
+`modTestRoundtrip.bas`, `clsTestQueryComposerJoins.cls`,
+`Testing/Fixtures/queries/regression/`, `docs/access-query-storage.md`.
+
+---
+
 ## 2026-11-17 — Query column lists one per line and ON on its own line at export format 5.2.0
 
 **Trigger**: A review of the re-baselined fixtures before 5.2.0 shipped. `CREATE TABLE`
@@ -211,6 +250,12 @@ without the outer pair its parser requires (`ON ((a = b) AND (c > 0))`, error 32
 and a bare `SELECT;` fails with 3141. This refines "SQL reconstruction fidelity" (2026-04-14) and "Reconstruct stored
 query attributes" (2026-04-29): structure follows Access, presentation follows standard
 SQL.
+
+> **⚠ Partially superseded** (2026-11-19): From 5.2.0 the export adds the pair a
+> compound ON needs, grouping each table pair's conditions, so the paste check's
+> fallback covers only shapes with no parseable spelling. ON parentheses are no longer
+> "never changed". See "Exported ON clauses group each table pair's conditions at
+> export format 5.2.0" above.
 
 **What this rules out**: Matching Access's spacing in the builder; rewriting Access
 syntax into ANSI equivalents; any stage changing what a query means. A presentation

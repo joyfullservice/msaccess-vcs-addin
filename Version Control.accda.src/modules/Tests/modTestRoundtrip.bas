@@ -501,9 +501,9 @@ Private Function RunQueryRoundtrip(ByVal strFixtureSql As String, ByVal strScrat
 
     ' --- Paste check: Access accepts the exported SQL exactly as written ---
     ' Pass-through SQL is the server's dialect, which Access does not parse. Some
-    ' stored shapes have no parseable spelling at all -- a compound ON comparing a
-    ' column to a constant is written by Access without the outer parentheses its own
-    ' parser requires -- so the export only fails when Access's own SQL text parses.
+    ' stored shapes have no parseable spelling at all -- an outer join whose ON also
+    ' names a second table from the other side, or a bare SELECT; with no table -- so
+    ' the export only fails when Access's own SQL text parses.
     If CurrentDb.QueryDefs(strSandboxName).Type <> dbQSQLPassThrough Then
         strParseError = SqlParseError(ReadFile(strPass1Sql))
         If Len(strParseError) = 0 Then

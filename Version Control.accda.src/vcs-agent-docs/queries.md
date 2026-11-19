@@ -19,8 +19,10 @@ FROM
   INNER JOIN tblOrders
     ON tblCustomers.CustomerID = tblOrders.CustomerID)
   INNER JOIN tblOrderLines
-    ON (tblOrders.OrderID = tblOrderLines.OrderID)
-    AND (tblOrders.Region = tblOrderLines.Region)
+    ON (
+      (tblOrders.OrderID = tblOrderLines.OrderID)
+      AND (tblOrders.Region = tblOrderLines.Region)
+    )
 WHERE
   (tblOrders.OrderDate >= #1/1/2024#)
   AND (tblCustomers.CustomerName Like "A*");
@@ -30,7 +32,9 @@ Keep the Access syntax that standard SQL would spell differently; Access rejects
 misreads the standard forms:
 
 - Parentheses around each nested join (`(A INNER JOIN B ON ...) INNER JOIN C`)
-- Parentheses around each condition of a multi-condition `ON`
+- Parentheses around each condition of a multi-condition `ON`, and one more pair
+  around the conditions on the same two tables: `ON (a.x = b.x) AND (b.y > 0)` is
+  rejected, `ON ((a.x = b.x) AND (b.y > 0))` is not
 - `#date#` literals, `*` and `?` wildcards in `Like`, `IIf()` rather than `CASE`,
   and `&` for string concatenation
 - Brackets around names with spaces or reserved words (`AS [Option]`)

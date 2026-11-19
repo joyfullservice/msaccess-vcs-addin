@@ -8,8 +8,10 @@ FROM
   LEFT JOIN tblCarsModel
     ON (tblCars.ID = tblCarsModel.ID))
   LEFT JOIN tblCarsColour
-    ON (tblCars.ID = tblCarsColour.ID)
-    AND (tblCarsColour.ID > 0))
+    ON (
+      (tblCars.ID = tblCarsColour.ID)
+      AND (tblCarsColour.ID > 0)
+    ))
   LEFT JOIN tblCarsPrice
     ON (tblCars.ID = tblCarsPrice.ID)
     AND (tblCarsModel.ModelID = tblCarsPrice.ID))
