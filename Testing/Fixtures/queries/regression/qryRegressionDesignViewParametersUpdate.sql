@@ -1,5 +1,6 @@
-﻿PARAMETERS [Enter ID] Long,
-[New Price] Currency;
+﻿PARAMETERS
+  [Enter ID] Long,
+  [New Price] Currency;
 UPDATE
   tblParamSample
 SET

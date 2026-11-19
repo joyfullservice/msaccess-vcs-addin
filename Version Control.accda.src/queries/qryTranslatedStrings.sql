@@ -10,7 +10,8 @@
   [Context] & "|" & [msgid] AS [Key]
 FROM
   qryStrings
-  LEFT JOIN tblTranslation ON (qryStrings.ID = tblTranslation.StringID)
+  LEFT JOIN tblTranslation
+    ON (qryStrings.ID = tblTranslation.StringID)
     AND (qryStrings.LanguageID = tblTranslation.Language)
 ORDER BY
   IIf((Len([msgid]) = 0), 1, 2),

@@ -1,6 +1,6 @@
 ﻿dbMemo "SQL" ="SELECT\015\012  tblA.fldA,\015\012  tblB.fldB\015\012FROM\015\012  [Ca"
-    "r Models]\015\012  INNER JOIN [Car Colours] ON [Car Models].fldA = [Ca"
-    "r Colours].fldB;\015\012"
+    "r Models]\015\012  INNER JOIN [Car Colours]\015\012    ON [Car Models]"
+    ".fldA = [Car Colours].fldB;\015\012"
 dbMemo "Connect" =""
 dbBoolean "ReturnsRecords" ="-1"
 dbInteger "ODBCTimeout" ="60"

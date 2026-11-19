@@ -1,7 +1,8 @@
-﻿PARAMETERS pActive Bit,
-[Start Date] DateTime,
-[Min Price] Currency,
-[Max Weight] Double;
+﻿PARAMETERS
+  pActive Bit,
+  [Start Date] DateTime,
+  [Min Price] Currency,
+  [Max Weight] Double;
 SELECT
   tblParamTypes.ID,
   tblParamTypes.Label

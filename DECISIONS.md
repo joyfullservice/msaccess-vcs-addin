@@ -83,6 +83,62 @@ contradictory guidance.
 
 ---
 
+## 2026-11-17 — Query column lists one per line and ON on its own line at export format 5.2.0
+
+**Trigger**: A review of the re-baselined fixtures before 5.2.0 shipped. `CREATE TABLE`
+and `INSERT INTO` column lists stayed on one line whenever they fit in 100 columns, so
+adding one column rewrote the whole line. ON shared the JOIN line, so a changed join
+condition and a changed join table showed as one edited line. `PARAMETERS` and `DELETE`
+kept their items on the keyword line, a make-table `INTO` trailed the SELECT list,
+`WITH OWNERACCESS OPTION` was split like a `WITH` block, and a `Between ... And` long
+enough to break put its `And` at the start of a line, where it reads as a boolean AND.
+
+**Options explored**:
+- *Width-based for every parenthesized group* (the 2026-10-28 rule). Rejected for lists
+  of names: they are independent items, and one per line makes an added or removed
+  column a one-line diff. Kept for expressions, where splitting `IIf(a, b, c)` hurts.
+- *npm sql-formatter's defaults*, which keep CREATE TABLE and INSERT column lists
+  inline. Rejected for the same diff reason.
+- *ON on the JOIN line when it fits* (2026-10-28). Rejected: whether ON wraps then
+  depends on name lengths, so renaming a table moves the condition between lines.
+  Mozilla's SQL style guide puts ON on its own line indented under the join; chosen.
+- *Also drop the designer's per-criterion pairs* (`(t.a=1) AND (t.b=2)`). Rejected:
+  removing a pair around a comparison needs operator precedence, which the
+  canonicalizer never uses. The pairs also mirror the designer grid, one per cell.
+- *A `.sql` that a designer save cannot change.* Not possible. Saving SQL View queries
+  through the designer showed Access reorders criteria into grid-column order,
+  distributes AND over OR (`(A OR B) AND C` becomes `(A AND C) OR (C AND B)`), and
+  merges criteria on one field into one cell. Spelling can be canonical; structure
+  follows what Access stores.
+
+**Decision**: Gated at `EFV_5_2_0` in `clsSqlFormatter`, which is unreleased, so no new
+format version. `MarkLayoutRoles` assigns a layout role to tokens before formatting;
+token types stay as they are because `clsSqlCanonicalizer` shares `Tokenize`.
+- The column lists of `INSERT INTO`, `CREATE TABLE`, and `CREATE INDEX ... ON` put one
+  name per line regardless of width. Other groups keep the width rule.
+- ON goes on its own line one level under its JOIN (as a stack indent so broken calls
+  and subqueries inside ON indent under ON), with extra AND/OR conditions at the same
+  level and outer-parenthesized compound ONs (`ON ((a = b) AND (c = 1))`) putting one
+  condition per line. An ON with no pending JOIN (`CREATE INDEX ... ON`) is left alone.
+- `PARAMETERS`, `DELETE [DISTINCTROW]`, and a make-table `INTO` are clause keywords:
+  their items go on the following lines, indented. A semicolon resets statement-level
+  clause and ON indents and starts any following statement (`INSERT INTO`, `CREATE`)
+  flush left on a new line.
+- `WITH OWNERACCESS OPTION` stays on one line, and the `And` of `Between ... And`
+  never starts a line.
+- The designer's per-criterion parentheses stay.
+
+**What this rules out**: Inline column lists and ON on the JOIN line. Changing token
+types to drive layout (add a layout role instead). Removing per-criterion pairs
+unless the canonicalizer adopts precedence. Once 5.2.0 ships, any further layout
+change needs a new export format version.
+
+**Relevant files**: `clsSqlFormatter.cls`, `clsTestSqlFormatter.cls`,
+`Testing/Fixtures/queries/`, `vcs-agent-docs/queries.md`,
+`docs/access-query-storage.md`.
+
+---
+
 ## 2026-11-17 — Form layout snapping is an on/off option, not a grid-size choice
 
 **Trigger**: #839. A 16x16 icon in a tabular layout, sized at 256 twips (16 px at
@@ -196,6 +252,11 @@ adds, removes, or changes a non-whitespace token, and formatting its own output
 changes nothing; tests check both over the whole fixture corpus. Below 5.2.0 the
 output is byte-identical to before (existing tests are pinned to `EFV_5_1_0`).
 
+> **⚠ Partially superseded** (2026-11-17): ON now goes on its own line one level
+> under its JOIN, and the column lists of `INSERT INTO`, `CREATE TABLE`, and
+> `CREATE INDEX` put one name per line regardless of width. See "Query column lists
+> one per line and ON on its own line at export format 5.2.0" above.
+
 **What this rules out**: Layout rules that depend on anything other than the token
 stream and the column; a formatter rule that removes a token (that belongs in the
 canonicalizer). `x\y` tokenizes as one word and stays unspaced.
@@ -238,6 +299,12 @@ read-only SELECTs) the same row count and columns; it found no failures.
 Accepted churn: a designer save still rewrites the text Access stores, but the next
 export returns to the same `.sql`. The designer form `(Count(t.b))>1` keeps its pair,
 since a function call is not a single value.
+
+> **⚠ Partially superseded** (2026-11-17): "the next export returns to the same
+> `.sql`" holds for the parentheses only. A designer save can also reorder criteria,
+> distribute AND over OR, and merge criteria on one field, and those changes reach
+> the `.sql`. See "Query column lists one per line and ON on its own line at export
+> format 5.2.0" above.
 
 **What this rules out**: Using operator precedence to remove parentheses; touching
 ON, FROM, or SELECT-list parentheses. If Access turns up an edge case, narrow a rule

@@ -412,9 +412,12 @@ Public Sub TestFormat52_FlatJoinChain()
         .Add "  a"
         .Add "FROM"
         .Add "  ((tblA"
-        .Add "  INNER JOIN tblB ON tblA.ID = tblB.AID)"
-        .Add "  INNER JOIN tblC ON tblB.ID = tblC.BID)"
-        .Add "  LEFT JOIN tblD ON tblC.ID = tblD.CID"
+        .Add "  INNER JOIN tblB"
+        .Add "    ON tblA.ID = tblB.AID)"
+        .Add "  INNER JOIN tblC"
+        .Add "    ON tblB.ID = tblC.BID)"
+        .Add "  LEFT JOIN tblD"
+        .Add "    ON tblC.ID = tblD.CID"
         .Remove 2
         strExpected = .GetStr
     End With
@@ -435,8 +438,10 @@ Public Sub TestFormat52_NestedJoinOnTheRightIsIndented()
         .Add "  tblA"
         .Add "  INNER JOIN ("
         .Add "    tblB"
-        .Add "    INNER JOIN tblD ON tblB.ID = tblD.BID"
-        .Add "  ) ON tblA.ID = tblB.AID"
+        .Add "    INNER JOIN tblD"
+        .Add "      ON tblB.ID = tblD.BID"
+        .Add "  )"
+        .Add "    ON tblA.ID = tblB.AID"
         .Remove 2
         strExpected = .GetStr
     End With
@@ -453,32 +458,230 @@ Public Sub TestFormat52_OnConditionsIndented()
         .Add "  a"
         .Add "FROM"
         .Add "  tblA"
-        .Add "  INNER JOIN tblB ON (tblA.ID = tblB.AID)"
+        .Add "  INNER JOIN tblB"
+        .Add "    ON (tblA.ID = tblB.AID)"
         .Add "    AND (tblA.X = tblB.X)"
         .Remove 2
         strExpected = .GetStr
     End With
     AssertFormat52 "SELECT a FROM tblA INNER JOIN tblB ON (tblA.ID = tblB.AID) AND (tblA.X = tblB.X)", _
-        strExpected, "further ON conditions sit one level under the join"
+        strExpected, "ON and each further condition sit one level under the join"
 End Sub
 
 
-Public Sub TestFormat52_LongOnWrapsToNextLine()
+Public Sub TestFormat52_MultilineAndOuterParensInOn()
     Dim strExpected As String
     With New clsConcat
         .AppendOnAdd = vbCrLf
         .Add "SELECT"
         .Add "  a"
         .Add "FROM"
-        .Add "  tblCarsInventoryHistory"
-        .Add "  INNER JOIN tblCarsPriceAdjustments"
-        .Add "    ON tblCarsInventoryHistory.InventoryID = tblCarsPriceAdjustments.InventoryID"
+        .Add "  tblOrders"
+        .Add "  LEFT JOIN tblRates"
+        .Add "    ON tblOrders.RateCode = IIf("
+        .Add "      tblOrders.IsInternational = True,"
+        .Add "      tblOrders.IntlRateCode,"
+        .Add "      tblOrders.DomesticRateCode"
+        .Add "    )"
+        .Add "WHERE"
+        .Add "  tblOrders.Active = True"
         .Remove 2
         strExpected = .GetStr
     End With
-    AssertFormat52 "SELECT a FROM tblCarsInventoryHistory INNER JOIN tblCarsPriceAdjustments " & _
-        "ON tblCarsInventoryHistory.InventoryID = tblCarsPriceAdjustments.InventoryID", _
-        strExpected, "an ON condition that would pass the line width moves to its own line"
+    AssertFormat52 "SELECT a FROM tblOrders LEFT JOIN tblRates " & _
+        "ON tblOrders.RateCode = IIf(tblOrders.IsInternational = True, tblOrders.IntlRateCode, tblOrders.DomesticRateCode) " & _
+        "WHERE tblOrders.Active = True", _
+        strExpected, "a broken call inside ON indents under ON and closes at the ON indent"
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  a"
+        .Add "FROM"
+        .Add "  tblA"
+        .Add "  INNER JOIN tblB"
+        .Add "    ON ("
+        .Add "      (tblA.ID = tblB.AID)"
+        .Add "      AND (tblB.Active = True)"
+        .Add "    )"
+        .Add "  INNER JOIN tblC"
+        .Add "    ON tblB.ID = tblC.BID,"
+        .Add "  tblD"
+        .Add "WITH OWNERACCESS OPTION;"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "SELECT a FROM tblA INNER JOIN tblB ON ((tblA.ID = tblB.AID) AND (tblB.Active = True)) " & _
+        "INNER JOIN tblC ON tblB.ID = tblC.BID, tblD WITH OWNERACCESS OPTION;", _
+        strExpected, "an outer-parenthesized compound ON puts one condition per line and ends cleanly before the next join, comma, or clause"
+End Sub
+
+
+Public Sub TestFormat52_SemicolonResetsStatementIndent()
+    Dim strExpected As String
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "PARAMETERS"
+        .Add "  [Enter Year] Short;"
+        .Add "INSERT INTO tblA ("
+        .Add "  a,"
+        .Add "  [Year]"
+        .Add ")"
+        .Add "SELECT"
+        .Add "  u.a,"
+        .Add "  [Enter Year]"
+        .Add "FROM"
+        .Add "  u;"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "PARAMETERS [Enter Year] Short; INSERT INTO tblA (a, [Year]) SELECT u.a, [Enter Year] FROM u;", _
+        strExpected, "PARAMETERS semicolon resets indent and starts INSERT INTO on a new line"
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "CREATE TABLE tblTemp ("
+        .Add "  ID LONG,"
+        .Add "  Name TEXT(50)"
+        .Add ");"
+        .Add "CREATE UNIQUE INDEX idxAB ON tblTemp ("
+        .Add "  ID,"
+        .Add "  Name"
+        .Add ");"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "CREATE TABLE tblTemp (ID LONG, Name TEXT(50)); CREATE UNIQUE INDEX idxAB ON tblTemp (ID, Name);", _
+        strExpected, "multi-statement DDL starts each statement flush left on a new line"
+End Sub
+
+
+Public Sub TestFormat52_ColumnListsOnePerLine()
+    Dim strExpected As String
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "INSERT INTO tblA ("
+        .Add "  a,"
+        .Add "  [Year]"
+        .Add ")"
+        .Add "SELECT"
+        .Add "  u.a,"
+        .Add "  2019 AS [Year]"
+        .Add "FROM"
+        .Add "  u"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "INSERT INTO tblA (a, [Year]) SELECT u.a, 2019 AS [Year] FROM u", _
+        strExpected, "an INSERT INTO column list puts one column per line even when it fits"
+
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "CREATE TABLE tblTemp ("
+        .Add "  ID LONG,"
+        .Add "  Name TEXT(50)"
+        .Add ");"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "CREATE TABLE tblTemp (ID LONG, Name TEXT(50));", _
+        strExpected, "a CREATE TABLE column list puts one column per line; a type size stays inline"
+End Sub
+
+
+Public Sub TestFormat52_CreateIndexOnIsNotAJoin()
+    Dim strExpected As String
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "CREATE UNIQUE INDEX idxAB ON tblA ("
+        .Add "  a,"
+        .Add "  b"
+        .Add ");"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "CREATE UNIQUE INDEX idxAB ON tblA (a, b);", _
+        strExpected, "the ON of CREATE INDEX stays on its line and the index columns go one per line"
+End Sub
+
+
+Public Sub TestFormat52_ParametersAndDeleteAreClauses()
+    Dim strExpected As String
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "PARAMETERS"
+        .Add "  [Enter ID] Long,"
+        .Add "  [Enter Category] Text (255);"
+        .Add "DELETE DISTINCTROW"
+        .Add "  t.*,"
+        .Add "  u.Code"
+        .Add "FROM"
+        .Add "  t"
+        .Add "WHERE"
+        .Add "  t.ID = [Enter ID];"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "PARAMETERS [Enter ID] Long, [Enter Category] Text (255); " & _
+        "DELETE DISTINCTROW t.*, u.Code FROM t WHERE t.ID = [Enter ID];", _
+        strExpected, "PARAMETERS and DELETE put one indented item per line"
+End Sub
+
+
+Public Sub TestFormat52_MakeTableIntoIsAClause()
+    Dim strExpected As String
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  t.ID,"
+        .Add "  t.Name"
+        .Add "INTO"
+        .Add "  tblCopy IN 'C:\path\to\other.accdb'"
+        .Add "FROM"
+        .Add "  t"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "SELECT t.ID, t.Name INTO tblCopy IN 'C:\path\to\other.accdb' FROM t", _
+        strExpected, "a make-table INTO starts its own clause"
+End Sub
+
+
+Public Sub TestFormat52_OwnerAccessOptionOneLine()
+    Dim strExpected As String
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  t.ID"
+        .Add "FROM"
+        .Add "  t"
+        .Add "WITH OWNERACCESS OPTION;"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "SELECT t.ID FROM t WITH OWNERACCESS OPTION;", _
+        strExpected, "WITH OWNERACCESS OPTION stays on one line"
+End Sub
+
+
+Public Sub TestFormat52_BetweenAndStaysOnLine()
+    Dim strExpected As String
+    With New clsConcat
+        .AppendOnAdd = vbCrLf
+        .Add "SELECT"
+        .Add "  a"
+        .Add "FROM"
+        .Add "  t"
+        .Add "WHERE"
+        .Add "  t.d Between #1/1/2020# And #12/31/2020#"
+        .Add "  AND t.x Between DateAdd('d', -1, t.y) And t.y"
+        .Add "  AND t.z = 1"
+        .Remove 2
+        strExpected = .GetStr
+    End With
+    AssertFormat52 "SELECT a FROM t WHERE t.d Between #1/1/2020# And #12/31/2020# " & _
+        "AND t.x Between DateAdd('d', -1, t.y) And t.y AND t.z = 1", _
+        strExpected, "the And of Between ... And never starts a line"
 End Sub
 
 
@@ -554,7 +757,13 @@ Public Sub TestFormat52_TokensPreservedForTestInputs()
         "SELECT a FROM t WHERE t.x In (SELECT y FROM u WHERE u.z = 1) ORDER BY a DESC , b", _
         "PARAMETERS [pDate] DateTime; SELECT a FROM t1 WHERE dt=[pDate] AND x Like ""a*"" AND d = #1/1/2000#;", _
         "INSERT INTO t ( a, b ) SELECT u.a, u.b FROM u WHERE (((u.a)=1));", _
-        "TRANSFORM Count(t.a) AS c SELECT t.b FROM t GROUP BY t.b PIVOT t.d In (1, 2);")
+        "TRANSFORM Count(t.a) AS c SELECT t.b FROM t GROUP BY t.b PIVOT t.d In (1, 2);", _
+        "PARAMETERS [p1] Long, [p2] Text (255); DELETE DISTINCTROW t.*, u.Code FROM t WHERE t.ID = [p1];", _
+        "CREATE TABLE tblTemp (ID LONG, Name TEXT(50)); CREATE UNIQUE INDEX idxAB ON tblA (a, b);", _
+        "PARAMETERS [Enter Year] Short; INSERT INTO tblA (a, [Year]) SELECT u.a, [Enter Year] FROM u;", _
+        "SELECT a FROM tblA INNER JOIN tblB ON ((tblA.ID = tblB.AID) AND (tblB.Active = True)) INNER JOIN tblC ON tblB.ID = tblC.BID;", _
+        "SELECT t.ID, t.Name INTO tblCopy IN 'C:\path\to\other.accdb' FROM t WITH OWNERACCESS OPTION;", _
+        "SELECT a FROM t WHERE t.d Between #1/1/2020# And #12/31/2020# AND t.x = 1")
         TestAssert SignificantTokens(Format52(CStr(varSql))) = SignificantTokens(CStr(varSql)), _
             "tokens preserved: " & Left$(varSql, 40)
         TestAssert Format52(Format52(CStr(varSql))) = Format52(CStr(varSql)), _

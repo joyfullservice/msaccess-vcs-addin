@@ -3,5 +3,4 @@
   tblCars.Manufacturer
 FROM
   tblCars
-WITH
-  OWNERACCESS OPTION;
+WITH OWNERACCESS OPTION;

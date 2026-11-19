@@ -7,7 +7,8 @@
   tblCurrencyExchange.Rate
 FROM
   tblCurrencies
-  LEFT JOIN tblCurrencyExchange ON tblCurrencies.CurrencyCode = tblCurrencyExchange.Currency
+  LEFT JOIN tblCurrencyExchange
+    ON tblCurrencies.CurrencyCode = tblCurrencyExchange.Currency
 WHERE
   tblCurrencyExchange.Base = "GBP"
 ORDER BY

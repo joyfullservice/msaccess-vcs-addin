@@ -1,5 +1,6 @@
-﻿PARAMETERS [Enter ID] Long,
-[Enter Category] Text (255);
+﻿PARAMETERS
+  [Enter ID] Long,
+  [Enter Category] Text (255);
 SELECT
   tblParamSample.ID,
   tblParamSample.Category

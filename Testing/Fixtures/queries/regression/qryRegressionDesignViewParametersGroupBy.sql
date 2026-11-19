@@ -1,4 +1,5 @@
-﻿PARAMETERS [Min Qty] Long;
+﻿PARAMETERS
+  [Min Qty] Long;
 SELECT
   tblParamSample.Category,
   Count(tblParamSample.ID) AS Cnt

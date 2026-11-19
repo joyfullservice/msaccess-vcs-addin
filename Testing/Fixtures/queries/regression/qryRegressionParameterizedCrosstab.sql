@@ -1,4 +1,5 @@
-﻿PARAMETERS [Select Manufacturer] Text (255);
+﻿PARAMETERS
+  [Select Manufacturer] Text (255);
 TRANSFORM
   Count(qryCars.Colour) AS CountOfColour
 SELECT

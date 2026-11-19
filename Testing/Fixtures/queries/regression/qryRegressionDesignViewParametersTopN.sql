@@ -1,4 +1,5 @@
-﻿PARAMETERS [Min Price] Currency;
+﻿PARAMETERS
+  [Min Price] Currency;
 SELECT TOP 5
   tblParamSample.ID,
   tblParamSample.Category,

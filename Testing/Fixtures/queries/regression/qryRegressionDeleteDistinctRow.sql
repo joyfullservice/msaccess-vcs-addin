@@ -1,4 +1,5 @@
-﻿DELETE DISTINCTROW tblCars.*
+﻿DELETE DISTINCTROW
+  tblCars.*
 FROM
   tblCars
 WHERE

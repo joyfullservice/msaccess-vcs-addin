@@ -1,1 +1,4 @@
-﻿CREATE TABLE tblFixtureTemp (ID LONG, Name TEXT(50));
+﻿CREATE TABLE tblFixtureTemp (
+  ID LONG,
+  Name TEXT(50)
+);

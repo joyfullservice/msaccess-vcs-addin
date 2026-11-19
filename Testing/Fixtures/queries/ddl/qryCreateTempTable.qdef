@@ -1,4 +1,5 @@
-﻿dbMemo "SQL" ="CREATE TABLE tblFixtureTemp (ID LONG, Name TEXT(50));\015\012"
+﻿dbMemo "SQL" ="CREATE TABLE tblFixtureTemp (\015\012  ID LONG,\015\012  Name TEXT(50)"
+    "\015\012);\015\012"
 dbMemo "Connect" =""
 dbBoolean "ReturnsRecords" ="-1"
 dbInteger "ODBCTimeout" ="60"

@@ -9,7 +9,8 @@
   [used] / [days] AS perday
 FROM
   tblMeterReadings AS A
-  INNER JOIN tblMeterReadings AS B ON (A.MeterFK = B.MeterFK)
+  INNER JOIN tblMeterReadings AS B
+    ON (A.MeterFK = B.MeterFK)
     AND (A.Reading > B.ReadingDate)
 WHERE
   (A.MeterFK <= 1)

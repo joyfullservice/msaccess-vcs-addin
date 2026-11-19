@@ -16,11 +16,14 @@
   MSysNavPaneGroupToObjects.Id AS LinkID
 FROM
   (MSysNavPaneGroupCategories
-  INNER JOIN MSysNavPaneGroups ON MSysNavPaneGroupCategories.Id = MSysNavPaneGroups.GroupCategoryID)
+  INNER JOIN MSysNavPaneGroups
+    ON MSysNavPaneGroupCategories.Id = MSysNavPaneGroups.GroupCategoryID)
   LEFT JOIN (
     MSysNavPaneGroupToObjects
-    LEFT JOIN MSysObjects ON MSysNavPaneGroupToObjects.ObjectID = MSysObjects.Id
-  ) ON MSysNavPaneGroups.Id = MSysNavPaneGroupToObjects.GroupID
+    LEFT JOIN MSysObjects
+      ON MSysNavPaneGroupToObjects.ObjectID = MSysObjects.Id
+  )
+    ON MSysNavPaneGroups.Id = MSysNavPaneGroupToObjects.GroupID
 WHERE
   (MSysNavPaneGroups.Name Is Not Null)
   AND (MSysNavPaneGroupCategories.Type = 4)

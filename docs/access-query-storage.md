@@ -580,7 +580,9 @@ standard SQL wherever Access accepts it"):
    parentheses (§ 6, "The designer rewrites stored WHERE and HAVING text"). From
    export format 5.2.0; never for pass-through queries.
 3. **Formatter** — `clsSqlFormatter` changes whitespace only. Skipped for
-   pass-through queries, whose SQL is the server's dialect.
+   pass-through queries, whose SQL is the server's dialect. The 5.2.0 layout rules
+   are in DECISIONS 2026-10-28 ("Query SQL layout at export format 5.2.0") and
+   2026-11-17 ("Query column lists one per line and ON on its own line").
 
 `ExportLegacy` is the frozen bridge and runs the formatter alone. The round-trip
 harness checks the result with a paste test: `CreateQueryDef("", <exported .sql>)`
@@ -1072,8 +1074,14 @@ calls, `IN`/`EXISTS`/`ANY`/`ALL`/`SOME`, subqueries, FROM or ON. The designer fo
 `HAVING (((Count(t.b))>1))` exports as `HAVING (Count(t.b))>1`: the pair around a
 function call is not a single value. If its rewrite would change any other token or
 unbalance the parentheses, it keeps the builder's text and sets `DeclineReason`.
-A designer save still changes the stored text; the next export does not change the
-`.sql`.
+
+**Not canonicalized: the designer also restructures criteria.** A designer save of a
+query written in SQL View puts the criteria in grid-column order, distributes AND over
+OR (`(A OR B) AND C` is stored as `(A AND C) OR (C AND B)`), and merges criteria on
+one field into one cell joined by a lowercase `And`. The logic is the same, but these
+changes reach the `.sql`; only the parentheses are removed. Undoing them would mean
+choosing a canonical order and factoring boolean expressions, which is a rewrite of
+the query rather than a spelling fix, so the export follows what Access stores.
 
 ### A compound `ON` comparing a column to a constant does not parse as Access writes it
 

@@ -16,8 +16,10 @@ SELECT
   [tblCustomers].[FirstName] & " " & [tblCustomers].[LastName] AS FullName
 FROM
   (tblCustomers
-  INNER JOIN tblOrders ON tblCustomers.CustomerID = tblOrders.CustomerID)
-  INNER JOIN tblOrderLines ON (tblOrders.OrderID = tblOrderLines.OrderID)
+  INNER JOIN tblOrders
+    ON tblCustomers.CustomerID = tblOrders.CustomerID)
+  INNER JOIN tblOrderLines
+    ON (tblOrders.OrderID = tblOrderLines.OrderID)
     AND (tblOrders.Region = tblOrderLines.Region)
 WHERE
   (tblOrders.OrderDate >= #1/1/2024#)
@@ -36,8 +38,9 @@ misreads the standard forms:
 Layout is yours to choose; the next export rewrites it in the style above without
 changing meaning. With export format 5.2.0 or later, export also drops redundant
 parentheses from `WHERE` and `HAVING`, including the extra pairs the query designer
-adds when it saves a query, so a designer save leaves at most one pair per criterion
-in the diff.
+adds when it saves a query, so a designer save leaves at most one pair per criterion.
+A designer save can still reorder criteria or distribute `AND` over `OR`
+(`(A OR B) AND C` becomes `(A AND C) OR (C AND B)`); the logic is unchanged.
 
 On import the add-in reads both files, generates a temporary `.qdef` in memory, and
 hands it to `LoadFromText`. When the SQL is designer-compatible and the `.json`

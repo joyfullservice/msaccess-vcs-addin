@@ -1,5 +1,5 @@
 ﻿dbMemo "SQL" ="SELECT\015\012  tblCars.ID,\015\012  tblCars.Manufacturer\015\012FROM"
-    "\015\012  tblCars\015\012WITH\015\012  OWNERACCESS OPTION;\015\012"
+    "\015\012  tblCars\015\012WITH OWNERACCESS OPTION;\015\012"
 dbMemo "Connect" =""
 dbBoolean "ReturnsRecords" ="-1"
 dbInteger "ODBCTimeout" ="60"

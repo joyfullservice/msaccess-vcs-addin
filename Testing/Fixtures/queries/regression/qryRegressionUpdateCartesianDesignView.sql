@@ -1,7 +1,8 @@
 ﻿UPDATE
   tblCurrencies,
   tblCars
-  INNER JOIN tblCarsPrice ON tblCars.ID = tblCarsPrice.ID
+  INNER JOIN tblCarsPrice
+    ON tblCars.ID = tblCarsPrice.ID
 SET
   tblCarsPrice.Price = [tblCarsPrice].[Price] * [tblCurrencies].[Rate]
 WHERE

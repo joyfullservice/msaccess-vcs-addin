@@ -5,7 +5,8 @@
   Func2([Name]) AS ComputedB
 FROM
   tblItems
-  INNER JOIN tblItemTypes ON (tblItems.Flags = tblItemTypes.Flags)
+  INNER JOIN tblItemTypes
+    ON (tblItems.Flags = tblItemTypes.Flags)
     AND (tblItems.Type = tblItemTypes.Type)
 WHERE
   (tblItems.Flags <> 3)
