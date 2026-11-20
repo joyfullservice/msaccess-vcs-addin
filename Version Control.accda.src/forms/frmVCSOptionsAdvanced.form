@@ -478,11 +478,11 @@ Begin Form
                             OverlapFlags =85
                             Left =720
                             Top =8940
-                            Width =2805
+                            Width =4680
                             Height =315
                             ForeColor =5324600
                             Name ="Label20"
-                            Caption ="Save Linked Table Definitions"
+                            Caption ="Save Table SQL for Linked Tables"
                             ForeThemeColorIndex =-1
                             ForeTint =100.0
                         End

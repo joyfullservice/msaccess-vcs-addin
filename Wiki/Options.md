@@ -176,7 +176,7 @@ Agent automation permissions (all **Off** by default). Full security discussion:
 | **Export JUnit XML test results (for CI)** | On | Write `test-results/test-results.xml` after each run. |
 | **Export HTML test results report** | On | Write a self-contained `test-results/test-results.html` dashboard after each run. |
 | **Preserve RubberDuck ID** | Off | Keep Rubberduck annotation IDs in exports. |
-| **Save Linked Table Definitions** | Off | Extra linked-table metadata export. |
+| **Save Table SQL for Linked Tables** | Off | Also writes the table SQL file for linked tables. Needs **Save Table SQL**. A linked table's `.json` definition is saved either way. |
 | **Save All Document Properties** | Off | Export extended document container metadata. |
 
 ## Translation

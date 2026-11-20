@@ -2859,10 +2859,6 @@ msgstr "Verbindungseinstellungen speichern?"
 msgid "Save in .env file*"
 msgstr "In .env-Datei speichern*"
 
-#: frmVCSOptionsAdvanced.Label20(chkSaveLinkedTableDef)
-msgid "Save Linked Table Definitions"
-msgstr "Definitionen verknüpfter Tabellen speichern"
-
 #: frmVCSOptionsExport.Label27(chkSavePrintVars)
 msgid "Save Printer Settings"
 msgstr "Druckereinstellungen speichern"
@@ -2874,6 +2870,10 @@ msgstr "Abfrage-SQL speichern"
 #: frmVCSOptionsExport.Label38(chkSaveTableSQL)
 msgid "Save Table SQL"
 msgstr "Tabellen-SQL speichern"
+
+#: frmVCSOptionsAdvanced.Label20(chkSaveLinkedTableDef)
+msgid "Save Table SQL for Linked Tables"
+msgstr "Tabellen-SQL für verknüpfte Tabellen speichern"
 
 #: modConnect
 msgid "Save them to your .env file so you are not prompted again?"
