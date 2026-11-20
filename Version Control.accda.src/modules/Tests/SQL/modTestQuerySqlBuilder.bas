@@ -25,6 +25,9 @@ Private Const STATUS_ERROR As String = "ERROR"
 Private Const DIFF_CONTEXT_LINES As Long = 2
 Private Const DIFF_MAX_CHARS_FOR_JSON As Long = 4000
 
+' Saved query name -> first unsafe function call in it, Null until scanned.
+Private m_dQueryCalls As Dictionary
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : RunQuerySqlBuilderValidation
@@ -67,6 +70,7 @@ Public Function RunQuerySqlBuilderValidation(Optional ByVal varQueryNames As Var
     Set dResult = New Dictionary
     Set dStats = NewValidationStats()
     Set colResults = New Collection
+    Set m_dQueryCalls = Nothing
 
     If Not DatabaseFileOpen Then
         dResult.Add "success", False
@@ -1224,7 +1228,9 @@ End Function
 ' Date      : 10/28/2026
 ' Purpose   : For read-only SELECTs, run both SQL strings and compare row count and
 '           : column schema. Skipped when the builder SQL cannot run on its own
-'           : (parameters, form references, unavailable links).
+'           : (parameters, form references, unavailable links), and never run when
+'           : it calls anything but a side-effect-free built-in, which could run the
+'           : database's own VBA.
 '---------------------------------------------------------------------------------------
 '
 Private Function CanonicalBehaviorCheck(ByVal strQueryName As String, _
@@ -1240,11 +1246,19 @@ Private Function CanonicalBehaviorCheck(ByVal strQueryName As String, _
     Dim strSchemaBefore As String
     Dim strSchemaAfter As String
     Dim blnAfterStage As Boolean
+    Dim strCall As String
 
     strSelectBefore = ExtractSourceSelect(strBefore)
     strSelectAfter = ExtractSourceSelect(strAfter)
     If Len(strSelectBefore) = 0 Or Len(strSelectAfter) = 0 Then
         CanonicalBehaviorCheck = "skipped: not a read-only SELECT"
+        Exit Function
+    End If
+
+    ' The canonical SQL differs only by parentheses, so one scan covers both.
+    strCall = FirstUnsafeCall(strSelectBefore)
+    If Len(strCall) > 0 Then
+        CanonicalBehaviorCheck = "skipped: calls " & strCall & ", which may run VBA"
         Exit Function
     End If
 
@@ -1293,6 +1307,129 @@ ErrHandler:
         CanonicalBehaviorCheck = "skipped: builder SQL does not run (" & CStr(Err.Number) & " " & Err.Description & ")"
     End If
     Resume CleanUp
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FirstUnsafeCall
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Return the first function call in strSql, or in a saved query it names,
+'           : that is not a side-effect-free built-in. Empty when there is none.
+'---------------------------------------------------------------------------------------
+'
+Private Function FirstUnsafeCall(ByVal strSql As String) As String
+
+    Dim varToken As Variant
+    Dim lngType() As Long
+    Dim strValue() As String
+    Dim lngCount As Long
+    Dim lngToken As Long
+    Dim strName As String
+
+    With New clsSqlFormatter
+        .Tokenize strSql, esdAccess
+        ReDim lngType(1 To .Tokens.Count + 1)
+        ReDim strValue(1 To .Tokens.Count + 1)
+        For Each varToken In .Tokens
+            Select Case varToken(0)
+                Case ttWhitespace, ttComment, ttBlockComment
+                Case Else
+                    lngCount = lngCount + 1
+                    lngType(lngCount) = varToken(0)
+                    strValue(lngCount) = varToken(1)
+            End Select
+        Next varToken
+    End With
+
+    For lngToken = 1 To lngCount
+        strName = vbNullString
+        Select Case lngType(lngToken)
+            Case ttWord
+                strName = strValue(lngToken)
+            Case ttReserved, ttReservedTopLevel, ttReservedNewline
+                ' A keyword such as RIGHT JOIN is one token; the word before "(" is its last.
+                strName = Trim$(Replace(Replace(Replace(strValue(lngToken), vbCr, " "), vbLf, " "), vbTab, " "))
+                strName = Mid$(strName, InStrRev(strName, " ") + 1)
+            Case ttQuote
+                If Left$(strValue(lngToken), 1) = "[" Then
+                    strName = Mid$(strValue(lngToken), 2, Len(strValue(lngToken)) - 2)
+                End If
+        End Select
+        If Len(strName) > 0 Then
+            If lngType(lngToken + 1) = ttBoundary And strValue(lngToken + 1) = "(" Then
+                If Not IsSafeSqlCall(strName) Then
+                    FirstUnsafeCall = strName
+                    Exit Function
+                End If
+            End If
+            FirstUnsafeCall = SavedQueryUnsafeCall(strName)
+            If Len(FirstUnsafeCall) > 0 Then Exit Function
+        End If
+    Next lngToken
+
+End Function
+
+
+Private Function SavedQueryUnsafeCall(ByVal strName As String) As String
+
+    Dim rst As DAO.Recordset
+    Dim qdf As DAO.QueryDef
+
+    If m_dQueryCalls Is Nothing Then
+        Set m_dQueryCalls = New Dictionary
+        m_dQueryCalls.CompareMode = TextCompare
+        Set rst = CurrentDb.OpenRecordset("SELECT Name FROM MSysObjects WHERE Type=5", dbOpenSnapshot)
+        Do While Not rst.EOF
+            m_dQueryCalls.Add CStr(rst!Name), Null
+            rst.MoveNext
+        Loop
+        rst.Close
+    End If
+
+    If Not m_dQueryCalls.Exists(strName) Then Exit Function
+    If IsNull(m_dQueryCalls(strName)) Then
+        ' Mark it scanned before scanning, so a query that names itself cannot recurse.
+        m_dQueryCalls(strName) = vbNullString
+        Set qdf = CurrentDb.QueryDefs(strName)
+        If qdf.Type <> dbQSQLPassThrough Then m_dQueryCalls(strName) = FirstUnsafeCall(qdf.SQL)
+    End If
+    SavedQueryUnsafeCall = m_dQueryCalls(strName)
+
+End Function
+
+
+' Access SQL keywords that can come before "(", and built-in functions without side
+' effects. Domain aggregates and Eval stay off the list: they evaluate strings, which
+' can name a query or call VBA.
+Private Function IsSafeSqlCall(ByVal strName As String) As Boolean
+
+    Static dSafe As Dictionary
+    Dim varName As Variant
+
+    If dSafe Is Nothing Then
+        Set dSafe = New Dictionary
+        dSafe.CompareMode = TextCompare
+        For Each varName In Split( _
+            "Select From Where Having On Join As In Exists Any All Some Not And Or Xor Eqv Imp " & _
+            "Mod Like Between Is Values Union By Distinct DistinctRow Top Into Set With Pivot " & _
+            "Transform Parameters " & _
+            "Avg Count First Last Max Min StDev StDevP Sum Var VarP " & _
+            "CBool CByte CCur CDate CDbl CDec CInt CLng CSng CStr CVar CVDate " & _
+            "Asc AscW Chr ChrW Format FormatCurrency FormatDateTime FormatNumber FormatPercent " & _
+            "Hex InStr InStrRev LCase Left Len LTrim Mid Nz Oct Replace Right RTrim Space " & _
+            "Str StrComp StrConv String StrReverse Trim UCase Val " & _
+            "Date DateAdd DateDiff DatePart DateSerial DateValue Day Hour Minute Month " & _
+            "MonthName Now Second Time Timer TimeSerial TimeValue Weekday WeekdayName Year " & _
+            "Abs Atn Cos Exp Fix Int Log Rnd Round Sgn Sin Sqr Tan " & _
+            "Choose IIf IsDate IsEmpty IsError IsNull IsNumeric Partition Switch")
+            dSafe.Add varName, True
+        Next varName
+    End If
+
+    If Right$(strName, 1) = "$" Then strName = Left$(strName, Len(strName) - 1)
+    IsSafeSqlCall = dSafe.Exists(strName)
+
 End Function
 
 
@@ -1896,6 +2033,57 @@ Public Sub TestCheckCanonicalizer_UnchangedQuery()
     TestAssert dCheck("result") = "unchanged", "nothing to remove"
     TestAssert Not dCheck.Exists("parse"), "no checks run for an unchanged query"
     TestAssert Not dCheck("failed"), "not a failure"
+End Sub
+
+
+Public Sub TestCheckCanonicalizer_NeverRunsQueryCallingVba()
+    Dim dCheck As Dictionary
+    Set dCheck = CheckCanonicalizer("vcsTestCanonicalizer", _
+        "SELECT MSysObjects.Name, Eval(""1"") AS x FROM MSysObjects WHERE ((MSysObjects.Type)=1);")
+    TestAssert dCheck("behavior") = "skipped: calls Eval, which may run VBA", "behavior: " & dCheck("behavior")
+    TestAssert Not dCheck("failed"), "a skipped behavior check is not a failure"
+End Sub
+
+
+Public Sub TestFirstUnsafeCall_BuiltInsAndKeywords()
+    TestAssert FirstUnsafeCall("SELECT Nz(t.a, 0), Left$(t.b, 2), Count(*) AS n FROM t " & _
+        "WHERE t.c IN (1, 2) AND NOT (t.d = Date()) GROUP BY t.a, t.b;") = vbNullString, _
+        "keywords and built-ins before ( are safe"
+    TestAssert FirstUnsafeCall("SELECT a.x FROM a RIGHT JOIN (b INNER JOIN c ON b.id = c.id) ON a.id = b.id " & _
+        "UNION ALL (SELECT d.x FROM d) ORDER BY 1;") = vbNullString, _
+        "a multi-word keyword before ( is not a call"
+    TestAssert FirstUnsafeCall("SELECT t.a, MyConcat(""t"", ""a"", ""b=1"") AS c FROM t;") = "MyConcat", _
+        "a function that is not built in may be the database's own VBA"
+    TestAssert FirstUnsafeCall("SELECT DLookup(""a"", ""t"") AS x FROM t;") = "DLookup", _
+        "a domain aggregate evaluates strings, so it is not trusted"
+End Sub
+
+
+Public Sub TestFirstUnsafeCall_FollowsSavedQueries()
+    Const cstrInner As String = "vcsTestUnsafeCallInner"
+    Dim dbs As DAO.Database
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+    Set dbs = CurrentDb
+    DeleteQueryDefIfExists dbs, cstrInner
+    dbs.CreateQueryDef cstrInner, "SELECT MSysObjects.Name, Eval(""1"") AS x FROM MSysObjects;"
+    Set m_dQueryCalls = Nothing
+    TestAssert FirstUnsafeCall("SELECT q.Name FROM [" & cstrInner & "] AS q;") = "Eval", _
+        "a call inside a saved query the SQL reads is found"
+
+CleanUp:
+    On Error Resume Next
+    DeleteQueryDefIfExists dbs, cstrInner
+    Set m_dQueryCalls = Nothing
+    If lngErr <> 0 Then TestAssert False, "FollowsSavedQueries " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
 End Sub
 
 

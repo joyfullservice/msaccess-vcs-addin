@@ -83,6 +83,43 @@ contradictory guidance.
 
 ---
 
+## 2026-11-20 — The canonicalizer behavior check never runs a query that can call VBA
+
+**Trigger**: A full Validate Query SQL Builder run on a production database stopped
+at 94% and kept one core busy for over 13 hours. The query it stopped on calls a
+database VBA function once per row, and each call ran its own lookup query, about
+2 seconds apiece over 7,657 rows. The canonicalizer's behavior check ran that query
+in full up to four times (row count and column schema, before and after the
+rewrite). A plain `SELECT Count(*)` of the query spun just as long with the add-in
+out of the picture. The function's error handler also opens a message box, so the
+diagnostic could run user code with side effects.
+
+**Options explored**:
+- *Remove the behavior check.* Rejected: it is the only check that executes the
+  rewritten SQL, and that evidence keeps confidence in the canonical output.
+- *Bound the query with a timeout.* Not possible in-process: DAO's `QueryTimeout`
+  applies only to ODBC sources, and a running Jet query cannot be cancelled from
+  VBA. Worth revisiting if the check moves to a worker process.
+- *Detect calls to the project's own procedures.* Rejected: a function can come from
+  a referenced library, and a miss runs user code.
+- *Allow only known built-ins* — chosen.
+
+**Decision**: Before running anything, `CanonicalBehaviorCheck` scans the SELECT's
+tokens and, recursively, every saved query it names. A word or bracketed name
+followed by `(` must be an Access SQL keyword or a built-in without side effects
+(`IsSafeSqlCall`). Otherwise the check reports `skipped: calls <name>, which may run
+VBA`. Domain aggregates and `Eval` are not on the list, because they evaluate strings
+that can name a query or call VBA. Each saved query is scanned once per run.
+
+**What this rules out**: Running a user query that can reach VBA from any
+validation step. Slow queries made only of built-ins still run unbounded. An unknown
+function is treated as VBA, so a missing built-in costs a skipped check, never a run.
+
+**Relevant files**: `modTestQuerySqlBuilder.bas` (`CanonicalBehaviorCheck`,
+`FirstUnsafeCall`, `IsSafeSqlCall`).
+
+---
+
 ## 2026-11-19 — Unparseable query exports are fixed for every 5.x format under an exporter revision
 
 **Trigger**: Several export shapes did not parse when pasted back into Access. An
@@ -432,6 +469,10 @@ since a function call is not a single value.
 > distribute AND over OR, and merge criteria on one field, and those changes reach
 > the `.sql`. See "Query column lists one per line and ON on its own line at export
 > format 5.2.0" above.
+
+> **⚠ Partially superseded** (2026-11-20): the row count and column check skips any
+> query that can call VBA. See "The canonicalizer behavior check never runs a query
+> that can call VBA".
 
 **What this rules out**: Using operator precedence to remove parentheses; touching
 ON, FROM, or SELECT-list parentheses. If Access turns up an edge case, narrow a rule
