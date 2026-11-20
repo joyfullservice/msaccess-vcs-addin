@@ -1107,10 +1107,12 @@ End Sub
 ' Procedure : TestBackEndConnection
 ' Author    : Adam Waller
 ' Date      : 03/11/2026
-' Purpose   : Perform a lightweight server-level connection test for non-Access
-'           : connections (ODBC, etc.) via GetConnectivityProbeSql.
-'           : Returns True if the server responds. Used to distinguish "server down"
-'           : from "single table missing" when a linked table fails TableExists.
+' Purpose   : Test whether the back end of a linked table is reachable. Used to
+'           : distinguish "server down" from "single table missing" when a linked
+'           : table fails TableExists. ODBC connections get a lightweight query via
+'           : GetConnectivityProbeSql; file-based links (Text, Excel, dBASE) check that
+'           : the file or folder exists. A connection that cannot be tested this way,
+'           : such as a SharePoint list, is reported as reachable.
 '---------------------------------------------------------------------------------------
 '
 Public Function TestBackEndConnection(strConnect As String) As Boolean
@@ -1144,7 +1146,12 @@ Public Function TestBackEndConnection(strConnect As String) As Boolean
         Exit Function
     End If
 
-    ' For ODBC and other connection types, attempt a lightweight query
+    ' A pass-through probe raises error 3305 on anything but an ODBC connection
+    If Not StartsWith(strConnect, "ODBC;", vbTextCompare) Then
+        TestBackEndConnection = FileBackEndExists(strConnect)
+        Exit Function
+    End If
+
     Set qdf = CurrentDb.CreateQueryDef("")
     RunConnectivityProbe qdf, strConnect, lngErr, strErrDesc
     TestBackEndConnection = (lngErr = 0)
@@ -1152,6 +1159,30 @@ Public Function TestBackEndConnection(strConnect As String) As Boolean
     If Not qdf Is Nothing Then
         qdf.Close
         Set qdf = Nothing
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FileBackEndExists
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Returns True if the DATABASE= path of a file-based link exists. A Text or
+'           : dBASE link names a folder, an Excel link names a file. A connection with
+'           : no local path (such as a SharePoint URL) cannot be checked here, so it
+'           : returns True and the table itself is reported as unavailable.
+'---------------------------------------------------------------------------------------
+'
+Private Function FileBackEndExists(strConnect As String) As Boolean
+
+    Dim strPath As String
+
+    strPath = GetConnectPath(strConnect)
+    If Len(strPath) = 0 Or InStr(1, strPath, "://") > 0 Then
+        FileBackEndExists = True
+    Else
+        FileBackEndExists = FSO.FolderExists(strPath) Or FSO.FileExists(strPath)
     End If
 
 End Function
@@ -1169,11 +1200,11 @@ Private Sub RunConnectivityProbe(qdf As DAO.QueryDef, strConnect As String, _
     ByRef lngErr As Long, ByRef strErrDesc As String)
 
     qdf.SQL = GetConnectivityProbeSql(strConnect)
-    qdf.Connect = strConnect
 
     LogUnhandledErrors
     On Error Resume Next
-    qdf.OpenRecordset
+    qdf.Connect = strConnect
+    If Err.Number = 0 Then qdf.OpenRecordset
     lngErr = Err.Number
     If lngErr Then
         strErrDesc = GetConnectErrorDetail()

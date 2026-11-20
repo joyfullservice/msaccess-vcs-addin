@@ -83,6 +83,41 @@ contradictory guidance.
 
 ---
 
+## 2026-11-20 — The back-end reachability test probes only ODBC links
+
+**Trigger**: #838. A text-file link whose folder was missing stopped the export with
+error 3305. When a linked table fails `TableExists`, the table exports call
+`TestBackEndConnection` to tell a down back end from a single missing table. Every
+link that was not an Access back end went to the ODBC pass-through probe, and
+assigning a `Text;` string to `QueryDef.Connect` raises 3305 before any error
+handling. Excel and dBASE links took the same path.
+
+**Options explored**:
+- *Trap the error in the probe and treat it as unreachable.* Rejected as the whole
+  fix: every file link would be marked unavailable when one table failed, even with
+  its file in place, and the warning would name the wrong cause.
+- *Check the `DATABASE=` path of file-based links* — chosen. Text and dBASE links
+  name a folder and Excel links name a file, so either one existing counts.
+- *Treat a link with no local path, such as a SharePoint `WSS;` URL, as
+  unreachable.* Rejected: nothing local can confirm it, and marking it unavailable
+  would skip every list from that site with a misleading warning. It is reported as
+  reachable, so the table is logged as the error.
+
+**Decision**: `TestBackEndConnection` sends only `ODBC;` connections to
+`RunConnectivityProbe`, and `FileBackEndExists` checks the path for the others.
+`RunConnectivityProbe` now assigns `Connect` under its error handler, so a malformed
+ODBC string is a failed probe rather than an unhandled error. Nothing here changes
+exported output.
+
+**What this rules out**: Probing a non-ODBC link with a pass-through query. A new
+link type with a local path is covered by the file check. One without a local path
+is reported per table until it gets its own test.
+
+**Relevant files**: `modConnect.bas` (`TestBackEndConnection`, `FileBackEndExists`,
+`RunConnectivityProbe`), `modTestConnect.bas`, `modTestTableDef.bas`.
+
+---
+
 ## 2026-11-20 — Translation strings are harvested from source as well as captured at runtime
 
 **Trigger**: Adding a German translation. `T()` adds a string to `tblStrings` only when
