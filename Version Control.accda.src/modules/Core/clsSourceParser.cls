@@ -767,11 +767,11 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                         cVBA.AppendOnAdd = vbCrLf
                         cVBA.Add astrLines(lngLine)
                         astrLines(lngLine) = "' See """ & Nz2(Me.ObjectName, "FileName") & ".cls"""
-                        ' Skip remaining lines
+                        ' Skip remaining lines (from 5.2.0, at every sanitize level)
                         Do While lngLine < lngUpper
                             lngLine = lngLine + 1
                             cVBA.Add astrLines(lngLine)
-                            SkipLine lngLine, eslStandard
+                            SkipLine lngLine, IIf(lngExportFormat >= EFV_5_2_0, eslMinimal, eslStandard)
                         Loop
                         Exit Do
                     Else
