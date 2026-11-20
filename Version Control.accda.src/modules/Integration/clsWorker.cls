@@ -1491,6 +1491,14 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
     On Error Resume Next
     objNewAccess.DoCmd.Close 2, "frmVCSInstall"  ' acForm = 2
     Err.Clear
+
+    ' Visible alone leaves an automation-created instance off the desktop for the whole
+    ' build, where nobody can see an error or close it. UserControl makes it a normal
+    ' window, and keeps it open after this script exits on a failure. Raised only after
+    ' the open so AutoExec still saw automation; the build's later reopens hold Shift.
+    objNewAccess.UserControl = True
+    objNewAccess.Visible = True
+    Err.Clear
     On Error GoTo 0
 
     ' MCP-launched builder: prefer a full-power core before the CPU-bound
