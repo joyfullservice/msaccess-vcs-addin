@@ -1143,6 +1143,7 @@ Private Function GetRequiredRepairFieldNamesFromTableDefXmlFile(strXmlFile As St
 
     Dim colNames As New Collection
     Dim strXml As String
+    Dim strError As String
 
     Set GetRequiredRepairFieldNamesFromTableDefXmlFile = colNames
     If Not FSO.FileExists(strXmlFile) Then Exit Function
@@ -1160,8 +1161,9 @@ Private Function GetRequiredRepairFieldNamesFromTableDefXmlFile(strXmlFile As St
     Perf.OperationEnd
 
     If Err.Number <> 0 Then
-        LogRequiredRepairWarning "Unable to scan {0} for Required fields", _
-            ".GetRequiredRepairFieldNamesFromTableDefXmlFile", strXmlFile
+        strError = TakeRequiredRepairError
+        Log.Error eelWarning, T("Unable to scan {0} for Required fields", var0:=strXmlFile) & _
+            strError, ModuleName(Me) & ".GetRequiredRepairFieldNamesFromTableDefXmlFile"
     End If
 
 End Function
@@ -1186,6 +1188,7 @@ Private Sub FixImportedRequiredFields(strTableName As String, colFieldNames As C
     Dim varName As Variant
     Dim tdf As DAO.TableDef
     Dim lngRestored As Long
+    Dim strError As String
 
     LogUnhandledErrors
     On Error Resume Next
@@ -1193,15 +1196,18 @@ Private Sub FixImportedRequiredFields(strTableName As String, colFieldNames As C
     Perf.OperationStart "Restore Required on Yes/No fields"
     Set tdf = SharedDb.TableDefs(strTableName)
     If Err.Number <> 0 Then
-        LogRequiredRepairWarning "Unable to open {0} to restore Required=False", PROC, strTableName
+        strError = TakeRequiredRepairError
+        Log.Error eelWarning, T("Unable to open {0} to restore Required=False", _
+            var0:=strTableName) & strError, ModuleName(Me) & PROC
     Else
         For Each varName In colFieldNames
             tdf.Fields(CStr(varName)).Required = False
             If Err.Number = 0 Then
                 lngRestored = lngRestored + 1
             Else
-                LogRequiredRepairWarning "Unable to restore Required=False for {0}.{1}", _
-                    PROC, strTableName, varName
+                strError = TakeRequiredRepairError
+                Log.Error eelWarning, T("Unable to restore Required=False for {0}.{1}", _
+                    var0:=strTableName, var1:=varName) & strError, ModuleName(Me) & PROC
             End If
         Next varName
         Log.Add T("    Restored Required=False on {0} field(s) of {1}.", _
@@ -1213,28 +1219,20 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : LogRequiredRepairWarning
+' Procedure : TakeRequiredRepairError
 ' Author    : Ricardo Hernandez (Notarnet)
 ' Date      : 11/16/2026
-' Purpose   : Log the pending error as a warning of the Required repair, and clear it.
-'           : The error is copied and cleared before T() builds the message, because
-'           : T() must not run while an error is pending (it can clear it). Called only
-'           : on failure, so the repair does not pay for T() on every field.
+' Purpose   : Return the pending error as text for a Required repair warning, and clear
+'           : it. Callers take the error before T() builds the message, because T()
+'           : must not run while an error is pending (it can clear it), and pass T() a
+'           : literal so the string is harvested for translation. Called only on
+'           : failure, so the repair does not pay for T() on every field.
 '---------------------------------------------------------------------------------------
 '
-Private Sub LogRequiredRepairWarning(strTemplate As String, strProc As String, _
-    var0 As Variant, Optional var1 As Variant)
-
-    Dim lngNumber As Long
-    Dim strDescription As String
-
-    lngNumber = Err.Number
-    strDescription = Err.Description
+Private Function TakeRequiredRepairError() As String
+    TakeRequiredRepairError = "; Error " & Err.Number & " - " & Err.Description
     Err.Clear
-    Log.Error eelWarning, T(strTemplate, var0:=var0, var1:=var1) & _
-        "; Error " & lngNumber & " - " & strDescription, ModuleName(Me) & strProc
-
-End Sub
+End Function
 
 
 '---------------------------------------------------------------------------------------
