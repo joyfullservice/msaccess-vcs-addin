@@ -287,6 +287,49 @@ Public Sub TestFormGeometry_StopsAtCodeBehindForm()
 End Sub
 
 
+' Minimal sanitizing still splits the code-behind into the .cls (#682). Before 5.2.0 the
+' code also stayed in the layout file below the placeholder.
+Public Sub TestSplitLayout_MinimalSanitizeRemovesCode()
+    Dim strOut As String
+    strOut = SanitizeCodeBehind(EFV_5_2_0, eslMinimal)
+    TestAssert InStr(strOut, "' See ""frmSplit.cls""") > 0, "placeholder written"
+    TestAssert InStr(strOut, "Form_Load") = 0, "code removed from the layout file"
+    TestAssert InStr(m_parser.GetObjectVBA, "Form_Load") > 0, "code kept for the .cls"
+End Sub
+
+
+Public Sub TestSplitLayout_MinimalSanitizePriorFormatKeepsCode()
+    Dim strOut As String
+    strOut = SanitizeCodeBehind(EFV_5_1_0, eslMinimal)
+    TestAssert InStr(strOut, "Form_Load") > 0, "5.1.0 layout file unchanged"
+    TestAssert InStr(m_parser.GetObjectVBA, "Form_Load") > 0, "code kept for the .cls"
+End Sub
+
+
+Public Sub TestSplitLayout_StandardSanitizeRemovesCode()
+    Dim strOut As String
+    strOut = SanitizeCodeBehind(EFV_5_1_0, eslStandard)
+    TestAssert InStr(strOut, "Form_Load") = 0, "code removed from the layout file"
+    TestAssert InStr(m_parser.GetObjectVBA, "Form_Load") > 0, "code kept for the .cls"
+End Sub
+
+
+' Under a Version =20 header, LoadFromText reads a modern chart's ChartAxisData and
+' ChartValueData without their field names, so the chart loses its axis grouping (#660).
+Public Sub TestModernChart_ExportKeepsVersion21()
+    Dim strOut As String
+    strOut = SanitizeForm(ModernChartForm("Version =21"))
+    TestAssert StartsWith(strOut, "Version =21" & vbCrLf), "version kept for a modern chart"
+End Sub
+
+
+Public Sub TestVersion21_ExportDowngradesWithoutModernChart()
+    Dim strOut As String
+    strOut = SanitizeForm(Replace(TabularPairForm(105, 1995, 1800), "Version =20", "Version =21"))
+    TestAssert StartsWith(strOut, "Version =20" & vbCrLf), "other forms still load in Access 2010"
+End Sub
+
+
 ' A report's own Right/Bottom pair is dropped because Access recalculates it from the
 ' printer margins, but the lines between "Begin Report" and that pair still have to run
 ' through every other sanitizer. The flag that marks the pair is only meaningful inside
@@ -370,6 +413,44 @@ Private Function SanitizeReport(strContent As String, _
 End Function
 
 
+Private Function SanitizeCodeBehind(lngFormat As Long, intSanitize As eSanitizeLevel) As String
+
+    Dim lngOldFormat As Long
+    Dim intOldSanitize As eSanitizeLevel
+    Dim blnOldSplit As Boolean
+    lngOldFormat = Options.ExportFormatVersion
+    intOldSanitize = Options.SanitizeLevel
+    blnOldSplit = Options.SplitLayoutFromVBA
+
+    On Error GoTo ErrHandler
+    Options.ExportFormatVersion = lngFormat
+    Options.SanitizeLevel = intSanitize
+    Options.SplitLayoutFromVBA = True
+    m_parser.LoadString _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =6000" & vbCrLf & _
+        "End" & vbCrLf & _
+        "CodeBehindForm" & vbCrLf & _
+        "Option Compare Database" & vbCrLf & _
+        "Option Explicit" & vbCrLf & _
+        "Private Sub Form_Load()" & vbCrLf & _
+        "End Sub", edbForm
+    m_parser.ObjectName = "frmSplit"
+    m_parser.Sanitize ectObjectDefinition
+    SanitizeCodeBehind = m_parser.GetOutput
+
+CleanUp:
+    Options.ExportFormatVersion = lngOldFormat
+    Options.SanitizeLevel = intOldSanitize
+    Options.SplitLayoutFromVBA = blnOldSplit
+    Exit Function
+
+ErrHandler:
+    Resume CleanUp
+End Function
+
+
 Private Function CountToken(strText As String, strToken As String) As Long
     Dim lngPos As Long
     lngPos = 1
@@ -405,6 +486,34 @@ Private Function EdgeAndColorReport() As String
         "                Begin Label" & vbCrLf & _
         "                    Left =120" & vbCrLf & _
         "                    Name =""lblTitle""" & vbCrLf & _
+        "                End" & vbCrLf & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
+' The shape Access writes for a modern chart: the field names live in binary blocks.
+Private Function ModernChartForm(strVersionLine As String) As String
+    ModernChartForm = _
+        strVersionLine & vbCrLf & _
+        "VersionRequired =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =10680" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin Section" & vbCrLf & _
+        "            Height =7560" & vbCrLf & _
+        "            Name =""Detail""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        "                Begin ModernChart" & vbCrLf & _
+        "                    Name =""Chart0""" & vbCrLf & _
+        "                    RowSource =""tblSales""" & vbCrLf & _
+        "                    ChartAxis =""[SaleDate]""" & vbCrLf & _
+        "                    ChartAxisData = Begin" & vbCrLf & _
+        "                        0x0100000018000000080000005b00530061006c00650044006100740065005d00 ," & vbCrLf & _
+        "                        0x03000000" & vbCrLf & _
+        "                    End" & vbCrLf & _
         "                End" & vbCrLf & _
         "            End" & vbCrLf & _
         "        End" & vbCrLf & _
