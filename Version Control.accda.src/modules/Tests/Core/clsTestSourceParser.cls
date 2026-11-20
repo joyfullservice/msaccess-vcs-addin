@@ -323,6 +323,24 @@ Public Sub TestModernChart_ExportKeepsVersion21()
 End Sub
 
 
+' Source exported before the fix has the chart blocks intact under Version =20.
+Public Sub TestModernChart_ImportRestoresVersion21()
+    m_parser.LoadString ModernChartForm("Version =20"), edbForm
+    m_parser.RestoreModernChartVersion
+    TestAssert m_parser.OutputModified, "output marked for a temp file"
+    TestAssert StartsWith(m_parser.GetOutput, "Version =21" & vbCrLf), "header restored"
+    TestAssert InStr(m_parser.GetOutput, "0x03000000") > 0, "chart blocks unchanged"
+End Sub
+
+
+Public Sub TestVersion20_ImportLeftAloneWithoutModernChart()
+    m_parser.LoadString TabularPairForm(105, 1995, 1800), edbForm
+    m_parser.RestoreModernChartVersion
+    TestAssert Not m_parser.OutputModified, "no temp file needed"
+    TestAssert StartsWith(m_parser.GetOutput, "Version =20" & vbCrLf), "header unchanged"
+End Sub
+
+
 Public Sub TestVersion21_ExportDowngradesWithoutModernChart()
     Dim strOut As String
     strOut = SanitizeForm(Replace(TabularPairForm(105, 1995, 1800), "Version =20", "Version =21"))

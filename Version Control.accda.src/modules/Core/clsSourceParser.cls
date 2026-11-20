@@ -24,6 +24,8 @@ Public RowSortFields As Dictionary
 Private Const NS_XSD_URI As String = "http://www.w3.org/2001/XMLSchema"
 Private Const NS_OD_URI As String = "urn:schemas-microsoft-com:officedata"
 
+Private Const MODERN_CHART_BLOCK As String = "Begin ModernChart"
+
 Public Enum eContentType
     ectObjectDefinition
     ectXML
@@ -181,6 +183,30 @@ Public Sub MergeVBA(strVbaCode As String)
         this.strVBA = strVbaCode
         this.blnOutputModified = True
     End With
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RestoreModernChartVersion
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Earlier exports wrote Version =20 for every form and report, which makes
+'           : LoadFromText drop the field names from a modern chart's binary blocks.
+'           : The blocks themselves are intact, so a Version =21 header restores the
+'           : chart. Access versions that predate Version =21 have no modern charts.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RestoreModernChartVersion()
+
+    Const OLD_VERSION As String = "Version =20" & vbCrLf
+
+    If Len(this.strOutput) = 0 Then this.strOutput = this.strInput
+    If Not StartsWith(this.strOutput, OLD_VERSION) Then Exit Sub
+    If InStr(1, this.strOutput, MODERN_CHART_BLOCK, vbBinaryCompare) = 0 Then Exit Sub
+
+    this.strOutput = "Version =21" & vbCrLf & Mid$(this.strOutput, Len(OLD_VERSION) + 1)
+    this.blnOutputModified = True
 
 End Sub
 
@@ -594,6 +620,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     Dim lngExportFormat As Long
     Dim intSanitizeLevel As eSanitizeLevel
     Dim intSanitizeColors As eSanitizeLevel
+    Dim blnModernChart As Boolean
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
@@ -610,6 +637,7 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
     intSanitizeLevel = Options.SanitizeLevel
     intSanitizeColors = Options.SanitizeColors
     lngExportFormat = Options.ExportFormatVersion
+    blnModernChart = (InStr(1, this.strInput, MODERN_CHART_BLOCK, vbBinaryCompare) > 0)
 
     ' Determine whether to extract per-control conditional formatting blocks to the
     ' companion JSON file. Gated behind the export format version and the option, and
@@ -665,8 +693,9 @@ Private Function SanitizeObject() As String 'strPath As String, blnReturnHash As
                 ' File version
                 Case "Version =21"
                     ' Change version down to 20 to allow import into Access 2010.
-                    ' (Haven't seen any significant issues with this.)
-                    astrLines(lngLine) = "Version =20"
+                    ' A modern chart keeps 21: under 20, LoadFromText drops the field
+                    ' names from its ChartAxisData and ChartValueData blocks. (#660)
+                    If Not blnModernChart Then astrLines(lngLine) = "Version =20"
 
                 ' Print settings blocks to ignore
                 Case "PrtMip = Begin", _

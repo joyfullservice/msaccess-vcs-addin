@@ -319,8 +319,10 @@ End Function
 '           :   Forms = 1        7/28/2026  Fixed CF14 data bar decode (issue #730)
 '           :   Forms = 2        9/7/2026   Canonical 60-twip form layout geometry; drop LayoutCached*
 '           :   Forms = 3        9/16/2026  Preserve legacy-only conditional formatting (issue #779)
+'           :   Forms = 4        11/20/2026 Keep Version =21 for modern charts (issue #660)
 '           :   Reports = 1      7/28/2026  Fixed CF14 data bar decode (issue #730)
 '           :   Reports = 2      9/16/2026  Preserve legacy-only conditional formatting (issue #779)
+'           :   Reports = 3      11/20/2026 Keep Version =21 for modern charts (issue #660)
 '           :   Tables = 1       8/21/2026  Fixed DECIMAL(p,s) in optional .sql sidecar (issue #756)
 '           :   Queries = 1      11/19/2026 Pasteable UPDATE SET targets (issue #840), names
 '           :                               starting with "(" (#815), external append and
@@ -332,8 +334,8 @@ Public Function GetExporterRevisions() As Dictionary
     Dim d As Dictionary
     Set d = New Dictionary
     d.Add "CommandBars", 1
-    d.Add "Forms", 3
-    d.Add "Reports", 2
+    d.Add "Forms", 4
+    d.Add "Reports", 3
     d.Add "Tables", 1
     d.Add "Queries", 1
     Set GetExporterRevisions = d

@@ -83,6 +83,43 @@ contradictory guidance.
 
 ---
 
+## 2026-11-20 — Modern charts keep the Version =21 header
+
+**Trigger**: A modern chart lost its axis grouping after export and build (#660): the
+category axis showed every date instead of months. A bisection of the sanitizer on the
+reporter's sample showed that only the `Version =21` to `Version =20` rewrite matters.
+Under a version 20 header, `LoadFromText` reads the chart's `ChartAxisData` and
+`ChartValueData` blocks without their field names, so the chart's transformed row
+source loses its `Format(..., "mmm 'yy")` grouping. Removing the GUID, NameMap,
+checksum, and themed color lines had no effect. The exported blocks are intact either
+way.
+
+**Options explored**:
+- *Stop downgrading the header at a new export format.* Rejected: every form and report
+  from Access 2013 and later would churn, and Access 2010 import would break.
+- *Gate the fix behind `EFV_5_2_0`.* Rejected for the same reason as the 2026-11-19
+  query fixes: output that does not rebuild correctly is a bug, not a format.
+- *Fix only the import side.* Rejected as the whole fix: the `.form` would still be
+  wrong for anything else that loads it.
+
+**Decision**: Export keeps `Version =21` when the object contains a `Begin ModernChart`
+block, at every format, and the `Forms = 4` and `Reports = 3` exporter revisions
+rewrite existing exports once. Import rewrites a `Version =20` header to 21 when the
+file contains a modern chart (`clsSourceParser.RestoreModernChartVersion`), so source
+exported by earlier versions builds correctly before anyone re-exports. Access
+versions that predate version 21 have no modern charts, so neither change can make a
+loadable file unloadable.
+
+**What this rules out**: Treating the version line as cosmetic. If another control
+turns out to depend on version 21, add it to the same check rather than dropping
+the downgrade.
+
+**Relevant files**: `clsSourceParser.cls` (`SanitizeObject`,
+`RestoreModernChartVersion`), `modLoadSaveText.bas` (`LoadComponentFromText`),
+`modConstants.bas` (`GetExporterRevisions`).
+
+---
+
 ## 2026-11-20 — The canonicalizer behavior check never runs a query that can call VBA
 
 **Trigger**: A full Validate Query SQL Builder run on a production database stopped
