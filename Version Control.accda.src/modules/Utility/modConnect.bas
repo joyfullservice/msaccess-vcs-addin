@@ -19,6 +19,7 @@ Private m_dUnavailableBackEnds As Dictionary
 Private m_cEnvCache As clsDotEnv
 Private m_cEnvResolved As clsDotEnv
 Private m_dEnvKeysWritten As Dictionary
+Private m_dEnvKeyConnect As Dictionary
 Private m_dMissingEnvKeys As Dictionary
 Private m_dConnState As Dictionary
 Private m_dStrippedConnWarn As Dictionary
@@ -1660,6 +1661,7 @@ Public Sub SaveConnectionToEnv(strKey As String, strConnect As String, strSource
     Dim strFile As String
     Dim strCommentKey As String
     Dim blnNewFile As Boolean
+    Dim strFirstSource As String
 
     ' Track this key as written during the current export
     If m_dEnvKeysWritten Is Nothing Then Set m_dEnvKeysWritten = New Dictionary
@@ -1670,6 +1672,16 @@ Public Sub SaveConnectionToEnv(strKey As String, strConnect As String, strSource
     ' For named connections (Tier 2), don't overwrite the user's .env value.
     ' The key is tracked above for unused-entry detection.
     If IsDefinedConnectionName(strKey) Then Exit Sub
+
+    strFirstSource = GetEnvKeyClash(strKey, strConnect, strSourceObject)
+    If Len(strFirstSource) Then
+        Log.Error eelWarning, T("{0} and {1} have different connection strings that share " & _
+            "the .env key {2}. The .env file keeps only one of them, so a build links both " & _
+            "to the same connection. To keep them apart, give each its own key under " & _
+            "EnvConnectionNames in vcs-options.json.", _
+            var0:=strFirstSource, var1:=strSourceObject, var2:=strKey), _
+            ModuleName & ".SaveConnectionToEnv"
+    End If
 
     strFile = GetEnvFilePath
     Set cEnv = GetEnvCache(True)
@@ -1700,6 +1712,42 @@ Public Sub SaveConnectionToEnv(strKey As String, strConnect As String, strSource
     Set m_cEnvResolved = Nothing
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetEnvKeyClash
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Record the first connection saved to an auto-generated .env key during
+'           : the current export. When a later save brings a different connection to
+'           : the same key, return the object that saved the first one, once per key.
+'           : Relative paths are expanded and driver-added settings are ignored, so a
+'           : table's raw and sanitized connection strings are not a clash.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetEnvKeyClash(strKey As String, strConnect As String, strSourceObject As String) As String
+
+    Dim varFirst As Variant
+
+    If m_dEnvKeyConnect Is Nothing Then
+        Set m_dEnvKeyConnect = New Dictionary
+        m_dEnvKeyConnect.CompareMode = TextCompare
+    End If
+
+    ' Each entry holds the first connection, its object, and whether it was reported
+    If Not m_dEnvKeyConnect.Exists(strKey) Then
+        m_dEnvKeyConnect.Add strKey, Array(strConnect, strSourceObject, False)
+        Exit Function
+    End If
+
+    varFirst = m_dEnvKeyConnect(strKey)
+    If varFirst(2) Then Exit Function
+    If ConnectionSettingsMatch(GetFullConnect(CStr(varFirst(0))), GetFullConnect(strConnect)) Then Exit Function
+
+    m_dEnvKeyConnect(strKey) = Array(varFirst(0), varFirst(1), True)
+    GetEnvKeyClash = varFirst(1)
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -2179,6 +2227,7 @@ Public Sub ClearEnvCache()
     Set m_cEnvCache = Nothing
     Set m_cEnvResolved = Nothing
     Set m_dEnvKeysWritten = Nothing
+    Set m_dEnvKeyConnect = Nothing
     Set m_dMissingEnvKeys = Nothing
     Set m_dStrippedConnWarn = Nothing
 End Sub

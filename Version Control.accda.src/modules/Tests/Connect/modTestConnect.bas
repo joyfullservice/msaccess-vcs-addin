@@ -224,6 +224,37 @@ Public Sub TestGetConnStateKey()
 End Sub
 
 
+Public Sub TestGetEnvKeyClash()
+
+    Const ENV_KEY As String = "conn_db1"
+    Const CONN_A As String = "ODBC;DRIVER={SQL Server};SERVER=host.domain;Trusted_Connection=Yes;DATABASE=Db1"
+    Const CONN_B As String = "ODBC;DRIVER={SQL Server};SERVER=host;Trusted_Connection=Yes;DATABASE=Db1"
+
+    Dim strFullBackEnd As String
+
+    ClearEnvCache
+    TestAssert GetEnvKeyClash(ENV_KEY, CONN_A, "tblFirst") = vbNullString, "the first save is not a clash"
+    TestAssert GetEnvKeyClash(ENV_KEY, CONN_A & ";APP=Microsoft Office", "tblSame") = vbNullString, _
+        "a driver-added setting is not a clash"
+    TestAssert GetEnvKeyClash(ENV_KEY, CONN_B, "tblSecond") = "tblFirst", _
+        "another server on the same key names the first object"
+    TestAssert GetEnvKeyClash(ENV_KEY, CONN_B, "tblThird") = vbNullString, "a key is reported once"
+    TestAssert GetEnvKeyClash("conn_db2", Replace(CONN_B, "Db1", "Db2"), "tblOther") = vbNullString, _
+        "another key is tracked on its own"
+
+    ClearEnvCache
+    TestAssert GetEnvKeyClash(ENV_KEY, CONN_A, "tblFirst") = vbNullString, "clearing the cache starts a new export"
+
+    ClearEnvCache
+    strFullBackEnd = FSO.BuildPath(CurrentProject.Path, "be.accdb")
+    GetEnvKeyClash "conn_be", ";DATABASE=" & strFullBackEnd, "tblRaw"
+    TestAssert GetEnvKeyClash("conn_be", ";DATABASE=rel:be.accdb", "tblSanitized") = vbNullString, _
+        "a relative path to the same back end is not a clash"
+    ClearEnvCache
+
+End Sub
+
+
 Public Sub TestIsOracleOdbcConnect()
     TestAssert IsOracleOdbcConnect( _
         "ODBC;DRIVER={Oracle ODBC Driver};SERVER=ora;UID=u;PWD=p"), _
