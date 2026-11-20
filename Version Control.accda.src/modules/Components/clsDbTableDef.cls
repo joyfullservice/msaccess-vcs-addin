@@ -1318,7 +1318,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
             strEnvKey = Mid$(strConnect, 5)
             strConnect = ResolveEnvConnection(strConnect)
         End If
-        strKey = IIf(Len(strEnvKey) > 0, strEnvKey, GetConnectionEnvKey(strConnect))
+        strKey = GetConnStateKey(strConnect, strEnvKey)
         Set dState = GetConnState(strKey)
         If dState Is Nothing Then Exit Function
 

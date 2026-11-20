@@ -73,6 +73,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim strRef As String
     Dim strConnect As String
     Dim strKey As String
+    Dim strEnvKey As String
     Dim strCompleted As String
     Dim blnSettingsCompleted As Boolean
     Dim lngErr As Long
@@ -92,12 +93,12 @@ Private Sub IDbComponent_Import(strFile As String)
         For Each varItem In dConnections(varConnect)
             strRef = CStr(varItem)
             strConnect = strRef
-            strKey = vbNullString
+            strEnvKey = vbNullString
             If IsEnvReference(strRef) Then
-                strKey = Mid$(strRef, 5)
+                strEnvKey = Mid$(strRef, 5)
                 strConnect = ResolveEnvConnection(strRef)
             End If
-            If Len(strKey) = 0 Then strKey = GetConnectionEnvKey(strConnect)
+            strKey = GetConnStateKey(strConnect, strEnvKey)
 
             Set dState = GetConnState(strKey)
             If dState("Status") = csIgnored Then GoTo NextConn
@@ -114,8 +115,7 @@ Private Sub IDbComponent_Import(strFile As String)
 
             Do
                 If CacheConnection(strConnect, strCompleted, lngErr, strErrDesc, blnSettingsCompleted) Then
-                    RecordAuthenticatedConnection strKey, _
-                        IIf(IsEnvReference(strRef), strKey, vbNullString), _
+                    RecordAuthenticatedConnection strKey, strEnvKey, _
                         GetLinkConnect(strConnect, strCompleted), strCompleted, _
                         "db connection", blnSettingsCompleted
                     Exit Do

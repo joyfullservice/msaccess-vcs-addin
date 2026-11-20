@@ -195,6 +195,35 @@ Public Sub TestGetConnectionEnvKey()
 End Sub
 
 
+Public Sub TestGetConnStateKey()
+
+    Const CONN_A As String = "ODBC;DRIVER={SQL Server};SERVER=host.domain;Trusted_Connection=Yes;DATABASE=Db1"
+    Const CONN_B As String = "ODBC;DRIVER={SQL Server};SERVER=host;Trusted_Connection=Yes;DATABASE=Db1"
+    Const CONN_USER As String = "ODBC;DRIVER={SQL Server};SERVER=host;DATABASE=Db1;UID=user"
+
+    TestAssert GetConnectionEnvKey(CONN_A) = GetConnectionEnvKey(CONN_B), _
+        "the .env key alone cannot tell the two servers apart"
+    TestAssert GetConnStateKey(CONN_A, vbNullString) <> GetConnStateKey(CONN_B, vbNullString), _
+        "connections that differ only by SERVER= keep separate state"
+    TestAssert GetConnStateKey(";DATABASE=C:\a\be.accdb", vbNullString) <> _
+        GetConnStateKey(";DATABASE=C:\b\be.accdb", vbNullString), _
+        "Access back ends with the same file name keep separate state"
+    TestAssert GetConnStateKey(CONN_A, "conn_db1") = "conn_db1", _
+        "an .env reference is keyed by its .env key"
+    TestAssert GetConnStateKey(CONN_USER & ";PWD=secret", vbNullString) = GetConnStateKey(CONN_USER, vbNullString), _
+        "the password does not change the key"
+    TestAssert InStr(1, GetConnStateKey(CONN_USER & ";PWD=secret", vbNullString), "secret", vbTextCompare) = 0, _
+        "the key does not hold the password"
+    TestAssert GetConnStateKey(CONN_USER, vbNullString) <> _
+        GetConnStateKey(Replace(CONN_USER, "UID=user", "UID=other"), vbNullString), _
+        "another user is another connection"
+    TestAssert GetConnStateKey(UCase$(CONN_B), vbNullString) = GetConnStateKey(CONN_B, vbNullString), _
+        "the key ignores case"
+    TestAssert Len(GetConnStateKey(vbNullString, vbNullString)) = 0, "no connection, no key"
+
+End Sub
+
+
 Public Sub TestIsOracleOdbcConnect()
     TestAssert IsOracleOdbcConnect( _
         "ODBC;DRIVER={Oracle ODBC Driver};SERVER=ora;UID=u;PWD=p"), _

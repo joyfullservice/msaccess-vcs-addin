@@ -225,6 +225,39 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetConnStateKey
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Return the key for a connection's build state. An .env reference is keyed
+'           : by its .env key, so every object that names it shares one connection.
+'           : Any other connection is keyed by its own string without the password.
+'           : Its .env key is not enough: it holds only the DATABASE= or DSN= value (or
+'           : an Access back end's file name), so connections to different servers
+'           : shared one state and later tables linked to the first one's server (#827).
+'           : UID= stays in the key, because another user is another connection.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetConnStateKey(strConnect As String, strEnvKey As String) As String
+
+    Dim varPart As Variant
+
+    If Len(strEnvKey) > 0 Then
+        GetConnStateKey = strEnvKey
+    ElseIf Len(strConnect) > 0 Then
+        With New clsConcat
+            .AppendOnAdd = ";"
+            For Each varPart In Split(strConnect, ";")
+                If Not StartsWith(CStr(varPart), "PWD=", vbTextCompare) Then .Add CStr(varPart)
+            Next varPart
+            If .Length > 0 Then .Remove 1
+            GetConnStateKey = "connect:" & LCase$(.GetStr)
+        End With
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsConnectionError
 ' Author    : Adam Waller
 ' Date      : 06/19/2026

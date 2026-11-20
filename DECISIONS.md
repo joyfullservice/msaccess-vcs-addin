@@ -83,6 +83,52 @@ contradictory guidance.
 
 ---
 
+## 2026-11-20 — The build keys connection state by the connection string, not the .env key
+
+**Trigger**: #827. A build keeps one state per connection: whether it authenticated, the
+string later objects link with, and whether the user chose Ignore. `clsDbConnection.Import`
+and `ImportLinkedTable` keyed it by `GetConnectionEnvKey`, which holds only the `DATABASE=`
+or `DSN=` value, or an Access back end's file name, even for connections that are not
+stored in `.env`. Two ODBC links that differed only by `SERVER=` shared one state, so the
+second table was linked with the first one's string and pointed at the wrong server, in
+every `UseEnvForConnections` mode. Builds and merges reported no error. Two Access back
+ends with the same file name in different folders clashed the same way.
+
+**Options explored**:
+- *Use a hash key under `Never` (PR #833)* — rejected; it fixes `Never` only, and the
+  default `Auto` keeps the clash. It also changes `GetConnectionEnvKey`, which names
+  `.env` keys, to fix something that is not about `.env`.
+- *Add `SERVER=` to `GetConnectionEnvKey`* — rejected; leaving the server out is what
+  keeps `.env` keys stable across environments, and every existing `.env` key would
+  change.
+- *Key by `GetBackEndKey` (DSN, or DRIVER, SERVER and DATABASE)* — rejected; two strings
+  to the same database with other options still share a state, and the second table is
+  relinked with the first one's string.
+- *Key by the connection string itself* — chosen.
+
+**Decision**: `GetConnStateKey(strConnect, strEnvKey)` returns the `.env` key for an
+`.env` reference, so every object that names it still shares one state. For any other
+connection it returns the string without `PWD=`, in lower case, with a `connect:` prefix.
+`UID=` stays in the key, because another user is another connection. Both callers pass
+the `.env` key to `RecordAuthenticatedConnection` separately, so what is saved to `.env`
+does not change. Nothing is exported from the state, so exported files do not change and
+no format gate applies.
+
+**What this rules out**: Ignore in the connection-failure dialog now skips only the
+objects whose connection string matches, rather than every object on that database
+name. The `.env` side of #827 stays: with `Always`, or `Auto` with credentials, two
+connections that differ only by server still map to one auto-generated `.env` key. That
+gets a warning on export (planned separately); named connections already avoid it.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/modConnect.bas`
+- `Version Control.accda.src/modules/Components/clsDbConnection.cls`
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls`
+- `Version Control.accda.src/modules/Tests/Connect/modTestConnect.bas`
+- `Version Control.accda.src/modules/Tests/Components/modTestTableDef.bas`
+
+---
+
 ## 2026-11-20 — Link with the source connection string; the driver's string only decides the .env save
 
 **Trigger**: #830, a 5.1.0 regression from the 2026-10-09 change below. On an attended

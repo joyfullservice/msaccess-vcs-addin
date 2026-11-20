@@ -26,6 +26,8 @@ Private Const TEST_TABLE_LINKED_HOMONYM As String = "vcs_test_linked_homonym"
 Private Const TEST_TABLE_LINKED_ALONE As String = "vcs_test_linked_alone"
 Private Const TEST_TABLE_LINKED_MERGE As String = "vcs_test_linked_merge"
 Private Const TEST_TABLE_LINKED_TEXT As String = "vcs_test_linked_text"
+Private Const TEST_TABLE_LINKED_FIRST As String = "vcs_test_linked_first"
+Private Const TEST_TABLE_LINKED_SECOND As String = "vcs_test_linked_second"
 Private Const TEST_TABLE_INHERIT_PARENT As String = "vcs_test_inherit_parent"
 Private Const TEST_TABLE_INHERIT_CHILD As String = "vcs_test_inherit_child"
 Private Const TEST_RELATION_FRONT_END As String = "vcs_test_front_end_relation"
@@ -1628,7 +1630,7 @@ Public Sub TestMergeLinkedTableAfterSharedDbLoaded()
     Options.ExportFormatVersion = EFV_5_1_0
     Options.UseEnvForConnections = uecNever
     Set VCSIndex = Nothing
-    ' The connection state is keyed by the back end's base name and outlives a test:
+    ' The connection state is keyed by the back end's connection string and outlives a test:
     ' the add-in's build and merge operations clear it, a component's own Merge does
     ' not. Start from a clean state, as those operations would.
     ClearConnState
@@ -1685,6 +1687,129 @@ CleanUp:
     DropTestTable TEST_TABLE_LINKED_MERGE
     If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
     If lngErr <> 0 Then TestAssert False, "linked table merge error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestLinkedTablesToSameNamedBackEnds
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Two back ends with the same file name in different folders have the same
+'           : .env key. When that key also keyed the build's connection state, the
+'           : second table was linked with the first one's connection string, as with
+'           : ODBC links that differ only by SERVER= (#827). Each table must come back
+'           : linked to its own back end.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestLinkedTablesToSameNamedBackEnds()
+    '@Tag("integration")
+
+    Dim dbsBack As DAO.Database
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim cComponent As IDbComponent
+    Dim cSavedIndex As clsVCSIndex
+    Dim varTable As Variant
+    Dim strFolder As String
+    Dim strFirstBackEnd As String
+    Dim strSecondBackEnd As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim lngPriorEnv As Long
+    Dim strFirstConnect As String
+    Dim strSecondConnect As String
+    Dim blnSaved As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_LINKED_FIRST
+    DropTestTable TEST_TABLE_LINKED_SECOND
+
+    ' Two back ends named backend.accdb, each linked from one table
+    strFolder = GetTempFolder("vcs_same_backend")
+    FSO.CreateFolder strFolder & PathSep & "first"
+    FSO.CreateFolder strFolder & PathSep & "second"
+    strFirstBackEnd = strFolder & PathSep & "first" & PathSep & "backend.accdb"
+    strSecondBackEnd = strFolder & PathSep & "second" & PathSep & "backend.accdb"
+    TestAssert GetConnectionEnvKey(";DATABASE=" & strFirstBackEnd) = _
+        GetConnectionEnvKey(";DATABASE=" & strSecondBackEnd), "both back ends have the same .env key"
+
+    Set dbs = CurrentDb
+    For Each varTable In Array(TEST_TABLE_LINKED_FIRST, TEST_TABLE_LINKED_SECOND)
+        Set dbsBack = DBEngine.CreateDatabase( _
+            IIf(varTable = TEST_TABLE_LINKED_FIRST, strFirstBackEnd, strSecondBackEnd), dbLangGeneral)
+        dbsBack.Execute "CREATE TABLE [Source] ([ID] LONG)", dbFailOnError
+        dbsBack.Close
+        Set dbsBack = Nothing
+        Set tdf = dbs.CreateTableDef(CStr(varTable))
+        tdf.Connect = ";DATABASE=" & IIf(varTable = TEST_TABLE_LINKED_FIRST, strFirstBackEnd, strSecondBackEnd)
+        tdf.SourceTableName = "Source"
+        dbs.TableDefs.Append tdf
+        Set tdf = Nothing
+    Next varTable
+    RefreshTableCollections dbs
+    Set dbs = Nothing
+
+    ' Sandbox the export folder and the index
+    Set cSavedIndex = VCSIndex
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    lngPriorEnv = Options.UseEnvForConnections
+    blnSaved = True
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_1_0
+    Options.UseEnvForConnections = uecAuto
+    Set VCSIndex = Nothing
+
+    For Each varTable In Array(TEST_TABLE_LINKED_FIRST, TEST_TABLE_LINKED_SECOND)
+        Set cComponent = New clsDbTableDef
+        Set cComponent.DbObject = CurrentData.AllTables(CStr(varTable))
+        cComponent.Export
+    Next varTable
+
+    ' Rebuild both links from source, in one connection state as a build does
+    DropTestTable TEST_TABLE_LINKED_FIRST
+    DropTestTable TEST_TABLE_LINKED_SECOND
+    ClearConnState
+    For Each varTable In Array(TEST_TABLE_LINKED_FIRST, TEST_TABLE_LINKED_SECOND)
+        Set cComponent = New clsDbTableDef
+        cComponent.Import Options.GetExportFolder & "tbldefs" & PathSep & GetSafeFileName(CStr(varTable)) & ".json"
+    Next varTable
+
+    ReleaseDbReferences
+    Set dbs = CurrentDb
+    If TableExists(TEST_TABLE_LINKED_FIRST, dbs) Then strFirstConnect = dbs.TableDefs(TEST_TABLE_LINKED_FIRST).Connect
+    If TableExists(TEST_TABLE_LINKED_SECOND, dbs) Then strSecondConnect = dbs.TableDefs(TEST_TABLE_LINKED_SECOND).Connect
+    Set dbs = Nothing
+
+    TestAssert InStr(1, strFirstConnect, strFirstBackEnd, vbTextCompare) > 0, _
+        "the first table is linked to its own back end"
+    TestAssert InStr(1, strSecondConnect, strSecondBackEnd, vbTextCompare) > 0, _
+        "the second table is linked to its own back end, not the first one's"
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        Options.ExportFolder = strPriorFolder
+        Options.ExportFormatVersion = lngPriorFormat
+        Options.UseEnvForConnections = lngPriorEnv
+        Set VCSIndex = cSavedIndex
+    End If
+    ClearConnState
+    DropTestTable TEST_TABLE_LINKED_FIRST
+    DropTestTable TEST_TABLE_LINKED_SECOND
+    CloseBackEndConnections
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    If lngErr <> 0 Then TestAssert False, "same-named back end link error " & lngErr & ": " & strErr
     Exit Sub
 
 ErrHandler:
