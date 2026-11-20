@@ -2,7 +2,7 @@
 Name ="tblCars"
 Option =50
 RowCount ="5"
-Where ="(((tblCars.Manufacturer) Is Null))"
+Where ="(((tblCars.Manufacturer Is Null)))"
 Begin InputTables
     Name ="tblVehicles"
     Name ="tblCars"

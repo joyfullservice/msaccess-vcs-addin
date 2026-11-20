@@ -1,0 +1,37 @@
+﻿Operation =4
+Option =0
+Where ="(tblCars.Year=2011) AND (tblCurrencies.CurrencyCode=\"EUR\")"
+Begin InputTables
+    Name ="tblCurrencies"
+    Name ="tblCars"
+    Name ="tblCarsPrice"
+End
+Begin OutputColumns
+    Name ="tblCarsPrice.Price"
+    Expression ="[tblCarsPrice].[Price]*[tblCurrencies].[Rate]"
+End
+Begin Joins
+    LeftTable ="tblCars"
+    RightTable ="tblCarsPrice"
+    Expression ="tblCars.ID = tblCarsPrice.ID"
+    Flag =1
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbBoolean "UseTransaction" ="-1"
+dbBoolean "FailOnError" ="0"
+dbByte "Orientation" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblCarsPrice.Price"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCars.Year"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCurrencies.CurrencyCode"
+        dbLong "AggregateType" ="-1"
+    End
+End

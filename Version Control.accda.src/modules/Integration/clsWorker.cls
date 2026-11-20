@@ -1491,6 +1491,14 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
     On Error Resume Next
     objNewAccess.DoCmd.Close 2, "frmVCSInstall"  ' acForm = 2
     Err.Clear
+
+    ' Visible alone leaves an automation-created instance off the desktop for the whole
+    ' build, where nobody can see an error or close it. UserControl makes it a normal
+    ' window, and keeps it open after this script exits on a failure. Raised only after
+    ' the open so AutoExec still saw automation; the build's later reopens hold Shift.
+    objNewAccess.UserControl = True
+    objNewAccess.Visible = True
+    Err.Clear
     On Error GoTo 0
 
     ' MCP-launched builder: prefer a full-power core before the CPU-bound
@@ -1559,10 +1567,11 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
         Exit Function
     End If
 
-    ' Re-read the log to confirm success
+    ' Re-read the log to confirm success. The marker is written untranslated by
+    ' modBuild; the "Done." line beside it is in the user's language.
     strLogContent = ReadTextFile(objFSO, strNewLog)
     Dim blnSuccess
-    blnSuccess = (InStr(1, strLogContent, "Done. (", vbTextCompare) > 0) And _
+    blnSuccess = (InStr(1, strLogContent, "Build succeeded.", vbBinaryCompare) > 0) And _
                   (InStr(1, strLogContent, "CRITICAL:", vbTextCompare) = 0)
 
     If Not blnSuccess Then

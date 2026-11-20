@@ -1,0 +1,9 @@
+{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "(Old) Clients"
+  },
+  "Items": {
+    "QueryType": 0
+  }
+}

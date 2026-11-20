@@ -1,0 +1,19 @@
+﻿{
+  "Info": {
+    "Class": "clsDbQuery",
+    "Description": "qryRegressionRecordLocksUpdate"
+  },
+  "Items": {
+    "QueryType": 48,
+    "QueryProperties": {
+      "FailOnError": {
+        "Type": 1,
+        "Value": true
+      },
+      "RecordLocks": {
+        "Type": 2,
+        "Value": 2
+      }
+    }
+  }
+}

@@ -1,0 +1,59 @@
+﻿Operation =1
+Option =0
+Where ="(tblCars.Year=2011) AND (tblCurrencies.CurrencyCode=\"USD\")"
+Having ="(Count(tblCarsColour.Colour))>1"
+Begin InputTables
+    Name ="tblCurrencies"
+    Name ="tblCars"
+    Name ="tblCarsModel"
+    Name ="tblCarsColour"
+End
+Begin OutputColumns
+    Expression ="tblCars.Manufacturer"
+    Expression ="tblCurrencies.CurrencyCode"
+    Alias ="CountOfColour"
+    Expression ="Count(tblCarsColour.Colour)"
+End
+Begin Joins
+    LeftTable ="tblCarsModel"
+    RightTable ="tblCarsColour"
+    Expression ="tblCarsModel.ID = tblCarsColour.ID"
+    Flag =1
+    LeftTable ="tblCars"
+    RightTable ="tblCarsModel"
+    Expression ="tblCars.ID = tblCarsModel.ID"
+    Flag =1
+End
+Begin Groups
+    Expression ="tblCars.Manufacturer"
+    GroupLevel =0
+    Expression ="tblCurrencies.CurrencyCode"
+    GroupLevel =0
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblCars.Manufacturer"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCurrencies.CurrencyCode"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="CountOfColour"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblCars.Year"
+        dbLong "AggregateType" ="-1"
+    End
+End

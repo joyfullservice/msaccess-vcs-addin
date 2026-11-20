@@ -6,28 +6,13 @@
   tblTranslation.Translation,
   qryStrings.LanguageID AS Lang,
   qryStrings.Reference,
-  IIf(
-    (
-      Len([msgid]) = 0
-    ),
-    1,
-    2
-  ) AS SortRank,
+  IIf((Len([msgid]) = 0), 1, 2) AS SortRank,
   [Context] & "|" & [msgid] AS [Key]
 FROM
   qryStrings
-  LEFT JOIN tblTranslation ON (
-    qryStrings.ID = tblTranslation.StringID
-  )
-  AND (
-    qryStrings.LanguageID = tblTranslation.Language
-  )
+  LEFT JOIN tblTranslation
+    ON (qryStrings.ID = tblTranslation.StringID)
+    AND (qryStrings.LanguageID = tblTranslation.Language)
 ORDER BY
-  IIf(
-    (
-      Len([msgid]) = 0
-    ),
-    1,
-    2
-  ),
+  IIf((Len([msgid]) = 0), 1, 2),
   qryStrings.msgid;

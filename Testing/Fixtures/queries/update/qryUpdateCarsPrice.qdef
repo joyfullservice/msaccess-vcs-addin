@@ -1,7 +1,7 @@
 ﻿Operation =4
 Option =0
-Where ="(((tblCars.Manufacturer)=\"Audi\") AND ((tblCars.Year)=2011) AND ((tbl"
-    "CarsModel.Model)=\"GS\"))"
+Where ="(tblCars.Manufacturer=\"Audi\") AND (tblCars.Year=2011) AND (tblCarsMo"
+    "del.Model=\"GS\")"
 Begin InputTables
     Name ="tblCars"
     Name ="tblCarsModel"

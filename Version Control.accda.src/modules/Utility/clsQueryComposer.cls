@@ -35,6 +35,7 @@ Private m_lngQueryType As Long          ' 1=SELECT, 3=INSERT, 4=UPDATE, 5=DELETE
 Private m_lngOption As Long             ' Bitmask: 1=AllFields, 2=DISTINCT, 4=OWNERACCESS, 8=DISTINCTROW, 16=TOP, 48=TOP PERCENT
 Private m_strTargetTable As String      ' For action queries
 Private m_strTargetDatabase As String   ' External database target for append/make-table queries
+Private m_strSourceDatabase As String   ' External source database (FROM ... IN '<db>')
 Private m_strWhere As String            ' WHERE clause (Access double-paren format)
 Private m_strHaving As String           ' HAVING clause
 Private m_colInputTables As Collection  ' Of Dictionary: name, alias
@@ -151,6 +152,8 @@ Public Function ReconstructSQL(colRows As Collection) As String
     Dim lngTopN As Long
     Dim blnTopPercent As Boolean
     Dim strTargetDatabase As String
+    Dim strTargetConnect As String
+    Dim strSourceDatabase As String
 
     ' Initialize collections for each section
     Set colFields = New Collection
@@ -189,6 +192,10 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 If lngFlag = 7 Or lngFlag = 8 Or lngFlag = 10 Then
                     strRawSql = strExpr
                     blnHasRawSql = True
+                ElseIf lngFlag = 2 Or lngFlag = 3 Then
+                    ' A make-table or append target reached through a connect
+                    ' string (`IN '' [ODBC;...]`) keeps it in Expression.
+                    strTargetConnect = strExpr
                 End If
 
             Case 2
@@ -207,7 +214,9 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 End If
 
             Case 4
-                ' Connect string (pass-through)
+                ' Source database: `FROM t IN '<path>'` keeps the path in
+                ' Name1, `IN '' [<connect>]` keeps the connect string here.
+                strSourceDatabase = strN1
                 strConnect = strExpr
 
             Case 5
@@ -353,11 +362,10 @@ Public Function ReconstructSQL(colRows As Collection) As String
             cSql.Add "SELECT " & strSelectModifiers
             BuildFieldList cSql, colFields, blnHasFromSource
             cSql.Add vbCrLf & "INTO " & BracketIfNeeded(strTarget)
-            AppendExternalDatabaseTarget cSql, strTargetDatabase
+            AppendExternalDatabaseTarget cSql, strTargetDatabase, strTargetConnect
 
         Case 3  ' INSERT INTO
             cSql.Add "INSERT INTO " & BracketIfNeeded(strTarget)
-            AppendExternalDatabaseTarget cSql, strTargetDatabase
             ' Check if there are target field names
             Dim colTargetFields As New Collection
             Dim dF As Dictionary
@@ -375,6 +383,8 @@ Public Function ReconstructSQL(colRows As Collection) As String
                 Next lngTF
                 cSql.Add ")"
             End If
+            ' Access parses an external target only after the column list
+            AppendExternalDatabaseTarget cSql, strTargetDatabase, strTargetConnect
             cSql.Add vbCrLf
             cSql.Add "SELECT " & strSelectModifiers
             BuildFieldList cSql, colFields, blnHasFromSource
@@ -383,6 +393,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
             cSql.Add "UPDATE "
             If blnDistinctRow Then cSql.Add "DISTINCTROW "
             BuildFromClause cSql, colTables, colJoinParts
+            AppendExternalDatabaseTarget cSql, strSourceDatabase, strConnect
             cSql.Add vbCrLf & "SET "
             BuildUpdateSetClause cSql, colFields
 
@@ -420,6 +431,7 @@ Public Function ReconstructSQL(colRows As Collection) As String
         cSql.Add vbCrLf & "FROM "
         If colTables.Count > 0 Or colJoinParts.Count > 0 Then
             BuildFromClause cSql, colTables, colJoinParts
+            AppendExternalDatabaseTarget cSql, strSourceDatabase, strConnect
         End If
     End If
 
@@ -638,9 +650,10 @@ Public Sub DecomposeSQL(strSql As String, Optional blnIsPassThrough As Boolean =
     ' when the query is parameterized and its PIVOT names no headings -- that
     ' shape prompts in the Access designer, which has to run the query to
     ' discover its column headings, but LoadFromText never executes it.
-    If Len(m_strTargetDatabase) > 0 Then
-        ' External target databases are preserved most faithfully in SQL View;
-        ' the Design View qdef grammar for Attribute 1 Name2 is not documented.
+    If Len(m_strTargetDatabase) > 0 Or Len(m_strSourceDatabase) > 0 Then
+        ' External databases are preserved most faithfully in SQL View; the
+        ' Design View qdef grammar for Attribute 1 Name2 and Attribute 4 is
+        ' not documented.
         m_blnDesignerCompatible = False
     ElseIf HasSubqueries() Then
         m_blnDesignerCompatible = False
@@ -1113,7 +1126,8 @@ Private Sub BuildUpdateSetClause(cSql As clsConcat, colFields As Collection)
     For lngF = 1 To colFields.Count
         If lngF > 1 Then cSql.Add ", "
         Set dFld = colFields(lngF)
-        cSql.Add BracketIfNeeded(CStr(dFld("targetName")))
+        cSql.Add m_syntax.FormatSetTarget(CStr(dFld("targetName")), _
+            Options.ExportFormatVersion >= EFV_5_2_0)
         cSql.Add " = " & CStr(dFld("expression"))
     Next lngF
 End Sub
@@ -1132,9 +1146,11 @@ Private Sub AppendOrderByClause(cSql As clsConcat, colOrder As Collection)
 End Sub
 
 
-Private Sub AppendExternalDatabaseTarget(cSql As clsConcat, ByVal strDatabase As String)
-    If Len(strDatabase) = 0 Then Exit Sub
+Private Sub AppendExternalDatabaseTarget(cSql As clsConcat, ByVal strDatabase As String, _
+    ByVal strConnect As String)
+    If Len(strDatabase) = 0 And Len(strConnect) = 0 Then Exit Sub
     cSql.Add " IN '" & Replace$(strDatabase, "'", "''") & "'"
+    If Len(strConnect) > 0 Then cSql.Add " [" & strConnect & "]"
 End Sub
 
 
@@ -1147,7 +1163,9 @@ Private Sub AppendParameterDeclaration(ByRef strParams As String, ByVal strExpre
     If Len(strExpression) > 0 Then
         strParam = strExpression
     ElseIf Len(strName) > 0 Then
-        strParam = BracketIfNeeded(strName)
+        ' Access stores parameter names as authored, so the wider designer word
+        ' list would re-bracket a name that was declared bare.
+        strParam = m_syntax.BracketIfNeeded(strName)
         strType = ParameterTypeSql(lngFlag)
         If Len(strType) > 0 Then strParam = strParam & " " & strType
     End If
@@ -1687,8 +1705,16 @@ Private Function BuildJoinForestSql(colJoins As Collection, colTables As Collect
         End If
     Next dComp
 
+    ' From export format 5.2.0, tables outside every join come first, in stored
+    ' order, and the join groups follow unwrapped: FROM X, A INNER JOIN B ON ...
+    ' That is how Access writes it. Earlier formats append them after the
+    ' parenthesized join groups.
+    Dim blnUnjoinedFirst As Boolean
+    blnUnjoinedFirst = (Options.ExportFormatVersion >= EFV_5_2_0)
+
     Dim dTbl As Dictionary
     Dim strRef As String
+    Dim strUnjoined As String
     Dim blnWrappedForDisconnected As Boolean
     For Each dTbl In colTables
         If Len(dTbl("alias")) > 0 Then
@@ -1697,16 +1723,29 @@ Private Function BuildJoinForestSql(colJoins As Collection, colTables As Collect
             strRef = CStr(dTbl("name"))
         End If
         If Not dRefToComponent.Exists(strRef) Then
-            If Len(strResult) > 0 Then
-                If Not blnWrappedForDisconnected Then
-                    strResult = "(" & strResult & ")"
-                    blnWrappedForDisconnected = True
+            If blnUnjoinedFirst Then
+                If Len(strUnjoined) > 0 Then strUnjoined = strUnjoined & ", "
+                strUnjoined = strUnjoined & InputTableSql(strRef, dTableLookup)
+            Else
+                If Len(strResult) > 0 Then
+                    If Not blnWrappedForDisconnected Then
+                        strResult = "(" & strResult & ")"
+                        blnWrappedForDisconnected = True
+                    End If
+                    strResult = strResult & ", "
                 End If
-                strResult = strResult & ", "
+                strResult = strResult & InputTableSql(strRef, dTableLookup)
             End If
-            strResult = strResult & InputTableSql(strRef, dTableLookup)
         End If
     Next dTbl
+
+    If Len(strUnjoined) > 0 Then
+        If Len(strResult) > 0 Then
+            strResult = strUnjoined & ", " & strResult
+        Else
+            strResult = strUnjoined
+        End If
+    End If
 
     BuildJoinForestSql = strResult
 
@@ -1885,6 +1924,26 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
         End If
     Next dJn
 
+    ' Access's SQL View reads each top-level AND term of an ON as one join
+    ' condition, and each term must name one table from each side: it rejects
+    ' `ON (a.x = b.x) AND (b.y > 0)` with error 3296 but accepts
+    ' `ON ((a.x = b.x) AND (b.y > 0))`. QueryDefs.SQL leaves the outer pair
+    ' out. At 5.2.0, enclose each table pair's conditions as one term here;
+    ' conditions on other pairs join below as separate terms, because one
+    ' term naming two tables on the same side fails just the same.
+    Dim blnGroupPairs As Boolean
+    blnGroupPairs = (Options.ExportFormatVersion >= EFV_5_2_0)
+    If blnGroupPairs Then
+        For Each dJn In colGrouped
+            If dJn.Exists("merged") Then
+                dJn("expression") = "((" & CStr(dJn("expression")) & "))"
+                dJn.Remove "merged"
+            Else
+                dJn("expression") = EncloseCompoundCondition(CStr(dJn("expression")))
+            End If
+        Next dJn
+    End If
+
     ' --- Phase 2: Detect secondary conditions via Union-Find ---
     ' An edge where both endpoints are already connected is a secondary
     ' ON condition (it would create a cycle). Merge it immediately into
@@ -1920,7 +1979,7 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
         strRootR = UFFind(dUFParent, strRight)
 
         If strRootL = strRootR Then
-            MergeSecondaryJoinNow colPrimary, dItem, dIntroJoin, dIntroOrder
+            MergeSecondaryJoinNow colPrimary, dItem, dIntroJoin, dIntroOrder, blnGroupPairs
         Else
             dUFParent(strRootL) = strRootR
             colPrimary.Add dItem
@@ -1942,6 +2001,90 @@ Private Function ConsolidateJoins(colRawJoins As Collection) As Collection
     CatchAny eelError, "Error consolidating joins. " & SqlSnippet(), _
         ModuleName(Me) & ".ConsolidateJoins"
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppendSecondaryCondition
+' Purpose   : Add a condition on another table pair to a primary join's ON.
+'           : Below 5.2.0 the pieces are joined as `a) AND (b` and wrapped once
+'           : at the end. At 5.2.0 each pair's conditions are already one term,
+'           : so the result is `(a) AND (b)` built here and never re-wrapped.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AppendSecondaryCondition(dPrimary As Dictionary, dSec As Dictionary, _
+    ByVal blnGroupPairs As Boolean)
+
+    If Not blnGroupPairs Then
+        dPrimary("expression") = CStr(dPrimary("expression")) & _
+            ") AND (" & CStr(dSec("expression"))
+        dPrimary("merged") = True
+    ElseIf dPrimary.Exists("chained") Then
+        dPrimary("expression") = CStr(dPrimary("expression")) & _
+            " AND " & EnclosedTerm(CStr(dSec("expression")))
+    Else
+        dPrimary("expression") = EnclosedTerm(CStr(dPrimary("expression"))) & _
+            " AND " & EnclosedTerm(CStr(dSec("expression")))
+        dPrimary("chained") = True
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EncloseCompoundCondition
+' Purpose   : Wrap a condition with a top-level AND or OR in one pair of outer
+'           : parentheses, unless a single pair already encloses all of it.
+'           : `a = b AND (c > 0)` starts with no paren; `(a) AND (b)` starts
+'           : with one that closes early. Both are wrapped.
+'---------------------------------------------------------------------------------------
+'
+Private Function EncloseCompoundCondition(ByVal strExpr As String) As String
+    strExpr = Trim$(strExpr)
+    EncloseCompoundCondition = strExpr
+    If Not m_syntax.HasTopLevelBoolean(strExpr) Then Exit Function
+    EncloseCompoundCondition = EnclosedTerm(strExpr)
+End Function
+
+
+Private Function EnclosedTerm(ByVal strExpr As String) As String
+    strExpr = Trim$(strExpr)
+    If Left$(strExpr, 1) = "(" Then
+        If m_syntax.FindMatchingParen(strExpr, 1) = Len(strExpr) Then
+            EnclosedTerm = strExpr
+            Exit Function
+        End If
+    End If
+    EnclosedTerm = "(" & strExpr & ")"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AndConditionLeaves
+' Purpose   : Split a join expression into its individual conditions, descending
+'           : into parenthesized AND groups: `((a) AND (b)) AND (c)` yields a, b, c.
+'           : A condition with a top-level OR stays whole.
+'---------------------------------------------------------------------------------------
+'
+Private Function AndConditionLeaves(ByVal strExpr As String) As Collection
+    Dim colLeaves As New Collection
+    AddAndConditionLeaves colLeaves, strExpr
+    Set AndConditionLeaves = colLeaves
+End Function
+
+
+Private Sub AddAndConditionLeaves(colLeaves As Collection, ByVal strExpr As String)
+    Dim asParts() As String
+    Dim lngPart As Long
+
+    strExpr = StripOuterParens(Trim$(strExpr))
+    asParts = SplitTopLevel(strExpr, " AND ")
+    If UBound(asParts) = LBound(asParts) Then
+        colLeaves.Add strExpr
+    Else
+        For lngPart = LBound(asParts) To UBound(asParts)
+            AddAndConditionLeaves colLeaves, asParts(lngPart)
+        Next lngPart
+    End If
+End Sub
 
 
 Private Sub TrackIntroducedJoin(dSeenRef As Dictionary, dIntroJoin As Dictionary, _
@@ -1982,7 +2125,7 @@ End Sub
 
 
 Private Sub MergeSecondaryJoinNow(colPrimary As Collection, dSec As Dictionary, _
-    dIntroJoin As Dictionary, dIntroOrder As Dictionary)
+    dIntroJoin As Dictionary, dIntroOrder As Dictionary, ByVal blnGroupPairs As Boolean)
     Dim lngP As Long
     Dim strSecLeft As String
     Dim strSecRight As String
@@ -1993,9 +2136,7 @@ Private Sub MergeSecondaryJoinNow(colPrimary As Collection, dSec As Dictionary, 
     Dim dOwner As Dictionary
     Set dOwner = SecondaryOwnerByIntroducedRef(strSecLeft, strSecRight, dIntroJoin, dIntroOrder)
     If Not dOwner Is Nothing Then
-        dOwner("expression") = CStr(dOwner("expression")) & _
-            ") AND (" & CStr(dSec("expression"))
-        dOwner("merged") = True
+        AppendSecondaryCondition dOwner, dSec, blnGroupPairs
         Exit Sub
     End If
 
@@ -2003,9 +2144,7 @@ Private Sub MergeSecondaryJoinNow(colPrimary As Collection, dSec As Dictionary, 
         Dim dPri As Dictionary
         Set dPri = colPrimary(lngP)
         If JoinSharesTable(dPri, strSecLeft, strSecRight) Then
-            dPri("expression") = CStr(dPri("expression")) & _
-                ") AND (" & CStr(dSec("expression"))
-            dPri("merged") = True
+            AppendSecondaryCondition dPri, dSec, blnGroupPairs
             Exit Sub
         End If
     Next lngP
@@ -2270,7 +2409,7 @@ End Function
 
 
 Private Function BracketIfNeeded(strName As String) As String
-    BracketIfNeeded = m_syntax.BracketIfNeeded(strName)
+    BracketIfNeeded = m_syntax.BracketIfNeeded(strName, Options.ExportFormatVersion >= EFV_5_2_0)
 End Function
 
 
@@ -2293,6 +2432,7 @@ Private Sub ResetState()
     m_lngOption = 0
     m_strTargetTable = vbNullString
     m_strTargetDatabase = vbNullString
+    m_strSourceDatabase = vbNullString
     m_strWhere = vbNullString
     m_strHaving = vbNullString
     Set m_colInputTables = New Collection
@@ -2580,17 +2720,54 @@ Private Sub ParseParametersClause(ByRef strSql As String)
 End Sub
 
 
-Private Sub ParseTargetDatabaseClause(ByRef strTarget As String)
+Private Function ParseTargetDatabaseClause(ByRef strTarget As String) As Boolean
     Dim lngIn As Long
     Dim strDatabase As String
 
     lngIn = FindTopLevelKeyword(strTarget, " IN ")
-    If lngIn = 0 Then Exit Sub
+    If lngIn = 0 Then Exit Function
 
     strDatabase = Trim$(Mid$(strTarget, lngIn + 4))
     strTarget = Trim$(Left$(strTarget, lngIn - 1))
     m_strTargetDatabase = UnquoteSqlString(strDatabase)
-End Sub
+    ParseTargetDatabaseClause = True
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReorderLegacyExternalAppend
+' Author    : Adam Waller
+' Date      : 11/19/2026
+' Purpose   : Move the IN clause of `INSERT INTO t IN '<db>' (a, b) SELECT ...`
+'           : after the column list, the only order Access parses. The rest of
+'           : the text, PARAMETERS and layout included, is left as it was.
+'---------------------------------------------------------------------------------------
+'
+Private Function ReorderLegacyExternalAppend(ByVal strSql As String) As String
+    Dim lngStart As Long
+    Dim lngOpen As Long
+    Dim lngClose As Long
+    Dim lngIn As Long
+    Dim strHead As String
+
+    ReorderLegacyExternalAppend = strSql
+    lngStart = InStr(1, strSql, "INSERT INTO", vbTextCompare)
+    If lngStart = 0 Then Exit Function
+    lngStart = lngStart + Len("INSERT INTO")
+    lngOpen = m_syntax.FindUnquotedChar(Mid$(strSql, lngStart), "(")
+    If lngOpen = 0 Then Exit Function
+    lngOpen = lngStart + lngOpen - 1
+    lngClose = FindMatchingParen(strSql, lngOpen)
+    If lngClose <= lngOpen Then Exit Function
+
+    strHead = Mid$(strSql, lngStart, lngOpen - lngStart)
+    lngIn = FindTopLevelKeyword(Replace(Replace(Replace(strHead, vbCr, " "), vbLf, " "), vbTab, " "), " IN ")
+    If lngIn = 0 Then Exit Function
+
+    ReorderLegacyExternalAppend = Left$(strSql, lngStart - 1) & RTrim$(Left$(strHead, lngIn - 1)) & " " & _
+        Mid$(strSql, lngOpen, lngClose - lngOpen + 1) & " " & Trim$(Mid$(strHead, lngIn + 1)) & _
+        Mid$(strSql, lngClose + 1)
+End Function
 
 
 Private Sub ParseTransformClause(ByRef strSql As String)
@@ -2697,12 +2874,16 @@ Private Sub ParseInsertQuery(strSql As String)
     ' Extract target table
     strUpper = UCase$(strRemainder)
     lngSelectPos = FindTopLevelKeyword(strRemainder, "SELECT ")
-    lngParenOpen = InStr(1, strRemainder, "(")
+    lngParenOpen = m_syntax.FindUnquotedChar(strRemainder, "(")
 
     ' Check if there are explicit target field names before SELECT
     If lngParenOpen > 0 And (lngSelectPos = 0 Or lngParenOpen < lngSelectPos) Then
         strTargetSpec = Trim$(Left$(strRemainder, lngParenOpen - 1))
-        ParseTargetDatabaseClause strTargetSpec
+        ' 5.0 and 5.1 exported `INSERT INTO t IN '<db>' (a, b)`, which Access
+        ' rejects; reorder the SQL View text so those files still import.
+        If ParseTargetDatabaseClause(strTargetSpec) Then
+            m_strRawSql = ReorderLegacyExternalAppend(m_strRawSql)
+        End If
         m_strTargetTable = UnBracket(strTargetSpec)
         lngParenClose = FindMatchingParen(strRemainder, lngParenOpen)
         ' Extract the target field names between the parens
@@ -2711,6 +2892,13 @@ Private Sub ParseInsertQuery(strSql As String)
         asTargetFields = SplitTopLevel(Trim$(strTargetFieldList), ",")
         blnHasTargetFields = True
         strRemainder = Trim$(Mid$(strRemainder, lngParenClose + 1))
+        ' Access's own order: INSERT INTO t (a, b) IN '<db>' SELECT ...
+        If UCase$(Left$(strRemainder, 3)) = "IN " Then
+            lngSelectPos = FindTopLevelKeyword(strRemainder, "SELECT ")
+            If lngSelectPos = 0 Then lngSelectPos = Len(strRemainder) + 1
+            m_strTargetDatabase = UnquoteSqlString(Trim$(Mid$(strRemainder, 4, lngSelectPos - 4)))
+            strRemainder = Mid$(strRemainder, lngSelectPos)
+        End If
     Else
         If lngSelectPos > 0 Then
             strTargetSpec = Trim$(Left$(strRemainder, lngSelectPos - 1))
@@ -2905,12 +3093,14 @@ Private Sub ParseUpdateSetFields(strSetClause As String)
             Set dCol = New Dictionary
             Dim strTargetField As String
             strTargetField = Trim$(Left$(strPart, lngEq - 1))
-            ' Retain fully-qualified table.field form, just unbracket each part
-            Dim lngDot As Long
-            lngDot = InStrRev(strTargetField, ".")
-            If lngDot > 0 Then
-                dCol.Add "targetName", UnBracket(Left$(strTargetField, lngDot - 1)) & _
-                    "." & UnBracket(Mid$(strTargetField, lngDot + 1))
+            ' Store the target as Access does: a qualified target the way the
+            ' designer writes it (`[Order Lines].[Unit Cost]`, `tblCars.Price`),
+            ' an unqualified one, which only SQL View produces, unbracketed.
+            Dim strQualifier As String
+            Dim strMember As String
+            If m_syntax.SplitQualifiedName(strTargetField, strQualifier, strMember) Then
+                dCol.Add "targetName", m_syntax.FormatSetTarget( _
+                    UnBracket(strQualifier) & "." & UnBracket(strMember))
             Else
                 dCol.Add "targetName", UnBracket(strTargetField)
             End If
@@ -2926,7 +3116,35 @@ Private Sub ParseFromClause(strFrom As String)
     ' Parse FROM clause into tables and joins
     Dim strClean As String
     strClean = Trim$(strFrom)
+    ParseSourceDatabaseClause strClean
     ParseFromExpression strClean
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ParseSourceDatabaseClause
+' Author    : Adam Waller
+' Date      : 11/19/2026
+' Purpose   : Remove a trailing source database (`FROM t IN '<db>'` or
+'           : `FROM t IN '' [ODBC;...]`) from a FROM clause and record it, so the
+'           : table list parses and the query imports in SQL View. An `IN (` in a
+'           : join condition is not a source database.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ParseSourceDatabaseClause(ByRef strFrom As String)
+    Dim lngIn As Long
+    Dim strNext As String
+
+    lngIn = FindTopLevelKeyword(strFrom, " IN ")
+    Do While lngIn > 0
+        strNext = Left$(LTrim$(Mid$(strFrom, lngIn + 4)), 1)
+        If strNext = "'" Or strNext = """" Then
+            m_strSourceDatabase = Trim$(Mid$(strFrom, lngIn + 4))
+            strFrom = Trim$(Left$(strFrom, lngIn - 1))
+            Exit Sub
+        End If
+        lngIn = FindTopLevelKeywordFrom(strFrom, " IN ", lngIn + 4)
+    Loop
 End Sub
 
 
@@ -2962,6 +3180,7 @@ Private Sub ParseFromAndClauses(strAfterFrom As String)
     If lngPivot > 0 And lngPivot < lngFromEnd Then lngFromEnd = lngPivot
 
     strFrom = Trim$(Left$(strAfterFrom, lngFromEnd - 1))
+    ParseSourceDatabaseClause strFrom
     ParseFromExpression strFrom
 
     ' WHERE
@@ -3047,25 +3266,30 @@ Private Sub ParseFromExpression(strFrom As String)
 
     strUpper = UCase$(strWork)
 
-    ' Check for JOIN keywords
-    lngJoinPos = FindJoinKeyword(strWork, strJoinType, lngFlag)
-
-    If lngJoinPos = 0 Then
-        ' No joins -- parse as comma-separated table list
-        Dim asTables() As String
-        Dim lngT As Long
-        asTables = SplitTopLevel(strWork, ",")
-        For lngT = 0 To UBound(asTables)
-            Dim strTblExpr As String
-            strTblExpr = Trim$(asTables(lngT))
-            If Len(strTblExpr) > 0 Then
-                AddInputTable strTblExpr
+    ' Top-level commas separate cartesian operands, and any operand may be a
+    ' join group: "X, A INNER JOIN B ON ..." (how Access writes it) or
+    ' "(A INNER JOIN B ON ...), X". Parse each operand on its own, in order.
+    Dim asTables() As String
+    Dim lngT As Long
+    Dim strTblExpr As String
+    Dim strInner As String
+    asTables = SplitTopLevel(strWork, ",")
+    For lngT = 0 To UBound(asTables)
+        strTblExpr = Trim$(asTables(lngT))
+        If Len(strTblExpr) > 0 Then
+            strInner = StripOuterParens(strTblExpr)
+            If StartsWithSelectKeyword(strInner) Then
+                lngJoinPos = 0
+            Else
+                lngJoinPos = FindJoinKeyword(strInner, strJoinType, lngFlag)
             End If
-        Next lngT
-    Else
-        ' Has joins -- parse recursively
-        ParseJoinExpression strWork
-    End If
+            If lngJoinPos = 0 Then
+                AddInputTable strTblExpr
+            Else
+                ParseJoinExpression strTblExpr
+            End If
+        End If
+    Next lngT
 
 CleanUp:
     CatchAny eelError, "Error parsing FROM expression. " & SqlSnippet(), _
@@ -3307,6 +3531,12 @@ End Function
 
 Private Function StripOuterParens(strExpr As String) As String
     StripOuterParens = m_syntax.StripOuterParens(strExpr)
+End Function
+
+
+Private Function StartsWithSelectKeyword(strExpr As String) As Boolean
+    If UCase$(Left$(strExpr, 6)) <> "SELECT" Then Exit Function
+    StartsWithSelectKeyword = Not m_syntax.IsIdentChar(Mid$(strExpr, 7, 1) & " ")
 End Function
 
 
@@ -3554,8 +3784,7 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
     If m_colJoins.Count > 0 Then
         cOut.Add "Begin Joins", vbCrLf
         Dim dJn As Dictionary
-        Dim asConditions() As String
-        Dim lngC As Long
+        Dim varCondition As Variant
         Dim strCondition As String
         Dim strCondLeft As String
         Dim strCondRight As String
@@ -3563,9 +3792,8 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
         Set dInputRefs = BuildInputTableRefLookup()
         For Each dJn In m_colJoins
             If HasTopLevelBoolean(CStr(dJn("expression"))) Then
-                asConditions = SplitTopLevel(StripOuterParens(CStr(dJn("expression"))), " AND ")
-                For lngC = LBound(asConditions) To UBound(asConditions)
-                    strCondition = StripOuterParens(Trim$(asConditions(lngC)))
+                For Each varCondition In AndConditionLeaves(CStr(dJn("expression")))
+                    strCondition = CStr(varCondition)
                     If Len(strCondition) > 0 Then
                         ResolveConditionJoinTables strCondition, dInputRefs, _
                             CStr(dJn("leftTable")), CStr(dJn("rightTable")), _
@@ -3577,7 +3805,7 @@ Private Sub EmitDesignViewQdef(cOut As clsConcat, dProperties As Dictionary, _
                         EmitWrappedString cOut, "    Expression", strCondition
                         cOut.Add "    Flag =" & CStr(dJn("flag")), vbCrLf
                     End If
-                Next lngC
+                Next varCondition
             Else
                 WarnIfJoinRefMissing CStr(dJn("leftTable")), dInputRefs
                 WarnIfJoinRefMissing CStr(dJn("rightTable")), dInputRefs
@@ -4193,7 +4421,11 @@ Private Sub EmitAllProperties(cOut As clsConcat, dProperties As Dictionary)
             Case "MaxRecords"
                 cOut.Add "dbLong ""MaxRecords"" =""" & dOverrides(varKey) & """", vbCrLf
             Case "RecordLocks"
-                ' LvProp-only property; not part of the .qdef text format
+                ' SaveAsText does not write RecordLocks, but LoadFromText accepts this
+                ' line and the property survives (measured with Access 16, 32-bit).
+                cOut.Add "dbByte ""RecordLocks"" =""" & dOverrides(varKey) & """", vbCrLf
+            Case "NoFormat"
+                EmitBoolProp cOut, "NoFormat", dOverrides(varKey)
             Case "RowHeight"
                 cOut.Add "dbInteger ""RowHeight"" =""" & dOverrides(varKey) & """", vbCrLf
             Case Else
@@ -4249,7 +4481,7 @@ Private Function ResolvePropertyOverrides(dProperties As Dictionary) As Dictiona
         ' Normalize boolean values to Access format
         Select Case CStr(varKey)
             Case "ReturnsRecords", "OrderByOn", "FilterOnLoad", "OrderByOnLoad", _
-                 "TotalsRow", "UseTransaction", "FailOnError"
+                 "TotalsRow", "UseTransaction", "FailOnError", "NoFormat"
                 dResult.Add CStr(varKey), BoolToAccessStr(varVal)
             Case Else
                 dResult.Add CStr(varKey), CStr(varVal)
@@ -4455,6 +4687,7 @@ Private Sub AddWhereFieldsToColumns(dColumns As Dictionary)
     Dim strToken As String
     Dim blnInDouble As Boolean
     Dim blnInSingle As Boolean
+    Dim blnInBracket As Boolean
 
     strWhere = m_strWhere
     lngLen = Len(strWhere)
@@ -4463,6 +4696,11 @@ Private Sub AddWhereFieldsToColumns(dColumns As Dictionary)
     For lngI = 1 To lngLen
         Dim strCh As String
         strCh = Mid$(strWhere, lngI, 1)
+        ' A bracketed name is one piece of a token, spaces and parentheses included
+        If blnInBracket Then
+            If strCh = "]" Then blnInBracket = False
+            GoTo NextChar
+        End If
         If strCh = """" And Not blnInSingle Then
             blnInDouble = Not blnInDouble
         ElseIf strCh = "'" And Not blnInDouble Then
@@ -4470,14 +4708,17 @@ Private Sub AddWhereFieldsToColumns(dColumns As Dictionary)
         End If
         If blnInDouble Or blnInSingle Then GoTo NextChar
 
-        ' Look for table.field patterns: word characters and dots
-        If IsIdentChar(strCh) Or strCh = "." Then
+        ' Look for table.field patterns: word characters, bracketed names, and dots
+        If strCh = "[" Then
+            blnInBracket = True
+            If lngStart = 0 Then lngStart = lngI
+        ElseIf IsIdentChar(strCh) Or strCh = "." Then
             If lngStart = 0 Then lngStart = lngI
         Else
             If lngStart > 0 Then
                 strToken = Mid$(strWhere, lngStart, lngI - lngStart)
                 ' Only add if it looks like table.field (contains a dot)
-                If InStr(1, strToken, ".") > 0 Then
+                If InStr(1, strToken, ".") > 0 And Not IsNumeric(strToken) Then
                     If Not dColumns.Exists(strToken) Then
                         Dim dEntry As Dictionary
                         Set dEntry = New Dictionary
@@ -4494,7 +4735,7 @@ NextChar:
     ' Handle trailing token
     If lngStart > 0 Then
         strToken = Mid$(strWhere, lngStart)
-        If InStr(1, strToken, ".") > 0 Then
+        If InStr(1, strToken, ".") > 0 And Not IsNumeric(strToken) Then
             If Not dColumns.Exists(strToken) Then
                 Dim dEntryFinal As Dictionary
                 Set dEntryFinal = New Dictionary

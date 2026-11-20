@@ -1,0 +1,9 @@
+﻿SELECT
+  ID
+FROM
+  tblCars
+UNION
+SELECT
+  ID
+FROM
+  tblCarsModel;

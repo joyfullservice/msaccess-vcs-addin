@@ -18,6 +18,56 @@ Option Compare Database
 Option Explicit
 '@Folder("Utility")
 
+' Words the Access query designer brackets when it writes them as an alias, plus
+' EQV, IMP, MOD and XOR, which the engine rejects as table aliases. Swept from
+' Access itself; see docs/access-query-storage.md. Space-delimited on both ends.
+Private Const DESIGNER_RESERVED_WORDS_1 As String = " " & _
+    "ABSOLUTE ACTION ADD ADMINDB ALL ALLOCATE ALPHANUMERIC ALTER AND ANY ARE AS ASC " & _
+    "ASSERTION AT AUTHORIZATION AUTOINCREMENT AVG BAND BEGIN BETWEEN BINARY BIT " & _
+    "BIT_LENGTH BNOT BOR BOTH BXOR BY BYTE CASCADE CASCADED CASE CAST CATALOG CHAR " & _
+    "CHAR_LENGTH CHARACTER CHARACTER_LENGTH CHECK CLOSE COALESCE COLLATE COLLATION " & _
+    "COLUMN COMMIT COMP COMPRESSION CONNECT CONNECTION CONSTRAINT CONSTRAINTS " & _
+    "CONTAINER CONTINUE CONVERT CORRESPONDING COUNT COUNTER CREATE CREATEDB CROSS " & _
+    "CURRENCY CURRENT CURRENT_DATE CURRENT_TIME CURRENT_TIMESTAMP CURRENT_USER " & _
+    "CURSOR DATABASE DATE DATETIME DAY DEALLOCATE DEC DECIMAL DECLARE DEFAULT " & _
+    "DEFERRABLE DEFERRED DELETE DESC DESCRIBE DESCRIPTOR DIAGNOSTICS DISALLOW " & _
+    "DISCONNECT DISTINCT DISTINCTROW DOMAIN DOUBLE DROP ELSE END EQV ESCAPE EXCEPT " & _
+    "EXCEPTION EXCLUSIVECONNECT EXEC EXECUTE EXISTS EXTERNAL EXTRACT FALSE FETCH " & _
+    "FIRST FLOAT FLOAT4 FLOAT8 FOR FOREIGN FOUND FROM FULL GENERAL GET GLOBAL GO " & _
+    "GOTO GRANT GROUP GUID HAVING HOUR IDENTITY IEEEDOUBLE IEEESINGLE IGNORE IMAGE " & _
+    "IMMEDIATE IMP IN INDEX INDICATOR INHERITABLE INITIALLY INNER INPUT INSENSITIVE " & _
+    "INSERT INT INTEGER INTEGER1 INTEGER2 INTEGER4 INTERSECT INTERVAL INTO IS "
+Private Const DESIGNER_RESERVED_WORDS_2 As String = _
+    "ISOLATION JOIN KEY LANGUAGE LAST LEADING LEFT LEVEL LIKE LOCAL LOGICAL LOGICAL1 " & _
+    "LONG LONGBINARY LONGCHAR LONGTEXT LOWER MATCH MAX MEMO MIN MINUTE MOD MODULE " & _
+    "MONEY MONTH NAMES NATIONAL NATURAL NCHAR NEXT NO NOT NOTE NULL NULLIF NUMBER " & _
+    "NUMERIC OBJECT OCTET_LENGTH OF OLEOBJECT ON ONLY OPEN OPTION OR ORDER OUTER " & _
+    "OUTPUT OVERLAPS OWNERACCESS PAD PARAMETERS PARTIAL PASSWORD PERCENT PIVOT " & _
+    "POSITION PRECISION PREPARE PRESERVE PRIMARY PRIOR PRIVILEGES PROC PROCEDURE " & _
+    "PUBLIC READ REAL REFERENCES RELATIVE RESTRICT REVOKE RIGHT ROLLBACK ROWS SCHEMA " & _
+    "SCROLL SECOND SECTION SELECT SELECTSCHEMA SELECTSECURITY SESSION SESSION_USER " & _
+    "SET SHORT SINGLE SIZE SMALLINT SOME SPACE SQL SQLCODE SQLERROR SQLSTATE STRING " & _
+    "SUBSTRING SUM SYSTEM_USER TABLE TABLEID TEMPORARY TEXT THEN TIME TIMESTAMP " & _
+    "TIMEZONE_HOUR TIMEZONE_MINUTE TO TOP TRAILING TRANSACTION TRANSFORM TRANSLATE " & _
+    "TRANSLATION TRIM TRUE UNION UNIQUE UNIQUEIDENTIFIER UNKNOWN UPDATE " & _
+    "UPDATEIDENTITY UPDATEOWNER UPDATESECURITY UPPER USAGE USER USING VALUE VALUES " & _
+    "VARBINARY VARCHAR VARYING VIEW WHEN WHENEVER WHERE WITH WORK WRITE XOR YEAR " & _
+    "YESNO ZONE "
+Private Const DESIGNER_RESERVED_WORDS As String = DESIGNER_RESERVED_WORDS_1 & DESIGNER_RESERVED_WORDS_2
+
+' Words Access rejects as an unqualified UPDATE SET target (`SET Date = 1`) unless
+' bracketed. Qualified (`SET t.Date = 1`) every reserved word parses bare. Swept
+' from Access itself; see docs/access-query-storage.md. Space-delimited on both ends.
+Private Const SET_TARGET_RESERVED_WORDS As String = " " & _
+    "ALL ALPHANUMERIC AS ASC BINARY BIT BY BYTE CHAR CURRENCY DATABASE DATE DATETIME " & _
+    "DELETE DESC DISTINCT DISTINCTROW DOUBLE FLOAT FLOAT4 FLOAT8 FROM GENERAL GROUP " & _
+    "GUID HAVING IEEEDOUBLE IEEESINGLE IN INNER INSERT INT INTEGER INTEGER1 INTEGER2 " & _
+    "INTEGER4 INTO JOIN LEFT LEVEL LOGICAL LOGICAL1 LONG LONGBINARY LONGCHAR LONGTEXT " & _
+    "MONEY NOTE NUMBER NUMERIC ON OPTION ORDER OUTER OWNERACCESS PARAMETERS PERCENT " & _
+    "PIVOT PROCEDURE REAL RIGHT SELECT SET SHORT SINGLE SMALLINT STRING TABLE TABLEID " & _
+    "TEXT TIME TIMESTAMP TOP TRANSFORM UNION UNIQUE UPDATE VALUE VALUES VARBINARY " & _
+    "VARCHAR WHERE WITH YESNO "
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : SplitTableRef
@@ -554,15 +604,142 @@ Public Function UnBracket(strName As String) As String
 End Function
 
 
-Public Function BracketIfNeeded(strName As String) As String
-    If Left$(strName, 1) = "[" Or Left$(strName, 1) = "(" Then
+'---------------------------------------------------------------------------------------
+' Procedure : BracketIfNeeded
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Bracket an identifier that is not a plain word or is reserved.
+'           : blnDesignerWords selects the word list the Access designer uses
+'           : (export format 5.2.0+); otherwise the original shorter list.
+'---------------------------------------------------------------------------------------
+'
+Public Function BracketIfNeeded(strName As String, Optional blnDesignerWords As Boolean = False) As String
+    If Left$(strName, 1) = "[" Then
         BracketIfNeeded = strName
     ElseIf InStr(1, strName, ".") > 0 Then
         BracketIfNeeded = strName
-    ElseIf HasNonIdentChars(strName) Or IsAccessReservedWord(strName) Then
+    ElseIf HasNonIdentChars(strName) Or IsAccessReservedWord(strName, blnDesignerWords) Then
         BracketIfNeeded = "[" & strName & "]"
     Else
         BracketIfNeeded = strName
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FormatSetTarget
+' Author    : Adam Waller
+' Date      : 11/19/2026
+' Purpose   : Spell an UPDATE SET target from MSysQueries Name2 so it parses.
+'           : Name2 is `Order Lines.Unit Cost` when the query was saved in SQL View
+'           : and `[Order Lines].[Unit Cost]` when saved in Design View; both
+'           : return the Design View form. Each part keeps its brackets, gains
+'           : them only for non-identifier characters, and a qualified reserved
+'           : word stays bare, because Access parses it. An unqualified target
+'           : also gets brackets for a word on SET_TARGET_RESERVED_WORDS, on top
+'           : of BracketIfNeeded's own list, so no bracket an older export wrote
+'           : is ever dropped.
+'---------------------------------------------------------------------------------------
+'
+Public Function FormatSetTarget(strTarget As String, Optional blnDesignerWords As Boolean = False) As String
+    Dim strQualifier As String
+    Dim strMember As String
+
+    If SplitQualifiedName(strTarget, strQualifier, strMember) Then
+        FormatSetTarget = BracketNamePart(strQualifier) & "." & BracketNamePart(strMember)
+    ElseIf Left$(strTarget, 1) = "[" Then
+        FormatSetTarget = strTarget
+    ElseIf IsSetTargetReservedWord(strTarget) Then
+        FormatSetTarget = "[" & strTarget & "]"
+    Else
+        FormatSetTarget = BracketIfNeeded(strTarget, blnDesignerWords)
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SplitQualifiedName
+' Author    : Adam Waller
+' Date      : 11/19/2026
+' Purpose   : Split `table.field` at the first period outside brackets. Access does
+'           : not allow a period in a table or field name, local or linked, so the
+'           : first one always separates the two. Returns False when there is none.
+'---------------------------------------------------------------------------------------
+'
+Public Function SplitQualifiedName(strName As String, ByRef strQualifier As String, _
+    ByRef strMember As String) As Boolean
+
+    Dim lngPos As Long
+    Dim blnInBracket As Boolean
+
+    For lngPos = 1 To Len(strName)
+        Select Case Mid$(strName, lngPos, 1)
+            Case "["
+                blnInBracket = True
+            Case "]"
+                blnInBracket = False
+            Case "."
+                If Not blnInBracket Then
+                    strQualifier = Trim$(Left$(strName, lngPos - 1))
+                    strMember = Trim$(Mid$(strName, lngPos + 1))
+                    SplitQualifiedName = (Len(strQualifier) > 0 And Len(strMember) > 0)
+                    Exit Function
+                End If
+        End Select
+    Next lngPos
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FindUnquotedChar
+' Author    : Adam Waller
+' Date      : 11/19/2026
+' Purpose   : Position of the first strChar outside quotes and brackets, or 0.
+'           : Finds the column list of `INSERT INTO [tblCars (Archive)] (a, b)`
+'           : or `INSERT INTO t IN 'C:\path (x)\db.accdb' (a, b)` without
+'           : stopping at a parenthesis inside the name or the path.
+'---------------------------------------------------------------------------------------
+'
+Public Function FindUnquotedChar(strSql As String, strChar As String) As Long
+    Dim lngPos As Long
+    Dim strCh As String
+    Dim blnInDouble As Boolean
+    Dim blnInSingle As Boolean
+    Dim blnInBracket As Boolean
+
+    For lngPos = 1 To Len(strSql)
+        strCh = Mid$(strSql, lngPos, 1)
+        If blnInDouble Then
+            If strCh = """" Then blnInDouble = False
+        ElseIf blnInSingle Then
+            If strCh = "'" Then blnInSingle = False
+        ElseIf blnInBracket Then
+            If strCh = "]" Then blnInBracket = False
+        ElseIf strCh = strChar Then
+            FindUnquotedChar = lngPos
+            Exit Function
+        Else
+            Select Case strCh
+                Case """": blnInDouble = True
+                Case "'": blnInSingle = True
+                Case "[": blnInBracket = True
+            End Select
+        End If
+    Next lngPos
+End Function
+
+
+Public Function IsSetTargetReservedWord(strWord As String) As Boolean
+    If Len(strWord) = 0 Or HasNonIdentChars(strWord) Then Exit Function
+    IsSetTargetReservedWord = (InStr(1, SET_TARGET_RESERVED_WORDS, " " & UCase$(strWord) & " ", vbBinaryCompare) > 0)
+End Function
+
+
+Private Function BracketNamePart(strPart As String) As String
+    If Left$(strPart, 1) = "[" Or Not HasNonIdentChars(strPart) Then
+        BracketNamePart = strPart
+    Else
+        BracketNamePart = "[" & strPart & "]"
     End If
 End Function
 
@@ -582,7 +759,12 @@ Public Function HasNonIdentChars(strName As String) As Boolean
 End Function
 
 
-Public Function IsAccessReservedWord(strWord As String) As Boolean
+Public Function IsAccessReservedWord(strWord As String, Optional blnDesignerWords As Boolean = False) As Boolean
+    If blnDesignerWords Then
+        If Len(strWord) = 0 Or HasNonIdentChars(strWord) Then Exit Function
+        IsAccessReservedWord = (InStr(1, DESIGNER_RESERVED_WORDS, " " & UCase$(strWord) & " ", vbBinaryCompare) > 0)
+        Exit Function
+    End If
     Select Case UCase$(strWord)
         Case "ACTION", "SELECT", "FROM", "WHERE", "ORDER", "BY", "GROUP", "HAVING", _
              "INSERT", "INTO", "UPDATE", "DELETE", "SET", "VALUE", "VALUES", _

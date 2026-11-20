@@ -1,0 +1,8 @@
+﻿dbMemo "SQL" ="INSERT INTO tblArchive (\015\012  ID,\015\012  Name\015\012) IN 'C:\\p"
+    "ath\\to\\other.accdb'\015\012SELECT\015\012  tblSource.ID,\015\012  tb"
+    "lSource.Name\015\012FROM\015\012  tblSource;\015\012"
+dbMemo "Connect" =""
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbBoolean "UseTransaction" ="-1"
+dbByte "Orientation" ="0"

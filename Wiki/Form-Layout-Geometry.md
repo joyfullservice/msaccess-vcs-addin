@@ -60,7 +60,24 @@ It is worth acting if the form's geometry keeps showing up in diffs and you want
 
 After changing the form, export again and confirm the warning is gone.
 
-If you would rather not touch the form, you can also turn the whole feature off by setting the export format back to **5.0** in *Options → Export*. That stops all layout geometry normalization for the project, not just for the affected group, so the drift returns everywhere. Only do this if 5.1 causes a problem you cannot otherwise resolve.
+If you would rather not touch the form, you can turn snapping off for the whole project by clearing **Snap Form Layout Geometry** in *Options → Export*. That stops layout geometry normalization everywhere, not just for the affected group, so the drift returns on every form. The rest of export format 5.1 stays in effect. See *Turning snapping off* below.
+
+---
+
+## Images and other controls that need exact pixel sizes
+
+Snapping rounds each layout cell to a multiple of 60 twips. A 16x16 icon sized at 256 twips (exactly 16 pixels at 100% scaling) becomes 240 twips, so Access shrinks the picture by a pixel and it looks blurry.
+
+If your team works at different display scalings, keep snapping on and use one of these instead:
+
+- **Give the icon some room.** Size the cell at 300 twips and set the image's *Size Mode* to **Clip** and *Picture Alignment* to **Center**. The cell is on the grid, and the picture is drawn at its own size in the middle of it, so it stays sharp at every scaling.
+- **Take the control out of the layout.** Select it and use *Arrange → Remove Layout*. Free-positioned controls are never snapped.
+
+## Turning snapping off
+
+If every developer on the project uses the same display scaling, you can clear **Snap Form Layout Geometry** in *Options → Export* and keep exact control sizes. Forms then export exactly as Access saved them, with no protection against differences between scalings.
+
+Changing the option re-exports all forms from the database. If the database has since been built or merged from snapped source files, it holds the snapped sizes too: restore the affected `.form` files from a commit made before you adopted format 5.1, merge them into the database, then export again.
 
 ---
 
@@ -79,13 +96,14 @@ Review that diff once, commit it, and subsequent exports are stable. This is a o
 | The warning appears on every export | Expected until the form's layout is changed. See *What to do about it* above |
 | Form dimensions still differ between developers | Check whether the affected controls are in a group the log warns about. If there is no warning, make sure every developer is on export format 5.1 (*Options → Export*) |
 | A control looks slightly different after upgrading to 5.1 | Movement of up to a few millimetres is expected on the first export. If a control now clips or overlaps, report it as a bug with the form's `.form` file |
+| An icon or image in a layout looks blurry after export | Snapping resized its cell. See *Images and other controls that need exact pixel sizes* above |
 | Report dimensions still drift | Reports are not normalized. The same layout properties exist on reports, but the behavior has not been verified for them |
 
 ---
 
 ## See also
 
-- [Options](Options) — export format version
+- [Options](Options) — export format version and Snap Form Layout Geometry
 - [Export-Import File Types](Export-Import-File-Types) — what `.form` files contain
 - [FAQs](FAQs) — other sources of unexpected diffs
 - [Merge / Build](Merge-Build) — rebuilding a database from source

@@ -1,4 +1,5 @@
-﻿PARAMETERS [Min Price] Currency;
+﻿PARAMETERS
+  [Min Price] Currency;
 SELECT TOP 5
   tblParamSample.ID,
   tblParamSample.Category,
@@ -6,10 +7,6 @@ SELECT TOP 5
 FROM
   tblParamSample
 WHERE
-  (
-    (
-      (tblParamSample.Price) >= [Min Price]
-    )
-  )
+  tblParamSample.Price >= [Min Price]
 ORDER BY
   tblParamSample.Price;

@@ -131,6 +131,25 @@ Public Sub TestWriteFileSkipsUnchangedContent()
 End Sub
 
 
+Public Sub TestWriteFileNoBom()
+
+    Dim strPath As String
+    Dim bteFile() As Byte
+
+    strPath = ExpandEnvironmentVariables("%TEMP%\vcs_write_nobom_test.po")
+    If FSO.FileExists(strPath) Then DeleteFile strPath
+
+    WriteFileNoBom "msgid ""Gr" & ChrW(252) & "n""", strPath
+    TestAssert FSO.FileExists(strPath), "file created"
+    bteFile = GetFileBytes(strPath)
+    TestAssert bteFile(0) = Asc("m"), "no byte order mark"
+    TestAssert ReadFile(strPath) = "msgid ""Gr" & ChrW(252) & "n""" & vbCrLf, "UTF-8 content round-trips"
+
+    If FSO.FileExists(strPath) Then DeleteFile strPath
+
+End Sub
+
+
 Public Sub TestWriteFileCaseCorrection()
 
     Dim strFolder As String

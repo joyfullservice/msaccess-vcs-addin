@@ -3,4 +3,5 @@
   tblCarsModel.Model
 FROM
   [tblCars (Archive)]
-  INNER JOIN tblCarsModel ON [tblCars (Archive)].ID = tblCarsModel.ID;
+  INNER JOIN tblCarsModel
+    ON [tblCars (Archive)].ID = tblCarsModel.ID;

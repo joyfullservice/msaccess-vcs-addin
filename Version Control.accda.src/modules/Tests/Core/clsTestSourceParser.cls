@@ -226,6 +226,27 @@ Public Sub TestFormGeometry_MinimalSanitizeLeavesGeometry()
 End Sub
 
 
+' A 16x16 icon sized at 256 twips is what #839 reported shrinking to 240. With
+' snapping off, layout geometry is exported exactly as written, while the rest of
+' the 5.1.0 form sanitizing still applies.
+Public Sub TestFormGeometry_SnapOffKeepsExactGeometry()
+    Dim strOut As String
+    strOut = SanitizeForm(IconPairForm, EFV_5_1_0, eslStandard, False)
+    TestAssert InStr(strOut, "Height =256") > 0, "icon height kept at 256"
+    TestAssert InStr(strOut, "Height =240") = 0, "icon height not snapped to 240"
+    TestAssert InStr(strOut, "Left =105") > 0, "off-grid origin kept"
+    TestAssert InStr(strOut, "LayoutCached") = 0, "LayoutCached* still stripped at 5.1.0"
+End Sub
+
+
+Public Sub TestFormGeometry_SnapOnMovesIconHeight()
+    Dim strOut As String
+    strOut = SanitizeForm(IconPairForm)
+    TestAssert InStr(strOut, "Height =240") > 0, "default snaps the 256-twip icon to 240"
+    TestAssert InStr(strOut, "Left =120") > 0, "default snaps the origin to the lattice"
+End Sub
+
+
 Public Sub TestFormGeometry_ResumesAfterInlineBinary()
     Dim strOut As String
     strOut = SanitizeForm(InlineBinaryForm)
@@ -266,6 +287,67 @@ Public Sub TestFormGeometry_StopsAtCodeBehindForm()
 End Sub
 
 
+' Minimal sanitizing still splits the code-behind into the .cls (#682). Before 5.2.0 the
+' code also stayed in the layout file below the placeholder.
+Public Sub TestSplitLayout_MinimalSanitizeRemovesCode()
+    Dim strOut As String
+    strOut = SanitizeCodeBehind(EFV_5_2_0, eslMinimal)
+    TestAssert InStr(strOut, "' See ""frmSplit.cls""") > 0, "placeholder written"
+    TestAssert InStr(strOut, "Form_Load") = 0, "code removed from the layout file"
+    TestAssert InStr(m_parser.GetObjectVBA, "Form_Load") > 0, "code kept for the .cls"
+End Sub
+
+
+Public Sub TestSplitLayout_MinimalSanitizePriorFormatKeepsCode()
+    Dim strOut As String
+    strOut = SanitizeCodeBehind(EFV_5_1_0, eslMinimal)
+    TestAssert InStr(strOut, "Form_Load") > 0, "5.1.0 layout file unchanged"
+    TestAssert InStr(m_parser.GetObjectVBA, "Form_Load") > 0, "code kept for the .cls"
+End Sub
+
+
+Public Sub TestSplitLayout_StandardSanitizeRemovesCode()
+    Dim strOut As String
+    strOut = SanitizeCodeBehind(EFV_5_1_0, eslStandard)
+    TestAssert InStr(strOut, "Form_Load") = 0, "code removed from the layout file"
+    TestAssert InStr(m_parser.GetObjectVBA, "Form_Load") > 0, "code kept for the .cls"
+End Sub
+
+
+' Under a Version =20 header, LoadFromText reads a modern chart's ChartAxisData and
+' ChartValueData without their field names, so the chart loses its axis grouping (#660).
+Public Sub TestModernChart_ExportKeepsVersion21()
+    Dim strOut As String
+    strOut = SanitizeForm(ModernChartForm("Version =21"))
+    TestAssert StartsWith(strOut, "Version =21" & vbCrLf), "version kept for a modern chart"
+End Sub
+
+
+' Source exported before the fix has the chart blocks intact under Version =20.
+Public Sub TestModernChart_ImportRestoresVersion21()
+    m_parser.LoadString ModernChartForm("Version =20"), edbForm
+    m_parser.RestoreModernChartVersion
+    TestAssert m_parser.OutputModified, "output marked for a temp file"
+    TestAssert StartsWith(m_parser.GetOutput, "Version =21" & vbCrLf), "header restored"
+    TestAssert InStr(m_parser.GetOutput, "0x03000000") > 0, "chart blocks unchanged"
+End Sub
+
+
+Public Sub TestVersion20_ImportLeftAloneWithoutModernChart()
+    m_parser.LoadString TabularPairForm(105, 1995, 1800), edbForm
+    m_parser.RestoreModernChartVersion
+    TestAssert Not m_parser.OutputModified, "no temp file needed"
+    TestAssert StartsWith(m_parser.GetOutput, "Version =20" & vbCrLf), "header unchanged"
+End Sub
+
+
+Public Sub TestVersion21_ExportDowngradesWithoutModernChart()
+    Dim strOut As String
+    strOut = SanitizeForm(Replace(TabularPairForm(105, 1995, 1800), "Version =20", "Version =21"))
+    TestAssert StartsWith(strOut, "Version =20" & vbCrLf), "other forms still load in Access 2010"
+End Sub
+
+
 ' A report's own Right/Bottom pair is dropped because Access recalculates it from the
 ' printer margins, but the lines between "Begin Report" and that pair still have to run
 ' through every other sanitizer. The flag that marks the pair is only meaningful inside
@@ -295,19 +377,34 @@ End Sub
 
 Private Function SanitizeForm(strContent As String, _
     Optional lngFormat As Long = EFV_5_1_0, _
-    Optional intSanitize As eSanitizeLevel = eslStandard) As String
+    Optional intSanitize As eSanitizeLevel = eslStandard, _
+    Optional blnSnapGeometry As Boolean = True) As String
 
     Dim lngOldFormat As Long
     Dim intOldSanitize As eSanitizeLevel
+    Dim blnOldSnap As Boolean
     lngOldFormat = Options.ExportFormatVersion
     intOldSanitize = Options.SanitizeLevel
+    blnOldSnap = Options.SnapFormLayoutGeometry
+
+    On Error GoTo ErrHandler
     Options.ExportFormatVersion = lngFormat
     Options.SanitizeLevel = intSanitize
+    Options.SnapFormLayoutGeometry = blnSnapGeometry
     m_parser.LoadString strContent, edbForm
     m_parser.Sanitize ectObjectDefinition
     SanitizeForm = m_parser.GetOutput
+
+CleanUp:
+    ' Options is shared by every later test, so it is restored even when sanitizing
+    ' fails; the empty result then fails the caller's assertions.
     Options.ExportFormatVersion = lngOldFormat
     Options.SanitizeLevel = intOldSanitize
+    Options.SnapFormLayoutGeometry = blnOldSnap
+    Exit Function
+
+ErrHandler:
+    Resume CleanUp
 End Function
 
 
@@ -331,6 +428,44 @@ Private Function SanitizeReport(strContent As String, _
     Options.ExportFormatVersion = lngOldFormat
     Options.SanitizeLevel = intOldSanitize
     Options.SanitizeColors = intOldColors
+End Function
+
+
+Private Function SanitizeCodeBehind(lngFormat As Long, intSanitize As eSanitizeLevel) As String
+
+    Dim lngOldFormat As Long
+    Dim intOldSanitize As eSanitizeLevel
+    Dim blnOldSplit As Boolean
+    lngOldFormat = Options.ExportFormatVersion
+    intOldSanitize = Options.SanitizeLevel
+    blnOldSplit = Options.SplitLayoutFromVBA
+
+    On Error GoTo ErrHandler
+    Options.ExportFormatVersion = lngFormat
+    Options.SanitizeLevel = intSanitize
+    Options.SplitLayoutFromVBA = True
+    m_parser.LoadString _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =6000" & vbCrLf & _
+        "End" & vbCrLf & _
+        "CodeBehindForm" & vbCrLf & _
+        "Option Compare Database" & vbCrLf & _
+        "Option Explicit" & vbCrLf & _
+        "Private Sub Form_Load()" & vbCrLf & _
+        "End Sub", edbForm
+    m_parser.ObjectName = "frmSplit"
+    m_parser.Sanitize ectObjectDefinition
+    SanitizeCodeBehind = m_parser.GetOutput
+
+CleanUp:
+    Options.ExportFormatVersion = lngOldFormat
+    Options.SanitizeLevel = intOldSanitize
+    Options.SplitLayoutFromVBA = blnOldSplit
+    Exit Function
+
+ErrHandler:
+    Resume CleanUp
 End Function
 
 
@@ -377,6 +512,34 @@ Private Function EdgeAndColorReport() As String
 End Function
 
 
+' The shape Access writes for a modern chart: the field names live in binary blocks.
+Private Function ModernChartForm(strVersionLine As String) As String
+    ModernChartForm = _
+        strVersionLine & vbCrLf & _
+        "VersionRequired =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =10680" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin Section" & vbCrLf & _
+        "            Height =7560" & vbCrLf & _
+        "            Name =""Detail""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        "                Begin ModernChart" & vbCrLf & _
+        "                    Name =""Chart0""" & vbCrLf & _
+        "                    RowSource =""tblSales""" & vbCrLf & _
+        "                    ChartAxis =""[SaleDate]""" & vbCrLf & _
+        "                    ChartAxisData = Begin" & vbCrLf & _
+        "                        0x0100000018000000080000005b00530061006c00650044006100740065005d00 ," & vbCrLf & _
+        "                        0x03000000" & vbCrLf & _
+        "                    End" & vbCrLf & _
+        "                End" & vbCrLf & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
 Private Function TabularPairForm(lngLeftA As Long, lngLeftB As Long, lngWidth As Long) As String
     TabularPairForm = _
         "Version =20" & vbCrLf & _
@@ -389,6 +552,26 @@ Private Function TabularPairForm(lngLeftA As Long, lngLeftB As Long, lngWidth As
         "            Begin" & vbCrLf & _
         CellBlock("Label", "lblA", lngLeftA, 120, lngWidth, 360, 0, 0) & _
         CellBlock("Label", "lblB", lngLeftB, 120, lngWidth, 360, 1, 1) & _
+        "            End" & vbCrLf & _
+        "        End" & vbCrLf & _
+        "    End" & vbCrLf & _
+        "End"
+End Function
+
+
+' Two 256-twip image cells in one tabular row, the shape reported in #839.
+Private Function IconPairForm() As String
+    IconPairForm = _
+        "Version =20" & vbCrLf & _
+        "Begin Form" & vbCrLf & _
+        "    Width =6000" & vbCrLf & _
+        "    Begin" & vbCrLf & _
+        "        Begin FormHeader" & vbCrLf & _
+        "            Height =600" & vbCrLf & _
+        "            Name =""FormHeader""" & vbCrLf & _
+        "            Begin" & vbCrLf & _
+        CellBlock("Image", "imgUp", 105, 120, 256, 256, 0, 0) & _
+        CellBlock("Image", "imgDown", 421, 120, 256, 256, 1, 1) & _
         "            End" & vbCrLf & _
         "        End" & vbCrLf & _
         "    End" & vbCrLf & _

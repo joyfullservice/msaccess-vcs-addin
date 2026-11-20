@@ -64,8 +64,8 @@ Private Enum eListType
     eltReservedAccess
 End Enum
 
-' Token types
-Private Enum eTokenTypes
+' Token types (public so clsSqlCanonicalizer can read the shared tokenizer's output)
+Public Enum eTokenTypes
     ttUnknown
     ttWhitespace
     ttWord
@@ -89,6 +89,23 @@ Private m_intDialect As eSqlDialect
 Private m_varWordCache(1 To 2) As Variant
 Private m_lngFormatVersion As Long
 
+' Matching parenthesis token index for each "(" and ")" (EFV_5_2_0 layout)
+Private m_lngParenMatch() As Long
+
+' Layout role of each token, set by MarkLayoutRoles (EFV_5_2_0 layout)
+Private Enum eLayoutRole
+    elrNone
+    elrClause       ' PARAMETERS, DELETE, or make-table INTO: laid out like a clause keyword
+    elrBetweenAnd   ' The And of Between ... And, which never starts a line
+    elrJoinOn       ' The ON of a join, on its own line one level under the JOIN
+    elrColumnList   ' The "(" of an INSERT INTO, CREATE TABLE, or CREATE INDEX column list
+    elrCompoundOn   ' Outer "(" wrapping a multi-condition ON: one condition per line
+End Enum
+Private m_intRole() As eLayoutRole
+
+' Widest line the EFV_5_2_0 layout keeps a parenthesized group on
+Private Const clngMaxLineWidth As Long = 100
+
 
 Private Sub Class_Initialize()
     m_lngFormatVersion = LatestExportFormat
@@ -99,6 +116,12 @@ End Sub
 ' Defaults to LatestExportFormat when not explicitly set.
 Public Property Let FormatVersion(lngVersion As Long)
     m_lngFormatVersion = lngVersion
+End Property
+
+
+' Tokens from the last call to Tokenize: each item is Array(eTokenTypes, value).
+Friend Property Get Tokens() As Collection
+    Set Tokens = m_colTokens
 End Property
 
 
@@ -134,6 +157,10 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
     Dim strType As String
     Dim blnCurOp As Boolean
     Dim blnPrevOp As Boolean
+    Dim blnV52 As Boolean
+    Dim lngInlineDepth As Long
+    Dim lngMatch As Long
+    Dim dFlatClose As Dictionary
 
     If Len(strSql) = 0 Then
         If m_colTokens Is Nothing Then
@@ -153,6 +180,14 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
     Set colIndents = New Collection
     Set cReturn = New clsConcat
 
+    ' Width-based layout (whitespace changes only)
+    blnV52 = (m_lngFormatVersion >= EFV_5_2_0)
+    If blnV52 Then
+        Set dFlatClose = New Dictionary
+        MatchParentheses
+        MarkLayoutRoles
+    End If
+
     ' Build formatted output from tokens
     For lngToken = 1 To m_colTokens.Count
 
@@ -164,6 +199,13 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
 
         ' Only process non-whitespace tokens
         If intTokenType = ttWhitespace Then GoTo NextToken
+
+        If blnV52 Then
+            Select Case m_intRole(lngToken)
+                Case elrClause: intTokenType = ttReservedTopLevel
+                Case elrBetweenAnd: intTokenType = ttReserved
+            End Select
+        End If
 
         ' If we are increasing the special indent level
         If blnIncreaseSpecialIndent Then
@@ -209,6 +251,14 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
         If blnInlineParentheses Then
             ' Check for end of inline parentheses
             If strTokenValue = ")" Then
+                If lngInlineDepth > 0 Then
+                    ' Closes a group nested inside the inline group
+                    lngInlineDepth = lngInlineDepth - 1
+                    cReturn.RTrim
+                    cReturn.Add ") "
+                    GoTo NextToken
+                End If
+
                 cReturn.RTrim
 
                 If blnInlineIndented Then
@@ -231,11 +281,20 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                 GoTo NextToken
             End If
 
-            ' Break to new line if we reach 30 characters
-            If strTokenValue = "," Then
-                If lngInlineCount >= 30 Then
-                    lngInlineCount = 0
-                    blnNewline = True
+            If blnV52 Then
+                ' The whole group was measured to fit, so nested groups stay inline too
+                If strTokenValue = "(" Then
+                    lngInlineDepth = lngInlineDepth + 1
+                    If Not KeepSpaceBeforeParen(lngToken) Then cReturn.RTrim
+                    GoTo EmitToken
+                End If
+            Else
+                ' Break to new line if we reach 30 characters
+                If strTokenValue = "," Then
+                    If lngInlineCount >= 30 Then
+                        lngInlineCount = 0
+                        blnNewline = True
+                    End If
                 End If
             End If
 
@@ -244,7 +303,27 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
         End If
 
         ' Opening parentheses increase the block indent level and start a new line
-        If strTokenValue = "(" Then
+        If strTokenValue = "(" And blnV52 Then
+            If Not KeepSpaceBeforeParen(lngToken) Then cReturn.RTrim
+            lngMatch = m_lngParenMatch(lngToken)
+            If IsFlatJoinGroup(lngToken, lngMatch) Then
+                ' Left-nested join group: open inline before the first table and
+                ' close at the end of its join line, so each JOIN starts a line.
+                dFlatClose(lngMatch) = True
+            ElseIf m_intRole(lngToken) <> elrColumnList _
+                And m_intRole(lngToken) <> elrCompoundOn _
+                And GroupFitsInline(lngToken, lngMatch, CurrentColumn(cReturn)) Then
+                blnInlineParentheses = True
+                lngInlineDepth = 0
+                lngInlineCount = 0
+                blnInlineIndented = False
+            Else
+                ' One item per line inside the group
+                IncreaseIndent colIndents, lngIndentLevel, "parentheses"
+                blnNewline = True
+            End If
+
+        ElseIf strTokenValue = "(" Then
             ' First check if this should be an inline parentheses block
             ' Examples are "NOW()", "COUNT(*)", "int(10)", key(`somecolumn`), DECIMAL(7,2)
             ' Allow up to 3 non-whitespace tokens inside inline parentheses
@@ -315,6 +394,23 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                 blnNewline = True
             End If
 
+        ElseIf strTokenValue = ")" And blnV52 Then
+            cReturn.RTrim
+            If dFlatClose.Exists(lngToken) Then
+                ' Ends a join line; the ON clause it carried is complete
+                PopOnIndent colIndents, lngIndentLevel
+            Else
+                Do While colIndents.Count > 0
+                    strType = colIndents(1)
+                    DecreaseIndent colIndents, lngIndentLevel
+                    If strType = "parentheses" Then Exit Do
+                Loop
+                If Not blnAddedNewline Then
+                    cReturn.RTrim vbTab
+                    cReturn.Add vbCrLf, StrRepeat(vbTab, lngIndentLevel)
+                End If
+            End If
+
         ElseIf strTokenValue = ")" Then
             ' Closing parentheses decrease the parentheses indent level
             ' Remove whitespace before the closing parentheses
@@ -339,6 +435,7 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
         ElseIf intTokenType = ttReservedTopLevel Then
             ' Top level reserved words start a new line and increase the special indent level
             blnIncreaseSpecialIndent = True
+            If blnV52 Then PopOnIndent colIndents, lngIndentLevel
 
             ' If the last indent type was 'special', decrease the special indent for this round
             If colIndents.Count > 0 Then
@@ -382,6 +479,23 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                 ' All other cases of commas
                 blnNewline = True
             End If
+            If blnV52 Then PopOnIndent colIndents, lngIndentLevel
+
+        ElseIf intTokenType = ttReservedNewline And blnV52 Then
+            ' Inline groups were measured to fit on one line, so they never break
+            If Not blnInlineParentheses Then
+                If IsJoinKeyword(intTokenType, strTokenValue) Then
+                    PopOnIndent colIndents, lngIndentLevel
+                End If
+                If blnAddedNewline Then
+                    cReturn.RTrim vbTab
+                    cReturn.Add StrRepeat(vbTab, lngIndentLevel)
+                Else
+                    cReturn.RTrim
+                    cReturn.Add vbCrLf, StrRepeat(vbTab, lngIndentLevel)
+                End If
+            End If
+            PurgeExtraWhitespace strTokenValue
 
         ElseIf intTokenType = ttReservedNewline Then
             ' Newline reserved words start a new line
@@ -391,6 +505,20 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                 cReturn.Add vbCrLf, StrRepeat(vbTab, lngIndentLevel)
             End If
             PurgeExtraWhitespace strTokenValue
+
+        ElseIf blnV52 And (Not blnInlineParentheses) _
+            And intTokenType = ttReserved And UCase$(strTokenValue) = "ON" Then
+            If m_intRole(lngToken) = elrJoinOn Then
+                PopOnIndent colIndents, lngIndentLevel
+                IncreaseIndent colIndents, lngIndentLevel, "on"
+                If blnAddedNewline Then
+                    cReturn.RTrim vbTab
+                    cReturn.Add StrRepeat(vbTab, lngIndentLevel)
+                Else
+                    cReturn.RTrim
+                    cReturn.Add vbCrLf, StrRepeat(vbTab, lngIndentLevel)
+                End If
+            End If
 
         ElseIf intTokenType = ttBoundary Then
             ' Multiple boundary characters in a row should not have
@@ -416,6 +544,7 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
             End If
         End If
 
+EmitToken:
         ' If the token shouldn't have a space before it
         If strTokenValue = "." _
             Or strTokenValue = "," _
@@ -437,10 +566,25 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
             cReturn.RTrim
         End If
 
+        ' End of statement resets clause and ON indents so a following statement starts flush left
+        If blnV52 And strTokenValue = ";" And Not blnInlineParentheses Then
+            blnClauseLimit = False
+            Do While colIndents.Count > 0
+                If colIndents(1) = "on" Or colIndents(1) = "special" Then
+                    DecreaseIndent colIndents, lngIndentLevel
+                Else
+                    Exit Do
+                End If
+            Loop
+            blnNewline = True
+        End If
+
         ' After emitting SELECT or UPDATE, consume clause modifiers inline so
         ' they stay on the same line:
         '   SELECT [DISTINCT|DISTINCTROW] [TOP n [PERCENT]]
         '   UPDATE [DISTINCTROW]
+        '   DELETE [DISTINCTROW]        (EFV_5_2_0)
+        '   WITH OWNERACCESS OPTION     (EFV_5_2_0)
         If m_lngFormatVersion >= EFV_5_0_0 And intTokenType = ttReservedTopLevel Then
             If UCase$(strTokenValue) = "SELECT" Then
                 lngToken2 = lngToken
@@ -479,7 +623,8 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                     End If
                 Loop
 
-            ElseIf UCase$(strTokenValue) = "UPDATE" Then
+            ElseIf UCase$(strTokenValue) = "UPDATE" _
+                Or (blnV52 And UCase$(strTokenValue) = "DELETE") Then
                 lngToken2 = GetNextTokenID(lngToken, ttWhitespace)
                 If lngToken2 <= m_colTokens.Count Then
                     strNextValue = UCase$(m_colTokens(lngToken2)(1))
@@ -487,6 +632,19 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
                         cReturn.Add strNextValue, " "
                         lngToken = lngToken2
                     End If
+                End If
+
+            ElseIf blnV52 And UCase$(strTokenValue) = "WITH" Then
+                ' Access's WITH OWNERACCESS OPTION is one clause, not a WITH block
+                If NextWordIs(lngToken, "OWNERACCESS", lngToken2) Then
+                    cReturn.Add CStr(m_colTokens(lngToken2)(1)), " "
+                    lngToken = lngToken2
+                    If NextWordIs(lngToken, "OPTION", lngToken2) Then
+                        cReturn.Add CStr(m_colTokens(lngToken2)(1)), " "
+                        lngToken = lngToken2
+                    End If
+                    blnNewline = False
+                    blnIncreaseSpecialIndent = False
                 End If
             End If
         End If
@@ -496,11 +654,12 @@ Public Function FormatSQL(Optional strSql As String, Optional intDialect As eSql
             GoTo NextToken
         End If
 
-        ' Check next token for number
+        ' Check next token for number (or, from EFV_5_2_0, any operand)
         lngToken2 = GetNextTokenID(lngToken, ttWhitespace)
-        If lngToken2 = 0 Then GoTo NextToken
+        If lngToken2 = 0 Or lngToken2 > m_colTokens.Count Then GoTo NextToken
         If m_colTokens(lngToken2)(0) <> ttNumber Then
-            GoTo NextToken
+            If Not blnV52 Then GoTo NextToken
+            If Not IsUnaryOperand(lngToken2) Then GoTo NextToken
         End If
 
         ' Check previous token to distinguish unary minus from binary subtraction.
@@ -557,9 +716,11 @@ End Function
 ' Date      : 8/12/2023
 ' Purpose   : Take a SQL string and break it down into tokens.
 '           : Each token is an array with type(0) and value(1).
+'           : clsSqlCanonicalizer reuses this through the Tokens property, so both
+'           : stages read strings, brackets, dates, and comments the same way.
 '---------------------------------------------------------------------------------------
 '
-Private Sub Tokenize(strSql As String, intDialect As eSqlDialect)
+Friend Sub Tokenize(strSql As String, intDialect As eSqlDialect)
 
     Const cstrBreakAfter As String = "LIMIT" & ";;;;"
 
@@ -1248,7 +1409,7 @@ End Function
 ' Purpose   : Returns true if the token type matches any of the specified types.
 '---------------------------------------------------------------------------------------
 '
-Private Function IsTokenType(intToken As eTokenTypes, ParamArray intMatchTypes() As Variant) As Boolean
+Private Function IsTokenType(ByVal intToken As eTokenTypes, ParamArray intMatchTypes() As Variant) As Boolean
     Dim intMatch As Integer
     For intMatch = 0 To UBound(intMatchTypes)
         If intToken = intMatchTypes(intMatch) Then
@@ -1272,6 +1433,8 @@ Private Function IsOperatorChar(strChar As String) As Boolean
     Select Case strChar
         Case "=", "<", ">", "+", "-", "*", "/"
             IsOperatorChar = True
+        Case "&", "\", "^"
+            IsOperatorChar = (m_lngFormatVersion >= EFV_5_2_0)
     End Select
 End Function
 
@@ -1289,6 +1452,564 @@ Private Function IsCompoundOperator(strLeft As String, strRight As String) As Bo
         Case ">=", "<=", "<>", "!="
             IsCompoundOperator = True
     End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MatchParentheses
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Record the matching token index for every balanced "(" and ")" so the
+'           : EFV_5_2_0 layout can measure a group without rescanning the statement.
+'           : Unbalanced parentheses keep a match of zero.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MatchParentheses()
+
+    Dim lngStack() As Long
+    Dim lngDepth As Long
+    Dim lngToken As Long
+    Dim varToken As Variant
+
+    ReDim m_lngParenMatch(0 To m_colTokens.Count)
+    ReDim lngStack(1 To m_colTokens.Count + 1)
+
+    For Each varToken In m_colTokens
+        lngToken = lngToken + 1
+        If varToken(0) = ttBoundary Then
+            Select Case varToken(1)
+                Case "("
+                    lngDepth = lngDepth + 1
+                    lngStack(lngDepth) = lngToken
+                Case ")"
+                    If lngDepth > 0 Then
+                        m_lngParenMatch(lngToken) = lngStack(lngDepth)
+                        m_lngParenMatch(lngStack(lngDepth)) = lngToken
+                        lngDepth = lngDepth - 1
+                    End If
+            End Select
+        End If
+    Next varToken
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GroupFitsInline
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return True when the parenthesized group from lngOpen to lngClose fits
+'           : on the current line within clngMaxLineWidth. Subqueries, comments,
+'           : statement breaks, and joins always use the block layout.
+'---------------------------------------------------------------------------------------
+'
+Private Function GroupFitsInline(lngOpen As Long, lngClose As Long, lngColumn As Long) As Boolean
+    Dim lngLimit As Long
+    If lngClose <= lngOpen Then Exit Function
+    lngLimit = clngMaxLineWidth - lngColumn
+    If lngLimit <= 0 Then Exit Function
+    GroupFitsInline = (EstimateWidth(lngOpen, lngClose, lngLimit, True) <= lngLimit)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsFlatJoinGroup
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return True for a left-nested join group, where the closing parenthesis
+'           : is followed by another JOIN. Access writes multi-table joins this way:
+'           :   ((tblA INNER JOIN tblB ON ...) LEFT JOIN tblC ON ...) LEFT JOIN ...
+'           : Derived tables (a SELECT inside the group) keep the block layout.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsFlatJoinGroup(lngOpen As Long, lngClose As Long) As Boolean
+
+    Dim lngNext As Long
+    Dim lngToken As Long
+    Dim lngInner As Long
+
+    If lngClose <= lngOpen Then Exit Function
+
+    lngNext = GetNextTokenID(lngOpen, ttWhitespace)
+    If lngNext = 0 Or lngNext >= lngClose Then Exit Function
+    If m_colTokens(lngNext)(0) = ttReservedTopLevel Then Exit Function
+
+    lngNext = GetNextTokenID(lngClose, ttWhitespace)
+    If lngNext = 0 Or lngNext > m_colTokens.Count Then Exit Function
+    If Not IsJoinKeyword(m_colTokens(lngNext)(0), CStr(m_colTokens(lngNext)(1))) Then Exit Function
+
+    ' Must contain a JOIN outside any subquery, so an ON condition group right
+    ' before the next JOIN is not mistaken for a join wrapper.
+    lngToken = lngOpen + 1
+    Do While lngToken < lngClose
+        If m_colTokens(lngToken)(0) = ttBoundary And m_colTokens(lngToken)(1) = "(" Then
+            lngInner = GetNextTokenID(lngToken, ttWhitespace)
+            If lngInner > 0 And lngInner < lngClose Then
+                If m_colTokens(lngInner)(0) = ttReservedTopLevel And m_lngParenMatch(lngToken) > lngToken Then
+                    lngToken = m_lngParenMatch(lngToken)
+                End If
+            End If
+        ElseIf IsJoinKeyword(m_colTokens(lngToken)(0), CStr(m_colTokens(lngToken)(1))) Then
+            IsFlatJoinGroup = True
+            Exit Function
+        End If
+        lngToken = lngToken + 1
+    Loop
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsJoinKeyword
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return True for a newline reserved word that is a JOIN variant.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsJoinKeyword(ByVal intType As eTokenTypes, ByVal strValue As String) As Boolean
+    If intType = ttReservedNewline Then IsJoinKeyword = (UCase$(strValue) Like "*JOIN")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MarkLayoutRoles
+' Author    : Adam Waller
+' Date      : 11/17/2026
+' Purpose   : Set m_intRole for the tokens the EFV_5_2_0 layout places by context:
+'           : PARAMETERS, DELETE, and make-table INTO start a clause; the And of a
+'           : Between stays on its line; the ON of a join takes its own line; an
+'           : outer-parenthesized compound ON breaks its conditions onto lines; and an
+'           : INSERT INTO, CREATE TABLE, or CREATE INDEX column list puts one column
+'           : per line. Each JOIN claims the next unclaimed ON, so the ON of
+'           : CREATE INDEX is never taken for a join.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MarkLayoutRoles()
+
+    Dim blnBetween() As Boolean
+    Dim blnStatementStart As Boolean
+    Dim lngDepth As Long
+    Dim lngJoins As Long
+    Dim lngToken As Long
+    Dim intType As eTokenTypes
+    Dim strValue As String
+    Dim strPrev As String
+
+    ReDim m_intRole(0 To m_colTokens.Count)
+    ReDim blnBetween(0 To m_colTokens.Count)
+    blnStatementStart = True
+
+    For lngToken = 1 To m_colTokens.Count
+        intType = m_colTokens(lngToken)(0)
+        If Not IsTokenType(intType, ttWhitespace, ttComment, ttBlockComment) Then
+            strValue = UCase$(m_colTokens(lngToken)(1))
+            Select Case True
+                Case intType = ttBoundary And strValue = "("
+                    lngDepth = lngDepth + 1
+                    blnBetween(lngDepth) = False
+                    If IsColumnListOpen(lngToken) Then m_intRole(lngToken) = elrColumnList
+                Case intType = ttBoundary And strValue = ")"
+                    If lngDepth > 0 Then lngDepth = lngDepth - 1
+                Case intType = ttBoundary And strValue = ";"
+                    lngJoins = 0
+                    blnBetween(lngDepth) = False
+                Case IsJoinKeyword(intType, strValue)
+                    lngJoins = lngJoins + 1
+                Case intType = ttReserved And strValue = "ON"
+                    If lngJoins > 0 Then
+                        m_intRole(lngToken) = elrJoinOn
+                        lngJoins = lngJoins - 1
+                    End If
+                Case intType = ttReserved And strValue = "BETWEEN"
+                    blnBetween(lngDepth) = True
+                Case intType = ttReservedNewline And strValue = "AND"
+                    If blnBetween(lngDepth) Then
+                        m_intRole(lngToken) = elrBetweenAnd
+                        blnBetween(lngDepth) = False
+                    End If
+                Case blnStatementStart And (strValue = "PARAMETERS" Or strValue = "DELETE")
+                    m_intRole(lngToken) = elrClause
+                Case intType = ttReserved And strValue = "INTO" And strPrev <> "INSERT"
+                    m_intRole(lngToken) = elrClause
+            End Select
+            blnStatementStart = (strValue = ";")
+            strPrev = strValue
+        End If
+    Next lngToken
+
+    For lngToken = 1 To m_colTokens.Count
+        If m_intRole(lngToken) = elrJoinOn Then MarkCompoundOnGroup lngToken
+    Next lngToken
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : MarkCompoundOnGroup
+' Author    : Adam Waller
+' Date      : 11/18/2026
+' Purpose   : Mark an outer "(" immediately after the join ON at lngOn as elrCompoundOn
+'           : when it wraps the whole ON condition and contains a top-level boolean
+'           : operator (AND/OR/XOR), so ON ((a = b) AND (c = 1)) puts one condition
+'           : per line regardless of width.
+'---------------------------------------------------------------------------------------
+'
+Private Sub MarkCompoundOnGroup(ByVal lngOn As Long)
+
+    Dim lngOpen As Long
+    Dim lngClose As Long
+    Dim lngAfter As Long
+    Dim lngToken As Long
+    Dim intType As eTokenTypes
+
+    lngOpen = NextSignificantTokenID(lngOn)
+    If lngOpen = 0 Or lngOpen > m_colTokens.Count Then Exit Sub
+    If m_colTokens(lngOpen)(0) <> ttBoundary Or m_colTokens(lngOpen)(1) <> "(" Then Exit Sub
+
+    lngClose = m_lngParenMatch(lngOpen)
+    If lngClose <= lngOpen Then Exit Sub
+
+    ' Must wrap the entire ON condition, not just the left side of an outer AND
+    lngAfter = NextSignificantTokenID(lngClose)
+    If lngAfter > 0 And lngAfter <= m_colTokens.Count Then
+        intType = m_colTokens(lngAfter)(0)
+        If intType = ttReservedTopLevel Or m_intRole(lngAfter) = elrClause Then
+            ' Ends at next clause
+        ElseIf IsJoinKeyword(intType, CStr(m_colTokens(lngAfter)(1))) Then
+            ' Ends at next join
+        ElseIf intType = ttBoundary Then
+            Select Case CStr(m_colTokens(lngAfter)(1))
+                Case ")", ",", ";"
+                Case Else: Exit Sub
+            End Select
+        Else
+            Exit Sub
+        End If
+    End If
+
+    ' Look for a direct-child boolean keyword (excluding Between ... And)
+    lngToken = lngOpen + 1
+    Do While lngToken < lngClose
+        intType = m_colTokens(lngToken)(0)
+        If intType = ttBoundary And m_colTokens(lngToken)(1) = "(" Then
+            If m_lngParenMatch(lngToken) > lngToken Then
+                lngToken = m_lngParenMatch(lngToken)
+            End If
+        ElseIf intType = ttReservedNewline And m_intRole(lngToken) <> elrBetweenAnd Then
+            If Not IsJoinKeyword(intType, CStr(m_colTokens(lngToken)(1))) Then
+                m_intRole(lngOpen) = elrCompoundOn
+                Exit Sub
+            End If
+        End If
+        lngToken = lngToken + 1
+    Loop
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NextSignificantTokenID
+' Author    : Adam Waller
+' Date      : 11/18/2026
+' Purpose   : Return the next token ID after lngCurrentToken that is neither whitespace
+'           : nor a comment, or 0 when none remain.
+'---------------------------------------------------------------------------------------
+'
+Private Function NextSignificantTokenID(ByVal lngCurrentToken As Long) As Long
+    Dim lngToken As Long
+    Dim intType As eTokenTypes
+    For lngToken = lngCurrentToken + 1 To m_colTokens.Count
+        intType = m_colTokens(lngToken)(0)
+        If Not IsTokenType(intType, ttWhitespace, ttComment, ttBlockComment) Then
+            NextSignificantTokenID = lngToken
+            Exit For
+        End If
+    Next lngToken
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PopOnIndent
+' Author    : Adam Waller
+' Date      : 11/18/2026
+' Purpose   : Remove any active join ON indent from the top of colIndents.
+'---------------------------------------------------------------------------------------
+'
+Private Sub PopOnIndent(ByRef colIndents As Collection, ByRef lngIndentLevel As Long)
+    If colIndents Is Nothing Then Exit Sub
+    Do While colIndents.Count > 0
+        If colIndents(1) = "on" Then
+            DecreaseIndent colIndents, lngIndentLevel
+        Else
+            Exit Do
+        End If
+    Loop
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsColumnListOpen
+' Author    : Adam Waller
+' Date      : 11/17/2026
+' Purpose   : Return True when the "(" at lngOpen starts the column list of
+'           : INSERT INTO t [IN 'db'] (...), CREATE TABLE t (...), or
+'           : CREATE INDEX i ON t (...).
+'---------------------------------------------------------------------------------------
+'
+Private Function IsColumnListOpen(lngOpen As Long) As Boolean
+
+    Dim blnIn As Boolean
+    Dim blnOn As Boolean
+    Dim lngNames As Long
+    Dim lngToken As Long
+    Dim intType As eTokenTypes
+    Dim strValue As String
+
+    lngToken = lngOpen
+    Do
+        lngToken = GetPreviousTokenID(lngToken, ttWhitespace)
+        If lngToken = 0 Then Exit Function
+        intType = m_colTokens(lngToken)(0)
+        strValue = UCase$(m_colTokens(lngToken)(1))
+        If IsTokenType(intType, ttWord, ttQuote, ttBacktickQuote) Or strValue = "." Then
+            lngNames = lngNames + 1
+            If lngNames > 8 Then Exit Function
+        ElseIf strValue = "IN" And Not (blnIn Or blnOn) Then
+            blnIn = True
+        ElseIf strValue = "ON" And Not (blnIn Or blnOn) Then
+            blnOn = True
+        Else
+            Exit Do
+        End If
+    Loop
+    If lngNames = 0 Then Exit Function
+
+    If strValue Like "INSERT*INTO" Then
+        IsColumnListOpen = Not blnOn
+    ElseIf strValue = "INTO" Then
+        IsColumnListOpen = Not blnOn And PreviousWordIs(lngToken, "INSERT")
+    ElseIf strValue = "TABLE" Then
+        IsColumnListOpen = Not (blnIn Or blnOn) And PreviousWordIs(lngToken, "CREATE")
+    ElseIf strValue = "INDEX" Then
+        IsColumnListOpen = blnOn And Not blnIn
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PreviousWordIs
+' Author    : Adam Waller
+' Date      : 11/17/2026
+' Purpose   : Return True when the token before lngToken, skipping whitespace, is
+'           : strWord (case-insensitive).
+'---------------------------------------------------------------------------------------
+'
+Private Function PreviousWordIs(lngToken As Long, strWord As String) As Boolean
+    Dim lngPrev As Long
+    lngPrev = GetPreviousTokenID(lngToken, ttWhitespace)
+    If lngPrev > 0 Then PreviousWordIs = (StrComp(m_colTokens(lngPrev)(1), strWord, vbTextCompare) = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : NextWordIs
+' Author    : Adam Waller
+' Date      : 11/17/2026
+' Purpose   : Return True when the token after lngToken, skipping whitespace, is
+'           : strWord (case-insensitive), and return its index in lngNext.
+'---------------------------------------------------------------------------------------
+'
+Private Function NextWordIs(lngToken As Long, strWord As String, ByRef lngNext As Long) As Boolean
+    lngNext = GetNextTokenID(lngToken, ttWhitespace)
+    If lngNext < 1 Or lngNext > m_colTokens.Count Then Exit Function
+    NextWordIs = (StrComp(m_colTokens(lngNext)(1), strWord, vbTextCompare) = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : EstimateWidth
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return the rendered width of tokens lngStart to lngEnd on one line, using
+'           : the same spacing rules as FormatSQL. Stops early once the width passes
+'           : lngLimit. With blnRejectBreaks, any token that forces a line break
+'           : returns lngLimit + 1.
+'---------------------------------------------------------------------------------------
+'
+Private Function EstimateWidth(lngStart As Long, lngEnd As Long, lngLimit As Long, blnRejectBreaks As Boolean) As Long
+
+    Dim lngToken As Long
+    Dim intType As eTokenTypes
+    Dim strValue As String
+    Dim strPrev As String
+    Dim blnSpace As Boolean
+    Dim lngWidth As Long
+
+    For lngToken = lngStart To lngEnd
+        intType = m_colTokens(lngToken)(0)
+        If intType = ttWhitespace Then
+            blnSpace = True
+        Else
+            strValue = m_colTokens(lngToken)(1)
+            If blnRejectBreaks Then
+                If IsTokenType(intType, ttReservedTopLevel, ttComment, ttBlockComment) _
+                    Or strValue = ";" Or IsJoinKeyword(intType, strValue) Then
+                    EstimateWidth = lngLimit + 1
+                    Exit Function
+                End If
+            End If
+            If lngToken > lngStart Then
+                If SpaceBetween(strPrev, strValue, blnSpace) Then lngWidth = lngWidth + 1
+            End If
+            lngWidth = lngWidth + Len(strValue)
+            If lngWidth > lngLimit Then Exit For
+            strPrev = strValue
+            blnSpace = False
+        End If
+    Next lngToken
+
+    EstimateWidth = lngWidth
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SpaceBetween
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return True when FormatSQL writes a space between two adjacent tokens
+'           : on the same line. blnHadSpace is whitespace in the source between them.
+'---------------------------------------------------------------------------------------
+'
+Private Function SpaceBetween(strPrev As String, strValue As String, blnHadSpace As Boolean) As Boolean
+
+    Select Case strPrev
+        Case "(", "."
+            Exit Function
+        Case "!", ":"
+            If m_intDialect = esdAccess Then Exit Function
+    End Select
+
+    Select Case strValue
+        Case ")", ",", ".", ";"
+            Exit Function
+        Case "!", ":"
+            If m_intDialect = esdAccess Then Exit Function
+        Case "("
+            SpaceBetween = blnHadSpace Or KeepSpaceAfter(strPrev)
+            Exit Function
+    End Select
+
+    If IsBoundaryChar(strPrev) And IsBoundaryChar(strValue) Then
+        SpaceBetween = (IsOperatorChar(strPrev) Or IsOperatorChar(strValue)) _
+            And Not IsCompoundOperator(strPrev, strValue)
+    Else
+        SpaceBetween = True
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : KeepSpaceBeforeParen
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return True when the "(" at lngToken keeps the space written before it.
+'           : Source whitespace is kept (as in earlier formats); from EFV_5_2_0 an
+'           : operator, comma, or keyword also keeps it, so `x & (y)` and
+'           : `AND (y)` never collapse to `x &(y)` or `AND(y)`.
+'---------------------------------------------------------------------------------------
+'
+Private Function KeepSpaceBeforeParen(lngToken As Long) As Boolean
+    Dim intPrevType As eTokenTypes
+    If lngToken <= 1 Then
+        KeepSpaceBeforeParen = True
+        Exit Function
+    End If
+    intPrevType = m_colTokens(lngToken - 1)(0)
+    If IsTokenType(intPrevType, ttWhitespace, ttReservedNewline, ttReservedTopLevel) Then
+        KeepSpaceBeforeParen = True
+    Else
+        KeepSpaceBeforeParen = KeepSpaceAfter(CStr(m_colTokens(lngToken - 1)(1)))
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : KeepSpaceAfter
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return True when a "(" directly after strPrev is an operand group rather
+'           : than a function call argument list.
+'---------------------------------------------------------------------------------------
+'
+Private Function KeepSpaceAfter(strPrev As String) As Boolean
+    If IsOperatorChar(strPrev) Or strPrev = "," Then
+        KeepSpaceAfter = True
+    Else
+        Select Case UCase$(strPrev)
+            Case "AND", "OR", "XOR", "NOT", "IN", "ON", "EXISTS", "ANY", "ALL", "SOME", "AS", "LIKE", "BETWEEN"
+                KeepSpaceAfter = True
+        End Select
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsBoundaryChar
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return True for a single boundary (punctuation) character.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsBoundaryChar(strValue As String) As Boolean
+    If Len(strValue) = 1 Then IsBoundaryChar = (InStr(1, cstrBoundaries, strValue, vbBinaryCompare) > 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsUnaryOperand
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return True when the token can follow a unary minus with no space:
+'           : a name, a quoted or bracketed value, a function, or an opening group.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsUnaryOperand(lngToken As Long) As Boolean
+    Select Case m_colTokens(lngToken)(0)
+        Case ttWord, ttQuote, ttBacktickQuote, ttReserved, ttVariable
+            IsUnaryOperand = True
+        Case ttBoundary
+            IsUnaryOperand = (m_colTokens(lngToken)(1) = "(")
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : CurrentColumn
+' Author    : Adam Waller
+' Date      : 10/28/2026
+' Purpose   : Return the display column at the end of the output, counting each tab
+'           : as the two spaces FormatSQL writes for it.
+'---------------------------------------------------------------------------------------
+'
+Private Function CurrentColumn(cText As clsConcat) As Long
+
+    Const clngTail As Long = 512
+
+    Dim strTail As String
+    Dim lngPos As Long
+
+    strTail = cText.RightStr(clngTail)
+    lngPos = InStrRev(strTail, vbLf)
+    If lngPos = 0 And cText.Length > clngTail Then
+        CurrentColumn = clngTail
+    Else
+        strTail = Mid$(strTail, lngPos + 1)
+        CurrentColumn = Len(strTail) + (Len(strTail) - Len(Replace(strTail, vbTab, vbNullString)))
+    End If
+
 End Function
 
 

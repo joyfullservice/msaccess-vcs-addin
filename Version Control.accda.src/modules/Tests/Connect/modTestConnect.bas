@@ -133,6 +133,46 @@ Public Sub TestAccessBackEndConnectKey()
 End Sub
 
 
+Public Sub TestFileBackEndConnection()
+
+    Const TEXT_LINK As String = "Text;FMT=Delimited;HDR=YES;IMEX=2;ACCDB=YES;DATABASE="
+    Const EXCEL_LINK As String = "Excel 12.0 Xml;HDR=YES;IMEX=2;ACCDB=YES;DATABASE="
+
+    Dim strDir As String
+    Dim strMissing As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    strDir = GetTempFolder("FileLink")
+    strMissing = strDir & PathSep & "missing"
+    WriteFile "ID", strDir & PathSep & "book.xlsx"
+
+    TestAssert TestBackEndConnection(TEXT_LINK & strDir), "text link to an existing folder"
+    TestAssert Not TestBackEndConnection(TEXT_LINK & strMissing), "text link to a missing folder"
+    TestAssert TestBackEndConnection(EXCEL_LINK & strDir & PathSep & "book.xlsx"), _
+        "Excel link to an existing file"
+    TestAssert Not TestBackEndConnection(EXCEL_LINK & strMissing & ".xlsx"), _
+        "Excel link to a missing file"
+    TestAssert TestBackEndConnection("WSS;HDR=NO;IMEX=2;ACCDB=YES;" & _
+        "DATABASE=https://example.com/sites/team;LIST={00000000-0000-0000-0000-000000000000};"), _
+        "a SharePoint list has no local path to check"
+
+CleanUp:
+    On Error Resume Next
+    If Len(strDir) > 0 Then If FSO.FolderExists(strDir) Then FSO.DeleteFolder strDir, True
+    If lngErr <> 0 Then TestAssert False, "file back-end connection " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
 Public Sub TestGetConnectionEnvKey()
     Dim strKey As String
 

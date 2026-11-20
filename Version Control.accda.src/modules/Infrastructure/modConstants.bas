@@ -239,6 +239,7 @@ Public Enum eExportFormatVersion
     EFV_4_1_2 = 40102
     EFV_5_0_0 = 50000      ' v5 baseline: extensions, @Folder, CF decode-to-JSON, command bar replica export, etc.
     EFV_5_1_0 = 50100      ' Sidecar Info.Class names; canonical tbldefs property order; IMEX spec SpecID; form layout geometry; query OptionFlag derived from SQL.
+    EFV_5_2_0 = 50200      ' Query SQL: Access reserved-word brackets and FROM order; width-based SQL layout; redundant WHERE/HAVING parentheses removed; Minimal sanitize splits code-behind.
 End Enum
 
 ' Bump this whenever the SVG layout generator output changes
@@ -280,6 +281,7 @@ Public Function GetExportFormatVersions() As Collection
     col.Add EFV_4_1_2
     col.Add EFV_5_0_0
     col.Add EFV_5_1_0
+    col.Add EFV_5_2_0
     Set GetExportFormatVersions = col
 
 End Function
@@ -317,9 +319,14 @@ End Function
 '           :   Forms = 1        7/28/2026  Fixed CF14 data bar decode (issue #730)
 '           :   Forms = 2        9/7/2026   Canonical 60-twip form layout geometry; drop LayoutCached*
 '           :   Forms = 3        9/16/2026  Preserve legacy-only conditional formatting (issue #779)
+'           :   Forms = 4        11/20/2026 Keep Version =21 for modern charts (issue #660)
 '           :   Reports = 1      7/28/2026  Fixed CF14 data bar decode (issue #730)
 '           :   Reports = 2      9/16/2026  Preserve legacy-only conditional formatting (issue #779)
+'           :   Reports = 3      11/20/2026 Keep Version =21 for modern charts (issue #660)
 '           :   Tables = 1       8/21/2026  Fixed DECIMAL(p,s) in optional .sql sidecar (issue #756)
+'           :   Queries = 1      11/19/2026 Pasteable UPDATE SET targets (issue #840), names
+'           :                               starting with "(" (#815), external append and
+'           :                               source databases
 '---------------------------------------------------------------------------------------
 '
 Public Function GetExporterRevisions() As Dictionary
@@ -327,9 +334,10 @@ Public Function GetExporterRevisions() As Dictionary
     Dim d As Dictionary
     Set d = New Dictionary
     d.Add "CommandBars", 1
-    d.Add "Forms", 3
-    d.Add "Reports", 2
+    d.Add "Forms", 4
+    d.Add "Reports", 3
     d.Add "Tables", 1
+    d.Add "Queries", 1
     Set GetExporterRevisions = d
 
 End Function

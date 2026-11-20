@@ -83,6 +83,369 @@ contradictory guidance.
 
 ---
 
+## 2026-11-20 — The back-end reachability test probes only ODBC links
+
+**Trigger**: #838. A text-file link whose folder was missing stopped the export with
+error 3305. When a linked table fails `TableExists`, the table exports call
+`TestBackEndConnection` to tell a down back end from a single missing table. Every
+link that was not an Access back end went to the ODBC pass-through probe, and
+assigning a `Text;` string to `QueryDef.Connect` raises 3305 before any error
+handling. Excel and dBASE links took the same path.
+
+**Options explored**:
+- *Trap the error in the probe and treat it as unreachable.* Rejected as the whole
+  fix: every file link would be marked unavailable when one table failed, even with
+  its file in place, and the warning would name the wrong cause.
+- *Check the `DATABASE=` path of file-based links* — chosen. Text and dBASE links
+  name a folder and Excel links name a file, so either one existing counts.
+- *Treat a link with no local path, such as a SharePoint `WSS;` URL, as
+  unreachable.* Rejected: nothing local can confirm it, and marking it unavailable
+  would skip every list from that site with a misleading warning. It is reported as
+  reachable, so the table is logged as the error.
+
+**Decision**: `TestBackEndConnection` sends only `ODBC;` connections to
+`RunConnectivityProbe`, and `FileBackEndExists` checks the path for the others.
+`RunConnectivityProbe` now assigns `Connect` under its error handler, so a malformed
+ODBC string is a failed probe rather than an unhandled error. Nothing here changes
+exported output.
+
+**What this rules out**: Probing a non-ODBC link with a pass-through query. A new
+link type with a local path is covered by the file check. One without a local path
+is reported per table until it gets its own test.
+
+**Relevant files**: `modConnect.bas` (`TestBackEndConnection`, `FileBackEndExists`,
+`RunConnectivityProbe`), `modTestConnect.bas`, `modTestTableDef.bas`.
+
+---
+
+## 2026-11-20 — Translation strings are harvested from source as well as captured at runtime
+
+**Trigger**: Adding a German translation. `T()` adds a string to `tblStrings` only when
+it runs, so `MSAccessVCS.pot` held 273 strings while the code had about 670 literal
+`T()` calls. Nearly every log message and dialog was missing, because nobody had
+triggered it before the last template export.
+
+**Options explored**:
+- **Exercise the UI with "Contribute to Translations" on**: the existing design. It
+  never reaches error paths, rare prompts, or log lines from options most people
+  leave off. Kept as the source of strings that cannot be harvested, but not
+  sufficient on its own.
+- **A PowerShell or Python extractor that writes the `.pot` directly**: easy to run
+  outside Access, but it would duplicate `clsTranslation.Q`'s line wrapping and the
+  `qryTranslatedStrings` ordering. Any difference churns all four translation files
+  on the next sync from inside the add-in. Rejected.
+- **A VBA scanner in `clsTranslation` that feeds `tblStrings`**: `HarvestSourceStrings`
+  reads every non-test component and saves new strings through the existing
+  `SaveString`, so `ExportTemplate` stays the only writer of the files. Chosen.
+
+**Decision**: `ExtractTranslatableStrings` takes the first argument of a `T(` call
+when it is a literal, literals joined with `&` (including `vbCrLf` and similar
+constants, stored as LF), or `IIf(condition, literal, literal)`. Any other argument is
+computed at runtime and is reported and skipped; those strings still arrive through
+the runtime capture. Components whose `'@Folder` starts with `Tests` are skipped,
+because their strings are fixtures. `T()` now keys every string with LF line breaks.
+Form captions arrive with CRLF while strings loaded from a `.po` file have LF, so
+multi-line captions never matched their translations. A translated string is
+returned with the caller's line breaks.
+
+In the same change, an unset language now follows the Office UI language
+(`ResolveOsLanguage`: exact match, then the same language prefix, `en_*` always
+`en_US`, never `en_TEST`). Previously `Language` defaulted to `"en_US"`, so the
+Office-language branch of `GetCurrentLanguage` could never run.
+
+Form captions and tooltips are harvested too: `HarvestFormStrings` opens each form in
+design view, which runs `ApplyTo` without the form's own code, and closes it without
+saving. Before this, 125 of 271 form strings had never reached the template, mostly
+from the Options pages, which are subforms that never called `ApplyTo`. The first
+run exposed a bug in `PurgeStrings`: it deleted any string whose recorded control no
+longer existed, even when the form still showed the same text on another control.
+The Options redesign had replaced tab pages with toggle buttons, so "General", the
+Defaults page buttons, and 62 of the 73 Portuguese translations went with them. A
+string the form still shows now moves to its new reference instead; the translations
+were restored from the previous `pt_BR.po`.
+
+The add-in rebuild worker decided success by finding `Done. (` in the build log,
+which is translated, so every rebuild reported `build-failed` under German. The
+build now writes an untranslated, log-file-only `Build succeeded.` line, and the
+worker checks for that. Translated tooltips can exceed the 255 characters
+`ControlTipText` allows, which raises error 2176; `SetControlTip` clips them, and
+`TestTranslationEntriesValid` fails a form tooltip over 255 characters in any `.po`.
+
+**What this rules out**: Strings built at runtime, such as `T(LCase(cCategory.Category))`,
+cannot be harvested; prefer literals where a string should be translated. Run
+`HarvestSourceStrings`, `ExportTemplate`, and `ExportTranslations` in the development
+copy before a release that adds strings, either in the Immediate window or through
+`vcs_run_vba` aimed at the development copy. Never match translated text in log
+files or anything else a program parses.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/clsTranslation.cls`
+- `Version Control.accda.src/modules/Tests/Infrastructure/modTestTranslation.bas`
+- `Version Control.accda.src/forms/frmVCSOptionsGeneral.cls`
+- `Version Control.accda.src/forms/frmVCSOptions.cls`, `frmVCSConflict.cls`,
+  `frmVCSOptionsExport.cls` — `ApplyTo` for subforms; `SetControlTip`
+- `Version Control.accda.src/modules/Core/modBuild.bas`,
+  `Version Control.accda.src/modules/Integration/clsWorker.cls` — rebuild success marker
+- `Version Control.accda.src/modules/Utility/modFileAccess.bas` — `WriteFileNoBom`
+  read the copied stream from its end after `18f437ed`, so every `.po` export failed
+  with "Type mismatch" from July 2026 until this fix
+- `Translation/de_DE.po`, `Translation/pt_BR.po`, `Translation/MSAccessVCS.pot`
+
+---
+
+## 2026-11-20 — Modern charts keep the Version =21 header
+
+**Trigger**: A modern chart lost its axis grouping after export and build (#660): the
+category axis showed every date instead of months. A bisection of the sanitizer on the
+reporter's sample showed that only the `Version =21` to `Version =20` rewrite matters.
+Under a version 20 header, `LoadFromText` reads the chart's `ChartAxisData` and
+`ChartValueData` blocks without their field names, so the chart's transformed row
+source loses its `Format(..., "mmm 'yy")` grouping. Removing the GUID, NameMap,
+checksum, and themed color lines had no effect. The exported blocks are intact either
+way.
+
+**Options explored**:
+- *Stop downgrading the header at a new export format.* Rejected: every form and report
+  from Access 2013 and later would churn, and Access 2010 import would break.
+- *Gate the fix behind `EFV_5_2_0`.* Rejected for the same reason as the 2026-11-19
+  query fixes: output that does not rebuild correctly is a bug, not a format.
+- *Fix only the import side.* Rejected as the whole fix: the `.form` would still be
+  wrong for anything else that loads it.
+
+**Decision**: Export keeps `Version =21` when the object contains a `Begin ModernChart`
+block, at every format, and the `Forms = 4` and `Reports = 3` exporter revisions
+rewrite existing exports once. Import rewrites a `Version =20` header to 21 when the
+file contains a modern chart (`clsSourceParser.RestoreModernChartVersion`), so source
+exported by earlier versions builds correctly before anyone re-exports. Access
+versions that predate version 21 have no modern charts, so neither change can make a
+loadable file unloadable.
+
+**What this rules out**: Treating the version line as cosmetic. If another control
+turns out to depend on version 21, add it to the same check rather than dropping
+the downgrade.
+
+**Relevant files**: `clsSourceParser.cls` (`SanitizeObject`,
+`RestoreModernChartVersion`), `modLoadSaveText.bas` (`LoadComponentFromText`),
+`modConstants.bas` (`GetExporterRevisions`).
+
+---
+
+## 2026-11-20 — The canonicalizer behavior check never runs a query that can call VBA
+
+**Trigger**: A full Validate Query SQL Builder run on a production database stopped
+at 94% and kept one core busy for over 13 hours. The query it stopped on calls a
+database VBA function once per row, and each call ran its own lookup query, about
+2 seconds apiece over 7,657 rows. The canonicalizer's behavior check ran that query
+in full up to four times (row count and column schema, before and after the
+rewrite). A plain `SELECT Count(*)` of the query spun just as long with the add-in
+out of the picture. The function's error handler also opens a message box, so the
+diagnostic could run user code with side effects.
+
+**Options explored**:
+- *Remove the behavior check.* Rejected: it is the only check that executes the
+  rewritten SQL, and that evidence keeps confidence in the canonical output.
+- *Bound the query with a timeout.* Not possible in-process: DAO's `QueryTimeout`
+  applies only to ODBC sources, and a running Jet query cannot be cancelled from
+  VBA. Worth revisiting if the check moves to a worker process.
+- *Detect calls to the project's own procedures.* Rejected: a function can come from
+  a referenced library, and a miss runs user code.
+- *Allow only known built-ins* — chosen.
+
+**Decision**: Before running anything, `CanonicalBehaviorCheck` scans the SELECT's
+tokens and, recursively, every saved query it names. A word or bracketed name
+followed by `(` must be an Access SQL keyword or a built-in without side effects
+(`IsSafeSqlCall`). Otherwise the check reports `skipped: calls <name>, which may run
+VBA`. Domain aggregates and `Eval` are not on the list, because they evaluate strings
+that can name a query or call VBA. Each saved query is scanned once per run.
+
+**What this rules out**: Running a user query that can reach VBA from any
+validation step. Slow queries made only of built-ins still run unbounded. An unknown
+function is treated as VBA, so a missing built-in costs a skipped check, never a run.
+
+**Relevant files**: `modTestQuerySqlBuilder.bas` (`CanonicalBehaviorCheck`,
+`FirstUnsafeCall`, `IsSafeSqlCall`).
+
+---
+
+## 2026-11-19 — Unparseable query exports are fixed for every 5.x format under an exporter revision
+
+**Trigger**: Several export shapes did not parse when pasted back into Access. An
+UPDATE saved in SQL View exported `SET Order Lines.Unit Cost = 0`, because Attribute 6
+`Name2` stores the target unbracketed (#840). A source name starting with `(` was taken
+as already bracketed (#815). An external append exported `INSERT INTO t IN '<db>' (a, b)`,
+which Access rejects. A connect-string append target and every `FROM ... IN` source were
+dropped. Separately, the Design View WHERE column scan split bracketed names (#814).
+
+**Options explored**:
+- *Gate the fixes behind `EFV_5_2_0`.* Rejected: old-format output that does not parse is a
+  bug, not a format. Users on 5.0 and 5.1 formats would keep exporting SQL they cannot
+  paste.
+- *Bracket every SET target part.* Rejected: Design View stores `[Order Lines].Month` with
+  the reserved word bare, and Access parses any qualified reserved word, so blanket
+  brackets would churn every Design View UPDATE for no gain.
+- *Reuse `IsAccessReservedWord` for unqualified targets.* Rejected: a probe of every word
+  showed 84 that fail as an unqualified target (`Level`, `Value`), a list that matches
+  neither alias list. The new list is added on top of the old one, so brackets an older
+  export wrote stay.
+
+**Decision**: All five fixes apply at every 5.x format and ship as the `Queries = 1`
+exporter revision, which re-exports queries once. A SET target is written the way the
+Design View stores it (`clsSqlSyntax.FormatSetTarget`); the target splits at the first
+period outside brackets, because Access allows no period in a table or field name, local
+or linked. External databases are written after the column list (append) or the table
+list (source), and as `IN '' [<connect>]` when Access stores a connect string. Import keeps
+both in SQL View and rewrites the legacy append order, so 5.0 and 5.1 files still import.
+The connect string is written as Access stores it. Linked-table export already keeps
+`UID` and `PWD` unless the connection is trusted, so this adds no new kind of exposure.
+
+**What this rules out**: Exporting a stored name verbatim on the assumption that Access
+will accept its own text back.
+
+**Relevant files**: `clsSqlSyntax.cls` (`FormatSetTarget`, `SplitQualifiedName`,
+`FindUnquotedChar`, `BracketIfNeeded`), `clsQueryComposer.cls` (`ReconstructSQL`,
+`ParseInsertQuery`, `ReorderLegacyExternalAppend`, `ParseSourceDatabaseClause`,
+`AddWhereFieldsToColumns`), `modConstants.bas` (`GetExporterRevisions`),
+`modTestQuerySqlBuilder.bas` (`InspectQuerySqlStorage`), `docs/access-query-storage.md`.
+
+---
+
+## 2026-11-19 — Exported ON clauses group each table pair's conditions at export format 5.2.0
+
+**Trigger**: Exported `.sql` should paste into SQL View without errors; that matters
+more than matching Access's text. `QueryDefs.SQL` writes `ON (a.x = b.x) AND (b.y > 0)`,
+which fails with error 3296, so two fixtures passed the round-trip paste check only
+through its "Access's own SQL fails too" fallback.
+
+**Options explored**:
+- *Leave Access's text* (the 2026-10-28 tolerance). Rejected: users paste exported SQL,
+  and agents copy it.
+- *Wrap every compound ON in one outer pair.* Built and rebaselined, then rejected: the
+  paste check failed six fixtures that had passed. A probe of synthetic joins showed
+  why. SQL View reads each top-level AND term of an ON as one join condition, and each
+  term must name one table from each side. `(b.y > 0)` alone names one table, so it
+  fails until grouped with `a.x = b.x`; a single pair around conditions on different
+  table pairs names two tables on one side, so it fails too.
+- *Analyze the condition text for table references.* Rejected: `ConsolidateJoins`
+  already knows which conditions share a table pair (one Attribute 7 row each, grouped
+  in its phase 1) and which belong to another pair (merged in phase 2).
+
+**Decision**: At `EFV_5_2_0`, `ConsolidateJoins` encloses each table pair's conditions as
+one term (`ON ((a.x = b.x) AND (b.y > 0))`) and joins conditions on other pairs as
+separate terms (`ON ((b.x = c.x) AND (c.y > 0)) AND (a.z = c.z)`). A single condition and
+a cross-pair-only ON export as before. Import (`GenerateQdef`) and the builder validator
+descend into enclosed AND groups, so the qdef still holds one row per condition. An
+outer join whose ON names two tables from one side has no spelling Access parses
+(`qryRegressionMultiCondJoin`); with a bare `SELECT;` (`qryNoTable`) it is the only
+remaining use of the paste check's fallback.
+
+**What this rules out**: A blanket outer pair on compound ONs, at any format. Once 5.2.0
+ships, changing this grouping needs a new export format version.
+
+**Relevant files**: `clsQueryComposer.cls` (`ConsolidateJoins`,
+`AppendSecondaryCondition`, `AndConditionLeaves`), `modTestQuerySqlBuilder.bas`,
+`modTestRoundtrip.bas`, `clsTestQueryComposerJoins.cls`,
+`Testing/Fixtures/queries/regression/`, `docs/access-query-storage.md`.
+
+---
+
+## 2026-11-17 — Query column lists one per line and ON on its own line at export format 5.2.0
+
+**Trigger**: A review of the re-baselined fixtures before 5.2.0 shipped. `CREATE TABLE`
+and `INSERT INTO` column lists stayed on one line whenever they fit in 100 columns, so
+adding one column rewrote the whole line. ON shared the JOIN line, so a changed join
+condition and a changed join table showed as one edited line. `PARAMETERS` and `DELETE`
+kept their items on the keyword line, a make-table `INTO` trailed the SELECT list,
+`WITH OWNERACCESS OPTION` was split like a `WITH` block, and a `Between ... And` long
+enough to break put its `And` at the start of a line, where it reads as a boolean AND.
+
+**Options explored**:
+- *Width-based for every parenthesized group* (the 2026-10-28 rule). Rejected for lists
+  of names: they are independent items, and one per line makes an added or removed
+  column a one-line diff. Kept for expressions, where splitting `IIf(a, b, c)` hurts.
+- *npm sql-formatter's defaults*, which keep CREATE TABLE and INSERT column lists
+  inline. Rejected for the same diff reason.
+- *ON on the JOIN line when it fits* (2026-10-28). Rejected: whether ON wraps then
+  depends on name lengths, so renaming a table moves the condition between lines.
+  Mozilla's SQL style guide puts ON on its own line indented under the join; chosen.
+- *Also drop the designer's per-criterion pairs* (`(t.a=1) AND (t.b=2)`). Rejected:
+  removing a pair around a comparison needs operator precedence, which the
+  canonicalizer never uses. The pairs also mirror the designer grid, one per cell.
+- *A `.sql` that a designer save cannot change.* Not possible. Saving SQL View queries
+  through the designer showed Access reorders criteria into grid-column order,
+  distributes AND over OR (`(A OR B) AND C` becomes `(A AND C) OR (C AND B)`), and
+  merges criteria on one field into one cell. Spelling can be canonical; structure
+  follows what Access stores.
+
+**Decision**: Gated at `EFV_5_2_0` in `clsSqlFormatter`, which is unreleased, so no new
+format version. `MarkLayoutRoles` assigns a layout role to tokens before formatting;
+token types stay as they are because `clsSqlCanonicalizer` shares `Tokenize`.
+- The column lists of `INSERT INTO`, `CREATE TABLE`, and `CREATE INDEX ... ON` put one
+  name per line regardless of width. Other groups keep the width rule.
+- ON goes on its own line one level under its JOIN (as a stack indent so broken calls
+  and subqueries inside ON indent under ON), with extra AND/OR conditions at the same
+  level and outer-parenthesized compound ONs (`ON ((a = b) AND (c = 1))`) putting one
+  condition per line. An ON with no pending JOIN (`CREATE INDEX ... ON`) is left alone.
+- `PARAMETERS`, `DELETE [DISTINCTROW]`, and a make-table `INTO` are clause keywords:
+  their items go on the following lines, indented. A semicolon resets statement-level
+  clause and ON indents and starts any following statement (`INSERT INTO`, `CREATE`)
+  flush left on a new line.
+- `WITH OWNERACCESS OPTION` stays on one line, and the `And` of `Between ... And`
+  never starts a line.
+- The designer's per-criterion parentheses stay.
+
+**What this rules out**: Inline column lists and ON on the JOIN line. Changing token
+types to drive layout (add a layout role instead). Removing per-criterion pairs
+unless the canonicalizer adopts precedence. Once 5.2.0 ships, any further layout
+change needs a new export format version.
+
+**Relevant files**: `clsSqlFormatter.cls`, `clsTestSqlFormatter.cls`,
+`Testing/Fixtures/queries/`, `vcs-agent-docs/queries.md`,
+`docs/access-query-storage.md`.
+
+---
+
+## 2026-11-17 — Form layout snapping is an on/off option, not a grid-size choice
+
+**Trigger**: #839. A 16x16 icon in a tabular layout, sized at 256 twips (16 px at
+100%), exported as 240 twips under format 5.1.0, so Access rescaled the picture
+and it blurred. The reporter's team all works at 100%, so the 60-twip lattice
+cost them pixel-exact sizes and bought nothing.
+
+**Options explored**:
+- A dropdown of grid sizes (60 / 30 / 15 / off), each listing the scalings it
+  supports. Rejected after re-running the structure-aware algorithm at 30 and 15
+  twips on the captured probe runs. Access's solver adds about one pixel per
+  track boundary even on canonical input (+12 twips at 125%, +10 at 150%, +8 at
+  200%), and the snap radius must absorb that plus the grid's own pixel rounding.
+  30 twips held at 100/150/200% but failed at 125% (2.5 px per step); 15 held only
+  at 100%. A finer grid only unifies a subset of scalings, which a team on one
+  scaling gets from no grid at all, and the subsets are hard to explain in a UI.
+- Set the export format back to 5.0 (the previous documented advice). Gives up
+  every other 5.1.0 change to get rid of one.
+- A Boolean `SnapFormLayoutGeometry`, default True (chosen).
+
+**Decision**: The option gates only the canonicalizer pass in
+`clsSourceParser.SanitizeObject`. `LayoutCached*` stripping and
+`NormalizeViewport` keep their own gates, so turning snapping off changes only
+layout-cell geometry. The option is hashed in the Forms category only, so
+toggling it re-exports forms. A missing key loads the default, so existing
+`vcs-options.json` files need no upgrade step. Teams on mixed scaling keep
+snapping on and size icon cells on the lattice with `SizeMode = Clip` and
+`PictureAlignment = Center`, or remove the control from the layout.
+
+**What this rules out**: Offering intermediate grid sizes unless a new probe shows
+one that holds across 100–200%. Restoring pre-snap sizes automatically: the
+source, and any database built or merged from it, already holds snapped values,
+so users restore `.form` files from Git and merge before exporting with
+snapping off.
+
+**Relevant files**: `clsOptions.cls`, `clsSourceParser.cls`,
+`frmVCSOptionsExport.form`, `frmVCSOptionsExport.cls`, `clsTestSourceParser.cls`,
+`clsTestOptions.cls`, `docs/access-form-geometry.md`,
+`Wiki/Form-Layout-Geometry.md`, `Wiki/Options.md`.
+
+---
+
 ## 2026-11-16 — Restore Required=False on Yes/No fields after Application.ImportXML
 
 **Trigger**: `Application.ImportXML` creates every Yes/No field as `Required = True`.
@@ -137,6 +500,229 @@ Revisit if `ImportXML` starts honoring the property, or if the DAO path becomes 
 default for a Full Build.
 
 **Relevant files**: `clsDbTableDef.cls`, `modDatabase.bas`, `modTestTableDef.bas`.
+
+---
+
+## 2026-11-16 — Emit RecordLocks and NoFormat in the generated query .qdef
+
+**Trigger**: Issue #813. The export writes `RecordLocks` and `NoFormat` to
+`Items.QueryProperties`, but `clsQueryComposer.EmitAllProperties` skipped
+`RecordLocks` ("LvProp-only property; not part of the .qdef text format") and let
+`NoFormat` fall through to `Case Else`, so Build from Source lost both.
+
+**Options explored**:
+- *Emit both in the `.qdef`.* `SaveAsText` does not write `RecordLocks` (in every
+  query measured), but `LoadFromText` accepts `dbByte "RecordLocks"` and stores the
+  property on the `QueryDef` and on its document in the `Tables` container, in SQL
+  View and in Design View (measured on Access 16.0 32-bit, with and without the
+  add-in). `SaveAsText` writes `NoFormat` itself, as `dbBoolean`. Chosen.
+- *Apply the stored `QueryProperties` through DAO after `LoadFromText`*, as #813
+  suggests. Also works (`CreateProperty` on the built query). Not chosen here: the
+  composer already restores every other query property in the one `.qdef`, and a
+  general DAO pass over `QueryProperties` would also bring back the datasheet
+  styling properties that `Case Else` skips on purpose. That is a larger change in
+  behaviour, left as a separate decision.
+
+**Decision**: `EmitAllProperties` emits `RecordLocks` as `dbByte` and `NoFormat`
+through `EmitBoolProp`, in the block of non-default extras, and
+`ResolvePropertyOverrides` normalizes `NoFormat` as a boolean.
+
+**What this rules out**: Nothing for the other `Case Else` properties
+(`ECLScaleFactor` among them); they still do not round-trip. The `.json` keeps
+`QueryProperties` in LvProp order, and the composer emits these two after the
+properties it writes first (`FailOnError`, `DefaultView`, ...). So the first export
+that rewrites a built query (a full export, or its next change under fast save) can
+move `RecordLocks` or `NoFormat` below them, with the same values. `OrderByOnLoad`
+already moves the same way on a select query. The round-trip fixtures, written in the
+composer's order, pass with Pass 1 equal to the fixture.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/clsQueryComposer.cls` — `EmitAllProperties`, `ResolvePropertyOverrides`
+- `Version Control.accda.src/modules/Tests/SQL/clsTestQueryComposer.cls`, `modules/Tests/Components/modTestQuery.bas` — tests
+- `Testing/Fixtures/queries/regression/qryRegressionRecordLocks*`, `qryRegressionNoFormatUnion` — round-trip fixtures
+
+---
+
+## 2026-10-28 — Exported query SQL is standard SQL wherever Access accepts it
+
+**Trigger**: A contributor's builder validation run and a review of a large production
+export. Exported `.sql` files carried Access presentation quirks (`(((t.a)=1))` WHERE
+wrapping, `( a, b )` spacing, staircased join chains) that make diffs noisy and give
+agents, which are not deeply trained on Access SQL, more to trip over.
+
+**Options explored**:
+- *Match Access's text exactly, quirks included.* Rejected: the quirks change whenever
+  a query is saved through the designer, so they churn diffs and teach readers syntax
+  they never need to write.
+- *Convert to ANSI SQL* (`CASE` for `IIf`, `%` for `*`, `||` for `&`). Rejected: the
+  `.sql` must paste into Access's SQL View and run unchanged, and these do not.
+- *Standard SQL layout and spelling where Access accepts it, Access syntax only where
+  Access requires it* — chosen.
+
+**Decision**: Export runs three stages, each with one job. The builder
+(`clsQueryComposer`) reconstructs Access's structure and every stored attribute; the
+canonicalizer (`clsSqlCanonicalizer`) removes only provably redundant parentheses; the
+formatter (`clsSqlFormatter`) changes only whitespace. The builder validator compares
+the builder's raw output, so no later stage can hide a reconstruction loss. Never
+changed by any stage: join-nesting parentheses, ON parentheses, `#date#`, `*`/`?`
+wildcards, `IIf`/`Nz`, `&`, reserved-word brackets, `PARAMETERS` spellings. The
+acceptance test is that the exported `.sql` parses in Access (the round-trip "paste"
+check). The check tolerates a query only when Access's own `QueryDefs.SQL` for it does
+not parse either: Access writes a compound ON that compares a column to a constant
+without the outer pair its parser requires (`ON ((a = b) AND (c > 0))`, error 3296),
+and a bare `SELECT;` fails with 3141. This refines "SQL reconstruction fidelity" (2026-04-14) and "Reconstruct stored
+query attributes" (2026-04-29): structure follows Access, presentation follows standard
+SQL.
+
+> **⚠ Partially superseded** (2026-11-19): From 5.2.0 the export adds the pair a
+> compound ON needs, grouping each table pair's conditions, so the paste check's
+> fallback covers only shapes with no parseable spelling. ON parentheses are no longer
+> "never changed". See "Exported ON clauses group each table pair's conditions at
+> export format 5.2.0" above.
+
+**What this rules out**: Matching Access's spacing in the builder; rewriting Access
+syntax into ANSI equivalents; any stage changing what a query means. A presentation
+change that a reader would call "more standard" still needs an export format gate and
+must keep the paste check passing.
+
+**Relevant files**: `clsQueryComposer.cls`, `clsSqlCanonicalizer.cls`,
+`clsSqlFormatter.cls`, `clsDbQuery.cls` (`ExportNewFormat`), `modTestRoundtrip.bas`,
+`docs/access-query-storage.md`.
+
+---
+
+## 2026-10-28 — Query SQL layout at export format 5.2.0
+
+**Trigger**: In a production export, a parenthesized group stayed inline only when it
+held at most 30 characters with no nested group, so `Sum(t.Loan)` stayed inline while
+`Sum(t.Interest)` spread over three lines. Broken groups packed arguments by character
+count (a lone `0` on its own line), `&` was unspaced (`)& IIf(`), unary minus split
+(`- Nz(`), left-deep join chains staircased one indent per join, and each `(cond)` of a
+multi-condition ON became its own block.
+
+**Options explored**:
+- *Tune the 30-character threshold.* Rejected: any fixed content length breaks
+  differently at different indents; the line width is what the reader sees.
+- *Pack arguments to fill the line.* Rejected: a one-argument change reflows its
+  neighbors, which is the diff noise this work removes.
+- *Width-based inline rule with one argument per line otherwise* — chosen, the layout
+  common to SQL and code formatters that agents and reviewers already read.
+
+**Decision**: Gated at `EFV_5_2_0` in `clsSqlFormatter`. A group stays on one line
+when it fits within 100 columns from where it starts; otherwise each argument goes on
+its own line and the closing parenthesis on its own line, with inner groups measured
+independently. `&`, `\` and `^` are spaced like other operators. A minus after `(`, a
+comma, an operator, or a keyword is unary and glued to its operand (`-Nz(x, 0)`). A
+left-deep join chain is flat: its parentheses open before the first table and close
+at the end of each join line. ON stays on the JOIN line when it fits; each extra
+AND/OR condition goes on its own line, one level under the JOIN. The formatter never
+adds, removes, or changes a non-whitespace token, and formatting its own output
+changes nothing; tests check both over the whole fixture corpus. Below 5.2.0 the
+output is byte-identical to before (existing tests are pinned to `EFV_5_1_0`).
+
+> **⚠ Partially superseded** (2026-11-17): ON now goes on its own line one level
+> under its JOIN, and the column lists of `INSERT INTO`, `CREATE TABLE`, and
+> `CREATE INDEX` put one name per line regardless of width. See "Query column lists
+> one per line and ON on its own line at export format 5.2.0" above.
+
+**What this rules out**: Layout rules that depend on anything other than the token
+stream and the column; a formatter rule that removes a token (that belongs in the
+canonicalizer). `x\y` tokenizes as one word and stays unspaced.
+
+**Relevant files**: `clsSqlFormatter.cls`, `clsTestSqlFormatter.cls`.
+
+---
+
+## 2026-10-28 — Redundant WHERE/HAVING parentheses are removed by a separate canonicalizer
+
+**Trigger**: Access rewrites stored WHERE and HAVING text whenever a query goes
+through the designer, even a query written in SQL View: `WHERE t.a = 1 AND t.b = 2`
+comes back as `WHERE (((t.a)=1) AND ((t.b)=2))` with no change in logic. About 2,200
+queries in one reviewed export carried that wrapping, and opening a query in Design
+View was enough to churn its `.sql`.
+
+**Options explored**:
+- *Leave the parentheses.* Rejected: designer saves keep churning diffs, and readers
+  cannot tell a real grouping from the designer's habit.
+- *Let the formatter remove them.* Rejected: the formatter's whitespace-only rule is
+  what lets its token-preservation test prove it safe.
+- *Precedence-aware removal* (drop any pair the operator precedence makes redundant).
+  Rejected: one precedence mistake (`Not`, `Between ... And`, mixed AND/OR, `&`)
+  silently changes results.
+- *A separate class removing only syntactically redundant pairs* — chosen.
+
+**Decision**: `clsSqlCanonicalizer`, run by `clsDbQuery.ExportNewFormat` before the
+formatter at `EFV_5_2_0`, never for pass-through and never in `ExportLegacy`. It works
+only inside WHERE and HAVING (including subqueries and every SELECT of a UNION) and
+removes a pair that wraps the whole condition, or a pair around one single value: a
+bare, bracketed or qualified name (including `Forms!frm!ctl`), a bracketed parameter, a
+string, a `#date#`, or an unsigned number. Everything else keeps its parentheses,
+including `-5`, `Null`, function-call arguments, `IN`, `EXISTS`, `ANY`/`ALL`/`SOME`,
+subqueries, and FROM/ON. A fail-safe returns the input unchanged, with a
+`DeclineReason`, if the rewrite would change any non-parenthesis token or unbalance
+the parentheses; an SQL comment or an internal error also keeps the input. Before it
+was enabled, a report-only validator section checked every rewrite on the fixture
+corpus for idempotence, an Access parse, an identical decomposed structure, and (for
+read-only SELECTs) the same row count and columns; it found no failures.
+Accepted churn: a designer save still rewrites the text Access stores, but the next
+export returns to the same `.sql`. The designer form `(Count(t.b))>1` keeps its pair,
+since a function call is not a single value.
+
+> **⚠ Partially superseded** (2026-11-17): "the next export returns to the same
+> `.sql`" holds for the parentheses only. A designer save can also reorder criteria,
+> distribute AND over OR, and merge criteria on one field, and those changes reach
+> the `.sql`. See "Query column lists one per line and ON on its own line at export
+> format 5.2.0" above.
+
+> **⚠ Partially superseded** (2026-11-20): the row count and column check skips any
+> query that can call VBA. See "The canonicalizer behavior check never runs a query
+> that can call VBA".
+
+**What this rules out**: Using operator precedence to remove parentheses; touching
+ON, FROM, or SELECT-list parentheses. If Access turns up an edge case, narrow a rule
+as a bug fix through the exporter-revision mechanism, not a new format version.
+
+**Relevant files**: `clsSqlCanonicalizer.cls`, `clsDbQuery.cls`,
+`modTestQuerySqlBuilder.bas` (`CheckCanonicalizer`), `clsTestSqlCanonicalizer.cls`.
+
+---
+
+## 2026-10-28 — Reserved-word aliases and FROM order follow Access at export format 5.2.0
+
+**Trigger**: The same validation run flagged five queries whose aliases Access
+brackets and we did not (`Option`, `First`, `Second`, `To`) and two queries (a SELECT
+and an UPDATE) with a table outside every join. `SELECT 1 AS Option` fails in Access
+with error 3141, so an exported `.sql` with that alias could not be pasted or imported
+through SQL View.
+
+**Options explored**:
+- *Add the four reported words.* Rejected: widening the list later changes output
+  again and needs another format version, so the list has to be complete now.
+- *Use Microsoft's published reserved-word list.* Rejected: Access does not bracket
+  every published word as an alias (`Name` stays bare), so the output would drift
+  from `QueryDefs.SQL` in the other direction.
+- *Sweep Access itself* — chosen: each candidate (the published Access and SQL-92 words
+  plus the old list) loaded as a Design View alias and read back through
+  `QueryDefs.SQL`, plus each tested bare as an alias. The new list is the words the
+  designer brackets plus `EQV`, `IMP`, `MOD` and `XOR`, which the engine rejects as
+  table aliases. It has 296 words and leaves out `Name`, `Parameter` and `Yes`.
+- *Keep `(A JOIN B ON ...), X` for disconnected tables.* Valid SQL with the same rows,
+  but it differs from Access's text, which leaves the validator a permanent review item.
+
+**Decision**: At `EFV_5_2_0`, `clsQueryComposer` brackets aliases with the swept list
+(`clsSqlSyntax.BracketIfNeeded` with `blnDesignerWords`), and `BuildJoinForestSql`
+writes tables outside every join first, in stored order, followed by the join groups
+unwrapped: `FROM X, A INNER JOIN B ON ...`, for SELECT, UPDATE and DELETE alike. Below
+5.2.0 both are unchanged. `MSysQueries` stores aliases unbracketed whether a query was
+saved in SQL View or the designer, so the list applies to both.
+
+**What this rules out**: Editing the 5.2.0 word list without a new format version;
+bracketing by the published list. Parameter declarations keep their authored text.
+
+**Relevant files**: `clsSqlSyntax.cls`, `clsQueryComposer.cls`,
+`Testing/Fixtures/queries/regression/qryRegressionReservedAliasDesignView.*`,
+`qryRegressionDisconnectedNestedJoinDesignView.*`,
+`qryRegressionUpdateCartesianDesignView.*`.
 
 ---
 
@@ -884,6 +1470,10 @@ export, so adding one means adding its SQL spelling too.
 > a span no other cell subdivides, and an axis with no observed position at all.
 > See "Unsubdivided spans and position-free axes are solvable, not
 > underdetermined" above.
+
+> **⚠ Partially superseded** (2026-11-17): the sanitizer is also gated on the
+> `SnapFormLayoutGeometry` option (default on), not on the export format alone.
+> See "Form layout snapping is an on/off option, not a grid-size choice" above.
 
 **Trigger**: Untouched forms churned between developers, and a one-control edit
 exported hundreds of unrelated geometry values re-solved to the editor's DPI.
@@ -6580,6 +7170,10 @@ external targets emit `IN '<path>'`, Attribute 2 rows become `PARAMETERS`
 clauses, UPDATE/DELETE emit `DISTINCTROW` when bit 8 is set, UNION appends
 stored `ORDER BY`, and aliases use a wider Access reserved/contextual keyword
 set for bracketing.
+
+> **⚠ Partially superseded** (2026-10-28): From export format 5.2.0 the alias
+> bracket list is swept from Access itself rather than this hand-picked set. See
+> "Reserved-word aliases and FROM order follow Access at export format 5.2.0" above.
 
 **What this rules out**: Do not classify these as formatting-only review
 cases, and do not solve them by changing only `modTestQuerySqlBuilder`.

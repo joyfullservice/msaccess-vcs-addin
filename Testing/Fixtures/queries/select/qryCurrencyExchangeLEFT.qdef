@@ -1,6 +1,6 @@
 ﻿Operation =1
 Option =0
-Where ="(((tblCurrencyExchange.Base)=\"GBP\"))"
+Where ="(((tblCurrencyExchange.Base=\"GBP\")))"
 Begin InputTables
     Name ="tblCurrencies"
     Name ="tblCurrencyExchange"

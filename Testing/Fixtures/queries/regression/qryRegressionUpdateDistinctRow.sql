@@ -3,8 +3,4 @@
 SET
   tblCars.Colour = tblCars.Colour
 WHERE
-  (
-    (
-      (tblCars.ID) > 0
-    )
-  );
+  tblCars.ID > 0;

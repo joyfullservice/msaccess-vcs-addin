@@ -1,6 +1,6 @@
 ﻿dbMemo "SQL" ="SELECT DISTINCT\015\012  tblCars.Manufacturer\015\012FROM\015\012  tbl"
-    "Cars\015\012WHERE\015\012  (\015\012    (\015\012      (tblCars.Manufa"
-    "cturer) = \"UNION ALL\"\015\012    )\015\012  );\015\012"
+    "Cars\015\012WHERE\015\012  tblCars.Manufacturer = \"UNION ALL\";\015"
+    "\012"
 dbMemo "Connect" =""
 dbBoolean "ReturnsRecords" ="-1"
 dbInteger "ODBCTimeout" ="60"

@@ -10,12 +10,19 @@
   </xsd:element>
   <xsd:element name="tblDecimal">
     <xsd:annotation>
-      <xsd:appinfo></xsd:appinfo>
+      <xsd:appinfo>
+        <od:tableProperty name="Orientation" type="2" value="0"></od:tableProperty>
+      </xsd:appinfo>
     </xsd:annotation>
     <xsd:complexType>
       <xsd:sequence>
         <xsd:element name="ID" minOccurs="1" od:jetType="autonumber" od:sqlSType="int" od:autoUnique="yes" od:nonNullable="yes" type="xsd:int"></xsd:element>
         <xsd:element name="Year4" minOccurs="0" od:jetType="decimal" od:sqlSType="decimal">
+          <xsd:annotation>
+            <xsd:appinfo>
+              <od:fieldProperty name="Required" type="1" value="0"></od:fieldProperty>
+            </xsd:appinfo>
+          </xsd:annotation>
           <xsd:simpleType>
             <xsd:restriction base="xsd:decimal">
               <xsd:totalDigits value="4"></xsd:totalDigits>
@@ -24,6 +31,11 @@
           </xsd:simpleType>
         </xsd:element>
         <xsd:element name="Amount" minOccurs="0" od:jetType="decimal" od:sqlSType="decimal">
+          <xsd:annotation>
+            <xsd:appinfo>
+              <od:fieldProperty name="Required" type="1" value="0"></od:fieldProperty>
+            </xsd:appinfo>
+          </xsd:annotation>
           <xsd:simpleType>
             <xsd:restriction base="xsd:decimal">
               <xsd:totalDigits value="18"></xsd:totalDigits>

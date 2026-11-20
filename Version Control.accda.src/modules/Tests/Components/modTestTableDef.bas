@@ -25,6 +25,7 @@ Private Const TEST_TABLE_SYSTEM_BOTH As String = "MSysVcsTestSystemTable"
 Private Const TEST_TABLE_LINKED_HOMONYM As String = "vcs_test_linked_homonym"
 Private Const TEST_TABLE_LINKED_ALONE As String = "vcs_test_linked_alone"
 Private Const TEST_TABLE_LINKED_MERGE As String = "vcs_test_linked_merge"
+Private Const TEST_TABLE_LINKED_TEXT As String = "vcs_test_linked_text"
 Private Const TEST_TABLE_INHERIT_PARENT As String = "vcs_test_inherit_parent"
 Private Const TEST_TABLE_INHERIT_CHILD As String = "vcs_test_inherit_child"
 Private Const TEST_RELATION_FRONT_END As String = "vcs_test_front_end_relation"
@@ -1672,6 +1673,77 @@ CleanUp:
     DropTestTable TEST_TABLE_LINKED_MERGE
     If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
     If lngErr <> 0 Then TestAssert False, "linked table merge error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestExportTextLinkToMissingFolder
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : A linked text table whose folder is gone fails TableExists, so the export
+'           : tests whether the back end is reachable. That test ran an ODBC probe on
+'           : every link that was not an Access back end, which raised error 3305 on
+'           : the Text connection and stopped the export (#838). Both table exports
+'           : must mark the back end unavailable instead.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestExportTextLinkToMissingFolder()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim cTable As clsDbTableData
+    Dim cComponent As IDbComponent
+    Dim strFolder As String
+    Dim strConnect As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_LINKED_TEXT
+    CloseBackEndConnections
+
+    ' Link a text file, then delete its folder
+    strFolder = GetTempFolder("vcs_text_link")
+    WriteFile "ID" & vbCrLf & "1" & vbCrLf, strFolder & PathSep & "data.csv"
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_LINKED_TEXT)
+    tdf.Connect = "Text;FMT=Delimited;HDR=YES;IMEX=2;ACCDB=YES;DATABASE=" & strFolder
+    tdf.SourceTableName = "data.csv"
+    dbs.TableDefs.Append tdf
+    Set tdf = Nothing
+    RefreshTableCollections dbs
+    Set dbs = Nothing
+    FSO.DeleteFolder strFolder, True
+
+    strConnect = SharedDb.TableDefs(TEST_TABLE_LINKED_TEXT).Connect
+    TestAssert Not TableExists(TEST_TABLE_LINKED_TEXT), "text link to a missing folder fails TableExists"
+
+    Set cTable = New clsDbTableData
+    Set cTable.Parent.DbObject = CurrentData.AllTables(TEST_TABLE_LINKED_TEXT)
+    cTable.Parent.Export
+    TestAssert IsBackEndUnavailable(strConnect), "table data export marks the text back end unavailable"
+
+    CloseBackEndConnections
+    Set cComponent = New clsDbTableDef
+    Set cComponent.DbObject = CurrentData.AllTables(TEST_TABLE_LINKED_TEXT)
+    cComponent.Export
+    TestAssert IsBackEndUnavailable(strConnect), "table definition export marks the text back end unavailable"
+
+CleanUp:
+    On Error Resume Next
+    CloseBackEndConnections
+    DropTestTable TEST_TABLE_LINKED_TEXT
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    If lngErr <> 0 Then TestAssert False, "text link export error " & lngErr & ": " & strErr
     Exit Sub
 
 ErrHandler:

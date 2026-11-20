@@ -15,6 +15,9 @@ Option Explicit
 
 Private Const ModuleName As String = "modBuild"
 
+Private Const BackupSuffix As String = "_VCSBackup"
+Private Const MaxBackupNames As Integer = 500
+
 ' Set while a merge is preparing the database in place, to limit the crash trace to the
 ' operation that needs it. (See TraceInPlaceMerge.)
 Private m_blnTraceInPlaceMerge As Boolean
@@ -349,6 +352,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     If blnFullBuild Then
         If FSO.FileExists(strPath) Then
             Log.Add T("Saving backup of original database...")
+            If strBackup = vbNullString Then
+                LogBackupNamesInUse strPath, FunctionName
+                GoTo CleanUp
+            End If
             Name strPath As strBackup
             If CatchAny(eelCritical, T("Unable to rename original file"), FunctionName) Then GoTo CleanUp
             Log.Add T("Saved as {0}.", var0:=FSO.GetFileName(strBackup))
@@ -501,6 +508,10 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         If Not blnFullBuild Then
             LogUnhandledErrors
             Log.Add T("Saving backup of original database...")
+            If strBackup = vbNullString Then
+                LogBackupNamesInUse strPath, FunctionName
+                GoTo CleanUp
+            End If
             FSO.CopyFile strPath, strBackup
             If CatchAny(eelCritical, T("Unable to back up current database"), FunctionName) Then GoTo CleanUp
             Log.Add T("Saved as {0}.", var0:=FSO.GetFileName(strBackup))
@@ -729,6 +740,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     End If
     Log.Spacer
     Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, strColor, True
+    ' Untranslated and file-only: the add-in rebuild worker reads the saved log to
+    ' learn the result, and the line above is in the user's language.
+    Log.Add vbNewLine & "Build succeeded.", False
     blnSuccess = True
 
     ' Show warning/error summary if any issues occurred
@@ -2065,12 +2079,11 @@ End Function
 ' Procedure : GetBackupFileName
 ' Author    : Adam Waller
 ' Date      : 5/4/2020
-' Purpose   : Return an unused filename for the database backup befor build
+' Purpose   : Return an unused filename for the database backup before build, or an
+'           : empty string when all MaxBackupNames names are already taken.
 '---------------------------------------------------------------------------------------
 '
-Private Function GetBackupFileName(strPath As String) As String
-
-    Const cstrSuffix As String = "_VCSBackup"
+Public Function GetBackupFileName(strPath As String) As String
 
     Dim strFile As String
     Dim intCnt As Integer
@@ -2082,11 +2095,11 @@ Private Function GetBackupFileName(strPath As String) As String
 
     strFolder = FSO.GetParentFolderName(strPath) & PathSep
     strFile = FSO.GetFileName(strPath)
-    strBase = FSO.GetBaseName(strFile) & cstrSuffix
+    strBase = FSO.GetBaseName(strFile) & BackupSuffix
     strExt = "." & FSO.GetExtensionName(strFile)
 
-    ' Attempt up to 500 versions of the file name. (i.e. Database_VSBackup45.accdb)
-    For intCnt = 1 To 500
+    ' Attempt each version of the file name. (i.e. Database_VCSBackup45.accdb)
+    For intCnt = 1 To MaxBackupNames
         strTest = strFolder & strBase & strIncrement & strExt
         If FSO.FileExists(strTest) Then
             ' Try next number
@@ -2099,6 +2112,23 @@ Private Function GetBackupFileName(strPath As String) As String
     Next intCnt
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogBackupNamesInUse
+' Author    : Adam Waller
+' Date      : 11/19/2026
+' Purpose   : Log the critical error for a build that cannot back up the original
+'           : database because every backup file name is taken.
+'---------------------------------------------------------------------------------------
+'
+Private Sub LogBackupNamesInUse(strPath As String, strSource As String)
+    Log.Error eelCritical, T("All {0} backup file names are in use. " & _
+        "Delete old {1} files from {2}, then try again.", _
+        var0:=MaxBackupNames, _
+        var1:=FSO.GetBaseName(strPath) & BackupSuffix & "*." & FSO.GetExtensionName(strPath), _
+        var2:=FSO.GetParentFolderName(strPath)), strSource
+End Sub
 
 
 '---------------------------------------------------------------------------------------

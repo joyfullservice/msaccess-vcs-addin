@@ -1,0 +1,43 @@
+﻿Operation =1
+Option =16
+RowCount ="5"
+Where ="(((tblParamSample.Price>=[Min Price])))"
+Begin InputTables
+    Name ="tblParamSample"
+End
+Begin OutputColumns
+    Expression ="tblParamSample.ID"
+    Expression ="tblParamSample.Category"
+    Expression ="tblParamSample.Price"
+End
+Begin Parameters
+    Name ="[Min Price]"
+    Flag =5
+End
+Begin OrderBy
+    Expression ="tblParamSample.Price"
+    Flag =0
+End
+dbBoolean "ReturnsRecords" ="-1"
+dbInteger "ODBCTimeout" ="60"
+dbByte "RecordsetType" ="0"
+dbBoolean "OrderByOn" ="0"
+dbByte "Orientation" ="0"
+dbByte "DefaultView" ="2"
+dbBoolean "FilterOnLoad" ="0"
+dbBoolean "OrderByOnLoad" ="-1"
+dbBoolean "TotalsRow" ="0"
+Begin
+    Begin
+        dbText "Name" ="tblParamSample.ID"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblParamSample.Category"
+        dbLong "AggregateType" ="-1"
+    End
+    Begin
+        dbText "Name" ="tblParamSample.Price"
+        dbLong "AggregateType" ="-1"
+    End
+End

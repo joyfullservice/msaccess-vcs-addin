@@ -1,17 +1,15 @@
-﻿PARAMETERS [Select Category] Text (255);
+﻿PARAMETERS
+  [Select Category] Text (255);
 TRANSFORM
   Count(tblParamDetail.ID) AS Cnt
 SELECT
   tblParamSample.Category
 FROM
   tblParamSample
-  INNER JOIN tblParamDetail ON tblParamSample.ID = tblParamDetail.SampleID
+  INNER JOIN tblParamDetail
+    ON tblParamSample.ID = tblParamDetail.SampleID
 WHERE
-  (
-    (
-      (tblParamSample.Category) = [Select Category]
-    )
-  )
+  tblParamSample.Category = [Select Category]
 GROUP BY
   tblParamSample.Category
 PIVOT
