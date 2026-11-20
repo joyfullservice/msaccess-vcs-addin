@@ -60,19 +60,20 @@ Private Sub Form_Load()
 
     Dim frmList As Form_frmVCSConflictList
     Set frmList = Me.sfrmConflictList.Form
+    Translation.ApplyTo frmList
 
     ' Update heading caption
     If Operation.OperationType = eotExport Then
-        lblHeading.Caption = "These source files have changed since the last export"
+        lblHeading.Caption = T("These source files have changed since the last export")
         With frmList.cboResolution
-            .AddItem eResolveConflict.ercSkip & ";" & "Skip"
-            .AddItem eResolveConflict.ercOverwrite & ";" & "Overwrite source file"
+            .AddItem eResolveConflict.ercSkip & ";" & T("Skip")
+            .AddItem eResolveConflict.ercOverwrite & ";" & T("Overwrite source file")
         End With
     Else
-        lblHeading.Caption = "These database objects have changed since the last export"
+        lblHeading.Caption = T("These database objects have changed since the last export")
         With frmList.cboResolution
-            .AddItem eResolveConflict.ercSkip & ";" & "Skip"
-            .AddItem eResolveConflict.ercOverwrite & ";" & "Overwrite database object"
+            .AddItem eResolveConflict.ercSkip & ";" & T("Skip")
+            .AddItem eResolveConflict.ercOverwrite & ";" & T("Overwrite database object")
         End With
     End If
 

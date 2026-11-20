@@ -83,6 +83,81 @@ contradictory guidance.
 
 ---
 
+## 2026-11-20 — Translation strings are harvested from source as well as captured at runtime
+
+**Trigger**: Adding a German translation. `T()` adds a string to `tblStrings` only when
+it runs, so `MSAccessVCS.pot` held 273 strings while the code had about 670 literal
+`T()` calls. Nearly every log message and dialog was missing, because nobody had
+triggered it before the last template export.
+
+**Options explored**:
+- **Exercise the UI with "Contribute to Translations" on**: the existing design. It
+  never reaches error paths, rare prompts, or log lines from options most people
+  leave off. Kept as the source of strings that cannot be harvested, but not
+  sufficient on its own.
+- **A PowerShell or Python extractor that writes the `.pot` directly**: easy to run
+  outside Access, but it would duplicate `clsTranslation.Q`'s line wrapping and the
+  `qryTranslatedStrings` ordering. Any difference churns all four translation files
+  on the next sync from inside the add-in. Rejected.
+- **A VBA scanner in `clsTranslation` that feeds `tblStrings`**: `HarvestSourceStrings`
+  reads every non-test component and saves new strings through the existing
+  `SaveString`, so `ExportTemplate` stays the only writer of the files. Chosen.
+
+**Decision**: `ExtractTranslatableStrings` takes the first argument of a `T(` call
+when it is a literal, literals joined with `&` (including `vbCrLf` and similar
+constants, stored as LF), or `IIf(condition, literal, literal)`. Any other argument is
+computed at runtime and is reported and skipped; those strings still arrive through
+the runtime capture. Components whose `'@Folder` starts with `Tests` are skipped,
+because their strings are fixtures. `T()` now keys every string with LF line breaks.
+Form captions arrive with CRLF while strings loaded from a `.po` file have LF, so
+multi-line captions never matched their translations. A translated string is
+returned with the caller's line breaks.
+
+In the same change, an unset language now follows the Office UI language
+(`ResolveOsLanguage`: exact match, then the same language prefix, `en_*` always
+`en_US`, never `en_TEST`). Previously `Language` defaulted to `"en_US"`, so the
+Office-language branch of `GetCurrentLanguage` could never run.
+
+Form captions and tooltips are harvested too: `HarvestFormStrings` opens each form in
+design view, which runs `ApplyTo` without the form's own code, and closes it without
+saving. Before this, 125 of 271 form strings had never reached the template, mostly
+from the Options pages, which are subforms that never called `ApplyTo`. The first
+run exposed a bug in `PurgeStrings`: it deleted any string whose recorded control no
+longer existed, even when the form still showed the same text on another control.
+The Options redesign had replaced tab pages with toggle buttons, so "General", the
+Defaults page buttons, and 62 of the 73 Portuguese translations went with them. A
+string the form still shows now moves to its new reference instead; the translations
+were restored from the previous `pt_BR.po`.
+
+The add-in rebuild worker decided success by finding `Done. (` in the build log,
+which is translated, so every rebuild reported `build-failed` under German. The
+build now writes an untranslated, log-file-only `Build succeeded.` line, and the
+worker checks for that. Translated tooltips can exceed the 255 characters
+`ControlTipText` allows, which raises error 2176; `SetControlTip` clips them, and
+`TestTranslationEntriesValid` fails a form tooltip over 255 characters in any `.po`.
+
+**What this rules out**: Strings built at runtime, such as `T(LCase(cCategory.Category))`,
+cannot be harvested; prefer literals where a string should be translated. Run
+`HarvestSourceStrings`, `ExportTemplate`, and `ExportTranslations` in the development
+copy before a release that adds strings, either in the Immediate window or through
+`vcs_run_vba` aimed at the development copy. Never match translated text in log
+files or anything else a program parses.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Infrastructure/clsTranslation.cls`
+- `Version Control.accda.src/modules/Tests/Infrastructure/modTestTranslation.bas`
+- `Version Control.accda.src/forms/frmVCSOptionsGeneral.cls`
+- `Version Control.accda.src/forms/frmVCSOptions.cls`, `frmVCSConflict.cls`,
+  `frmVCSOptionsExport.cls` — `ApplyTo` for subforms; `SetControlTip`
+- `Version Control.accda.src/modules/Core/modBuild.bas`,
+  `Version Control.accda.src/modules/Integration/clsWorker.cls` — rebuild success marker
+- `Version Control.accda.src/modules/Utility/modFileAccess.bas` — `WriteFileNoBom`
+  read the copied stream from its end after `18f437ed`, so every `.po` export failed
+  with "Type mismatch" from July 2026 until this fix
+- `Translation/de_DE.po`, `Translation/pt_BR.po`, `Translation/MSAccessVCS.pot`
+
+---
+
 ## 2026-11-20 — Modern charts keep the Version =21 header
 
 **Trigger**: A modern chart lost its axis grouping after export and build (#660): the
