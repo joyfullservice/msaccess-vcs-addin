@@ -14,6 +14,7 @@ Option Private Module
 
 
 Private Const TEST_TABLE_BIGINT As String = "vcs_test_bigint_repair"
+Private Const TEST_TABLE_REQUIRED As String = "vcs_test_required_repair"
 Private Const TEST_TABLE_OUTSIDE_EXPORT As String = "vcs_test_td_outside_export"
 Private Const TEST_TABLE_DECIMAL_SQL As String = "vcs_test_decimal_sql"
 Private Const TEST_TABLE_DECIMAL_DAO As String = "vcs_test_decimal_dao"
@@ -62,6 +63,79 @@ Public Sub TestBigIntFieldXmlDetection()
         "</xsd:schema>"
     Set colNames = GetBigIntRepairFieldNamesFromTableDefXml(strXml)
     TestAssert colNames.Count = 0, "longinteger field should not match"
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestRequiredRepairFieldXmlDetection
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A Yes/No field needs the repair when its Required field property is 0 or
+'           : missing. Any other value, or no value at all, means Required and leaves
+'           : the field alone.
+'           : ExportXML writes that property as 0 for a field created through DAO and
+'           : leaves it out for one added through DDL; both are optional and both must
+'           : match. A name ExportXML had to escape comes back as the real field name.
+'           : An autonumber key is also nonNullable with no Required property, and
+'           : an optional text field has Required=0; neither is a Yes/No field, so
+'           : neither may match.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestRequiredRepairFieldXmlDetection()
+    Dim colNames As Collection
+    Dim strXml As String
+
+    strXml = RequiredFixtureXml( _
+        "<xsd:element name=""YesNoFromDdl"" minOccurs=""1"" od:jetType=""yesno"" od:sqlSType=""bit"" od:nonNullable=""yes"" type=""xsd:boolean"">" & _
+        "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""Format"" type=""10"" value=""Yes/No""/>" & _
+        "</xsd:appinfo></xsd:annotation></xsd:element>")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 1, "Yes/No field without a Required property should match"
+    If colNames.Count = 1 Then TestAssert colNames(1) = "YesNoFromDdl", "matched field name"
+
+    strXml = Replace(strXml, "name=""YesNoFromDdl""", "name=""_x0031_0""")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 1, "Yes/No field with an escaped name should match"
+    If colNames.Count = 1 Then TestAssert colNames(1) = "10", "escaped field name is returned unescaped"
+
+    strXml = RequiredFixtureXml( _
+        "<xsd:element name=""YesNoOptional"" minOccurs=""1"" od:jetType=""yesno"" od:sqlSType=""bit"" od:nonNullable=""yes"" type=""xsd:boolean"">" & _
+        "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""Format"" type=""10"" value=""Yes/No""/>" & _
+        "<od:fieldProperty name=""Required"" type=""1"" value=""0""/>" & _
+        "</xsd:appinfo></xsd:annotation></xsd:element>")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 1, "Yes/No field with Required=0 should match"
+    If colNames.Count = 1 Then TestAssert colNames(1) = "YesNoOptional", "matched field name"
+
+    strXml = Replace(strXml, "name=""Required"" type=""1"" value=""0""", "name=""Required"" type=""1"" value=""1""")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "Yes/No field with Required=1 should not match"
+
+    strXml = Replace(strXml, "name=""Required"" type=""1"" value=""1""", "name=""Required"" type=""1"" value=""-1""")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "Yes/No field with any other non-zero Required value should not match"
+
+    strXml = Replace(strXml, "name=""Required"" type=""1"" value=""-1""", "name=""Required"" type=""1""")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "Yes/No field with a Required property but no value should not match"
+
+    strXml = RequiredFixtureXml( _
+        "<xsd:element name=""ID"" minOccurs=""1"" od:jetType=""autonumber"" od:sqlSType=""int"" od:autoUnique=""yes"" od:nonNullable=""yes"" type=""xsd:int"">" & _
+        "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""ColumnWidth"" type=""3"" value=""-1""/>" & _
+        "</xsd:appinfo></xsd:annotation></xsd:element>")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "autonumber key without a Required property should not match"
+
+    strXml = RequiredFixtureXml( _
+        "<xsd:element name=""TextOptional"" minOccurs=""0"" od:jetType=""text"" od:sqlSType=""nvarchar"">" & _
+        "<xsd:annotation><xsd:appinfo>" & _
+        "<od:fieldProperty name=""Required"" type=""1"" value=""0""/>" & _
+        "</xsd:appinfo></xsd:annotation></xsd:element>")
+    Set colNames = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    TestAssert colNames.Count = 0, "optional text field should not match"
 End Sub
 
 
@@ -246,6 +320,194 @@ Public Sub TestDaoImportFromOutsideExportFolder()
     DropTestTable TEST_TABLE_OUTSIDE_EXPORT
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestRequiredImportXmlRepair
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : A Yes/No field with Required=False must keep it through the ImportXML path.
+'           : Application.ImportXML creates every Yes/No field as Required, so without a
+'           : repair the field comes back with Required=True and the next export writes
+'           : Required=1 for it. Two shapes of the same field are covered: one created
+'           : through DAO, which ExportXML writes with a Required property of 0, and one
+'           : added through DDL, which it writes with no Required property at all. A
+'           : third has a name that is not valid XML, so ExportXML writes it escaped.
+'           : The table is imported through the class with the DAO fast path off, which
+'           : is the path a full build always takes, and then exported again.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestRequiredImportXmlRepair()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim idx As DAO.Index
+    Dim strXml As String
+    Dim strReexport As String
+    Dim cTable As clsDbTableDef
+    Dim cComponent As IDbComponent
+    Dim blnPriorOverride As Boolean
+    Dim blnOverrideSet As Boolean
+    Dim blnAutoNumber As Boolean
+    Dim strValue As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_REQUIRED
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_REQUIRED)
+    Set fld = tdf.CreateField("ID", dbLong)
+    fld.Attributes = fld.Attributes Or dbAutoIncrField
+    tdf.Fields.Append fld
+    Set fld = tdf.CreateField("YesNoOptional", dbBoolean)
+    fld.Required = False
+    tdf.Fields.Append fld
+    Set fld = tdf.CreateField("1st Yes: No", dbBoolean)
+    fld.Required = False
+    tdf.Fields.Append fld
+    Set fld = tdf.CreateField("YesNoRequired", dbBoolean)
+    fld.Required = True
+    tdf.Fields.Append fld
+    Set fld = tdf.CreateField("TextOptional", dbText, 50)
+    fld.Required = False
+    tdf.Fields.Append fld
+    Set idx = tdf.CreateIndex("PrimaryKey")
+    idx.Fields.Append idx.CreateField("ID")
+    idx.Primary = True
+    tdf.Indexes.Append idx
+    dbs.TableDefs.Append tdf
+    dbs.Execute "ALTER TABLE [" & TEST_TABLE_REQUIRED & "] ADD COLUMN YesNoFromDdl BIT", dbFailOnError
+    RefreshTableCollections dbs
+
+    ' Import derives the object name from the file basename.
+    strXml = GetTempFile
+    DeleteFile strXml
+    strXml = FSO.GetParentFolderName(strXml) & PathSep & TEST_TABLE_REQUIRED & ".xml"
+    If FSO.FileExists(strXml) Then DeleteFile strXml
+    Application.ExportXML acExportTable, TEST_TABLE_REQUIRED, , strXml, , , , _
+        acExportAllTableAndFieldProperties
+    With New clsSourceParser
+        .LoadSourceFile strXml, edbTableDef
+        DeleteFile strXml
+        WriteFile .Sanitize(ectXML), strXml
+    End With
+
+    ' The two shapes under test, as the source file actually carries them. The DAO
+    ' field doubles as a positive control: a file that failed to load would report
+    ' no property for either.
+    strValue = GetRequiredPropertyValue(strXml, "YesNoOptional")
+    TestAssert strValue = "0", _
+        "precondition: a Yes/No field created through DAO is exported with Required=0"
+    strValue = GetRequiredPropertyValue(strXml, "YesNoFromDdl")
+    TestAssert strValue = vbNullString, _
+        "precondition: a Yes/No field added through DDL is exported without a Required property"
+    strValue = ReadFile(strXml)
+    TestAssert InStr(1, strValue, "name=""_x0031_", vbBinaryCompare) > 0 And _
+        InStr(1, strValue, "name=""1st Yes: No""", vbBinaryCompare) = 0, _
+        "precondition: ExportXML escapes the name that is not valid XML"
+
+    DropTestTable TEST_TABLE_REQUIRED
+
+    blnPriorOverride = FastPathTestOverride
+    blnOverrideSet = True
+    FastPathTestOverride = False
+
+    Set cTable = New clsDbTableDef
+    Set cComponent = cTable
+    cComponent.Import strXml
+    ReleaseDbReferences
+
+    FastPathTestOverride = blnPriorOverride
+    blnOverrideSet = False
+
+    Set dbs = CurrentDb
+    TestAssert TableExists(TEST_TABLE_REQUIRED, dbs), "import created the table"
+    If TableExists(TEST_TABLE_REQUIRED, dbs) Then
+        Set tdf = dbs.TableDefs(TEST_TABLE_REQUIRED)
+        TestAssert Not tdf.Fields("YesNoOptional").Required, _
+            "Yes/No field keeps Required=False after ImportXML"
+        TestAssert Not tdf.Fields("YesNoFromDdl").Required, _
+            "Yes/No field without a Required property keeps Required=False after ImportXML"
+        TestAssert Not tdf.Fields("1st Yes: No").Required, _
+            "Yes/No field with an escaped XML name keeps Required=False after ImportXML"
+        TestAssert tdf.Fields("YesNoRequired").Required, _
+            "Yes/No field keeps Required=True after ImportXML"
+        TestAssert Not tdf.Fields("TextOptional").Required, _
+            "text field keeps Required=False after ImportXML"
+        blnAutoNumber = ((tdf.Fields("ID").Attributes And dbAutoIncrField) <> 0)
+        TestAssert blnAutoNumber, "primary key is still an autonumber"
+
+        ' What the source sees: export the imported table again. The DDL field comes
+        ' back with Required=0 rather than no property, which the import cannot avoid,
+        ' so both optional fields are checked for not being written as Required.
+        ' GetTempFile creates the file it names; reuse the name with an .xml extension.
+        strReexport = GetTempFile
+        DeleteFile strReexport
+        strReexport = strReexport & ".xml"
+        Application.ExportXML acExportTable, TEST_TABLE_REQUIRED, , strReexport, , , , _
+            acExportAllTableAndFieldProperties
+        strValue = GetRequiredPropertyValue(strReexport, "YesNoOptional")
+        TestAssert strValue = "0", _
+            "re-export writes Required=0 for the Yes/No field created through DAO"
+        strValue = GetRequiredPropertyValue(strReexport, "YesNoFromDdl")
+        TestAssert strValue <> "1", _
+            "re-export does not write Required=1 for the Yes/No field added through DDL"
+        strValue = GetRequiredPropertyValue(strReexport, "YesNoRequired")
+        TestAssert strValue = "1", "re-export writes Required=1 for the Required Yes/No field"
+    End If
+
+CleanUp:
+    On Error Resume Next
+    If blnOverrideSet Then FastPathTestOverride = blnPriorOverride
+    If Len(strXml) Then DeleteFile strXml
+    If Len(strReexport) Then DeleteFile strReexport
+    DropTestTable TEST_TABLE_REQUIRED
+    If lngErr <> 0 Then TestAssert False, _
+        "unexpected Required repair error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRequiredPropertyValue
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/8/2026
+' Purpose   : The value of the Required field property of a field in a table-definition
+'           : XML file, or an empty string when the field has no such property.
+'           : strFieldName is the name as written in the file, escaped where ExportXML
+'           : had to escape it. A file that fails to load returns "(not loaded)", so it
+'           : cannot pass for a missing property.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetRequiredPropertyValue(strXmlFile As String, strFieldName As String) As String
+
+    Dim objXml As MSXML2.DOMDocument60
+    Dim objNode As MSXML2.IXMLDOMNode
+
+    Set objXml = New MSXML2.DOMDocument60
+    objXml.async = False
+    objXml.setProperty "SelectionNamespaces", _
+        "xmlns:xsd='http://www.w3.org/2001/XMLSchema' xmlns:od='urn:schemas-microsoft-com:officedata'"
+    If Not objXml.Load(strXmlFile) Then
+        GetRequiredPropertyValue = "(not loaded)"
+    Else
+        Set objNode = objXml.selectSingleNode("//xsd:element[@name='" & strFieldName & _
+            "']/xsd:annotation/xsd:appinfo/od:fieldProperty[@name='Required']/@value")
+        If Not objNode Is Nothing Then GetRequiredPropertyValue = objNode.Text
+    End If
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -542,6 +804,19 @@ Private Function BigIntFixtureXml(strFieldName As String) As String
         "          </xsd:restriction>" & vbCrLf & _
         "        </xsd:simpleType>" & vbCrLf & _
         "      </xsd:element>" & vbCrLf & _
+        "    </xsd:sequence></xsd:complexType>" & vbCrLf & _
+        "  </xsd:element>" & vbCrLf & _
+        "</xsd:schema>"
+End Function
+
+
+Private Function RequiredFixtureXml(strFieldElement As String) As String
+    RequiredFixtureXml = _
+        "<?xml version=""1.0""?>" & vbCrLf & _
+        "<xsd:schema xmlns:xsd=""http://www.w3.org/2001/XMLSchema"" xmlns:od=""urn:schemas-microsoft-com:officedata"">" & vbCrLf & _
+        "  <xsd:element name=""Fixture"">" & vbCrLf & _
+        "    <xsd:complexType><xsd:sequence>" & vbCrLf & _
+        "      " & strFieldElement & vbCrLf & _
         "    </xsd:sequence></xsd:complexType>" & vbCrLf & _
         "  </xsd:element>" & vbCrLf & _
         "</xsd:schema>"

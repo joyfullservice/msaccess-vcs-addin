@@ -316,6 +316,7 @@ Private Function ImportTableStructure(strFile As String, ByRef strName As String
     Dim strTempFile As String
     Dim strFileName As String
     Dim colBigIntFields As Collection
+    Dim colRequiredFields As Collection
 
     ' Full build reuses one instance; reset link-type cache per file.
     m_lngTableType = 0
@@ -342,6 +343,12 @@ Private Function ImportTableStructure(strFile As String, ByRef strName As String
             ' Watch out for errors when importing XML
             LogUnhandledErrors
             On Error Resume Next
+
+            ' Application.ImportXML creates every Yes/No field as Required, ignoring the
+            ' Required field property the XML carries for it. Scanned first: it handles
+            ' its own errors, so whatever the next scan leaves pending still reaches the
+            ' ImportXML error handling below, as it did before.
+            Set colRequiredFields = GetRequiredRepairFieldNamesFromTableDefXmlFile(strFile)
 
             ' Application.ImportXML has no schema representation for dbBigInt and
             ' silently re-creates such fields as dbDecimal(38,0) instead. Detect them
@@ -390,6 +397,10 @@ Private Function ImportTableStructure(strFile As String, ByRef strName As String
 
             If Not blnImportFailed And colBigIntFields.Count > 0 Then
                 FixCorruptedBigIntFields strName, colBigIntFields
+            End If
+
+            If Not blnImportFailed And colRequiredFields.Count > 0 Then
+                FixImportedRequiredFields strName, colRequiredFields
             End If
 
         Case Else
@@ -1112,6 +1123,116 @@ Private Sub FixCorruptedBigIntFields(strTableName As String, colFieldNames As Co
     Next varName
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetRequiredRepairFieldNamesFromTableDefXmlFile
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : Read a table-definition XML file and return the Yes/No fields that are not
+'           : Required, which Application.ImportXML will create as Required. Skips DOM
+'           : parsing when the table has no Yes/No field.
+'           : The caller runs this under On Error Resume Next and reports any pending
+'           : error as an ImportXML failure, so an error here is logged and cleared: a
+'           : failed scan costs the repair, never the import.
+'           : The file is read again here rather than shared with the dbBigInt scan; the
+'           : read shows under Read File in the performance summary, not under this scan.
+'---------------------------------------------------------------------------------------
+'
+Private Function GetRequiredRepairFieldNamesFromTableDefXmlFile(strXmlFile As String) As Collection
+
+    Dim colNames As New Collection
+    Dim strXml As String
+    Dim strError As String
+
+    Set GetRequiredRepairFieldNamesFromTableDefXmlFile = colNames
+    If Not FSO.FileExists(strXmlFile) Then Exit Function
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Perf.OperationStart "Scan table XML for Required fields"
+    strXml = ReadFile(strXmlFile)
+    ' Binary compare: ExportXML always writes this attribute in lower case, and the
+    ' XPath that follows is case-sensitive anyway.
+    If InStr(1, strXml, "od:jetType=""yesno""", vbBinaryCompare) > 0 Then
+        Set GetRequiredRepairFieldNamesFromTableDefXmlFile = GetRequiredRepairFieldNamesFromTableDefXml(strXml)
+    End If
+    Perf.OperationEnd
+
+    If Err.Number <> 0 Then
+        strError = TakeRequiredRepairError
+        Log.Error eelWarning, T("Unable to scan {0} for Required fields", var0:=strXmlFile) & _
+            strError, ModuleName(Me) & ".GetRequiredRepairFieldNamesFromTableDefXmlFile"
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FixImportedRequiredFields
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 10/7/2026
+' Purpose   : Restore Required=False on Yes/No fields that Application.ImportXML created
+'           : as Required, as it does with every Yes/No field.
+'           : Runs after ReleaseDbReferences, so SharedDb is a fresh handle that sees
+'           : the imported table. There is no separate read-back: a failed assignment
+'           : raises an error, which is logged, and TestRequiredImportXmlRepair reads
+'           : the result back through a fresh handle.
+'---------------------------------------------------------------------------------------
+'
+Private Sub FixImportedRequiredFields(strTableName As String, colFieldNames As Collection)
+
+    Const PROC As String = ".FixImportedRequiredFields"
+
+    Dim varName As Variant
+    Dim tdf As DAO.TableDef
+    Dim lngRestored As Long
+    Dim strError As String
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Perf.OperationStart "Restore Required on Yes/No fields"
+    Set tdf = SharedDb.TableDefs(strTableName)
+    If Err.Number <> 0 Then
+        strError = TakeRequiredRepairError
+        Log.Error eelWarning, T("Unable to open {0} to restore Required=False", _
+            var0:=strTableName) & strError, ModuleName(Me) & PROC
+    Else
+        For Each varName In colFieldNames
+            tdf.Fields(CStr(varName)).Required = False
+            If Err.Number = 0 Then
+                lngRestored = lngRestored + 1
+            Else
+                strError = TakeRequiredRepairError
+                Log.Error eelWarning, T("Unable to restore Required=False for {0}.{1}", _
+                    var0:=strTableName, var1:=varName) & strError, ModuleName(Me) & PROC
+            End If
+        Next varName
+        Log.Add T("    Restored Required=False on {0} field(s) of {1}.", _
+            var0:=lngRestored, var1:=strTableName), Options.ShowDebug
+    End If
+    Perf.OperationEnd
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TakeRequiredRepairError
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 11/16/2026
+' Purpose   : Return the pending error as text for a Required repair warning, and clear
+'           : it. Callers take the error before T() builds the message, because T()
+'           : must not run while an error is pending (it can clear it), and pass T() a
+'           : literal so the string is harvested for translation. Called only on
+'           : failure, so the repair does not pay for T() on every field.
+'---------------------------------------------------------------------------------------
+'
+Private Function TakeRequiredRepairError() As String
+    TakeRequiredRepairError = "; Error " & Err.Number & " - " & Err.Description
+    Err.Clear
+End Function
 
 
 '---------------------------------------------------------------------------------------
