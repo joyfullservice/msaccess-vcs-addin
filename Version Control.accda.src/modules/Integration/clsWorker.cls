@@ -1567,10 +1567,11 @@ Function BuildAndInstall(strSourcePath, strUnattended, strStatusFile, _
         Exit Function
     End If
 
-    ' Re-read the log to confirm success
+    ' Re-read the log to confirm success. The marker is written untranslated by
+    ' modBuild; the "Done." line beside it is in the user's language.
     strLogContent = ReadTextFile(objFSO, strNewLog)
     Dim blnSuccess
-    blnSuccess = (InStr(1, strLogContent, "Done. (", vbTextCompare) > 0) And _
+    blnSuccess = (InStr(1, strLogContent, "Build succeeded.", vbBinaryCompare) > 0) And _
                   (InStr(1, strLogContent, "CRITICAL:", vbTextCompare) = 0)
 
     If Not blnSuccess Then
