@@ -49,6 +49,10 @@ Public Sub TestBigIntFieldXmlDetection()
     TestAssert colNames.Count = 1, "bigint signature should match one field"
     TestAssert colNames(1) = "BigVal", "matched field name"
 
+    Set colNames = GetBigIntRepairFieldNamesFromTableDefXml(BigIntFixtureXml("Big_x0020_Val"))
+    TestAssert colNames.Count = 1, "escaped bigint name should match one field"
+    TestAssert colNames(1) = "Big Val", "escaped field name comes back unescaped"
+
     strXml = Replace(strXml, "totalDigits value=""0""", "totalDigits value=""18""")
     Set colNames = GetBigIntRepairFieldNamesFromTableDefXml(strXml)
     TestAssert colNames.Count = 0, "genuine decimal precision should not match"
@@ -80,6 +84,7 @@ Public Sub TestBigIntImportXmlRepair()
     Dim fld As DAO.Field
     Dim strTemp As String
     Dim colNames As Collection
+    Dim varName As Variant
     Dim lngImportError As Long
     Dim strImportError As String
     Dim lngErr As Long
@@ -94,6 +99,8 @@ Public Sub TestBigIntImportXmlRepair()
     Set fld = tdf.CreateField("ID", dbLong)
     tdf.Fields.Append fld
     Set fld = tdf.CreateField("BigVal", dbBigInt)
+    tdf.Fields.Append fld
+    Set fld = tdf.CreateField("Big Val", dbBigInt)
     tdf.Fields.Append fld
     Set fld = tdf.CreateField("Notes", dbText, 50)
     tdf.Fields.Append fld
@@ -119,22 +126,27 @@ Public Sub TestBigIntImportXmlRepair()
     TestAssert lngImportError = 0 Or lngImportError = 31550, _
         "ImportXML returned an unexpected error " & CStr(lngImportError) & ": " & _
         strImportError
+    TestAssert InStr(1, ReadFile(strTemp), """Big_x0020_Val""", vbBinaryCompare) > 0, _
+        "ExportXML escapes the space in the field name"
     Set colNames = GetBigIntRepairFieldNamesFromTableDefXml(ReadFile(strTemp))
-    TestAssert colNames.Count = 1, "exported bigint field is detected in source XML"
+    TestAssert colNames.Count = 2, "exported bigint fields are detected in source XML"
 
-    If colNames.Count = 1 Then
+    If colNames.Count = 2 Then
         Set dbs = CurrentDb
         TestAssert TableExists(TEST_TABLE_BIGINT, dbs), "ImportXML recreated the table"
-        TestAssert dbs.TableDefs(TEST_TABLE_BIGINT).Fields(colNames(1)).Type <> dbBigInt, _
-            "ImportXML does not preserve dbBigInt on its own"
-
-        dbs.Execute "ALTER TABLE [" & TEST_TABLE_BIGINT & "] ALTER COLUMN [" & _
-            colNames(1) & "] BIGINT", dbFailOnError
+        For Each varName In colNames
+            TestAssert dbs.TableDefs(TEST_TABLE_BIGINT).Fields(CStr(varName)).Type <> dbBigInt, _
+                "ImportXML does not preserve dbBigInt on its own for " & varName
+            dbs.Execute "ALTER TABLE [" & TEST_TABLE_BIGINT & "] ALTER COLUMN [" & _
+                varName & "] BIGINT", dbFailOnError
+        Next varName
         RefreshTableCollections dbs
 
         Set dbs = CurrentDb
-        TestAssert dbs.TableDefs(TEST_TABLE_BIGINT).Fields(colNames(1)).Type = dbBigInt, _
-            "ALTER COLUMN restores dbBigInt after ImportXML"
+        For Each varName In colNames
+            TestAssert dbs.TableDefs(TEST_TABLE_BIGINT).Fields(CStr(varName)).Type = dbBigInt, _
+                "ALTER COLUMN restores dbBigInt after ImportXML for " & varName
+        Next varName
         TestAssert dbs.TableDefs(TEST_TABLE_BIGINT).Fields("BigVal").OrdinalPosition = 1, _
             "field ordinal is preserved"
     End If

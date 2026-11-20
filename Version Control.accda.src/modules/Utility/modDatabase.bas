@@ -987,6 +987,7 @@ End Function
 ' Date      : 7/30/2026
 ' Purpose   : Return field names whose ExportXML schema cannot represent dbBigInt and
 '           : will be mis-created as dbDecimal(38,0) on Application.ImportXML.
+'           : Names are unescaped: ExportXML writes "Big Val" as "Big_x0020_Val".
 '---------------------------------------------------------------------------------------
 '
 Public Function GetBigIntRepairFieldNamesFromTableDefXml(strXml As String) As Collection
@@ -1013,7 +1014,7 @@ Public Function GetBigIntRepairFieldNamesFromTableDefXml(strXml As String) As Co
     Set objNodes = objXml.SelectNodes(XPATH_CORRUPTED_BIGINT)
     For Each objNode In objNodes
         Set objNameAttr = objNode.Attributes.getNamedItem("name")
-        If Not objNameAttr Is Nothing Then colNames.Add objNameAttr.Text
+        If Not objNameAttr Is Nothing Then colNames.Add UnescapeXmlName(objNameAttr.Text)
     Next objNode
 
     Set GetBigIntRepairFieldNamesFromTableDefXml = colNames
