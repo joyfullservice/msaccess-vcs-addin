@@ -51,6 +51,7 @@ Private this As udtThis
 Private Function GetLanguageName(strIdentifier As String) As String
     Select Case strIdentifier
         Case "en_US":   GetLanguageName = "English"
+        Case "de_DE":   GetLanguageName = "Deutsch"
         Case "pt_BR":   GetLanguageName = "Brazilian Portuguese"
         Case "en_TEST": GetLanguageName = "English (Localization Testing)"
         ' For undefined languages, use the identifier for now.
@@ -72,6 +73,7 @@ Public Function T(strText As String, Optional strReference As String, _
     Optional var5, Optional var6, Optional var7, Optional var8, Optional var9) As String
 
     Dim strNew As String
+    Dim strMsgId As String
     Dim strKey As String
     Dim lngId As Long
 
@@ -84,12 +86,19 @@ Public Function T(strText As String, Optional strReference As String, _
     ' Fall back to English (untranslated)
     strNew = strText
 
+    ' Strings are keyed with LF line breaks, the form they take after a round trip
+    ' through a .po file. Form captions arrive with CRLF.
+    strMsgId = ToLf(strText)
+
     ' Check for the master string
-    strKey = BuildKey(strContext, strText)
+    strKey = BuildKey(strContext, strMsgId)
     If this.dStrings.Exists(strKey) Then
         If this.dTranslation.Exists(this.dStrings(strKey)) Then
-            ' Use translated string
+            ' Use translated string, with the caller's line breaks
             strNew = this.dTranslation(this.dStrings(strKey))
+            If InStr(1, strText, vbCr, vbBinaryCompare) > 0 Then
+                strNew = Replace(ToLf(strNew), vbLf, vbCrLf, , , vbBinaryCompare)
+            End If
         End If
     ElseIf this.blnLoadFailed Then
         ' The master string list could not be read, so a missing key does not mean
@@ -100,7 +109,7 @@ Public Function T(strText As String, Optional strReference As String, _
             ' as a new string in our translation database.
         Else
             ' Add to master list of strings (no translation exists)
-            lngId = SaveString(strText, strReference, strContext, strComments)
+            lngId = SaveString(strMsgId, strReference, strContext, strComments)
             If lngId > 0 Then
                 this.dStrings.Add strKey, lngId
                 this.dTranslated.Add strText, vbNullString
@@ -145,8 +154,10 @@ Public Sub ApplyTo(frmObject As Form)
     Dim ctl As Control
     Dim strReference As String
     Dim dReferences As Dictionary
+    Dim dMsgIds As Dictionary
 
     Set dReferences = New Dictionary
+    Set dMsgIds = New Dictionary
 
     ' Loop through all controls
     For Each ctl In frmObject.Controls
@@ -170,18 +181,18 @@ Public Sub ApplyTo(frmObject As Form)
                 End If
 
                 ' Translation caption
-                ctl.Caption = T(ctl.Caption, strReference)
+                ctl.Caption = TranslateFormText(ctl.Caption, strReference, dMsgIds)
 
             Case acTextBox
                 ' Nothing to translate
 
-            Case acCommandButton
-                ctl.Caption = T(ctl.Caption, strReference)
+            Case acCommandButton, acToggleButton
+                ctl.Caption = TranslateFormText(ctl.Caption, strReference, dMsgIds)
 
             Case acPage
                 ' Tab control page caption
                 strReference = frmObject.Name & "." & ctl.Parent.Name & "." & ctl.Name
-                ctl.Caption = T(ctl.Caption, strReference)
+                ctl.Caption = TranslateFormText(ctl.Caption, strReference, dMsgIds)
 
             Case Else
                 ' No translation needed
@@ -191,7 +202,7 @@ Public Sub ApplyTo(frmObject As Form)
         ' A tooltip is a separate user-facing string from the caption, and exists on
         ' most interactive control types regardless of whether the caption above was
         ' translated.
-        ApplyToControlTip ctl, strReference, dReferences
+        ApplyToControlTip ctl, strReference, dReferences, dMsgIds
 
         ' Maintain list of references so we can purge unused entries
         If Len(strReference) Then If Not dReferences.Exists(strReference) Then dReferences.Add strReference, vbNullString
@@ -199,14 +210,30 @@ Public Sub ApplyTo(frmObject As Form)
     Next ctl
 
     ' Other properties
-    frmObject.Caption = T(frmObject.Caption, frmObject.Name & ".Caption")
+    frmObject.Caption = TranslateFormText(frmObject.Caption, frmObject.Name & ".Caption", dMsgIds)
     dReferences.Add frmObject.Name & ".Caption", vbNullString
 
     ' Purge any unused references
-    If Me.Contribute Then PurgeStrings frmObject.Name & ".", dReferences
-    PurgeStrings frmObject.Name & ".", dReferences
+    PurgeStrings frmObject.Name & ".", dReferences, dMsgIds
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TranslateFormText
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Translate one caption or tooltip for ApplyTo, and note which reference
+'           : now shows that text, so PurgeStrings can move a string to its new control
+'           : rather than delete it.
+'---------------------------------------------------------------------------------------
+'
+Private Function TranslateFormText(strText As String, strReference As String, dMsgIds As Dictionary) As String
+    Dim strMsgId As String
+    strMsgId = ToLf(strText)
+    If Len(strMsgId) > 0 Then If Not dMsgIds.Exists(strMsgId) Then dMsgIds.Add strMsgId, strReference
+    TranslateFormText = T(strText, strReference)
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -227,7 +254,8 @@ End Sub
 '           : caption is keyed. Both must reach dReferences or PurgeStrings drops them.
 '---------------------------------------------------------------------------------------
 '
-Private Sub ApplyToControlTip(ctl As Control, strReference As String, dReferences As Dictionary)
+Private Sub ApplyToControlTip(ctl As Control, strReference As String, _
+    dReferences As Dictionary, dMsgIds As Dictionary)
 
     Dim strTip As String
     Dim strKey As String
@@ -254,9 +282,28 @@ Private Sub ApplyToControlTip(ctl As Control, strReference As String, dReference
     If Len(strTip) = 0 Then Exit Sub
 
     strKey = strReference & ".ControlTipText"
-    ctl.ControlTipText = T(strTip, strKey)
+    SetControlTip ctl, TranslateFormText(strTip, strKey, dMsgIds)
     If Not dReferences.Exists(strKey) Then dReferences.Add strKey, vbNullString
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SetControlTip
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Assign a tooltip, clipped to the 255 characters Access allows. A
+'           : translation often runs longer than the English it replaces, and an
+'           : over-long value raises error 2176 rather than being truncated.
+'---------------------------------------------------------------------------------------
+'
+Public Sub SetControlTip(ctl As Control, strTip As String)
+    Const MAX_CONTROL_TIP As Long = 255
+    If Len(strTip) > MAX_CONTROL_TIP Then
+        ctl.ControlTipText = Left$(strTip, MAX_CONTROL_TIP - 1) & ChrW(8230)
+    Else
+        ctl.ControlTipText = strTip
+    End If
 End Sub
 
 
@@ -277,6 +324,435 @@ Public Function TranslateStrings(dStrings As Dictionary) As Dictionary
             .Add varKey, T(CStr(varKey))
         Next varKey
     End With
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HarvestSourceStrings
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Add the literal argument of every T() call in the add-in's own code to
+'           : the master list of strings, and return how many were new. T() records a
+'           : string only when it runs, so without this the template misses every log
+'           : message and dialog that nobody happened to trigger before the export.
+'           : Form captions and tooltips are harvested too, since ApplyTo records them
+'           : only for forms that are opened, and only some forms are opened by every run.
+'           : Run in the development copy, then ExportTemplate and ExportTranslations.
+'           : Test modules are skipped; their strings are fixtures, not interface text.
+'---------------------------------------------------------------------------------------
+'
+Public Function HarvestSourceStrings() As Long
+
+    Dim cmp As VBIDE.VBComponent
+    Dim strCode As String
+    Dim colStrings As Collection
+    Dim colSkipped As Collection
+    Dim varString As Variant
+    Dim strKey As String
+    Dim lngId As Long
+    Dim lngBefore As Long
+
+    CheckInit
+    If this.blnLoadFailed Then Exit Function
+    lngBefore = this.dStrings.Count
+
+    HarvestFormStrings
+
+    For Each cmp In GetCodeVBProject.VBComponents
+        strCode = vbNullString
+        With cmp.CodeModule
+            If .CountOfLines > 0 Then strCode = .Lines(1, .CountOfLines)
+        End With
+        If Len(strCode) > 0 And Not IsTestComponentCode(strCode) Then
+            Set colSkipped = New Collection
+            Set colStrings = ExtractTranslatableStrings(strCode, colSkipped)
+            For Each varString In colStrings
+                strKey = BuildKey(vbNullString, CStr(varString))
+                If Not this.dStrings.Exists(strKey) Then
+                    lngId = SaveString(CStr(varString), cmp.Name, vbNullString, vbNullString)
+                    If lngId > 0 Then this.dStrings.Add strKey, lngId
+                End If
+            Next varString
+            For Each varString In colSkipped
+                Debug.Print "Not harvested (not a literal): " & cmp.Name & ": T(" & varString
+            Next varString
+        End If
+    Next cmp
+
+    HarvestSourceStrings = this.dStrings.Count - lngBefore
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : HarvestFormStrings
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Record the captions and tooltips of every form in the add-in. Design view
+'           : runs ApplyTo without running the form's own code, and closing without
+'           : saving discards the translated captions it assigns. Forms are opened from
+'           : the current project, so this does nothing unless that is the add-in.
+'---------------------------------------------------------------------------------------
+'
+Private Sub HarvestFormStrings()
+
+    Dim objForm As AccessObject
+
+    If StrComp(CurrentProject.FullName, CodeProject.FullName, vbTextCompare) <> 0 Then Exit Sub
+
+    For Each objForm In CodeProject.AllForms
+        If Not objForm.IsLoaded Then
+            DoCmd.OpenForm objForm.Name, acDesign, , , , acHidden
+            ApplyTo Forms(objForm.Name)
+            DoCmd.Close acForm, objForm.Name, acSaveNo
+        End If
+    Next objForm
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExtractTranslatableStrings
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Return the string literals passed to T() in a block of VBA source. An
+'           : argument may be literals joined with `&` (including vbCrLf and similar
+'           : constants, returned as LF) or IIf(condition, literal, literal), which
+'           : yields both branches. Anything else is computed at runtime and cannot be
+'           : harvested; the start of each such argument is added to colSkipped.
+'---------------------------------------------------------------------------------------
+'
+Public Function ExtractTranslatableStrings(strCode As String, _
+    Optional colSkipped As Collection) As Collection
+
+    Dim colStrings As Collection
+    Dim varLines As Variant
+    Dim lngLine As Long
+    Dim strLine As String
+    Dim strLogical As String
+
+    Set colStrings = New Collection
+    If colSkipped Is Nothing Then Set colSkipped = New Collection
+
+    varLines = Split(ToLf(strCode), vbLf)
+    For lngLine = 0 To UBound(varLines)
+        strLine = RTrim$(varLines(lngLine))
+        If Right$(strLine, 2) = " _" Then
+            ' Line continuation: join with the next line
+            strLogical = strLogical & Left$(strLine, Len(strLine) - 1)
+        Else
+            ScanLineForT strLogical & strLine, colStrings, colSkipped
+            strLogical = vbNullString
+        End If
+    Next lngLine
+    If Len(strLogical) Then ScanLineForT strLogical, colStrings, colSkipped
+
+    Set ExtractTranslatableStrings = colStrings
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ScanLineForT
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Find T( calls outside string literals and comments in one logical line.
+'           : Scanning resumes inside each call, so a nested T() is found as well.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ScanLineForT(strLine As String, colStrings As Collection, colSkipped As Collection)
+
+    Dim lngPos As Long
+    Dim strChar As String
+    Dim blnInString As Boolean
+
+    For lngPos = 1 To Len(strLine)
+        strChar = Mid$(strLine, lngPos, 1)
+        If blnInString Then
+            If strChar = """" Then
+                If Mid$(strLine, lngPos + 1, 1) = """" Then
+                    lngPos = lngPos + 1
+                Else
+                    blnInString = False
+                End If
+            End If
+        ElseIf strChar = """" Then
+            blnInString = True
+        ElseIf strChar = "'" Then
+            Exit For
+        ElseIf StrComp(Mid$(strLine, lngPos, 2), "T(", vbBinaryCompare) = 0 Then
+            If IsCallStart(strLine, lngPos) Then
+                ReadTArgument strLine, lngPos + 2, colStrings, colSkipped
+            End If
+        End If
+    Next lngPos
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsCallStart
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : True when the T at lngPos is a call to T() rather than the end of a longer
+'           : name, a member of another object, or the declaration of T() itself.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsCallStart(strLine As String, lngPos As Long) As Boolean
+
+    Dim strBefore As String
+
+    If lngPos > 1 Then
+        If IsIdentifierChar(Mid$(strLine, lngPos - 1, 1)) Then Exit Function
+        If Mid$(strLine, lngPos - 1, 1) = "." Or Mid$(strLine, lngPos - 1, 1) = "!" Then Exit Function
+    End If
+    strBefore = " " & RTrim$(Left$(strLine, lngPos - 1))
+    If Right$(strBefore, 9) = " Function" Then Exit Function
+    IsCallStart = True
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadTArgument
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Read the first argument of a T() call that starts at lngStart.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ReadTArgument(strLine As String, lngStart As Long, _
+    colStrings As Collection, colSkipped As Collection)
+
+    Dim lngPos As Long
+    Dim strFirst As String
+    Dim strSecond As String
+
+    ' Literal, or literals joined with &
+    lngPos = lngStart
+    If ReadStringExpression(strLine, lngPos, strFirst) Then
+        If ReadChar(strLine, lngPos, ",") Or ReadChar(strLine, lngPos, ")") Then
+            colStrings.Add strFirst
+            Exit Sub
+        End If
+    End If
+
+    ' IIf(condition, literal, literal)
+    lngPos = lngStart
+    SkipSpaces strLine, lngPos
+    If StrComp(Mid$(strLine, lngPos, 4), "IIf(", vbTextCompare) = 0 Then
+        lngPos = lngPos + 4
+        If SkipToTopLevelComma(strLine, lngPos) Then
+            If ReadStringExpression(strLine, lngPos, strFirst) Then
+                If ReadChar(strLine, lngPos, ",") Then
+                    If ReadStringExpression(strLine, lngPos, strSecond) Then
+                        If ReadChar(strLine, lngPos, ")") Then
+                            If ReadChar(strLine, lngPos, ",") Or ReadChar(strLine, lngPos, ")") Then
+                                colStrings.Add strFirst
+                                colStrings.Add strSecond
+                                Exit Sub
+                            End If
+                        End If
+                    End If
+                End If
+            End If
+        End If
+    End If
+
+    colSkipped.Add Trim$(Mid$(strLine, lngStart, 60))
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadStringExpression
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Read string literals and line-break constants joined with &, starting at
+'           : lngPos. On success, lngPos is left after the expression. At least one
+'           : literal is required.
+'---------------------------------------------------------------------------------------
+'
+Private Function ReadStringExpression(strLine As String, lngPos As Long, strValue As String) As Boolean
+
+    Dim lngCursor As Long
+    Dim strTerm As String
+    Dim blnHasLiteral As Boolean
+
+    lngCursor = lngPos
+    strValue = vbNullString
+
+    Do
+        SkipSpaces strLine, lngCursor
+        If Mid$(strLine, lngCursor, 1) = """" Then
+            If Not ReadLiteral(strLine, lngCursor, strTerm) Then Exit Function
+            blnHasLiteral = True
+        ElseIf Not ReadConstant(strLine, lngCursor, strTerm) Then
+            Exit Function
+        End If
+        strValue = strValue & strTerm
+        SkipSpaces strLine, lngCursor
+        If Mid$(strLine, lngCursor, 1) <> "&" Then Exit Do
+        lngCursor = lngCursor + 1
+    Loop
+
+    If blnHasLiteral Then
+        lngPos = lngCursor
+        ReadStringExpression = True
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadLiteral
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Read a quoted string literal at lngPos, unescaping doubled quotes.
+'---------------------------------------------------------------------------------------
+'
+Private Function ReadLiteral(strLine As String, lngPos As Long, strValue As String) As Boolean
+
+    Dim lngCursor As Long
+    Dim strChar As String
+
+    strValue = vbNullString
+    For lngCursor = lngPos + 1 To Len(strLine)
+        strChar = Mid$(strLine, lngCursor, 1)
+        If strChar = """" Then
+            If Mid$(strLine, lngCursor + 1, 1) = """" Then
+                strValue = strValue & """"
+                lngCursor = lngCursor + 1
+            Else
+                lngPos = lngCursor + 1
+                ReadLiteral = True
+                Exit Function
+            End If
+        Else
+            strValue = strValue & strChar
+        End If
+    Next lngCursor
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadConstant
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Read a line-break or tab constant at lngPos. Line breaks become LF.
+'---------------------------------------------------------------------------------------
+'
+Private Function ReadConstant(strLine As String, lngPos As Long, strValue As String) As Boolean
+
+    Dim varName As Variant
+    Dim lngLen As Long
+
+    For Each varName In Array("vbCrLf", "vbNewLine", "vbLf", "vbCr", "vbTab")
+        lngLen = Len(varName)
+        If StrComp(Mid$(strLine, lngPos, lngLen), varName, vbTextCompare) = 0 Then
+            If Not IsIdentifierChar(Mid$(strLine, lngPos + lngLen, 1)) Then
+                strValue = IIf(varName = "vbTab", vbTab, vbLf)
+                lngPos = lngPos + lngLen
+                ReadConstant = True
+                Exit Function
+            End If
+        End If
+    Next varName
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SkipToTopLevelComma
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Move lngPos past the next comma outside parentheses and string literals.
+'---------------------------------------------------------------------------------------
+'
+Private Function SkipToTopLevelComma(strLine As String, lngPos As Long) As Boolean
+
+    Dim lngCursor As Long
+    Dim lngDepth As Long
+    Dim strChar As String
+    Dim strIgnore As String
+
+    lngCursor = lngPos
+    Do While lngCursor <= Len(strLine)
+        strChar = Mid$(strLine, lngCursor, 1)
+        Select Case strChar
+            Case """"
+                If Not ReadLiteral(strLine, lngCursor, strIgnore) Then Exit Function
+                lngCursor = lngCursor - 1
+            Case "("
+                lngDepth = lngDepth + 1
+            Case ")"
+                If lngDepth = 0 Then Exit Function
+                lngDepth = lngDepth - 1
+            Case ","
+                If lngDepth = 0 Then
+                    lngPos = lngCursor + 1
+                    SkipToTopLevelComma = True
+                    Exit Function
+                End If
+        End Select
+        lngCursor = lngCursor + 1
+    Loop
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReadChar
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Skip spaces, then consume strChar if it is next. Leaves lngPos unchanged
+'           : when it is not.
+'---------------------------------------------------------------------------------------
+'
+Private Function ReadChar(strLine As String, lngPos As Long, strChar As String) As Boolean
+    Dim lngCursor As Long
+    lngCursor = lngPos
+    SkipSpaces strLine, lngCursor
+    If Mid$(strLine, lngCursor, 1) = strChar Then
+        lngPos = lngCursor + 1
+        ReadChar = True
+    End If
+End Function
+
+
+Private Sub SkipSpaces(strLine As String, lngPos As Long)
+    Do While Mid$(strLine, lngPos, 1) = " " Or Mid$(strLine, lngPos, 1) = vbTab
+        lngPos = lngPos + 1
+    Loop
+End Sub
+
+
+Private Function IsIdentifierChar(strChar As String) As Boolean
+    If Len(strChar) = 1 Then IsIdentifierChar = (strChar Like "[A-Za-z0-9_]")
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsTestComponentCode
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : True when the component's '@Folder annotation places it under Tests.
+'---------------------------------------------------------------------------------------
+'
+Private Function IsTestComponentCode(strCode As String) As Boolean
+    IsTestComponentCode = InStr(1, vbLf & ToLf(strCode), vbLf & "'@Folder(""Tests", vbTextCompare) > 0
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ToLf
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Convert CRLF and CR line breaks to LF.
+'---------------------------------------------------------------------------------------
+'
+Private Function ToLf(strText As String) As String
+    ToLf = Replace(Replace(strText, vbCrLf, vbLf, , , vbBinaryCompare), vbCr, vbLf, , , vbBinaryCompare)
 End Function
 
 
@@ -356,7 +832,7 @@ Public Sub LoadTranslations()
     Next varFile
 
     ' Reload current translation
-    LoadLanguage Me.Language
+    LoadLanguage PreferredLanguage
 
 End Sub
 
@@ -469,11 +945,11 @@ End Property
 ' Procedure : Language
 ' Author    : Adam Waller
 ' Date      : 5/19/2021
-' Purpose   : Selected language
+' Purpose   : Language the user selected, or an empty string if they never chose one.
 '---------------------------------------------------------------------------------------
 '
 Public Property Get Language() As String
-    Language = GetSetting(PROJECT_NAME, "Language", "Language", "en_US")
+    Language = GetSetting(PROJECT_NAME, "Language", "Language", vbNullString)
 End Property
 Public Property Let Language(strLanguage As String)
     SaveSetting PROJECT_NAME, "Language", "Language", strLanguage
@@ -484,15 +960,19 @@ End Property
 ' Procedure : PurgeStrings
 ' Author    : Adam Waller
 ' Date      : 8/23/2024
-' Purpose   : Purges translation strings from form controls that no longer exist
-'           : (Note that renamed controls are also purged and added as untranslated)
+' Purpose   : Purges translation strings from form controls that no longer exist.
+'           : A string whose text the form still shows on another control (a renamed
+'           : or rebuilt control) moves to that reference instead. Deleting it would
+'           : lose its translations, and T() would not record it again this session
+'           : because the string is still in the loaded master list.
 '---------------------------------------------------------------------------------------
 '
-Private Sub PurgeStrings(strObjectPrefix As String, dReferences As Dictionary)
+Private Sub PurgeStrings(strObjectPrefix As String, dReferences As Dictionary, dMsgIds As Dictionary)
 
     Dim dbs As DAO.Database
     Dim rst As DAO.Recordset
     Dim strSql As String
+    Dim strKey As String
 
     Set dbs = CodeDb
     strSql = "select * from tblStrings where Reference like """ & strObjectPrefix & "*"""
@@ -500,11 +980,21 @@ Private Sub PurgeStrings(strObjectPrefix As String, dReferences As Dictionary)
     With rst
         Do While Not .EOF
             If Len(Nz(!Reference)) > 0 Then
-                If Not dReferences.Exists(Nz(!Reference)) Then
+                If dReferences.Exists(Nz(!Reference)) Then
+                    ' Still in use
+                ElseIf dMsgIds.Exists(Nz(!msgid)) Then
+                    .Edit
+                    !Reference = dMsgIds(Nz(!msgid))
+                    .Update
+                Else
                     ' Delete orphaned string entry
                     ' (Translations will be removed automatically when
                     '  the translation files are rewritten.)
                     Debug.Print "Removing translation string: " & Nz(!Reference) & ": " & Nz(!msgid)
+                    strKey = BuildKey(Nz(!context), Nz(!msgid))
+                    If Not this.dStrings Is Nothing Then
+                        If this.dStrings.Exists(strKey) Then this.dStrings.Remove strKey
+                    End If
                     .Delete
                 End If
             End If
@@ -667,7 +1157,7 @@ Private Sub LoadLanguage(strLanguage As String)
 
     With rst
         Do While Not .EOF
-            strKey = BuildKey(Nz(!context), Nz(!msgid))
+            strKey = BuildKey(Nz(!context), ToLf(Nz(!msgid)))
             If Not this.dStrings.Exists(strKey) Then this.dStrings.Add strKey, CStr(!Id)
             If Nz(!Translation) <> vbNullString Then
                 If Not this.dTranslation.Exists(CStr(!Id)) Then
@@ -712,12 +1202,93 @@ End Sub
 ' Procedure : CurrentLanguage
 ' Author    : Adam Waller
 ' Date      : 5/15/2021
-' Purpose   : Return the currently selected language, falling back to operating system
-'           : UI language, then to US English.
+' Purpose   : Return the currently selected language, falling back to the Office UI
+'           : language when a translation exists for it, then to US English.
 '---------------------------------------------------------------------------------------
 '
 Public Function GetCurrentLanguage() As String
-    GetCurrentLanguage = Coalesce(this.CurrentLanguage, Me.Language, GetOsLanguage, "en_US")
+    If Len(this.CurrentLanguage) Then
+        GetCurrentLanguage = this.CurrentLanguage
+    Else
+        GetCurrentLanguage = PreferredLanguage
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PreferredLanguage
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : The user's saved choice, or the best match for the Office UI language.
+'---------------------------------------------------------------------------------------
+'
+Private Function PreferredLanguage() As String
+    PreferredLanguage = Me.Language
+    If PreferredLanguage = vbNullString Then
+        PreferredLanguage = ResolveOsLanguage(GetOsLanguage, GetAvailableLanguages)
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ResolveOsLanguage
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Choose the translation to use for an Office UI language such as "de_AT".
+'           : An exact match wins, then any translation of the same language ("de_DE").
+'           : English variants use en_US, and so does a language with no translation.
+'           : dAvailable is keyed by language identifier.
+'---------------------------------------------------------------------------------------
+'
+Public Function ResolveOsLanguage(strOsLanguage As String, dAvailable As Dictionary) As String
+
+    Dim strPrefix As String
+    Dim varLanguage As Variant
+
+    ResolveOsLanguage = "en_US"
+    If Len(strOsLanguage) = 0 Then Exit Function
+
+    ' Matching English by prefix could land on en_TEST, the localization test file.
+    strPrefix = Split(strOsLanguage, "_")(0)
+    If StrComp(strPrefix, "en", vbTextCompare) = 0 Then Exit Function
+
+    If dAvailable.Exists(strOsLanguage) Then
+        ResolveOsLanguage = strOsLanguage
+        Exit Function
+    End If
+    For Each varLanguage In dAvailable.Keys
+        If StrComp(Split(varLanguage, "_")(0), strPrefix, vbTextCompare) = 0 Then
+            ResolveOsLanguage = varLanguage
+            Exit Function
+        End If
+    Next varLanguage
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetAvailableLanguages
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Return the languages loaded into the add-in, keyed by identifier.
+'           : (No error handling here: this runs before the language is set, so any
+'           :  logging would re-enter through T() and CheckInit.)
+'---------------------------------------------------------------------------------------
+'
+Public Function GetAvailableLanguages() As Dictionary
+
+    Dim dbs As DAO.Database
+    Dim rst As DAO.Recordset
+
+    Set GetAvailableLanguages = New Dictionary
+    Set dbs = CodeDb
+    Set rst = dbs.OpenRecordset("tblLanguages", dbOpenSnapshot)
+    Do While Not rst.EOF
+        If Not GetAvailableLanguages.Exists(Nz(rst!Id)) Then GetAvailableLanguages.Add Nz(rst!Id), Nz(rst!DisplayName)
+        rst.MoveNext
+    Loop
+    rst.Close
+
 End Function
 
 

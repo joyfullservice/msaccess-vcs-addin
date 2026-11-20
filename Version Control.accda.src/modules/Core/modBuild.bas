@@ -740,6 +740,9 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
     End If
     Log.Spacer
     Log.Add T("Done. ({0} seconds)", var0:=Round(Perf.TotalTime, 2)), , False, strColor, True
+    ' Untranslated and file-only: the add-in rebuild worker reads the saved log to
+    ' learn the result, and the line above is in the user's language.
+    Log.Add vbNewLine & "Build succeeded.", False
     blnSuccess = True
 
     ' Show warning/error summary if any issues occurred

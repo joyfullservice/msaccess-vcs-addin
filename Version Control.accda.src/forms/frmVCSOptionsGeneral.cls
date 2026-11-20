@@ -60,7 +60,7 @@ Private Sub LoadOptions()
     End With
 
     ' Language
-    Me.cboLanguage = Translation.Language
+    Me.cboLanguage = Translation.GetCurrentLanguage
 
 End Sub
 

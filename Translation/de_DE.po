@@ -1,0 +1,4180 @@
+# Version Control System Add-in for Microsoft Access
+# https://github.com/joyfullservice/msaccess-vcs-addin
+# This file is distributed under the project's BSD-style license.
+msgid ""
+msgstr ""
+"Language: de_DE\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: frmVCSTableData.Label40(txtTableIcon)
+msgid " "
+msgstr " "
+
+#: clsDbTableDef
+msgid "    {0} already matches the source file. Skipping table rebuild."
+msgstr ""
+"    {0} stimmt bereits mit der Quelldatei überein. Neuaufbau der Tabelle "
+"wird übersprungen."
+
+#: clsDbTableDef
+msgid "    Built {0} directly, without importing the XML."
+msgstr "    {0} wurde direkt erstellt, ohne XML-Import."
+
+#: clsQueryComposer
+msgid "    OptionFlag {0} disagrees with SQL modifiers {1}; using SQL"
+msgstr ""
+"    OptionFlag {0} widerspricht den SQL-Modifizierern {1}; SQL wird "
+"verwendet"
+
+#: clsDbTableDef
+msgid "    Using XML import for {0}: {1}."
+msgstr "    XML-Import wird für {0} verwendet: {1}."
+
+#: frmVCSMain.cmdExport
+msgid "   Export All Source"
+msgstr "   Alle Quellen exportieren"
+
+#: frmVCSInstall.cmdInstall
+msgid "   Install Add-In"
+msgstr "   Add-In installieren"
+
+#: modExport
+msgid "   No connection string found. (.env)"
+msgstr "   Keine Verbindungszeichenfolge gefunden. (.env)"
+
+#: frmVCSSplitFiles.cmdSplitFiles
+msgid "   Split Files"
+msgstr "   Dateien aufteilen"
+
+#: clsSchemaMsSql
+msgid ""
+"   The DDL exporter has changed for this connection. Re-exporting all "
+"objects."
+msgstr ""
+"   Der DDL-Exporter für diese Verbindung wurde geändert. Alle Objekte "
+"werden erneut exportiert."
+
+#: modExport
+msgid " - {0} - Connection disabled"
+msgstr " - {0} - Verbindung deaktiviert"
+
+#: clsDbTableData
+msgid "  {0}: {1}"
+msgstr "  {0}: {1}"
+
+#: clsDbTableData
+msgid "  Additional import errors were not shown."
+msgstr "  Weitere Importfehler wurden nicht angezeigt."
+
+#: frmVCSMain.cmdBuild
+msgid "  Build From Source"
+msgstr "  Aus Quellcode erstellen"
+
+#: frmVCSConflict.cmdCancel
+msgid "  Cancel"
+msgstr "  Abbrechen"
+
+#: frmVCSConflict.cmdContinue
+msgid "  Continue"
+msgstr "  Weiter"
+
+msgid "  Merge From Source"
+msgstr "  Aus Quellcode zusammenführen"
+
+#: modExport
+msgid "  Skipped {0} unchanged {1}"
+msgstr "  {0} unveränderte {1} übersprungen"
+
+#: clsDbTableData
+msgid " ({0})"
+msgstr " ({0})"
+
+#: frmVCSOptionsDatabases.cmdAddDatabase
+msgid " Add"
+msgstr " Hinzufügen"
+
+#: frmVCSOptionsTableData.cmdAddOtherTableData
+msgid " Add Other"
+msgstr " Weitere hinzufügen"
+
+#: frmVCSOptionsDefaults.cmdClearDefaults
+msgid " Clear Defaults"
+msgstr " Standards löschen"
+
+#: frmVCSOptionsDatabases.cmdDeleteDatabase
+msgid " Delete"
+msgstr " Löschen"
+
+#: frmVCSOptionsDatabases.cmdEditDatabase
+msgid " Edit..."
+msgstr " Bearbeiten..."
+
+#: frmVCSMain.cmdHelp
+msgid " Help"
+msgstr " Hilfe"
+
+#: frmVCSMain.cmdOptions
+msgid " Options..."
+msgstr " Optionen..."
+
+#: modBuild
+msgid " processed."
+msgstr " verarbeitet."
+
+#: frmVCSOptionsDefaults.cmdRestoreDefaults
+msgid " Restore Defaults"
+msgstr " Standards wiederherstellen"
+
+#: frmVCSOptions.cmdSaveAndClose
+msgid " Save && Close"
+msgstr " Speichern"
+
+#: frmVCSOptionsDefaults.cmdSaveAsDefault
+msgid " Save as Default"
+msgstr " Als Standard speichern"
+
+#: frmVCSOptionsTranslation.cmdSyncTranslations
+msgid " Sync Files"
+msgstr " Dateien synchronisieren"
+
+#: frmVCSOptionsDefaults.cmdUninstall
+msgid " Uninstall"
+msgstr " Deinstallieren"
+
+#: frmVCSOptionsBuild.Label309
+msgid "(\"Save Query SQL\" option needed when exporting)"
+msgstr "(Option \"Abfrage-SQL speichern\" beim Export erforderlich)"
+
+#: Form_frmVCSInstall
+msgid "(Add-in not currently installed)"
+msgstr "(Add-In derzeit nicht installiert)"
+
+#: modBuild
+msgid "(empty path)"
+msgstr "(leerer Pfad)"
+
+#: frmVCSOptionsBuild.lblValidateAfterBuildHint
+msgid "(Function must return True; runs after merge too)"
+msgstr "(Funktion muss True zurückgeben; läuft auch nach dem Merge)"
+
+#: frmVCSOptionsGeneral.Label309
+msgid "(leave blank for default)"
+msgstr "(leer lassen für Standard)"
+
+#: frmVCSOptionsBuild.Label231
+msgid "(Module name optional)"
+msgstr "(Modulname optional)"
+
+#: modExport
+msgid ""
+"(This file may contain authentication credentials and should be excluded "
+"from version control.)"
+msgstr ""
+"(Diese Datei kann Anmeldeinformationen enthalten und sollte von der "
+"Versionsverwaltung ausgeschlossen werden.)"
+
+msgid ""
+"* (This database will be renamed as a backup before building {0} from "
+"source.)"
+msgstr ""
+"* (Diese Datenbank wird als Sicherung umbenannt, bevor {0} aus dem "
+"Quellcode erstellt wird.)"
+
+#: frmVCSDatabase.Label266
+msgid ""
+"* If the connection string contains a password, please use the .env "
+"option, and exclude this file from version control."
+msgstr ""
+"* Wenn die Verbindungszeichenfolge ein Kennwort enthält, verwenden Sie "
+"bitte die .env-Option und schließen Sie diese Datei von der "
+"Versionsverwaltung aus."
+
+#: frmVCSInstall.cmdChangeInstallFolder
+msgid "..."
+msgstr "..."
+
+#: clsVersionControl
+msgid "... and {0} more (see export log for full list)"
+msgstr "... und {0} weitere (vollständige Liste im Exportprotokoll)"
+
+#: modBuild
+msgid "[{0}] {1} processed."
+msgstr "[{0}] {1} verarbeitet."
+
+#: modLoadSaveText
+msgid ""
+"[Abort] = Abort build process entirely.\n"
+"[Retry] = Retry importing the item.\n"
+"[Ignore] = Skip this item."
+msgstr ""
+"[Abbrechen] = Build-Vorgang vollständig abbrechen.\n"
+"[Wiederholen] = Import des Elements wiederholen.\n"
+"[Ignorieren] = Dieses Element überspringen."
+
+#: modBuild
+msgid "[Ok] = Build with Source Configured Name"
+msgstr "[OK] = Mit dem in der Quelle konfigurierten Namen erstellen"
+
+#: modBuild
+msgid "{0} aborted. Name mismatch."
+msgstr "{0} abgebrochen. Namen stimmen nicht überein."
+
+#: clsDbTableData
+msgid "{0} added"
+msgstr "{0} hinzugefügt"
+
+#: clsDbTableData
+msgid "{0} changed"
+msgstr "{0} geändert"
+
+#: clsVersionControl
+msgid "{0} correction(s) applied to VBA identifiers."
+msgstr "{0} Korrektur(en) an VBA-Bezeichnern angewendet."
+
+#: clsVersionControl
+msgid "{0} Debug.Assert call(s) replaced with TestAssert."
+msgstr "{0} Debug.Assert-Aufruf(e) durch TestAssert ersetzt."
+
+#: modBuild
+msgid "{0} did not return a value."
+msgstr "{0} hat keinen Wert zurückgegeben."
+
+#: modBuild
+msgid "{0} error(s)"
+msgstr "{0} Fehler"
+
+#: clsVersionControl
+msgid ""
+"{0} invalid entry/entries found in clsStandardLetterCasing. Correct the "
+"module and run again."
+msgstr ""
+"{0} ungültige(r) Eintrag/Einträge in clsStandardLetterCasing gefunden. "
+"Korrigieren Sie das Modul und führen Sie den Befehl erneut aus."
+
+#: modBuild
+msgid "{0} letter casing correction(s) applied:"
+msgstr "{0} Korrektur(en) der Groß-/Kleinschreibung angewendet:"
+
+#: modBuild
+msgid "{0} Name Conflict"
+msgstr "{0} Namenskonflikt"
+
+#: clsVersionControl
+msgid "{0} occurrence(s) in {1} module(s):"
+msgstr "{0} Vorkommen in {1} Modul(en):"
+
+#: clsDbTableData
+msgid "{0} removed"
+msgstr "{0} entfernt"
+
+#: modBuild
+msgid "{0} returned a value that is not True or False."
+msgstr "{0} hat einen Wert zurückgegeben, der weder True noch False ist."
+
+#: modBuild
+msgid "{0} warning(s)"
+msgstr "{0} Warnung(en)"
+
+#: modBuild
+msgid "{0} warning(s), {1} error(s)"
+msgstr "{0} Warnung(en), {1} Fehler"
+
+#: clsDbTableData
+msgid "{0}: {1} row(s) reloaded (no key to compare on)"
+msgstr "{0}: {1} Zeile(n) neu geladen (kein Schlüssel zum Vergleichen)"
+
+#: clsDbTableData
+msgid ""
+"{0}: too many fields to update in one statement. Updating in groups of "
+"{1}."
+msgstr ""
+"{0}: zu viele Felder für eine einzelne Anweisung. Aktualisierung in "
+"Gruppen zu je {1}."
+
+msgid ""
+"<strong><em>Export</em></strong> source to generate source files from the "
+"current database.<br><br><strong><em>Import</em></strong> source files to "
+"rebuild this database from source."
+msgstr ""
+"<strong><em>Exportieren</em></strong> erzeugt Quelldateien aus der "
+"aktuellen Datenbank.<br><br><strong><em>Importieren</em></strong> "
+"erstellt diese Datenbank aus den Quelldateien neu."
+
+#: frmVCSOptions.lblVersion
+msgid "4.0.37"
+msgstr ""
+
+#: modBuild
+msgid "A backup of the previous build was saved as '{0}'."
+msgstr "Eine Sicherung des vorherigen Builds wurde als '{0}' gespeichert."
+
+#: clsVersionControl
+msgid ""
+"A full build or full export must be performed before you can merge from "
+"source."
+msgstr ""
+"Vor einem Merge aus dem Quellcode muss ein vollständiger Build oder "
+"vollständiger Export durchgeführt werden."
+
+msgid ""
+"A summary of the build progress can be seen on this screen, and "
+"additional details are included in the log file."
+msgstr ""
+"Eine Zusammenfassung des Build-Fortschritts wird in diesem Fenster "
+"angezeigt; weitere Details enthält die Protokolldatei."
+
+#: modExport
+msgid ""
+"A summary of the export progress can be seen on this screen, and "
+"additional details are included in the log file."
+msgstr ""
+"Eine Zusammenfassung des Export-Fortschritts wird in diesem Fenster "
+"angezeigt; weitere Details enthält die Protokolldatei."
+
+#: modLoadSaveText
+msgid "Abort build, retry importing, or skip?"
+msgstr "Build abbrechen, Import wiederholen oder überspringen?"
+
+#: Ribbon.grpActions.Label
+msgid "Actions"
+msgstr "Aktionen"
+
+#: Ribbon.btnActivateHook.Label
+msgid "Activate Hook"
+msgstr "Hook aktivieren"
+
+#: clsVersionControl
+msgid ""
+"Add Dim lines for identifiers whose casing you want to standardize, then "
+"run this command again."
+msgstr ""
+"Fügen Sie Dim-Zeilen für die Bezeichner hinzu, deren Schreibweise Sie "
+"vereinheitlichen möchten, und führen Sie diesen Befehl dann erneut aus."
+
+#: frmVCSSplitFiles.cmdAddFormsAndReports
+msgid "Add Forms and Reports..."
+msgstr "Formulare und Berichte hinzufügen..."
+
+#: clsVersionControl
+msgid ""
+"Add it in File > Options > Trust Center > Trusted Locations, then try "
+"again."
+msgstr ""
+"Fügen Sie ihn unter Datei > Optionen > Trust Center > Vertrauenswürdige "
+"Speicherorte hinzu und versuchen Sie es erneut."
+
+#: modVCSUtility
+msgid "Added !.env*.example to .gitignore"
+msgstr "!.env*.example zu .gitignore hinzugefügt"
+
+#: modVCSUtility
+msgid "Added *.env to .gitignore"
+msgstr "*.env zu .gitignore hinzugefügt"
+
+#: modVCSUtility
+msgid "Added .env.* to .gitignore"
+msgstr ".env.* zu .gitignore hinzugefügt"
+
+#: modVCSUtility
+msgid "Added logs/ to .gitignore"
+msgstr "logs/ zu .gitignore hinzugefügt"
+
+#: modVCSUtility
+msgid "Added test-results/ to .gitignore"
+msgstr "test-results/ zu .gitignore hinzugefügt"
+
+msgid ""
+"Additional details can be found in the project log file.<br><br>You may "
+"now close this window."
+msgstr ""
+"Weitere Details finden Sie in der Protokolldatei des Projekts.<br><br>Sie "
+"können dieses Fenster jetzt schließen."
+
+#: frmVCSDatabase.Label248(cboConnect)
+msgid "ADO (OLE) Connection String:"
+msgstr "ADO-Verbindungszeichenfolge (OLE):"
+
+#: frmVCSOptions.tglAdvanced
+msgid "Advanced"
+msgstr "Erweitert"
+
+#: frmVCSInstall.tabInstallType.Page41
+msgid "Advanced Install"
+msgstr "Erweiterte Installation"
+
+#: frmVCSInstall.Label61
+msgid "Advanced Options"
+msgstr "Erweiterte Optionen"
+
+#: frmVCSOptionsAdvanced.Label3
+msgid "Advanced options and settings"
+msgstr "Erweiterte Optionen und Einstellungen"
+
+#: frmVCSInstall.Label65(chkAdvancedOptions)
+msgid "Advanced Options..."
+msgstr "Erweiterte Optionen..."
+
+#: Ribbon.mnuAdvancedTools.Label
+msgid "Advanced Tools"
+msgstr "Erweiterte Werkzeuge"
+
+#: frmVCSOptionsMCP.Label3
+msgid "Agent Capabilities"
+msgstr "Agent-Funktionen"
+
+#: modBuild
+msgid ""
+"All {0} backup file names are in use. Delete old {1} files from {2}, then "
+"try again."
+msgstr ""
+"Alle {0} Sicherungsdateinamen sind belegt. Löschen Sie alte {1}-Dateien "
+"aus {2} und versuchen Sie es erneut."
+
+#: modExport
+msgid ""
+"All database objects (i.e.forms, reports, tables, queries, etc...) must "
+"be closed to export source code."
+msgstr ""
+"Alle Datenbankobjekte (Formulare, Berichte, Tabellen, Abfragen usw.) "
+"müssen geschlossen sein, um den Quellcode zu exportieren."
+
+#: clsVersionControl
+msgid ""
+"All tests completed successfully. Click the log button to view the full "
+"results."
+msgstr ""
+"Alle Tests wurden erfolgreich abgeschlossen. Klicken Sie auf die "
+"Protokoll-Schaltfläche, um alle Ergebnisse anzuzeigen."
+
+#: clsVersionControl
+msgid "All Tests Passed"
+msgstr "Alle Tests bestanden"
+
+#: clsVersionControl
+msgid "All VBA identifiers already match the standard letter casing rules."
+msgstr ""
+"Alle VBA-Bezeichner entsprechen bereits den Regeln für die "
+"Groß-/Kleinschreibung."
+
+#: frmVCSOptionsMCP.Label14(chkMcpAllowRunVBA)
+msgid "Allow Arbitrary VBA Execution"
+msgstr "Beliebige VBA-Ausführung zulassen"
+
+#: frmVCSOptionsMCP.Label5(chkMcpAllowImport)
+msgid "Allow Object Import from Source"
+msgstr "Objektimport aus Quelldateien zulassen"
+
+#: frmVCSOptionsMCP.Label11(chkMcpAllowExecuteSQL)
+msgid "Allow Read-Only SQL Queries"
+msgstr "Schreibgeschützte SQL-Abfragen zulassen"
+
+#: frmVCSOptionsMCP.Label8(chkMcpAllowCallVBA)
+msgid "Allow VBA Function Calls"
+msgstr "VBA-Funktionsaufrufe zulassen"
+
+#: frmVCSOptionsMCP.Label9
+msgid "Allows agents to call existing public VBA functions by name."
+msgstr ""
+"Agents können vorhandene öffentliche VBA-Funktionen über ihren Namen "
+"aufrufen."
+
+#: frmVCSOptionsMCP.Label6
+msgid "Allows agents to load source files into the database via MCP."
+msgstr "Agents können Quelldateien über MCP in die Datenbank laden."
+
+#: frmVCSOptionsMCP.Label12
+msgid "Allows agents to run SELECT queries via the add-in's DAO connection."
+msgstr ""
+"Agents können SELECT-Abfragen über die DAO-Verbindung des Add-Ins "
+"ausführen."
+
+#: frmVCSOptionsMCP.Label15
+msgid ""
+"Allows agents to write and execute VBA code in a temp module. Off by "
+"default."
+msgstr ""
+"Agents können VBA-Code in einem temporären Modul schreiben und ausführen. "
+"Standardmäßig aus."
+
+#: modInstall
+msgid "Almost Finished"
+msgstr "Fast fertig"
+
+#: clsVersionControl
+msgid "Already Installed"
+msgstr "Bereits installiert"
+
+#: clsOperation
+msgid "Another Operation Already Running"
+msgstr "Ein anderer Vorgang wird bereits ausgeführt"
+
+#: clsOptions
+msgid "Applied {0} option override(s) from {1}"
+msgstr "{0} Optionsüberschreibung(en) aus {1} angewendet"
+
+#: frmVCSOptionsExport.Label14
+msgid "Applies to both export and build/import"
+msgstr "Gilt für Export und Build/Import"
+
+#: Ribbon.btnStandardizeLetterCasing.Description
+msgid ""
+"Apply standard letter casing rules to VBA identifiers in the current "
+"database"
+msgstr ""
+"Regeln für die Groß-/Kleinschreibung auf VBA-Bezeichner in der aktuellen "
+"Datenbank anwenden"
+
+#: frmVCSOptionsDefaults.Label57(cmdRestoreDefaults)
+msgid "Apply system defaults to this project."
+msgstr "Systemstandards auf dieses Projekt anwenden."
+
+#: Form_frmVCSOptionsDefaults
+msgid "Apply to this Project?"
+msgstr "Auf dieses Projekt anwenden?"
+
+#: Form_frmVCSOptionsDatabases
+msgid "Are you sure you want to delete '{0}'?"
+msgstr "Möchten Sie '{0}' wirklich löschen?"
+
+#: frmVCSDatabase.Label268(chkAttemptADOConvert)
+msgid "Attempt Conversion to ADO (OLE) String"
+msgstr "Umwandlung in ADO-Zeichenfolge (OLE) versuchen"
+
+#: Form_frmVCSOptionsExport
+msgid ""
+"Auto: use .env when credentials are present; prompt for new on build. "
+"Always: store all connections in .env; save silently on build. Never: "
+"keep connection strings in source. Passwords never written to source "
+"(export format 5.0.0+)."
+msgstr ""
+"Automatisch: .env nutzen, wenn Zugangsdaten vorliegen; beim Build "
+"nachfragen. Immer: alle Verbindungen in .env; beim Build still speichern. "
+"Nie: Verbindungszeichenfolgen im Quellcode. Kennwörter nie im Quellcode "
+"(Exportformat 5.0.0+)."
+
+#: frmVCSOptionsAdvanced.Label30
+msgid "Automated Testing"
+msgstr "Automatisierte Tests"
+
+#: modExport
+msgid "Automatically exporting the saved source code"
+msgstr "Der gespeicherte Quellcode wird automatisch exportiert"
+
+#: clsConflicts
+msgid "Auto-resolved {0} conflict(s) for agent operation."
+msgstr "{0} Konflikt(e) für Agent-Vorgang automatisch aufgelöst."
+
+#: modConnect
+msgid ""
+"Back-end connection unavailable: {0}. Linked tables from this source will "
+"be skipped."
+msgstr ""
+"Back-End-Verbindung nicht verfügbar: {0}. Verknüpfte Tabellen aus dieser "
+"Quelle werden übersprungen."
+
+#: modConnect
+msgid ""
+"Back-end database unavailable: {0} ({1} linked table(s) will be skipped)"
+msgstr ""
+"Back-End-Datenbank nicht verfügbar: {0} ({1} verknüpfte Tabelle(n) werden "
+"übersprungen)"
+
+#: frmVCSInstall.tabInstallType.Page40
+msgid "Basic Install"
+msgstr "Standardinstallation"
+
+#: Form_frmVCSOptionsDefaults
+msgid ""
+"Be sure to click Save and Close when you are finished making changes."
+msgstr ""
+"Klicken Sie auf Speichern und Schließen, wenn Sie Ihre Änderungen "
+"abgeschlossen haben."
+
+msgid "Beginning build from Source"
+msgstr "Build aus dem Quellcode wird gestartet"
+
+#: clsVersionControl
+msgid "Beginning Category Export"
+msgstr "Export der Kategorie wird gestartet"
+
+#: clsVersionControl
+msgid "Beginning Category Import"
+msgstr "Import der Kategorie wird gestartet"
+
+#: clsVersionControl
+msgid "Beginning Export of Component"
+msgstr "Export der Komponente wird gestartet"
+
+#: modExport
+msgid "Beginning Export of Multiple Objects"
+msgstr "Export mehrerer Objekte wird gestartet"
+
+#: modExport
+msgid "Beginning Export of Single Object"
+msgstr "Export eines einzelnen Objekts wird gestartet"
+
+#: modExport
+msgid "Beginning Export of Source Files"
+msgstr "Export der Quelldateien wird gestartet"
+
+#: modBuild
+msgid "Beginning Import of Single Object"
+msgstr "Import eines einzelnen Objekts wird gestartet"
+
+#: modBuild
+msgid "Beginning merge from source"
+msgstr "Merge aus dem Quellcode wird gestartet"
+
+#: modBuild
+msgid "Beginning Merge of All Source Files"
+msgstr "Merge aller Quelldateien wird gestartet"
+
+#: modDatabase
+msgid "binary field '{0}'"
+msgstr "Binärfeld '{0}'"
+
+#: frmVCSOptions.tglBuild
+msgid "Build"
+msgstr "Build"
+
+msgid "Build {0} ({1}) from source?"
+msgstr "{0} ({1}) aus dem Quellcode erstellen?"
+
+#: frmVCSOptionsBuild.Label3
+msgid "Build and merge options"
+msgstr "Build- und Merge-Optionen"
+
+#: Ribbon.btnBuildAs.Label
+msgid "Build As... "
+msgstr "Erstellen als... "
+
+#: Ribbon.btnBuildAs.Label
+msgid "Build As…"
+msgstr "Erstellen als…"
+
+#: modBuild
+msgid "Build Canceled"
+msgstr "Build abgebrochen"
+
+msgid "Build Complete"
+msgstr "Build abgeschlossen"
+
+#: modBuild
+msgid "Build Complete for '{0}'"
+msgstr "Build für '{0}' abgeschlossen"
+
+#: modBuild
+msgid "Build continuation could not resume the operation."
+msgstr ""
+"Die Fortsetzung des Builds konnte den Vorgang nicht wieder aufnehmen."
+
+#: modBuild
+msgid "Build continuation failed"
+msgstr "Fortsetzung des Builds fehlgeschlagen"
+
+#: modBuild
+msgid "Build error finalizing {0}"
+msgstr "Build-Fehler beim Abschließen von {0}"
+
+msgid "Build error in: {0}"
+msgstr "Build-Fehler in: {0}"
+
+#: modBuild
+msgid "Build Failed."
+msgstr "Build fehlgeschlagen."
+
+#: Ribbon.btnBuild.Label
+msgid "Build From Source"
+msgstr "Aus Quellcode erstellen"
+
+#: Ribbon.btnBuildAs.Supertip
+msgid "Build from source files to a new name or location."
+msgstr ""
+"Aus Quelldateien unter einem neuen Namen oder an einem neuen Speicherort "
+"erstellen."
+
+#: frmVCSOptionsBuild.Label5
+msgid "Build Hooks"
+msgstr "Build-Hooks"
+
+#: Ribbon.btnOpenBuildLog.Label
+msgid "Build Log"
+msgstr "Build-Protokoll"
+
+msgid "Build must be run from Add-In"
+msgstr "Build muss über das Add-In ausgeführt werden"
+
+#: frmVCSOptionsBuild.Label1
+msgid "Build Options"
+msgstr "Build-Optionen"
+
+#: Ribbon.btnBuild.Supertip
+msgid "Build the current project from source files."
+msgstr "Das aktuelle Projekt aus Quelldateien erstellen."
+
+#: modBuild
+msgid "Build validation failed: {0} returned False."
+msgstr "Build-Überprüfung fehlgeschlagen: {0} hat False zurückgegeben."
+
+#: modBuild
+msgid "Build validation failed: unable to run {0}."
+msgstr ""
+"Build-Überprüfung fehlgeschlagen: {0} konnte nicht ausgeführt werden."
+
+#: modBuild
+msgid "Build validation passed."
+msgstr "Build-Überprüfung bestanden."
+
+msgid "Building From Source"
+msgstr "Build aus dem Quellcode"
+
+#: frmVCSOptionsBuild.Label105
+msgid ""
+"Building from source will completely rebuild your database project from "
+"source files. It is very important that you test this carefully in your "
+"environment to make sure everything you need is being created in your "
+"database during the build. (A backup copy of your current database will "
+"be made as a part of the build process.)\n"
+"\n"
+"Please see the online documentation for additional details on the build "
+"process. If you encounter a problem, please feel free to open an issues "
+"on the GitHub project."
+msgstr ""
+"Beim Erstellen aus dem Quellcode wird Ihr Datenbankprojekt vollständig "
+"aus den Quelldateien neu aufgebaut. Testen Sie dies sorgfältig in Ihrer "
+"Umgebung, damit beim Build alles Benötigte erstellt wird. (Dabei wird "
+"eine Sicherungskopie Ihrer aktuellen Datenbank angelegt.)\n"
+"\n"
+"Details zum Build finden Sie in der Online-Dokumentation. Bei Problemen "
+"eröffnen Sie gerne ein Issue im GitHub-Projekt."
+
+#: modConnect
+msgid "Caching {0} back-end database connection(s)"
+msgstr "{0} Back-End-Datenbankverbindung(en) werden zwischengespeichert"
+
+#: frmVCSOptions.cmdCancel
+msgid "Cancel"
+msgstr "Abbrechen"
+
+#: Form_frmVCSMain
+msgid "Cancel Current Operation?"
+msgstr "Aktuellen Vorgang abbrechen?"
+
+#: clsVersionControl
+msgid "Canceled"
+msgstr "Abgebrochen"
+
+#: Form_frmVCSMain
+msgid "Canceled Operation"
+msgstr "Vorgang abgebrochen"
+
+#: modBuild
+msgid "Cannot {0} to a different database."
+msgstr "{0} in eine andere Datenbank ist nicht möglich."
+
+#: modDatabase
+msgid "Cannot delete a form with the same name as an add-in form."
+msgstr ""
+"Ein Formular mit demselben Namen wie ein Add-In-Formular kann nicht "
+"gelöscht werden."
+
+#: modBuild
+msgid ""
+"Cannot prepare in place while the add-in is open as the current database."
+msgstr ""
+"Vorbereitung an Ort und Stelle ist nicht möglich, solange das Add-In als "
+"aktuelle Datenbank geöffnet ist."
+
+#: Form_frmVCSSplitFiles
+msgid "Cannot split files in Git when changes are present in the branch"
+msgstr ""
+"Dateien können in Git nicht aufgeteilt werden, solange im Branch "
+"Änderungen vorhanden sind"
+
+#: Form_frmVCSOptionsGeneral
+msgid ""
+"Changes to language settings will take effect the next time you open this "
+"form."
+msgstr ""
+"Änderungen an den Spracheinstellungen werden beim nächsten Öffnen dieses "
+"Formulars wirksam."
+
+#: clsVersionControl
+msgid "Check that the helper script is present in the add-in folder."
+msgstr "Prüfen Sie, ob das Hilfsskript im Add-In-Ordner vorhanden ist."
+
+#: frmVCSOptionsAdvanced.lblTranslationExplanation
+msgid "Check this box if you would like to help improve the translations."
+msgstr ""
+"Aktivieren Sie dieses Kontrollkästchen, wenn Sie die Übersetzungen "
+"verbessern möchten."
+
+#: frmVCSMain.lblHeading
+msgid "Choose Action"
+msgstr "Aktion wählen"
+
+#: Form_frmVCSMain
+msgid "Click [Yes] to cancel the process, or [No] to resume."
+msgstr ""
+"Klicken Sie auf [Ja], um den Vorgang abzubrechen, oder auf [Nein], um "
+"fortzufahren."
+
+msgid ""
+"Click 'No' to select another project, or 'Cancel' to go back to the "
+"previous screen."
+msgstr ""
+"Klicken Sie auf 'Nein', um ein anderes Projekt auszuwählen, oder auf "
+"'Abbrechen', um zum vorherigen Bildschirm zurückzukehren."
+
+#: Form_frmVCSSplitFiles
+msgid "Click OK to proceed or Cancel to abort."
+msgstr ""
+"Klicken Sie auf OK, um fortzufahren, oder auf Abbrechen, um abzubrechen."
+
+#: frmVCSOptionsTranslation.Label303(cmdSyncTranslations)
+msgid ""
+"Click the \"Sync Files\" button to load the updated translations into the "
+"add-in, and then update the master template and language files with the "
+"latest strings from the database."
+msgstr ""
+"Klicken Sie auf die Schaltfläche \"Dateien synchronisieren\", um die "
+"aktualisierten Übersetzungen in das Add-In zu laden und anschließend die "
+"Vorlage und die Sprachdateien mit den neuesten Zeichenfolgen aus der "
+"Datenbank zu aktualisieren."
+
+#: frmVCSInstall.lblSubheading
+msgid ""
+"Click the Install button to install or update the add-in.\n"
+"\n"
+"In some more secure environments, you may need to adjust additional "
+"options to use this addin."
+msgstr ""
+"Klicken Sie auf Installieren, um das Add-In zu installieren oder zu "
+"aktualisieren.\n"
+"\n"
+"In manchen gesicherten Umgebungen sind weitere Optionen nötig, um dieses "
+"Add-In zu verwenden."
+
+#: frmVCSInstall.lblSubheading
+msgid ""
+"Click the Install button to install or update the add-in.\n"
+"\n"
+"In some more secure environments,\n"
+"you may need to adjust additional\n"
+"options to use this addin."
+msgstr ""
+"Klicken Sie auf Installieren, um das Add-In zu installieren oder zu "
+"aktualisieren.\n"
+"\n"
+"In manchen gesicherten Umgebungen\n"
+"sind weitere Optionen nötig, um\n"
+"dieses Add-In zu verwenden."
+
+#: Form_frmVCSOptionsDefaults
+msgid ""
+"Click 'Yes' to apply the default options, or 'No' to leave the current "
+"options."
+msgstr ""
+"Klicken Sie auf 'Ja', um die Standardoptionen anzuwenden, oder auf "
+"'Nein', um die aktuellen Optionen beizubehalten."
+
+#: modBuild
+msgid "Click YES to continue this operation, or NO to cancel."
+msgstr ""
+"Klicken Sie auf JA, um diesen Vorgang fortzusetzen, oder auf NEIN, um "
+"abzubrechen."
+
+#: Form_frmVCSMain
+msgid ""
+"Click 'Yes' to merge* any changed source files into this database.\n"
+"* (A backup of this database will be created before importing any source "
+"files.)"
+msgstr ""
+"Klicken Sie auf 'Ja', um geänderte Quelldateien in diese Datenbank "
+"zusammenzuführen*.\n"
+"* (Vor dem Import von Quelldateien wird eine Sicherung dieser Datenbank "
+"erstellt.)"
+
+msgid ""
+"Click 'Yes' to rebuild* this database from source files in this folder:"
+msgstr ""
+"Klicken Sie auf 'Ja', um diese Datenbank aus den Quelldateien in diesem "
+"Ordner neu zu erstellen*:"
+
+#: Form_frmVCSOptionsDatabases
+msgid "Click YES to remove or NO to cancel."
+msgstr "Klicken Sie auf JA, um zu entfernen, oder auf NEIN, um abzubrechen."
+
+#: frmVCSMain.cmdClose
+msgid "Close"
+msgstr "Schließen"
+
+#: modBuild
+msgid "Closing and reopening current database before merge..."
+msgstr ""
+"Aktuelle Datenbank wird vor dem Merge geschlossen und erneut geöffnet..."
+
+#: frmVCSOptionsExport.Label134(chkCollate)
+msgid "Collate"
+msgstr "Sortieren"
+
+#: frmVCSOptionsExport.Label144(chkColor)
+msgid "Color or B/W"
+msgstr "Farbe oder S/W"
+
+#: frmVCSOptionsMCP.cmdIcon
+msgid "Command0"
+msgstr ""
+
+#: frmVCSOptionsDefaults.cmdIcon
+msgid "Command2"
+msgstr ""
+
+#: Ribbon.btnValidateQuerySqlBuilder.Description
+msgid ""
+"Compare the fast MSysQueries SQL builder against Access SQL for every "
+"query in the current database"
+msgstr ""
+"Den schnellen MSysQueries-SQL-Builder für jede Abfrage der aktuellen "
+"Datenbank mit dem Access-SQL vergleichen"
+
+#: modBuild
+msgid "Compiled Database"
+msgstr "Kompilierte Datenbank"
+
+#: Form_frmVCSMain
+msgid "Complete"
+msgstr "Abgeschlossen"
+
+#: modDatabase
+msgid "complex or calculated fields"
+msgstr "komplexe oder berechnete Felder"
+
+#: frmVCSConflictList.Label3(txtComponent)
+msgid "Component"
+msgstr "Komponente"
+
+#: clsSourceParser
+msgid ""
+"Conditional formatting on control {0} in {1} could not be decoded; "
+"keeping inline binary blocks."
+msgstr ""
+"Bedingte Formatierung des Steuerelements {0} in {1} konnte nicht "
+"dekodiert werden; Inline-Binärblöcke werden beibehalten."
+
+#: frmVCSOptionsExport.Label3
+msgid "Configure how database objects are exported to source files"
+msgstr "Festlegen, wie Datenbankobjekte in Quelldateien exportiert werden"
+
+#: clsDbConnection
+msgid "Connection canceled by user. Canceling operation."
+msgstr "Verbindung vom Benutzer abgebrochen. Vorgang wird abgebrochen."
+
+#: modConnect
+msgid "Connection Failed"
+msgstr "Verbindung fehlgeschlagen"
+
+#: modConnect
+msgid "Connection key not found in .env file: {0}"
+msgstr "Verbindungsschlüssel in der .env-Datei nicht gefunden: {0}"
+
+#: frmVCSDatabase.Label244(txtName)
+msgid "Connection Name:"
+msgstr "Verbindungsname:"
+
+#: frmVCSDatabase.Label248(cboConnect)
+msgid "Connection String:"
+msgstr "Verbindungszeichenfolge:"
+
+#: frmVCSOptionsExport.Label7
+msgid "Content"
+msgstr "Inhalt"
+
+#: frmVCSOptionsTranslation.Label1
+msgid "Contribute"
+msgstr "Mitwirken"
+
+#: frmVCSOptionsTranslation.Label3
+msgid "Contribute to translations"
+msgstr "An Übersetzungen mitwirken"
+
+#: frmVCSOptionsAdvanced.Label256(chkContributeTranslations)
+msgid "Contribute to Translations"
+msgstr "An Übersetzungen mitwirken"
+
+#: frmVCSMain.cmdCopyPath
+msgid "Copy Path..."
+msgstr "Pfad kopieren..."
+
+#: modConnect
+msgid "Could not connect for {0}."
+msgstr "Verbindung für {0} konnte nicht hergestellt werden."
+
+#: modVbeUtility
+msgid "Could not find code module for {0}"
+msgstr "Codemodul für {0} nicht gefunden"
+
+#: clsPrinterSettings
+msgid "Could not find printer '{0}' on this system."
+msgstr "Drucker '{0}' wurde auf diesem System nicht gefunden."
+
+#: clsPrinterSettings
+msgid ""
+"Could not find printer '{0}' while restoring print settings for '{1}'. "
+"The default printer will be used while retaining portable print settings."
+msgstr ""
+"Drucker '{0}' wurde beim Wiederherstellen der Druckeinstellungen für "
+"'{1}' nicht gefunden. Der Standarddrucker wird verwendet; die portablen "
+"Druckeinstellungen bleiben erhalten."
+
+#: modBuild
+msgid "Could not find source file for {0}"
+msgstr "Quelldatei für {0} nicht gefunden"
+
+#: modLoadSaveText
+msgid "Could not import '{0}'."
+msgstr "'{0}' konnte nicht importiert werden."
+
+#: clsDbImexSpec
+msgid "Could not read specification file: {0}"
+msgstr "Spezifikationsdatei konnte nicht gelesen werden: {0}"
+
+#: clsDbQuery
+msgid "Couldn't get original SQL for {0} from {1}."
+msgstr "Ursprüngliches SQL für {0} konnte nicht aus {1} gelesen werden."
+
+#: frmVCSInstall.chkCreateCompiledVersion.ControlTipText
+msgid ""
+"Create a compiled version of the add-in (Source code will not be visible)"
+msgstr ""
+"Kompilierte Version des Add-Ins erstellen (Quellcode ist dann nicht "
+"sichtbar)"
+
+#: frmVCSOptionsDefaults.Label68(chkUseCompiledAddIn)
+msgid "Create compiled version"
+msgstr "Kompilierte Version erstellen"
+
+msgid "Created blank database for import. (v{0})"
+msgstr "Leere Datenbank für den Import erstellt. (v{0})"
+
+#: modBuild
+msgid "Current Database filename does not match source filename."
+msgstr ""
+"Der Dateiname der aktuellen Datenbank stimmt nicht mit dem Dateinamen der "
+"Quelle überein."
+
+#: clsOperation
+msgid "Current state: {0}"
+msgstr "Aktueller Status: {0}"
+
+#: modBuild
+msgid ""
+"Current: {0}\n"
+"Source: {1}"
+msgstr ""
+"Aktuell: {0}\n"
+"Quelle: {1}"
+
+#: frmVCSOptionsExport.Label119(chkPaperLength)
+msgid "Custom Length"
+msgstr "Benutzerdefinierte Länge"
+
+#: frmVCSOptionsExport.Label158(chkPaperWidth)
+msgid "Custom Width"
+msgstr "Benutzerdefinierte Breite"
+
+#: modBuild
+msgid ""
+"Database is not accessible to other clients after saving VBA changes."
+msgstr ""
+"Die Datenbank ist nach dem Speichern der VBA-Änderungen für andere "
+"Clients nicht zugänglich."
+
+#: modBuild
+msgid "Database is not accessible to other clients."
+msgstr "Die Datenbank ist für andere Clients nicht zugänglich."
+
+#: frmVCSDatabase.Label252(cboType)
+msgid "Database Type:"
+msgstr "Datenbanktyp:"
+
+msgid "db connections"
+msgstr "DB-Verbindungen"
+
+msgid "db properties"
+msgstr "DB-Eigenschaften"
+
+#: frmVCSOptionsAdvanced.Label1
+msgid "Debug and Logging"
+msgstr "Debugging und Protokollierung"
+
+#: frmVCSOptionsAdvanced.Label219(chkBreakOnError)
+msgid "Debug VBA Errors"
+msgstr "VBA-Fehler debuggen"
+
+#: frmVCSOptionsExport.lblDecodeConditionalFormatting(chkDecodeConditionalFormatting)
+msgid "Decode conditional formatting to JSON"
+msgstr "Bedingte Formatierung als JSON dekodieren"
+
+#: Form_frmVCSOptionsDefaults
+msgid "Default Options Restored"
+msgstr "Standardoptionen wiederhergestellt"
+
+#: frmVCSOptionsAdvanced.Label32(txtDefaultTestFilter)
+msgid "Default Test Filter"
+msgstr "Standard-Testfilter"
+
+#: frmVCSOptions.tglDefaults
+msgid "Defaults"
+msgstr "Standardwerte"
+
+#: clsDbQuery
+msgid "Deferring import of '{0}' until all queries have been processed."
+msgstr ""
+"Import von '{0}' wird zurückgestellt, bis alle Abfragen verarbeitet "
+"wurden."
+
+#: frmVCSDatabase.Label246(txtDescription)
+msgid "Description:"
+msgstr "Beschreibung:"
+
+#: frmVCSMain.Label9
+msgid ""
+"Designed for \n"
+"GitHub && GitLab"
+msgstr ""
+"Entwickelt für \n"
+"GitHub && GitLab"
+
+#: clsConflicts
+msgid "Detected {0} {1} conflict(s):"
+msgstr "{0} {1}-Konflikt(e) erkannt:"
+
+#: modInstall
+msgid "did not respond to automation"
+msgstr "hat nicht auf Automatisierung reagiert"
+
+#: modConnect
+msgid ""
+"Did not save the completed connection for {0} to .env because it omits "
+"the stored password and names a different user."
+msgstr ""
+"Die vervollständigte Verbindung für {0} wurde nicht in .env gespeichert, "
+"da sie das gespeicherte Kennwort auslässt und einen anderen Benutzer "
+"angibt."
+
+#: frmVCSConflictList.Label18(txtDiff)
+msgid "Diff"
+msgstr "Diff"
+
+#: clsDbTableDef
+msgid ""
+"Direct table creation failed {0} times. Using XML import from here on."
+msgstr ""
+"Die direkte Tabellenerstellung ist {0}-mal fehlgeschlagen. Ab jetzt wird "
+"der XML-Import verwendet."
+
+#: Ribbon.btnRunFilteredTests.Description
+msgid "Discover and run TestAssert-based tests in the current database"
+msgstr ""
+"TestAssert-basierte Tests in der aktuellen Datenbank finden und ausführen"
+
+#: frmVCSOptionsExport.Label146(chkDisplayFlags)
+msgid "Display Flags"
+msgstr "Anzeige-Flags"
+
+#: frmVCSOptionsExport.Label148(chkDisplayFrequency)
+msgid "Display Freq."
+msgstr "Bildwiederholfreq."
+
+#: frmVCSOptionsExport.Label156(chkDitherType)
+msgid "Dither Type"
+msgstr "Rastertyp"
+
+#: modBuild
+msgid ""
+"Do you want to {0} to the Source Defined Filename?\n"
+"\n"
+"Current: {1}\n"
+"Source: {2}"
+msgstr ""
+"Möchten Sie {0} mit dem in der Quelle definierten Dateinamen ausführen?\n"
+"\n"
+"Aktuell: {1}\n"
+"Quelle: {2}"
+
+msgid "doc properties"
+msgstr "Dokumenteigenschaften"
+
+msgid "Done. ({0} seconds)"
+msgstr "Fertig. ({0} Sekunden)"
+
+#: Ribbon.btnGoToLinkDownload.Label
+msgid "Download Latest Version"
+msgstr "Neueste Version herunterladen"
+
+#: frmVCSOptionsExport.Label130(chkDuplex)
+msgid "Duplex"
+msgstr "Duplex"
+
+#: Ribbon.btnSplitFiles.Description
+msgid "Duplicate files while preserving Git line history"
+msgstr "Dateien duplizieren und dabei den Git-Zeilenverlauf erhalten"
+
+#: clsDbImexSpec
+msgid "Duplicate IMEX spec source file '{0}'. Skipping spec '{1}' (ID {2})."
+msgstr ""
+"Doppelte IMEX-Spezifikationsdatei '{0}'. Spezifikation '{1}' (ID {2}) "
+"wird übersprungen."
+
+#: clsWorker
+msgid "Duplicate job in queue: {0}.{1}"
+msgstr "Doppelter Auftrag in der Warteschlange: {0}.{1}"
+
+#: Ribbon.btnActivateHook.Description
+msgid ""
+"Enable Access Application hook to report saving of objects and enabling "
+"automatic export on save."
+msgstr ""
+"Access-Anwendungs-Hook aktivieren, um das Speichern von Objekten zu "
+"melden und den automatischen Export beim Speichern zu ermöglichen."
+
+#: clsVersionControl
+msgid "Enable it in Options, or use Run Tests for the console runner."
+msgstr ""
+"Aktivieren Sie ihn in den Optionen, oder verwenden Sie Tests ausführen "
+"für den Konsolen-Runner."
+
+#: frmVCSDatabase.Label261(chkEnabled)
+msgid "Enabled"
+msgstr "Aktiviert"
+
+#: modBuild
+msgid "Ensure these keys are defined in: {0}"
+msgstr "Stellen Sie sicher, dass diese Schlüssel definiert sind in: {0}"
+
+#: frmVCSOptionsAdvanced.Label10
+msgid "Enter 0 to keep all log files"
+msgstr "0 eingeben, um alle Protokolldateien zu behalten"
+
+#: clsDbHiddenAttribute
+msgid "Error accessing Hidden Attribute for {0}."
+msgstr "Fehler beim Zugriff auf das Hidden-Attribut für {0}."
+
+#: clsVersionControl
+msgid "Error activating the hook"
+msgstr "Fehler beim Aktivieren des Hooks"
+
+#: clsFormGeometryCanonicalizer
+msgid "Error canonicalizing form geometry in {0}"
+msgstr "Fehler beim Normalisieren der Formulargeometrie in {0}"
+
+#: modDatabase
+msgid ""
+"Error closing {0}: {1}\n"
+"{2}"
+msgstr ""
+"Fehler beim Schließen von {0}: {1}\n"
+"{2}"
+
+#: modDatabase
+msgid "Error closing open objects"
+msgstr "Fehler beim Schließen geöffneter Objekte"
+
+#: modDatabase
+msgid "Error deleting object: {0}"
+msgstr "Fehler beim Löschen des Objekts: {0}"
+
+#: modExport
+msgid "Error exporting {0}"
+msgstr "Fehler beim Exportieren von {0}"
+
+#: clsDbModule
+msgid "Error finalizing module imports"
+msgstr "Fehler beim Abschließen der Modulimporte"
+
+#: clsDbModule
+msgid "Error importing module: {0}"
+msgstr "Fehler beim Importieren des Moduls: {0}"
+
+#: clsDbModule
+msgid "Error importing VBA code for {0}"
+msgstr "Fehler beim Importieren des VBA-Codes für {0}"
+
+#: clsDbTableData
+msgid "Error importing XML data from '{0}'"
+msgstr "Fehler beim Importieren der XML-Daten aus '{0}'"
+
+#: modBuild
+msgid "Error preparing database for merge"
+msgstr "Fehler beim Vorbereiten der Datenbank für den Merge"
+
+#: clsDbQuery
+msgid "Error publishing imported queries"
+msgstr "Fehler beim Veröffentlichen der importierten Abfragen"
+
+#: clsDbTableData
+msgid "Error reading table data from '{0}' for merge. {1}"
+msgstr "Fehler beim Lesen der Tabellendaten aus '{0}' für den Merge. {1}"
+
+#: modDatabase
+msgid "Error reading the list of system tables"
+msgstr "Fehler beim Lesen der Liste der Systemtabellen"
+
+#: modLoadSaveText
+msgid "Error refreshing database documents for {0}"
+msgstr "Fehler beim Aktualisieren der Datenbankdokumente für {0}"
+
+#: modResource
+msgid "Error removing retired agent reference documents"
+msgstr "Fehler beim Entfernen veralteter Agent-Referenzdokumente"
+
+#: modDatabase
+msgid "Error renaming object: {0}"
+msgstr "Fehler beim Umbenennen des Objekts: {0}"
+
+msgid "Error running {0}"
+msgstr "Fehler beim Ausführen von {0}"
+
+#: clsDbModule
+msgid "Error saving module instancing: {0}"
+msgstr "Fehler beim Speichern der Modulinstanzierung: {0}"
+
+#: clsDbModule
+msgid "Error saving module: {0}"
+msgstr "Fehler beim Speichern des Moduls: {0}"
+
+#: modBuild
+msgid "Error scanning source folder metadata"
+msgstr "Fehler beim Durchsuchen der Metadaten des Quellordners"
+
+#: modLetterCasing
+msgid "Error standardizing letter casing"
+msgstr "Fehler beim Vereinheitlichen der Groß-/Kleinschreibung"
+
+#: modBuild
+msgid "Error while initializing form {0}"
+msgstr "Fehler beim Initialisieren des Formulars {0}"
+
+#: modResource
+msgid "Error writing resource update log"
+msgstr "Fehler beim Schreiben des Ressourcen-Aktualisierungsprotokolls"
+
+#: frmVCSDatabase.cmdExamples
+msgid "Examples..."
+msgstr "Beispiele..."
+
+#: clsVersionControl
+msgid "Executing tests in the current project"
+msgstr "Tests im aktuellen Projekt werden ausgeführt"
+
+#: frmVCSInstall.cmdExplainOptions
+msgid "Explain options..."
+msgstr "Optionen erklären..."
+
+#: frmVCSOptions.tglExport
+msgid "Export"
+msgstr "Export"
+
+#: Ribbon.btnExport.Supertip
+msgid ""
+"Export all source files for the current project using the current options."
+msgstr ""
+"Alle Quelldateien des aktuellen Projekts mit den aktuellen Optionen "
+"exportieren."
+
+#: frmVCSTableData.Label15(cboFormatType)
+msgid "Export As"
+msgstr "Exportieren als"
+
+#: frmVCSOptionsTableData.Label15(cboFormatTypeForOther)
+msgid "Export As:"
+msgstr "Exportieren als:"
+
+#: modExport
+msgid "Export Canceled"
+msgstr "Export abgebrochen"
+
+#: Form_frmVCSMain
+msgid "Export Complete"
+msgstr "Export abgeschlossen"
+
+#: frmVCSOptionsTableData.Label3
+msgid "Export configuration data from tables"
+msgstr "Konfigurationsdaten aus Tabellen exportieren"
+
+#: Form_frmVCSMain
+msgid "Export Failed"
+msgstr "Export fehlgeschlagen"
+
+#: frmVCSOptionsGeneral.Label31(txtExportFolder)
+msgid "Export Folder:"
+msgstr "Exportordner:"
+
+msgid "Export Folder: {0}"
+msgstr "Exportordner: {0}"
+
+#: frmVCSOptionsExport.lblExportFormatVersion(cboExportFormatVersion)
+msgid "Export Format"
+msgstr "Exportformat"
+
+#: modExport
+msgid "Export Format: {0}"
+msgstr "Exportformat: {0}"
+
+#: frmVCSOptionsAdvanced.lblExportTestResultsHtml(chkExportTestResultsHtml)
+msgid "Export HTML test results report (double-click to view)"
+msgstr "HTML-Testbericht exportieren (zum Anzeigen doppelklicken)"
+
+#: frmVCSOptionsAdvanced.lblExportTestResultsJUnit(chkExportTestResultsJUnit)
+msgid "Export JUnit XML test results (for CI)"
+msgstr "JUnit-XML-Testergebnisse exportieren (für CI)"
+
+#: Ribbon.btnOpenExportLog.Label
+msgid "Export Log"
+msgstr "Export-Protokoll"
+
+#: Ribbon.btnExportVBA.Supertip
+msgid ""
+"Export only the components that may contain VBA code. Includes forms, "
+"reports, and VBA code modules."
+msgstr ""
+"Nur die Komponenten exportieren, die VBA-Code enthalten können. Umfasst "
+"Formulare, Berichte und VBA-Codemodule."
+
+#: Ribbon.btnExportSelected.Label
+msgid "Export Selected"
+msgstr "Auswahl exportieren"
+
+#: Ribbon.btnExport.Label
+msgid "Export Source Files"
+msgstr "Quelldateien exportieren"
+
+#: Ribbon.btnExportSelected.Supertip
+msgid ""
+"Export the database component currently selected in the navigation pane."
+msgstr ""
+"Die im Navigationsbereich ausgewählte Datenbankkomponente exportieren."
+
+#: frmVCSOptionsAdvanced.Label12
+msgid "Export Tweaks"
+msgstr "Export-Anpassungen"
+
+#: Ribbon.btnExportVBA.Label
+msgid "Export VBA Code"
+msgstr "VBA-Code exportieren"
+
+#: clsVersionControl
+msgid "Exporting {0}..."
+msgstr "{0} wird exportiert..."
+
+#: clsVersionControl
+msgid "Exporting {0}: {1}..."
+msgstr "{0} wird exportiert: {1}..."
+
+#: Form_frmVCSMain
+msgid "Exporting source code"
+msgstr "Quellcode wird exportiert"
+
+#: frmVCSDatabase.lblOptions
+msgid "External Database Connection"
+msgstr "Externe Datenbankverbindung"
+
+#: frmVCSOptions.tglDatabases
+msgid "External Databases"
+msgstr "Externe Datenbanken"
+
+#: frmVCSOptionsExport.Label112(chkExtractThemeFiles)
+msgid "Extract Theme Files"
+msgstr "Designdateien extrahieren"
+
+#: Form_frmVCSMain
+msgid "FAILED"
+msgstr "FEHLGESCHLAGEN"
+
+#: modLoadSaveText
+msgid "Failed to import '{0}'."
+msgstr "Import von '{0}' fehlgeschlagen."
+
+#: modBuild
+msgid "Falling back to closing and reopening the database."
+msgstr "Ersatzweise wird die Datenbank geschlossen und erneut geöffnet."
+
+#: modSourceUpgrade
+msgid ""
+"Feel free to remove the legacy VCS_* modules from your database project "
+"and enjoy\n"
+"a simpler, cleaner code base for ongoing development.  :-)"
+msgstr ""
+"Sie können die alten VCS_*-Module gern aus Ihrem Datenbankprojekt "
+"entfernen und sich\n"
+"an einer einfacheren, saubereren Codebasis für die weitere Entwicklung "
+"erfreuen.  :-)"
+
+#: frmVCSOptionsGeneral.Label239(cboDiffTool)
+msgid "File Diff Tool:"
+msgstr "Diff-Tool:"
+
+#: modExport
+msgid "File not found: {0}"
+msgstr "Datei nicht gefunden: {0}"
+
+#: frmVCSConflictList.Label12(txtFileDate)
+msgid "FileDate"
+msgstr "Dateidatum"
+
+#: frmVCSConflictList.Label6(txtFileName)
+msgid "FileName"
+msgstr "Dateiname"
+
+#: frmVCSDatabase.Label250(txtFilter)
+msgid "Filter for database objects (source file paths):"
+msgstr "Filter für Datenbankobjekte (Pfade der Quelldateien):"
+
+#: frmVCSDatabase.Label253
+msgid ""
+"Filter paths to source files. Start line with ! to exclude match. Use * "
+"for wildcard matches (LIKE comparison)."
+msgstr ""
+"Pfade zu Quelldateien filtern. Beginnen Sie eine Zeile mit !, um Treffer "
+"auszuschließen. Verwenden Sie * als Platzhalter (LIKE-Vergleich)."
+
+#: frmVCSSplitFiles.Label244(txtCommitMessage)
+msgid "Final Commit Message:"
+msgstr "Abschließende Commit-Nachricht:"
+
+msgid "Finished"
+msgstr "Fertig"
+
+#: Form_frmVCSInstall
+msgid "Folder does not exist: {0}"
+msgstr "Ordner existiert nicht: {0}"
+
+#: Form_frmVCSSplitFiles
+msgid "For additional details, please see `git.log` in the source folder."
+msgstr "Weitere Details finden Sie in `git.log` im Quellordner."
+
+#: clsFormGeometryCanonicalizer
+msgid "For an explanation and how to resolve it, see {0}"
+msgstr "Eine Erklärung und Hinweise zur Behebung finden Sie unter {0}"
+
+#: frmVCSOptionsBuild.lblForceImportOriginalQuerySQL(chkForceImportOriginalQuerySQL)
+msgid "Force import of original SQL for queries"
+msgstr "Import des ursprünglichen SQL für Abfragen erzwingen"
+
+#: clsFormGeometryCanonicalizer
+msgid "Form layout geometry left unchanged in {0}: {1}, columns {2} to {3}."
+msgstr ""
+"Formular-Layoutgeometrie in {0} unverändert gelassen: {1}, Spalten {2} "
+"bis {3}."
+
+#: clsFormGeometryCanonicalizer
+msgid "Form layout geometry left unchanged in {0}: {1}, rows {2} to {3}."
+msgstr ""
+"Formular-Layoutgeometrie in {0} unverändert gelassen: {1}, Zeilen {2} bis "
+"{3}."
+
+#: frmVCSOptionsExport.Label142(chkFormName)
+msgid "Form Name"
+msgstr "Formularname"
+
+#: frmVCSOptionsExport.Label249(chkFormatSQL)
+msgid "Format SQL"
+msgstr "SQL formatieren"
+
+msgid "forms"
+msgstr "Formulare"
+
+#: clsVersionControl
+msgid "Found {0} sub(s) matching filter. Running..."
+msgstr "{0} Sub(s) passend zum Filter gefunden. Wird ausgeführt..."
+
+#: clsVersionControl
+msgid "Found {0} test sub(s). Running..."
+msgstr "{0} Test-Sub(s) gefunden. Wird ausgeführt..."
+
+#: frmVCSMain.Label31(chkFullBuild)
+msgid "Full Build"
+msgstr "Vollständig"
+
+#: frmVCSMain.Label29(chkFullExport)
+msgid "Full Export"
+msgstr "Vollständig"
+
+msgid "Full Path: {0}"
+msgstr "Vollständiger Pfad: {0}"
+
+#: frmVCSOptions.tglGeneral
+msgid "General"
+msgstr "Allgemein"
+
+#: frmVCSOptionsGeneral.Label3
+msgid "General options for the VCS Add-in"
+msgstr "Allgemeine Optionen für das VCS-Add-In"
+
+#: frmVCSOptionsDatabases.Label3
+msgid "Generate sql files for external database systems"
+msgstr "SQL-Dateien für externe Datenbanksysteme erzeugen"
+
+#: Form_frmVCSSplitFiles
+msgid "Git must be installed to use this tool."
+msgstr "Git muss installiert sein, um dieses Werkzeug zu verwenden."
+
+#: Ribbon.grpGitHub.Label
+msgid "GitHub Community"
+msgstr "GitHub-Community"
+
+#: modExport
+msgid ""
+"Global export options have changed. Run a full Export to migrate the "
+"project."
+msgstr ""
+"Die globalen Exportoptionen wurden geändert. Führen Sie einen "
+"vollständigen Export aus, um das Projekt zu migrieren."
+
+#: frmVCSOptionsAdvanced.Label221(cboHashAlgorithm)
+msgid "Hash Algorithm:"
+msgstr "Hash-Algorithmus:"
+
+#: clsVersionControl
+msgid "Helper Script Required"
+msgstr "Hilfsskript erforderlich"
+
+#: modInstall
+msgid "hidden"
+msgstr "ausgeblendet"
+
+msgid "hidden attributes"
+msgstr "Hidden-Attribute"
+
+#: modInstall
+msgid "holds {0}"
+msgstr "hält {0}"
+
+#: modInstall
+msgid "holds no rebuild file"
+msgstr "hält keine Datei des Neuaufbaus"
+
+#: frmVCSOptionsExport.Label5
+msgid "Hooks"
+msgstr "Hooks"
+
+#: frmVCSOptionsExport.Label152(chkICMIntent)
+msgid "ICM Intent"
+msgstr "ICM-Absicht"
+
+#: frmVCSOptionsExport.Label150(chkICMMethod)
+msgid "ICM Method"
+msgstr "ICM-Methode"
+
+#: modLetterCasing
+msgid "Identifier mismatch: '{0}' does not match '{1}'."
+msgstr "Bezeichner stimmt nicht überein: '{0}' entspricht nicht '{1}'."
+
+#: modDatabase
+msgid ""
+"If you need to use parameters, please create a wrapper sub or function "
+"with\n"
+"no parameters that you can call instead of {0}."
+msgstr ""
+"Wenn Sie Parameter benötigen, erstellen Sie bitte eine Wrapper-Sub oder "
+"-Funktion ohne\n"
+"Parameter, die Sie anstelle von {0} aufrufen können."
+
+#: Form_frmVCSOptionsDefaults
+msgid ""
+"If you specify an absolute or relative Export Path as a default option,\n"
+"you must include the %dbName% placeholder to keep the paths unique."
+msgstr ""
+"Wenn Sie einen absoluten oder relativen Exportpfad als Standardoption "
+"angeben,\n"
+"müssen Sie den Platzhalter %dbName% einfügen, damit die Pfade eindeutig "
+"bleiben."
+
+#: frmVCSOptionsTranslation.Label8
+msgid ""
+"If you would like to help translate this add-in interface into your local "
+"language, please check this box and check out the details in the "
+"documentation."
+msgstr ""
+"Wenn Sie helfen möchten, die Oberfläche dieses Add-Ins in Ihre Sprache zu "
+"übersetzen, aktivieren Sie bitte dieses Kontrollkästchen und lesen Sie "
+"die Details in der Dokumentation."
+
+msgid "imex specs"
+msgstr "IMEX-Spezifikationen"
+
+#: frmVCSOptionsBuild.Label9(chkExportAfterMerge)
+msgid "Immediately export object after merge"
+msgstr "Objekt nach dem Merge sofort exportieren"
+
+#: modBuild
+msgid "Import Canceled"
+msgstr "Import abgebrochen"
+
+#: Ribbon.btnLoadSelected.Supertip
+msgid ""
+"Import from source files the database component currently selected in the "
+"navigation pane."
+msgstr ""
+"Die im Navigationsbereich ausgewählte Datenbankkomponente aus "
+"Quelldateien importieren."
+
+#: modLoadSaveText
+msgid "Import issue with '{0}'; {1}"
+msgstr "Importproblem mit '{0}'; {1}"
+
+#: clsDbModule
+msgid ""
+"Imported module not found after import: {0}\n"
+"Ensure 'Attribute VB_Name = {0}' is found at the start of the file. "
+"Filenames (before prefix) must match the 'Attribute VB_Name' value."
+msgstr ""
+"Importiertes Modul nach dem Import nicht gefunden: {0}\n"
+"Stellen Sie sicher, dass 'Attribute VB_Name = {0}' am Anfang der Datei "
+"steht. Dateinamen (vor dem Präfix) müssen dem Wert von 'Attribute "
+"VB_Name' entsprechen."
+
+msgid "Importing {0}..."
+msgstr "{0} wird importiert..."
+
+#: modBuild
+msgid "Importing bootstrap module '{0}'"
+msgstr "Bootstrap-Modul '{0}' wird importiert"
+
+#: frmVCSOptionsDatabases.Label5
+msgid "Info"
+msgstr "Info"
+
+#: modBuild
+msgid "Initializing forms..."
+msgstr "Formulare werden initialisiert..."
+
+#: frmVCSInstall.lblHeading
+msgid "Install Add-In"
+msgstr "Installation"
+
+#: frmVCSInstall.chkUseRibbon.ControlTipText
+msgid "Install and use the TwinBASIC COM ribbon add-in (Recommended)"
+msgstr "TwinBASIC-COM-Menüband-Add-In installieren und verwenden (empfohlen)"
+
+#: frmVCSInstall.Label63(txtInstallFolder)
+msgid "Install Folder:   "
+msgstr "Installationsordner:   "
+
+#: frmVCSOptionsDefaults.Label5
+msgid "Install Settings"
+msgstr "Installationseinstellungen"
+
+#: frmVCSOptionsDefaults.Label8
+msgid "Installation"
+msgstr "Installation"
+
+msgid ""
+"Instead of opening this form to build the add-in,\n"
+"please install and use the Version Control add-in from the Add-in menu"
+msgstr ""
+"Anstatt dieses Formular zum Erstellen des Add-Ins zu öffnen,\n"
+"installieren und verwenden Sie bitte das Add-In „Version Control“ aus dem "
+"Add-In-Menü"
+
+#: Form_frmVCSOptionsGeneral
+msgid "Invalid Export Folder"
+msgstr "Ungültiger Exportordner"
+
+#: Form_frmVCSOptionsDefaults
+msgid "Invalid Export Path for Default"
+msgstr "Ungültiger Exportpfad für Standard"
+
+#: clsVersionControl
+msgid "Invalid Letter Casing Entries"
+msgstr "Ungültige Einträge für die Groß-/Kleinschreibung"
+
+#: clsVersionControl
+msgid "Invalid Source Folder"
+msgstr "Ungültiger Quellordner"
+
+#: clsWorker
+msgid "Job {0} ({1}) timed out after {2} seconds."
+msgstr "Auftrag {0} ({1}) hat nach {2} Sekunden das Zeitlimit überschritten."
+
+#: frmVCSInstall.Label67
+msgid "joyfullservice/msaccess-vcs-addin"
+msgstr ""
+
+#: modSourceUpgrade
+msgid "Just a Suggestion..."
+msgstr "Nur ein Vorschlag..."
+
+#: clsDbQuery
+msgid "Kept builder SQL for {0}: {1}"
+msgstr "Builder-SQL für {0} beibehalten: {1}"
+
+#: frmVCSOptionsTranslation.Label7
+msgid "Language Files"
+msgstr "Sprachdateien"
+
+#: Form_frmVCSOptionsGeneral
+msgid "Language Set"
+msgstr "Sprache festgelegt"
+
+#: frmVCSOptionsGeneral.Label252(cboLanguage)
+msgid "Language:"
+msgstr "Sprache:"
+
+#: clsFormGeometryCanonicalizer
+msgid "layout group {0}"
+msgstr "Layoutgruppe {0}"
+
+#: clsFormGeometryCanonicalizer
+msgid "layout table {0}"
+msgstr "Layouttabelle {0}"
+
+#: clsFormGeometryCanonicalizer
+msgid "layout table {0}, group {1}"
+msgstr "Layouttabelle {0}, Gruppe {1}"
+
+#: modSourceUpgrade
+msgid "Legacy Files not Needed"
+msgstr "Alte Dateien nicht erforderlich"
+
+#: frmVCSOptionsAdvanced.Label7
+msgid "Legacy Settings"
+msgstr "Legacy-Einstellungen"
+
+#: clsVersionControl
+msgid "Letter Casing Consistent"
+msgstr "Groß-/Kleinschreibung einheitlich"
+
+#: clsVersionControl
+msgid "Letter Casing Standardized"
+msgstr "Groß-/Kleinschreibung vereinheitlicht"
+
+#: modLetterCasing
+msgid "Line {0} in clsStandardLetterCasing: {1}"
+msgstr "Zeile {0} in clsStandardLetterCasing: {1}"
+
+#: frmVCSSplitFiles.Label241(txtFileList)
+msgid "List of files to split:"
+msgstr "Liste der aufzuteilenden Dateien:"
+
+#: Ribbon.btnLoadSelected.Label
+msgid "Load Selected"
+msgstr "Auswahl laden"
+
+#: modInstall
+msgid "loaded projects unknown"
+msgstr "geladene Projekte unbekannt"
+
+#: modBuild
+msgid "Loading bootstrap..."
+msgstr "Bootstrap wird geladen..."
+
+#: frmVCSTestRunner.lblLoading
+msgid "Loading..."
+msgstr "Wird geladen..."
+
+#: Ribbon.btnLocalizeLibraryReferences.Label
+msgid "Localize Library References"
+msgstr "Bibliotheksverweise lokalisieren"
+
+msgid "macros"
+msgstr "Makros"
+
+#: modLetterCasing
+msgid "Malformed Lib clause."
+msgstr "Fehlerhafte Lib-Klausel."
+
+#: clsPrinterSettings
+msgid "Margin property {0} not found."
+msgstr "Randeigenschaft {0} nicht gefunden."
+
+#: frmVCSOptionsAdvanced.Label9(txtMaxLogFiles)
+msgid "Max Log Files:"
+msgstr "Max. Protokolldateien:"
+
+#: Form_frmVCSOptionsExport
+msgid "May I make a Suggestion?"
+msgstr "Darf ich einen Vorschlag machen?"
+
+#: frmVCSOptions.tglMCP
+msgid "MCP"
+msgstr "MCP"
+
+#: frmVCSOptionsMCP.Label1
+msgid "MCP agent tool permissions"
+msgstr "Berechtigungen für MCP-Agent-Tools"
+
+#: frmVCSOptionsExport.Label154(chkMediaType)
+msgid "Media Type"
+msgstr "Medientyp"
+
+msgid "Merge"
+msgstr "Merge"
+
+#: Ribbon.btnMergeBuild.Label
+msgid "Merge Build"
+msgstr "Merge-Build"
+
+#: clsVersionControl
+msgid "Merge Build Not Available"
+msgstr "Merge-Build nicht verfügbar"
+
+#: modBuild
+msgid "Merge Canceled"
+msgstr "Merge abgebrochen"
+
+#: Ribbon.btnMergeBuild.Supertip
+msgid "Merge changed source files into the current database."
+msgstr "Geänderte Quelldateien in die aktuelle Datenbank zusammenführen."
+
+#: frmVCSOptionsBuild.lblMergeTableData(chkMergeTableData)
+msgid "Merge changes from modified table data files"
+msgstr "Änderungen aus geänderten Tabellendatendateien übernehmen"
+
+msgid "Merge Complete"
+msgstr "Merge abgeschlossen"
+
+#: modBuild
+msgid "Merge error in: {0}"
+msgstr "Merge-Fehler in: {0}"
+
+#: frmVCSOptionsBuild.Label11
+msgid "Merge Hooks"
+msgstr "Merge-Hooks"
+
+#: modBuild
+msgid "Merging "
+msgstr "Zusammenführen: "
+
+#: modBuild
+msgid "Merging {0}..."
+msgstr "{0} wird zusammengeführt..."
+
+#: modBuild
+msgid "Merging any changed document properties..."
+msgstr "Geänderte Dokumenteigenschaften werden zusammengeführt..."
+
+msgid "Merging From Source"
+msgstr "Merge aus dem Quellcode"
+
+#: modBuild
+msgid "Merging table data for {0}"
+msgstr "Tabellendaten für {0} werden zusammengeführt"
+
+#: modInstall
+msgid ""
+"Microsoft Access will now close. Please delete them from this folder:"
+msgstr ""
+"Microsoft Access wird jetzt geschlossen. Bitte löschen Sie sie aus diesem "
+"Ordner:"
+
+#: clsVersionControl
+msgid "Migrate Debug.Assert to TestAssert"
+msgstr "Debug.Assert zu TestAssert migrieren"
+
+#: modSourceUpgrade
+msgid "Migrated {0} metadata entries to companion .json files"
+msgstr "{0} Metadateneinträge in begleitende .json-Dateien migriert"
+
+#: modSourceUpgrade
+msgid "Migrated {0} source files to new extensions"
+msgstr "{0} Quelldateien auf neue Erweiterungen migriert"
+
+#: clsVersionControl
+msgid "Migration Complete"
+msgstr "Migration abgeschlossen"
+
+#: modBuild
+msgid "Missing .env keys: {0}"
+msgstr "Fehlende .env-Schlüssel: {0}"
+
+#: modLetterCasing
+msgid "Missing canonical comment on API declare line."
+msgstr "Kanonischer Kommentar in der API-Declare-Zeile fehlt."
+
+#: modLetterCasing
+msgid "Missing canonical comment. Expected: Dim Name 'Name"
+msgstr "Kanonischer Kommentar fehlt. Erwartet: Dim Name 'Name"
+
+#: modLetterCasing
+msgid "Missing DLL name in Lib clause."
+msgstr "DLL-Name in der Lib-Klausel fehlt."
+
+#: modLetterCasing
+msgid "Missing DLL name or canonical name on API declare line."
+msgstr "DLL-Name oder kanonischer Name in der API-Declare-Zeile fehlt."
+
+#: modLetterCasing
+msgid "Missing identifier or canonical name. Expected: Dim Name 'Name"
+msgstr "Bezeichner oder kanonischer Name fehlt. Erwartet: Dim Name 'Name"
+
+#: clsVersionControl
+msgid "Module Not Found"
+msgstr "Modul nicht gefunden"
+
+#: modVbeUtility
+msgid "module source"
+msgstr "Modulquelle"
+
+msgid "modules"
+msgstr "Module"
+
+#: frmVCSInstall.Caption
+msgid "MSAccessVCS"
+msgstr ""
+
+#: Form_frmVCSSplitFiles
+msgid "Multiple Batches Required"
+msgstr "Mehrere Durchläufe erforderlich"
+
+# Do not remove the semicolon
+#: lstDatabases.RefreshSchemaList
+msgid "Name;Description"
+msgstr "Name;Beschreibung"
+
+msgid "nav pane groups"
+msgstr "Navigationsbereichsgruppen"
+
+#: modBuild
+msgid "Newer VCS Version Detected"
+msgstr "Neuere VCS-Version erkannt"
+
+#: modExport
+msgid "No {0} found in this database."
+msgstr "Keine {0} in dieser Datenbank gefunden."
+
+msgid "No {0} source files found."
+msgstr "Keine Quelldateien für {0} gefunden."
+
+#: clsDbTableData
+msgid "no changes"
+msgstr "keine Änderungen"
+
+#: modBuild
+msgid "No changes found."
+msgstr "Keine Änderungen gefunden."
+
+#: Form_frmVCSOptionsTableData
+msgid "No Data"
+msgstr "Keine Daten"
+
+#: Form_frmVCSOptions
+msgid "No Database File Open"
+msgstr "Keine Datenbankdatei geöffnet"
+
+#: clsVersionControl
+msgid "No Database Open"
+msgstr "Keine Datenbank geöffnet"
+
+#: modInstall
+msgid "no database open"
+msgstr "Keine Datenbank geöffnet"
+
+#: clsVersionControl
+msgid "No Debug.Assert calls were found in test modules."
+msgstr "In den Testmodulen wurden keine Debug.Assert-Aufrufe gefunden."
+
+#: clsVersionControl
+msgid "No durable test state file was found to export."
+msgstr "Es wurde keine dauerhafte Teststatusdatei zum Exportieren gefunden."
+
+#: modExport
+msgid "No modified {0} found in this database."
+msgstr "Keine geänderten {0} in dieser Datenbank gefunden."
+
+#: modBuild
+msgid "No modified {0} source files found."
+msgstr "Keine geänderten Quelldateien für {0} gefunden."
+
+#: modDatabase
+msgid "no primary key or unique required index, and '{0}' references it"
+msgstr ""
+"kein Primärschlüssel oder eindeutiger Pflichtindex, und '{0}' verweist "
+"darauf"
+
+#: clsVersionControl
+msgid "No Replacements Found"
+msgstr "Keine Ersetzungen gefunden"
+
+#: modBuild
+msgid ""
+"No result from the worker. Assuming the database is not accessible to "
+"other clients."
+msgstr ""
+"Kein Ergebnis vom Worker. Es wird angenommen, dass die Datenbank für "
+"andere Clients nicht zugänglich ist."
+
+#: clsDbTableData
+msgid "No source file for {0}. Leaving existing table data unchanged."
+msgstr ""
+"Keine Quelldatei für {0}. Vorhandene Tabellendaten bleiben unverändert."
+
+#: clsDbImexSpec
+msgid "No specification found in file: {0}"
+msgstr "Keine Spezifikation in der Datei gefunden: {0}"
+
+#: clsVersionControl
+msgid ""
+"No test modules are using TestAssert yet. Would you like to migrate "
+"Debug.Assert calls to TestAssert in your test modules?"
+msgstr ""
+"Noch keine Testmodule verwenden TestAssert. Möchten Sie die "
+"Debug.Assert-Aufrufe in Ihren Testmodulen zu TestAssert migrieren?"
+
+#: clsVersionControl
+msgid "No Test State"
+msgstr "Kein Teststatus"
+
+#: clsVersionControl
+msgid "No test subs found in the current project."
+msgstr "Im aktuellen Projekt wurden keine Test-Subs gefunden."
+
+#: clsVersionControl
+msgid "No tests found matching filter: {0}"
+msgstr "Keine Tests passend zum Filter gefunden: {0}"
+
+#: clsDbTableData
+msgid "Not all records were imported from '{0}'."
+msgstr "Nicht alle Datensätze aus '{0}' wurden importiert."
+
+#: modBuild
+msgid "Not merging {0}. (Imported only on full build)"
+msgstr ""
+"{0} wird nicht zusammengeführt. (Nur bei vollständigem Build importiert)"
+
+#: modBuild
+msgid "Not merging {0}. (Merge table data option is turned off)"
+msgstr ""
+"{0} wird nicht zusammengeführt. (Option zum Zusammenführen von "
+"Tabellendaten ist deaktiviert)"
+
+#: modBuild
+msgid ""
+"Note that some settings may not take effect until this database is "
+"reopened."
+msgstr ""
+"Beachten Sie, dass einige Einstellungen erst nach dem erneuten Öffnen "
+"dieser Datenbank wirksam werden."
+
+#: clsVersionControl
+msgid ""
+"Note: Debug.Assert breaks into the debugger on failure. TestAssert "
+"records the failure and continues. This change can be reverted with git."
+msgstr ""
+"Hinweis: Debug.Assert hält bei einem Fehler im Debugger an. TestAssert "
+"zeichnet den Fehler auf und fährt fort. Diese Änderung kann mit Git "
+"rückgängig gemacht werden."
+
+#: modExport
+msgid ""
+"Note: Export format {0} is available (currently using {1}). Update via "
+"Options > Export when ready."
+msgstr ""
+"Hinweis: Exportformat {0} ist verfügbar (derzeit wird {1} verwendet). "
+"Aktualisieren Sie es bei Bedarf unter Optionen > Export."
+
+#: frmVCSOptions.lblSubformWarning
+msgid "NOTE: Leave this subform unbound in design view"
+msgstr ""
+"HINWEIS: Dieses Unterformular in der Entwurfsansicht ungebunden lassen"
+
+#: modSourceUpgrade
+msgid ""
+"NOTE: This message can be disabled in 'Options -> Show Legacy Prompt'."
+msgstr ""
+"HINWEIS: Diese Meldung kann unter 'Optionen -> Alte Hinweise anzeigen' "
+"deaktiviert werden."
+
+#: modBuild
+msgid "Note: unsaved VBA changes could not be saved before merging."
+msgstr ""
+"Hinweis: Nicht gespeicherte VBA-Änderungen konnten vor dem Merge nicht "
+"gespeichert werden."
+
+#: frmVCSOptionsExport.Label123(chkCopies)
+msgid "Number of Copies"
+msgstr "Anzahl Exemplare"
+
+#: frmVCSConflictList.Label9(txtObjectDate)
+msgid "ObjectDate"
+msgstr "Objektdatum"
+
+#: clsVersionControl
+msgid "One or more stale RunVBA temporary modules could not be removed."
+msgstr ""
+"Ein oder mehrere veraltete temporäre RunVBA-Module konnten nicht entfernt "
+"werden."
+
+#: Ribbon.btnGoToLinkDocumentation.Label
+msgid "Online Documentation"
+msgstr "Online-Dokumentation"
+
+#: clsDbTableData
+msgid "Only {0} of {1} rows from '{2}' could be read for merge."
+msgstr ""
+"Nur {0} von {1} Zeilen aus '{2}' konnten für den Merge gelesen werden."
+
+#: Ribbon.btnShow.Label
+msgid "Open Add-in"
+msgstr "Add-In öffnen"
+
+#: frmVCSInstall.Label36(chkOpenAfterInstall)
+msgid "Open add-in after installing to trust the add-in file"
+msgstr ""
+"Add-In nach der Installation öffnen, um der Add-In-Datei zu vertrauen"
+
+#: modInstall
+msgid "open database unknown"
+msgstr "geöffnete Datenbank unbekannt"
+
+#: frmVCSOptionsDefaults.cmdOpenInstallFolder
+msgid "Open Install Folder"
+msgstr "Installationsordner öffnen"
+
+#: frmVCSMain.cmdOpenLogFile
+msgid "Open Log File..."
+msgstr "Protokolldatei öffnen..."
+
+#: Ribbon.btnOpenRepository.Label
+msgid "Open Repository"
+msgstr "Repository öffnen"
+
+#: frmVCSOptionsGeneral.Label305(cboOpenRepository)
+msgid "Open Repository:"
+msgstr "Repository öffnen:"
+
+#: frmVCSMain.cmdOpenTestResults
+msgid "Open Test Results..."
+msgstr "Testergebnisse öffnen..."
+
+#: clsVersionControl
+msgid "Open the development copy of the add-in and run the tests there."
+msgstr ""
+"Öffnen Sie die Entwicklungskopie des Add-Ins und führen Sie die Tests "
+"dort aus."
+
+#: Ribbon.btnShow.Supertip
+msgid ""
+"Open the main form for the add-in. From the main form you can run an "
+"export or build a project from source."
+msgstr ""
+"Das Hauptformular des Add-Ins öffnen. Dort können Sie einen Export "
+"ausführen oder ein Projekt aus dem Quellcode erstellen."
+
+#: Ribbon.btnOpenBuildLog.Supertip
+msgid "Open the most recent build log file."
+msgstr "Die neueste Build-Protokolldatei öffnen."
+
+#: Ribbon.btnOpenExportLog.Supertip
+msgid "Open the most recent export log file."
+msgstr "Die neueste Export-Protokolldatei öffnen."
+
+#: Ribbon.btnShowOptions.Supertip
+msgid ""
+"Open the Options form to view or change options for the current project."
+msgstr ""
+"Das Optionsformular öffnen, um die Optionen des aktuellen Projekts "
+"anzuzeigen oder zu ändern."
+
+#: Ribbon.btnOpenRepository.Supertip
+msgid ""
+"Open the source code repository using the application specified in the "
+"add-in options"
+msgstr ""
+"Das Quellcode-Repository mit der in den Add-In-Optionen angegebenen "
+"Anwendung öffnen"
+
+#: Ribbon.btnOpenSourceFolder.Supertip
+msgid "Open the source folder for the current project."
+msgstr "Den Quellordner des aktuellen Projekts öffnen."
+
+#: frmVCSOptionsDefaults.Label241(cmdOpenInstallFolder)
+msgid "Open VCS add-In Install Folder."
+msgstr "Installationsordner des VCS-Add-Ins öffnen."
+
+#: frmVCSOptionsDefaults.Label3
+msgid "Option defaults and installation settings"
+msgstr "Standardwerte für Optionen und Installationseinstellungen"
+
+#: clsQueryComposer
+msgid "OptionFlag {0} disagrees with SQL modifiers {1}; using SQL"
+msgstr ""
+"OptionFlag {0} widerspricht den SQL-Modifizierern {1}; SQL wird verwendet"
+
+#: Ribbon.grpOptions.Label
+msgid "Options"
+msgstr "Optionen"
+
+#: Form_frmVCSOptionsDefaults
+msgid "Options Saved"
+msgstr "Optionen gespeichert"
+
+#: clsVersionControl
+msgid "Other Access Instances Running"
+msgstr "Andere Access-Instanzen werden ausgeführt"
+
+#: modSourceUpgrade
+msgid ""
+"Other forks of the MSAccessVCS project used additional VBA modules to "
+"export code."
+msgstr ""
+"Andere Forks des MSAccessVCS-Projekts verwendeten zusätzliche VBA-Module "
+"zum Exportieren von Code."
+
+#: frmVCSOptionsTableData.Label79(txtOtherTableName)
+msgid "Other Table Name:"
+msgstr "Name der anderen Tabelle:"
+
+#: frmVCSOptionsTableData.Label5
+msgid "Other tables (may not exist in this database)"
+msgstr "Weitere Tabellen (evtl. nicht in dieser Datenbank vorhanden)"
+
+#: modBuild
+msgid ""
+"Otherwise cancel and select 'Build As...' from the ribbon to change build "
+"name. Performing an export from this file name will also reset the file "
+"name, but will overwrite source. If this file stared as a copy of an "
+"existing source controlled database, select 'Build As...' to avoid "
+"overwriting."
+msgstr ""
+"Brechen Sie andernfalls ab und wählen Sie im Menüband 'Erstellen als...', "
+"um den Build-Namen zu ändern. Ein Export unter diesem Dateinamen setzt "
+"den Dateinamen ebenfalls zurück, überschreibt aber den Quellcode. Wenn "
+"diese Datei als Kopie einer bestehenden versionierten Datenbank "
+"entstanden ist, wählen Sie 'Erstellen als...', um das Überschreiben zu "
+"vermeiden."
+
+#: frmVCSConflict.cmdOverwriteAll
+msgid "Overwrite All"
+msgstr "Alle überschreiben"
+
+#: Form_frmVCSConflict
+msgid "Overwrite database object"
+msgstr "Datenbankobjekt überschreiben"
+
+#: Form_frmVCSConflict
+msgid "Overwrite source file"
+msgstr "Quelldatei überschreiben"
+
+#: frmVCSOptionsExport.Label115(chkOrientation)
+msgid "Page Orientation"
+msgstr "Seitenausrichtung"
+
+#: frmVCSOptionsExport.Label117(chkPaperSize)
+msgid "Paper Size"
+msgstr "Papierformat"
+
+#: frmVCSOptionsExport.Label125(chkDefaultSource)
+msgid "Paper Tray"
+msgstr "Papierfach"
+
+#: modDatabase
+msgid "Parameters are not supported for this command."
+msgstr "Parameter werden für diesen Befehl nicht unterstützt."
+
+#: modDatabase
+msgid "Parent container not supported for this object type: {0}"
+msgstr ""
+"Übergeordneter Container wird für diesen Objekttyp nicht unterstützt: {0}"
+
+#: modExport
+msgid "Performing Full Export"
+msgstr "Vollständiger Export wird ausgeführt"
+
+#: modExport
+msgid "Please close all database objects"
+msgstr "Bitte schließen Sie alle Datenbankobjekte"
+
+#: clsOperation
+msgid "Please complete the current operation before beginning a new one."
+msgstr ""
+"Bitte schließen Sie den aktuellen Vorgang ab, bevor Sie einen neuen "
+"beginnen."
+
+#: Form_frmVCSSplitFiles
+msgid "Please correct the problem to continue."
+msgstr "Bitte beheben Sie das Problem, um fortzufahren."
+
+#: frmVCSOptionsBuild.Label7
+msgid "Please Note"
+msgstr "Bitte beachten"
+
+#: Form_frmVCSMain
+msgid "Please open a database file before configuring VCS options."
+msgstr ""
+"Bitte öffnen Sie eine Datenbankdatei, bevor Sie VCS-Optionen "
+"konfigurieren."
+
+#: clsVersionControl
+msgid "Please open a database file before running tests."
+msgstr "Bitte öffnen Sie eine Datenbankdatei, bevor Sie Tests ausführen."
+
+#: Form_frmVCSOptions
+msgid "Please open a database file before saving options for a project."
+msgstr ""
+"Bitte öffnen Sie eine Datenbankdatei, bevor Sie Optionen für ein Projekt "
+"speichern."
+
+#: clsVersionControl
+msgid "Please open a database file first."
+msgstr "Bitte öffnen Sie zuerst eine Datenbankdatei."
+
+#: clsVersionControl
+msgid "Please perform a full build or full export of this database first."
+msgstr ""
+"Bitte führen Sie zuerst einen vollständigen Build oder vollständigen "
+"Export dieser Datenbank durch."
+
+#: modInstall
+msgid "Please rename the file and try again."
+msgstr "Bitte benennen Sie die Datei um und versuchen Sie es erneut."
+
+#: Form_frmVCSOptionsGeneral
+msgid "Please see the wiki documentation for more detail and examples."
+msgstr "Weitere Details und Beispiele finden Sie in der Wiki-Dokumentation."
+
+#: Form_frmVCSOptionsTableData
+msgid "Please select format"
+msgstr "Bitte Format auswählen"
+
+#: Form_frmVCSInstall
+msgid ""
+"Please uninstall (and delete) the add-in, then reinstall to the new "
+"location. If you have already uninstalled, delete the addin file. The "
+"install folder will open now to allow you to delete the file."
+msgstr ""
+"Bitte deinstallieren (und löschen) Sie das Add-In und installieren Sie es "
+"anschließend am neuen Speicherort. Wenn Sie es bereits deinstalliert "
+"haben, löschen Sie die Add-In-Datei. Der Installationsordner wird jetzt "
+"geöffnet, damit Sie die Datei löschen können."
+
+#: Form_frmVCSInstall
+msgid "Please Uninstall First"
+msgstr "Bitte zuerst deinstallieren"
+
+#: modBuild
+msgid "Please unlock the project before using this tool."
+msgstr ""
+"Bitte entsperren Sie das Projekt, bevor Sie dieses Werkzeug verwenden."
+
+#: Form_frmVCSOptionsDefaults
+msgid "Please update the Export Path and try again."
+msgstr "Bitte aktualisieren Sie den Exportpfad und versuchen Sie es erneut."
+
+#: modBuild
+msgid "Please use the original uncompiled .accdb file instead."
+msgstr ""
+"Bitte verwenden Sie stattdessen die ursprüngliche, nicht kompilierte "
+".accdb-Datei."
+
+#: modBuild
+msgid "Preparing current database for merge..."
+msgstr "Aktuelle Datenbank wird für den Merge vorbereitet..."
+
+#: frmVCSOptionsAdvanced.Label16(chkPreserveRubberDuckID)
+msgid "Preserve RubberDuck ID"
+msgstr "RubberDuck-ID beibehalten"
+
+#: modDatabase
+msgid ""
+"Press Save in the Visual Basic Editor, then run this again so the source "
+"files include your latest code."
+msgstr ""
+"Klicken Sie im Visual Basic-Editor auf Speichern und führen Sie dies dann "
+"erneut aus, damit die Quelldateien Ihren neuesten Code enthalten."
+
+#: frmVCSOptionsExport.Label128(chkPrintQuality)
+msgid "Print Quality"
+msgstr "Druckqualität"
+
+#: frmVCSOptionsExport.Label121(chkScale)
+msgid "Print Scale"
+msgstr "Skalierung"
+
+#: frmVCSOptionsExport.Label11
+msgid "Printer Settings Detail"
+msgstr "Druckereinstellungen im Detail"
+
+#: modBuild
+msgid ""
+"Printer settings not fully restored (default printer substituted): {0}"
+msgstr ""
+"Druckeinstellungen nicht vollständig wiederhergestellt (Standarddrucker "
+"ersetzt): {0}"
+
+msgid "proj properties"
+msgstr "Projekteigenschaften"
+
+#: frmVCSOptionsGeneral.Label1
+msgid "Project"
+msgstr "Projekt"
+
+msgid "project"
+msgstr "Projekt"
+
+#: frmVCSOptionsDefaults.Label1
+msgid "Project Defaults"
+msgstr "Projektstandards"
+
+#: Ribbon.btnGoToLinkHome.Label
+msgid "Project Home"
+msgstr "Projekt-Startseite"
+
+#: modBuild
+msgid "Project is protected with a password."
+msgstr "Das Projekt ist mit einem Kennwort geschützt."
+
+#: modBuild
+msgid "Project Locked"
+msgstr "Projekt gesperrt"
+
+#: frmVCSDatabase.Label264
+msgid ""
+"Provide an ADO (OLE) connection string or check \"attempt conversion\" if "
+"you only have an ODBC string."
+msgstr ""
+"Geben Sie eine ADO-Verbindungszeichenfolge (OLE) an, oder aktivieren Sie "
+"\"Umwandlung versuchen\", wenn Sie nur eine ODBC-Zeichenfolge haben."
+
+msgid "queries"
+msgstr "Abfragen"
+
+#: Ribbon.btnRebuildAddIn.Label
+msgid "Rebuild Add-In"
+msgstr "Add-In neu erstellen"
+
+#: Ribbon.btnRepairColors.Description
+msgid ""
+"Rebuild color definition blocks in form objects (See documentation for "
+"more info)"
+msgstr ""
+"Farbdefinitionsblöcke in Formularobjekten neu aufbauen (weitere Infos in "
+"der Dokumentation)"
+
+#: clsVersionControl
+msgid "Rebuild Did Not Start"
+msgstr "Neuaufbau nicht gestartet"
+
+#: clsVersionControl
+msgid ""
+"Rebuild refused: {0} other Access instance(s) hold a file this rebuild "
+"must replace, or could not be asked. Close them, then try again."
+msgstr ""
+"Neuaufbau abgelehnt: {0} andere Access-Instanz(en) halten eine Datei, die "
+"dieser Neuaufbau ersetzen muss, oder konnten nicht abgefragt werden. "
+"Schließen Sie diese und versuchen Sie es erneut."
+
+#: Ribbon.btnRebuildAddIn.Description
+msgid ""
+"Rebuild the VCS add-in from source files and install. Access will close "
+"during this process."
+msgstr ""
+"Das VCS-Add-In aus Quelldateien neu erstellen und installieren. Access "
+"wird dabei geschlossen."
+
+#: clsVersionControl
+msgid ""
+"Rebuilding the add-in requires the helper script, which is currently "
+"disabled."
+msgstr ""
+"Der Neuaufbau des Add-Ins erfordert das Hilfsskript, das derzeit "
+"deaktiviert ist."
+
+#: Ribbon.btnReloadRibbon.Description
+msgid "Refresh the add-in ribbon menu to reflect changes in XML source"
+msgstr ""
+"Das Add-In-Menüband aktualisieren, um Änderungen in der XML-Quelle zu "
+"übernehmen"
+
+#: frmVCSOptionsDefaults.Label6
+msgid "Reinstall the add-in to change these settings"
+msgstr "Installieren Sie das Add-In neu, um diese Einstellungen zu ändern"
+
+msgid "relations"
+msgstr "Beziehungen"
+
+#: Ribbon.btnLocalizeLibraryReferences.Description
+msgid ""
+"Relink add-in library databases to the files located in the same folder "
+"as the current database"
+msgstr ""
+"Add-In-Bibliotheksdatenbanken mit den Dateien im Ordner der aktuellen "
+"Datenbank neu verknüpfen"
+
+#: Ribbon.btnReloadRibbon.Label
+msgid "Reload Ribbon"
+msgstr "Menüband neu laden"
+
+#: Form_frmVCSOptionsDatabases
+msgid "Remove Connection?"
+msgstr "Verbindung entfernen?"
+
+#: modConnect
+msgid ""
+"Removed credentials from the connection string for {0} to avoid storing "
+"secrets in source files. Store them in .env (UseEnvForConnections) or "
+"supply them at build time."
+msgstr ""
+"Anmeldeinformationen wurden aus der Verbindungszeichenfolge für {0} "
+"entfernt, damit keine Geheimnisse in Quelldateien gespeichert werden. "
+"Speichern Sie sie in .env (UseEnvForConnections) oder geben Sie sie beim "
+"Build an."
+
+#: modVbeUtility
+msgid "Removed duplicate source file: {0}"
+msgstr "Doppelte Quelldatei entfernt: {0}"
+
+#: clsDbHiddenAttribute
+msgid "Removing hidden attribute from {0}"
+msgstr "Hidden-Attribut wird von {0} entfernt"
+
+#: modBuild
+msgid "Removing non built-in references after running bootstrap"
+msgstr "Nicht integrierte Verweise werden nach dem Bootstrap entfernt"
+
+msgid "Removing non built-in references..."
+msgstr "Nicht integrierte Verweise werden entfernt..."
+
+#: frmVCSInstall.Label36(chkOpenAfterInstall)
+msgid "Reopen add-in after install"
+msgstr "Add-In nach der Installation erneut öffnen"
+
+#: modBuild
+msgid "Reopening database in shared mode..."
+msgstr "Datenbank wird im freigegebenen Modus erneut geöffnet..."
+
+#: modBuild
+msgid "Reopening database..."
+msgstr "Datenbank wird erneut geöffnet..."
+
+#: Ribbon.btnRepairColors.Label
+msgid "Repair Colors"
+msgstr "Farben reparieren"
+
+#: clsVersionControl
+msgid "Replace Debug.Assert with TestAssert in the following test modules?"
+msgstr "Debug.Assert in den folgenden Testmodulen durch TestAssert ersetzen?"
+
+msgid "reports"
+msgstr "Berichte"
+
+#: modBuild
+msgid "Required source files were not found in the following folder:"
+msgstr ""
+"Die erforderlichen Quelldateien wurden im folgenden Ordner nicht gefunden:"
+
+#: Form_frmVCSMain
+msgid "Required source files were not found in this folder."
+msgstr ""
+"Die erforderlichen Quelldateien wurden in diesem Ordner nicht gefunden."
+
+#: modBuild
+msgid "Required source files were not found or could not be parsed: "
+msgstr ""
+"Die erforderlichen Quelldateien wurden nicht gefunden oder konnten nicht "
+"gelesen werden: "
+
+#: modBuild
+msgid "Required source files were not found or could not be parsed:"
+msgstr ""
+"Die erforderlichen Quelldateien wurden nicht gefunden oder konnten nicht "
+"gelesen werden:"
+
+#: Form_frmVCSOptionsTranslation
+msgid "Required translation files were not found in this folder."
+msgstr ""
+"Die erforderlichen Übersetzungsdateien wurden in diesem Ordner nicht "
+"gefunden."
+
+#: frmVCSOptionsDefaults.Label59(cmdClearDefaults)
+msgid "Reset all default settings to original values."
+msgstr ""
+"Alle Standardeinstellungen auf die ursprünglichen Werte zurücksetzen."
+
+#: frmVCSConflictList.Label15(cboResolution)
+msgid "Resolution"
+msgstr "Auflösung"
+
+#: frmVCSConflict.Label4
+msgid "Resolve Conflicts to Continue..."
+msgstr "Konflikte auflösen, um fortzufahren..."
+
+#: clsConflicts
+msgid "Resolved {0} conflict(s):"
+msgstr "{0} Konflikt(e) aufgelöst:"
+
+#: modBuild
+msgid "Resolving source conflicts"
+msgstr "Quellkonflikte werden aufgelöst"
+
+#: modInstall
+msgid "responded to automation"
+msgstr "hat auf Automatisierung reagiert"
+
+#: clsDbQuery
+msgid "Restored original SQL for {0} from {1}"
+msgstr "Ursprüngliches SQL für {0} aus {1} wiederhergestellt"
+
+#: clsDbQuery
+msgid ""
+"Restored query {0} using SQL from {1}. Some visual design properties may "
+"be lost."
+msgstr ""
+"Abfrage {0} mit SQL aus {1} wiederhergestellt. Einige visuelle "
+"Entwurfseigenschaften können verloren gehen."
+
+#: clsVersionControl
+msgid "Results are displayed below as each test completes."
+msgstr ""
+"Die Ergebnisse werden unten angezeigt, sobald jeder Test abgeschlossen "
+"ist."
+
+#: modConnect
+msgid ""
+"Retry to try again, Ignore to skip objects on this connection, or Abort "
+"to cancel the build."
+msgstr ""
+"Wiederholen, um es erneut zu versuchen, Ignorieren, um Objekte dieser "
+"Verbindung zu überspringen, oder Abbrechen, um den Build abzubrechen."
+
+#: clsDbQuery
+msgid "Retrying {0} deferred query imports..."
+msgstr "{0} zurückgestellte Abfrageimporte werden wiederholt..."
+
+#: modLoadSaveText
+msgid "Retrying import for: {0}"
+msgstr "Import wird wiederholt für: {0}"
+
+#: modSourceUpgrade
+msgid "Reverted {0} source files to legacy extensions"
+msgstr "{0} Quelldateien auf alte Erweiterungen zurückgesetzt"
+
+#: clsVersionControl
+msgid ""
+"Review the results above for details on failed tests. Click the log "
+"button to view the full log."
+msgstr ""
+"Details zu fehlgeschlagenen Tests finden Sie in den Ergebnissen oben. "
+"Klicken Sie auf die Protokoll-Schaltfläche, um das vollständige Protokoll "
+"anzuzeigen."
+
+#: modDatabase
+msgid "Run {0}"
+msgstr "{0} ausführen"
+
+#: frmVCSOptionsBuild.Label104(txtRunAfterBuild)
+msgid "Run Sub After Build:"
+msgstr "Sub nach Build ausführen:"
+
+#: frmVCSOptionsExport.Label48(txtRunAfterExport)
+msgid "Run Sub After Export:"
+msgstr "Sub nach Export ausführen:"
+
+#: frmVCSOptionsBuild.Label15(txtRunAfterMerge)
+msgid "Run Sub After Merge:"
+msgstr "Sub nach dem Merge ausführen:"
+
+#: frmVCSOptionsBuild.Label229(txtRunBeforeBuild)
+msgid "Run Sub Before Build:"
+msgstr "Sub vor Build ausführen:"
+
+#: frmVCSOptionsExport.Label44(txtRunBeforeExport)
+msgid "Run Sub Before Export:"
+msgstr "Sub vor Export ausführen:"
+
+#: frmVCSOptionsBuild.Label13(txtRunBeforeMerge)
+msgid "Run Sub Before Merge:"
+msgstr "Sub vor dem Merge ausführen:"
+
+#: Ribbon.btnRunFilteredTests.Label
+msgid "Run Tests"
+msgstr "Tests ausführen"
+
+#: clsVersionControl
+msgid "Run tests first, or check the test-results folder."
+msgstr ""
+"Führen Sie zuerst die Tests aus oder prüfen Sie den Ordner test-results."
+
+#: modBuild
+msgid "Running {0}"
+msgstr "{0} wird ausgeführt"
+
+msgid "Running {0}..."
+msgstr "{0} wird ausgeführt..."
+
+#: clsVersionControl
+msgid "Running Tests"
+msgstr "Tests werden ausgeführt"
+
+#: clsVersionControl
+msgid "Running Tests (filtered: {0})"
+msgstr "Tests werden ausgeführt (gefiltert: {0})"
+
+msgid "Running..."
+msgstr "Wird ausgeführt..."
+
+#: frmVCSInstall.chkUseWorkerScript.ControlTipText
+msgid ""
+"Runs a small script (Worker.vbs) for a few tasks the add-in cannot do "
+"inside Access. Uncheck if your antivirus blocks it. Everything still "
+"works, with a couple of manual steps."
+msgstr ""
+"Führt ein kleines Skript (Worker.vbs) für Aufgaben aus, die das Add-In in "
+"Access nicht erledigen kann. Deaktivieren, wenn Ihr Virenschutz es "
+"blockiert. Alles funktioniert weiterhin, mit einigen manuellen Schritten."
+
+#: clsVersionControl
+msgid ""
+"RunVBA is disabled. Enable McpAllowRunVBA in VCS Options > MCP to allow "
+"agent-generated code execution."
+msgstr ""
+"RunVBA ist deaktiviert. Aktivieren Sie McpAllowRunVBA unter VCS-Optionen "
+"> MCP, um die Ausführung von durch Agents erzeugtem Code zu erlauben."
+
+#: frmVCSOptionsExport.Label9
+msgid "Sanitization"
+msgstr "Bereinigung"
+
+#: frmVCSOptionsExport.Label233(cboSanitizeColors)
+msgid "Sanitize Colors"
+msgstr "Farben bereinigen"
+
+#: frmVCSOptionsExport.Label235(cboSanitizeLevel)
+msgid "Sanitize Level"
+msgstr "Bereinigungsstufe"
+
+#: frmVCSOptionsAdvanced.Label18(chkSaveAllDocumentProperties)
+msgid "Save All Document Properties"
+msgstr "Alle Dokumenteigenschaften speichern"
+
+#: modConnect
+msgid "Save Connection Settings?"
+msgstr "Verbindungseinstellungen speichern?"
+
+#: frmVCSDatabase.Label257(chkSaveDotEnv)
+msgid "Save in .env file*"
+msgstr "In .env-Datei speichern*"
+
+#: frmVCSOptionsAdvanced.Label20(chkSaveLinkedTableDef)
+msgid "Save Linked Table Definitions"
+msgstr "Definitionen verknüpfter Tabellen speichern"
+
+#: frmVCSOptionsExport.Label27(chkSavePrintVars)
+msgid "Save Printer Settings"
+msgstr "Druckereinstellungen speichern"
+
+#: frmVCSOptionsExport.Label29(chkSaveQuerySQL)
+msgid "Save Query SQL"
+msgstr "Abfrage-SQL speichern"
+
+#: frmVCSOptionsExport.Label38(chkSaveTableSQL)
+msgid "Save Table SQL"
+msgstr "Tabellen-SQL speichern"
+
+#: modConnect
+msgid "Save them to your .env file so you are not prompted again?"
+msgstr ""
+"In Ihrer .env-Datei speichern, damit Sie nicht erneut gefragt werden?"
+
+#: frmVCSOptionsDefaults.Label53(cmdSaveAsDefault)
+msgid "Save these settings as default for new projects."
+msgstr "Diese Einstellungen als Standard für neue Projekte speichern."
+
+#: modConnect
+msgid "Saved {0} connection setting(s) to .env."
+msgstr "{0} Verbindungseinstellung(en) in .env gespeichert."
+
+msgid "Saved as {0}."
+msgstr "Gespeichert als {0}."
+
+msgid "saved specs"
+msgstr "Gespeicherte Spezifikationen"
+
+msgid "Saving backup of original database..."
+msgstr "Sicherung der ursprünglichen Datenbank wird gespeichert..."
+
+#: modExport
+msgid "Scanning external databases..."
+msgstr "Externe Datenbanken werden durchsucht..."
+
+#: modExport
+msgid "Scanning for changes (some categories require full export)..."
+msgstr ""
+"Änderungen werden gesucht (einige Kategorien erfordern einen "
+"vollständigen Export)..."
+
+#: modExport
+msgid "Scanning for changes..."
+msgstr "Änderungen werden gesucht..."
+
+#: clsVersionControl
+msgid "Scanning for tests..."
+msgstr "Tests werden gesucht..."
+
+msgid "Scanning source files..."
+msgstr "Quelldateien werden durchsucht..."
+
+#: frmVCSOptions.cmdSeeDocs
+msgid "See Docs..."
+msgstr "Siehe Doku..."
+
+#: Ribbon.btnGoToLinkAdvancedTools.Description
+msgid "See documentation on the purpose and usage of these custom tools..."
+msgstr ""
+"Dokumentation zu Zweck und Verwendung dieser benutzerdefinierten "
+"Werkzeuge anzeigen..."
+
+#: modBuild
+msgid "See log for details."
+msgstr "Details siehe Protokoll."
+
+#: clsVersionControl
+msgid "Select"
+msgstr "Auswählen"
+
+#: Form_frmVCSInstall
+msgid "Select {0} Install Folder"
+msgstr "{0}-Installationsordner auswählen"
+
+#: Form_frmVCSOptionsDatabases
+msgid "Select a connection to delete"
+msgstr "Wählen Sie eine Verbindung zum Löschen aus"
+
+#: clsVersionControl
+msgid "Select Add-In Source Folder"
+msgstr "Add-In-Quellordner auswählen"
+
+#: frmVCSOptionsExport.Label126
+msgid ""
+"Select any additional settings that you would like saved to version "
+"control and used when building a database from source files."
+msgstr ""
+"Wählen Sie zusätzliche Einstellungen aus, die in der Versionsverwaltung "
+"gespeichert und beim Erstellen einer Datenbank aus Quelldateien verwendet "
+"werden sollen."
+
+#: Form_frmVCSInstall
+msgid "Select Folder"
+msgstr "Ordner auswählen"
+
+#: Form_frmVCSMain
+msgid "Select Source Files Folder"
+msgstr "Ordner mit Quelldateien auswählen"
+
+#: Form_frmVCSMain
+msgid "Select Source Folder"
+msgstr "Quellordner auswählen"
+
+#: frmVCSOptionsTableData.Label1
+msgid "Select tables to export data"
+msgstr "Tabellen für den Datenexport auswählen"
+
+#: Form_frmVCSOptionsTableData
+msgid ""
+"Select the format to save table data before adding the table to the list."
+msgstr ""
+"Wählen Sie das Format zum Speichern der Tabellendaten, bevor Sie die "
+"Tabelle zur Liste hinzufügen."
+
+#: Form_frmVCSOptionsTranslation
+msgid "Select Translations Files Folder"
+msgstr "Ordner mit Übersetzungsdateien auswählen"
+
+#: Form_frmVCSOptionsTranslation
+msgid "Select Translations Folder"
+msgstr "Übersetzungsordner auswählen"
+
+#: modExport
+msgid ""
+"Set the connection string for this external database connection in VCS "
+"options to automatically create this file."
+msgstr ""
+"Legen Sie die Verbindungszeichenfolge für diese externe "
+"Datenbankverbindung in den VCS-Optionen fest, um diese Datei automatisch "
+"zu erstellen."
+
+#: clsDbSharedImage
+msgid ""
+"Shared image '{0}' (MSysResources Id {1}) has no embedded image file and "
+"will be skipped. Compact and repair the database, then re-add or remove "
+"this image."
+msgstr ""
+"Freigegebenes Bild '{0}' (MSysResources-ID {1}) enthält keine "
+"eingebettete Bilddatei und wird übersprungen. Komprimieren und reparieren "
+"Sie die Datenbank und fügen Sie dieses Bild dann erneut hinzu oder "
+"entfernen Sie es."
+
+msgid "shared images"
+msgstr "Freigegebene Bilder"
+
+#: frmVCSOptionsAdvanced.Label23(chkShowDebug)
+msgid "Show Detailed Output"
+msgstr "Detaillierte Ausgabe anzeigen"
+
+#: frmVCSOptionsTableData.lblTableShowHidden(chkTableShowHidden)
+msgid "Show Hidden"
+msgstr "Ausgeblendete anzeigen"
+
+#: frmVCSOptionsAdvanced.Label215(chkShowVCSLegacy)
+msgid "Show Legacy Prompts"
+msgstr "Alte Hinweise anzeigen"
+
+msgid "Show Other  "
+msgstr "Weitere anzeigen  "
+
+#: frmVCSOptionsTableData.lblTableShowOther(chkTableShowOther)
+msgid "Show Other"
+msgstr "Weitere anzeigen"
+
+#: frmVCSOptionsTableData.lblTableShowSystem(chkTableShowSystem)
+msgid "Show System"
+msgstr "Systemtabellen anzeigen"
+
+#: Form_frmVCSConflict
+msgid "Skip"
+msgstr "Überspringen"
+
+#: frmVCSConflict.cmdSkipAll
+msgid "Skip All"
+msgstr "Alle überspringen"
+
+#: frmVCSOptionsBuild.lblSkipReopenBeforeMerge(chkSkipReopenBeforeMerge)
+msgid "Skip closing and reopening the database before merge"
+msgstr "Datenbank vor dem Merge nicht schließen und erneut öffnen"
+
+#: clsDbTableDef
+msgid "Skipped {0} (connection ignored)"
+msgstr "{0} übersprungen (Verbindung ignoriert)"
+
+#: clsDbTableDef
+msgid "Skipped {0} (missing .env key)"
+msgstr "{0} übersprungen (.env-Schlüssel fehlt)"
+
+#: modBuild
+msgid "Skipped after conflict resolution."
+msgstr "Nach der Konfliktauflösung übersprungen."
+
+#: modDatabase
+msgid "Skipped engine-managed property '{0}'"
+msgstr "Von der Engine verwaltete Eigenschaft '{0}' übersprungen"
+
+#: clsDbForm
+msgid ""
+"Skipped importing form '{0}': this Access version lacks the Edge browser "
+"control it requires. Test-runner UI will be unavailable."
+msgstr ""
+"Import des Formulars '{0}' übersprungen: Diese Access-Version enthält "
+"nicht das erforderliche Edge-Browsersteuerelement. Die "
+"Testrunner-Oberfläche ist nicht verfügbar."
+
+#: clsDbCommandBar
+msgid ""
+"Skipping command bar control type {0} (cannot be created without a "
+"built-in Id; re-export menus with the current add-in)."
+msgstr ""
+"Steuerelementtyp {0} der Befehlsleiste wird übersprungen (kann ohne "
+"integrierte ID nicht erstellt werden; exportieren Sie die Menüs mit dem "
+"aktuellen Add-In erneut)."
+
+#: modLoadSaveText
+msgid "Skipping import of '{0}'. Your application may not run or complile."
+msgstr ""
+"Import von '{0}' wird übersprungen. Ihre Anwendung lässt sich "
+"möglicherweise nicht ausführen oder kompilieren."
+
+#: clsDbProperty
+msgid ""
+"Skipping read-only property '{0}': source value ({1}) differs from the "
+"database's current value ({2})."
+msgstr ""
+"Schreibgeschützte Eigenschaft '{0}' wird übersprungen: Der Quellwert "
+"({1}) weicht vom aktuellen Wert der Datenbank ({2}) ab."
+
+#: clsDbTableData
+msgid ""
+"Skipping table data for linked table '{0}' (data resides in the back-end)."
+msgstr ""
+"Tabellendaten für die verknüpfte Tabelle '{0}' werden übersprungen (die "
+"Daten liegen im Back-End)."
+
+#: clsOptions
+msgid "Skipping unknown option override: {0}"
+msgstr "Unbekannte Optionsüberschreibung wird übersprungen: {0}"
+
+#: Form_frmVCSOptionsExport
+msgid ""
+"Snap controls in form layouts (Tabular or Stacked) to a 60-twip grid, so "
+"forms export identically at any display scaling from 100% to 200% (export "
+"format 5.1.0+). Turn off to keep exact control sizes when every developer "
+"uses the same display scaling."
+msgstr ""
+"Steuerelemente in Layouts an ein 60-Twip-Raster ausrichten, damit "
+"Formulare bei jeder Anzeigeskalierung (100 % bis 200 %) gleich exportiert "
+"werden (Exportformat 5.1.0+). Aus: exakte Größen behalten, wenn alle "
+"Entwickler dieselbe Skalierung nutzen."
+
+#: frmVCSOptionsExport.lblSnapFormLayoutGeometry(chkSnapFormLayoutGeometry)
+msgid "Snap Form Layout Geometry"
+msgstr "Formularlayout-Geometrie ausrichten"
+
+#: frmVCSOptionsAdvanced.Label24
+msgid "Some regulatory environments may restrict hash algorithms"
+msgstr "Manche regulierten Umgebungen schränken Hash-Algorithmen ein"
+
+#: Form_frmVCSSplitFiles
+msgid ""
+"Some source files are mapped to multiple destinations. This requires {0} "
+"batches, creating {1} additional commits to preserve history in all files."
+msgstr ""
+"Einige Quelldateien sind mehreren Zielen zugeordnet. Dafür sind {0} "
+"Durchläufe erforderlich, die {1} zusätzliche Commits erzeugen, um den "
+"Verlauf in allen Dateien zu erhalten."
+
+#: clsVersionControl
+msgid "Some Tests Failed"
+msgstr "Einige Tests fehlgeschlagen"
+
+#: clsDbTableData
+msgid "source file has an embedded schema"
+msgstr "Quelldatei enthält ein eingebettetes Schema"
+
+#: modBuild
+msgid "Source file not found: {0}"
+msgstr "Quelldatei nicht gefunden: {0}"
+
+#: modLoadSaveText
+msgid "Source file: {0}"
+msgstr "Quelldatei: {0}"
+
+#: frmVCSOptionsExport.Label1
+msgid "Source Files"
+msgstr "Quelldateien"
+
+#: modBuild
+msgid "Source files not found"
+msgstr "Quelldateien nicht gefunden"
+
+#: Ribbon.btnOpenSourceFolder.Label
+msgid "Source Folder"
+msgstr "Quellordner"
+
+#: clsVersionControl
+msgid "Source Folder Not Found"
+msgstr "Quellordner nicht gefunden"
+
+#: clsVersionControl
+msgid "Source: {0}"
+msgstr "Quelle: {0}"
+
+#: clsDbImexSpec
+msgid "Specification ID {0} is already in use; insert was rolled back."
+msgstr ""
+"Spezifikations-ID {0} wird bereits verwendet; das Einfügen wurde "
+"rückgängig gemacht."
+
+#: frmVCSOptionsAdvanced.Label33
+msgid ""
+"Specify module or tag name(s) to use when clicking the Run Tests button "
+"on the ribbon. Prefix with \"-\" to exclude. Separate entries with comma. "
+"I.e. \"clsTestFunctions, -slow\""
+msgstr ""
+"Modul- oder Tag-Namen für die Schaltfläche „Tests ausführen“ im Menüband. "
+"Mit \"-\" ausschließen, mehrere durch Komma trennen, z. B. "
+"\"clsTestFunctions, -slow\""
+
+#: frmVCSOptionsTranslation.lblWorkingPathExplanation
+msgid "Specify the path for the working language files."
+msgstr "Geben Sie den Pfad für die Arbeitssprachdateien an."
+
+#: Ribbon.btnSplitFiles.Label
+msgid "Split Files"
+msgstr "Dateien aufteilen"
+
+#: frmVCSSplitFiles.lblOptions
+msgid "Split Files and Preserve History"
+msgstr "Dateien aufteilen und Verlauf erhalten"
+
+#: frmVCSOptionsExport.Label251(chkSplitLayoutFromVBA)
+msgid "Split Layout from VBA"
+msgstr "Layout von VBA trennen"
+
+#: Ribbon.btnStandardizeLetterCasing.Label
+msgid "Standardize Letter Casing"
+msgstr "Groß-/Kleinschreibung vereinheitlichen"
+
+#: frmVCSOptionsExport.Label315(cboUseEnvForConnections)
+msgid "Store connection credentials in .env"
+msgstr "Verbindungsanmeldedaten in .env speichern"
+
+#: frmVCSOptionsAdvanced.Label14(chkStripPublishOption)
+msgid "Strip Publish Option"
+msgstr "Veröffentlichungsoption entfernen"
+
+#: Ribbon.btnGoToLinkSupport.Label
+msgid "Support Issues"
+msgstr "Support-Issues"
+
+#: frmVCSOptionsAdvanced.Label22
+msgid "System"
+msgstr "System"
+
+msgid "table data"
+msgstr "Tabellendaten"
+
+#: frmVCSTableData.Caption
+msgid "Table Data"
+msgstr "Tabellendaten"
+
+msgid "table data macros"
+msgstr "Tabellendatenmakros"
+
+#: modBuild
+msgid "Table data merge complete."
+msgstr "Merge der Tabellendaten abgeschlossen."
+
+#: clsDbTableData
+msgid ""
+"Table definition does not exist for '{0}'. This must be created before "
+"merging table data."
+msgstr ""
+"Die Tabellendefinition für '{0}' existiert nicht. Sie muss vor dem "
+"Zusammenführen der Tabellendaten erstellt werden."
+
+#: frmVCSTableData.Label3(txtTableName)
+msgid "Table Name"
+msgstr "Tabellenname"
+
+msgid "tables"
+msgstr "Tabellen"
+
+#: clsVersionControl
+msgid "Template Created"
+msgstr "Vorlage erstellt"
+
+#: frmVCSDatabase.cmdTest
+msgid "Test Filter..."
+msgstr "Testfilter..."
+
+#: clsVersionControl
+msgid "Test Helper Installed"
+msgstr "Testhilfe installiert"
+
+#: clsVersionControl
+msgid "Test Helper Not Found"
+msgstr "Testhilfe nicht gefunden"
+
+#: clsVersionControl
+msgid "TestAssert Not In Use"
+msgstr "TestAssert wird nicht verwendet"
+
+#: clsVersionControl
+msgid "Tests Canceled"
+msgstr "Tests abgebrochen"
+
+#: clsVersionControl
+msgid ""
+"Tests cannot be run in the installed add-in, which is only meant to be "
+"loaded as a library."
+msgstr ""
+"Tests können nicht im installierten Add-In ausgeführt werden, da es nur "
+"als Bibliothek geladen werden soll."
+
+#: modInstall
+msgid "The add-in file must be named \"{0}.accda\" to install correctly."
+msgstr ""
+"Die Add-In-Datei muss \"{0}.accda\" heißen, damit sie korrekt installiert "
+"wird."
+
+#: clsVersionControl
+msgid "The add-in folder is not a Microsoft Access trusted location:"
+msgstr ""
+"Der Add-In-Ordner ist kein vertrauenswürdiger Speicherort von Microsoft "
+"Access:"
+
+#: clsVersionControl
+msgid ""
+"The clsStandardLetterCasing class module has been added to your project."
+msgstr ""
+"Das Klassenmodul clsStandardLetterCasing wurde Ihrem Projekt hinzugefügt."
+
+#: clsVersionControl
+msgid ""
+"The clsStandardLetterCasing class module was not found in the current "
+"project."
+msgstr ""
+"Das Klassenmodul clsStandardLetterCasing wurde im aktuellen Projekt nicht "
+"gefunden."
+
+#: clsDbCommandBar
+msgid ""
+"The command bar template is not loaded in this Access session (expected "
+"after rebuilding the add-in). Restart Access before building databases "
+"with non-addable built-in menu controls."
+msgstr ""
+"Die Befehlsleistenvorlage ist in dieser Access-Sitzung nicht geladen (zu "
+"erwarten nach dem Neuaufbau des Add-Ins). Starten Sie Access neu, bevor "
+"Sie Datenbanken mit nicht hinzufügbaren integrierten Menüsteuerelementen "
+"erstellen."
+
+#: modBuild
+msgid ""
+"The current database is a compiled MDE/ACCDE file and does not contain "
+"the original VBA source code."
+msgstr ""
+"Die aktuelle Datenbank ist eine kompilierte MDE/ACCDE-Datei und enthält "
+"nicht den ursprünglichen VBA-Quellcode."
+
+#: modBuild
+msgid "The current database must be closed to perform a full build."
+msgstr ""
+"Die aktuelle Datenbank muss für einen vollständigen Build geschlossen "
+"sein."
+
+#: clsVersionControl
+msgid "The current database VBA project could not be reset."
+msgstr ""
+"Das VBA-Projekt der aktuellen Datenbank konnte nicht zurückgesetzt werden."
+
+#: Form_frmVCSOptionsDefaults
+msgid "The current options have been saved as default for new projects."
+msgstr ""
+"Die aktuellen Optionen wurden als Standard für neue Projekte gespeichert."
+
+#: modBuild
+msgid ""
+"The database file name for the source files must match the currently open "
+"database."
+msgstr ""
+"Der Datenbankdateiname der Quelldateien muss mit der aktuell geöffneten "
+"Datenbank übereinstimmen."
+
+#: Form_frmVCSOptionsDefaults
+msgid ""
+"The default options have been reset. Would you like these applied to this "
+"project as well?"
+msgstr ""
+"Die Standardoptionen wurden zurückgesetzt. Möchten Sie sie auch auf "
+"dieses Projekt anwenden?"
+
+#: Form_frmVCSMain
+msgid ""
+"The export did not complete. Additional details can be found in the "
+"project log file.<br><br>You may now close this window."
+msgstr ""
+"Der Export wurde nicht abgeschlossen. Weitere Details finden Sie in der "
+"Protokolldatei des Projekts.<br><br>Sie können dieses Fenster jetzt "
+"schließen."
+
+#: Form_frmVCSMain
+msgid ""
+"The export was canceled. Additional details can be found in the project "
+"log file.<br><br>You may now close this window."
+msgstr ""
+"Der Export wurde abgebrochen. Weitere Details finden Sie in der "
+"Protokolldatei des Projekts.<br><br>Sie können dieses Fenster jetzt "
+"schließen."
+
+#: clsVersionControl
+msgid ""
+"The HTML test runner is disabled or not supported on this Access build."
+msgstr ""
+"Der HTML-Testrunner ist deaktiviert oder wird von diesem Access-Build "
+"nicht unterstützt."
+
+#: clsVersionControl
+msgid "The modTestAssert module already exists in the current project."
+msgstr "Das Modul modTestAssert ist im aktuellen Projekt bereits vorhanden."
+
+#: clsVersionControl
+msgid "The modTestAssert module has been added to your project."
+msgstr "Das Modul modTestAssert wurde Ihrem Projekt hinzugefügt."
+
+#: clsVersionControl
+msgid "The modTestAssert module was not found in the current project."
+msgstr "Das Modul modTestAssert wurde im aktuellen Projekt nicht gefunden."
+
+#: Form_frmVCSSplitFiles
+msgid "The operation is complete."
+msgstr "Der Vorgang ist abgeschlossen."
+
+#: modDatabase
+msgid "The procedure \"{0}\" not found."
+msgstr "Die Prozedur \"{0}\" wurde nicht gefunden."
+
+#: modDatabase
+msgid "The procedure must be declared as public in a standard module."
+msgstr "Die Prozedur muss in einem Standardmodul als Public deklariert sein."
+
+#: clsVersionControl
+msgid ""
+"The rebuild worker did not start within {0} seconds. Nothing was rebuilt, "
+"and this instance of Microsoft Access was left open."
+msgstr ""
+"Der Rebuild-Worker wurde nicht innerhalb von {0} Sekunden gestartet. Es "
+"wurde nichts neu erstellt, und diese Microsoft Access-Instanz bleibt "
+"geöffnet."
+
+#: clsDbTableDef
+msgid "the rebuilt table did not match the source file"
+msgstr "die neu aufgebaute Tabelle entsprach nicht der Quelldatei"
+
+#: clsVersionControl
+msgid "The RunVBA temporary module could not be removed."
+msgstr "Das temporäre RunVBA-Modul konnte nicht entfernt werden."
+
+#: clsVersionControl
+msgid "The source folder does not contain the expected VCS source files."
+msgstr "Der Quellordner enthält nicht die erwarteten VCS-Quelldateien."
+
+#: clsVersionControl
+msgid "The source folder was not found:"
+msgstr "Der Quellordner wurde nicht gefunden:"
+
+#: Form_frmVCSOptionsDefaults
+msgid "The system default options have been restored to this project."
+msgstr ""
+"Die Systemstandardoptionen wurden für dieses Projekt wiederhergestellt."
+
+#: clsVersionControl
+msgid ""
+"The test run was canceled. Partial results are available in the log file."
+msgstr ""
+"Der Testlauf wurde abgebrochen. Teilergebnisse sind in der Protokolldatei "
+"verfügbar."
+
+#: modBuild
+msgid ""
+"The validation procedure must be a Function that returns True on success."
+msgstr ""
+"Die Validierungsprozedur muss eine Function sein, die bei Erfolg True "
+"zurückgibt."
+
+#: clsVersionControl
+msgid ""
+"The VBA project cannot be reset from code running inside that same "
+"project."
+msgstr ""
+"Das VBA-Projekt kann nicht durch Code zurückgesetzt werden, der in "
+"demselben Projekt ausgeführt wird."
+
+#: modDatabase
+msgid ""
+"The VBA project could not be saved automatically because the helper "
+"script is disabled."
+msgstr ""
+"Das VBA-Projekt konnte nicht automatisch gespeichert werden, da das "
+"Hilfsskript deaktiviert ist."
+
+#: modDatabase
+msgid "The VBA project could not be saved automatically."
+msgstr "Das VBA-Projekt konnte nicht automatisch gespeichert werden."
+
+#: clsDbTheme
+msgid ""
+"Theme '{0}' (MSysResources Id {1}) has no embedded theme file and will be "
+"skipped. Compact and repair the database, then re-add or remove this "
+"theme."
+msgstr ""
+"Design '{0}' (MSysResources-ID {1}) enthält keine eingebettete "
+"Designdatei und wird übersprungen. Komprimieren und reparieren Sie die "
+"Datenbank und fügen Sie dieses Design dann erneut hinzu oder entfernen "
+"Sie es."
+
+msgid "themes"
+msgstr "Designs"
+
+#: Form_frmVCSConflict
+msgid "These database objects have changed since the last export"
+msgstr "Diese Datenbankobjekte wurden seit dem letzten Export geändert"
+
+#: frmVCSConflict.lblHeading(sfrmConflictList)
+msgid "These source files have changed since the last export"
+msgstr "Diese Quelldateien wurden seit dem letzten Export geändert"
+
+#: Ribbon.mnuAdvancedTools.Supertip
+msgid ""
+"These tools are intended for more advanced development purposes. Please "
+"review the documentation for these tools before using them."
+msgstr ""
+"Diese Werkzeuge sind für fortgeschrittene Entwicklungszwecke gedacht. "
+"Bitte lesen Sie die Dokumentation zu diesen Werkzeugen, bevor Sie sie "
+"verwenden."
+
+#: clsFormGeometryCanonicalizer
+msgid ""
+"These tracks do not record the sizes needed to compute coordinates that "
+"are independent of display scaling, so this group is exported exactly as "
+"Access saved it. Its values may differ between machines that run at "
+"different display scaling (DPI)."
+msgstr ""
+"Diese Spuren enthalten nicht die Größen, die zur Berechnung "
+"skalierungsunabhängiger Koordinaten nötig sind; daher wird diese Gruppe "
+"genau so exportiert, wie Access sie gespeichert hat. Ihre Werte können "
+"zwischen Rechnern mit unterschiedlicher Anzeigeskalierung (DPI) abweichen."
+
+#: frmVCSDatabase.Label227
+msgid ""
+"This add-in provides limited support for exporting object definitions "
+"from external databases for use in version control."
+msgstr ""
+"Dieses Add-In bietet eingeschränkte Unterstützung für den Export von "
+"Objektdefinitionen aus externen Datenbanken für die Versionsverwaltung."
+
+#: frmVCSDatabase.Label227
+msgid ""
+"This add-in provides limited support for exporting object definitions "
+"from external databases for use in version control.\n"
+"\n"
+"* If the connection string contains a password, please use the .env "
+"option, and exclude this file from version control."
+msgstr ""
+"Dieses Add-In bietet eingeschränkte Unterstützung für den Export von "
+"Objektdefinitionen aus externen Datenbanken für die Versionsverwaltung.\n"
+"\n"
+"* Wenn die Verbindungszeichenfolge ein Kennwort enthält, verwenden Sie "
+"bitte die .env-Option und schließen Sie diese Datei von der "
+"Versionsverwaltung aus."
+
+#: Form_frmVCSOptionsGeneral
+msgid "This does not appear to be a valid relative or absolute path."
+msgstr "Dies scheint kein gültiger relativer oder absoluter Pfad zu sein."
+
+#: Ribbon.PLEASE NOTE:.Label
+msgid ""
+"This file is automatically generated by the add-in. Please do not "
+"translate or edit this file directly."
+msgstr ""
+
+#: modSourceUpgrade
+msgid ""
+"This is no longer needed when using the installed Version Control Add-in."
+msgstr ""
+"Dies wird bei Verwendung des installierten Add-Ins „Version Control“ "
+"nicht mehr benötigt."
+
+#: modBuild
+msgid ""
+"This may occur when building an older database version if the 'New "
+"database sort order' (collation) option is not set to 'Legacy'"
+msgstr ""
+"Dies kann beim Erstellen einer älteren Datenbankversion auftreten, wenn "
+"die Option 'Sortierreihenfolge für neue Datenbanken' (Sortierung) nicht "
+"auf 'Legacy' eingestellt ist"
+
+#: Form_frmVCSOptionsExport
+msgid ""
+"This project appears to be within a Git repository. This add-in includes "
+"a special utility that can split the files (layout and VBA) while "
+"preserving this history of previous changes in BOTH files."
+msgstr ""
+"Dieses Projekt scheint sich in einem Git-Repository zu befinden. Dieses "
+"Add-In enthält ein spezielles Werkzeug, das die Dateien (Layout und VBA) "
+"aufteilen kann und dabei den Verlauf früherer Änderungen in BEIDEN "
+"Dateien erhält."
+
+#: modBuild
+msgid ""
+"This project uses VCS version {0} but version {1} is currently installed.\n"
+"Would you like to continue anyway?"
+msgstr ""
+"Dieses Projekt verwendet die VCS-Version {0}, installiert ist jedoch die "
+"Version {1}.\n"
+"Möchten Sie trotzdem fortfahren?"
+
+#: modExport
+msgid ""
+"This project uses VCS version {0}, but version {1} is currently installed.\n"
+"Would you like to continue anyway?"
+msgstr ""
+"Dieses Projekt verwendet die VCS-Version {0}, installiert ist jedoch die "
+"Version {1}.\n"
+"Möchten Sie trotzdem fortfahren?"
+
+#: clsWorker
+msgid "Timed out waiting for job queue"
+msgstr "Zeitüberschreitung beim Warten auf die Auftragswarteschlange"
+
+#: Ribbon.grpTools.Label
+msgid "Tools"
+msgstr "Werkzeuge"
+
+#: frmVCSOptionsGeneral.Label5
+msgid "Tools (this machine only)"
+msgstr "Werkzeuge (nur dieser Computer)"
+
+#: frmVCSOptions.tglTranslation
+msgid "Translation"
+msgstr "Übersetzung"
+
+#: Form_frmVCSOptionsTranslation
+msgid "Translation files have been syncronized with the add-in."
+msgstr "Die Übersetzungsdateien wurden mit dem Add-In synchronisiert."
+
+#: Form_frmVCSOptionsTranslation
+msgid "Translation files not found"
+msgstr "Übersetzungsdateien nicht gefunden"
+
+#: frmVCSOptionsTranslation.Label297(txtTranslationsPath)
+msgid "Translations Path: "
+msgstr "Übersetzungspfad: "
+
+#: Form_frmVCSOptionsTranslation
+msgid "Translations Updated"
+msgstr "Übersetzungen aktualisiert"
+
+#: frmVCSOptionsGeneral.cmdTranslations
+msgid "Translations..."
+msgstr "Übersetzungen..."
+
+#: frmVCSInstall.Label34(chkAddTrustedLocation)
+msgid "Trust Add-In Folder"
+msgstr "Ordner vertrauen"
+
+#: clsVersionControl
+msgid "Trusted Location Required"
+msgstr "Vertrauenswürdiger Speicherort erforderlich"
+
+#: frmVCSOptionsExport.Label140(chkTTOption)
+msgid "TT Font Handling"
+msgstr "TT-Schriftbehandlung"
+
+#: clsDbTableData
+msgid "Unable to access table {0} on the back-end database."
+msgstr ""
+"Auf die Tabelle {0} in der Back-End-Datenbank kann nicht zugegriffen "
+"werden."
+
+#: clsDbTableData
+msgid ""
+"Unable to access table {0}. Please ensure that this table exists and is "
+"accessible in the current database."
+msgstr ""
+"Auf die Tabelle {0} kann nicht zugegriffen werden. Stellen Sie sicher, "
+"dass diese Tabelle in der aktuellen Datenbank existiert und zugänglich "
+"ist."
+
+#: clsVersionControl
+msgid "Unable to activate hook"
+msgstr "Hook kann nicht aktiviert werden"
+
+#: modBuild
+msgid "Unable to back up current database"
+msgstr "Die aktuelle Datenbank kann nicht gesichert werden"
+
+#: modBuild
+msgid "Unable to close all open objects."
+msgstr "Nicht alle geöffneten Objekte konnten geschlossen werden."
+
+#: modBuild
+msgid "Unable to Close Database"
+msgstr "Datenbank kann nicht geschlossen werden"
+
+#: modDatabase
+msgid "Unable to close database object"
+msgstr "Datenbankobjekt kann nicht geschlossen werden"
+
+#: clsDbTableData
+msgid "Unable to create a staging table to merge table data for {0}."
+msgstr ""
+"Für {0} kann keine Staging-Tabelle zum Zusammenführen der Tabellendaten "
+"erstellt werden."
+
+#: modBuild
+msgid "Unable to create database file"
+msgstr "Datenbankdatei kann nicht erstellt werden"
+
+#: clsDbImexSpec
+msgid "Unable to delete specification ID {0}"
+msgstr "Spezifikations-ID {0} kann nicht gelöscht werden"
+
+#: modBuild
+msgid "Unable to determine database file name"
+msgstr "Der Datenbankdateiname kann nicht ermittelt werden"
+
+#: modBuild
+msgid "Unable to determine database file name."
+msgstr "Der Datenbankdateiname kann nicht ermittelt werden."
+
+#: clsDbTableData
+msgid ""
+"Unable to export sorted table data for {0}. Falling back to an unsorted "
+"export."
+msgstr ""
+"Sortierte Tabellendaten für {0} können nicht exportiert werden. Es wird "
+"unsortiert exportiert."
+
+#: clsDbTableData
+msgid "Unable to export table data for {0}."
+msgstr "Tabellendaten für {0} können nicht exportiert werden."
+
+#: clsDbImexSpec
+msgid "Unable to import specification from {0}"
+msgstr "Spezifikation aus {0} kann nicht importiert werden"
+
+#: modInstall
+msgid "Unable to Install"
+msgstr "Installation nicht möglich"
+
+msgid "Unable to load Ribbon COM add-in"
+msgstr "Das Menüband-COM-Add-In kann nicht geladen werden"
+
+#: clsDbImexSpec
+msgid "Unable to merge specification from {0}"
+msgstr "Spezifikation aus {0} kann nicht zusammengeführt werden"
+
+#: clsDbTableData
+msgid ""
+"Unable to merge table data for {0} ({1}). Perform a full build to import "
+"this table."
+msgstr ""
+"Tabellendaten für {0} können nicht zusammengeführt werden ({1}). Führen "
+"Sie einen vollständigen Build aus, um diese Tabelle zu importieren."
+
+#: clsDbTableData
+msgid ""
+"Unable to merge table data for {0}. No changes were made to this table. "
+"{1}"
+msgstr ""
+"Tabellendaten für {0} können nicht zusammengeführt werden. An dieser "
+"Tabelle wurden keine Änderungen vorgenommen. {1}"
+
+#: clsDbTableData
+msgid "Unable to prepare table data from '{0}' for merge."
+msgstr ""
+"Tabellendaten aus '{0}' können nicht für den Merge vorbereitet werden."
+
+#: clsWorker
+msgid "Unable to prepare the worker result folder: {0}"
+msgstr "Der Ergebnisordner des Workers kann nicht vorbereitet werden: {0}"
+
+#: modVbeUtility
+msgid "Unable to read {0}"
+msgstr "{0} kann nicht gelesen werden"
+
+#: clsDbImexSpec
+msgid "Unable to read specification ID {0}"
+msgstr "Spezifikations-ID {0} kann nicht gelesen werden"
+
+#: clsWorker
+msgid "Unable to remove worker result folder: {0}"
+msgstr "Der Ergebnisordner des Workers kann nicht entfernt werden: {0}"
+
+#: clsWorker
+msgid "Unable to remove worker script: {0}"
+msgstr "Das Worker-Skript kann nicht entfernt werden: {0}"
+
+msgid "Unable to rename original file"
+msgstr "Die ursprüngliche Datei kann nicht umbenannt werden"
+
+#: clsWorker
+msgid "Unable to reserve a worker result file in {0}"
+msgstr "In {0} kann keine Ergebnisdatei für den Worker reserviert werden"
+
+#: modBuild
+msgid "Unable to reset the VBA project for the current database."
+msgstr ""
+"Das VBA-Projekt der aktuellen Datenbank kann nicht zurückgesetzt werden."
+
+#: modDatabase
+msgid "Unable to Run Command"
+msgstr "Befehl kann nicht ausgeführt werden"
+
+#: clsDbImexSpec
+msgid "Unable to save specification '{0}'"
+msgstr "Spezifikation '{0}' kann nicht gespeichert werden"
+
+#: clsDbImexSpec
+msgid "Unable to save specification column '{0}' from {1}"
+msgstr "Spezifikationsspalte '{0}' aus {1} kann nicht gespeichert werden"
+
+#: clsDbTableData
+msgid ""
+"Unable to sort table data for {0} during export. Exporting without ORDER "
+"BY."
+msgstr ""
+"Tabellendaten für {0} können beim Export nicht sortiert werden. Export "
+"ohne ORDER BY."
+
+#: modInstall
+msgid "Unable to Uninstall"
+msgstr "Deinstallation nicht möglich"
+
+#: Form_frmVCSInstall
+msgid "Unable to write to folder: {0}"
+msgstr "In den Ordner kann nicht geschrieben werden: {0}"
+
+#: modExport
+msgid "Unabled to Export Running Database"
+msgstr "Laufende Datenbank kann nicht exportiert werden"
+
+#: frmVCSOptionsDefaults.Label108(cmdUninstall)
+msgid "Uninstall this add-in"
+msgstr "Dieses Add-In deinstallieren"
+
+#: clsOperation
+msgid "Unknown Operation State"
+msgstr "Unbekannter Vorgangsstatus"
+
+#: clsDbTableData
+msgid "unrecognized source file format"
+msgstr "nicht erkanntes Quelldateiformat"
+
+#: modFileAccess
+msgid ""
+"Unresolved Git conflict markers in '{0}' (line {1}). Resolve the conflict "
+"in this file, then merge again."
+msgstr ""
+"Nicht aufgelöste Git-Konfliktmarkierungen in '{0}' (Zeile {1}). Lösen Sie "
+"den Konflikt in dieser Datei und führen Sie den Merge dann erneut aus."
+
+#: modDatabase
+msgid ""
+"Unsaved changes to form or report class modules will not be included."
+msgstr ""
+"Nicht gespeicherte Änderungen an Formular- oder Berichtsklassenmodulen "
+"werden nicht berücksichtigt."
+
+#: modDatabase
+msgid "Unsaved VBA Changes"
+msgstr "Nicht gespeicherte VBA-Änderungen"
+
+#: modConnect
+msgid "Unused connection entries in .env file:"
+msgstr "Nicht verwendete Verbindungseinträge in der .env-Datei:"
+
+#: modVCSUtility
+msgid "Updated .gitignore: vcs-index.json -> vcs-index.*"
+msgstr ".gitignore aktualisiert: vcs-index.json -> vcs-index.*"
+
+#: modResource
+msgid "Updated resource '{0}' from source: {1}"
+msgstr "Ressource '{0}' aus der Quelle aktualisiert: {1}"
+
+#: modExport
+msgid "Updated VCS ({0} -> {1})"
+msgstr "VCS aktualisiert ({0} -> {1})"
+
+#: frmVCSMain.cmdFormatUpdate
+msgid "Upgrade Output Format..."
+msgstr "Ausgabeformat aktualisieren..."
+
+#: frmVCSOptionsBuild.Label230
+msgid "Use \"module.sub\" to specify module"
+msgstr "Verwenden Sie \"modul.sub\", um das Modul anzugeben"
+
+#: clsVersionControl
+msgid ""
+"Use Build From Source to build the add-in, then open the resulting file "
+"to install it."
+msgstr ""
+"Verwenden Sie Aus Quellcode erstellen, um das Add-In zu erstellen, und "
+"öffnen Sie dann die erzeugte Datei, um es zu installieren."
+
+#: frmVCSOptionsExport.lblUseDeterministicQueryExport(chkUseDeterministicQueryExport)
+msgid "Use Deterministic Query Export"
+msgstr "Deterministischen Abfrageexport verwenden"
+
+#: frmVCSOptionsExport.Label25(chkUseFastSave)
+msgid "Use Fast Save"
+msgstr "Schnellspeicherung verwenden"
+
+#: frmVCSSplitFiles.Label242
+msgid ""
+"Use full file paths with a pipe character (|) between the original and "
+"new file paths.\n"
+"\n"
+"Each entry should be on a new line. The list will be validated before "
+"running the operation."
+msgstr ""
+"Verwenden Sie vollständige Dateipfade mit einem senkrechten Strich (|) "
+"zwischen dem ursprünglichen und dem neuen Dateipfad.\n"
+"\n"
+"Jeder Eintrag muss in einer neuen Zeile stehen. Die Liste wird vor dem "
+"Ausführen des Vorgangs überprüft."
+
+#: frmVCSOptionsAdvanced.Label163(chkUseGitIntegration)
+msgid "Use Git Integration"
+msgstr "Git-Integration verwenden"
+
+#: frmVCSInstall.lblUseWorkerScript(chkUseWorkerScript)
+msgid "Use helper script (Worker.vbs)"
+msgstr "Hilfsskript verwenden (Worker.vbs)"
+
+#: frmVCSOptionsAdvanced.lblUseWebTestRunner(chkUseWebTestRunner)
+msgid "Use HTML test runner (else legacy console)"
+msgstr "HTML-Testrunner verwenden (sonst ältere Konsole)"
+
+#: frmVCSInstall.Label40(chkUseRibbon)
+msgid "Use Ribbbon Addin"
+msgstr "Menüband-Add-In verwenden"
+
+#: frmVCSOptionsDefaults.Label40(chkUseRibbonAddIn)
+msgid "Use Ribbon Addin"
+msgstr "Menüband-Add-In verwenden"
+
+#: frmVCSOptionsAdvanced.Label223(chkUseShortHash)
+msgid "Use short hashes in index"
+msgstr "Kurze Hashes im Index verwenden"
+
+#: clsVersionControl
+msgid ""
+"Use TestAssert in your test subs to record assertions. Run tests from the "
+"VCS ribbon or call VCS.RunTests."
+msgstr ""
+"Verwenden Sie TestAssert in Ihren Test-Subs, um Assertions aufzuzeichnen. "
+"Führen Sie Tests über das VCS-Menüband aus oder rufen Sie VCS.RunTests "
+"auf."
+
+#: frmVCSSplitFiles.Label227
+msgid ""
+"Use this tool to duplicate files while preserving commit history in Git.\n"
+"\n"
+"Paste in a list of Pipe delimited paths and click the button below."
+msgstr ""
+"Mit diesem Werkzeug duplizieren Sie Dateien und erhalten dabei den "
+"Commit-Verlauf in Git.\n"
+"\n"
+"Fügen Sie eine Liste von durch senkrechte Striche getrennten Pfaden ein "
+"und klicken Sie auf die Schaltfläche unten."
+
+#: frmVCSDatabase.Label259(chkUtcDates)
+msgid "Use UTC Dates"
+msgstr "UTC-Datumswerte verwenden"
+
+#: modExport
+msgid "Using Fast Save"
+msgstr "Schnellspeicherung wird verwendet"
+
+#: modExport
+msgid "Using Fast Save (re-exporting {0} changed categories)"
+msgstr ""
+"Schnellspeicherung wird verwendet ({0} geänderte Kategorien werden erneut "
+"exportiert)"
+
+#: frmVCSOptionsBuild.lblValidateAfterBuild(txtValidateAfterBuild)
+msgid "Validate Build With:"
+msgstr "Build prüfen mit:"
+
+#: Ribbon.btnValidateQuerySqlBuilder.Label
+msgid "Validate Query SQL Builder"
+msgstr "Abfrage-SQL-Builder überprüfen"
+
+#: modBuild
+msgid "Validating build with {0}..."
+msgstr "Build wird mit {0} überprüft..."
+
+#: Form_frmVCSSplitFiles
+msgid "Validation Failed"
+msgstr "Überprüfung fehlgeschlagen"
+
+msgid "vb project"
+msgstr "VB-Projekt"
+
+#: modLetterCasing
+msgid ""
+"VBA project still has unsaved changes after letter casing corrections"
+msgstr ""
+"Das VBA-Projekt enthält nach der Korrektur der Groß-/Kleinschreibung noch "
+"nicht gespeicherte Änderungen"
+
+msgid "vbe forms"
+msgstr "VBE-Formulare"
+
+#: clsDbModule
+msgid ""
+"VBE import did not create module {0}. Check Attribute VB_Name in the "
+"source file."
+msgstr ""
+"Der VBE-Import hat das Modul {0} nicht erstellt. Prüfen Sie Attribute "
+"VB_Name in der Quelldatei."
+
+msgid "vbe references"
+msgstr "VBE-Verweise"
+
+#: frmVCSTestRunner.Caption
+msgid "VCS Test Runner"
+msgstr "VCS-Testrunner"
+
+msgid "VCS Version {0}"
+msgstr "VCS-Version {0}"
+
+msgid "Version {0}"
+msgstr "Version {0}"
+
+msgid "Version {0} currently installed."
+msgstr "Version {0} ist derzeit installiert."
+
+#: frmVCSInstall.lblInstalled
+msgid "Version 4.0.11 currently installed."
+msgstr "Version 4.0.11 ist derzeit installiert."
+
+#: frmVCSInstall.lblVersion
+msgid "Version 4.0.12"
+msgstr "Version 4.0.12"
+
+#: Ribbon.tabVersionControl.Label
+msgid "Version Control"
+msgstr "Versionsverwaltung"
+
+#: modUIUtil
+msgid "Version Control Add-in"
+msgstr "Version Control Add-in"
+
+#: frmVCSInstall.Label4
+msgid "Version Control System"
+msgstr "Versionsverwaltung"
+
+#: frmVCSOptions.Label9
+msgid "Version Control System "
+msgstr "Version Control System "
+
+#: frmVCSConflict.lblVersion
+msgid "Version Control System ${version}"
+msgstr "Version Control System ${version}"
+
+#: modInstall
+msgid ""
+"Version Control System has been uninstalled, but these files cannot be "
+"removed while Microsoft Access has them open:"
+msgstr ""
+"Version Control System wurde deinstalliert, aber diese Dateien können "
+"nicht entfernt werden, solange Microsoft Access sie geöffnet hat:"
+
+#: Ribbon.btnGoToLinkAdvancedTools.Label
+msgid "View Documentation"
+msgstr "Dokumentation anzeigen"
+
+#: Ribbon.btnShowOptions.Label
+msgid "View Options"
+msgstr "Optionen anzeigen"
+
+#: Ribbon.btnGoToLinkHome.Supertip
+msgid "View the add-in project home on GitHub."
+msgstr "Die Startseite des Add-In-Projekts auf GitHub anzeigen."
+
+#: Ribbon.btnGoToLinkSupport.Supertip
+msgid "View the add-in project support issues on GitHub."
+msgstr "Die Support-Issues des Add-In-Projekts auf GitHub anzeigen."
+
+#: Ribbon.btnGoToLinkDocumentation.Supertip
+msgid "View the documentation Wiki on GitHub."
+msgstr "Das Dokumentations-Wiki auf GitHub anzeigen."
+
+#: Ribbon.btnGoToLinkDownload.Supertip
+msgid "View the GitHub download page for this add-in project."
+msgstr "Die GitHub-Downloadseite dieses Add-In-Projekts anzeigen."
+
+#: modInstall
+msgid "visible"
+msgstr "sichtbar"
+
+#: modVbeUtility
+msgid ""
+"WARNING: Ambiguous duplicate source files for {0}; not auto-deleting. "
+"Paths: {1}"
+msgstr ""
+"WARNUNG: Mehrdeutige doppelte Quelldateien für {0}; werden nicht "
+"automatisch gelöscht. Pfade: {1}"
+
+#: modVbeUtility
+msgid "WARNING: Duplicate {0} source files for {1}: {2}"
+msgstr "WARNUNG: Doppelte {0}-Quelldateien für {1}: {2}"
+
+#: modVbeUtility
+msgid ""
+"WARNING: Multiple @Folder annotations found in {0}. Using first "
+"annotation."
+msgstr ""
+"WARNUNG: Mehrere @Folder-Annotationen in {0} gefunden. Die erste "
+"Annotation wird verwendet."
+
+#: frmVCSConflict.lblHeaderExplain
+msgid ""
+"WARNING: The following changes may be overwritten. Please select how you "
+"would \n"
+"like to proceed."
+msgstr ""
+"WARNUNG: Die folgenden Änderungen werden möglicherweise überschrieben. "
+"Bitte wählen Sie aus, wie Sie \n"
+"fortfahren möchten."
+
+#: clsVersionControl
+msgid "Web Test Runner Unavailable"
+msgstr "Web-Testrunner nicht verfügbar"
+
+#: frmVCSMain.lblSubheading
+msgid "What would you like to do?"
+msgstr "Was möchten Sie tun?"
+
+#: clsVersionControl
+msgid "Would you like to create a starter template?"
+msgstr "Möchten Sie eine Startvorlage erstellen?"
+
+#: clsVersionControl
+msgid "Would you like to install it now?"
+msgstr "Möchten Sie es jetzt installieren?"
+
+#: Form_frmVCSOptionsExport
+msgid "Would you like to see additional information on this from the wiki?"
+msgstr "Möchten Sie weitere Informationen dazu im Wiki anzeigen?"
+
+#: clsVersionControl
+msgid "Wrong Database for Tests"
+msgstr "Falsche Datenbank für Tests"
+
+#: Form_frmVCSMain
+msgid ""
+"You are in the midst of a running process. Are you sure you want to "
+"cancel?"
+msgstr ""
+"Ein Vorgang wird gerade ausgeführt. Möchten Sie ihn wirklich abbrechen?"
+
+#: clsVersionControl
+msgid "You can always do this manually later."
+msgstr "Sie können dies jederzeit später manuell erledigen."
+
+#: Form_frmVCSOptions
+msgid ""
+"You must have a database file open to save VCS options to a source folder."
+msgstr ""
+"Sie müssen eine Datenbankdatei geöffnet haben, um VCS-Optionen in einem "
+"Quellordner zu speichern."
+
+#: Form_frmVCSOptionsTranslation
+msgid "You selected: "
+msgstr "Sie haben ausgewählt: "
+
+#: Form_frmVCSMain
+msgid "You selected: {0}"
+msgstr "Sie haben ausgewählt: {0}"
+
+#: Form_frmVCSInstall
+msgid ""
+"You will have the option to keep your current settings during the "
+"uninstall process."
+msgstr ""
+"Sie behalten während der Deinstallation die Möglichkeit, Ihre aktuellen "
+"Einstellungen beizubehalten."
+
+#: frmVCSOptionsDatabases.Label244
+msgid ""
+"Your database application may connect to external database systems such "
+"as Microsoft SQL Server.\n"
+"\n"
+"If you define a connection to an external database, you can use version "
+"control to track changes in those external database objects.\n"
+"\n"
+"Please see documentation for additional notes."
+msgstr ""
+"Ihre Datenbankanwendung kann eine Verbindung zu externen "
+"Datenbanksystemen wie Microsoft SQL Server herstellen.\n"
+"\n"
+"Wenn Sie eine Verbindung zu einer externen Datenbank definieren, können "
+"Sie die Objekte dieser externen Datenbank mit der Versionsverwaltung "
+"nachverfolgen.\n"
+"\n"
+"Weitere Hinweise finden Sie in der Dokumentation."

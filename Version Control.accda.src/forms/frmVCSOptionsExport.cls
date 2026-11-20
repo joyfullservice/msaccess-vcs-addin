@@ -47,7 +47,7 @@ Private Sub Form_Load()
         Next intSanitizeLevel
     End With
 
-    Me.chkSnapFormLayoutGeometry.ControlTipText = T("Snap controls in form layouts " & _
+    Translation.SetControlTip Me.chkSnapFormLayoutGeometry, T("Snap controls in form layouts " & _
         "(Tabular or Stacked) to a 60-twip grid, so forms export identically at any " & _
         "display scaling from 100% to 200% (export format 5.1.0+). Turn off to keep " & _
         "exact control sizes when every developer uses the same display scaling.")
@@ -58,7 +58,7 @@ Private Sub Form_Load()
         For intEnvLevel = uecAuto To eUseEnvConnections.[_Last] - 1
             .AddItem intEnvLevel & ";" & opt.GetUseEnvConnectionsName(intEnvLevel)
         Next intEnvLevel
-        .ControlTipText = T("Auto: use .env when credentials are present; prompt for new on build. " & _
+        Translation.SetControlTip Me.cboUseEnvForConnections, T("Auto: use .env when credentials are present; prompt for new on build. " & _
             "Always: store all connections in .env; save silently on build. " & _
             "Never: keep connection strings in source. " & _
             "Passwords never written to source (export format 5.0.0+).")

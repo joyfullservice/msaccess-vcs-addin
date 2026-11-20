@@ -145,6 +145,7 @@ Private Sub fraNav_AfterUpdate()
 
     ' Load the selected section form (toggle name tglXxx maps to frmVCSOptionsXxx)
     Me.subOptionsDetail.SourceObject = "Form.frmVCSOptions" & GetSelectedNavName
+    Translation.ApplyTo Me.subOptionsDetail.Form
 
     ' Set focus to subform (first element)
     Me.subOptionsDetail.SetFocus
