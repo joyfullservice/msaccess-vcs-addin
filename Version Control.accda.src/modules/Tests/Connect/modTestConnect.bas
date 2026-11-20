@@ -441,6 +441,91 @@ Public Sub TestPrepareCompletedConnectForSave()
 End Sub
 
 
+Public Sub TestGetLinkConnect()
+
+    Const CONN_STORED As String = "ODBC;DSN=MyDsn;Trusted_Connection=Yes;DATABASE=Db2"
+    Const CONN_COMPLETED As String = "ODBC;DSN=MyDsn;Description=x;Trusted_Connection=Yes;" & _
+        "APP=Microsoft Office;DATABASE=Db2;TrustServerCertificate=Yes;"
+
+    TestAssert GetLinkConnect(CONN_STORED, CONN_COMPLETED) = CONN_STORED, _
+        "links with the source string, not the driver-completed one"
+    TestAssert GetLinkConnect(CONN_STORED, CONN_STORED) = CONN_STORED, _
+        "an unchanged completed string links the same"
+    TestAssert GetLinkConnect("ODBC;", CONN_COMPLETED) = CONN_COMPLETED, _
+        "the bare placeholder for a missing .env key links with the dialog's string"
+    TestAssert GetLinkConnect(vbNullString, CONN_COMPLETED) = CONN_COMPLETED, _
+        "an empty source links with the completed string"
+
+End Sub
+
+
+Public Sub TestCompletedConnectSavesButDoesNotLink()
+
+    Const ENV_KEY As String = "conn_db2"
+    Const CONN_STORED As String = "ODBC;DSN=MyDsn;Trusted_Connection=Yes;DATABASE=Db2"
+    Const CONN_COMPLETED As String = "ODBC;DSN=MyDsn;Description=x;Trusted_Connection=Yes;" & _
+        "APP=Microsoft Office;DATABASE=Db2;TrustServerCertificate=Yes;"
+
+    Dim strSavedFolder As String
+    Dim eSavedUseEnv As eUseEnvConnections
+    Dim blnSaved As Boolean
+    Dim strRoot As String
+    Dim cEnv As clsDotEnv
+    Dim dState As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    strSavedFolder = Options.ExportFolder
+    eSavedUseEnv = Options.UseEnvForConnections
+    blnSaved = True
+
+    strRoot = GetTempFolder("DbConnLink") & PathSep
+    Set cEnv = New clsDotEnv
+    cEnv.SetVar ENV_KEY, CONN_STORED
+    cEnv.SaveToFile strRoot & ".env"
+    Options.ExportFolder = strRoot
+    Options.UseEnvForConnections = uecAlways
+    ClearEnvCache
+    ClearConnState
+
+    ' The same calls clsDbConnection.Import makes after CacheConnection succeeds
+    RecordAuthenticatedConnection ENV_KEY, ENV_KEY, GetLinkConnect(CONN_STORED, CONN_COMPLETED), _
+        CONN_COMPLETED, "db connection", Not ConnectionSettingsMatch(CONN_STORED, CONN_COMPLETED)
+    Set dState = GetConnState(ENV_KEY)
+    TestAssert dState("LinkConnect") = CONN_STORED, "later linked tables use the stored string"
+    TestAssert dState("NeedsSave"), "the completed settings are offered for .env"
+    TestAssert dState("SaveConnect") = CONN_COMPLETED, ".env would receive the completed string"
+
+    ClearConnState
+    Options.UseEnvForConnections = uecNever
+    RecordAuthenticatedConnection ENV_KEY, ENV_KEY, GetLinkConnect(CONN_STORED, CONN_COMPLETED), _
+        CONN_COMPLETED, "db connection", True
+    Set dState = GetConnState(ENV_KEY)
+    TestAssert dState("LinkConnect") = CONN_STORED, "with .env off, tables still use the stored string"
+    TestAssert Not dState("NeedsSave"), "with .env off, nothing is saved"
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        Options.ExportFolder = strSavedFolder
+        Options.UseEnvForConnections = eSavedUseEnv
+    End If
+    ClearConnState
+    ClearEnvCache
+    If Len(strRoot) Then CleanupTempDotEnvFolder strRoot
+    If lngErr <> 0 Then TestAssert False, "completed connect roles " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
 Private Function CountConnectKey(strConnect As String, strKey As String) As Long
     CountConnectKey = (Len(strConnect) - Len(Replace(strConnect, strKey, vbNullString, , , vbTextCompare))) \ Len(strKey)
 End Function

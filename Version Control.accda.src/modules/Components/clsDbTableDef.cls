@@ -1204,8 +1204,8 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
         If dState("Status") = csIgnored Then
             Log.Add "  " & T("Skipped {0} (connection ignored)", var0:=dItem("Name")), Options.ShowDebug
             Exit Function
-        ElseIf dState("Status") = csOK And Len(dState("Completed")) > 0 Then
-            strConnect = dState("Completed")
+        ElseIf dState("Status") = csOK And Len(dState("LinkConnect")) > 0 Then
+            strConnect = dState("LinkConnect")
         ElseIf Len(strConnect) = 0 Then
             If Operation.InteractionMode = eimNormal And Options.UseEnvForConnections <> uecNever Then
                 strConnect = "ODBC;"
@@ -1350,7 +1350,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
             Perf.OperationEnd
         End If
 
-        RecordAuthenticatedConnection strKey, strEnvKey, tdf.Connect, dItem("Name") & " (linked table)"
+        RecordAuthenticatedConnection strKey, strEnvKey, tdf.Connect, tdf.Connect, dItem("Name") & " (linked table)"
         ImportLinkedTable = (Err.Number = 0)
     End If
 

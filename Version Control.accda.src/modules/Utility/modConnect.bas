@@ -212,7 +212,7 @@ Public Function GetConnState(strKey As String) As Dictionary
     Else
         Set dState = New Dictionary
         dState.Add "Status", csUnknown
-        dState.Add "Completed", vbNullString
+        dState.Add "LinkConnect", vbNullString
         dState.Add "EnvKey", vbNullString
         dState.Add "Source", vbNullString
         dState.Add "NeedsSave", False
@@ -674,14 +674,16 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 06/19/2026
 ' Purpose   : Remember a successfully authenticated connection for reuse and optional
-'           : .env save at the end of the build. Pass blnSettingsCompleted when the
-'           : driver completed settings beyond the stored string (see CacheConnection).
-'           : The first caller to schedule a save for a key decides the saved value;
-'           : later linked tables may report a Connect that Access has stripped.
+'           : .env save at the end of the build. strLinkConnect is what later objects
+'           : on this key link with; strCompletedConnect only decides what is saved to
+'           : .env. Pass blnSettingsCompleted when the driver completed settings beyond
+'           : the stored string (see CacheConnection). The first caller to schedule a
+'           : save for a key decides the saved value; later linked tables may report a
+'           : Connect that Access has stripped.
 '---------------------------------------------------------------------------------------
 '
 Public Sub RecordAuthenticatedConnection(strKey As String, strEnvKey As String, _
-    strCompletedConnect As String, strSource As String, _
+    strLinkConnect As String, strCompletedConnect As String, strSource As String, _
     Optional blnSettingsCompleted As Boolean = False)
 
     Dim dState As Dictionary
@@ -690,11 +692,13 @@ Public Sub RecordAuthenticatedConnection(strKey As String, strEnvKey As String, 
     Dim cEnv As clsDotEnv
 
     If Len(strKey) = 0 Then Exit Sub
-    If Len(strCompletedConnect) = 0 Then Exit Sub
+    If Len(strLinkConnect) = 0 Then Exit Sub
 
     Set dState = GetConnState(strKey)
     dState("Status") = csOK
-    dState("Completed") = strCompletedConnect
+    dState("LinkConnect") = strLinkConnect
+
+    If Len(strCompletedConnect) = 0 Then Exit Sub
 
     If Len(strEnvKey) = 0 Then Exit Sub
     If Options.UseEnvForConnections = uecNever Then Exit Sub
@@ -720,6 +724,28 @@ Public Sub RecordAuthenticatedConnection(strKey As String, strEnvKey As String, 
     dState("SaveConnect") = strSaveConnect
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLinkConnect
+' Author    : Adam Waller
+' Date      : 11/20/2026
+' Purpose   : Return the string to link objects with after CacheConnection succeeds.
+'           : Drivers return their full completed string (the DSN's current settings,
+'           : APP=, their own key order) whether or not a dialog was shown, so linking
+'           : with it rewrites every linked table. Link with the source string, and
+'           : leave the completed string to the .env save decision. Only the bare
+'           : "ODBC;" used for a missing .env key has nothing to link with, so the
+'           : string the user completed in the driver dialog is used instead.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLinkConnect(strConnect As String, strCompletedConnect As String) As String
+    If Len(strConnect) = 0 Or StrComp(strConnect, "ODBC;", vbTextCompare) = 0 Then
+        GetLinkConnect = strCompletedConnect
+    Else
+        GetLinkConnect = strConnect
+    End If
+End Function
 
 
 '---------------------------------------------------------------------------------------
@@ -800,6 +826,8 @@ End Sub
 '           : property returns the string the driver completed (including any dialog
 '           : choices such as TrustServerCertificate). blnSettingsCompleted reports
 '           : whether that string differs from strConnect beyond driver-added keys.
+'           : strCompletedConnect is for the .env save decision only; callers link
+'           : with GetLinkConnect.
 '---------------------------------------------------------------------------------------
 '
 Public Function CacheConnection(strConnect As String, _

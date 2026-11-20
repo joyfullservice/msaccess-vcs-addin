@@ -102,8 +102,8 @@ Private Sub IDbComponent_Import(strFile As String)
             Set dState = GetConnState(strKey)
             If dState("Status") = csIgnored Then GoTo NextConn
 
-            If dState("Status") = csOK And Len(dState("Completed")) > 0 Then
-                strConnect = dState("Completed")
+            If dState("Status") = csOK And Len(dState("LinkConnect")) > 0 Then
+                strConnect = dState("LinkConnect")
             ElseIf Len(strConnect) = 0 Then
                 If Operation.InteractionMode = eimNormal And Options.UseEnvForConnections <> uecNever Then
                     strConnect = "ODBC;"
@@ -116,7 +116,8 @@ Private Sub IDbComponent_Import(strFile As String)
                 If CacheConnection(strConnect, strCompleted, lngErr, strErrDesc, blnSettingsCompleted) Then
                     RecordAuthenticatedConnection strKey, _
                         IIf(IsEnvReference(strRef), strKey, vbNullString), _
-                        strCompleted, "db connection", blnSettingsCompleted
+                        GetLinkConnect(strConnect, strCompleted), strCompleted, _
+                        "db connection", blnSettingsCompleted
                     Exit Do
                 End If
                 If Not IsConnectionError(lngErr) Then Exit Do

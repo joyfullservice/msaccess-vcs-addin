@@ -83,6 +83,59 @@ contradictory guidance.
 
 ---
 
+## 2026-11-20 — Link with the source connection string; the driver's string only decides the .env save
+
+**Trigger**: #830, a 5.1.0 regression from the 2026-10-09 change below. On an attended
+build, `CacheConnection` returns `Database.Connect`, and `clsDbConnection.Import`
+recorded it as the connection's reuse string, so every linked table on that key was
+linked with it. A driver returns its full string whether or not a dialog was shown:
+the DSN's current SERVER and PORT, driver options, `APP=Microsoft Office`, its own key
+order, and a trailing `;`. The next export wrote that into every `tbldefs/*.json`, and
+users whose per-user DSNs point at different servers got broken builds. Headless builds
+were unaffected because they skip the `OpenDatabase` probe.
+
+**Options explored**:
+- *Revert the 2026-10-09 change* — rejected; it loses the save of settings chosen in a
+  driver dialog (such as TrustServerCertificate) to `.env`.
+- *Link with the completed string only when it differs in settings, or only when a
+  dialog was shown* — rejected. Through DAO there is no way to tell whether a dialog
+  appeared, and a DSN supplies settings beyond the source string without one, which is
+  exactly the reported case.
+- *Probe `CurrentDb` with the source string instead of the completed one* — not done.
+  The probe with the completed string primes Access's connection cache with what the
+  driver accepted, so linking with the source string afterwards does not prompt again.
+  Nothing it does is written to a table.
+- *Keep two strings per connection: one to link with, one for the save decision* —
+  chosen.
+
+**Decision**: The per-connection state key `Completed` is now `LinkConnect`.
+`RecordAuthenticatedConnection` takes the link string and the completed string
+separately: the first is what later objects on that key link with, the second goes only
+to `ShouldSaveCompletedConnect` and `PrepareCompletedConnectForSave`.
+`clsDbConnection.Import` links with `GetLinkConnect(strConnect, strCompleted)`, which
+returns the source string, unless that source is the bare `ODBC;` placeholder used for
+a missing `.env` key. Then there is no source to keep, and the string the user completed
+in the dialog is used, as in 5.1.0. `ImportLinkedTable` still passes `tdf.Connect` as
+both, since Access stores the assigned string there. Completed settings reach a link
+only through `.env`: a build that saves them reads the saved value as its source string
+next time. A build no longer links a table with the driver's completed string, so an
+export straight after it leaves `tbldefs/*.json` as it was.
+
+**What this rules out**: Settings a driver dialog adds are not used to link in the build
+that collected them; if the source string cannot connect on its own, the first table
+link may prompt again in that build. The save decision still cannot tell a dialog
+choice from a DSN setting, so a DSN that supplies settings can still produce a one-time
+offer to save the completed string to `.env`. That stays in the git-ignored `.env`.
+Connections that share a `.env` key still share one link string (#827).
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/modConnect.bas`
+- `Version Control.accda.src/modules/Components/clsDbConnection.cls`
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls`
+- `Version Control.accda.src/modules/Tests/Connect/modTestConnect.bas`
+
+---
+
 ## 2026-11-20 — The back-end reachability test probes only ODBC links
 
 **Trigger**: #838. A text-file link whose folder was missing stopped the export with
@@ -838,6 +891,12 @@ then saves any meaningful difference even if the stored value already authentica
 omits it for the same user, and refuses to save (with a warning) for a different user.
 The first caller to schedule a save for a key fixes the saved value, so later linked
 tables cannot replace it with a Connect that Access has stripped.
+
+> **⚠ Partially superseded** (2026-11-20): The completed string was also recorded as the
+> string later linked tables reuse, so attended builds relinked every table with it
+> (#830). It now decides only the `.env` save; tables link with the source string. See
+> "Link with the source connection string; the driver's string only decides the .env
+> save" above.
 
 **What this rules out**: Silent and test-run builds keep the old QueryDef-only path, so
 they cannot capture dialog choices (and an incomplete string can still raise the native
