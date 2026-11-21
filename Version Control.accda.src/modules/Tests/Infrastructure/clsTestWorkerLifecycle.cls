@@ -189,6 +189,42 @@ Public Sub TestIsDatabaseAccessibleFileChannelCompletes()
 End Sub
 
 
+Public Sub TestWriteWorkerScriptExtractsOnlyTheScriptPart()
+
+    Dim cWorker As clsWorker
+    Dim strFile As String
+    Dim strContent As String
+
+    ' Written from the readable VBA source, as the installer does before compiling (#768)
+    Set cWorker = New clsWorker
+    strFile = m_strTempFolder & PathSep & "Worker.vbs"
+    TestAssert cWorker.WriteWorkerScript(strFile), "script was written"
+    TestAssert FSO.FileExists(strFile), "script file exists"
+
+    strContent = ReadFile(strFile, "Windows-1252")
+    TestAssert Left$(strContent, 4) = "Main", "script starts with the call to Main"
+    TestAssert InStr(1, strContent, "Sub Main()", vbBinaryCompare) > 0, "script contains Main"
+    TestAssert InStr(1, strContent, "Public Function WriteWorkerScript", vbTextCompare) = 0, _
+        "VBA part of the class is not in the script"
+
+End Sub
+
+
+Public Sub TestIsCompiledProjectFile()
+
+    Dim cWorker As clsWorker
+
+    Set cWorker = New clsWorker
+    TestAssert cWorker.IsCompiledProjectFile("C:\Add-In\Version Control.accde"), "accde"
+    TestAssert cWorker.IsCompiledProjectFile("C:\Add-In\Version Control.ACCDE"), "upper case accde"
+    TestAssert cWorker.IsCompiledProjectFile("C:\Add-In\Version Control.mde"), "mde"
+    TestAssert Not cWorker.IsCompiledProjectFile("C:\Add-In\Version Control.accda"), "accda"
+    TestAssert Not cWorker.IsCompiledProjectFile("C:\Add-In\Version Control.accdb"), "accdb"
+    TestAssert Not cWorker.IsCompiledProjectFile(vbNullString), "empty path"
+
+End Sub
+
+
 Private Function WriteTokenFile(strToken As String) As String
     WriteTokenFile = m_strTempFolder & PathSep & UniqueHashSuffix("worker-result") & ".result"
     ' WriteFile deletes the path when the text is empty; keep a non-verdict

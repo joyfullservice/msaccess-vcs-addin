@@ -406,11 +406,16 @@ Public Sub InstallVCSAddin(blnTrustFolder As Boolean, blnUseRibbon As Boolean, b
         modCOMAddIn.UninstallComAddIn
     End If
 
-    ' Remove the helper script when the user has turned it off, so a disabled feature does
+    ' Write the helper script while the VBA source is still readable. A compiled .accde
+    ' cannot extract it at runtime (#768), so it is created here for both file types.
+    ' Remove it when the user has turned the helper script off, so a disabled feature does
     ' not leave its artifact in the add-in folder. Some endpoint protection objects to the
-    ' file being there at all, not just to it running (#727). VerifyWorker writes it again
-    ' on demand if the setting is turned back on.
-    If Not this.blnUseWorkerScript Then Worker.RemoveWorkerScript
+    ' file being there at all, not just to it running (#727).
+    If this.blnUseWorkerScript Then
+        Worker.WriteWorkerScript
+    Else
+        Worker.RemoveWorkerScript
+    End If
 
     ' Register the Menu controls
     RegisterMenuItem "&VCS Open", "=AddInMenuItemLaunch()"
