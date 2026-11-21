@@ -286,7 +286,8 @@ End Sub
 ' Procedure : VerifyWorker
 ' Author    : Adam Waller
 ' Date      : 3/2/2023
-' Purpose   : Verify that the work script is installed and unchanged.
+' Purpose   : Verify that the work script is installed and unchanged. A compiled
+'           : add-in cannot rebuild the script, so it only checks that the file exists.
 '---------------------------------------------------------------------------------------
 '
 Private Function VerifyWorker() As Boolean
@@ -302,9 +303,24 @@ Private Function VerifyWorker() As Boolean
         Exit Function
     End If
 
+    strFilePath = WorkerFilePath
+
+    ' A compiled add-in (.accde) has no VBA source to extract the script from (#768).
+    ' The installer writes the script from the .accda before it creates the .accde,
+    ' so use that file as it is. Without it there is nothing to launch.
+    If IsCompiledProjectFile(CodeProject.FullName) Then
+        If FSO.FileExists(strFilePath) Then
+            blnVerified = True
+            VerifyWorker = True
+        Else
+            Log.Error eelError, T("Worker script not found: {0}. Run the install again to create it.", _
+                var0:=strFilePath), ModuleName(Me) & ".VerifyWorker"
+        End If
+        Exit Function
+    End If
+
     ' Compare hash of file with hash of content
     strContent = GetWorkerScriptContent
-    strFilePath = WorkerFilePath
     If FSO.FileExists(strFilePath) Then
         If GetFileHash(WorkerFilePath) = GetStringHash(strContent, True) Then
             ' Existing file matches template.
@@ -359,6 +375,43 @@ Private Function GetWorkerScriptContent() As String
         GetWorkerScriptContent = .GetStr
     End With
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WriteWorkerScript
+' Author    : Josef Pötzl
+' Date      : 11/21/2026
+' Purpose   : Write the worker script next to the add-in file. This needs the VBA
+'           : source of this class, so it must run from the .accda during the install,
+'           : before the .accde is created (#768). Returns True if the file was written.
+'           : The optional path is for tests, so they do not touch the installed script.
+'---------------------------------------------------------------------------------------
+'
+Public Function WriteWorkerScript(Optional ByVal strFilePath As String) As Boolean
+    If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
+    If Len(strFilePath) = 0 Then strFilePath = WorkerFilePath
+    VerifyPath strFilePath
+    WriteFile GetWorkerScriptContent, strFilePath, "Windows-1252"
+    WriteWorkerScript = (Err.Number = 0)
+    CatchAny eelWarning, T("Unable to write worker script: {0}", var0:=strFilePath), _
+        ModuleName(Me) & ".WriteWorkerScript"
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsCompiledProjectFile
+' Author    : Josef Pötzl
+' Date      : 11/21/2026
+' Purpose   : Returns True for a compiled file (.accde, .mde, .ade), which has no VBA
+'           : source code to read.
+'---------------------------------------------------------------------------------------
+'
+Friend Function IsCompiledProjectFile(ByVal strPath As String) As Boolean
+    Select Case LCase$(FSO.GetExtensionName(strPath))
+        Case "accde", "mde", "ade"
+            IsCompiledProjectFile = True
+    End Select
 End Function
 
 
@@ -431,8 +484,9 @@ Private Function CallWorker(strKey As String, dblTimeoutSeconds As Double, _
         Exit Function
     End If
 
-    ' Verify that the work script is installed and current
-    VerifyWorker
+    ' Verify that the work script is installed and current. Without it nothing can be
+    ' launched, so treat it like a disabled worker (same fallbacks in the callers).
+    If Not VerifyWorker Then Exit Function
 
     ' Build command with parameters
     With New clsConcat
