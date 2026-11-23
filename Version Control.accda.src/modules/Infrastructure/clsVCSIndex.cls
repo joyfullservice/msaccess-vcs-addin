@@ -1225,7 +1225,7 @@ Public Sub CheckMergeConflicts(cComponent As IDbComponent, dFiles As Dictionary)
             ' Add to list of conflicts with per-file detail
             Me.Conflicts.Add cItem, _
                 strFile, _
-                cItem.DateModified, _
+                SyncDateOfIndexedFile(cComponent, strFile), _
                 GetSourceModifiedDate(cComponent, strFile), _
                 intConflict, _
                 strFile, _
@@ -1244,6 +1244,25 @@ Public Sub CheckMergeConflicts(cComponent As IDbComponent, dFiles As Dictionary)
     Perf.OperationEnd
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SyncDateOfIndexedFile
+' Author    : Ricardo Hernandez (Notarnet)
+' Date      : 11/16/2026
+' Purpose   : Returns the date of the last sync for a source file, or zero if there is
+'           : no index entry. Uses GetExistingIndexItem, so it honors legacy table-def
+'           : keys and never adds an entry (Item() would).
+'---------------------------------------------------------------------------------------
+'
+Private Function SyncDateOfIndexedFile(cComponent As IDbComponent, strFile As String) As Date
+
+    Dim cIdx As clsVCSIndexItem
+
+    Set cIdx = GetExistingIndexItem(cComponent, strFile)
+    If Not cIdx Is Nothing Then SyncDateOfIndexedFile = cIdx.SyncDate
+
+End Function
 
 
 '---------------------------------------------------------------------------------------
