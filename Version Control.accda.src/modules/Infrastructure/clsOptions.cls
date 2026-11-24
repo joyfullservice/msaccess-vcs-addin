@@ -1220,16 +1220,20 @@ Private Sub MergeOverrideFile(strFile As String)
 
     Set dOptions = dFile("Options")
     For Each varKey In dOptions.Keys
-        LogUnhandledErrors
-        On Error Resume Next
-        CallByName Me, CStr(varKey), VbLet, dOptions(varKey)
-        If Err.Number <> 0 Then
-            Log.Add T("Skipping unknown option override: {0}", var0:=CStr(varKey)), False
-            Err.Clear
+        If IsUserControlledOption(CStr(varKey)) Then
+            Log.Add T("Ignoring override of user-controlled option: {0}", var0:=CStr(varKey)), False
         Else
-            lngApplied = lngApplied + 1
+            LogUnhandledErrors
+            On Error Resume Next
+            CallByName Me, CStr(varKey), VbLet, dOptions(varKey)
+            If Err.Number <> 0 Then
+                Log.Add T("Skipping unknown option override: {0}", var0:=CStr(varKey)), False
+                Err.Clear
+            Else
+                lngApplied = lngApplied + 1
+            End If
+            On Error GoTo 0
         End If
-        On Error GoTo 0
     Next varKey
 
     If lngApplied > 0 Then
@@ -1238,6 +1242,20 @@ Private Sub MergeOverrideFile(strFile As String)
     End If
 
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsUserControlledOption
+' Author    : Adam Waller
+' Date      : 11/24/2026
+' Purpose   : True for the McpAllow* permissions. Only the user sets these, in the
+'           : MCP options form; the API and session override files must not, or an
+'           : agent could grant itself a permission through them.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsUserControlledOption(ByVal strName As String) As Boolean
+    IsUserControlledOption = StartsWith(strName, "McpAllow", vbTextCompare)
+End Function
 
 
 '---------------------------------------------------------------------------------------

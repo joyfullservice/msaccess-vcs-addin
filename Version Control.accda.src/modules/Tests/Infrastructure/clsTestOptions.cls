@@ -143,6 +143,78 @@ Public Sub TestGetExportFolder()
 End Sub
 
 
+Public Sub TestUserControlledOptions()
+    Dim cOpt As New clsOptions
+    TestAssert cOpt.IsUserControlledOption("McpAllowRunVBA"), "McpAllowRunVBA"
+    TestAssert cOpt.IsUserControlledOption("McpAllowCallVBA"), "McpAllowCallVBA"
+    TestAssert cOpt.IsUserControlledOption("McpAllowExecuteSQL"), "McpAllowExecuteSQL"
+    TestAssert cOpt.IsUserControlledOption("McpAllowImport"), "McpAllowImport"
+    TestAssert cOpt.IsUserControlledOption("mcpallowrunvba"), "case-insensitive"
+    TestAssert Not cOpt.IsUserControlledOption("ShowDebug"), "ordinary option"
+End Sub
+
+
+Public Sub TestSetOption_RefusesUserControlledOption()
+
+    Dim dResult As Dictionary
+    Dim blnPrior As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+    blnPrior = Options.McpAllowRunVBA
+
+    Set dResult = ParseJson(VCS.SetOption("McpAllowRunVBA", Not blnPrior))
+    TestAssert dResult("success") = False, "SetOption refuses the permission"
+    TestAssert dResult("error_pattern") = "user_controlled_option", "error pattern"
+    TestAssert Options.McpAllowRunVBA = blnPrior, "the in-memory value is unchanged"
+
+CleanUp:
+    On Error Resume Next
+    Options.McpAllowRunVBA = blnPrior
+    If lngErr <> 0 Then TestAssert False, "SetOption refusal error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+End Sub
+
+
+Public Sub TestOverrideFile_IgnoresUserControlledOption()
+
+    Dim cOpt As clsOptions
+    Dim strFile As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+    Set cOpt = New clsOptions
+    cOpt.LoadDefaults
+    strFile = cOpt.GetExportFolder & "mcp" & PathSep & "options-user-option-guard-test.json"
+    VerifyPath strFile
+
+    ' MaxLogFiles proves the file was merged, so the McpAllowRunVBA check is not vacuous.
+    WriteFile "{""Info"":{""Modified"":""" & Format$(Now, "yyyy-mm-dd hh:nn:ss") & """}," & _
+        """Options"":{""McpAllowRunVBA"":true,""MaxLogFiles"":37}}", strFile
+    cOpt.LoadOptionOverrides
+    TestAssert cOpt.MaxLogFiles = 37, "ordinary override is applied"
+    TestAssert cOpt.McpAllowRunVBA = False, "permission override is ignored"
+
+CleanUp:
+    On Error Resume Next
+    If Len(strFile) > 0 Then If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
+    If lngErr <> 0 Then TestAssert False, "override file error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+End Sub
+
+
 Public Sub TestEndSession_DiscardsCachedOptions()
 
     Dim cVcs As clsVersionControl

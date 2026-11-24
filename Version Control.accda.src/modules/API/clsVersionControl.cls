@@ -2408,6 +2408,7 @@ End Function
 '           : in memory AND persisted to a session-scoped override file in the mcp/
 '           : subfolder so it survives Options reloads across operations.
 '           : The user's vcs-options.json is never modified.
+'           : The McpAllow* permissions are refused: they belong to the user.
 '---------------------------------------------------------------------------------------
 '
 Public Function SetOption(ByVal strName As String, ByVal varValue As Variant) As String
@@ -2418,6 +2419,16 @@ Public Function SetOption(ByVal strName As String, ByVal varValue As Variant) As
     On Error GoTo ErrHandler
 
     Set dResult = New Dictionary
+
+    If Options.IsUserControlledOption(strName) Then
+        dResult.Add "success", False
+        dResult.Add "error", T("{0} is the user's decision. It is set in the add-in's " & _
+            "MCP options form and cannot be changed through any tool, including " & _
+            "vcs_call_vba. Ask the user to change it.", var0:=strName)
+        dResult.Add "error_pattern", "user_controlled_option"
+        SetOption = ConvertToJson(dResult)
+        Exit Function
+    End If
 
     ' Apply to current in-memory options
     CallByName Options, strName, VbLet, varValue

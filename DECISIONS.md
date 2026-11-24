@@ -83,6 +83,44 @@ contradictory guidance.
 
 ---
 
+## 2026-11-24 — The API and override files cannot change the McpAllow* permissions
+
+**Trigger**: The MCP server refused `McpAllowRunVBA` in `vcs_set_option`, but
+an agent could call `VCS.API("SetOption", "McpAllowRunVBA", True)` through
+`vcs_call_vba` and turn it on for the session. `clsOptions.MergeOverrideFile`
+also applied any key in `mcp/options-*.json`, a folder agents can write to.
+The earlier reasoning that a session-level change was acceptable no longer
+holds: the permission exists so the user, not the agent, decides.
+
+**Options explored**:
+- Server-side check only: rejected. It covers `vcs_set_option` but not other
+  routes into `SetOption` or the override files.
+- Refuse only when the caller is MCP: rejected. `SetOption` cannot reliably
+  tell who called it, and no legitimate caller needs to set these through the
+  API; the user sets them in the MCP options form.
+- Make the properties read-only (a private setter): rejected. The options
+  form and `vcs-options.json` loading set them through the same properties.
+- **Chosen**: `clsOptions.IsUserControlledOption` names the permissions by
+  their `McpAllow` prefix. `SetOption` refuses them with
+  `error_pattern: user_controlled_option`, and `MergeOverrideFile` skips them
+  with a log line. Loading `vcs-options.json` and the options form are
+  unchanged.
+
+**Decision**: The four permissions can be changed only where the user changes
+options. New permissions must use the `McpAllow` prefix to be covered.
+
+**What this rules out**: Agents granting themselves a permission for a
+session. Not covered: `vcs-options.json` is itself a file in the export
+folder, and importing code then calling it with `CallVBA` runs code whatever
+`McpAllowRunVBA` says. The MCP server's `ACCESS_VCS_DISABLE_WRITES` refuses
+import and rebuild, which closes that route; its README covers both limits.
+
+**Relevant files**: `clsOptions.cls` (`IsUserControlledOption`,
+`MergeOverrideFile`), `clsVersionControl.cls` (`SetOption`),
+`clsTestOptions.cls`.
+
+---
+
 ## 2026-11-20 — The build keys connection state by the connection string, not the .env key
 
 **Trigger**: #827. A build keeps one state per connection: whether it authenticated, the
@@ -7637,6 +7675,10 @@ What would trigger revisiting: if a future composer rewrite collapses multiple s
 
 **Decision**: `GetOption(strName)` and `SetOption(strName, varValue)` use `CallByName` for fully dynamic property access. Changes via `SetOption` are session-level — they take effect immediately but are not persisted to `vcs-options.json` until the user (or agent) explicitly saves. This lets agents freely adjust behavior (e.g., `ShowDebug`, `MaxLogFiles`) without risking permanent changes to project configuration.
 
+> **⚠ Partially superseded** (2026-11-24): `SetOption` now refuses the
+> `McpAllow*` permissions; the rest of this entry stands. See "The API and
+> override files cannot change the McpAllow* permissions" above.
+
 **What this rules out**: There is no per-property access control. Every public property on `clsOptions` is readable and writable via the API, including the MCP security options themselves. An agent can call `SetOption("McpAllowRunVBA", True)` to enable `RunVBA` for the session, even if the persisted setting is False. This is acceptable because: (1) the change is session-level and doesn't persist, (2) the user has already opted into MCP access by configuring the server, and (3) adding a property-level ACL would require maintaining a second list of "allowed" properties alongside `m_colOptions`. If a property is ever added that should be truly non-modifiable via API (e.g., a licensing key), it should be implemented as a private property with a read-only public wrapper, which `CallByName` on `VbLet` would fail to set.
 
 **Relevant files**: `clsVersionControl.cls` (`GetOption`, `SetOption`), `clsOptions.cls` (all public properties).
@@ -7716,6 +7758,10 @@ The "compileError" return value now also includes the full generated wrapper sou
 **Decision**: Four boolean properties added to `clsOptions`: `McpAllowRunVBA` (default: False), `McpAllowExecuteSQL` (default: True), `McpAllowCallVBA` (default: True), `McpAllowImport` (default: True). Defaults follow least-privilege: read-like operations are on by default; arbitrary code execution is off. Properties are registered in `m_colOptions` for JSON serialization and excluded from `GetCategoryHashes` (they don't affect export output). The UI sub-form (`frmVCSOptionsMCP`) is deferred — the options are fully functional via `GetOption`/`SetOption` API.
 
 **What this rules out**: Security is per-project, not per-session or per-agent. An agent connecting to a database with `McpAllowRunVBA = False` cannot escalate by setting it via `SetOption` because the check happens before the option can be changed in the same call. However, an agent *can* call `SetOption("McpAllowRunVBA", True)` to enable it for a session if `SetOption` itself isn't gated. This is acceptable because `SetOption` changes are session-level (not persisted) and the user has already opted into MCP tool access by configuring the MCP server.
+
+> **⚠ Partially superseded** (2026-11-24): `SetOption` and session override
+> files can no longer change these four options. See "The API and override
+> files cannot change the McpAllow* permissions" above.
 
 **Relevant files**: `clsOptions.cls` (properties, defaults, `LoadDefaults`, `m_colOptions`, `GetCategoryHashes`).
 
