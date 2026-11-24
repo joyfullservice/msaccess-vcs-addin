@@ -288,6 +288,13 @@ Public Sub CheckGitFiles()
         End If
     End If
 
+    ' Ensure session option overrides are excluded (per-machine, per-session state)
+    If FSO.FileExists(strFile) Then
+        If EnsureGitignoreLineRespectComment(strFile, "**/mcp/options-*.json", "test-results/") Then
+            Log.Add T("Added **/mcp/options-*.json to .gitignore"), , , "blue"
+        End If
+    End If
+
     ' gitattributes file
     strFile = strPath & ".gitattributes"
     If Not FSO.FileExists(strFile) Then

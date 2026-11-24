@@ -27,3 +27,6 @@ vcs-index.*
 logs/
 test-results/
 *.log
+
+# Ignore session option overrides written by MCP and API callers
+**/mcp/options-*.json

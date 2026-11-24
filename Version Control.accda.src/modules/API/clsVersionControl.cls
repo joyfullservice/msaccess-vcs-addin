@@ -2985,21 +2985,36 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function RunFilteredTests() As String
+    RunFilteredTests = RunTestsMatching(Nz(Options.DefaultTestFilter, vbNullString))
+End Function
 
-    Dim strFilter As String
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunTestsMatching
+' Author    : Adam Waller
+' Date      : 11/24/2026
+' Purpose   : Run the tests matching a comma-separated filter string, or all tests
+'           : when it is empty. Unlike RunFilteredTests, the DefaultTestFilter option
+'           : is not read, so a caller passing its own filter (the MCP server) has no
+'           : need to set that option and leave a session override file behind.
+'           :   ?VCS.RunTestsMatching("SQL,-slow")
+'---------------------------------------------------------------------------------------
+'
+Public Function RunTestsMatching(Optional ByVal strFilter As String = vbNullString) As String
+
     Dim arrParts() As String
     Dim lngIdx As Long
 
-    strFilter = Trim$(Nz(Options.DefaultTestFilter, vbNullString))
+    strFilter = Trim$(strFilter)
 
     If Len(strFilter) = 0 Then
-        RunFilteredTests = ExecuteTests(Empty, False)
+        RunTestsMatching = ExecuteTests(Empty, False)
     Else
         arrParts = Split(strFilter, ",")
         For lngIdx = LBound(arrParts) To UBound(arrParts)
             arrParts(lngIdx) = Trim$(arrParts(lngIdx))
         Next lngIdx
-        RunFilteredTests = ExecuteTests(CVar(arrParts), True)
+        RunTestsMatching = ExecuteTests(CVar(arrParts), True)
     End If
 
 End Function

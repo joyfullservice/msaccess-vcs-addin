@@ -83,6 +83,49 @@ contradictory guidance.
 
 ---
 
+## 2026-11-24 — Test filters reach the runner as an argument, not an option
+
+**Trigger**: Users found `mcp/options-default.json` in their uncommitted
+changes. The MCP server's `vcs_run_tests` passed its filter by calling
+`SetOption("DefaultTestFilter", ...)` and then `RunFilteredTests`. It never
+registered a session first, so `SaveOptionOverride` wrote to the `default`
+file, which `EndSession` never deletes because it only removes the registered
+session's file. Each run refreshed the file's `Modified` date, so the 30-day
+stale cleanup never removed it either.
+
+**Options explored**:
+- Register a session before `SetOption`: rejected. That moves the file to
+  `options-<session>.json`, which is deleted only if Access is still running
+  when the server shuts down, so it still leaks.
+- Clear the option after the run: rejected. `SetOption` with an empty value
+  still writes the file.
+- `RunTestsMatching(strFilter)`, a new API method that takes the filter as an
+  argument and never reads `DefaultTestFilter` (chosen). `RunFilteredTests`,
+  the ribbon entry point, now delegates to it. `APIAsync` runs it
+  asynchronously like `RunFilteredTests`.
+- Also add `**/mcp/options-*.json` to the default `.gitignore` and to the
+  lines `CheckGitFiles` keeps current. Override files are per-machine
+  session state, and `vcs_set_option` still writes them on purpose. The
+  pattern names the files rather than `mcp/`, so a user's own folder named
+  `mcp` is not ignored.
+
+**Decision**: The MCP server calls `RunTestsMatching` on add-in 5.2.0 or
+later and keeps the `SetOption` route for older builds. The check uses the
+version number because calling a method the add-in lacks raises a modal
+dialog rather than returning an error. Files already left behind stop being
+refreshed and are removed by the 30-day stale cleanup.
+
+**What this rules out**: Passing per-call parameters to an API operation by
+writing options. A caller that needs to change behavior for one call should
+pass an argument.
+
+**Relevant files**: `clsVersionControl.cls` (`RunTestsMatching`,
+`RunFilteredTests`), `modAPI.bas` (`APIAsync`), `modVCSUtility.bas`
+(`CheckGitFiles`), `.gitignore.default`; in msaccess-vcs-mcp, `tools.py`
+(`_test_run_command`, `vcs_run_tests`).
+
+---
+
 ## 2026-11-24 — The API and override files cannot change the McpAllow* permissions
 
 **Trigger**: The MCP server refused `McpAllowRunVBA` in `vcs_set_option`, but
