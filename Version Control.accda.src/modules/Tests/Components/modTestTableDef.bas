@@ -31,6 +31,8 @@ Private Const TEST_TABLE_LINKED_SECOND As String = "vcs_test_linked_second"
 Private Const TEST_TABLE_INHERIT_PARENT As String = "vcs_test_inherit_parent"
 Private Const TEST_TABLE_INHERIT_CHILD As String = "vcs_test_inherit_child"
 Private Const TEST_RELATION_FRONT_END As String = "vcs_test_front_end_relation"
+Private Const TEST_TABLE_LOOKUP_XML As String = "vcs_test_lookup_order"
+Private Const TEST_TABLE_LOOKUP_LINK As String = "vcs_test_lookup_link"
 
 
 '---------------------------------------------------------------------------------------
@@ -646,12 +648,10 @@ Public Sub TestPropertyNodesSortedUnderNewFormat()
     TestAssert InStr(1, strLegacy, "ColumnWidth") < InStr(1, strLegacy, "AllowZeroLength"), _
         "older export format leaves the original order untouched"
 
-    ' The lookup chain is the one place alphabetical ordering looks dangerous: Access
-    ' always emits DisplayControl ahead of BoundColumn and ColumnCount, and issue 691
-    ' blamed the reverse for losing ColumnCount and ColumnWidths. Measurement showed the
-    ' reverse restores correctly through every import path, so the inversion below is
-    ' deliberate. Asserting it keeps a future "fix" from silently reintroducing a rank
-    ' table nobody needs. See DECISIONS.md 2026-07-31.
+    ' The exported file is sorted by name even though that puts BoundColumn and
+    ' ColumnCount ahead of DisplayControl. The import paths put DisplayControl first as
+    ' they create the properties (see the lookup order tests), so the file order carries
+    ' no meaning. See DECISIONS.md 2026-11-25.
     TestAssert InStr(1, strSorted, "BoundColumn") < InStr(1, strSorted, "DisplayControl"), _
         "lookup chain is alphabetised, inverting Access's emission order on purpose"
     TestAssert InStr(1, strSorted, "ColumnCount") < InStr(1, strSorted, "RowSourceType"), _
@@ -694,6 +694,318 @@ Public Sub TestPropertyNodesNotSortedForTableData()
 
     TestAssert InStr(1, strOut, "ColumnWidth") < InStr(1, strOut, "AllowZeroLength"), _
         "table data content is not reordered"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestFieldPropertyApplyOrder
+' Author    : Tim Finch
+' Date      : 11/25/2026
+' Purpose   : DisplayControl is moved ahead of the first lookup property that precedes
+'           : it, and an order that already works is left alone (#691).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestFieldPropertyApplyOrder()
+
+    TestAssert ApplyOrderText("BoundColumn,Caption,ColumnCount,DisplayControl,RowSource") = _
+        "DisplayControl,BoundColumn,Caption,ColumnCount,RowSource", _
+        "alphabetical order: DisplayControl moves ahead of the first lookup property"
+    TestAssert ApplyOrderText("AllowZeroLength,Caption,ColumnCount,DisplayControl") = _
+        "AllowZeroLength,Caption,DisplayControl,ColumnCount", _
+        "properties that are not lookup properties keep their place"
+    TestAssert ApplyOrderText("ColumnWidth,DisplayControl,RowSourceType,ColumnCount") = _
+        "ColumnWidth,DisplayControl,RowSourceType,ColumnCount", _
+        "an order that already works is unchanged"
+    TestAssert ApplyOrderText("BoundColumn,Caption") = "BoundColumn,Caption", _
+        "nothing moves without DisplayControl"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestLookupOrderTableDefImport
+' Author    : Tim Finch
+' Date      : 11/25/2026
+' Purpose   : A local table whose source lists the lookup properties by name must come
+'           : back with DisplayControl created before them, through Application.ImportXML
+'           : and through the DAO builder, with every value intact. Otherwise the table
+'           : designer resets ColumnCount and ColumnWidths (#691).
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestLookupOrderTableDefImport()
+    '@Tag("integration")
+
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim cComponent As IDbComponent
+    Dim strXml As String
+    Dim strSource As String
+    Dim strRowSource As String
+    Dim strPath As String
+    Dim lngPriorFormat As Long
+    Dim blnPriorOverride As Boolean
+    Dim blnSaved As Boolean
+    Dim intPass As Integer
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_LOOKUP_XML
+
+    ' One line on purpose: ExportXML writes a line break in a property value as it is,
+    ' and XML reads it back as a space, with or without the reorder.
+    strRowSource = "SELECT Id, Name FROM MSysObjects;"
+
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_LOOKUP_XML)
+    tdf.Fields.Append tdf.CreateField("fk", dbLong)
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+    Set dbs = CurrentDb
+    AppendLookupProperties dbs.TableDefs(TEST_TABLE_LOOKUP_XML).Fields("fk"), strRowSource
+    Set dbs = Nothing
+
+    lngPriorFormat = Options.ExportFormatVersion
+    blnPriorOverride = FastPathTestOverride
+    blnSaved = True
+    Options.ExportFormatVersion = EFV_5_1_0
+
+    ' Import derives the object name from the file basename.
+    strXml = GetTempFile
+    DeleteFile strXml
+    strXml = FSO.GetParentFolderName(strXml) & PathSep & TEST_TABLE_LOOKUP_XML & ".xml"
+    If FSO.FileExists(strXml) Then DeleteFile strXml
+    Application.ExportXML acExportTable, TEST_TABLE_LOOKUP_XML, , strXml, , , , _
+        acExportAllTableAndFieldProperties
+    With New clsSourceParser
+        .LoadSourceFile strXml, edbTableDef
+        DeleteFile strXml
+        WriteFile .Sanitize(ectXML), strXml
+    End With
+    strSource = ReadFile(strXml)
+    TestAssert InStr(1, strSource, """BoundColumn""") < InStr(1, strSource, """DisplayControl"""), _
+        "precondition: the source file lists BoundColumn ahead of DisplayControl"
+
+    For intPass = 1 To 2
+        strPath = IIf(intPass = 1, "ImportXML", "DAO builder")
+        DropTestTable TEST_TABLE_LOOKUP_XML
+        FastPathTestOverride = (intPass = 2)
+
+        Set cComponent = New clsDbTableDef
+        cComponent.Import strXml
+        ReleaseDbReferences
+
+        Set dbs = CurrentDb
+        TestAssert TableExists(TEST_TABLE_LOOKUP_XML, dbs), strPath & ": import created the table"
+        If TableExists(TEST_TABLE_LOOKUP_XML, dbs) Then
+            Set fld = dbs.TableDefs(TEST_TABLE_LOOKUP_XML).Fields("fk")
+            AssertDisplayControlFirst fld, strPath
+            TestAssert fld.Properties("ColumnCount").Value = 2, strPath & ": ColumnCount kept"
+            TestAssert fld.Properties("ColumnWidths").Value = "0;1440", strPath & ": ColumnWidths kept"
+            TestAssert fld.Properties("RowSource").Value = strRowSource, strPath & ": RowSource kept"
+            Set fld = Nothing
+        End If
+        Set dbs = Nothing
+    Next intPass
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        FastPathTestOverride = blnPriorOverride
+        Options.ExportFormatVersion = lngPriorFormat
+    End If
+    If Len(strXml) > 0 Then DeleteFile strXml
+    DropTestTable TEST_TABLE_LOOKUP_XML
+    If lngErr <> 0 Then TestAssert False, "lookup order import error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TestLookupOrderLinkedTableImport
+' Author    : Tim Finch
+' Date      : 11/25/2026
+' Purpose   : The same for a linked table, whose .json lists the properties by name.
+'---------------------------------------------------------------------------------------
+'
+Public Sub TestLookupOrderLinkedTableImport()
+    '@Tag("integration")
+
+    Dim dbsBack As DAO.Database
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim fld As DAO.Field
+    Dim cComponent As IDbComponent
+    Dim cSavedIndex As clsVCSIndex
+    Dim strFolder As String
+    Dim strBackEnd As String
+    Dim strJsonFile As String
+    Dim strPriorFolder As String
+    Dim lngPriorFormat As Long
+    Dim lngPriorEnv As Long
+    Dim blnSaved As Boolean
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    DropTestTable TEST_TABLE_LOOKUP_LINK
+
+    ' Back end with the source table, which has no lookup of its own
+    strFolder = GetTempFolder("vcs_lookup_link")
+    strBackEnd = strFolder & PathSep & "backend.accdb"
+    Set dbsBack = DBEngine.CreateDatabase(strBackEnd, dbLangGeneral)
+    dbsBack.Execute "CREATE TABLE [Source] ([ID] LONG, [fk] LONG)", dbFailOnError
+    dbsBack.Close
+    Set dbsBack = Nothing
+
+    ' Linked table carrying a front-end lookup
+    Set dbs = CurrentDb
+    Set tdf = dbs.CreateTableDef(TEST_TABLE_LOOKUP_LINK)
+    tdf.Connect = ";DATABASE=" & strBackEnd
+    tdf.SourceTableName = "Source"
+    dbs.TableDefs.Append tdf
+    RefreshTableCollections dbs
+    Set dbs = CurrentDb
+    AppendLookupProperties dbs.TableDefs(TEST_TABLE_LOOKUP_LINK).Fields("fk"), "1;One;2;Two"
+    Set dbs = Nothing
+
+    ' Sandbox the export folder and the index
+    Set cSavedIndex = VCSIndex
+    strPriorFolder = Options.ExportFolder
+    lngPriorFormat = Options.ExportFormatVersion
+    lngPriorEnv = Options.UseEnvForConnections
+    blnSaved = True
+    Options.ExportFolder = AddSlash(strFolder)
+    Options.ExportFormatVersion = EFV_5_1_0
+    Options.UseEnvForConnections = uecNever
+    Set VCSIndex = Nothing
+    ClearConnState
+
+    Set cComponent = New clsDbTableDef
+    Set cComponent.DbObject = CurrentData.AllTables(TEST_TABLE_LOOKUP_LINK)
+    cComponent.Export
+    strJsonFile = Options.GetExportFolder & "tbldefs" & PathSep & _
+        GetSafeFileName(TEST_TABLE_LOOKUP_LINK) & ".json"
+    TestAssert FSO.FileExists(strJsonFile), "precondition: the linked table was exported"
+
+    Set cComponent = New clsDbTableDef
+    cComponent.Merge strJsonFile
+
+    ReleaseDbReferences
+    Set dbs = CurrentDb
+    TestAssert TableExists(TEST_TABLE_LOOKUP_LINK, dbs), "merge recreated the linked table"
+    If TableExists(TEST_TABLE_LOOKUP_LINK, dbs) Then
+        Set fld = dbs.TableDefs(TEST_TABLE_LOOKUP_LINK).Fields("fk")
+        AssertDisplayControlFirst fld, "linked table"
+        TestAssert fld.Properties("ColumnCount").Value = 2, "linked table: ColumnCount kept"
+        TestAssert fld.Properties("ColumnWidths").Value = "0;1440", "linked table: ColumnWidths kept"
+        Set fld = Nothing
+    End If
+    Set dbs = Nothing
+
+CleanUp:
+    On Error Resume Next
+    If blnSaved Then
+        If Not cComponent Is Nothing And Len(strJsonFile) > 0 Then VCSIndex.Remove cComponent, strJsonFile
+        Options.ExportFolder = strPriorFolder
+        Options.ExportFormatVersion = lngPriorFormat
+        Options.UseEnvForConnections = lngPriorEnv
+        Set VCSIndex = cSavedIndex
+    End If
+    ClearConnState
+    DropTestTable TEST_TABLE_LOOKUP_LINK
+    If Len(strFolder) > 0 Then If FSO.FolderExists(strFolder) Then FSO.DeleteFolder strFolder, True
+    If lngErr <> 0 Then TestAssert False, "lookup order linked table error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplyOrderText
+' Author    : Tim Finch
+' Date      : 11/25/2026
+' Purpose   : Run a comma separated list of property names through
+'           : GetFieldPropertyApplyOrder and return the result the same way.
+'---------------------------------------------------------------------------------------
+'
+Private Function ApplyOrderText(strNames As String) As String
+
+    Dim dProps As New Dictionary
+    Dim varName As Variant
+    Dim strOut As String
+
+    For Each varName In Split(strNames, ",")
+        dProps.Add CStr(varName), Empty
+    Next varName
+
+    For Each varName In GetFieldPropertyApplyOrder(dProps)
+        strOut = strOut & "," & varName
+    Next varName
+
+    ApplyOrderText = Mid$(strOut, 2)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AppendLookupProperties
+' Author    : Tim Finch
+' Date      : 11/25/2026
+' Purpose   : Give a field a two-column combo-box lookup, creating the properties by
+'           : name, which is the order that used to reach the imported table.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AppendLookupProperties(fld As DAO.Field, strRowSource As String)
+
+    fld.Properties.Append fld.CreateProperty("BoundColumn", dbInteger, 1)
+    fld.Properties.Append fld.CreateProperty("ColumnCount", dbInteger, 2)
+    fld.Properties.Append fld.CreateProperty("ColumnWidths", dbText, "0;1440")
+    fld.Properties.Append fld.CreateProperty("DisplayControl", dbInteger, acComboBox)
+    fld.Properties.Append fld.CreateProperty("RowSource", dbMemo, strRowSource)
+    fld.Properties.Append fld.CreateProperty("RowSourceType", dbText, "Table/Query")
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AssertDisplayControlFirst
+' Author    : Tim Finch
+' Date      : 11/25/2026
+' Purpose   : DisplayControl must come before every lookup property of the field.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AssertDisplayControlFirst(fld As DAO.Field, strPath As String)
+
+    Dim prp As DAO.Property
+    Dim blnDisplayControl As Boolean
+    Dim strEarly As String
+
+    For Each prp In fld.Properties
+        If prp.Name = "DisplayControl" Then
+            blnDisplayControl = True
+            Exit For
+        End If
+        If IsLookupDependentProperty(prp.Name) Then strEarly = strEarly & " " & prp.Name
+    Next prp
+
+    TestAssert blnDisplayControl, strPath & ": field has DisplayControl"
+    TestAssert Len(strEarly) = 0, strPath & ": lookup properties ahead of DisplayControl:" & strEarly
 
 End Sub
 

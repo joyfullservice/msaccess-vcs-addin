@@ -1600,17 +1600,12 @@ End Sub
 '           : re-appended (error 3367). Canonicalizing here lets modTableDefBuilder's
 '           : output match source without relaxing the byte comparison that guards it.
 '           :
-'           : Plain alphabetical is safe, which is not obvious. Access's own emission
-'           : order looks like it encodes a dependency: the lookup chain from
-'           : DisplayControl through RowSourceType, RowSource, BoundColumn, ColumnCount
-'           : and ColumnHeads to ColumnWidths never inverts once across four databases,
-'           : and issue 691 blamed alphabetical ordering for losing ColumnCount and
-'           : ColumnWidths. That turned out to be how Access serializes, not a constraint
-'           : it enforces on read. Applying the chain in alphabetical order was measured
-'           : to restore every value correctly through ImportXML, through DAO on a local
-'           : table, and through DAO on a linked table, with both a value list and a
-'           : Table/Query row source. See DECISIONS.md 2026-07-31 before adding a
-'           : dependency-ordered rank table here.
+'           : The sort affects the exported file only. Alphabetical order is not a safe
+'           : order to create lookup properties in: Access resets the ones created before
+'           : DisplayControl when the table designer loads the field (#691). Every import
+'           : path therefore reorders them as it applies them, which also covers source
+'           : already exported. See GetFieldPropertyApplyOrder and DECISIONS.md
+'           : 2026-11-25.
 '           :
 '           : Index nodes share the appinfo block and are deliberately left alone; their
 '           : order is preserved by re-inserting the sorted properties at the position the

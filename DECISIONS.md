@@ -343,6 +343,28 @@ still raises error 450 in a dialog.
 
 ---
 
+## 2026-11-25 — Create DisplayControl before the other lookup properties on every import
+
+**Trigger**: #691. After a build, combo-box lookup fields showed Column Count 1 and no Column Widths in Design view, and typing the values back did not survive closing and reopening the table. The 2026-07-31 measurement had read the values back after writing them, which passes even for a table that goes on to fail.
+
+**Measurement** (Access 16.0.20625.20108, 64-bit), judged by opening the table in Design view and saving, then reading the stored values: all 720 creation orders of `DisplayControl`, `RowSourceType`, `RowSource`, `BoundColumn`, `ColumnCount` and `ColumnWidths` on a local table, and a sample on an ODBC link. A lookup property created before `DisplayControl` is reset to its default when the designer loads the field; the stored value only changes when that copy is saved. `ImportXML` creates properties in file order, so the same file with only `DisplayControl` moved keeps its values.
+
+**Options explored**:
+
+- *Change the exported order* (sort by name but `DisplayControl` first). Needs an export format gate, churns source files, and does nothing for files already exported, so import would still need the fix.
+- *Delete and recreate the lookup properties after import.* Works, but touches the table a second time and needs its own error handling for inherited and complex-field properties.
+- *Reorder as the properties are created.* Chosen.
+
+**Decision**: Export is unchanged. `GetFieldPropertyApplyOrder` (linked tables and the DAO builder) and `GetLookupOrderedTableDefXmlFile` (`ImportXML`) move `DisplayControl` ahead of the first lookup property that would precede it. Source already in a working order is applied unchanged.
+
+**What this rules out**: Judging a lookup property by reading it back straight after writing it. Applying field properties in dictionary or file order on any new import path.
+
+**Not covered**: Tables already built stay as they are, and a merge skips a local table whose export matches its source, so they need a full build. A linked Access table inherits the back end's property order. Query column lookups use a different path and were not tested.
+
+**Relevant files**: `modDatabase.bas`, `clsDbTableDef.cls`, `modTableDefBuilder.bas`, `clsSourceParser.cls` (comment), `modTestTableDef.bas`.
+
+---
+
 ## 2026-11-24 — Test filters reach the runner as an argument, not an option
 
 **Trigger**: Users found `mcp/options-default.json` in their uncommitted
@@ -4664,6 +4686,8 @@ Both commands are issued from out of process, which is where VBE and project-sav
 ---
 
 ## 2026-07-31 — Property application order is not load-bearing; keep the sort alphabetical
+
+> **⚠ Superseded** (2026-11-25): Creation order is load-bearing for the lookup properties; the loss appears when the table designer loads the field, which reading the values back does not do. The export sort stays alphabetical. See "Create DisplayControl before the other lookup properties on every import" above.
 
 **Trigger**: The canonical sort in the entry below orders property nodes alphabetically. That is the same ordering issue #691 blames for losing combo-box lookup properties on rebuild: alphabetically `BoundColumn`, `ColumnCount`, `ColumnHeads` and `ColumnWidths` all precede `DisplayControl`, `RowSourceType` and `RowSource`, and the theory was that Access re-derives lookup metadata when those three are set, resetting `ColumnCount` to 1 and discarding `ColumnWidths`. Since the sort sits behind an export format gate, it was worth proving before shipping.
 
