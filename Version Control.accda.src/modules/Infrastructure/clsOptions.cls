@@ -108,6 +108,11 @@ Private m_dEnum As Dictionary
 Private m_strOptionsFilePath As String
 Private m_strLoadedVersion As String
 
+' The values session overrides replaced, by option name, and whether this
+' instance has loaded the override files.
+Private m_dProjectValues As Dictionary
+Private m_blnOverridesLoaded As Boolean
+
 
 '---------------------------------------------------------------------------------------
 ' Procedure : LoadDefaults
@@ -241,11 +246,12 @@ End Sub
 ' Procedure : SaveOptionsToFile
 ' Author    : Adam Waller
 ' Date      : 2/12/2020
-' Purpose   : Save the loaded Options to a file in JSON format
+' Purpose   : Save the loaded Options to a file in JSON format. Session overrides are
+'           : not saved: the file keeps the values they replaced.
 '---------------------------------------------------------------------------------------
 '
 Public Sub SaveOptionsToFile(strPath As String)
-    WriteFile modJsonConverter.ConvertToJson(SerializeOptions, JSON_WHITESPACE) & vbCrLf, strPath
+    WriteFile modJsonConverter.ConvertToJson(SerializeOptions(True), JSON_WHITESPACE) & vbCrLf, strPath
 End Sub
 
 
@@ -694,14 +700,17 @@ End Function
 ' Author    : Adam Waller
 ' Date      : 2/12/2020
 ' Purpose   : Serializes Options into a dictionary array for saving to file as JSON.
+'           : blnProjectValues serializes the values session overrides replaced,
+'           : instead of the overrides.
 '---------------------------------------------------------------------------------------
 '
-Private Function SerializeOptions() As Dictionary
+Private Function SerializeOptions(Optional blnProjectValues As Boolean) As Dictionary
 
     Dim dOptions As Dictionary
     Dim dInfo As Dictionary
     Dim dWrapper As Dictionary
     Dim varOption As Variant
+    Dim varValue As Variant
     Dim strBit As String
 
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -721,17 +730,23 @@ Private Function SerializeOptions() As Dictionary
 
     ' Loop through options
     For Each varOption In m_colOptions
-        Select Case CStr(varOption)
-            Case "ExportFormatVersion"
-                dOptions.Add CStr(varOption), ExportFormatToVersion(Me.ExportFormatVersion)
-            Case "EnvConnectionNames"
-                ' Only serialize when entries are defined
-                If Me.EnvConnectionNames.Count > 0 Then
-                    dOptions.Add CStr(varOption), Me.EnvConnectionNames
-                End If
-            Case Else
-                dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
-        End Select
+        If blnProjectValues And m_dProjectValues.Exists(CStr(varOption)) Then
+            varValue = m_dProjectValues(CStr(varOption))
+            If CStr(varOption) = "ExportFormatVersion" Then varValue = ExportFormatToVersion(CLng(varValue))
+            dOptions.Add CStr(varOption), varValue
+        Else
+            Select Case CStr(varOption)
+                Case "ExportFormatVersion"
+                    dOptions.Add CStr(varOption), ExportFormatToVersion(Me.ExportFormatVersion)
+                Case "EnvConnectionNames"
+                    ' Only serialize when entries are defined
+                    If Me.EnvConnectionNames.Count > 0 Then
+                        dOptions.Add CStr(varOption), Me.EnvConnectionNames
+                    End If
+                Case Else
+                    dOptions.Add CStr(varOption), CallByName(Me, CStr(varOption), VbGet)
+            End Select
+        End If
     Next varOption
 
     'Set SerializeOptions = new Dictionary
@@ -1011,6 +1026,8 @@ Private Sub Class_Initialize()
 
     ' Initialize the options collection
     Set m_colOptions = New Collection
+    Set m_dProjectValues = New Dictionary
+    m_dProjectValues.CompareMode = vbTextCompare
 
     ' Load enum values
     Set m_dEnum = New Dictionary
@@ -1250,6 +1267,7 @@ Public Sub LoadOptionOverrides()
     Dim dFiles As Dictionary
     Dim varFile As Variant
 
+    m_blnOverridesLoaded = True
     strFolder = Me.GetConfiguredExportFolder & cstrOverridesSubfolder & PathSep
     If Not FSO.FolderExists(strFolder) Then Exit Sub
 
@@ -1268,12 +1286,41 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : SessionOverridesLoaded
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : True once LoadOptionOverrides has run on this instance.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get SessionOverridesLoaded() As Boolean
+    SessionOverridesLoaded = m_blnOverridesLoaded
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ApplySessionOverride
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Set an option for the session only. The first value it replaces is
+'           : kept, and SaveOptionsToFile writes that value instead of the override.
+'           : Raises an error for a name that is not a settable option.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ApplySessionOverride(ByVal strName As String, ByVal varValue As Variant)
+    Dim varProject As Variant
+    varProject = CallByName(Me, strName, VbGet)
+    CallByName Me, strName, VbLet, varValue
+    If Not m_dProjectValues.Exists(strName) Then m_dProjectValues.Add strName, varProject
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : MergeOverrideFile
 ' Author    : Adam Waller
 ' Date      : 4/15/2026
 ' Purpose   : Read a single override JSON file and apply its Options entries to the
-'           : current clsOptions instance via CallByName. Unknown keys are skipped
-'           : with a log warning.
+'           : current clsOptions instance as session overrides. Unknown keys are
+'           : skipped with a log warning.
 '---------------------------------------------------------------------------------------
 '
 Private Sub MergeOverrideFile(strFile As String)
@@ -1296,7 +1343,7 @@ Private Sub MergeOverrideFile(strFile As String)
         Else
             LogUnhandledErrors
             On Error Resume Next
-            CallByName Me, CStr(varKey), VbLet, dOptions(varKey)
+            ApplySessionOverride CStr(varKey), dOptions(varKey)
             If Err.Number <> 0 Then
                 Log.Add T("Skipping unknown option override: {0}", var0:=CStr(varKey)), False
                 Err.Clear
