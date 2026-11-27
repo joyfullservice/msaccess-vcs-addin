@@ -83,6 +83,188 @@ contradictory guidance.
 
 ---
 
+## 2026-11-27 — An export to another folder lasts one operation and writes no index
+
+**Trigger**: Agents (and the ribbon's export-to-folder idea) need a project's
+source somewhere other than its configured export folder, for example a scratch
+folder or a worktree, without disturbing the configured one. Setting
+`ExportFolder` for the call does not work: the change index, session override
+files, and `.env` connection strings live in the export folder, and the next
+options load would save the new folder into `VCS Source Path` and
+`VCS Build Path`.
+
+**Options explored**:
+- `SetOption ExportFolder` from MCP: rejected, and now refused
+  (`export_folder_not_settable`). It moved the folder the override file itself is
+  read from, so the override was lost or applied to the wrong project.
+- Copy the change index into the target: rejected. The index pairs files with
+  this database; in another folder it would claim files it never wrote.
+- **Chosen**: an optional folder argument on `Export`, `FullExport`, `ExportVBA`,
+  `ExportByType`, and `ExportObject`. `RequestExportFolder` sets
+  `Operation.PendingExportFolder`; `InitializeRoot` captures it for that root
+  only, and a refused `Begin` clears it. `Options.GetExportFolder` returns it
+  while the root lives; `GetConfiguredExportFolder` keeps returning the real
+  folder for option overrides and `.env` files. The index is disabled and the
+  export is forced full. `SaveOptionsForProject` and `SetBuildPath` leave the
+  path properties alone.
+
+**Decision**: A folder already holding `vcs-index.idx` is another project's export
+folder and is refused before anything begins (`export_folder_has_index`).
+`APIAsync` gains `varArg3` so `ExportByType` can carry the folder through the
+timer path. `ReloadOptions` replaces seven copies of the reset-and-reload code.
+
+**What this rules out**: An incremental export to another folder. Callers check
+`GetVCSVersion` for 5.2.0 before passing the folder; an older add-in shows a modal
+argument error. Imports from another folder are not supported; build from it.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/API/clsVersionControl.cls` — `RunExportTo`, `RequestExportFolder`, `ExportByType`, `ExportObject`, `SetOption`
+- `Version Control.accda.src/modules/Infrastructure/clsOperation.cls` — `PendingExportFolder`, `ExportFolderOverride`
+- `Version Control.accda.src/modules/Infrastructure/clsOptions.cls` — `GetConfiguredExportFolder`, `MergeOverrideFile`
+- `Version Control.accda.src/modules/Infrastructure/modObjects.bas` — `ReloadOptions`, disabled index
+- `docs/automation-contract.md` — "Exporting to another folder"
+
+---
+
+## 2026-11-27 — Copies of a project build beside themselves; exports outside the working tree warn
+
+**Trigger**: A project whose `ExportFolder` is absolute names one folder for every
+copy. Reproduced in a git worktree and a clone: a build from the copy's source
+wrote the database into the original's folder (`modBuild` overwrites
+`Options.ExportFolder` with the source folder, then `GetOriginalDbFullPathFromSource`
+resolved the absolute value), imported `VCS Source Path` and `VCS Build Path` from
+`proj-properties.json` naming the original, and every later export from the copy
+went to the original's source.
+
+**Options explored**:
+- Redirect the export folder automatically inside a working tree: deferred. A user
+  could not see where the path came from.
+- Rewrite `vcs-options.json` in the copy: rejected. It is tracked, so the change
+  would be committed.
+- **Chosen**: `IsSourceFolderCopy` reads the source folder's own `vcs-options.json`
+  and reports a copy when its absolute `ExportFolder` names a different folder.
+  A build from a copy writes the database beside the copy and skips importing the
+  two path properties. Exports warn (`WarnIfExportFolderOutsideWorkingTree`)
+  when the database sits in a git working tree (a `.git` folder or a worktree's
+  `.git` file, found without running git) and the export folder does not.
+
+**Decision**: The add-in warns, and the MCP server refuses (see its decision log),
+because a person may have set the absolute folder on purpose. `IsRelativeExportFolder`
+is the one rule: blank or a single leading `\` is relative. `\..\src\` is
+relative but climbs above the database, so a build cannot find the database from
+it; guidance recommends blank or `\src\`.
+
+**What this rules out**: Working in a worktree of a project with an absolute
+`ExportFolder` until the user changes it. The warning is skipped for an explicit
+export to another folder.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Core/modVCSUtility.bas` — `IsSourceFolderCopy`, `GetOriginalDbFullPathFromSource`, `GetGitWorkingTreeRoot`, `WarnIfExportFolderOutsideWorkingTree`
+- `Version Control.accda.src/modules/Components/clsDbProjProperty.cls` — skips the path properties in a copy
+- `tools/setup-worktree.ps1` — `-CopyDatabase`
+- `Version Control.accda.src/modules/Tests/Core/modTestSourceFolderCopy.bas`
+
+---
+
+## 2026-11-27 — Timer and operation state live in a registry section per Access window
+
+**Trigger**: The MCP server now runs calls on different databases in parallel,
+one Access instance each, so several instances can start an export, merge, or
+test run at the same moment. An audit of what those operations share found two
+registry sections that every Access process with the add-in loaded used:
+`Timer` and `State`. `APIAsync` writes the operation, its parameters, the MCP
+callback info, and the root token to `Timer`, and the timer callback reads them
+back half a second later; a second instance writing in that gap hands the first
+one its operation and callback target. `State` holds the operation state that
+`RestoreFromRegistry` reads after a VBA project reset; it already refused state
+from another window (by `AppHwnd`), so a second instance's operation silently
+broke the first one's recovery.
+
+**Options explored**:
+- Pass the timer payload in memory: rejected. The registry is there because the
+  timer callback, and the state restore, run after a project reset that clears
+  module variables.
+- One subkey per instance under `Timer\`: rejected. Sibling sections named with
+  the window handle (`Timer <hWndAccessApp>`) avoid relying on nested section
+  names, and the existing whole-key `DeleteSetting` on uninstall removes them.
+- **Chosen**: `TimerSection` and `StateSection` name the section after
+  `Application.hWndAccessApp`. The timer callback deletes its section after
+  reading it rather than blanking the values.
+
+**Decision**: Only the window that wrote a section reads it, so behavior inside one
+instance is unchanged. Other per-run state was already per process or per file:
+temp files come from `GetTempFileName`, logs and `vcs-index.idx` live in each
+project's export folder, and the clipboard is used only by interactive UI. Every
+other registry write the audit found runs during install, an add-in build, or a
+UI action.
+
+**What this rules out**: A `State <hwnd>` section is left behind by each window
+that ran an operation; they are small, and window handles are reused, so they are
+not pruned. Anything new that carries per-operation data through the registry
+must use a per-window section. The MCP repository's
+`tests/test_concurrency_integration.py --run-concurrency` (parallel exports)
+exercises the timer path.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/modTimer.bas` — `TimerSection`, `ClearTimerSection`
+- `Version Control.accda.src/modules/API/modAPI.bas` — `APIAsync` callback info
+- `Version Control.accda.src/modules/Infrastructure/clsOperation.cls` — `StateSection`
+
+---
+
+## 2026-11-27 — Worktree builds: report linked data sources, warn on a worktree install
+
+**Trigger**: Agents increasingly build and test from git worktrees, and parallel
+agents (such as an arena run) each work in their own. A worktree builds its own
+database, but it gets none of the gitignored files (`.env`, back ends and libraries
+beside the database), and it shares everything outside its folder: the installed
+add-in, back ends on other paths or servers, and machine-wide settings. Nothing told
+an agent which was which. A missing `rel:` back end only logged "Could not link
+table", and a rebuild of the add-in from a worktree silently replaced the install
+for every Access session on the machine.
+
+**Options explored**:
+- Instructions only: rejected. An agent has no cheap way to tell whether a linked
+  table's back end is shared, and a build that skipped its tables still looks
+  successful.
+- **Chosen**: each build ends with a "Linked data sources" summary in the log, and
+  `BuildHeadless` returns it as `dataSources`. Each source is classified as
+  `project`, `outside`, `network`, `server`, or `missing`. Links the build could not
+  make are recorded as they fail, because they never reach the database.
+- Refuse `vcs_rebuild_addin` from a worktree: rejected. Testing a branch through the
+  installed path is sometimes the point. The MCP server warns and names the main
+  checkout instead.
+- A build-without-install mode for worktree add-in builds: deferred. Unit tests
+  already exercise the worktree's code without installing it, because the installed
+  runner scans the database that hosts the run.
+
+**Decision**: Classification is by location relative to the database's folder,
+checked in that order, with `missing` before `project` so an uncopied back end
+reads as missing, not per-copy. The summary changes no exported file, so no export
+format gate applies. The shipped `AGENTS.md` and `troubleshooting.md` gain a short
+paragraph on second copies, an exception to question 1 of the shipped-docs gate (it
+is not about file format). It passes question 2: without it, an agent in a worktree
+writes to a shared, possibly live, back end or stalls on a credentials prompt.
+
+**What this rules out**: The summary lists sources; it does not decide whether
+writing to one is safe. That stays a judgment for the agent and the user. A
+`project` source means "each copy needs its own file", so a setup step that copies
+back ends into a worktree is expected, and `tools/setup-worktree.ps1` deliberately
+copies only `.env` files.
+
+> **⚠ Partially superseded** (2026-11-27): `tools/setup-worktree.ps1 -CopyDatabase`
+> now also copies built databases, their change indexes, and `rel:` back ends and
+> libraries. See "Copies of a project build beside themselves; exports outside the
+> working tree warn" above.
+
+**Relevant files**:
+- `Version Control.accda.src/modules/Utility/modConnect.bas` — `GetDataSourceKind`, `GetLinkedDataSources`, `RecordUnlinkedSource`, `LogLinkedDataSources`
+- `Version Control.accda.src/modules/Core/modBuild.bas` — summary at the end of `Build`, `dataSources` in the outcome
+- `Version Control.accda.src/modules/Components/clsDbTableDef.cls`, `clsDbVbeReference.cls` — record links that could not be made
+- `docs/worktrees.md`, `tools/setup-worktree.ps1`, `.cursor/worktrees.json`
+
+---
+
 ## 2026-11-27 — BuildHeadless takes an optional output path
 
 **Trigger**: The MCP server's `vcs_rebuild_database(output_path=...)` passed a

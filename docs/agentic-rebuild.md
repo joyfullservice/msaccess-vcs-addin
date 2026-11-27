@@ -32,6 +32,8 @@ source. This path rebuilds the add-in itself.
 - Pass the source folder when it cannot be derived from the current database or
   the saved `Install\Source Path` registry value. Unattended callers never see
   a folder picker.
+- The install is machine-wide. Rebuilding from a git worktree puts that branch's
+  build under every Access session on the machine; see [worktrees.md](worktrees.md).
 
 ## Call
 

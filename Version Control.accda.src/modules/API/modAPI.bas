@@ -483,7 +483,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
-    Optional varArg1 As Variant, Optional varArg2 As Variant) As String
+    Optional varArg1 As Variant, Optional varArg2 As Variant, Optional varArg3 As Variant) As String
 
     ' The function is called by Application.Run, which can be re-entrant. We really don't
     ' want it to be, since a nested call would run against Operation state the outer call
@@ -531,7 +531,9 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
 
         ' Use Application.Run to call the add-in version
         m_blnRedirecting = True
-        If Not IsMissing(varArg2) Then
+        If Not IsMissing(varArg3) Then
+            APIAsync = Application.Run(strRunCmd, strCallbackInfo, strMethod, varArg1, varArg2, varArg3)
+        ElseIf Not IsMissing(varArg2) Then
             APIAsync = Application.Run(strRunCmd, strCallbackInfo, strMethod, varArg1, varArg2)
         ElseIf Not IsMissing(varArg1) Then
             APIAsync = Application.Run(strRunCmd, strCallbackInfo, strMethod, varArg1)
@@ -548,7 +550,7 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
             ' These are async operations - spawn via timer with callback support
 
             ' Store callback info in registry for timer callback to retrieve
-            SaveSetting PROJECT_NAME, "Timer", "CallbackInfo", strCallbackInfo
+            SaveSetting PROJECT_NAME, TimerSection, "CallbackInfo", strCallbackInfo
             MCPDebugLog "APIAsync: Method=" & strMethod & ", CallbackInfo length=" & Len(strCallbackInfo)
             MCPDebugLog "APIAsync: CallbackInfo=" & Left$(strCallbackInfo, 200)
 
@@ -585,7 +587,9 @@ Public Function APIAsync(strCallbackInfo As String, strMethod As String, _
         Case Else
             ' Fall back to sync API for quick operations
             ' Call existing API function
-            If Not IsMissing(varArg2) Then
+            If Not IsMissing(varArg3) Then
+                varResult = API(strMethod, varArg1, varArg2, varArg3)
+            ElseIf Not IsMissing(varArg2) Then
                 varResult = API(strMethod, varArg1, varArg2)
             ElseIf Not IsMissing(varArg1) Then
                 varResult = API(strMethod, varArg1)

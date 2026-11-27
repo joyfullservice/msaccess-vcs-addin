@@ -49,8 +49,13 @@ Private Type udtRoot
     Detached As Boolean
     Completed As Boolean
     PauseDepth As Long
+    ExportFolder As String
 End Type
 Private m_Root As udtRoot
+
+' Export folder requested for the next root, captured by InitializeRoot. Like
+' ForceUnattended it is set before the root exists, so a refused root clears it.
+Private m_strPendingExportFolder As String
 
 Private m_eimSticky As eInteractionMode
 
@@ -79,7 +84,10 @@ Public Function TryBeginRoot(intType As eOperationType) As clsRootOperationLease
 
     Dim cLease As clsRootOperationLease
 
-    If Not CanBeginRoot Then Exit Function
+    If Not CanBeginRoot Then
+        m_strPendingExportFolder = vbNullString
+        Exit Function
+    End If
 
     InitializeRoot intType
     Set cLease = New clsRootOperationLease
@@ -105,6 +113,39 @@ Public Function Begin(intType As eOperationType) As Boolean
     Begin = (Not m_cSyncLease Is Nothing)
 
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : PendingExportFolder
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : The folder the next root exports to instead of the configured export
+'           : folder. Set it immediately before beginning the root; the root captures
+'           : it, and a refused root or a finished one clears it.
+'---------------------------------------------------------------------------------------
+'
+Public Property Let PendingExportFolder(ByVal strFolder As String)
+    m_strPendingExportFolder = strFolder
+End Property
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExportFolderOverride
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : The folder this operation exports to in place of the configured export
+'           : folder, or empty. Before the root begins it reports the pending value, so
+'           : code that runs between the request and Begin (frmVCSMain.Form_Load)
+'           : already sees it.
+'---------------------------------------------------------------------------------------
+'
+Public Property Get ExportFolderOverride() As String
+    If RootIsLive And Len(m_Root.ExportFolder) > 0 Then
+        ExportFolderOverride = m_Root.ExportFolder
+    Else
+        ExportFolderOverride = m_strPendingExportFolder
+    End If
+End Property
 
 
 '---------------------------------------------------------------------------------------
@@ -599,6 +640,8 @@ Private Sub InitializeRoot(intType As eOperationType)
     m_Root.Completed = False
     m_Root.PauseDepth = 0
     m_Root.AppHwnd = hWndAccessApp
+    m_Root.ExportFolder = m_strPendingExportFolder
+    m_strPendingExportFolder = vbNullString
 
     Me.ErrorLevel = eelNoError
     Me.Result = eorUnknown
@@ -670,6 +713,8 @@ Private Sub FinishRootInternal(Optional intResult As eOperationResult = eorUnkno
     Me.ForceUnattended = False
     m_eimSticky = eimNormal
 
+    m_Root.ExportFolder = vbNullString
+    m_strPendingExportFolder = vbNullString
     m_Root.Token = vbNullString
 
 End Sub
@@ -720,10 +765,26 @@ End Sub
 
 
 Private Sub CheckSetting(strKey As String, varValue)
-    If GetSetting(PROJECT_NAME, "State", strKey) <> CStr(varValue) Then
-        SaveSetting PROJECT_NAME, "State", strKey, CStr(varValue)
+    If GetSetting(PROJECT_NAME, StateSection, strKey) <> CStr(varValue) Then
+        SaveSetting PROJECT_NAME, StateSection, strKey, CStr(varValue)
     End If
 End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : StateSection
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : The registry section holding this Access window's operation state. Only
+'           : the same window reads it back (RestoreFromRegistry), and every Access
+'           : process with the add-in loaded shares the registry, so with one shared
+'           : section an operation in another window overwrote the state this window
+'           : needed to recover after a VBA project reset.
+'---------------------------------------------------------------------------------------
+'
+Private Function StateSection() As String
+    StateSection = "State " & CStr(Application.hWndAccessApp)
+End Function
 
 
 Private Function RestoreFromRegistry() As Boolean
@@ -747,7 +808,7 @@ End Function
 
 
 Private Function ReadReg(strKey As String) As String
-    ReadReg = GetSetting(PROJECT_NAME, "State", strKey)
+    ReadReg = GetSetting(PROJECT_NAME, StateSection, strKey)
 End Function
 
 

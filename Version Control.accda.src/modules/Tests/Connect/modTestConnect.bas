@@ -692,3 +692,127 @@ Private Sub CleanupTempDotEnvFolder(strDir As String)
     If FSO.FolderExists(StripSlash(strDir)) Then FSO.DeleteFolder StripSlash(strDir), True
     On Error GoTo 0
 End Sub
+
+
+Public Sub TestDataSourceKind()
+
+    Dim strProject As String
+    Dim strOther As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    strProject = GetTempFolder("vcs_datasource_project")
+    strOther = GetTempFolder("vcs_datasource_other")
+    FSO.CreateTextFile(strProject & "\be.accdb").Close
+    FSO.CreateTextFile(strProject & "\lib.accda").Close
+    FSO.CreateTextFile(strOther & "\shared.accdb").Close
+    FSO.CreateFolder strProject & "-copy"
+    FSO.CreateTextFile(strProject & "-copy\be.accdb").Close
+
+    TestAssert GetDataSourceKind(";DATABASE=" & strProject & "\be.accdb", strProject) = "project", _
+        "back end beside the database is per copy"
+    TestAssert GetDataSourceKind(strProject & "\lib.accda", strProject) = "project", _
+        "library path beside the database is per copy"
+    TestAssert GetDataSourceKind("Text;DSN=x;DATABASE=" & strProject, strProject & "\") = "project", _
+        "a text link to the database folder itself is per copy"
+    TestAssert GetDataSourceKind("MS Access;PWD=secret;DATABASE=" & strOther & "\shared.accdb", strProject) = "outside", _
+        "back end in another local folder is shared"
+    TestAssert GetDataSourceKind(";DATABASE=" & strProject & "\absent.accdb", strProject) = "missing", _
+        "back end that was not copied is missing"
+    TestAssert GetDataSourceKind(";DATABASE=" & strProject & "-copy\be.accdb", strProject) = "outside", _
+        "a sibling folder with the same prefix is not the project folder"
+    TestAssert GetDataSourceKind("ODBC;DRIVER={SQL Server};SERVER=svr;DATABASE=db", strProject) = "server", _
+        "ODBC is a server"
+    TestAssert GetDataSourceKind("WSS;HDR=NO;DATABASE=https://example.com/site;LIST={1}", strProject) = "server", _
+        "a SharePoint list is a server"
+
+CleanUp:
+    On Error Resume Next
+    If Len(strProject) Then
+        FSO.DeleteFolder strProject, True
+        FSO.DeleteFolder strProject & "-copy", True
+    End If
+    If Len(strOther) Then FSO.DeleteFolder strOther, True
+    If lngErr <> 0 Then TestAssert False, "data source kind " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
+Public Sub TestDataSourceLabelHasNoCredentials()
+    Dim strLabel As String
+
+    strLabel = GetDataSourceLabel("ODBC;DRIVER={SQL Server};SERVER=svr;UID=user;PWD=secret;DATABASE=db")
+    TestAssert InStr(strLabel, "secret") = 0, "ODBC label has no password"
+    TestAssert InStr(1, strLabel, "SVR", vbTextCompare) > 0, "ODBC label names the server"
+
+    strLabel = GetDataSourceLabel("MS Access;PWD=secret;DATABASE=C:\data\be.accdb")
+    TestAssert strLabel = "C:\data\be.accdb", "Access back end is labeled by its path"
+
+    strLabel = GetDataSourceLabel("WSS;PWD=secret;DATABASE=https://example.com/site;LIST={1}")
+    TestAssert strLabel = "https://example.com/site", "SharePoint list is labeled by its site"
+
+    TestAssert GetDataSourceLabel("C:\lib\shared.accda") = "C:\lib\shared.accda", "library path is its own label"
+End Sub
+
+
+Public Sub TestLinkedDataSourcesIncludeUnlinked()
+
+    Dim colSources As Collection
+    Dim varSource As Variant
+    Dim dSource As Dictionary
+    Dim lngTableMissing As Long
+    Dim lngEnvMissing As Long
+    Dim lngLibraryMissing As Long
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    ClearConnState
+    RecordUnlinkedSource "table", ";DATABASE=C:\nonexistent\vcs_datasource\be.accdb"
+    RecordUnlinkedSource "table", ";DATABASE=C:\nonexistent\vcs_datasource\be.accdb"
+    RecordUnlinkedSource "table", vbNullString, "conn_vcs_datasource_test"
+    RecordUnlinkedSource "table", "ODBC;", "conn_vcs_datasource_test"
+    RecordUnlinkedSource "table", vbNullString
+    RecordUnlinkedSource "library", "C:\nonexistent\vcs_datasource\lib.accda"
+
+    Set colSources = GetLinkedDataSources
+    For Each varSource In colSources
+        Set dSource = varSource
+        Select Case dSource("source")
+            Case "C:\nonexistent\vcs_datasource\be.accdb"
+                TestAssert dSource("kind") = "missing" And dSource("type") = "table", "uncopied back end is missing"
+                lngTableMissing = dSource("notLinked")
+            Case "env:conn_vcs_datasource_test"
+                TestAssert dSource("kind") = "missing", "a .env key with no value is missing"
+                lngEnvMissing = dSource("notLinked")
+            Case "C:\nonexistent\vcs_datasource\lib.accda"
+                TestAssert dSource("kind") = "missing" And dSource("type") = "library", "uncopied library is missing"
+                lngLibraryMissing = dSource("notLinked")
+        End Select
+    Next varSource
+
+    TestAssert lngTableMissing = 2, "both tables on the missing back end are counted"
+    TestAssert lngEnvMissing = 2, "both tables on the missing .env key are counted"
+    TestAssert lngLibraryMissing = 1, "the missing library is listed"
+
+CleanUp:
+    On Error Resume Next
+    ClearConnState
+    If lngErr <> 0 Then TestAssert False, "linked data sources " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub

@@ -9,7 +9,7 @@ The screenshot below shows the **General** section as a representative example o
 
 |Setting <img width = 175> |**Default** <p> *(Setting)*|Description
 |-|:-:|:-
-|**Export Folder** |**Default: [Blank]**|Blank uses `\[database].src` beside the database. Relative paths start with `\`. Absolute paths and `%dbName%` placeholders are supported. See [issue #139](https://github.com/joyfullservice/msaccess-vcs-addin/issues/139).
+|**Export Folder** |**Default: [Blank]**|Blank uses `\[database].src` beside the database. Relative paths start with `\`. Absolute paths and `%dbName%` placeholders are supported. An absolute path names the same folder for every copy of the project, so in a git clone or worktree use blank or a folder below the database, such as `\src\` (not `\..\src\`, which a build cannot trace back to the database). See [issue #139](https://github.com/joyfullservice/msaccess-vcs-addin/issues/139).
 |**Developer Settings**||_Note:_ Items below are local-only (registry), not saved in `vcs-options.json`.
 |File Diff Tool|**Default: WinMerge**|Select the diff tool used by git.
 ||_WinMerge_

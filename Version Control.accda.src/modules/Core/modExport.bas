@@ -58,11 +58,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
 
     ' Reload the project options and reset the logs
     Set VCSIndex = Nothing
-    Set Options = Nothing
-    Options.LoadProjectOptions
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-        Options.LoadOptionOverrides
-    End If
+    ReloadOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
@@ -85,6 +81,7 @@ Public Sub ExportSource(blnFullExport As Boolean, Optional intFilter As eContain
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
         .Flush
     End With
+    WarnIfExportFolderOutsideWorkingTree
 
     ' Determine which categories need full re-export due to options changes
     Dim dCurrentHashes As Dictionary
@@ -765,11 +762,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
         ' Reload the project index for normal single-object exports.
         Set VCSIndex = Nothing
     End If
-    Set Options = Nothing
-    Options.LoadProjectOptions
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-        Options.LoadOptionOverrides
-    End If
+    ReloadOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
@@ -795,6 +788,7 @@ Public Sub ExportSingleObject(objItem As AccessObject, Optional frmMain As Form_
         ' Save export log file path
         If Not frmMain Is Nothing Then frmMain.strLastLogFilePath = .LogFilePath
     End With
+    WarnIfExportFolderOutsideWorkingTree
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections
@@ -955,11 +949,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
 
     ' Reload the project options and reset the logs
     Set VCSIndex = Nothing
-    Set Options = Nothing
-    Options.LoadProjectOptions
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-        Options.LoadOptionOverrides
-    End If
+    ReloadOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
@@ -982,6 +972,7 @@ Public Sub ExportMultipleObjects(objItems As Dictionary, Optional bolForceClose 
         .Spacer
         .Flush
     End With
+    WarnIfExportFolderOutsideWorkingTree
 
     ' Cache persistent connections to Access back-end databases
     CacheBackEndConnections

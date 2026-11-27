@@ -91,6 +91,16 @@ from source instead, and **export** goes the other way, writing database objects
 out to these files. When a source file and its database object have both changed,
 the add-in detects the conflict and prompts the user to choose which version wins.
 
+**In a second copy of the project** (a git worktree or another clone), the database
+file, `.env`, and any back-end or library database files beside it are not in git.
+Copy them from the original folder, or the build links nothing and prompts for
+connections. Back ends outside this folder and ODBC servers are shared by every
+copy: before running code that changes data, read the "Linked data sources" list at
+the end of the build log, and ask the user if a shared source may hold live data.
+If the add-in warns that the export folder is outside the git working tree, the
+`ExportFolder` option is an absolute path and every copy reads and writes the
+original's source files. Stop and ask the user to make it blank or relative (`\src\`).
+
 ## More information
 
 - [MSAccess VCS Add-in](https://github.com/joyfullservice/msaccess-vcs-addin)

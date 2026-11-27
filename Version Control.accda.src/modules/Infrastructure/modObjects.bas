@@ -135,6 +135,25 @@ End Property
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : ReloadOptions
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Reload the project options at the start of an operation, then the session
+'           : overrides an MCP or API caller saved. Both are read from the configured
+'           : export folder; an operation's export folder override only changes what
+'           : Options.GetExportFolder returns.
+'---------------------------------------------------------------------------------------
+'
+Public Sub ReloadOptions()
+    Set this.Options = Nothing
+    Options.LoadProjectOptions
+    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
+        Options.LoadOptionOverrides
+    End If
+End Sub
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : OptionsLoaded
 ' Author    : Adam Waller
 ' Date      : 5/13/2023
@@ -245,6 +264,9 @@ End Property
 Public Property Get VCSIndex() As clsVCSIndex
     If this.VCSIndex Is Nothing Then
         Set this.VCSIndex = New clsVCSIndex
+        ' An export to another folder has no index of its own, and must not read or
+        ' update the index of whichever database owns that folder.
+        this.VCSIndex.Disabled = (Len(Operation.ExportFolderOverride) > 0)
         this.VCSIndex.LoadFromFile
     End If
     Set VCSIndex = this.VCSIndex

@@ -38,22 +38,18 @@ Public Sub WinAPITimerCallback()
     KillTimer
 
     ' Read in parameter values
-    strCommand = GetSetting(PROJECT_NAME, "Timer", "Operation")
-    strParam1 = GetSetting(PROJECT_NAME, "Timer", "Param1")
-    strParam2 = GetSetting(PROJECT_NAME, "Timer", "Param2")
+    strCommand = GetSetting(PROJECT_NAME, TimerSection, "Operation")
+    strParam1 = GetSetting(PROJECT_NAME, TimerSection, "Param1")
+    strParam2 = GetSetting(PROJECT_NAME, TimerSection, "Param2")
 
     ' Read callback info before clearing (needed for APIAsyncOperation)
     Dim strCallbackInfo As String
-    strCallbackInfo = GetSetting(PROJECT_NAME, "Timer", "CallbackInfo")
-    strOpToken = GetSetting(PROJECT_NAME, "Timer", REG_TIMER_OP_TOKEN)
+    strCallbackInfo = GetSetting(PROJECT_NAME, TimerSection, "CallbackInfo")
+    strOpToken = GetSetting(PROJECT_NAME, TimerSection, REG_TIMER_OP_TOKEN)
     MCPDebugLog "WinAPITimerCallback: Command=" & strCommand & ", CallbackInfo length=" & Len(strCallbackInfo)
 
     ' Clear values from registry (In case an operation sets another timer)
-    SaveSetting PROJECT_NAME, "Timer", "Operation", vbNullString
-    SaveSetting PROJECT_NAME, "Timer", "Param1", vbNullString
-    SaveSetting PROJECT_NAME, "Timer", "Param2", vbNullString
-    SaveSetting PROJECT_NAME, "Timer", "CallbackInfo", vbNullString
-    SaveSetting PROJECT_NAME, "Timer", REG_TIMER_OP_TOKEN, vbNullString
+    ClearTimerSection
 
     ' Now, run the desired operation. Root ownership crosses this boundary in strOpToken,
     ' never in mutable global state: a continuation resumes only the root it was armed
@@ -142,15 +138,48 @@ Public Sub SetTimer(strOperation As String, _
     End If
 
     ' Save parameter values
-    SaveSetting PROJECT_NAME, "Timer", "Param1", strParam1
-    SaveSetting PROJECT_NAME, "Timer", "Param2", strParam2
-    SaveSetting PROJECT_NAME, "Timer", REG_TIMER_OP_TOKEN, strOpToken
+    SaveSetting PROJECT_NAME, TimerSection, "Param1", strParam1
+    SaveSetting PROJECT_NAME, TimerSection, "Param2", strParam2
+    SaveSetting PROJECT_NAME, TimerSection, REG_TIMER_OP_TOKEN, strOpToken
 
     ' Save ID to registry before setting the timer
-    SaveSetting PROJECT_NAME, "Timer", "Operation", strOperation
-    SaveSetting PROJECT_NAME, "Timer", "TimerID", m_lngTimerID
+    SaveSetting PROJECT_NAME, TimerSection, "Operation", strOperation
+    SaveSetting PROJECT_NAME, TimerSection, "TimerID", m_lngTimerID
     m_lngTimerID = ApiSetTimer(0, 0, 1000 * sngSeconds, AddressOf WinAPITimerCallback)
 
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : TimerSection
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : The registry section that carries this Access window's timer operation to
+'           : its callback. Every Access process with the add-in loaded shares the
+'           : registry, so with one shared section a second process starting an
+'           : operation within the timer's delay handed the first one its operation and
+'           : callback target.
+'---------------------------------------------------------------------------------------
+'
+Public Function TimerSection() As String
+    TimerSection = "Timer " & CStr(Application.hWndAccessApp)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ClearTimerSection
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Remove this window's timer section once its callback has read it, so
+'           : sections do not pile up for windows that have closed.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ClearTimerSection()
+    LogUnhandledErrors
+    On Error Resume Next
+    DeleteSetting PROJECT_NAME, TimerSection
+    If Err.Number <> 0 Then Err.Clear
+    On Error GoTo 0
 End Sub
 
 
@@ -162,12 +191,12 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Private Sub KillTimer()
-    If m_lngTimerID = 0 Then m_lngTimerID = GetSetting(PROJECT_NAME, "Timer", "TimerID", 0)
+    If m_lngTimerID = 0 Then m_lngTimerID = GetSetting(PROJECT_NAME, TimerSection, "TimerID", 0)
     If m_lngTimerID <> 0 Then
         ApiKillTimer 0, m_lngTimerID
         Debug.Print "Killed API Timer " & m_lngTimerID
         m_lngTimerID = 0
-        SaveSetting PROJECT_NAME, "Timer", "TimerID", 0
+        SaveSetting PROJECT_NAME, TimerSection, "TimerID", 0
     End If
 End Sub
 

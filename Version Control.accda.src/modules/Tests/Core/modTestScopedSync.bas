@@ -23,6 +23,39 @@ Public Sub TestExportByTypeRejectsUnknownType()
 End Sub
 
 
+Public Sub TestExportToFolderRefusesAnotherDatabasesExportFolder()
+
+    Dim strFolder As String
+    Dim dResult As Dictionary
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+
+    ' A folder with a vcs-index.idx belongs to some database; an export to another
+    ' folder runs without an index and would overwrite it unchecked.
+    strFolder = GetTempFolder("vcs_export_to")
+    FSO.CreateTextFile(strFolder & PathSep & "vcs-index.idx").Close
+
+    Set dResult = ParseJson(VCS.ExportObject("module", "modExample", strFolder))
+    TestAssert Not CBool(dResult("success")), "a folder holding an index is refused"
+    TestAssert dResult("error_pattern") = "export_folder_has_index", "the refusal names the reason"
+    TestAssert Len(Operation.ExportFolderOverride) = 0, "the refusal stages no export folder"
+
+CleanUp:
+    On Error Resume Next
+    If Len(strFolder) Then FSO.DeleteFolder strFolder, True
+    If lngErr <> 0 Then TestAssert False, "export folder refusal " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+
+End Sub
+
+
 Public Sub TestImportByTypeRejectsTableData()
     Dim strJson As String
     Dim dResult As Dictionary

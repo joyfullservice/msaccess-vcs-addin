@@ -122,6 +122,7 @@ Public Sub ImportReferences(strFile As String, Optional blnGuidOnly As Boolean =
                         If Not FSO.FileExists(strPath) Then
                             Log.Error eelError, "File not found. Unable to add reference to " & strPath, _
                                 ModuleName(Me) & ".ImportReferences"
+                            RecordUnlinkedSource "library", strPath
                         Else
                             Perf.OperationStart "Add Library References"
                             proj.References.AddFromFile strPath

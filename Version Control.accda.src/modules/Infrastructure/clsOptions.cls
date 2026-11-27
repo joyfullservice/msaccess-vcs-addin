@@ -269,11 +269,15 @@ End Sub
 '---------------------------------------------------------------------------------------
 '
 Public Sub SaveOptionsForProject()
-    ' Save source path option in current database.
-    SavedSourcePath = Me.ExportFolder
-    ' Set the build path, if needed.
-    SetBuildPath
-    ' Save options to the export folder location
+    ' An export to another folder leaves this database's recorded folders alone.
+    If Len(Operation.ExportFolderOverride) = 0 Then
+        ' Save source path option in current database.
+        SavedSourcePath = Me.ExportFolder
+        ' Set the build path, if needed.
+        SetBuildPath
+    End If
+    ' Save options to the export folder location. The file keeps the configured
+    ' ExportFolder, even in an override folder.
     Me.SaveOptionsToFile Me.GetExportFolder & cstrOptionsFilename
 End Sub
 
@@ -441,7 +445,7 @@ Private Sub Upgrade(ByRef dOptions As Dictionary)
     If Not dOptions.Exists("SplitLayoutFromVBA") Then
         ' The existing options file does not have this option defined.
         ' See if we have any source files from previous exports.
-        If HasUnifiedLayoutFilesInGit(Me.GetExportFolder) Then
+        If HasUnifiedLayoutFilesInGit(Me.GetConfiguredExportFolder) Then
             ' Set the option as false by default, and let the user
             ' turn it on explicitly for this project.
             ' (That way they are not forced to make a decision immediately)
@@ -558,7 +562,7 @@ Public Sub LoadProjectOptions()
 
     ' Attempt to load the project options file.
     If strSaved <> vbNullString Then Me.ExportFolder = strSaved
-    LoadOptionsFromFile Me.GetExportFolder & cstrOptionsFilename
+    LoadOptionsFromFile Me.GetConfiguredExportFolder & cstrOptionsFilename
 
 End Sub
 
@@ -602,13 +606,38 @@ End Sub
 '---------------------------------------------------------------------------------------
 ' Procedure : GetExportFolder
 ' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : The folder this operation reads source files from and writes them to:
+'           : the operation's export folder override when it has one, otherwise the
+'           : configured export folder.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetExportFolder() As String
+
+    Dim strOverride As String
+
+    strOverride = Operation.ExportFolderOverride
+    If Len(strOverride) > 0 Then
+        GetExportFolder = StripSlash(strOverride) & PathSep
+    Else
+        GetExportFolder = GetConfiguredExportFolder
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetConfiguredExportFolder
+' Author    : Adam Waller
 ' Date      : 4/14/2020
 ' Purpose   : Returns the actual export folder path from the ExportFolder option.
+'           : This is where the project's vcs-options.json, its .env, and the session
+'           : override files live, even while an operation exports elsewhere.
 '           : NOTE: We cannot return a relative export folder path without an open
 '           : database file.
 '---------------------------------------------------------------------------------------
 '
-Public Function GetExportFolder() As String
+Public Function GetConfiguredExportFolder() As String
 
     Dim strFullPath As String
 
@@ -651,10 +680,10 @@ Public Function GetExportFolder() As String
                 "A database file must be open to return a relative export path.", _
                 "This is probably due to a problem in the build sequence logic.", vbExclamation
             Log.Add "ERROR: Cannot build relative export folder path without an open database file."
-            GetExportFolder = vbNullString
+            GetConfiguredExportFolder = vbNullString
         Case Else
             ' Return export path with a trailing slash
-            GetExportFolder = StripSlash(strFullPath) & PathSep
+            GetConfiguredExportFolder = StripSlash(strFullPath) & PathSep
     End Select
 
 End Function
@@ -1077,13 +1106,16 @@ Private Sub SetBuildPath()
     Dim prp As AccessObjectProperty
     Dim proj As CurrentProject
 
+    ' Loading options during an export to another folder must not record a build path.
+    If Len(Operation.ExportFolderOverride) > 0 Then Exit Sub
+
     Set proj = CurrentProject
     Set prp = GetPropertyByName(cstrBuildPathProperty)
 
     ' This should only be done on an open database/project
     If DatabaseFileOpen Then
         ' Check the export folder option
-        If Me.ExportFolder = vbNullString Or IsRelativePathValue(Me.ExportFolder) Then
+        If IsRelativeExportFolder(Me.ExportFolder) Then
             ' When using the default of a blank export path, we don't need
             ' to store the build folder location. (It will be different on
             ' different computers, and not needed for a relative export path.)
@@ -1103,18 +1135,55 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
-' Procedure : IsRelativePathProperty
+' Procedure : IsRelativeExportFolder
 ' Author    : Josef Poetzl
 ' Date      : 5/9/2025
-' Purpose   : Checks if the path property starts with '\' but is not a UNC path.
+' Purpose   : True when an ExportFolder value is resolved from the database's own folder:
+'           : blank (the default <file name>.src beside it), or a single leading '\'
+'           : (not a UNC path). Every other value names the same folder for every copy
+'           : of the project, including %VAR% placeholders and a bare "src\".
+'           : GetExportFolder, SetBuildPath, and GetOriginalDbFullPathFromSource share
+'           : this rule, and the MCP server mirrors it (worktree.is_relative_export_folder).
 '---------------------------------------------------------------------------------------
 '
-Private Function IsRelativePathValue(ByVal strPathToCheck As String) As Boolean
-   If Left(strPathToCheck, 1) = PathSep Then
-      If Mid(strPathToCheck, 2, 1) <> PathSep Then
-         IsRelativePathValue = True
-      End If
-   End If
+Public Function IsRelativeExportFolder(ByVal strValue As String) As Boolean
+    If Len(strValue) = 0 Then
+        IsRelativeExportFolder = True
+    ElseIf Left$(strValue, 1) = PathSep Then
+        IsRelativeExportFolder = (Mid$(strValue, 2, 1) <> PathSep)
+    End If
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsBuildLocationProperty
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : True for the project properties that record where this database's
+'           : source and build folders are (VCS Source Path, VCS Build Path).
+'---------------------------------------------------------------------------------------
+'
+Public Function IsBuildLocationProperty(ByVal strName As String) As Boolean
+    IsBuildLocationProperty = (StrComp(strName, cstrSourcePathProperty, vbTextCompare) = 0) _
+        Or (StrComp(strName, cstrBuildPathProperty, vbTextCompare) = 0)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ExpandExportFolderValue
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Expand the environment variables and the %dbName% placeholder in an
+'           : absolute ExportFolder value. strDbName is the database file name, which
+'           : a full build takes from vbe-project.json because no database is open.
+'---------------------------------------------------------------------------------------
+'
+Public Function ExpandExportFolderValue(ByVal strValue As String, ByVal strDbName As String) As String
+    If InStr(1, strValue, "%") > 0 Then
+        strValue = ExpandEnvironmentVariables(strValue)
+        strValue = Replace(strValue, "%dbName%", strDbName, , , vbTextCompare)
+    End If
+    ExpandExportFolderValue = strValue
 End Function
 
 
@@ -1181,7 +1250,7 @@ Public Sub LoadOptionOverrides()
     Dim dFiles As Dictionary
     Dim varFile As Variant
 
-    strFolder = Me.GetExportFolder & cstrOverridesSubfolder & PathSep
+    strFolder = Me.GetConfiguredExportFolder & cstrOverridesSubfolder & PathSep
     If Not FSO.FolderExists(strFolder) Then Exit Sub
 
     Set dFiles = GetFileList(strFolder, cstrOverridesPrefix & "*.json")
@@ -1222,6 +1291,8 @@ Private Sub MergeOverrideFile(strFile As String)
     For Each varKey In dOptions.Keys
         If IsUserControlledOption(CStr(varKey)) Then
             Log.Add T("Ignoring override of user-controlled option: {0}", var0:=CStr(varKey)), False
+        ElseIf StrComp(CStr(varKey), "ExportFolder", vbTextCompare) = 0 Then
+            Log.Add T("Ignoring session override of ExportFolder."), False
         Else
             LogUnhandledErrors
             On Error Resume Next

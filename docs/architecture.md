@@ -77,9 +77,9 @@ The primary entry point for external automation. Exposed via the `VCS` object in
 
 ```vba
 ' Key public methods:
-VCS.Export              ' Export all source (fast save)
-VCS.FullExport          ' Export all source (full)
-VCS.ExportVBA           ' Export VBA components only
+VCS.Export [folder]     ' Export all source (fast save), or a full export to another folder
+VCS.FullExport [folder] ' Export all source (full)
+VCS.ExportVBA [folder]  ' Export VBA components only
 VCS.ExportByType types  ' Export one or more categories (category-scoped sync)
 VCS.Build strFolder     ' Full build from source
 VCS.RebuildAddIn [folder] ' Rebuild and install this add-in from source

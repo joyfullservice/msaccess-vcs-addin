@@ -42,6 +42,28 @@ Public Sub TestGetCategoryHashes()
 End Sub
 
 
+Public Sub TestIsRelativeExportFolder()
+    Dim cOpt As New clsOptions
+    TestAssert cOpt.IsRelativeExportFolder(vbNullString), "blank is the default folder beside the database"
+    TestAssert cOpt.IsRelativeExportFolder("\src\"), "single leading backslash is relative"
+    TestAssert cOpt.IsRelativeExportFolder("\..\src\"), "an upward relative path is still relative"
+    TestAssert Not cOpt.IsRelativeExportFolder("\\server\share\src\"), "UNC path is absolute"
+    TestAssert Not cOpt.IsRelativeExportFolder("C:\Repos\example\src\"), "drive path is absolute"
+    TestAssert Not cOpt.IsRelativeExportFolder("%USERPROFILE%\example\"), "environment placeholder is absolute"
+    TestAssert Not cOpt.IsRelativeExportFolder("src\"), "a bare folder name is absolute"
+End Sub
+
+
+Public Sub TestExpandExportFolderValue()
+    Dim cOpt As New clsOptions
+    TestAssert cOpt.ExpandExportFolderValue("C:\src\%dbName%\", "Example.accdb") = "C:\src\Example.accdb\", _
+        "%dbName% takes the database file name"
+    TestAssert cOpt.ExpandExportFolderValue("%SystemRoot%\x\", "Example.accdb") = Environ$("SystemRoot") & "\x\", _
+        "environment variables expand"
+    TestAssert cOpt.ExpandExportFolderValue("C:\plain\", "Example.accdb") = "C:\plain\", "plain path is unchanged"
+End Sub
+
+
 Public Sub TestSkipReopenBeforeMergeIsNotAnExportOption()
     Dim cOpt As New clsOptions
     cOpt.LoadDefaults

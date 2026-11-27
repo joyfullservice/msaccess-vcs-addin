@@ -92,6 +92,39 @@ Public Sub TestSecondRootRefusedWhileFirstIsActive()
 End Sub
 
 
+Public Sub TestExportFolderOverrideLivesForOneRoot()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+
+    Set cOp = NewOperation(True)
+    cOp.PendingExportFolder = "C:\example\out\"
+    TestAssert cOp.ExportFolderOverride = "C:\example\out\", "the requested folder is visible before Begin"
+    Set cRoot = cOp.TryBeginRoot(eotExport)
+    TestAssert cOp.ExportFolderOverride = "C:\example\out\", "the root captured the folder"
+    cRoot.Complete eorSuccess
+    TestAssert Len(cOp.ExportFolderOverride) = 0, "finishing the root clears the folder"
+
+    Set cRoot = cOp.TryBeginRoot(eotExport)
+    TestAssert Len(cOp.ExportFolderOverride) = 0, "the next root exports to the configured folder"
+    cRoot.Complete eorSuccess
+End Sub
+
+
+Public Sub TestRefusedRootClearsRequestedExportFolder()
+    Dim cOp As clsOperation
+    Dim cRoot As clsRootOperationLease
+    Dim cOther As clsRootOperationLease
+
+    Set cOp = NewOperation(True)
+    Set cRoot = cOp.TryBeginRoot(eotOther)
+    cOp.PendingExportFolder = "C:\example\out\"
+    Set cOther = cOp.TryBeginRoot(eotExport)
+    TestAssert cOther Is Nothing, "second root refused"
+    TestAssert Len(cOp.ExportFolderOverride) = 0, "a refused root leaves no folder behind"
+    cRoot.Complete eorSuccess
+End Sub
+
+
 Public Sub TestUnattendedRootIsCapturedUnattended()
     Dim cOp As clsOperation
     Dim cRoot As clsRootOperationLease

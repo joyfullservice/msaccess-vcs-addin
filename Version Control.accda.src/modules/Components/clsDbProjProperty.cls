@@ -68,6 +68,7 @@ Private Sub IDbComponent_Import(strFile As String)
     Dim projCurrent As CurrentProject
     Dim varKey As Variant
     Dim varValue As Variant
+    Dim blnSkipLocations As Boolean
 
     ' Only import files with the correct extension.
     If Not strFile Like "*.json" Then Exit Sub
@@ -84,14 +85,20 @@ Private Sub IDbComponent_Import(strFile As String)
         End Select
     Next prp
 
+    ' A copy of the source (a git worktree or clone) must not inherit the original
+    ' checkout's folders, or its database would export into the original.
+    blnSkipLocations = IsSourceFolderCopy(Options.GetExportFolder)
+
     ' Read properties from source file
     Set dImport = ReadJsonFile(strFile)
     If Not dImport Is Nothing Then
         Set dItems = dImport("Items")
         For Each varKey In dItems.Keys
-            Select Case varKey
-                Case "Name", "Connection"
+            Select Case True
+                Case varKey = "Name", varKey = "Connection"
                     ' Skip these properties
+                Case blnSkipLocations And Options.IsBuildLocationProperty(CStr(varKey))
+                    ' Folders of the checkout this source was copied from
                 Case Else
                     varValue = dItems(varKey)
                     If IsRelativePath(CStr(varValue)) Then varValue = GetPathFromRelative(CStr(varValue))

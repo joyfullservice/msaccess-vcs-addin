@@ -50,7 +50,8 @@ only exclusions starts from all tests.
 ```
 
 `database_path` is the development copy in the repository — the `.accda` beside
-`Version Control.accda.src`. The runner scans `CurrentVBProject`, so whichever
+`Version Control.accda.src`. In a git worktree, that is the worktree's own copy
+([worktrees.md](worktrees.md)). The runner scans `CurrentVBProject`, so whichever
 database hosts the run is the one whose tests are found: point a run at a user
 database and you get that database's tests, reported as a clean pass because
 nothing you were looking for was there to fail.

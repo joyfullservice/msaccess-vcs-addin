@@ -106,24 +106,22 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
         Log.Error eelCritical, "Unable to find source file: " & strPath, "GetOriginalDbFullPathFromSource"
         GetOriginalDbFullPathFromSource = vbNullString
     Else
-        ' Look up file name from VBE project file name
-        Set dContents = ReadJsonFile(strPath)
-        strFile = dNZ(dContents, "Items\FileName")
-
-        ' Convert legacy relative path
-        If Left$(strFile, 4) = "rel:" Then strFile = Mid$(strFile, 5)
+        strFile = GetSourceDbFileName(strFolder)
 
         ' Trim off any tailing slash
         strExportFolder = StripSlash(strFolder)
 
         ' Check export folder settings
-        If Options.ExportFolder = vbNullString Then
+        If IsSourceFolderCopy(strFolder) Then
+            ' A copy of the source (a git worktree or clone) builds beside itself, not
+            ' at the VCS Build Path of the checkout its absolute ExportFolder names.
+            strPath = strExportFolder & PathSep & ".." & PathSep & strFile
+        ElseIf Options.ExportFolder = vbNullString Then
             ' Default setting, using parent folder of source directory
             strPath = strExportFolder & PathSep & ".." & PathSep & strFile
         Else
-            ' Check to see if we are using an absolute export path  (\\* or *:*)
-            If StartsWith(Options.ExportFolder, PathSep & PathSep) _
-                Or (InStr(2, Options.ExportFolder, ":") > 0) Then
+            ' Check to see if we are using an absolute export path
+            If Not Options.IsRelativeExportFolder(Options.ExportFolder) Then
                 ' Look for saved build path
                 Set dContents = ReadJsonFile(FSO.BuildPath(strFolder, "proj-properties.json"))
                 strPath = dNZ(dContents, "Items\VCS Build Path")
@@ -146,6 +144,142 @@ Public Function GetOriginalDbFullPathFromSource(strFolder As String) As String
         GetOriginalDbFullPathFromSource = FSO.GetAbsolutePathName(strPath)
     End If
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetSourceDbFileName
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : The database file name recorded in a source folder's vbe-project.json.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetSourceDbFileName(strFolder As String) As String
+    Dim strFile As String
+    strFile = dNZ(ReadJsonFile(FSO.BuildPath(strFolder, "vbe-project.json")), "Items\FileName")
+    ' Convert legacy relative path
+    If Left$(strFile, 4) = "rel:" Then strFile = Mid$(strFile, 5)
+    GetSourceDbFileName = strFile
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsSourceFolderCopy
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : True when strFolder holds a copy of the project's source rather than the
+'           : folder its absolute ExportFolder names: a git worktree, a clone, or a
+'           : folder copied elsewhere. The value is read from strFolder's own
+'           : vcs-options.json, because a build overwrites Options.ExportFolder with
+'           : the folder it reads from. A blank or relative ExportFolder resolves from
+'           : the database's folder, so every copy is its own original.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsSourceFolderCopy(strFolder As String) As Boolean
+
+    Dim strOptionsFile As String
+    Dim strConfigured As String
+
+    If Len(strFolder) = 0 Then Exit Function
+    strOptionsFile = FSO.BuildPath(strFolder, "vcs-options.json")
+    If Not FSO.FileExists(strOptionsFile) Then Exit Function
+
+    strConfigured = dNZ(ReadJsonFile(strOptionsFile), "Options\ExportFolder")
+    If Options.IsRelativeExportFolder(strConfigured) Then Exit Function
+
+    strConfigured = Options.ExpandExportFolderValue(strConfigured, GetSourceDbFileName(strFolder))
+    IsSourceFolderCopy = Not FolderPathsMatch(strConfigured, strFolder)
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetGitWorkingTreeRoot
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : The root of the git working tree holding strPath: the nearest folder with
+'           : a .git folder (a checkout or clone) or a .git file (a linked worktree).
+'           : Empty when strPath is in no working tree. Reads the file system only.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetGitWorkingTreeRoot(ByVal strPath As String) As String
+
+    Dim strFolder As String
+
+    If Len(strPath) = 0 Then Exit Function
+    strFolder = StripSlash(FSO.GetAbsolutePathName(strPath))
+    Do While Len(strFolder) > 0
+        If FSO.FolderExists(strFolder & PathSep & ".git") _
+            Or FSO.FileExists(strFolder & PathSep & ".git") Then
+            GetGitWorkingTreeRoot = strFolder
+            Exit Function
+        End If
+        strFolder = FSO.GetParentFolderName(strFolder)
+    Loop
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : IsPathInFolder
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : True when strPath is strFolder or lies under it, ignoring case and a
+'           : trailing separator, after resolving "." and "..".
+'---------------------------------------------------------------------------------------
+'
+Public Function IsPathInFolder(ByVal strPath As String, ByVal strFolder As String) As Boolean
+    If Len(strPath) = 0 Or Len(strFolder) = 0 Then Exit Function
+    IsPathInFolder = StartsWith(StripSlash(FSO.GetAbsolutePathName(strPath)) & PathSep, _
+        StripSlash(FSO.GetAbsolutePathName(strFolder)) & PathSep, vbTextCompare)
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : WarnIfExportFolderOutsideWorkingTree
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Warn when the database is in a git working tree (a worktree or clone)
+'           : but its export folder is not, so the operation reads and writes another
+'           : checkout's source files. Skipped for an explicit export to another folder.
+'           : Call it once the operation's log is active.
+'---------------------------------------------------------------------------------------
+'
+Public Sub WarnIfExportFolderOutsideWorkingTree()
+
+    Dim strRoot As String
+    Dim strFolder As String
+
+    If Len(Operation.ExportFolderOverride) > 0 Then Exit Sub
+    If Not DatabaseFileOpen Then Exit Sub
+
+    strRoot = GetGitWorkingTreeRoot(CurrentProject.Path)
+    If Len(strRoot) = 0 Then Exit Sub
+    strFolder = Options.GetExportFolder
+    If IsPathInFolder(strFolder, strRoot) Then Exit Sub
+
+    Log.Error eelWarning, T("This database is in the git working tree {0}, but its export " & _
+        "folder {1} is outside it, so source files are read from and written to another " & _
+        "checkout. Set the ExportFolder option to blank, or to a folder below the database " & _
+        "such as \src\.", var0:=strRoot, var1:=strFolder), _
+        ModuleName & ".WarnIfExportFolderOutsideWorkingTree"
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : FolderPathsMatch
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Case-insensitive comparison of two folder paths, ignoring a trailing
+'           : separator and resolving "." and "..". A mapped drive and its UNC path do
+'           : not match; resolving them could prompt for a disconnected drive.
+'---------------------------------------------------------------------------------------
+'
+Public Function FolderPathsMatch(strFolder1 As String, strFolder2 As String) As Boolean
+    If Len(strFolder1) = 0 Or Len(strFolder2) = 0 Then Exit Function
+    FolderPathsMatch = (StrComp(StripSlash(FSO.GetAbsolutePathName(strFolder1)), _
+        StripSlash(FSO.GetAbsolutePathName(strFolder2)), vbTextCompare) = 0)
 End Function
 
 
@@ -230,6 +364,9 @@ Public Sub CheckGitFiles()
     Dim strPath As String
     Dim strFile As String
     Dim blnAdded As Boolean
+
+    ' An export to another folder is not the repository's source folder.
+    If Len(Operation.ExportFolderOverride) > 0 Then Exit Sub
 
     ' Check export folder
     strPath = Options.GetExportFolder
@@ -612,7 +749,7 @@ Public Function GetSchemaInitParams(strName As String) As Dictionary
     dParams("Name") = strName
 
     ' Check for `Connect` or other parameters in .env file
-    strFile = BuildPath2(Options.GetExportFolder & "databases", GetSafeFileName(strName), ".env")
+    strFile = BuildPath2(Options.GetConfiguredExportFolder & "databases", GetSafeFileName(strName), ".env")
     If FSO.FileExists(strFile) Then
         With New clsDotEnv
             .LoadFromFile strFile

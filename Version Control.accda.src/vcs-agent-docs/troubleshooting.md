@@ -83,6 +83,8 @@ ODBC strings, in `tbldefs/*.json`, the `Connect` value in `queries/*.json`, and
 
 A prompt means the key is missing from the resolved configuration or the server is
 unreachable. Search the build log for `Connection key not found in .env file:`.
+A new clone or git worktree has no `.env` at all; copy it, and any `.env.*` layers,
+from the original working folder.
 
 `db-connection.json` only **primes** Access's ODBC cache during import, running one
 temporary query per connection so later linked-table imports reuse the cached

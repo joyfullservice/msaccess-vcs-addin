@@ -48,9 +48,20 @@ permissive caller setting.
   "errorCount": 0,
   "warningCount": 2,
   "durationMs": 48210,
-  "databasePath": "C:\\proj\\MyApp.accdb"
+  "databasePath": "C:\\proj\\MyApp.accdb",
+  "dataSources": [
+    {"type": "table", "kind": "project", "source": "C:\\proj\\MyApp_be.accdb", "linked": 12, "notLinked": 0},
+    {"type": "table", "kind": "server", "source": "ODBC:DSN=APPDB", "linked": 4, "notLinked": 0}
+  ]
 }
 ```
+
+`dataSources` lists each distinct back end of a linked table, and each reference to
+another Access database, once. It also includes anything the build tried to link and
+could not. `kind` is `project` (under the database's folder), `outside`, `network`,
+`server`, or `missing`; [worktrees.md](worktrees.md#linked-data-sources) says what
+each means for a second copy of the project. It is present when the build reached
+its end, and empty when the database links to nothing.
 
 A failure adds `error` (always) and `errorNumber` (only when a VBA runtime error
 escaped, rather than the build deciding it had failed):
@@ -322,6 +333,46 @@ when another operation is running and each form is the expected owner.
 The in-place merge timer chain detaches via `Operation.CurrentRootToken` at
 `modBuild.bas` because `Build` deliberately holds no lease object. The token is still
 validated on resume through `ResumeRoot`.
+
+## Exporting to another folder
+
+`Export`, `FullExport`, and `ExportVBA` take an optional folder as their first
+argument; `ExportByType` and `ExportObject` take it as their third. Through
+`APIAsync`, pass it as `varArg1` (`APIAsync(callback, "Export", folder)`) or
+`varArg3` (`APIAsync(callback, "ExportByType", types, full, folder)`); `APIAsync`
+forwards three arguments for this reason.
+
+The folder applies to one operation root and is never saved:
+
+- `clsVersionControl.RequestExportFolder` sets `Operation.PendingExportFolder`, and
+  the next `InitializeRoot` takes it; a refused `Begin` clears it. While the root
+  lives, `Options.GetExportFolder` returns it, and `GetConfiguredExportFolder`
+  still returns the configured folder, which is where option overrides and the
+  `.env` connection strings are read from.
+- The export is always full. The change index is disabled, so nothing is read from
+  or written to any `vcs-index.idx`.
+- `vcs-options.json` is written into the target folder, but the database's
+  `VCS Source Path` and `VCS Build Path` properties are left alone.
+- A target that already holds a `vcs-index.idx` is another project's export folder
+  and is refused before anything begins, with `error_pattern`
+  `export_folder_has_index` (an MCP error callback, or a message box for a person).
+
+`SetOption` refuses `ExportFolder` (`export_folder_not_settable`), and a session
+override file's `ExportFolder` key is ignored: both would move the folder the
+override files are themselves read from.
+
+Callers check `GetVCSVersion` for 5.2.0 or later before passing the folder. An
+older add-in raises a modal "wrong number of arguments" dialog instead of an error
+the caller can catch.
+
+Known limits:
+
+- Scoped and single-object output lacks the project files (`vbe-project.json` and
+  the rest), so it may not build on its own.
+- `RunBeforeExport` and `RunAfterExport` hooks run; paths they build themselves
+  ignore the folder.
+- The early MCP debug log keeps its configured path, and `vcs_get_log` reads only
+  the configured folder's `logs/`, so use the `log_path` the export returns.
 
 ## Related
 

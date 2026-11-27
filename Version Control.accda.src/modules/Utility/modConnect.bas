@@ -27,6 +27,7 @@ Private m_dDsnDrivers As Dictionary
 Private m_dDsnDriverPaths As Dictionary
 Private m_dFileDsnDrivers As Dictionary
 Private m_dLearnedOracle As Dictionary
+Private m_dUnlinkedSources As Dictionary
 
 
 '---------------------------------------------------------------------------------------
@@ -190,6 +191,7 @@ Public Sub ClearConnState()
     Set m_dDsnDriverPaths = Nothing
     Set m_dFileDsnDrivers = Nothing
     Set m_dLearnedOracle = Nothing
+    Set m_dUnlinkedSources = Nothing
 End Sub
 
 
@@ -2145,7 +2147,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function GetEnvFilePath() As String
-    GetEnvFilePath = Options.GetExportFolder & ".env"
+    GetEnvFilePath = Options.GetConfiguredExportFolder & ".env"
 End Function
 
 
@@ -2196,7 +2198,7 @@ Private Function BuildResolvedEnv() As clsDotEnv
     Dim strAppEnv As String
     Dim cEnv As clsDotEnv
 
-    strDir = Options.GetExportFolder
+    strDir = Options.GetConfiguredExportFolder
     Set cEnv = New clsDotEnv
     cEnv.LoadFromFileIfExists strDir & ".env"
     cEnv.LoadFromFileIfExists strDir & ".env.local", blnMerge:=True
@@ -2281,5 +2283,263 @@ Public Sub LogUnusedEnvEntries()
             End If
         End If
     Next varKey
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDataSourceKind
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Classify a linked data source by where it lives, so whoever builds a second
+'           : copy of the project (such as a git worktree) can tell what that copy
+'           : shares. strSource is a connection string or a library file path.
+'           :   server  - ODBC, or a connection with no local path (SharePoint)
+'           :   missing - a file or folder that does not exist
+'           :   project - under strProjectFolder, so every copy needs its own
+'           :   network - a UNC path or mapped network drive, shared by every copy
+'           :   outside - a local file outside strProjectFolder, shared by every copy
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDataSourceKind(strSource As String, strProjectFolder As String) As String
+
+    Dim strPath As String
+    Dim strFolder As String
+
+    If StartsWith(strSource, "ODBC;", vbTextCompare) Then
+        GetDataSourceKind = "server"
+        Exit Function
+    End If
+
+    If InStr(1, strSource, "DATABASE=", vbTextCompare) > 0 Then
+        strPath = GetConnectPath(strSource)
+    Else
+        strPath = strSource
+    End If
+    strFolder = StripSlash(strProjectFolder) & PathSep
+
+    Select Case True
+        Case Len(strPath) = 0, InStr(1, strPath, "://") > 0
+            GetDataSourceKind = "server"
+        Case Not (FSO.FileExists(strPath) Or FSO.FolderExists(strPath))
+            GetDataSourceKind = "missing"
+        Case StartsWith(strPath & PathSep, strFolder, vbTextCompare), _
+            StartsWith(GetUncPath(strPath) & PathSep, GetUncPath(strFolder), vbTextCompare)
+            GetDataSourceKind = "project"
+        Case Left$(strPath, 2) = PathSep & PathSep, _
+            StrComp(GetUncPath(strPath), strPath, vbTextCompare) <> 0
+            GetDataSourceKind = "network"
+        Case Else
+            GetDataSourceKind = "outside"
+    End Select
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetDataSourceLabel
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : How a data source is named in the build log and the headless result:
+'           : the file path for a file-based link or library, the back-end key for
+'           : ODBC, and otherwise the connection string. Never carries credentials.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetDataSourceLabel(strSource As String) As String
+    Select Case True
+        Case StartsWith(strSource, "ODBC;", vbTextCompare)
+            GetDataSourceLabel = GetBackEndKey(strSource)
+        Case Len(GetConnectPath(strSource)) > 0
+            GetDataSourceLabel = GetConnectPath(strSource)
+        Case InStr(1, strSource, ";") > 0
+            GetDataSourceLabel = StripConnectionCredentials(strSource)
+        Case Else
+            GetDataSourceLabel = strSource
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RecordUnlinkedSource
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Remember a linked table or library reference that a build could not
+'           : create. It never reaches the database, so GetLinkedDataSources would
+'           : otherwise not know it exists. strType is "table" or "library". A table
+'           : whose .env key has no value passes an empty strSource and its key.
+'---------------------------------------------------------------------------------------
+'
+Public Sub RecordUnlinkedSource(strType As String, ByVal strSource As String, _
+    Optional strEnvKey As String)
+
+    Dim strKey As String
+    Dim dSource As Dictionary
+
+    If StrComp(strSource, "ODBC;", vbTextCompare) = 0 Then strSource = vbNullString
+    If Len(strSource) = 0 Then
+        If Len(strEnvKey) = 0 Then Exit Sub
+        strKey = "env:" & strEnvKey
+    Else
+        strKey = strType & ":" & strSource
+    End If
+
+    If m_dUnlinkedSources Is Nothing Then
+        Set m_dUnlinkedSources = New Dictionary
+        m_dUnlinkedSources.CompareMode = TextCompare
+    End If
+
+    If m_dUnlinkedSources.Exists(strKey) Then
+        Set dSource = m_dUnlinkedSources(strKey)
+        dSource("count") = dSource("count") + 1
+    Else
+        Set dSource = New Dictionary
+        dSource.Add "type", strType
+        dSource.Add "connect", strSource
+        dSource.Add "label", IIf(Len(strSource) = 0, strKey, vbNullString)
+        dSource.Add "count", 1
+        m_dUnlinkedSources.Add strKey, dSource
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLinkedDataSources
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : List each distinct linked data source of the current database once: the
+'           : back ends of its linked tables, its references to other Access databases,
+'           : and anything the current build tried to link and could not. Each item has
+'           : type, kind (see GetDataSourceKind), source, linked, and notLinked.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLinkedDataSources() As Collection
+
+    Dim dSources As Dictionary
+    Dim dUnlinked As Dictionary
+    Dim dbs As DAO.Database
+    Dim tdf As DAO.TableDef
+    Dim ref As VBIDE.Reference
+    Dim strFolder As String
+    Dim strPath As String
+    Dim blnBroken As Boolean
+    Dim varKey As Variant
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    Set GetLinkedDataSources = New Collection
+    Set dSources = New Dictionary
+    dSources.CompareMode = TextCompare
+    strFolder = CurrentProject.Path
+
+    Set dbs = CurrentDb
+    For Each tdf In dbs.TableDefs
+        If Len(tdf.Connect) > 0 Then AddDataSource dSources, "table", tdf.Connect, strFolder, 1, 0
+    Next tdf
+
+    For Each ref In CurrentVBProject.References
+        If ref.Type = vbext_rk_Project Then
+            blnBroken = ref.IsBroken
+            strPath = ref.FullPath
+            If Err.Number <> 0 Then
+                Err.Clear
+                strPath = ref.Name
+            End If
+            AddDataSource dSources, "library", strPath, strFolder, IIf(blnBroken, 0, 1), IIf(blnBroken, 1, 0)
+        End If
+    Next ref
+
+    If Not m_dUnlinkedSources Is Nothing Then
+        For Each varKey In m_dUnlinkedSources.Keys
+            Set dUnlinked = m_dUnlinkedSources(varKey)
+            AddDataSource dSources, dUnlinked("type"), dUnlinked("connect"), strFolder, _
+                0, dUnlinked("count"), dUnlinked("label")
+        Next varKey
+    End If
+
+    CatchAny eelWarning, T("Could not list every linked data source"), ModuleName & ".GetLinkedDataSources"
+
+    For Each varKey In dSources.Keys
+        GetLinkedDataSources.Add dSources(varKey)
+    Next varKey
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : AddDataSource
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Add a data source to the list built by GetLinkedDataSources, or add its
+'           : counts to the entry already there for the same back end.
+'---------------------------------------------------------------------------------------
+'
+Private Sub AddDataSource(dSources As Dictionary, ByVal strType As String, ByVal strSource As String, _
+    ByVal strFolder As String, ByVal lngLinked As Long, ByVal lngNotLinked As Long, _
+    Optional ByVal strLabel As String)
+
+    Dim strKey As String
+    Dim dSource As Dictionary
+
+    If Len(strSource) = 0 Then
+        strKey = strType & ":" & strLabel
+    ElseIf strType = "library" Then
+        strKey = strType & ":" & strSource
+    Else
+        strKey = strType & ":" & GetBackEndKey(strSource)
+    End If
+
+    If dSources.Exists(strKey) Then
+        Set dSource = dSources(strKey)
+        dSource("linked") = dSource("linked") + lngLinked
+        dSource("notLinked") = dSource("notLinked") + lngNotLinked
+    Else
+        Set dSource = New Dictionary
+        dSource.Add "type", strType
+        If Len(strSource) = 0 Then
+            dSource.Add "kind", "missing"
+            dSource.Add "source", strLabel
+        Else
+            dSource.Add "kind", GetDataSourceKind(strSource, strFolder)
+            dSource.Add "source", GetDataSourceLabel(strSource)
+        End If
+        dSource.Add "linked", lngLinked
+        dSource.Add "notLinked", lngNotLinked
+        dSources.Add strKey, dSource
+    End If
+
+End Sub
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : LogLinkedDataSources
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Write the list from GetLinkedDataSources to the log file, one line each.
+'---------------------------------------------------------------------------------------
+'
+Public Sub LogLinkedDataSources(colSources As Collection)
+
+    Dim dSource As Dictionary
+    Dim varSource As Variant
+    Dim strDetail As String
+
+    If colSources Is Nothing Then Exit Sub
+    If colSources.Count = 0 Then Exit Sub
+
+    Log.Add T("Linked data sources:"), False
+    For Each varSource In colSources
+        Set dSource = varSource
+        If dSource("type") = "library" Then
+            strDetail = T("library reference")
+        ElseIf dSource("notLinked") > 0 Then
+            strDetail = T("{0} linked table(s), {1} not linked", _
+                var0:=dSource("linked"), var1:=dSource("notLinked"))
+        Else
+            strDetail = T("{0} linked table(s)", var0:=dSource("linked"))
+        End If
+        Log.Add "  [" & dSource("kind") & "] " & dSource("source") & " - " & strDetail, False
+    Next varSource
 
 End Sub

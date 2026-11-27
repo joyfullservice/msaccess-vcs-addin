@@ -1324,6 +1324,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
 
         If dState("Status") = csIgnored Then
             Log.Add "  " & T("Skipped {0} (connection ignored)", var0:=dItem("Name")), Options.ShowDebug
+            RecordUnlinkedSource "table", GetFullConnect(strConnect), strEnvKey
             Exit Function
         ElseIf dState("Status") = csOK And Len(dState("LinkConnect")) > 0 Then
             strConnect = dState("LinkConnect")
@@ -1332,6 +1333,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
                 strConnect = "ODBC;"
             Else
                 Log.Add "  " & T("Skipped {0} (missing .env key)", var0:=dItem("Name")), Options.ShowDebug
+                RecordUnlinkedSource "table", vbNullString, strEnvKey
                 Exit Function
             End If
         End If
@@ -1363,6 +1365,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
                     ModuleName(Me) & ".ImportLinkedTable"
                 Log.Add "Linked table object not found in " & strFile, False
                 Log.Add "Connection String: " & strConnect, False
+                RecordUnlinkedSource "table", strConnect, strEnvKey
                 Exit Function
             ElseIf IsConnectionError(lngErrNum) Then
                 Err.Clear
@@ -1371,6 +1374,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
                     Case cfaRetry
                     Case cfaIgnore
                         Log.Add "  " & T("Skipped {0} (connection ignored)", var0:=dItem("Name")), Options.ShowDebug
+                        RecordUnlinkedSource "table", strConnect, strEnvKey
                         Exit Function
                     Case cfaAbort
                         Log.Error eelCritical, _
@@ -1380,6 +1384,7 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
                 End Select
             Else
                 CatchAny eelError, vbNullString, ModuleName(Me) & ".ImportLinkedTable"
+                RecordUnlinkedSource "table", strConnect, strEnvKey
                 Exit Function
             End If
         Loop

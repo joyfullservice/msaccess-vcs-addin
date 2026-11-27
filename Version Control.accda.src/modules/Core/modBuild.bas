@@ -753,6 +753,12 @@ Public Sub Build(strSourceFolder As String, blnFullBuild As Boolean _
         End If
     End If
 
+    ' A copy of the project built elsewhere, such as a git worktree, shares every source
+    ' outside its own folder with the original.
+    Dim colDataSources As Collection
+    Set colDataSources = GetLinkedDataSources
+    LogLinkedDataSources colDataSources
+
     ' Show final output and save log
     Dim dMissing As Dictionary
     Dim varEnvKey As Variant
@@ -841,6 +847,7 @@ CleanUp:
             .Item("warningCount") = Log.WarningCount
             .Item("durationMs") = CLng(Perf.TotalTime * 1000)
             If DatabaseFileOpen Then .Item("databasePath") = CurrentProject.FullName
+            If Not colDataSources Is Nothing Then Set .Item("dataSources") = colDataSources
         End With
     End If
 
@@ -1372,11 +1379,7 @@ Public Sub LoadSingleObject(cComponentClass As IDbComponent, strName As String, 
     Else
         ' Reload the project options and reset the logs
         Set VCSIndex = Nothing
-        Set Options = Nothing
-        Options.LoadProjectOptions
-        If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-            Options.LoadOptionOverrides
-        End If
+        ReloadOptions
         Log.Clear
         Log.SourcePath = Options.GetExportFolder
         Log.Active = True
@@ -1695,11 +1698,7 @@ Public Sub MergeAllSource()
 
     ' Reload the project options and reset the logs
     Set VCSIndex = Nothing
-    Set Options = Nothing
-    Options.LoadProjectOptions
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-        Options.LoadOptionOverrides
-    End If
+    ReloadOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True

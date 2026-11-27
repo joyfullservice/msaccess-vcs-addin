@@ -62,8 +62,8 @@ End Sub
 '           : export did not run to the end: refused, stopped by a check, or failed.
 '---------------------------------------------------------------------------------------
 '
-Public Function Export() As Boolean
-    Export = RunExport(ecfAllObjects)
+Public Function Export(Optional ByVal strExportFolder As String) As Boolean
+    Export = RunExportTo(strExportFolder, ecfAllObjects)
 End Function
 
 
@@ -75,8 +75,8 @@ End Function
 '           : as Export does.
 '---------------------------------------------------------------------------------------
 '
-Public Function FullExport() As Boolean
-    FullExport = RunExport(ecfAllObjects, , True)
+Public Function FullExport(Optional ByVal strExportFolder As String) As Boolean
+    FullExport = RunExportTo(strExportFolder, ecfAllObjects, True)
 End Function
 
 
@@ -87,9 +87,82 @@ End Function
 ' Purpose   : Export just the VBA related components. Returns False as Export does.
 '---------------------------------------------------------------------------------------
 '
-Public Function ExportVBA() As Boolean
-    ExportVBA = RunExport(ecfVBAItems)
+Public Function ExportVBA(Optional ByVal strExportFolder As String) As Boolean
+    ExportVBA = RunExportTo(strExportFolder, ecfVBAItems)
 End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RunExportTo
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Run a form-driven export, to strExportFolder when one is given. An export
+'           : to another folder has no index, so it exports every object in scope.
+'---------------------------------------------------------------------------------------
+'
+Private Function RunExportTo(strExportFolder As String, intFilter As eContainerFilter, _
+    Optional blnFullExport As Boolean = False) As Boolean
+
+    Dim strError As String
+
+    strError = RequestExportFolder(strExportFolder)
+    If Len(strError) > 0 Then
+        ReportExportFolderError strError
+        Exit Function
+    End If
+
+    RunExportTo = RunExport(intFilter, , blnFullExport Or Len(strExportFolder) > 0)
+    Operation.PendingExportFolder = vbNullString
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : RequestExportFolder
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Check an export folder override and stage it for the next operation.
+'           : Returns an error message, or empty when the folder may be used (or none
+'           : was given). A folder holding a vcs-index.idx is some database's export
+'           : folder; an export to another folder runs without an index, so writing
+'           : there would overwrite that database's source files unchecked.
+'---------------------------------------------------------------------------------------
+'
+Private Function RequestExportFolder(ByVal strExportFolder As String) As String
+
+    Dim strFolder As String
+
+    If Len(strExportFolder) = 0 Then Exit Function
+
+    strFolder = StripSlash(FSO.GetAbsolutePathName(strExportFolder)) & PathSep
+    If FSO.FileExists(strFolder & "vcs-index.idx") Then
+        RequestExportFolder = T("{0} holds a vcs-index.idx, so it is the export folder of a " & _
+            "database. Export to an empty folder, or to one an earlier export to another " & _
+            "folder created.", var0:=strFolder)
+        Exit Function
+    End If
+
+    VerifyPath strFolder & "vcs-options.json"
+    Operation.PendingExportFolder = strFolder
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : ReportExportFolderError
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Report a refused export folder from an export that returns only a Boolean.
+'           : No operation began, so an MCP caller hears it from this callback.
+'---------------------------------------------------------------------------------------
+'
+Private Sub ReportExportFolderError(strError As String)
+    If MCP.IsActive Then
+        MCP.PostCallback "error", -1, -1, strError
+    Else
+        MsgBox2 T("Cannot Export to This Folder"), strError, , vbExclamation
+    End If
+End Sub
 
 
 '---------------------------------------------------------------------------------------
@@ -1115,7 +1188,8 @@ End Sub
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
 '
-Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strObjectName As String) As String
+Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strObjectName As String, _
+    Optional ByVal strExportFolder As String) As String
 
     Dim intComponentType As eDatabaseComponentType
     Dim objItem As AccessObject
@@ -1125,11 +1199,23 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
     Dim varKey As Variant
     Dim blnFound As Boolean
     Dim dResult As Dictionary
+    Dim blnBegun As Boolean
+    Dim strError As String
 
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
     Set dResult = New Dictionary
+
+    If Len(strExportFolder) > 0 Then
+        If FSO.FileExists(StripSlash(FSO.GetAbsolutePathName(strExportFolder)) & PathSep & "vcs-index.idx") Then
+            dResult.Add "success", False
+            dResult.Add "error", RequestExportFolder(strExportFolder)
+            dResult.Add "error_pattern", "export_folder_has_index"
+            ExportObject = ConvertToJson(dResult)
+            Exit Function
+        End If
+    End If
 
     ' Resolve type string to eDatabaseComponentType via the shared helper
     intComponentType = ResolveComponentType(strObjectType)
@@ -1171,12 +1257,14 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
             End If
 
             ' Begin operation and delegate to ExportSingleObject
+            strError = RequestExportFolder(strExportFolder)
             If Not Operation.Begin(eotExport) Then
                 dResult.Add "success", False
                 dResult.Add "error", "Could not begin export operation (another operation may be running)"
                 ExportObject = ConvertToJson(dResult)
                 Exit Function
             End If
+            blnBegun = True
 
             modExport.ExportSingleObject objItem, , _
                 blnNoIndex:=(Operation.Source = eosMCPTool) Or (Operation.Source = eosExternalAPI)
@@ -1184,12 +1272,14 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
 
         Case Else
             ' --- Non-core component type path ---
+            strError = RequestExportFolder(strExportFolder)
             If Not Operation.Begin(eotExport) Then
                 dResult.Add "success", False
                 dResult.Add "error", "Could not begin export operation (another operation may be running)"
                 ExportObject = ConvertToJson(dResult)
                 Exit Function
             End If
+            blnBegun = True
 
             ' Set up options and logging (mirrors ExportSingleObject setup)
             If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
@@ -1207,11 +1297,7 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
             Else
                 Set VCSIndex = Nothing
             End If
-            Set Options = Nothing
-            Options.LoadProjectOptions
-            If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-                Options.LoadOptionOverrides
-            End If
+            ReloadOptions
             Log.Clear
             Log.SourcePath = Options.GetExportFolder
             Log.Active = True
@@ -1230,6 +1316,7 @@ Public Function ExportObject(ByVal strObjectType As String, Optional ByVal strOb
                 .Add Now
                 .Spacer
             End With
+            WarnIfExportFolderOutsideWorkingTree
 
             Set cComponent = GetComponentClass(intComponentType)
             If cComponent Is Nothing Then
@@ -1314,6 +1401,9 @@ ErrHandler:
     dResult.Add "error", Err.Description
     dResult.Add "errorNumber", CLng(Err.Number)
     ExportObject = ConvertToJson(dResult)
+    ' Finish what this call began, so neither the root nor its export folder outlives it.
+    Operation.PendingExportFolder = vbNullString
+    If blnBegun Then Operation.Finish eorFailed
 
 End Function
 
@@ -1490,7 +1580,8 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Public Function ExportByType(ByVal varTypes As Variant, _
-    Optional ByVal blnFullExport As Boolean = False) As String
+    Optional ByVal blnFullExport As Boolean = False, _
+    Optional ByVal strExportFolder As String) As String
 
     Dim dResult As Dictionary
     Dim colContainers As Collection
@@ -1522,6 +1613,17 @@ Public Function ExportByType(ByVal varTypes As Variant, _
         ExportByType = ConvertToJson(dResult)
         Exit Function
     End If
+
+    ' An export to another folder has no index, so it exports every object in scope.
+    strError = RequestExportFolder(strExportFolder)
+    If Len(strError) > 0 Then
+        dResult.Add "success", False
+        dResult.Add "error", strError
+        dResult.Add "error_pattern", "export_folder_has_index"
+        ExportByType = ConvertToJson(dResult)
+        Exit Function
+    End If
+    If Len(strExportFolder) > 0 Then blnFullExport = True
 
     If Not Operation.Begin(eotExport) Then
         dResult.Add "success", False
@@ -1625,11 +1727,7 @@ Private Sub BeginScopedSyncLog(strHeading As String)
     If DebugMode(True) Then On Error GoTo 0 Else On Error Resume Next
 
     Set VCSIndex = Nothing
-    Set Options = Nothing
-    Options.LoadProjectOptions
-    If Operation.Source = eosMCPTool Or Operation.Source = eosExternalAPI Then
-        Options.LoadOptionOverrides
-    End If
+    ReloadOptions
     Log.Clear
     Log.SourcePath = Options.GetExportFolder
     Log.Active = True
@@ -1648,6 +1746,7 @@ Private Sub BeginScopedSyncLog(strHeading As String)
         .Add Now
         .Spacer
     End With
+    WarnIfExportFolderOutsideWorkingTree
 
 End Sub
 
@@ -2441,6 +2540,17 @@ Public Function SetOption(ByVal strName As String, ByVal varValue As Variant) As
         Exit Function
     End If
 
+    ' The override file lives in the export folder, so an override of the export
+    ' folder itself is saved where the next options load never looks.
+    If StrComp(strName, "ExportFolder", vbTextCompare) = 0 Then
+        dResult.Add "success", False
+        dResult.Add "error", T("ExportFolder cannot be set for a session. Export to another " & _
+            "folder with the export folder argument instead.")
+        dResult.Add "error_pattern", "export_folder_not_settable"
+        SetOption = ConvertToJson(dResult)
+        Exit Function
+    End If
+
     ' Apply to current in-memory options
     CallByName Options, strName, VbLet, varValue
 
@@ -2489,7 +2599,7 @@ Private Sub SaveOptionOverride(strName As String, varValue As Variant)
     If Len(strSessionId) = 0 Then strSessionId = "default"
 
     ' Build file path
-    strFolder = Options.GetExportFolder & "mcp" & PathSep
+    strFolder = Options.GetConfiguredExportFolder & "mcp" & PathSep
     strFile = strFolder & "options-" & strSessionId & ".json"
 
     ' Create mcp subfolder if needed
@@ -2588,7 +2698,7 @@ Public Function EndSession(Optional ByVal strSessionId As String) As String
     If Len(strSessionId) = 0 Then strSessionId = "default"
 
     ' Delete the session's override file
-    strFile = Options.GetExportFolder & "mcp" & PathSep & "options-" & strSessionId & ".json"
+    strFile = Options.GetConfiguredExportFolder & "mcp" & PathSep & "options-" & strSessionId & ".json"
     If FSO.FileExists(strFile) Then DeleteFile strFile
 
     ' Clear session ID if it matches

@@ -24,6 +24,7 @@ in [docs/](docs/README.md); read
 | Inspecting a database's schema over MCP; a failing `vcs_run_vba` call | [docs/mcp-runvba.md](docs/mcp-runvba.md) |
 | Rebuilding the add-in unattended; a refused or stalled rebuild | [docs/agentic-rebuild.md](docs/agentic-rebuild.md) |
 | Running this repo's own tests over MCP; an all-`EMPTY` result | [docs/agent-test-runs.md](docs/agent-test-runs.md) |
+| Building or testing from a git worktree; parallel agents | [docs/worktrees.md](docs/worktrees.md) |
 | Test layers, fixtures, round-trip harness, CI | [docs/testing-strategy.md](docs/testing-strategy.md) |
 | The test runner UI or its VBA/JS bridge | [docs/web-test-runner.md](docs/web-test-runner.md) |
 | Writing an individual test | [.cursor/rules/testing.mdc](.cursor/rules/testing.mdc) |
