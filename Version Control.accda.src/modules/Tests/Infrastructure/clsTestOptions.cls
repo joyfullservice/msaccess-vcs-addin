@@ -237,6 +237,127 @@ ErrHandler:
 End Sub
 
 
+Public Sub TestSessionOverride_NotSavedToFile()
+
+    Dim cOpt As clsOptions
+    Dim dFile As Dictionary
+    Dim strFile As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+    strFile = GetTempFile()
+
+    Set cOpt = New clsOptions
+    cOpt.LoadDefaults
+    cOpt.ApplySessionOverride "ShowDebug", True
+    cOpt.ApplySessionOverride "MaxLogFiles", 37
+    cOpt.ApplySessionOverride "maxlogfiles", 38
+    cOpt.ApplySessionOverride "ExportFormatVersion", 40102
+    TestAssert cOpt.ShowDebug = True, "the override applies in memory"
+    TestAssert cOpt.MaxLogFiles = 38, "a later override replaces an earlier one"
+
+    cOpt.SaveOptionsToFile strFile
+    Set dFile = ReadJsonFile(strFile)
+    TestAssert dFile("Options")("ShowDebug") = False, "the file keeps the value the override replaced"
+    TestAssert dFile("Options")("MaxLogFiles") = 20, "a second override keeps the first replaced value"
+    TestAssert dFile("Options")("ExportFormatVersion") = ExportFormatToVersion(LatestExportFormat), _
+        "a replaced export format is saved as a version"
+
+CleanUp:
+    On Error Resume Next
+    If Len(strFile) > 0 Then If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
+    If lngErr <> 0 Then TestAssert False, "session override save error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+End Sub
+
+
+Public Sub TestSessionOverride_ChangesExportHash()
+    Dim cOpt As New clsOptions
+    Dim dBefore As Dictionary
+    Dim dAfter As Dictionary
+
+    cOpt.LoadDefaults
+    Set dBefore = cOpt.GetCategoryHashes
+    cOpt.ApplySessionOverride "SaveTableSQL", False
+    Set dAfter = cOpt.GetCategoryHashes
+    TestAssert dBefore("Tables") <> dAfter("Tables"), "the export hash follows the override"
+End Sub
+
+
+Public Sub TestOverrideFile_NotSavedToFile()
+
+    Dim cOpt As clsOptions
+    Dim dFile As Dictionary
+    Dim strOverride As String
+    Dim strFile As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+    strFile = GetTempFile()
+    Set cOpt = New clsOptions
+    cOpt.LoadDefaults
+    strOverride = cOpt.GetConfiguredExportFolder & "mcp" & PathSep & "options-save-guard-test.json"
+    VerifyPath strOverride
+    WriteFile "{""Info"":{""Modified"":""" & Format$(Now, "yyyy-mm-dd hh:nn:ss") & """}," & _
+        """Options"":{""ShowDebug"":true}}", strOverride
+
+    cOpt.LoadOptionOverrides
+    TestAssert cOpt.ShowDebug = True, "the override file is applied"
+    cOpt.SaveOptionsToFile strFile
+    Set dFile = ReadJsonFile(strFile)
+    TestAssert dFile("Options")("ShowDebug") = False, "the saved file keeps the project value"
+
+CleanUp:
+    On Error Resume Next
+    If Len(strOverride) > 0 Then If FSO.FileExists(strOverride) Then FSO.DeleteFile strOverride, True
+    If Len(strFile) > 0 Then If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
+    If lngErr <> 0 Then TestAssert False, "override file save error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+End Sub
+
+
+Public Sub TestGetOption_AppliesOverridesAfterReload()
+
+    Dim strFile As String
+    Dim lngErr As Long
+    Dim strErr As String
+
+    On Error GoTo ErrHandler
+    strFile = Options.GetConfiguredExportFolder & "mcp" & PathSep & "options-get-option-test.json"
+    VerifyPath strFile
+    WriteFile "{""Info"":{""Modified"":""" & Format$(Now, "yyyy-mm-dd hh:nn:ss") & """}," & _
+        """Options"":{""MaxLogFiles"":37}}", strFile
+
+    ' Root completion discards the cached options the same way.
+    Set Options = Nothing
+    TestAssert VCS.GetOption("MaxLogFiles") = 37, "GetOption applies the session overrides"
+
+CleanUp:
+    On Error Resume Next
+    If Len(strFile) > 0 Then If FSO.FileExists(strFile) Then FSO.DeleteFile strFile, True
+    Set Options = Nothing
+    If lngErr <> 0 Then TestAssert False, "GetOption reload error " & lngErr & ": " & strErr
+    Exit Sub
+
+ErrHandler:
+    lngErr = Err.Number
+    strErr = Err.Description
+    Resume CleanUp
+End Sub
+
+
 Public Sub TestEndSession_DiscardsCachedOptions()
 
     Dim cVcs As clsVersionControl

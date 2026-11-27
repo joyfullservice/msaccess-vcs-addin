@@ -2486,7 +2486,8 @@ End Function
 ' Procedure : GetOption
 ' Author    : Adam Waller
 ' Date      : 4/14/2026
-' Purpose   : Return the current value of any clsOptions property by name.
+' Purpose   : Return the current value of any clsOptions property by name, with the
+'           : session overrides applied.
 '           : Uses CallByName for dynamic property access.
 '           : Public method for external API access (e.g., via MCP tools).
 '---------------------------------------------------------------------------------------
@@ -2496,7 +2497,7 @@ Public Function GetOption(ByVal strName As String) As Variant
     LogUnhandledErrors
     On Error GoTo ErrHandler
 
-    GetOption = CallByName(Options, strName, VbGet)
+    GetOption = CallByName(SessionOptions, strName, VbGet)
     Exit Function
 
 ErrHandler:
@@ -2552,7 +2553,7 @@ Public Function SetOption(ByVal strName As String, ByVal varValue As Variant) As
     End If
 
     ' Apply to current in-memory options
-    CallByName Options, strName, VbLet, varValue
+    SessionOptions.ApplySessionOverride strName, varValue
 
     ' Persist to session override file so the change survives Options reload
     SaveOptionOverride strName, varValue
@@ -2569,6 +2570,21 @@ ErrHandler:
     dResult.Add "error", "Could not set option '" & strName & "': " & Err.Description
     SetOption = ConvertToJson(dResult)
 
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : SessionOptions
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : The options with the session overrides applied. Every root operation
+'           : discards the options when it finishes, and the next access loads the
+'           : project file alone.
+'---------------------------------------------------------------------------------------
+'
+Private Function SessionOptions() As clsOptions
+    If Not Options.SessionOverridesLoaded Then Options.LoadOptionOverrides
+    Set SessionOptions = Options
 End Function
 
 

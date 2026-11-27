@@ -83,6 +83,47 @@ contradictory guidance.
 
 ---
 
+## 2026-11-27 — Session overrides are never saved to an options file
+
+**Trigger**: An export over MCP wrote the session's overrides into the
+project's tracked `vcs-options.json`, so `vcs_set_option("ShowDebug", True)`
+showed up as a change in git and outlived the session. `ExportSource` ends with
+`SaveOptionsForProject`, which serialized the loaded `Options`, and
+`MergeOverrideFile` had merged the override files into that same instance. A
+second symptom: `GetOption` after any operation returned the project file's
+value, because root completion discards `Options` and the next access loads
+the file without the overrides.
+
+**Options explored**:
+- Skip `SaveOptionsForProject` when the operation came from MCP or the API:
+  rejected. The save creates `vcs-options.json` on a project's first export,
+  records the add-in version, and keeps `VCS Source Path` current.
+- Load a second, override-free `clsOptions` just for the save: rejected. It
+  reads the file again on every export, rerunning `Upgrade` (which can call
+  git) and `SetBuildPath`, and drops anything set in memory after the load.
+- **Chosen**: `clsOptions.ApplySessionOverride` keeps the value an override
+  replaces, the first time only. `SaveOptionsToFile` writes those values in
+  place of the overrides. `GetCategoryHashes` still hashes the session's
+  values, because the export output follows them. `MergeOverrideFile` and
+  `SetOption` both apply overrides through it, and `GetOption` and `SetOption`
+  load the override files when the cached instance has not
+  (`SessionOverridesLoaded`).
+
+**Decision**: An options file saved from any instance holds the project's own
+values. The options form loads its own instance without overrides, so what the
+user saves there is saved as before.
+
+**What this rules out**: Applying a session value to `Options` with
+`CallByName` or a direct assignment, which would be saved like a project value.
+Overrides that earlier builds already wrote stay in users' files until they
+revert them.
+
+**Relevant files**: `clsOptions.cls` (`ApplySessionOverride`,
+`SessionOverridesLoaded`, `SerializeOptions`), `clsVersionControl.cls`
+(`GetOption`, `SetOption`, `SessionOptions`), `clsTestOptions.cls`.
+
+---
+
 ## 2026-11-27 — An export to another folder lasts one operation and writes no index
 
 **Trigger**: Agents (and the ribbon's export-to-folder idea) need a project's
@@ -7893,6 +7934,10 @@ What would trigger revisiting: if a future composer rewrite collapses multiple s
 - **Single shared override file** — no session isolation; stale overrides bleed into interactive use.
 - **Session-scoped override files in `mcp/` subfolder (chosen)** — each MCP/API session gets its own override file. Files are `.gitignored`. The user's `vcs-options.json` is never touched.
 
+> **⚠ Partially superseded** (2026-11-27): It was touched. Every export saved
+> the loaded options, overrides included, into `vcs-options.json`. See "Session
+> overrides are never saved to an options file" above.
+
 **Decision**: `SetOption` now persists overrides to `mcp/options-{session_id}.json` alongside `vcs-options.json`. After every `LoadProjectOptions` call, if `Operation.Source` is `eosMCPTool` or `eosExternalAPI`, `LoadOptionOverrides` scans the `mcp/` subfolder and merges matching override files on top. Interactive ribbon operations never see them. Stale files are auto-cleaned after 30 days. The MCP server generates a random session ID at startup, registers it via `RegisterSession`, and calls `EndSession` on shutdown to delete the override file.
 
 > **⚠ Partially superseded** (2026-08-28): `EndSession` did delete the override file, but `Set Options = Nothing` inside `clsVersionControl` raised 438 because `Options` was a Function, so the cached instance was never discarded. Scoped export/import reloads had the same assignment under `On Error Resume Next`. See "clsVersionControl.Options is a property so the cache can be discarded" above.
@@ -7940,6 +7985,10 @@ What would trigger revisiting: if a future composer rewrite collapses multiple s
 > **⚠ Partially superseded** (2026-11-24): `SetOption` now refuses the
 > `McpAllow*` permissions; the rest of this entry stands. See "The API and
 > override files cannot change the McpAllow* permissions" above.
+
+> **⚠ Partially superseded** (2026-11-27): Saving the options does not persist
+> a `SetOption` change either; the file keeps the value it replaced. See
+> "Session overrides are never saved to an options file" above.
 
 **What this rules out**: There is no per-property access control. Every public property on `clsOptions` is readable and writable via the API, including the MCP security options themselves. An agent can call `SetOption("McpAllowRunVBA", True)` to enable `RunVBA` for the session, even if the persisted setting is False. This is acceptable because: (1) the change is session-level and doesn't persist, (2) the user has already opted into MCP access by configuring the server, and (3) adding a property-level ACL would require maintaining a second list of "allowed" properties alongside `m_colOptions`. If a property is ever added that should be truly non-modifiable via API (e.g., a licensing key), it should be implemented as a private property with a read-only public wrapper, which `CallByName` on `VbLet` would fail to set.
 
