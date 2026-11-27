@@ -56,6 +56,32 @@ End Function
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : GetBuildOutputPathError
+' Author    : Adam Waller
+' Date      : 11/27/2026
+' Purpose   : Return why an unattended build cannot write to strOutputPath, or an empty
+'           : string when it can. A relative path would resolve against whatever folder
+'           : Access happens to be in, and a missing folder fails only after the open
+'           : database has been closed, so both are refused before the build starts.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetBuildOutputPathError(strOutputPath As String) As String
+
+    If Not (strOutputPath Like "[A-Za-z]:\*" Or Left$(strOutputPath, 2) = "\\") Then
+        GetBuildOutputPathError = "Output path must be a full path: " & strOutputPath
+    ElseIf Right$(strOutputPath, 1) = PathSep Or FSO.FolderExists(strOutputPath) Then
+        GetBuildOutputPathError = "Output path must name a file: " & strOutputPath
+    ElseIf Not FSO.FolderExists(FSO.GetParentFolderName(strOutputPath)) Then
+        GetBuildOutputPathError = "Output folder does not exist: " & FSO.GetParentFolderName(strOutputPath)
+    ElseIf PathsMatchIgnoringExtension(strOutputPath, CodeProject.FullName) _
+        Or PathsMatchIgnoringExtension(strOutputPath, GetInstalledAddInFileName) Then
+        GetBuildOutputPathError = "Cannot build over the VCS add-in: " & strOutputPath
+    End If
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : Build (Full build or Merge Build)
 ' Author    : Adam Waller
 ' Date      : 5/4/2020

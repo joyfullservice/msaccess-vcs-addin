@@ -83,6 +83,43 @@ contradictory guidance.
 
 ---
 
+## 2026-11-27 — BuildHeadless takes an optional output path
+
+**Trigger**: The MCP server's `vcs_rebuild_database(output_path=...)` passed a
+second argument to `BuildHeadless`, which had only ever taken the source
+folder. VBA raised error 450 inside the library, Access showed it as a modal
+dialog, and the call blocked until someone dismissed it.
+
+**Options explored**:
+- Drop `output_path` from the server: rejected. Unattended callers then
+  have no equivalent of **Build As...**, and the workaround (editing
+  `vbe-project.json` and `dbs-properties.json` in a copy of the source) is
+  error-prone.
+- **Chosen**: an optional second argument, `strOutputPath`, passed to
+  `modBuild.Build` as the `strAlternatePath` that **Build As...** already
+  uses. Omitted, the build goes to the file named in the source files, as
+  before.
+- Resolve a relative path against the source folder: rejected. Neither the
+  caller nor the reader of a log can tell which folder was meant; a full path
+  is unambiguous.
+
+**Decision**: `GetBuildOutputPathError` refuses, before the operation
+begins, a path that is not absolute, names a folder, sits in a folder that
+does not exist, or matches the running add-in or the installed one (ignoring
+the extension). A full build closes the open database first, so a path that
+fails later would leave the caller with nothing open and nothing built.
+`MergeHeadless` takes no output path: a merge always updates the open file.
+
+**What this rules out**: Creating missing folders for the caller. Callers
+that pass a second argument must check for 5.2.0 first; an older add-in
+still raises error 450 in a dialog.
+
+**Relevant files**: `modules/API/clsVersionControl.cls` (`BuildHeadless`,
+`RunHeadlessBuild`), `modules/Core/modBuild.bas` (`GetBuildOutputPathError`),
+`modules/Tests/Core/modTestHeadlessBuild.bas`, `Wiki/Continuous-Integration.md`.
+
+---
+
 ## 2026-11-24 — Test filters reach the runner as an argument, not an option
 
 **Trigger**: Users found `mcp/options-default.json` in their uncommitted

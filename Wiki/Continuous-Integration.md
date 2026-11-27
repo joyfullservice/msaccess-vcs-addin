@@ -51,6 +51,14 @@ if (-not $result.success) {
 Omit the folder argument to use the export folder configured for the database
 that is already open.
 
+`BuildHeadless` takes an optional second argument, the full path of the file to
+build, as **Build As...** does. Omit it to build to the file named in the source
+files. The folder must already exist. (Added in 5.2.0.)
+
+```vba
+strResult = VCS.BuildHeadless("C:\proj\MyApp.accdb.src\", "C:\builds\MyApp.accdb")
+```
+
 ## What comes back
 
 ```json

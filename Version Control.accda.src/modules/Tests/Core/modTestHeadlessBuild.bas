@@ -64,6 +64,25 @@ Public Sub TestHeadlessBuildRefusesToBuildTheAddInItself()
 End Sub
 
 
+Public Sub TestBuildOutputPathError()
+
+    Dim strTemp As String
+
+    strTemp = Environ("TEMP")
+
+    TestAssert Len(GetBuildOutputPathError("out\NewName.accdb")), "relative path refused"
+    TestAssert Len(GetBuildOutputPathError(strTemp & PathSep)), "folder with trailing separator refused"
+    TestAssert Len(GetBuildOutputPathError(strTemp)), "existing folder refused"
+    TestAssert InStr(GetBuildOutputPathError("C:\vcs-no-such-output-folder\NewName.accdb"), _
+        "does not exist") > 0, "missing folder refused"
+    TestAssert InStr(GetBuildOutputPathError(CodeProject.FullName), "add-in") > 0, _
+        "the running project refused"
+    TestAssert Len(GetBuildOutputPathError(BuildPath2(strTemp, "vcs-headless-output.accdb"))) = 0, _
+        "file in an existing folder accepted"
+
+End Sub
+
+
 Public Sub TestHeadlessBuildRestoresInteractionMode()
 
     Dim intPrior As eInteractionMode

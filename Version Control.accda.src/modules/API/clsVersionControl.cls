@@ -194,12 +194,16 @@ End Sub
 '           : Pass strSourceFolder to build from a specific folder, or omit it to use
 '           : the export folder configured for the currently open database.
 '           :
+'           : Pass strOutputPath (a full path) to build to a different file, as
+'           : Build As... does. Omit it to build to the file named in the source files.
+'           :
 '           : Returns JSON: {"success":true/false, "logPath":"...", "errorCount":0,
 '           :   "warningCount":0, "durationMs":0, "databasePath":"...", "error":"..."}
 '---------------------------------------------------------------------------------------
 '
-Public Function BuildHeadless(Optional ByVal strSourceFolder As String) As String
-    BuildHeadless = RunHeadlessBuild(strSourceFolder, True)
+Public Function BuildHeadless(Optional ByVal strSourceFolder As String, _
+    Optional ByVal strOutputPath As String) As String
+    BuildHeadless = RunHeadlessBuild(strSourceFolder, True, strOutputPath)
 End Function
 
 
@@ -233,7 +237,7 @@ End Function
 '---------------------------------------------------------------------------------------
 '
 Private Function RunHeadlessBuild(ByVal strSourceFolder As String, _
-    ByVal blnFullBuild As Boolean) As String
+    ByVal blnFullBuild As Boolean, Optional ByVal strOutputPath As String) As String
 
     Dim dResult As Dictionary
     Dim dOutcome As Dictionary
@@ -241,6 +245,7 @@ Private Function RunHeadlessBuild(ByVal strSourceFolder As String, _
     Dim varKey As Variant
     Dim intOperationType As eOperationType
     Dim cTrapping As clsVbeErrorTrappingScope
+    Dim strOutputError As String
 
     LogUnhandledErrors
     On Error GoTo ErrHandler
@@ -288,6 +293,12 @@ Private Function RunHeadlessBuild(ByVal strSourceFolder As String, _
         RunHeadlessBuild = ConvertToJson(dResult)
         Exit Function
     End If
+    If Len(strOutputPath) Then strOutputError = GetBuildOutputPathError(strOutputPath)
+    If Len(strOutputError) Then
+        SetPreflightError dResult, strOutputError
+        RunHeadlessBuild = ConvertToJson(dResult)
+        Exit Function
+    End If
 
     ' Silent mode routes MsgBox2 prompts to the log and returns their default answer,
     ' and suppresses the progress form. Set before Begin, which raises its own modal
@@ -310,7 +321,7 @@ Private Function RunHeadlessBuild(ByVal strSourceFolder As String, _
     Set dOutcome = New Dictionary
     dOutcome.Add "success", False
 
-    modBuild.Build strSourceFolder, blnFullBuild, ecfAllObjects, , , dOutcome
+    modBuild.Build strSourceFolder, blnFullBuild, ecfAllObjects, strOutputPath, , dOutcome
     CompleteBuildOperation CBool(dOutcome("success"))
 
     For Each varKey In dOutcome.Keys
