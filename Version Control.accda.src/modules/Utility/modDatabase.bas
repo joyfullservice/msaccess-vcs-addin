@@ -211,6 +211,70 @@ End Sub
 
 
 '---------------------------------------------------------------------------------------
+' Procedure : IsLookupDependentProperty
+' Author    : Tim Finch
+' Date      : 11/25/2026
+' Purpose   : Return True for the field properties on the Lookup tab that depend on
+'           : DisplayControl. When Access loads a field into the table designer, any of
+'           : these that was created before DisplayControl is reset to its default in
+'           : the loaded copy, and the next save stores the reset value (#691).
+'           : Measured for RowSourceType, RowSource, BoundColumn, ColumnCount,
+'           : ColumnHeads, ColumnWidths, ListRows, ListWidth and LimitToList. The last
+'           : four names are included because Access also writes them after
+'           : DisplayControl; they were not measured.
+'---------------------------------------------------------------------------------------
+'
+Public Function IsLookupDependentProperty(strName As String) As Boolean
+    Select Case strName
+        Case "RowSourceType", "RowSource", "BoundColumn", "ColumnCount", "ColumnHeads", _
+            "ColumnWidths", "ListRows", "ListWidth", "LimitToList", "AllowMultipleValues", _
+            "AllowValueListEdits", "ListItemsEditForm", "ShowOnlyRowSourceValues"
+            IsLookupDependentProperty = True
+    End Select
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetFieldPropertyApplyOrder
+' Author    : Tim Finch
+' Date      : 11/25/2026
+' Purpose   : Return the names in a field property dictionary in the order they should be
+'           : created. A DAO field keeps custom properties in creation order, so
+'           : DisplayControl is moved ahead of the first lookup property that would
+'           : otherwise precede it. Every other name keeps its place, so source that is
+'           : already in a working order is applied unchanged.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetFieldPropertyApplyOrder(ByVal dProps As Dictionary) As Collection
+
+    Dim colNames As New Collection
+    Dim varName As Variant
+    Dim blnPending As Boolean
+
+    blnPending = dProps.Exists("DisplayControl")
+
+    For Each varName In dProps.Keys
+        If CStr(varName) = "DisplayControl" Then
+            ' Skip if it has already been added ahead of a lookup property.
+            If blnPending Then colNames.Add CStr(varName)
+            blnPending = False
+        Else
+            If blnPending Then
+                If IsLookupDependentProperty(CStr(varName)) Then
+                    colNames.Add "DisplayControl"
+                    blnPending = False
+                End If
+            End If
+            colNames.Add CStr(varName)
+        End If
+    Next varName
+
+    Set GetFieldPropertyApplyOrder = colNames
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
 ' Procedure : IsEngineManagedProperty
 ' Author    : Adam Waller
 ' Date      : 06/19/2026
@@ -1018,6 +1082,79 @@ Public Function GetBigIntRepairFieldNamesFromTableDefXml(strXml As String) As Co
     Next objNode
 
     Set GetBigIntRepairFieldNamesFromTableDefXml = colNames
+
+End Function
+
+
+'---------------------------------------------------------------------------------------
+' Procedure : GetLookupOrderedTableDefXmlFile
+' Author    : Tim Finch
+' Date      : 11/25/2026
+' Purpose   : Application.ImportXML creates field properties in the order of the file.
+'           : Where a table definition lists a lookup property ahead of DisplayControl,
+'           : write a temporary copy with DisplayControl moved in front of it and return
+'           : the path of that copy. Return an empty string when the file can be imported
+'           : as it is. The caller deletes the temporary file.
+'---------------------------------------------------------------------------------------
+'
+Public Function GetLookupOrderedTableDefXmlFile(strXmlFile As String) As String
+
+    Const XPATH_APPINFO As String = _
+        "//*[namespace-uri()='http://www.w3.org/2001/XMLSchema' and local-name()='appinfo']"
+
+    Dim strXml As String
+    Dim strTempFile As String
+    Dim objXml As MSXML2.DOMDocument60
+    Dim objAppInfo As MSXML2.IXMLDOMNode
+    Dim objNode As MSXML2.IXMLDOMNode
+    Dim objName As MSXML2.IXMLDOMNode
+    Dim objFirstLookup As MSXML2.IXMLDOMNode
+    Dim blnChanged As Boolean
+
+    LogUnhandledErrors
+    On Error Resume Next
+
+    strXml = ReadFile(strXmlFile)
+    If InStr(1, strXml, "name=""DisplayControl""", vbBinaryCompare) > 0 Then
+
+        Set objXml = New MSXML2.DOMDocument60
+        objXml.async = False
+        objXml.preserveWhiteSpace = True
+        If objXml.LoadXML(strXml) Then
+
+            ' One appinfo block holds the properties of one field (or of the table).
+            For Each objAppInfo In objXml.SelectNodes(XPATH_APPINFO)
+                Set objFirstLookup = Nothing
+                For Each objNode In objAppInfo.ChildNodes
+                    If objNode.baseName = "fieldProperty" Then
+                        Set objName = objNode.Attributes.getNamedItem("name")
+                        If Not objName Is Nothing Then
+                            If objName.Text = "DisplayControl" Then
+                                If Not objFirstLookup Is Nothing Then
+                                    objAppInfo.InsertBefore objNode, objFirstLookup
+                                    blnChanged = True
+                                End If
+                                Exit For
+                            ElseIf objFirstLookup Is Nothing Then
+                                If IsLookupDependentProperty(objName.Text) Then
+                                    Set objFirstLookup = objNode
+                                End If
+                            End If
+                        End If
+                    End If
+                Next objNode
+            Next objAppInfo
+
+            If blnChanged Then
+                strTempFile = GetTempFile
+                objXml.Save strTempFile
+                If Err.Number = 0 Then GetLookupOrderedTableDefXmlFile = strTempFile
+            End If
+        End If
+    End If
+
+    CatchAny eelWarning, T("Unable to reorder the lookup properties in {0}", _
+        var0:=FSO.GetFileName(strXmlFile)), ModuleName & ".GetLookupOrderedTableDefXmlFile"
 
 End Function
 

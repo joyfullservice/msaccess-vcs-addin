@@ -311,7 +311,6 @@ End Sub
 
 Private Function ImportTableStructure(strFile As String, ByRef strName As String) As Boolean
 
-    Dim blnUseTemp As Boolean
     Dim blnImportFailed As Boolean
     Dim strTempFile As String
     Dim strFileName As String
@@ -344,6 +343,11 @@ Private Function ImportTableStructure(strFile As String, ByRef strName As String
             LogUnhandledErrors
             On Error Resume Next
 
+            ' Access resets lookup properties that were created before DisplayControl, and
+            ' ImportXML creates them in file order. Where the file needs it, this returns
+            ' a reordered temporary copy to import instead (#691).
+            strTempFile = GetLookupOrderedTableDefXmlFile(strFile)
+
             ' Application.ImportXML creates every Yes/No field as Required, ignoring the
             ' Required field property the XML carries for it. Scanned first: it handles
             ' its own errors, so whatever the next scan leaves pending still reaches the
@@ -356,14 +360,14 @@ Private Function ImportTableStructure(strFile As String, ByRef strName As String
             Set colBigIntFields = GetBigIntRepairFieldNamesFromTableDefXmlFile(strFile)
 
             ' The ImportXML function does not properly handle UrlEncoded paths
-            blnUseTemp = (InStr(1, strFile, "%") > 0)
-            Perf.OperationStart "App.ImportXML() Structure"
-            If blnUseTemp Then
+            If Len(strTempFile) = 0 And InStr(1, strFile, "%") > 0 Then
                 ' Import from (safe) temporary file name.
                 strTempFile = GetTempFile
                 FSO.CopyFile strFile, strTempFile
+            End If
+            Perf.OperationStart "App.ImportXML() Structure"
+            If Len(strTempFile) > 0 Then
                 Application.ImportXML strTempFile, acStructureOnly
-                DeleteFile strTempFile
             Else
                 Application.ImportXML strFile, acStructureOnly
             End If
@@ -389,6 +393,9 @@ Private Function ImportTableStructure(strFile As String, ByRef strName As String
                 blnImportFailed = CatchAny(eelError, "Unable to import XML for " & _
                     strFileName, ModuleName(Me) & ".Import")
             End If
+
+            ' Removed only after the checks above, which read the error ImportXML left.
+            If Len(strTempFile) > 0 Then DeleteFile strTempFile
 
             ' Application.ImportXML creates the table outside SharedDb's TableDefs
             ' snapshot. Invalidate before FixCorruptedBigIntFields / metadata apply /
@@ -1449,7 +1456,9 @@ Private Function ImportLinkedTable(strFile As String) As Boolean
             Set dFieldsImport = dItem("FieldProperties")
             For Each varField In dFieldsImport.Keys
                 Set dFieldPropsImport = dFieldsImport(varField)
-                For Each varPropName In dFieldPropsImport.Keys
+                ' DisplayControl has to be created before the other lookup properties,
+                ' and the source file lists them by name (#691).
+                For Each varPropName In GetFieldPropertyApplyOrder(dFieldPropsImport)
                     If TypeOf dFieldPropsImport(varPropName) Is Dictionary Then
                         Set dProp = dFieldPropsImport(varPropName)
                         SetDAOProperty tdf.Fields(CStr(varField)), _

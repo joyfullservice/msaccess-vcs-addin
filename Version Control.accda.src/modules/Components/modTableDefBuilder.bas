@@ -908,7 +908,8 @@ Private Sub ApplyFieldProperties(fld As DAO.Field, ByVal dProps As Dictionary)
 
     ' CInt on the type for the same ByRef reason: the dictionary hands back a Variant, and
     ' SetDAOProperty declares an Integer.
-    For Each varName In dProps.Keys
+    ' Creation order matters for the lookup properties: DisplayControl goes first (#691).
+    For Each varName In GetFieldPropertyApplyOrder(dProps)
         If Not IsNativeFieldMember(CStr(varName)) Then
             SetDAOProperty fld, CInt(dProps(varName)("Type")), CStr(varName), _
                 dProps(varName)("Value")
